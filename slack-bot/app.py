@@ -31,9 +31,18 @@ def handle_app_mention_events(body, say):
     if is_issue_request:
         print("ENTERING ISSUE GENERATION PATH", flush=True)
         user_prompt = build_github_issue_prompt(user_text, routing)
-    else:
-        print("ENTERING NORMAL MISSION PATH", flush=True)
-        user_prompt = f"""
+        issue_response = ask_commander(
+            system_prompt=commander_context,
+            user_prompt=user_prompt,
+        )
+        print("ISSUE RESPONSE GENERATED", flush=True)
+        say(issue_response)
+        print("ISSUE RESPONSE SENT", flush=True)
+        print("RETURNING FROM ISSUE PATH", flush=True)
+        return
+
+    print("ENTERING NORMAL MISSION PATH", flush=True)
+    user_prompt = f"""
 User Request:
 
 {user_text}
@@ -51,8 +60,10 @@ Respond as Commander TJR using the USS TJR mission format.
         system_prompt=commander_context,
         user_prompt=user_prompt,
     )
+    print("NORMAL MISSION RESPONSE GENERATED", flush=True)
 
     say(ai_response)
+    print("NORMAL MISSION RESPONSE SENT", flush=True)
 
 
 if __name__ == "__main__":
