@@ -4,6 +4,37 @@ def route_request(user_text: str) -> dict:
     assigned_specialists = []
     domain = "Command"
 
+    issue_triggers = [
+        "github issue",
+        "create issue",
+        "draft issue",
+        "issue for",
+        "backlog item",
+        "acceptance criteria",
+        "codex task",
+    ]
+
+    testing_triggers = ["test", "qa", "validate", "validation", "quality", "acceptance"]
+
+    if any(phrase in text for phrase in issue_triggers):
+        assigned_specialists = [
+            "Chief of Staff",
+            "Chief Engineer",
+            "Coder Agent",
+            "Knowledge Officer",
+        ]
+        domain = "Engineering"
+
+        if any(word in text for word in testing_triggers):
+            assigned_specialists.append("QA & Test Officer")
+
+        return {
+            "mission_domain": domain,
+            "assigned_specialists": assigned_specialists,
+            "priority": "P3 – Normal",
+            "status": "Active",
+        }
+
     if any(word in text for word in ["priority", "focus", "plan", "roadmap", "strategy"]):
         assigned_specialists.append("Chief of Staff")
         domain = "Command"
@@ -20,7 +51,7 @@ def route_request(user_text: str) -> dict:
         assigned_specialists.append("Knowledge Officer")
         domain = "Knowledge"
 
-    if any(word in text for word in ["test", "qa", "validate", "quality", "acceptance"]):
+    if any(word in text for word in testing_triggers):
         assigned_specialists.append("QA & Test Officer")
         domain = "Engineering"
 

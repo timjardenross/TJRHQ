@@ -5,6 +5,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from router import route_request
 from prompt_loader import load_commander_context
+from github_issue_formatter import is_github_issue_request, build_github_issue_prompt
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
@@ -24,7 +25,10 @@ def handle_app_mention_events(body, say):
 
     commander_context = load_commander_context()
 
-    user_prompt = f"""
+    if is_github_issue_request(user_text):
+        user_prompt = build_github_issue_prompt(user_text, routing)
+    else:
+        user_prompt = f"""
 User Request:
 
 {user_text}
