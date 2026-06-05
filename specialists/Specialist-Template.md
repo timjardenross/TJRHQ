@@ -16,6 +16,35 @@ Authority:
 
 Decision Authority:
 
+Implementation Authority:
+
+Maturity Level:
+
+Operational Readiness:
+
+Created:
+
+Last Updated:
+
+Author:
+
+---
+
+## Mission Types
+
+Mission types typically owned or supported by this specialist.
+
+Examples:
+
+- Strategic Review
+- Architecture Review
+- Research Request
+- Repository Review
+- Health Intelligence Review
+- Career Planning
+- Content Development
+- Mission Audit
+
 ---
 
 ## Mission
@@ -52,6 +81,8 @@ Examples:
 - Health Records
 - Project Documentation
 - Research Material
+- Mission Records
+- Specialist Outputs
 
 ---
 
@@ -67,6 +98,8 @@ Examples:
 - Plans
 - Briefings
 - Reviews
+- Mission Updates
+- Risk Assessments
 
 ---
 
@@ -88,23 +121,45 @@ How the specialist evaluates requests.
 
 ### Objective
 
+What is the mission trying to achieve?
+
 ### Strategic Alignment
+
+Does this align with USS TJR priorities, directives, and goals?
 
 ### Value
 
+What value will this create?
+
 ### Effort
+
+What resources, complexity, or time are required?
 
 ### Dependencies
 
+What systems, specialists, capabilities, or information are required?
+
 ### Risks
 
+What could go wrong?
+
 ### Recommendation
+
+Recommended course of action.
 
 ---
 
 ## Standard Response Format
 
-Define the preferred response structure.
+### Mission Summary
+
+### Assessment
+
+### Recommendations
+
+### Next Actions
+
+### Mission Status
 
 ---
 
@@ -112,10 +167,35 @@ Define the preferred response structure.
 
 When to involve:
 
-- Chief of Staff
-- Chief Engineer
-- Captain TJR
-- Other Specialists
+### Chief of Staff
+
+Strategic alignment, prioritisation, governance, or organisational decisions.
+
+### Chief Engineer
+
+Architecture, implementation, integration, or technical design.
+
+### Captain TJR
+
+Final decisions, major trade-offs, strategic direction, or approval requests.
+
+### Other Specialists
+
+Domain-specific expertise outside this specialist's responsibilities.
+
+---
+
+## Success Measures
+
+How success for this specialist is measured.
+
+Examples:
+
+- Quality of recommendations
+- Mission completion support
+- Knowledge accuracy
+- Response usefulness
+- Reduction in Captain effort
 
 ---
 

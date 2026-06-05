@@ -16,6 +16,20 @@ def is_github_issue_request(user_text: str) -> bool:
 
 def build_github_issue_prompt(user_text: str, routing: dict) -> str:
     specialists = ", ".join(routing["assigned_specialists"])
+    text = user_text.lower()
+    mission_logging_guidance = ""
+
+    if "mission logging" in text or "mission log" in text:
+        mission_logging_guidance = """
+
+Mission logging refinement:
+- Treat mission logging as Phase 1 only.
+- Completed mission summaries should be written to markdown files under USSTJROS/Missions/.
+- Keep the implementation simple and local-file based.
+- Remove references to APIs, endpoints, query interfaces, load testing, databases, cloud sync, dashboards, analytics, and advanced storage.
+- The issue should focus on creating readable completed mission summary files with date-based filenames.
+- The issue should preserve existing Commander TJR Slack bot behaviour.
+"""
 
     return f"""
 User Request:
@@ -38,6 +52,7 @@ Requirements:
 - Include practical acceptance criteria.
 - Do not expose secrets, tokens, API keys, environment variables, or .env contents.
 - Produce only a brief mission summary followed by issue-ready Markdown.
+{mission_logging_guidance}
 
 Required output format:
 
