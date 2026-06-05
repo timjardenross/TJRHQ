@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -30,7 +31,13 @@ MISSION_REGISTRY_TRIGGERS = [
     "find ",
     "search missions",
     "repository missions",
+    "mission health",
+    "blocked missions",
+    "overdue missions",
+    "mission metrics",
 ]
+
+OVERDUE_DAYS = 14
 
 
 def is_mission_registry_request(user_text: str) -> bool:
@@ -62,9 +69,10 @@ def parse_index_entry(line: str) -> Optional[dict]:
 
 def load_registry_entries() -> list[dict]:
     ensure_missions_dir()
+    lines = MISSION_INDEX.read_text(encoding="utf-8").splitlines()
     return [
         entry
-        for entry in (parse_index_entry(line.strip()) for line in MISSION_INDEX.read_text(encoding="utf-8").splitlines())
+        for entry in (parse_index_entry(line.strip()) for line in lines)
         if entry
     ]
 
@@ -139,6 +147,226 @@ def get_mission(mission_id: str) -> Optional[str]:
     return path.read_text(encoding="utf-8")
 
 
+def mission_age_days(mission: dict) -> Optional[int]:
+    try:
+        created = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+    return (datetime.now() - created).days
+
+
+def mission_owner(mission_id: str) -> str:
+    content = get_mission(mission_id)
+    if not content:
+        return "Unassigned"
+
+    for field in ["Mission Owner", "Assigned Specialists"]:
+        match = re.search(rf"^{re.escape(field)}:\s*(.+)$", content, flags=re.MULTILINE)
+        if match:
+            return match.group(1).split(",")[0].strip()
+
+    return "Unassigned"
+
+
+def mission_has_blocker(mission: dict) -> bool:
+    if mission["status"].lower() == "blocked":
+        return True
+
+    content = get_mission(mission["mission_id"]) or ""
+    blocker_section = extract_section(content, "Risks / Blockers")
+    if not blocker_section:
+        return False
+
+    blocker_text = blocker_section.strip().lower()
+    if not blocker_text or blocker_text in ["no blockers recorded.", "- no blockers recorded."]:
+        return False
+
+    meaningful_lines = [
+        line.strip().lower()
+        for line in blocker_section.splitlines()
+        if line.strip() and "no blockers recorded" not in line.lower()
+    ]
+    return any(
+        any(term in line for term in ["blocked", "blocker", "waiting", "pending"])
+        for line in meaningful_lines
+    )
+
+
+def extract_section(content: str, heading: str) -> str:
+    match = re.search(
+        rf"^##\s+{re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)",
+        content,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def blocked_missions() -> list[dict]:
+    return [mission for mission in load_registry_entries() if mission_has_blocker(mission)]
+
+
+def overdue_missions(days: int = OVERDUE_DAYS) -> list[dict]:
+    overdue = []
+    active_statuses = {"draft", "planned", "active", "review", "blocked"}
+
+    for mission in load_registry_entries():
+        if mission["status"].lower() not in active_statuses:
+            continue
+        age = mission_age_days(mission)
+        if age is not None and age > days:
+            overdue.append({**mission, "age_days": age})
+
+    return overdue
+
+
+def completion_rate(entries: list[dict]) -> float:
+    if not entries:
+        return 0.0
+    completed = len([mission for mission in entries if mission["status"].lower() in ["completed", "archived"]])
+    return round((completed / len(entries)) * 100, 1)
+
+
+def owner_workload(entries: list[dict]) -> Counter:
+    active_statuses = {"draft", "planned", "active", "review", "blocked"}
+    owners = [
+        mission_owner(mission["mission_id"])
+        for mission in entries
+        if mission["status"].lower() in active_statuses
+    ]
+    return Counter(owners)
+
+
+def format_dashboard_list(missions: list[dict], include_age: bool = True) -> list[str]:
+    if not missions:
+        return ["- None found."]
+
+    lines = []
+    for mission in missions:
+        age = mission.get("age_days")
+        if age is None:
+            age = mission_age_days(mission)
+        age_text = f" | Age: {age} days" if include_age and age is not None else ""
+        owner = mission_owner(mission["mission_id"])
+        lines.append(
+            f"- `{mission['mission_id']}` - {mission['title']} | "
+            f"Status: {mission['status']} | Owner: {owner}{age_text}"
+        )
+    return lines
+
+
+def format_owner_workload(workload: Counter) -> list[str]:
+    if not workload:
+        return ["- No active owner workload found."]
+    return [f"- {owner}: {count}" for owner, count in sorted(workload.items())]
+
+
+def format_history(entries: list[dict], limit: int = 5) -> list[str]:
+    if not entries:
+        return ["- No mission history found."]
+    return [
+        f"- `{mission['mission_id']}` - {mission['title']} | {mission['status']} | {mission['timestamp']}"
+        for mission in entries[-limit:]
+    ]
+
+
+def format_status_counts(statuses: Counter) -> list[str]:
+    if not statuses:
+        return ["- No missions found."]
+    return [f"- {status}: {count}" for status, count in sorted(statuses.items())]
+
+
+def build_mission_health_report() -> str:
+    entries = load_registry_entries()
+    statuses = Counter(mission["status"] for mission in entries)
+    blocked = blocked_missions()
+    overdue = overdue_missions()
+    rate = completion_rate(entries)
+    workload = owner_workload(entries)
+
+    return "\n".join([
+        "# MISSION HEALTH",
+        "",
+        "## Mission Metrics",
+        "",
+        f"- Total Missions: {len(entries)}",
+        f"- Completion Rate: {rate}%",
+        f"- Blocked Missions: {len(blocked)}",
+        f"- Overdue Missions: {len(overdue)}",
+        "",
+        "## Status Counts",
+        "",
+        *format_status_counts(statuses),
+        "",
+        "## Blocked Missions",
+        "",
+        *format_dashboard_list(blocked),
+        "",
+        "## Overdue Missions",
+        "",
+        *format_dashboard_list(overdue),
+        "",
+        "## Owner Workload",
+        "",
+        *format_owner_workload(workload),
+        "",
+        "## Mission History",
+        "",
+        *format_history(entries),
+        "",
+        "## Recommended Next Actions",
+        "",
+        "- Review blocked missions first.",
+        "- Review overdue missions during the next planning checkpoint.",
+        "- Balance owner workload before creating additional active missions.",
+    ])
+
+
+def build_blocked_missions_report() -> str:
+    blocked = blocked_missions()
+    return "\n".join([
+        "# BLOCKED MISSIONS",
+        "",
+        *format_dashboard_list(blocked),
+    ])
+
+
+def build_overdue_missions_report() -> str:
+    overdue = overdue_missions()
+    return "\n".join([
+        "# OVERDUE MISSIONS",
+        "",
+        f"Overdue threshold: {OVERDUE_DAYS} days",
+        "",
+        *format_dashboard_list(overdue),
+    ])
+
+
+def build_mission_metrics_report() -> str:
+    entries = load_registry_entries()
+    workload = owner_workload(entries)
+    return "\n".join([
+        "# MISSION METRICS",
+        "",
+        f"Mission Completion Rate: {completion_rate(entries)}%",
+        "",
+        "## Mission Age",
+        "",
+        *format_dashboard_list([{**mission, "age_days": mission_age_days(mission)} for mission in entries[-10:]]),
+        "",
+        "## Blocked Mission Detection",
+        "",
+        f"- Blocked Missions: {len(blocked_missions())}",
+        "",
+        "## Owner Workload",
+        "",
+        *format_owner_workload(workload),
+        "",
+        "## Mission History Reporting",
+        "",
+        *format_history(entries, limit=10),
+    ])
+
+
 def update_mission_status(mission_id: str, status: str) -> bool:
     if status.title() not in VALID_STATUSES:
         return False
@@ -195,7 +423,11 @@ def answer_mission_registry_request(user_text: str) -> str:
     text = user_text.lower()
     mission_id = extract_mission_id(user_text)
 
-    status_match = re.search(r"\b(?:mark|set|update)\s+(M-\d{8}-\d{6})\s+(?:as|to)\s+(\w+)", user_text, flags=re.IGNORECASE)
+    status_match = re.search(
+        r"\b(?:mark|set|update)\s+(M-\d{8}-\d{6})\s+(?:as|to)\s+(\w+)",
+        user_text,
+        flags=re.IGNORECASE,
+    )
     if status_match:
         requested_status = status_match.group(2).title()
         if requested_status not in VALID_STATUSES:
@@ -220,6 +452,18 @@ def answer_mission_registry_request(user_text: str) -> str:
         if mission:
             return mission
         return f"# MISSION LOOKUP\n\nNo mission found for `{mission_id}`."
+
+    if "mission health" in text:
+        return build_mission_health_report()
+
+    if "blocked missions" in text:
+        return build_blocked_missions_report()
+
+    if "overdue missions" in text:
+        return build_overdue_missions_report()
+
+    if "mission metrics" in text:
+        return build_mission_metrics_report()
 
     if "active missions" in text:
         return format_missions("ACTIVE MISSIONS", filter_missions(status="Active"))

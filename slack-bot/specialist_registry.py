@@ -31,12 +31,17 @@ MISSION_KEYWORDS = {
     "QA & Test Officer": ["test", "qa", "validate", "validation", "quality", "acceptance", "release"],
     "Research Officer": ["research", "evidence", "source", "sources", "compare", "trend", "intelligence"],
     "Medical Officer": ["health", "medical", "pain", "chronic pain", "recovery", "appointment", "wellbeing"],
+    "UX Officer": ["ux", "user experience", "usability", "accessibility", "interaction", "friction"],
+    "Knowledge Architect": ["information architecture", "taxonomy", "navigation", "findability", "knowledge model"],
+    "Product Designer": ["product", "feature", "product design", "scope", "acceptance criteria"],
 }
 
 TITLE_ALIASES = {
     "qa officer": "QA & Test Officer",
     "qa test officer": "QA & Test Officer",
     "engineer": "Chief Engineer",
+    "ux officer": "UX Officer",
+    "ia": "Knowledge Architect",
 }
 
 
@@ -164,7 +169,7 @@ def find_specialist_by_name(name: str) -> Optional[dict]:
     profiles = load_specialist_profiles()
 
     for alias, title in TITLE_ALIASES.items():
-        if alias in text and title in profiles:
+        if re.search(rf"\b{re.escape(alias)}\b", text) and title in profiles:
             return profiles[title]
 
     for title, profile in profiles.items():

@@ -3,6 +3,7 @@ from github_awareness import is_github_awareness_request
 from mission_registry import is_mission_registry_request
 from repository_awareness import is_repository_awareness_request
 from knowledge_retrieval import is_knowledge_retrieval_request, identify_knowledge_domain
+from mission_executor import is_mission_execution_request
 
 
 def route_request(user_text: str) -> dict:
@@ -81,6 +82,14 @@ def route_request(user_text: str) -> dict:
                 "Knowledge Officer",
                 "Chief of Staff",
             ],
+            "priority": "P3 – Normal",
+            "status": "Active",
+        }
+
+    if is_mission_execution_request(user_text):
+        return {
+            "mission_domain": "Mission Execution",
+            "assigned_specialists": ["Chief of Staff", "Knowledge Officer"],
             "priority": "P3 – Normal",
             "status": "Active",
         }

@@ -38,6 +38,9 @@ Author: Captain TJR
 - Intelligence Briefings
 - Source Validation
 - Comparative Assessments
+- Research Review
+- UX Research Review
+- Product Discovery Review
 
 ---
 
@@ -61,6 +64,10 @@ Identify patterns, trends, opportunities, and risks.
 
 Produce structured briefings and recommendations.
 
+### Design Research Review
+
+Assess whether product, UX and information architecture recommendations are grounded in evidence, user needs and clearly stated assumptions.
+
 ---
 
 ## Areas of Responsibility
@@ -70,6 +77,10 @@ Produce structured briefings and recommendations.
 - Operational Resilience
 - Industry Intelligence
 - Market Trends
+- User needs
+- Research quality
+- Evidence gaps
+- Assumption testing
 
 ---
 

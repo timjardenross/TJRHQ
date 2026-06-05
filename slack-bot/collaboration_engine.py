@@ -19,13 +19,16 @@ COLLABORATION_TRIGGERS = [
 ]
 
 MISSION_TYPE_RULES = [
+    ("UX Review", ["ux review", "medical bay ux", "review medical bay ux", "usability", "accessibility", "user experience"]),
+    ("Product Review", ["product review", "product design", "feature review", "product strategy"]),
+    ("Information Architecture Review", ["information architecture", "ia review", "navigation review", "taxonomy", "findability"]),
     ("Health & Wellness Review", ["chronic pain", "health", "medical", "wellness", "coaching", "recovery"]),
+    ("Research Review", ["research review", "evidence review", "source review", "research"]),
     ("Architecture Review", ["architecture", "technical architecture", "system architecture"]),
     ("Technical Design", ["technical design", "design", "implementation design", "voice core"]),
     ("Knowledge Review", ["repository structure", "knowledge", "documentation", "source of truth", "information architecture"]),
     ("Strategic Planning", ["strategy", "strategic", "roadmap", "major strategic decision", "priority"]),
     ("Roadmap Review", ["roadmap"]),
-    ("Research Review", ["research", "evidence", "source review"]),
     ("Governance Review", ["governance", "standard", "policy", "decision rights"]),
     ("Operational Review", ["operational", "operations", "rhythm", "process"]),
 ]
@@ -33,11 +36,14 @@ MISSION_TYPE_RULES = [
 TEAM_BY_MISSION_TYPE = {
     "Architecture Review": ["Chief Engineer", "QA & Test Officer", "Knowledge Officer"],
     "Technical Design": ["Chief Engineer", "QA & Test Officer", "Knowledge Officer"],
+    "UX Review": ["Research Officer", "UX Officer", "Knowledge Architect", "Product Designer"],
+    "Product Review": ["Research Officer", "UX Officer", "Knowledge Architect", "Product Designer"],
+    "Information Architecture Review": ["Research Officer", "UX Officer", "Knowledge Architect", "Product Designer"],
     "Knowledge Review": ["Knowledge Officer", "Chief of Staff"],
     "Strategic Planning": ["Chief of Staff", "Operations Officer"],
     "Roadmap Review": ["Chief of Staff", "Operations Officer"],
     "Health & Wellness Review": ["Medical Officer", "Research Officer"],
-    "Research Review": ["Research Officer", "Knowledge Officer"],
+    "Research Review": ["Research Officer", "UX Officer", "Knowledge Architect", "Product Designer"],
     "Governance Review": ["Chief of Staff", "Knowledge Officer"],
     "Operational Review": ["Chief of Staff", "Operations Officer", "Knowledge Officer"],
     "General Mission": ["Chief of Staff", "Knowledge Officer"],
@@ -52,6 +58,9 @@ SPECIALIST_LENSES = {
     "Research Officer": "evidence quality, assumptions, source validation and unanswered research questions",
     "Medical Officer": "health boundaries, wellbeing impact, recovery safety and non-clinical support framing",
     "Operations Officer": "operational cadence, handoffs, execution rhythm and follow-through",
+    "UX Officer": "usability, accessibility, interaction clarity, cognitive load and friction reduction",
+    "Knowledge Architect": "navigation, taxonomy, source-of-truth structure, findability and retrieval quality",
+    "Product Designer": "problem framing, product value, scope control, feature coherence and acceptance criteria",
 }
 
 SPECIALIST_RECOMMENDATIONS = {
@@ -63,6 +72,9 @@ SPECIALIST_RECOMMENDATIONS = {
     "Research Officer": "Separate known facts from assumptions and capture source gaps.",
     "Medical Officer": "Keep guidance supportive and non-clinical, with escalation to qualified care where needed.",
     "Operations Officer": "Turn the recommendation into a clear cadence, owner and follow-up checkpoint.",
+    "UX Officer": "Prioritise the smallest UX change that reduces user effort and makes the next action obvious.",
+    "Knowledge Architect": "Clarify navigation, naming and source-of-truth ownership before expanding the experience.",
+    "Product Designer": "Frame the product outcome, keep scope small and define acceptance criteria before build work.",
 }
 
 SPECIALIST_RISKS = {
@@ -74,12 +86,17 @@ SPECIALIST_RISKS = {
     "Research Officer": "Weak evidence or uncaptured assumptions could make the recommendation brittle.",
     "Medical Officer": "Health-related advice must not drift into diagnosis or treatment instructions.",
     "Operations Officer": "Good intent may stall without a repeatable operating rhythm.",
+    "UX Officer": "Unclear flows or labels could increase cognitive load during low-energy use.",
+    "Knowledge Architect": "Poor information architecture could make the experience hard for Commander or Captain TJR to navigate later.",
+    "Product Designer": "A broad feature concept could become too large to validate quickly.",
 }
 
 
 def is_secret_request(user_text: str) -> bool:
     text = user_text.lower()
-    return any(term in text for term in [".env", "api key", "token", "secret", "credential", ".venv"])
+    if any(term in text for term in [".env", ".venv", "api key", "token", "secret"]):
+        return True
+    return "credential" in text and any(action in text for action in ["read", "show", "print", "expose", "display"])
 
 
 def classify_mission_type(user_text: str) -> str:
