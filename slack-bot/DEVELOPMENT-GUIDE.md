@@ -63,6 +63,20 @@ Manual checks:
 - `What is the current Supabase schema?`
 - `Read .env`
 
+## Collaboration Checks
+
+BOT-012 uses simulated specialist reasoning from local specialist profiles. It is not a multi-agent implementation and does not call the LLM for each specialist.
+
+Manual checks:
+
+- `Review USS TJR architecture`
+- `Review USS TJR roadmap`
+- `Review chronic pain coaching framework`
+- `Review repository structure`
+- `Review Voice Core proposal`
+- `Review governance framework`
+- `Major strategic decision`
+
 ## Sprint 1 Manual Checks
 
 Repository awareness:

@@ -77,6 +77,11 @@ def is_repository_awareness_request(user_text: str) -> bool:
     if any(secret in text for secret in [".env", "api key", "token", "secret"]):
         return True
 
+    if text.strip().startswith("review ") and any(
+        phrase in text for phrase in ["repository structure", "repo structure"]
+    ):
+        return False
+
     return any(trigger in text for trigger in REPOSITORY_TRIGGERS)
 
 
