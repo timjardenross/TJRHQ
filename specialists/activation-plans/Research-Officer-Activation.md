@@ -1,7 +1,8 @@
 # Research Officer Activation Plan
 
-Purpose: Research synthesis and evidence gathering.
+Requirements:
+- Research framework
+- Source standards
 
 Success Criteria:
-- Research workflow defined
-- Source standards documented
+- Can produce structured research outputs

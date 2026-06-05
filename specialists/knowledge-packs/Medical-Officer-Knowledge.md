@@ -1,8 +1,12 @@
 # Medical Officer Knowledge Pack
 
-Topics:
+Domains:
 - Chronic pain
 - Recovery
-- Wellness coaching boundaries
-- Symptom reflection
-- Escalation triggers
+- Wellbeing
+- Sleep
+- Stress
+- Behaviour change
+
+Operating Principle:
+Support reflection and preparation, not diagnosis.

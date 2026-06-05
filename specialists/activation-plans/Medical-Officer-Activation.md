@@ -1,13 +1,14 @@
 # Medical Officer Activation Plan
 
-Purpose: Activate Medical Officer as first health-focused specialist.
+Phase 1:
+- Load specialist
+- Add routing
+- Load Health Summary
 
-Objectives:
-- Health-aware support
-- Recovery planning
-- Pain tracking guidance
+Phase 2:
+- Weekly health review
+- Pattern tracking
 
 Success Criteria:
-- Registered in runtime
-- Health routing active
-- Health Summary loaded into context
+- Health requests route correctly
+- Health context available
