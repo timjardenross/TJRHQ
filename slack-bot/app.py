@@ -25,9 +25,14 @@ def handle_app_mention_events(body, say):
 
     commander_context = load_commander_context()
 
-    if is_github_issue_request(user_text):
+    is_issue_request = is_github_issue_request(user_text)
+    print("ISSUE DETECTION:", is_issue_request, flush=True)
+
+    if is_issue_request:
+        print("ENTERING ISSUE GENERATION PATH", flush=True)
         user_prompt = build_github_issue_prompt(user_text, routing)
     else:
+        print("ENTERING NORMAL MISSION PATH", flush=True)
         user_prompt = f"""
 User Request:
 
