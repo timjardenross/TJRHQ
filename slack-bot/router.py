@@ -1,5 +1,8 @@
 from specialist_registry import match_specialists_to_request
 from github_awareness import is_github_awareness_request
+from mission_registry import is_mission_registry_request
+from repository_awareness import is_repository_awareness_request
+from knowledge_retrieval import is_knowledge_retrieval_request, identify_knowledge_domain
 
 
 def route_request(user_text: str) -> dict:
@@ -82,6 +85,37 @@ def route_request(user_text: str) -> dict:
             "status": "Active",
         }
 
+    if is_mission_registry_request(user_text):
+        return {
+            "mission_domain": "Command",
+            "assigned_specialists": ["Chief of Staff", "Knowledge Officer"],
+            "priority": "P3 – Normal",
+            "status": "Active",
+        }
+
+    if is_repository_awareness_request(user_text):
+        return {
+            "mission_domain": "Knowledge / Engineering",
+            "assigned_specialists": ["Knowledge Officer", "Chief Engineer"],
+            "priority": "P3 – Normal",
+            "status": "Active",
+        }
+
+    if is_knowledge_retrieval_request(user_text):
+        knowledge_domain = identify_knowledge_domain(user_text)
+        specialists = ["Knowledge Officer"]
+        if knowledge_domain in ["architecture", "runtime", "capabilities"]:
+            specialists.append("Chief Engineer")
+        if knowledge_domain in ["missions", "procedures", "governance", "directives"]:
+            specialists.append("Chief of Staff")
+
+        return {
+            "mission_domain": f"Knowledge / {knowledge_domain.title()}",
+            "assigned_specialists": specialists,
+            "priority": "P3 – Normal",
+            "status": "Active",
+        }
+
     if any(phrase in text for phrase in mission_history_triggers):
         return {
             "mission_domain": "Knowledge",
@@ -131,6 +165,9 @@ def route_request(user_text: str) -> dict:
             profile["title"]
             for profile in match_specialists_to_request(user_text)
         ]
+
+    if not assigned_specialists:
+        assigned_specialists = ["Chief of Staff"]
 
     return {
         "mission_domain": domain,

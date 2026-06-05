@@ -4,49 +4,47 @@ from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SPECIALIST_FILES = [
-    "command/Commander-TJR.md",
-    "specialists/core-crew/Chief-of-Staff.md",
-    "specialists/core-crew/Chief-Engineer.md",
-    "specialists/core-crew/Coder-Agent.md",
-    "specialists/core-crew/Knowledge-Officer.md",
-    "specialists/core-crew/QA-Test-Officer.md",
-]
+REGISTRY_FILE = "registry/Crew-Registry.md"
+SPECIALIST_DIRS = ["specialists/core-crew", "specialists/future-crew"]
 
 SPECIALIST_QUERY_TRIGGERS = [
     "what specialists",
+    "future specialists",
     "available specialists",
     "list crew",
     "current crew",
     "who handles",
     "who should handle",
+    "who should review",
     "which specialist",
-    "handle testing",
-    "what does",
     "specialist registry",
     "crew registry",
+    "why did you select",
+    "why did you choose",
 ]
 
-MATCH_KEYWORDS = {
-    "Chief of Staff": ["priority", "focus", "plan", "roadmap", "strategy", "coordination"],
-    "Chief Engineer": ["architecture", "repo", "repository", "system", "technical", "security"],
+MISSION_KEYWORDS = {
+    "Chief of Staff": ["priority", "focus", "plan", "roadmap", "strategy", "coordination", "sprint"],
+    "Chief Engineer": ["architecture", "repo", "repository", "system", "technical", "security", "platform", "runtime"],
     "Coder Agent": ["code", "bug", "build", "implement", "implementation", "fix", "feature"],
-    "Knowledge Officer": ["document", "documentation", "knowledge", "folder", "structure", "registry", "log", "mission logging", "memory"],
-    "QA & Test Officer": ["test", "qa", "validate", "validation", "quality", "acceptance"],
+    "Knowledge Officer": ["document", "documentation", "knowledge", "folder", "structure", "registry", "log", "source of truth"],
+    "QA & Test Officer": ["test", "qa", "validate", "validation", "quality", "acceptance", "release"],
+    "Research Officer": ["research", "evidence", "source", "sources", "compare", "trend", "intelligence"],
+    "Medical Officer": ["health", "medical", "pain", "chronic pain", "recovery", "appointment", "wellbeing"],
+}
+
+TITLE_ALIASES = {
+    "qa officer": "QA & Test Officer",
+    "qa test officer": "QA & Test Officer",
+    "engineer": "Chief Engineer",
 }
 
 
 def read_markdown(relative_path: str) -> str:
     path = BASE_DIR / relative_path
-
-    if not path.exists():
+    if not path.exists() or ".venv" in path.parts:
         return ""
-
     return path.read_text(encoding="utf-8")
-
-
-def load_specialist_registry() -> str:
-    return read_markdown("specialists/Crew-Registry.md")
 
 
 def is_specialist_query(user_text: str) -> bool:
@@ -54,19 +52,25 @@ def is_specialist_query(user_text: str) -> bool:
     return any(trigger in text for trigger in SPECIALIST_QUERY_TRIGGERS)
 
 
-def extract_field(markdown: str, field: str) -> str:
-    match = re.search(rf"^{re.escape(field)}:\s*(.+)$", markdown, flags=re.MULTILINE)
-    return match.group(1).strip() if match else ""
+def extract_field(markdown: str, *field_names: str) -> str:
+    for field in field_names:
+        flexible_field = re.escape(field).replace(r"\ ", "[_ -]")
+        patterns = [
+            rf"^\*\*{re.escape(field)}:\*\*\s*(.+?)(?:\s\s|$)",
+            rf"^{re.escape(field)}:\s*(.+)$",
+            rf"^{flexible_field}:\s*(.+)$",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, markdown, flags=re.MULTILINE | re.IGNORECASE)
+            if match:
+                return match.group(1).strip().strip("`")
+    return ""
 
 
 def extract_section(markdown: str, heading: str) -> str:
-    pattern = rf"^## {re.escape(heading)}\s*$([\s\S]*?)(?=^## |\Z)"
+    pattern = rf"^#+\s+{re.escape(heading)}\s*$([\s\S]*?)(?=^#+\s+|\Z)"
     match = re.search(pattern, markdown, flags=re.MULTILINE)
-
-    if not match:
-        return ""
-
-    return match.group(1).strip()
+    return match.group(1).strip() if match else ""
 
 
 def first_paragraph(markdown: str) -> str:
@@ -74,165 +78,234 @@ def first_paragraph(markdown: str) -> str:
     return paragraphs[0] if paragraphs else ""
 
 
-def load_specialist_profiles() -> dict:
-    profiles = {}
+def title_from_path(relative_path: str) -> str:
+    return Path(relative_path).stem.replace("-", " ")
 
-    for relative_path in SPECIALIST_FILES:
-        markdown = read_markdown(relative_path)
 
-        if not markdown:
+def parse_profile(relative_path: str, fallback_status: str = "") -> Optional[dict]:
+    markdown = read_markdown(relative_path)
+    if not markdown:
+        return None
+
+    first_heading = ""
+    for line in markdown.splitlines():
+        if line.startswith("# "):
+            first_heading = re.sub(r"^#\s+", "", line).strip()
+            break
+
+    title = extract_field(markdown, "Title", "title") or first_heading or title_from_path(relative_path)
+    status = extract_field(markdown, "Status", "status") or fallback_status
+    department = extract_field(markdown, "Department", "Division", "department")
+    mission_types = extract_section(markdown, "Mission Types")
+
+    return {
+        "registry_number": extract_field(markdown, "Registry Number", "Registry ID", "registry_id", "Registry"),
+        "title": title,
+        "status": status or "Unknown",
+        "department": department or "Unknown",
+        "mission_types": [line.strip("- ").strip() for line in mission_types.splitlines() if line.strip().startswith("-")],
+        "maturity_level": extract_field(markdown, "Maturity Level") or "Unknown",
+        "readiness": extract_field(markdown, "Operational Readiness") or "Unknown",
+        "authority": extract_field(markdown, "Authority") or "Advisory",
+        "mission": first_paragraph(extract_section(markdown, "Mission")) or extract_field(markdown, "Runtime Role"),
+        "source": relative_path,
+    }
+
+
+def registry_status_by_source() -> dict:
+    markdown = read_markdown(REGISTRY_FILE)
+    statuses = {}
+    current = None
+
+    for line in markdown.splitlines():
+        heading = re.match(r"^##\s+(.+)$", line)
+        if heading and not re.match(r"^##\s+\d+\.", line):
+            current = {"title": heading.group(1).strip()}
             continue
 
-        title = extract_field(markdown, "Title") or Path(relative_path).stem
-        profiles[title] = {
-            "registry_number": extract_field(markdown, "Registry Number"),
-            "title": title,
-            "department": extract_field(markdown, "Department"),
-            "status": extract_field(markdown, "Status"),
-            "reports_to": extract_field(markdown, "Reports To"),
-            "authority": extract_field(markdown, "Authority"),
-            "decision_authority": extract_field(markdown, "Decision Authority"),
-            "implementation_authority": extract_field(markdown, "Implementation Authority"),
-            "mission": first_paragraph(extract_section(markdown, "Mission")),
-            "core_responsibilities": extract_section(markdown, "Core Responsibilities"),
-            "areas_of_responsibility": extract_section(markdown, "Areas of Responsibility"),
-            "source": relative_path,
-        }
+        if not current:
+            continue
+
+        source = re.search(r"\*\*Source File:\*\*\s*`([^`]+)`", line)
+        status = re.search(r"\*\*Status:\*\*\s*(.+?)(?:\s\s|$)", line)
+
+        if status:
+            current["status"] = status.group(1).strip()
+
+        if source:
+            statuses[source.group(1)] = current.get("status", "")
+
+    return statuses
+
+
+def load_specialist_profiles() -> dict:
+    profiles = {}
+    registry_statuses = registry_status_by_source()
+
+    for directory in SPECIALIST_DIRS:
+        for path in sorted((BASE_DIR / directory).glob("*.md")):
+            relative_path = str(path.relative_to(BASE_DIR))
+            profile = parse_profile(relative_path, registry_statuses.get(relative_path, ""))
+            if profile:
+                profiles[profile["title"]] = profile
 
     return profiles
 
 
-def get_available_specialists() -> list:
-    return list(load_specialist_profiles().values())
+def get_available_specialists(include_future: bool = True) -> list[dict]:
+    profiles = list(load_specialist_profiles().values())
+    if include_future:
+        return profiles
+    return [profile for profile in profiles if profile["status"].lower() == "active"]
 
 
 def find_specialist_by_name(name: str) -> Optional[dict]:
     text = name.lower()
+    profiles = load_specialist_profiles()
 
-    for profile in load_specialist_profiles().values():
-        title = profile["title"].lower()
+    for alias, title in TITLE_ALIASES.items():
+        if alias in text and title in profiles:
+            return profiles[title]
 
-        if title in text or text in title:
+    for title, profile in profiles.items():
+        if title.lower() in text or text in title.lower():
             return profile
 
     return None
 
 
-def match_specialists_to_request(user_text: str) -> list:
+def match_specialists_to_request(user_text: str) -> list[dict]:
     text = user_text.lower()
-    matches = []
+    profiles = load_specialist_profiles()
     named_profile = find_specialist_by_name(user_text)
 
-    if named_profile:
+    if named_profile and not text.startswith("why did"):
         return [named_profile]
 
-    if "mission logging" in text or "mission log" in text:
-        return [
-            load_specialist_profiles()[name]
-            for name in ["Knowledge Officer", "Chief Engineer", "Coder Agent", "QA & Test Officer"]
-        ]
+    scored = []
+    for title, keywords in MISSION_KEYWORDS.items():
+        score = sum(1 for keyword in keywords if keyword in text)
+        if score and title in profiles:
+            scored.append((score, profiles[title]))
 
-    for title, keywords in MATCH_KEYWORDS.items():
-        if any(keyword in text for keyword in keywords):
-            profile = load_specialist_profiles().get(title)
-            if profile:
-                matches.append(profile)
+    scored.sort(key=lambda item: item[0], reverse=True)
+    matches = []
+    seen = set()
+    for _, profile in scored:
+        if profile["title"] not in seen:
+            matches.append(profile)
+            seen.add(profile["title"])
+
+    if "chronic pain" in text:
+        for title in ["Medical Officer", "Research Officer"]:
+            if title in profiles and title not in seen:
+                matches.append(profiles[title])
+                seen.add(title)
+
+    if not matches and "unknown" in text:
+        return []
+
+    if not matches and "review" in text:
+        chief = profiles.get("Chief of Staff")
+        if chief:
+            matches.append(chief)
 
     if not matches:
-        chief_of_staff = load_specialist_profiles().get("Chief of Staff")
-        if chief_of_staff:
-            matches.append(chief_of_staff)
+        chief = profiles.get("Chief of Staff")
+        if chief:
+            matches.append(chief)
 
     return matches
 
 
-def summarise_specialists() -> str:
-    profiles = get_available_specialists()
-    by_department = {}
+def explain_selection(profile: dict, user_text: str) -> str:
+    text = user_text.lower()
+    matched = [keyword for keyword in MISSION_KEYWORDS.get(profile["title"], []) if keyword in text]
+    if matched:
+        return f"Matched mission signals: {', '.join(matched)}."
+    if profile["mission_types"]:
+        return f"Profile mission types include: {', '.join(profile['mission_types'][:4])}."
+    if profile["title"] in MISSION_KEYWORDS:
+        return f"{profile['title']} owns {', '.join(MISSION_KEYWORDS[profile['title']][:4])} mission signals in the runtime routing map."
+    return profile["mission"] or "Selected as the default coordination owner when the mission type is unclear."
 
-    for profile in profiles:
-        by_department.setdefault(profile["department"], []).append(profile)
 
-    lines = [
-        "# MISSION SUMMARY",
-        "",
-        "Mission Domain: Command",
-        "Assigned Specialists: Commander TJR",
-        "Status: Completed",
-        "",
-        "# ASSESSMENT",
-        "",
-        "The current USS TJR crew includes:",
-    ]
+def format_profile_line(profile: dict) -> str:
+    return (
+        f"- `{profile['registry_number'] or 'Unregistered'}` {profile['title']} "
+        f"({profile['status']}, {profile['department']}) - {profile['source']}"
+    )
 
-    for department, department_profiles in by_department.items():
-        lines.extend(["", f"## {department}"])
 
-        for profile in department_profiles:
-            mission = profile["mission"] or profile["authority"]
-            lines.extend(
-                [
-                    f"- {profile['registry_number']} {profile['title']}",
-                    f"  - {mission}",
-                ]
-            )
+def summarise_specialists(include_future: bool = False) -> str:
+    profiles = get_available_specialists(include_future=True)
+    selected = profiles if include_future else [profile for profile in profiles if profile["status"].lower() == "active"]
+    title = "SPECIALIST REGISTRY" if include_future else "ACTIVE SPECIALISTS"
 
+    if not selected:
+        return f"# {title}\n\nNo matching specialists found. Review `registry/Crew-Registry.md` and specialist charters."
+
+    lines = [f"# {title}", ""]
+    for profile in selected:
+        if include_future or profile["status"].lower() == "active":
+            lines.append(format_profile_line(profile))
     return "\n".join(lines)
 
 
 def answer_specialist_query(user_text: str) -> str:
     text = user_text.lower()
 
-    if any(trigger in text for trigger in ["what specialists", "available specialists", "list crew", "current crew", "crew registry"]):
-        return summarise_specialists()
+    if "future specialists" in text or "future crew" in text:
+        future = [profile for profile in get_available_specialists(True) if profile["status"].lower() != "active"]
+        return "\n".join(["# FUTURE SPECIALISTS", "", *(format_profile_line(profile) for profile in future)])
 
-    named_profile = find_specialist_by_name(user_text)
+    if any(trigger in text for trigger in ["what specialists", "available specialists", "list crew", "current crew", "crew registry", "specialist registry"]):
+        return summarise_specialists(include_future="registry" in text or "crew" in text)
 
-    if named_profile and "what does" in text:
-        return "\n".join(
-            [
-                "# SPECIALIST PROFILE",
-                "",
-                f"## {named_profile['title']}",
-                "",
-                f"Registry Number: {named_profile['registry_number']}",
-                "",
-                f"Department: {named_profile['department']}",
-                "",
-                f"Authority: {named_profile['authority']}",
-                "",
-                "## Mission",
-                "",
-                named_profile["mission"] or "Mission details are not available.",
-            ]
-        )
+    if "why did you select" in text or "why did you choose" in text:
+        profile = find_specialist_by_name(user_text)
+        if not profile:
+            return "# ROUTING EXPLANATION\n\nNo matching specialist found. Review the crew registry and specialist charters."
+        return "\n".join([
+            "# ROUTING EXPLANATION",
+            "",
+            f"Primary Specialist: {profile['title']}",
+            "",
+            explain_selection(profile, user_text),
+            "",
+            f"Source: `{profile['source']}`",
+        ])
 
     matches = match_specialists_to_request(user_text)
+    if not matches:
+        return "# SPECIALIST RECOMMENDATION\n\nNo matching specialist found. Suggest a crew registry review."
+
+    primary = matches[0]
+    supporting = matches[1:]
 
     lines = [
         "# SPECIALIST RECOMMENDATION",
         "",
-        "Recommended Specialists:",
+        "## Primary Specialist",
+        "",
+        format_profile_line(primary),
+        explain_selection(primary, user_text),
+        "",
+        "## Supporting Specialists",
         "",
     ]
 
-    for profile in matches:
-        lines.extend(
-            [
-                f"- {profile['registry_number']} {profile['title']}",
-                f"  - {profile['authority']}",
-            ]
-        )
+    if supporting:
+        for profile in supporting:
+            lines.extend([format_profile_line(profile), explain_selection(profile, user_text)])
+    else:
+        lines.append("No supporting specialist required from the current request signals.")
 
-    if any(profile["title"] == "Coder Agent" for profile in matches):
-        chief_engineer = load_specialist_profiles().get("Chief Engineer")
-        if chief_engineer and not any(profile["title"] == "Chief Engineer" for profile in matches):
-            lines.extend(
-                [
-                    "",
-                    "Escalation:",
-                    f"- {chief_engineer['title']} should review architecture or approve implementation decisions before build work proceeds.",
-                ]
-            )
+    lines.extend([
+        "",
+        "## Routing Decision",
+        "",
+        f"Commander selected {primary['title']} because the request matches that specialist's mission ownership and source profile.",
+    ])
 
     return "\n".join(lines)

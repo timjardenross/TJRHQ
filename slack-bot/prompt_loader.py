@@ -156,6 +156,15 @@ def load_commander_context() -> str:
 """
 
 
+def load_knowledge_retrieval_context() -> str:
+    return "".join([
+        build_section("Commander Context Pack", read_markdown("knowledge/Commander-Context-Pack.md")),
+        build_section("Commander Knowledge Index", read_markdown("knowledge/Commander-Knowledge-Index.md")),
+        build_section("Source of Truth Matrix", read_markdown("knowledge/Source-of-Truth-Matrix.md")),
+        build_section("Repository Catalogue", read_markdown("knowledge/Repository-Catalogue.md")),
+    ])
+
+
 def load_commander_with_specialist_context(specialist_key: str) -> str:
     return f"""
 # USS TJR COMMAND CONTEXT

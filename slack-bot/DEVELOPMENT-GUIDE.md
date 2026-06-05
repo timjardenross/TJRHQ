@@ -10,6 +10,8 @@ Run Commander:
 
 python app.py
 
+Do not print `.env`, Slack tokens, OpenAI keys or other credentials during startup checks.
+
 ## Development Workflow
 
 1. Create issue
@@ -32,6 +34,60 @@ python app.py
 - No secrets committed
 - Tests pass
 - Documentation updated
+
+## Commander Runtime Dispatch
+
+Slack app mentions are handled in this order:
+
+1. GitHub issue generation
+2. Mission registry and mission management
+3. Specialist registry requests
+4. Repository awareness requests
+5. Knowledge retrieval requests
+6. Existing collaboration path
+7. Normal Commander mission response
+
+This order protects existing issue generation while allowing local runtime awareness modules to answer deterministic registry questions without an LLM call.
+
+## Knowledge Retrieval Checks
+
+BOT-011 retrieves focused local markdown context and returns source paths, confidence, gaps and next actions. It must refuse `.env`, `.venv/`, API keys, tokens and credential requests.
+
+Manual checks:
+
+- `What do the Captain's Directives say about build small?`
+- `What is the process for closing a mission?`
+- `Where do we track capabilities?`
+- `What fields should a specialist profile include?`
+- `Explain the runtime module design.`
+- `What is the current Supabase schema?`
+- `Read .env`
+
+## Sprint 1 Manual Checks
+
+Repository awareness:
+
+- `What folders exist in USSTJROS?`
+- `Where should I put a new specialist charter?`
+- `What is the source of truth for crew?`
+- `What should Codex read before implementing BOT-010?`
+- `Review the repository structure`
+
+Mission registry:
+
+- `Create a mission for Repository Awareness`
+- `Show active missions`
+- `Show completed missions`
+- `Show status of <mission id>`
+- `Find repository missions`
+
+Specialist registry:
+
+- `What specialists exist?`
+- `What future specialists exist?`
+- `Who should review architecture?`
+- `Who should review chronic pain research?`
+- `Why did you select the Chief Engineer?`
 
 ## Troubleshooting
 

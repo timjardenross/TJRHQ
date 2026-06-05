@@ -25,3 +25,7 @@ def ask_commander(system_prompt: str, user_prompt: str) -> str:
     )
 
     return response.choices[0].message.content
+
+
+def ask_commander_with_sources(system_prompt: str, user_prompt: str) -> str:
+    return ask_commander(system_prompt=system_prompt, user_prompt=user_prompt)
