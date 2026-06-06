@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Keyword retrieval for the USS TJR Supabase knowledge prototype."""
+"""Keyword and semantic retrieval for the USS TJR Supabase knowledge prototype."""
 
 from __future__ import annotations
 
 import argparse
+import time
 from typing import Any
 
+from embedding_client import EmbeddingClient, vector_literal
 from supabase_client import SupabaseClient
 
 
@@ -63,39 +65,47 @@ def fallback_search(client: SupabaseClient, query: str, document_type: str | Non
     return results
 
 
-def retrieve(query: str, document_type: str | None, specialist_role: str | None, limit: int) -> int:
-    client = SupabaseClient()
-    specialist = get_specialist(client, specialist_role)
-    permission = get_permission(client, specialist["id"] if specialist else None)
-    allowed, blocked_reason = access_check(permission, document_type)
-    if not allowed:
-        client.insert(
-            "retrieval_logs",
-            [
-                {
-                    "specialist_id": specialist["id"] if specialist else None,
-                    "specialist_role": specialist_role,
-                    "query": query,
-                    "document_type": document_type,
-                    "allowed": False,
-                    "blocked_reason": blocked_reason,
-                    "result_count": 0,
-                }
-            ],
-        )
-        print(f"BLOCKED: {blocked_reason}")
-        return 2
-
+def keyword_results(client: SupabaseClient, query: str, document_type: str | None, limit: int) -> list[dict[str, Any]]:
     payload = {
         "search_query": query,
         "requested_document_type": document_type,
         "match_limit": limit,
     }
     try:
-        results = client.rpc("keyword_search_documents", payload) or []
+        return client.rpc("keyword_search_documents", payload) or []
     except Exception:
-        results = fallback_search(client, query, document_type, limit)
+        return fallback_search(client, query, document_type, limit)
 
+
+def semantic_results(
+    client: SupabaseClient,
+    query: str,
+    document_type: str | None,
+    limit: int,
+    threshold: float,
+) -> tuple[list[dict[str, Any]], str]:
+    embedder = EmbeddingClient()
+    embedding = embedder.create_one(query)
+    payload = {
+        "query_embedding": vector_literal(embedding),
+        "match_threshold": threshold,
+        "match_count": limit,
+        "requested_document_type": document_type,
+    }
+    return client.rpc("match_document_chunks", payload) or [], embedder.label
+
+
+def log_retrieval(
+    client: SupabaseClient,
+    specialist: dict[str, Any] | None,
+    specialist_role: str | None,
+    query: str,
+    document_type: str | None,
+    allowed: bool,
+    result_count: int,
+    metadata: dict[str, Any],
+    blocked_reason: str | None = None,
+) -> None:
     client.insert(
         "retrieval_logs",
         [
@@ -104,20 +114,76 @@ def retrieve(query: str, document_type: str | None, specialist_role: str | None,
                 "specialist_role": specialist_role,
                 "query": query,
                 "document_type": document_type,
-                "allowed": True,
-                "result_count": len(results),
-                "metadata": {"retrieval": "keyword"},
+                "allowed": allowed,
+                "blocked_reason": blocked_reason,
+                "result_count": result_count,
+                "metadata": metadata,
             }
         ],
+    )
+
+
+def retrieve(
+    query: str,
+    document_type: str | None,
+    specialist_role: str | None,
+    limit: int,
+    semantic: bool,
+    threshold: float,
+) -> int:
+    client = SupabaseClient()
+    specialist = get_specialist(client, specialist_role)
+    permission = get_permission(client, specialist["id"] if specialist else None)
+    allowed, blocked_reason = access_check(permission, document_type)
+    if not allowed:
+        log_retrieval(
+            client,
+            specialist,
+            specialist_role,
+            query,
+            document_type,
+            False,
+            0,
+            {"retrieval": "semantic" if semantic else "keyword"},
+            blocked_reason,
+        )
+        print(f"BLOCKED: {blocked_reason}")
+        return 2
+
+    started = time.monotonic()
+    model = None
+    if semantic:
+        results, model = semantic_results(client, query, document_type, limit, threshold)
+    else:
+        results = keyword_results(client, query, document_type, limit)
+    latency_ms = round((time.monotonic() - started) * 1000, 2)
+
+    log_retrieval(
+        client,
+        specialist,
+        specialist_role,
+        query,
+        document_type,
+        True,
+        len(results),
+        {
+            "retrieval": "semantic" if semantic else "keyword",
+            "embedding_model": model,
+            "latency_ms": latency_ms,
+            "threshold": threshold if semantic else None,
+        },
     )
 
     for index, row in enumerate(results, start=1):
         snippet = " ".join((row.get("snippet") or "").split())
         print(f"{index}. {row.get('title')} [{row.get('document_type')}]")
         print(f"   {row.get('source_path')}#chunk-{row.get('chunk_index')}")
+        if semantic:
+            print(f"   similarity={float(row.get('similarity') or 0):.4f}")
         print(f"   {snippet}")
     if not results:
         print("No matching documents found.")
+    print(f"Retrieval mode: {'semantic' if semantic else 'keyword'}; latency: {latency_ms:.2f}ms")
     return 0
 
 
@@ -127,8 +193,19 @@ def main() -> None:
     parser.add_argument("--document-type", help="Filter by document type.")
     parser.add_argument("--specialist-role", help="Apply prototype specialist permissions.")
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--semantic", action="store_true", help="Use vector similarity retrieval.")
+    parser.add_argument("--threshold", type=float, default=0.0, help="Minimum semantic similarity.")
     args = parser.parse_args()
-    raise SystemExit(retrieve(args.query, args.document_type, args.specialist_role, args.limit))
+    raise SystemExit(
+        retrieve(
+            args.query,
+            args.document_type,
+            args.specialist_role,
+            args.limit,
+            args.semantic,
+            args.threshold,
+        )
+    )
 
 
 if __name__ == "__main__":

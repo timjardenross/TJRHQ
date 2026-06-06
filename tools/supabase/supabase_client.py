@@ -96,6 +96,20 @@ class SupabaseClient:
             headers={"Prefer": "return=representation"},
         ) or []
 
+    def update(
+        self,
+        table: str,
+        values: dict[str, Any],
+        filters: dict[str, str],
+    ) -> list[dict[str, Any]]:
+        query = urllib.parse.urlencode(filters, safe="*,().")
+        return self.request(
+            "PATCH",
+            f"/rest/v1/{table}?{query}",
+            values,
+            headers={"Prefer": "return=representation"},
+        ) or []
+
     def delete(self, table: str, filters: dict[str, str]) -> None:
         query = urllib.parse.urlencode(filters, safe="*,().")
         self.request("DELETE", f"/rest/v1/{table}?{query}")
