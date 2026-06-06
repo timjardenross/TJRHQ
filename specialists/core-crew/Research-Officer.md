@@ -1,14 +1,11 @@
-# Research Officer
+# Research Officer — DEPRECATED
 
-Registry: USS-TJR-008
-Department: Operations Division
+> ⚠️ This file is staged for removal (P2-004 Specialist Deduplication).
+>
+> **Canonical location:** `specialists/future-crew/Research-Officer.md`
+>
+> Research Officer is a planned (not yet active) specialist.
+> Do not update this file. Update the canonical location instead.
 
-Mission:
-Conduct structured research and produce evidence-informed recommendations.
-
-Responsibilities:
-- Research
-- Analysis
-- Source validation
-- Trend identification
-- Intelligence summaries
+Status: Deprecated — pending git commit removal
+Superseded by: specialists/future-crew/Research-Officer.md
