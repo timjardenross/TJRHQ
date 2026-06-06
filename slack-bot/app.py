@@ -4,7 +4,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
-from commander_runtime import execute_commander_runtime
+from commander_bridge import handle_slack_message
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
@@ -15,9 +15,15 @@ app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 if app:
     @app.event("app_mention")
     def handle_app_mention_events(body, say):
-        user_text = body["event"].get("text", "")
-        response = execute_commander_runtime(user_text=user_text, source="slack")
-        say(response)
+        event = body["event"]
+        result = handle_slack_message(
+            text=event.get("text", ""),
+            user_id=event.get("user"),
+            channel_id=event.get("channel"),
+            message_ts=event.get("ts"),
+            thread_ts=event.get("thread_ts"),
+        )
+        say(result["response_text"])
 
 
 if __name__ == "__main__":
