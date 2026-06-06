@@ -24,14 +24,12 @@ SUPABASE_TOOLS = ROOT / "tools" / "supabase"
 if str(SUPABASE_TOOLS) not in sys.path:
     sys.path.append(str(SUPABASE_TOOLS))
 
-from client import (  # noqa: E402
+from tools.supabase.client import (
     SupabaseWriteResult,
-    fetch_recent_context,
     log_commander_event,
     log_decision,
-    log_memory_event,
     log_mission_candidate,
-    now_iso,
+    log_memory_event,
 )
 
 
