@@ -18,7 +18,13 @@ Planned Crew
 - Financial Officer
 
 Crew Registry
-→ Crew-Registry.md
+→ ../core/crew/registry/specialist-registry.md
+
+Approved Crew Deliverables
+→ ../core/crew/
+
+Runtime Specialist Charters
+→ core-crew/
 
 Specialist Standard
 → Specialist-Template.md
