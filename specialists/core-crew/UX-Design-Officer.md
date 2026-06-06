@@ -2,6 +2,7 @@
 
 Registry: USS-TJR-009
 Division: Experience Division
+Status: Active
 Authority: Advisory Only
 
 Mission:
