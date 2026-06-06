@@ -147,13 +147,15 @@ def execute_bot_path(request: BotRequest) -> BotResponse:
 
 
 def handle_github_issue(request: BotRequest) -> BotResponse:
-    from llm import ask_commander_safe
+    from llm import ask_commander_for_specialists
 
     routing = routing_from_intent(request.context.intent)
     user_prompt = build_github_issue_prompt(request.user_text, routing)
-    success, response = ask_commander_safe(
+    success, response = ask_commander_for_specialists(
         system_prompt=request.context.system_prompt,
         user_prompt=user_prompt,
+        specialists=request.context.intent.assigned_specialists,
+        priority=request.context.intent.priority,
     )
 
     if not success:
@@ -223,7 +225,7 @@ def handle_collaboration(request: BotRequest) -> BotResponse:
 
 
 def handle_general_command(request: BotRequest) -> BotResponse:
-    from llm import ask_commander_safe
+    from llm import ask_commander_for_specialists
 
     routing = routing_from_intent(request.context.intent)
     user_prompt = f"""
@@ -239,9 +241,11 @@ Assigned Specialists:
 
 Respond as Commander TJR using the USS TJR mission format.
 """
-    success, response = ask_commander_safe(
+    success, response = ask_commander_for_specialists(
         system_prompt=request.context.system_prompt,
         user_prompt=user_prompt,
+        specialists=request.context.intent.assigned_specialists,
+        priority=request.context.intent.priority,
     )
 
     if not success:
@@ -348,11 +352,11 @@ def build_default_commander_fallback(request: BotRequest, reason: str) -> str:
         "",
         "- Confirm the intended outcome.",
         "- Route follow-up work through the assigned specialist path.",
-        "- Restore LLM credentials when full Commander narrative synthesis is needed.",
+        "- Restore the selected LLM provider when full Commander narrative synthesis is needed.",
         "",
         "# NEXT ACTIONS",
         "",
-        "- Retry after LLM credentials are configured, or ask for a specific deterministic BOT path.",
+        "- Retry after Ollama or the selected LLM provider is available, or ask for a specific deterministic BOT path.",
         "",
         "# MISSION STATUS",
         "",

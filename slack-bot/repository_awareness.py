@@ -23,9 +23,85 @@ REPOSITORY_TRIGGERS = [
     "where should i put",
     "where do i put",
     "source of truth",
+    "ownership defined",
+    "ownership",
     "codex read",
     "read before implementing",
 ]
+
+SOURCE_OF_TRUTH_ALIASES = {
+    "knowledge": {
+        "aliases": [
+            "knowledge",
+            "knowledge base",
+            "repository knowledge",
+            "commander knowledge",
+            "knowledge management",
+            "memory",
+        ],
+        "primary": "knowledge/Source-of-Truth-Matrix.md",
+        "supporting": [
+            "knowledge/Commander-Knowledge-Index.md",
+            "knowledge/Repository-Catalogue.md",
+            "REPOSITORY-MAP.md",
+        ],
+    },
+    "governance": {
+        "aliases": [
+            "governance",
+            "operating principles",
+            "charter",
+            "authority",
+            "ownership",
+        ],
+        "primary": "governance/",
+        "supporting": [
+            "knowledge/Source-of-Truth-Matrix.md",
+            "core/governance/",
+        ],
+    },
+    "missions": {
+        "aliases": [
+            "mission",
+            "mission control",
+            "active mission",
+            "completed mission",
+            "mission ownership",
+        ],
+        "primary": "core/mission-control/",
+        "supporting": [
+            "core/mission-control/registry/mission-index.txt",
+            "core/mission-control/registry/active-missions.txt",
+            "Missions/",
+        ],
+    },
+    "specialists": {
+        "aliases": [
+            "specialist",
+            "crew",
+            "officer",
+            "chief",
+        ],
+        "primary": "specialists/",
+        "supporting": [
+            "registry/Crew-Registry.md",
+            "core/crew/registry/specialist-registry.md",
+            "specialists/core-crew/",
+        ],
+    },
+    "decisions": {
+        "aliases": [
+            "decision",
+            "decision register",
+            "decision log",
+        ],
+        "primary": "memory/Decision-Register.md",
+        "supporting": [
+            "core/governance/architecture-decision-records/",
+            "knowledge/Source-of-Truth-Matrix.md",
+        ],
+    },
+}
 
 EXPECTED_FOLDERS = [
     "governance/",
@@ -108,6 +184,55 @@ def source_for_topic(topic: str) -> Optional[str]:
             return cells[1]
 
     return None
+
+
+def normalize_lookup_text(text: str) -> set[str]:
+    cleaned = re.sub(r"[^a-z0-9\s/-]", " ", text.lower())
+    tokens = {token for token in cleaned.split() if token}
+    phrases = {cleaned.strip()}
+    return tokens | phrases
+
+
+def resolve_source_of_truth(user_text: str) -> dict:
+    text = user_text.lower()
+    best_category = ""
+    best_score = 0
+
+    for category, config in SOURCE_OF_TRUTH_ALIASES.items():
+        score = 0
+        for alias in config["aliases"]:
+            if alias in text:
+                score += 3 if " " in alias else 2
+            else:
+                alias_tokens = normalize_lookup_text(alias)
+                text_tokens = normalize_lookup_text(text)
+                overlap = alias_tokens & text_tokens
+                if overlap:
+                    score += len(overlap)
+        if score > best_score:
+            best_category = category
+            best_score = score
+
+    if best_category:
+        config = SOURCE_OF_TRUTH_ALIASES[best_category]
+        matrix_source = source_for_topic(best_category.title())
+        return {
+            "category": best_category,
+            "primary": matrix_source or config["primary"],
+            "supporting": config["supporting"],
+            "confidence": "High" if best_score >= 3 else "Medium",
+        }
+
+    return {
+        "category": "repository",
+        "primary": "knowledge/Source-of-Truth-Matrix.md",
+        "supporting": [
+            "knowledge/Commander-Knowledge-Index.md",
+            "knowledge/Repository-Catalogue.md",
+            "REPOSITORY-MAP.md",
+        ],
+        "confidence": "Low",
+    }
 
 
 def codex_reading_list(user_text: str) -> list[tuple[str, str]]:
@@ -257,15 +382,14 @@ def answer_repository_awareness_request(user_text: str) -> str:
             "- Keep `knowledge/Repository-Catalogue.md` aligned with any new top-level folders.",
         ])
 
-    if "source of truth" in text:
-        topic = "Crew" if "crew" in text or "specialist" in text else "Knowledge"
-        source = source_for_topic(topic) or "No matching source-of-truth entry found."
+    if "source of truth" in text or "ownership" in text:
+        resolved = resolve_source_of_truth(user_text)
         return "\n".join([
             "# REPOSITORY AWARENESS RESPONSE",
             "",
             "## Request Summary",
             "",
-            f"Identify the source of truth for {topic.lower()}.",
+            f"Identify the source of truth for {resolved['category']}.",
             "",
             "## Source Documents Consulted",
             "",
@@ -273,7 +397,12 @@ def answer_repository_awareness_request(user_text: str) -> str:
             "",
             "## Assessment",
             "",
-            f"The source of truth for {topic.lower()} is `{source}`.",
+            f"Closest Source of Truth: `{resolved['primary']}`",
+            "",
+            "Supporting Documents:",
+            *(f"- `{path}`" for path in resolved["supporting"]),
+            "",
+            f"Confidence: {resolved['confidence']}",
             "",
             "## Recommendation",
             "",

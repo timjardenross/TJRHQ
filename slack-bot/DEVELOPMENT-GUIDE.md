@@ -66,7 +66,42 @@ Runtime responsibilities:
 
 ## LLM Fallbacks
 
-`llm.py` does not construct an OpenAI client at import time. GitHub issue generation and default Commander responses use safe LLM calls and fall back to deterministic responses when credentials are missing or the LLM call fails.
+`llm.py` does not construct an OpenAI client at import time. GitHub issue generation and default Commander responses use safe LLM calls and fall back to deterministic responses when the selected LLM provider is unavailable.
+
+Commander is local-first:
+
+1. `LLM_PROVIDER=auto` tries Ollama first.
+2. If Ollama is unavailable and OpenAI credentials exist, OpenAI is used as an optional fallback.
+3. If no provider succeeds, Commander returns a deterministic fallback.
+
+Local setup:
+
+```bash
+ollama serve
+ollama pull qwen3:8b
+```
+
+Environment:
+
+```bash
+LLM_PROVIDER=auto
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3:8b
+OLLAMA_COMMANDER_MODEL=qwen3:8b
+OLLAMA_ENGINEER_MODEL=deepseek-coder:6.7b
+OLLAMA_REASONING_MODEL=deepseek-r1:14b
+OLLAMA_FAST_MODEL=gemma3
+OPENAI_API_KEY=
+OPENAI_ADMIN_KEY=
+```
+
+Specialist model routing:
+
+- Chief Engineer and technical/repository analysis use `OLLAMA_ENGINEER_MODEL`.
+- Research Officer, discovery and trade-off analysis use `OLLAMA_REASONING_MODEL`.
+- Chief of Staff, Knowledge Officer, Medical Officer and general Commander activity use `OLLAMA_COMMANDER_MODEL`.
+- If the selected Ollama model is unavailable, Commander falls back to Commander model, then fast model, then deterministic fallback.
+- `OLLAMA_EMBEDDING_MODEL` is reserved for indexing/search and is never used for conversational responses.
 
 Fallback checks:
 
@@ -139,6 +174,8 @@ Repository awareness:
 - `What folders exist in USSTJROS?`
 - `Where should I put a new specialist charter?`
 - `What is the source of truth for crew?`
+- `What is the source of truth for knowledge?`
+- `Where is mission ownership defined?`
 - `What should Codex read before implementing BOT-010?`
 - `Review the repository structure`
 
@@ -160,8 +197,8 @@ Specialist registry:
 
 ## Troubleshooting
 
-### Missing OpenAI Key
-Check .env
+### LLM Provider Unavailable
+Check that Ollama is running with `ollama serve` and that the selected model has been pulled. OpenAI keys are optional and should only be configured when paid fallback is intended.
 
 ### Slack Not Responding
 Verify bot token and socket mode.
