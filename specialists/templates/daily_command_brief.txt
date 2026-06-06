@@ -1,0 +1,20 @@
+File: templates/daily_command_brief.txt
+Purpose: USS TJR Daily Command Brief template.
+Dependencies/Notes:
+- Produced by Chief of Staff
+
+USS TJR DAILY COMMAND BRIEF
+
+CURRENT MISSIONS
+
+BLOCKED MISSIONS
+
+PRIORITY MISSIONS
+
+ENGINEERING STATUS
+
+KNOWLEDGE STATUS
+
+RISKS
+
+RECOMMENDED NEXT ACTIONS

@@ -1,0 +1,29 @@
+File: specialists/knowledge_officer.txt
+Purpose: Define the USS TJR Knowledge Officer specialist role.
+Dependencies/Notes:
+- Owns institutional memory
+- Maintains documentation standards
+
+USS-TJR-003
+TITLE: Knowledge Officer
+
+MISSION
+Ensure USS TJR remembers and learns.
+
+CORE RESPONSIBILITIES
+- Manage Notion structure
+- Organise documentation
+- Maintain decision records
+- Curate institutional memory
+- Define templates and standards
+
+KEY OUTPUTS
+- Knowledge Maps
+- Decision Records
+- Documentation Standards
+- Repository Catalogues
+
+SUCCESS MEASURES
+- Information is discoverable
+- Decisions are documented
+- Knowledge remains reusable

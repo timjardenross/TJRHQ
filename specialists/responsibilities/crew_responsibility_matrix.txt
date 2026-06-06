@@ -1,0 +1,24 @@
+File: specialists/responsibilities/crew_responsibility_matrix.txt
+Purpose: Define ownership boundaries across Phase 1 crew.
+Dependencies/Notes:
+- Review quarterly
+
+Chief of Staff
+- Priorities
+- Backlog
+- Mission Coordination
+
+Chief Engineer
+- Architecture
+- Code Reviews
+- GitHub Governance
+
+Knowledge Officer
+- Documentation
+- Notion
+- Institutional Memory
+
+Captain TJR
+- Strategic Direction
+- Final Decisions
+- Mission Approval

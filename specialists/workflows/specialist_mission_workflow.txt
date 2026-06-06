@@ -1,0 +1,13 @@
+File: specialists/workflows/specialist_mission_workflow.txt
+Purpose: Standard workflow for specialist mission execution.
+Dependencies/Notes:
+- Applies to all specialists
+
+1. Receive Mission
+2. Review Objective
+3. Identify Dependencies
+4. Execute Assigned Work
+5. Document Outcomes
+6. Escalate Risks
+7. Report Completion
+8. Archive Outputs

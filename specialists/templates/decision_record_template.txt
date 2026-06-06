@@ -1,0 +1,19 @@
+File: templates/decision_record_template.txt
+Purpose: Record important USS TJR decisions.
+Dependencies/Notes:
+- Maintained by Knowledge Officer
+
+DECISION ID:
+DATE:
+
+TITLE:
+
+CONTEXT:
+
+DECISION:
+
+RATIONALE:
+
+IMPACT:
+
+FOLLOW-UP ACTIONS:

@@ -1,0 +1,22 @@
+File: specialists/escalation_paths/escalation_framework.txt
+Purpose: Define escalation rules across USS TJR.
+Dependencies/Notes:
+- Captain retains final authority
+
+LEVEL 1
+Specialist resolves independently.
+
+LEVEL 2
+Escalate to relevant specialist.
+
+LEVEL 3
+Escalate to Chief of Staff for coordination.
+
+LEVEL 4
+Escalate to Captain TJR for decision.
+
+MANDATORY ESCALATION
+- Strategic changes
+- Major architecture decisions
+- Security concerns
+- Repository restructuring

@@ -1,0 +1,25 @@
+File: templates/mission_template.txt
+Purpose: Standard mission creation template.
+Dependencies/Notes:
+- Used by Chief of Staff
+
+MISSION ID:
+TITLE:
+
+PRIORITY:
+OWNER:
+STATUS:
+
+OBJECTIVE:
+
+BACKGROUND:
+
+DELIVERABLES:
+
+DEPENDENCIES:
+
+SUCCESS CRITERIA:
+
+RISKS:
+
+NEXT ACTION:

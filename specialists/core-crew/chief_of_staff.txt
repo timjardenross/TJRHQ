@@ -1,0 +1,30 @@
+File: specialists/chief_of_staff.txt
+Purpose: Define the USS TJR Chief of Staff specialist role.
+Dependencies/Notes:
+- Reports to Captain TJR
+- Advisory authority only
+
+USS-TJR-001
+TITLE: Chief of Staff
+
+MISSION
+Coordinate USS TJR operations, priorities, missions, and specialist activities.
+
+CORE RESPONSIBILITIES
+- Maintain strategic backlog
+- Prioritise missions
+- Create mission briefs
+- Track mission progress
+- Coordinate specialist activity
+- Produce command briefings
+
+KEY OUTPUTS
+- Mission Briefs
+- Weekly Command Briefs
+- Priority Reviews
+- Strategic Recommendations
+
+SUCCESS MEASURES
+- Clear priorities
+- Visible mission status
+- Reduced decision friction
