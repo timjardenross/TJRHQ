@@ -183,6 +183,12 @@ def run(
         decision_record = json.loads(decision_record_path.read_text(encoding="utf-8"))
         emit_decision_alert(decision_record, decision_record_path)
 
+    # -----------------------------------------------------------------------
+    # MSN-0014B: Push strategic mission candidates to Paperclip
+    # -----------------------------------------------------------------------
+    if decision_record_path:
+        _push_to_paperclip(decision_record, response)
+
     if sync_notion:
         sync_log_to_notion(log_path)
 
@@ -192,6 +198,39 @@ def run(
         print(f"Decision register: {decision_record_path}")
     print(f"Runtime latency: {latency_ms:.2f}ms")
     return 0
+
+
+def _push_to_paperclip(decision_record: dict, commander_synthesis: str) -> None:
+    """Create a Paperclip issue from strategic mission candidates. Silent on failure."""
+    try:
+        import sys
+        from pathlib import Path
+
+        paperclip_path = Path(__file__).resolve().parents[1] / "paperclip"
+        if str(paperclip_path) not in sys.path:
+            sys.path.insert(0, str(paperclip_path))
+
+        from mission_candidate import create_mission_candidate
+        from mission_bridge import push_mission_to_paperclip
+
+        candidate = create_mission_candidate(decision_record)
+        if candidate is None:
+            return  # Not a strategic decision — nothing to push
+
+        result = push_mission_to_paperclip(
+            mission_candidate=candidate,
+            commander_synthesis=commander_synthesis,
+        )
+        if result:
+            # Store the Paperclip identifier back in the mission candidate file
+            from mission_candidate import update_mission_status
+            update_mission_status(
+                candidate["mission_candidate_id"],
+                status="Ready",
+                github_issue_url=result.get("paperclip_url"),
+            )
+    except Exception as error:  # noqa: BLE001
+        print(f"Warning: Paperclip bridge skipped: {error}")
 
 
 def sync_log_to_notion(log_path) -> None:

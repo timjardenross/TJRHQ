@@ -9,7 +9,15 @@ import sys
 from typing import Any
 
 from commander_runtime import execute_commander_runtime
+from commander_response_formatter import format_commander_response, parse_commander_response
+from paperclip_issue_creator import (
+    create_slack_paperclip_issue,
+    format_issue_confirmation,
+    format_issue_error,
+    is_issue_creation_request,
+)
 from router import route_request, score_specialists
+from supabase_commander_intake import is_commander_directed, run_supabase_commander
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPABASE_TOOLS = ROOT / "tools" / "supabase"
@@ -27,6 +35,7 @@ from client import (  # noqa: E402
 )
 
 
+INTENT_COMMANDER = "commander"       # MSN-0011A: routes to Supabase DI pipeline
 INTENT_DECISION = "decision"
 INTENT_MISSION_CANDIDATE = "mission_candidate"
 INTENT_MEMORY = "memory"
@@ -79,7 +88,58 @@ def handle_slack_message(
         "memory": False,
     }
 
-    if intent == INTENT_DECISION:
+    if intent == INTENT_COMMANDER:
+        import logging as _logging
+        _cb_log = _logging.getLogger(__name__)
+        question = _strip_intent_prefix(cleaned_text, ["commander"])
+
+        _safe_write(log_commander_event, {
+            **common,
+            "event_type": INTENT_COMMANDER,
+            "message_text": cleaned_text,
+            "status": "dispatched_to_di_pipeline",
+            "created_at": timestamp,
+        })
+
+        # MSN-0011C: Paperclip issue creation pathway — intercept before DI pipeline.
+        if is_issue_creation_request(question):
+            _cb_log.info(
+                "[commander-bridge] Issue creation request detected: %r (user=%s channel=%s)",
+                question[:80], user_id, channel_id,
+            )
+            result = create_slack_paperclip_issue(
+                message_text=question,
+                channel_id=channel_id,
+                thread_ts=thread_ts or message_ts,
+                user_id=user_id,
+            )
+            if result["ok"]:
+                _cb_log.info(
+                    "[commander-bridge] Paperclip issue created: %s", result.get("identifier")
+                )
+                response_text = format_issue_confirmation(result)
+            else:
+                _cb_log.error(
+                    "[commander-bridge] Paperclip issue creation failed: %s", result.get("error")
+                )
+                response_text = format_issue_error(
+                    result.get("error") or "Paperclip API unavailable or returned an error"
+                )
+        else:
+            # MSN-0011A/B: standard DI pipeline path.
+            _cb_log.info(
+                "[commander-bridge] Commander intake triggered: %r (user=%s channel=%s)",
+                question[:80],
+                user_id,
+                channel_id,
+            )
+            raw = run_supabase_commander(question)
+            _cb_log.info("[commander-bridge] Commander response received (%d chars)", len(raw))
+            parsed = parse_commander_response(raw)
+            _cb_log.info("[commander-bridge] Response classified as %s", parsed["type"])
+            response_text = format_commander_response(parsed)
+
+    elif intent == INTENT_DECISION:
         body = _strip_intent_prefix(cleaned_text, ["decision"])
         logged["decision"] = _safe_write(log_decision, {
             **common,
@@ -122,7 +182,19 @@ def handle_slack_message(
 
 
 def classify_commander_intent(text: str) -> str:
+    """Classify the intent of a Slack message addressed to Commander TJR.
+
+    Intent priority (first match wins):
+      commander:        → INTENT_COMMANDER   — MSN-0011A: full DI pipeline
+      decision:         → INTENT_DECISION    — log to Supabase decision table
+      create mission:   → INTENT_MISSION_CANDIDATE — log mission candidate
+      remember:         → INTENT_MEMORY      — log memory event
+      (anything else)   → INTENT_GENERAL     — local bot runtime
+    """
     lowered = text.strip().lower()
+    # MSN-0011A: explicit Commander DI pipeline trigger
+    if is_commander_directed(text):
+        return INTENT_COMMANDER
     if re.match(r"^decision\s*:", lowered):
         return INTENT_DECISION
     if re.match(r"^(create mission|new mission|mission candidate)\s*:", lowered):
