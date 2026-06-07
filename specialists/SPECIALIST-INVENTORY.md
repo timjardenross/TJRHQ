@@ -1,8 +1,8 @@
-# USS TJR Specialist Inventory
+# Starship Endeavour Specialist Inventory
 
-**Mission:** Provide a complete, discoverable inventory of all USS TJR specialists across core, active, and future crew.
+**Mission:** Provide a complete, discoverable inventory of all Starship Endeavour specialists across core, active, and future crew.
 
-**Primary Purpose:** Enable rapid specialist identification and routing for new OpenClaw missions.
+**Primary Purpose:** Enable rapid specialist identification and routing for new Starfleet Command missions.
 
 **Last Updated:** June 7, 2026
 
@@ -12,25 +12,25 @@
 
 Active specialists with full governance, operational prompts, and approved deliverables in `core/crew/`.
 
-### 1. Chief of Staff
-- **Registry ID:** USS-TJR-002
+### 1. Executive Officer (XO)
+- **Registry ID:** SFE-002
 - **Department:** Operations Division
 - **Status:** Active, Commissioned
 - **Reports To:** Captain TJR
-- **Mission:** Coordinate priorities, missions, planning and execution across USS TJR
-- **Core Responsibilities:** Priority management, mission coordination, sprint planning, weekly reviews, cross-specialist alignment
-- **Governance Folder:** `core/crew/chief-of-staff/`
-- **Runtime File:** `specialists/core-crew/Chief-of-Staff.md`
+- **Mission:** Coordinate priorities, missions, planning and execution across Starship Endeavour
+- **Core Responsibilities:** Priority management, mission coordination, sprint planning, weekly reviews, cross-specialist alignment, governance authority
+- **Governance Folder:** `core/crew/chief-of-staff/` (legacy folder name, title updated)
+- **Runtime File:** `specialists/core-crew/Chief-of-Staff.md` (legacy file name, title updated)
 - **Knowledge Pack:** `specialists/knowledge-packs/Chief-of-Staff-Knowledge.md`
 - **Decision Authority:** Full
 - **Domain Ownership:** Missions, Prioritisation, Governance, Operating Model
 
 ### 2. Chief Engineer
-- **Registry ID:** USS-TJR-003
+- **Registry ID:** SFE-003
 - **Department:** Engineering Division
 - **Status:** Active, Commissioned
 - **Reports To:** Captain TJR
-- **Mission:** Maintain, improve and evolve USS TJR architecture, systems, integrations and technical capabilities
+- **Mission:** Maintain, improve and evolve Starship Endeavour architecture, systems, integrations and technical capabilities
 - **Core Responsibilities:** Architecture reviews, technical debt management, security oversight, repository governance, capability planning, platform recommendations
 - **Governance Folder:** `core/crew/chief-engineer/`
 - **Runtime File:** `specialists/core-crew/Chief-Engineer.md`

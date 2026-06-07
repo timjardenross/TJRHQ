@@ -1,6 +1,6 @@
-# USS TJR Specialist Role Catalogue
+# Starship Endeavour Specialist Role Catalogue
 
-**Purpose:** Document the specific role, mission, responsibilities, decision authority, and expertise domains for each specialist.
+**Purpose:** Document the specific role, mission, responsibilities, decision authority, and expertise domains for each specialist under Starfleet Command.
 
 **Use Case:** Enable mission designers to match mission types to specialists without reading 20 files.
 
@@ -8,12 +8,12 @@
 
 ---
 
-## Chief of Staff
+## Executive Officer (XO)
 
-**Governance File:** `core/crew/chief-of-staff/role-definition.txt`
+**Governance File:** `core/crew/chief-of-staff/role-definition.txt` (legacy folder name)
 
 ### Role Mission
-Coordinate priorities, missions, planning and execution across USS TJR. Provide strategic oversight and alignment across all crew members.
+Coordinate priorities, missions, planning and execution across Starship Endeavour. Provide strategic oversight and alignment across all crew members. Holds full governance authority for mission sizing, decomposition, and approval under Starfleet Command.
 
 ### Primary Responsibilities
 1. **Priority Management** — Maintain active priority list, assess incoming requests, recommend prioritisation

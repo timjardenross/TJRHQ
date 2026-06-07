@@ -1,6 +1,6 @@
-# USS TJR Specialist Knowledge Pack
+# Starship Endeavour Specialist Knowledge Pack
 
-**Mission:** Provide a complete, reusable reference for all USS TJR specialist ecosystem information enabling future OpenClaw missions to consume without rescanning the repository.
+**Mission:** Provide a complete, reusable reference for all Starship Endeavour specialist ecosystem information under Starfleet Command authority, enabling future Starfleet missions to consume without rescanning the repository.
 
 **Scope:** Synthesises intelligence from all four companion deliverables into a single source of truth.
 

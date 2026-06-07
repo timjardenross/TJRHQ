@@ -1,6 +1,6 @@
-# USS TJR Specialist Metadata Matrix
+# Starship Endeavour Specialist Metadata Matrix
 
-**Purpose:** Provide structured metadata for all specialists enabling rapid lookup, filtering, and decision-making.
+**Purpose:** Provide structured metadata for all Starship Endeavour specialists under Starfleet Command, enabling rapid lookup, filtering, and decision-making.
 
 **Use Case:** Support automated specialist selection, compatibility assessment, and mission routing algorithms.
 

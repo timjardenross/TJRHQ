@@ -1,6 +1,6 @@
-# USS TJR Specialist File Map
+# Starship Endeavour Specialist File Map
 
-**Purpose:** Map every specialist to their associated files across governance, runtime, knowledge packs, operational prompts, and workflows.
+**Purpose:** Map every specialist to their associated files across governance, runtime, knowledge packs, operational prompts, and workflows under Starfleet Command authority.
 
 **Use Case:** Enable rapid discovery of all materials associated with a specialist without navigating multiple folders.
 
