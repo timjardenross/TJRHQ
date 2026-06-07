@@ -18,6 +18,7 @@ from paperclip_issue_creator import (
 )
 from router import route_request, score_specialists
 from supabase_commander_intake import is_commander_directed, run_supabase_commander
+from mission_registry import create_mission
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPABASE_TOOLS = ROOT / "tools" / "supabase"
@@ -156,7 +157,18 @@ def handle_slack_message(
             "status": "candidate",
             "created_at": timestamp,
         })
-        response_text = _format_explicit_response("mission candidate", route, confidence, logged["mission_candidate"])
+        try:
+            mission = create_mission(body)
+            response_text = (
+                f"*Mission created.*\n"
+                f"ID: `{mission['mission_id']}`\n"
+                f"Title: {mission['title']}\n"
+                f"Domain: {mission['domain']}\n"
+                f"Status: {mission['status']}\n"
+                f"Persistence: {'logged to Supabase' if logged['mission_candidate'] else 'Supabase unavailable'}."
+            )
+        except Exception:
+            response_text = _format_explicit_response("mission candidate", route, confidence, logged["mission_candidate"])
     elif intent == INTENT_MEMORY:
         body = _strip_intent_prefix(cleaned_text, ["remember", "memory", "context"])
         logged["memory"] = _safe_write(log_memory_event, {
