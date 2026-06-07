@@ -1,1 +1,2 @@
 bash: paperclip: command not found
+Paperclip not configured. Set PAPERCLIP_COMMAND in services.conf.

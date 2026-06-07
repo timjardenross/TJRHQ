@@ -34,3 +34,6 @@ ModuleNotFoundError: No module named 'tools'
 2026-06-07 14:49:40,039 INFO slack_bolt.App: Starting to receive messages from a new connection (session id: 66058dcc-0dc9-4fb5-b495-ae5d27c33bed)
 2026-06-07 14:49:47,811 INFO __main__: [app] app_mention received: channel=C0B8TCHUN65 user=U0B891S5KB6 len=48
 2026-06-07 14:49:50,904 INFO __main__: [app] Responding to mention: intent=general route=Chief of Staff
+2026-06-07 21:13:53,543 INFO slack_bolt.App: A new session has been established (session id: fb99d922-d202-4e8b-8162-32112afaa749)
+2026-06-07 21:13:53,543 INFO slack_bolt.App: ⚡️ Bolt app is running!
+2026-06-07 21:13:53,642 INFO slack_bolt.App: Starting to receive messages from a new connection (session id: fb99d922-d202-4e8b-8162-32112afaa749)
