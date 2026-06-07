@@ -70,7 +70,7 @@ def is_ollama_available() -> bool:
             f"{get_ollama_base_url()}/api/tags",
             method="GET",
         )
-        with urllib.request.urlopen(request, timeout=3) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:
             return 200 <= response.status < 300
     except Exception:
         return False

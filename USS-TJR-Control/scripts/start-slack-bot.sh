@@ -74,7 +74,7 @@ echo ""
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
-  export PYTHONPATH="${SLACK_BOT_DIR}:${PYTHONPATH:-}"
+  export PYTHONPATH="${REPO_ROOT}:${SLACK_BOT_DIR}:${PYTHONPATH:-}"
   bash -c "python app.py"
 ) 2>&1 | tee -a "$LOG_FILE"
 
