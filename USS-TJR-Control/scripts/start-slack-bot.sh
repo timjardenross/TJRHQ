@@ -22,7 +22,7 @@ else
 fi
 
 echo "========================================"
-echo "USS TJR Control Deck - Slack Bot"
+echo "Starship Endeavour — Operations Control — Slack Bot"
 echo "========================================"
 echo "Log: $LOG_FILE"
 echo "Working directory: $SLACK_BOT_DIR"
