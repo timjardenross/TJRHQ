@@ -46,14 +46,49 @@ sections:
         icon: fas fa-check-circle
         url: "#"
 
-  # SECTION 2: CORE OPERATIONS
+  # SECTION 2: SERVICE STATUS
+  - title: Service Status
+    icon: fas fa-heartbeat
+    items:
+      - title: Control Deck
+        description: "✅ Operational"
+        icon: fas fa-check
+        url: "#"
+
+      - title: Ollama LLM
+        description: "✅ Operational"
+        icon: fas fa-check
+        url: "#"
+
+      - title: OpenClaw Chat
+        description: "✅ Operational"
+        icon: fas fa-check
+        url: "#"
+
+      - title: Number One
+        description: "⏸ On Demand"
+        icon: fas fa-pause
+        url: "#"
+
+      - title: Mission Registry UI
+        description: "⏳ Pending"
+        icon: fas fa-clock
+        url: "#"
+
+      - title: Supabase
+        description: "🔧 Backend Only"
+        icon: fas fa-cog
+        url: "#"
+
+  # SECTION 3: CORE OPERATIONS
   - title: Core Operations
     icon: fas fa-chess-board
     items:
       - title: Mission Registry
-        description: "📋 Planned Capability — Service not yet verified"
+        description: "Backend Active (Supabase) — UI Pending"
         icon: fas fa-flag
-        url: "#"
+        url: "https://github.com/timjardenross/USSTJROS/tree/main/knowledge/Mission-Management"
+        target: _blank
 
       - title: Number One (Slack Bot)
         description: "On-Demand — Start via ./control start slack-bot"
@@ -64,10 +99,29 @@ sections:
       - title: Decision Log
         description: "Architecture decisions & ADRs (GitHub)"
         icon: fas fa-file-alt
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/docs/decisions"
+        url: "https://github.com/timjardenross/USSTJROS/tree/main/architecture/decisions"
         target: _blank
 
-  # SECTION 3: RUNTIME SERVICES
+  # SECTION 4: RECENT MISSIONS
+  - title: Recent Missions
+    icon: fas fa-tasks
+    items:
+      - title: M-20260609-000000
+        description: "Control Deck Launchpad v1.1"
+        icon: fas fa-check-circle
+        url: "#"
+
+      - title: MSN-0040A-WP2
+        description: "Integration & Automation"
+        icon: fas fa-cogs
+        url: "#"
+
+      - title: MSN-0035
+        description: "Strategic Initiative"
+        icon: fas fa-star
+        url: "#"
+
+  # SECTION 5: RUNTIME SERVICES
   - title: Runtime Services
     icon: fas fa-server
     items:
@@ -82,27 +136,26 @@ sections:
         icon: fas fa-database
         url: "#"
 
-      - title: OpenClaw Sandbox
+      - title: OpenClaw Chat
         description: "Code execution chat (localhost:18789) ✅"
         icon: fas fa-flask
         url: "http://localhost:18789/chat?session=agent%3Amain%3Amain"
         target: _blank
 
-  # SECTION 4: DOCUMENTATION
+  # SECTION 6: DOCUMENTATION
   - title: Documentation
     icon: fas fa-book
     items:
       - title: Architecture Decisions
         description: "System design & ADRs (GitHub)"
         icon: fas fa-scroll
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/docs"
+        url: "https://github.com/timjardenross/USSTJROS/tree/main/knowledge/architecture"
         target: _blank
 
       - title: API Reference
-        description: "REST API documentation (GitHub)"
+        description: "📋 Coming Soon — API docs in development"
         icon: fas fa-code
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/docs/api"
-        target: _blank
+        url: "#"
 
       - title: Setup Guide
         description: "Getting started & deployment (GitHub)"
@@ -110,7 +163,7 @@ sections:
         url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md"
         target: _blank
 
-  # SECTION 5: DEVELOPMENT
+  # SECTION 7: DEVELOPMENT
   - title: Development
     icon: fas fa-terminal
     items:
@@ -123,7 +176,7 @@ sections:
       - title: Control Deck Foundation
         description: "Service CLI source (GitHub)"
         icon: fas fa-terminal
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/core/control"
+        url: "https://github.com/timjardenross/USSTJROS/tree/main/core/command"
         target: _blank
 
       - title: Control Deck Launchpad

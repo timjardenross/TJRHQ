@@ -95,12 +95,12 @@ The Control Deck Launchpad is a read-only visibility layer dashboard that displa
 
 | Card | Service | Port | Lifecycle |
 |------|---------|------|-----------|
-| Mission Registry | REST API | 5000 | Always-on |
+| Mission Registry | Backend (Supabase) | N/A (via API) | Always-on |
 | Number One Bot | Slack interface | 3001 | On-demand |
 | Decision Log | Decision records | N/A | Static |
 
 **Services:**
-- **Mission Registry (5000)** — Core mission management API, always running
+- **Mission Registry** — Core mission management (backend active via Supabase), documentation link provided. No dedicated web UI yet.
 - **Number One (3001)** — Slack bot runtime, starts when needed via Control CLI
 - **Decision Log** — Static reference to decision records (no service)
 
@@ -161,11 +161,12 @@ The Control Deck Launchpad is a read-only visibility layer dashboard that displa
 ### Always-On Services (Critical)
 These services run continuously and are essential to operations:
 
-1. **Mission Registry (5000)**
-   - Status: Always running
-   - Purpose: Core mission management
-   - Failure Impact: **Critical** — Operations cannot continue
-   - Recovery: Restart via Control CLI
+1. **Mission Registry (Backend)**
+   - Status: Always running (backend service via Supabase)
+   - Purpose: Core mission management and tracking
+   - Access: No dedicated web UI (backend active, management via API/Slack)
+   - Failure Impact: **Critical** — Mission tracking unavailable
+   - Recovery: Verify Supabase connection and restart services
 
 2. **Supabase Database (5432)**
    - Status: Always running (Docker container)
@@ -607,7 +608,7 @@ docker logs starfleet-command-centre
 curl -v http://localhost:8081
 
 # Service connectivity test
-curl http://localhost:5000    # Mission Registry
+# Mission Registry: Backend service (no dedicated web UI)
 curl http://localhost:11434   # Ollama
 curl http://localhost:5432    # Supabase
 curl http://localhost:18789    # OpenClaw

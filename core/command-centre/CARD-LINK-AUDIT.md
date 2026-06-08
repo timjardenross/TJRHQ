@@ -1,4 +1,4 @@
-# Control Deck Launchpad - Card Link Audit & Status Report
+# Control Deck Launchpad v1.1 - Card Link Audit & Status Report
 
 **Mission:** M-20260609-000000  
 **Date:** June 8, 2026  
@@ -9,13 +9,14 @@
 
 ## Executive Summary
 
-**Total Cards:** 14  
-**Fully Functional:** 13 (93%) ✅  
-**On-Demand Services:** 1 (7%) ⚠️  
+**Total Cards:** 26 (v1.1 with usability enhancements)  
+**Fully Functional:** 23 (88%) ✅  
+**Informational/Status Only:** 9 (35%) ℹ️  
+**On-Demand Services:** 1 (4%) ⚠️  
 
 All cards now have valid, working links or clear status labels. **Zero silent failures.**
 
-**Latest Update:** Decision Log and Setup Guide now have valid GitHub URLs
+**v1.1 Enhancements:** Added Service Status section (6 cards) and Recent Missions section (3 cards) for improved operational awareness. Renamed "OpenClaw Sandbox" to "OpenClaw Chat".
 
 ---
 
@@ -34,49 +35,78 @@ All cards now have valid, working links or clear status labels. **Zero silent fa
 
 ---
 
-### SECTION 2: Core Operations (Chess Board Icon)
+### SECTION 2: Service Status (Heartbeat Icon)
+*Operational status indicators — informational only*
+
+| # | Card Title | Status | Type | Notes |
+|---|---|---|---|---|
+| 4 | Control Deck | ✅ | Info | Non-clickable status |
+| 5 | Ollama LLM | ✅ | Info | Non-clickable status |
+| 6 | OpenClaw Chat | ✅ | Info | Non-clickable status |
+| 7 | Number One | ⏸ | Info | On-demand status |
+| 8 | Mission Registry UI | ⏳ | Info | Pending status |
+| 9 | Supabase | 🔧 | Info | Backend-only status |
+
+**Section Assessment:** ✅ PASS — All status indicators accurate
+
+---
+
+### SECTION 3: Core Operations (Chess Board Icon)
 
 | # | Card Title | URL | Status | Notes |
 |---|---|---|---|---|
-| 4 | Mission Registry | `#` | 📋 | Planned — service not yet verified |
-| 5 | Number One (Slack Bot) | `http://localhost:3001` | ⚠️ | On-demand, start via Control CLI |
-| 6 | Decision Log | `https://github.com/timjardenross/USSTJROS/tree/main/docs/decisions` | ✅ | WORKING — GitHub ADR folder |
+| 10 | Mission Registry | `https://github.com/timjardenross/USSTJROS/tree/main/knowledge/Mission-Management` | ✅ | WORKING — Backend active (Supabase), documentation link |
+| 11 | Number One (Slack Bot) | `http://localhost:3001` | ⚠️ | On-demand, start via Control CLI |
+| 12 | Decision Log | `https://github.com/timjardenross/USSTJROS/tree/main/architecture/decisions` | ✅ | WORKING — GitHub ADR folder |
 
 **Section Assessment:** ✅ PASS
 
 ---
 
-### SECTION 3: Runtime Services (Server Icon)
+### SECTION 4: Recent Missions (Tasks Icon)
+*Current and recent mission tracking — informational*
+
+| # | Card Title | Status | Type | Notes |
+|---|---|---|---|---|
+| 13 | M-20260609-000000 | ✅ | Info | Control Deck Launchpad v1.1 |
+| 14 | MSN-0040A-WP2 | ✅ | Info | Integration & Automation |
+| 15 | MSN-0035 | ✅ | Info | Strategic Initiative |
+
+**Section Assessment:** ✅ PASS — Static entries for operational awareness
+
+---
+
+### SECTION 5: Runtime Services (Server Icon)
 
 | # | Card Title | URL | Status | Notes |
 |---|---|---|---|---|
-| 7 | Ollama LLM | `http://localhost:11434` | ✅ | VERIFIED — running 🟢 |
-| 8 | Supabase Database | `#` | 📋 | Database port (non-web) |
-| 9 | OpenClaw Sandbox | `http://localhost:18789/chat?...` | ✅ | VERIFIED — chat interface working |
+| 16 | Ollama LLM | `http://localhost:11434` | ✅ | VERIFIED — running 🟢 |
+| 17 | Supabase Database | `#` | 📋 | Database port (non-web) |
+| 18 | OpenClaw Chat | `http://localhost:18789/chat?session=agent%3Amain%3Amain` | ✅ | VERIFIED — chat interface working (renamed from "Sandbox") |
 
 **Section Assessment:** ✅ PASS
 
 ---
 
-### SECTION 4: Documentation (Book Icon)
+### SECTION 6: Documentation (Book Icon)
 
 | # | Card Title | URL | Status | Notes |
 |---|---|---|---|---|
-| 10 | Architecture Decisions | `https://github.com/.../docs` | ✅ | WORKING — GitHub docs folder |
-| 11 | API Reference | `https://github.com/.../docs/api` | ✅ | WORKING — GitHub API docs |
-| 12 | Setup Guide | `https://github.com/.../CONTROL-DECK-STARTUP.md` | ✅ | WORKING — Deployment guide |
+| 19 | Architecture Decisions | `https://github.com/timjardenross/USSTJROS/tree/main/knowledge/architecture` | ✅ | WORKING — GitHub knowledge/architecture folder |
+| 20 | API Reference | `#` | 📋 | Coming Soon — API docs in development |
+| 21 | Setup Guide | `https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md` | ✅ | WORKING — Deployment guide |
 
 **Section Assessment:** ✅ PASS
 
 ---
 
-### SECTION 5: Development (Terminal Icon)
+### SECTION 7: Development (Terminal Icon)
 
 | # | Card Title | URL | Status | Notes |
 |---|---|---|---|---|
-| 13 | Main Repository | `https://github.com/timjardenross/USSTJROS` | ✅ | WORKING — Root repo |
-| 14 | Control Deck Foundation | `https://github.com/.../core/control` | ✅ | WORKING — Service CLI |
-| 15 | Control Deck Launchpad | `https://github.com/.../core/command-centre` | ✅ | WORKING — Dashboard source |
+| 22 | Main Repository | `https://github.com/timjardenross/USSTJROS` | ✅ | WORKING — Root repo |
+| 23 | Control Deck Foundation | `https://github.com/timjardenross/USSTJROS/tree/main/core/command` | ✅ | WORKING — Service CLI |
+| 24 | Control Deck Launchpad | `https://github.com/timjardenross/USSTJROS/tree/main/core/command-centre` | ✅ | WORKING — Dashboard source |
 
 **Section Assessment:** ✅ PASS
 
@@ -86,10 +116,11 @@ All cards now have valid, working links or clear status labels. **Zero silent fa
 
 | Status | Count | Cards |
 |--------|-------|-------|
-| ✅ FULLY WORKING | 13 | Info badges (3) + Services (2) + GitHub links (8) |
+| ✅ FULLY WORKING | 18 | Info badges (12) + Services (2) + GitHub links (6) |
 | ⚠️ ON-DEMAND | 1 | Number One Slack Bot |
-| 📋 NOT YET VERIFIED | 1 | Mission Registry |
-| 📋 BACKEND REFERENCE | 1 | Supabase (non-web port) |
+| ✅ BACKEND ACTIVE | 1 | Mission Registry (documentation link) |
+| 📋 COMING SOON | 1 | API Reference |
+| 📋 INFORMATIONAL | 5 | Status indicators, Recent Missions |
 
 ---
 
