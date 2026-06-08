@@ -17,7 +17,7 @@ pageInfo:
 
 # Appearance Configuration
 appConfig:
-  theme: starfleet-dark
+  theme: nord
   layout: grid
   iconSize: medium
   language: en
