@@ -13,31 +13,40 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f5f5f5;
+            background: #0a0e27;
             padding: 20px;
         }
 
         .blocked-container {
             max-width: 1000px;
             margin: 0 auto;
-            background: white;
+            background: #1a1a2e;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 28px;
+            border: 3px solid #FF4444;
         }
 
         .blocked-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 16px;
+            margin-bottom: 28px;
+            border-bottom: 3px solid #FF4444;
+            padding-bottom: 20px;
         }
 
         .blocked-header h1 {
-            font-size: 24px;
-            color: #333;
+            font-size: 32px;
+            font-weight: bold;
+            color: #FF4444;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .blocked-header h1::before {
+            content: "◆ ";
+            margin-right: 8px;
         }
 
         .header-stats {
@@ -51,145 +60,171 @@
         }
 
         .stat-number {
-            font-size: 28px;
+            font-size: 36px;
             font-weight: bold;
-            color: #F44336;
+            color: #FF4444;
+            letter-spacing: 1px;
         }
 
         .stat-label {
             font-size: 12px;
-            color: #666;
-            margin-top: 4px;
+            color: #AAA;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .refresh-btn {
-            padding: 8px 16px;
-            background: #007bff;
-            color: white;
-            border: none;
+            padding: 10px 20px;
+            background: #FF4444;
+            color: #000;
+            border: 2px solid #FF4444;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            transition: background 0.2s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         .refresh-btn:hover {
-            background: #0056b3;
+            background: #FF0000;
+            border-color: #FF0000;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
         }
 
         .refresh-btn:disabled {
-            background: #ccc;
+            background: #444;
+            border-color: #666;
+            color: #888;
             cursor: not-allowed;
         }
 
         /* Filter Buttons */
         .filter-buttons {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             margin-bottom: 24px;
             flex-wrap: wrap;
         }
 
         .filter-btn {
-            padding: 8px 16px;
-            border: 2px solid #ddd;
-            background: white;
-            color: #333;
+            padding: 10px 18px;
+            border: 2px solid #444;
+            background: #2a2a3e;
+            color: #AAA;
             border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .filter-btn:hover {
-            border-color: #007bff;
-            color: #007bff;
+            border-color: #FF4444;
+            color: #FF4444;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.3);
         }
 
         .filter-btn.active {
-            background: #007bff;
-            color: white;
-            border-color: #007bff;
+            background: #FF4444;
+            color: #000;
+            border-color: #FF4444;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
         }
 
         /* Blocked Mission Cards */
         .blocked-missions-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
         }
 
         .blocked-card {
-            border: 2px solid #F44336;
+            border: 3px solid #FF4444;
             border-radius: 8px;
             padding: 20px;
-            background: #fff5f5;
+            background: linear-gradient(135deg, #2a2a3e 0%, rgba(255, 68, 68, 0.1) 100%);
             transition: all 0.3s ease;
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 68, 68, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(255, 68, 68, 0.6); }
         }
 
         .blocked-card:hover {
-            box-shadow: 0 8px 16px rgba(244, 67, 54, 0.2);
-            border-color: #D32F2F;
+            box-shadow: 0 8px 20px rgba(255, 68, 68, 0.5);
+            border-color: #FF0000;
+            transform: translateY(-2px);
         }
 
         .blocked-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
+            font-size: 18px;
+            font-weight: 700;
+            color: #FFF;
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .blocked-id {
             font-size: 12px;
             color: #999;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
             font-family: monospace;
         }
 
         .block-reason {
-            background: white;
-            border-left: 3px solid #FF9800;
-            padding: 12px;
+            background: rgba(255, 68, 68, 0.1);
+            border-left: 3px solid #FF4444;
+            padding: 14px;
             border-radius: 4px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         .block-reason-label {
             font-size: 11px;
-            font-weight: 600;
-            color: #FF9800;
+            font-weight: 700;
+            color: #FF4444;
             text-transform: uppercase;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
 
         .block-reason-text {
             font-size: 13px;
-            color: #333;
-            line-height: 1.5;
+            color: #CCC;
+            line-height: 1.6;
+            font-weight: 500;
         }
 
         .block-reason-detail {
             font-size: 12px;
-            color: #666;
-            margin-top: 6px;
+            color: #999;
+            margin-top: 8px;
             font-style: italic;
         }
 
         .resolution-steps {
-            background: #E8F5E9;
+            background: rgba(76, 175, 80, 0.1);
             border-left: 3px solid #4CAF50;
-            padding: 12px;
+            padding: 14px;
             border-radius: 4px;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         .resolution-label {
             font-size: 11px;
-            font-weight: 600;
-            color: #2E7D32;
+            font-weight: 700;
+            color: #00DD00;
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
         }
 
         .resolution-steps-list {
