@@ -86,9 +86,9 @@ sections:
     icon: fas fa-chess-board
     items:
       - title: Mission Registry
-        description: "Backend Active (Supabase) — UI Pending"
-        icon: fas fa-flag
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/knowledge/Mission-Management"
+        description: "📋 Active missions, progress tracking (Supabase Live)"
+        icon: fas fa-tasks
+        url: "/dashboards/mission-registry.html"
         target: _blank
 
       - title: Number One (Slack Bot)
