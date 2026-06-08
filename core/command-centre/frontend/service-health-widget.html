@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Health Dashboard Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .widget-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+        }
+
+        .widget-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 16px;
+        }
+
+        .widget-header h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-badge.operational {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.degraded {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .last-check {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+
+        .refresh-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .auto-refresh-toggle input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        /* Service Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .service-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .service-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+        }
+
+        .service-card.operational {
+            border-left: 4px solid #4CAF50;
+            background-color: #fafff9;
+        }
+
+        .service-card.degraded {
+            border-left: 4px solid #FF9800;
+            background-color: #fffaf0;
+        }
+
+        .service-card.offline {
+            border-left: 4px solid #F44336;
+            background-color: #fff5f5;
+        }
+
+        .service-card.api-unavailable {
+            opacity: 0.6;
+            background-color: #f5f5f5;
+            border-left: 4px solid #999;
+        }
+
+        .service-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .service-status {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            font-size: 20px;
+        }
+
+        .service-details {
+            font-size: 12px;
+            color: #999;
+            line-height: 1.6;
+        }
+
+        .service-detail-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .detail-label {
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #666;
+            text-align: right;
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .stat-box.operational .stat-number {
+            color: #4CAF50;
+        }
+
+        .stat-box.degraded .stat-number {
+            color: #FF9800;
+        }
+
+        .stat-box.offline .stat-number {
+            color: #F44336;
+        }
+
+        /* Loading & Error States */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            padding: 16px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .cached-indicator {
+            font-size: 11px;
+            color: #999;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .no-services {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .widget-container {
+                padding: 16px;
+            }
+
+            .widget-header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="widget-container">
+        <!-- Header -->
+        <div class="widget-header">
+            <h1>Service Health Dashboard</h1>
+            <div class="header-controls">
+                <div class="last-check">
+                    <span id="last-check-time">Never checked</span>
+                </div>
+                <div class="auto-refresh-toggle">
+                    <input type="checkbox" id="auto-refresh-toggle" checked>
+                    <label for="auto-refresh-toggle">Auto-refresh (30s)</label>
+                </div>
+                <button class="refresh-btn" id="refresh-btn" onclick="refreshHealth()">Refresh Now</button>
+            </div>
+        </div>
+
+        <!-- Error Message (if needed) -->
+        <div id="error-container" style="display: none;"></div>
+
+        <!-- Summary Stats -->
+        <div id="summary-stats" class="summary-stats"></div>
+
+        <!-- Services Grid -->
+        <div id="services-grid" class="services-grid">
+            <div class="loading">
+                <span class="spinner"></span>
+                Loading service health...
+            </div>
+        </div>
+    </div>
+
+    <script src="/frontend/control-engine-client.js"></script>
+    <script>
+        // Initialize
+        let client = new ControlEngineClient('http://localhost:8888');
+        let lastHealthData = null;
+        let autoRefreshInterval = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshHealth();
+            setupAutoRefresh();
+        });
+
+        // Auto-refresh toggle
+        document.getElementById('auto-refresh-toggle').addEventListener('change', setupAutoRefresh);
+
+        function setupAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            if (document.getElementById('auto-refresh-toggle').checked) {
+                autoRefreshInterval = setInterval(refreshHealth, 30000); // 30 seconds
+            }
+        }
+
+        async function refreshHealth() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const gridContainer = document.getElementById('services-grid');
+            const errorContainer = document.getElementById('error-container');
+
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+
+            try {
+                const health = await client.getHealth();
+                lastHealthData = health;
+
+                // Clear error message
+                errorContainer.style.display = 'none';
+                errorContainer.innerHTML = '';
+
+                // Update summary stats
+                updateSummaryStats(health);
+
+                // Update services grid
+                updateServicesGrid(health);
+
+                // Update last check time
+                updateLastCheckTime();
+
+            } catch (error) {
+                console.error('Failed to fetch health:', error);
+                showError(`Failed to fetch service health: ${error.message}`);
+
+                // Show cached data if available
+                if (lastHealthData) {
+                    updateSummaryStats(lastHealthData);
+                    updateServicesGrid(lastHealthData, true);
+                } else {
+                    gridContainer.innerHTML = '<div class="no-services">Unable to fetch service health</div>';
+                }
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Refresh Now';
+            }
+        }
+
+        function updateSummaryStats(health) {
+            const statsContainer = document.getElementById('summary-stats');
+
+            if (!health.services) {
+                statsContainer.innerHTML = '';
+                return;
+            }
+
+            const services = Object.values(health.services);
+            const operational = services.filter(s => s.status === 'operational').length;
+            const degraded = services.filter(s => s.status === 'degraded').length;
+            const offline = services.filter(s => s.status === 'offline').length;
+            const total = services.length;
+
+            statsContainer.innerHTML = `
+                <div class="stat-box operational">
+                    <div class="stat-number">${operational}</div>
+                    <div class="stat-label">Operational</div>
+                </div>
+                <div class="stat-box degraded">
+                    <div class="stat-number">${degraded}</div>
+                    <div class="stat-label">Degraded</div>
+                </div>
+                <div class="stat-box offline">
+                    <div class="stat-number">${offline}</div>
+                    <div class="stat-label">Offline</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${total}</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            `;
+        }
+
+        function updateServicesGrid(health, isCached = false) {
+            const gridContainer = document.getElementById('services-grid');
+
+            if (!health.services || Object.keys(health.services).length === 0) {
+                gridContainer.innerHTML = '<div class="no-services">No services found</div>';
+                return;
+            }
+
+            const servicesHtml = Object.entries(health.services)
+                .map(([serviceName, serviceData]) => {
+                    const status = serviceData.status || 'unknown';
+                    const statusEmoji = getStatusEmoji(status);
+                    const statusText = getStatusText(status);
+                    const timestamp = serviceData.timestamp ? new Date(serviceData.timestamp).toLocaleTimeString() : 'N/A';
+
+                    return `
+                        <div class="service-card ${status}${isCached ? ' api-unavailable' : ''}">
+                            <div class="service-name">
+                                <span class="status-indicator">${statusEmoji}</span>
+                                ${serviceName}
+                            </div>
+                            <div class="service-status">${statusText}</div>
+                            <div class="service-details">
+                                <div class="service-detail-line">
+                                    <span class="detail-label">Last Check:</span>
+                                    <span class="detail-value">${timestamp}</span>
+                                </div>
+                                ${serviceData.uptime ? `
+                                    <div class="service-detail-line">
+                                        <span class="detail-label">Uptime:</span>
+                                        <span class="detail-value">${serviceData.uptime}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${isCached ? '<div class="cached-indicator">⚠️ Cached data - API unavailable</div>' : ''}
+                        </div>
+                    `;
+                })
+                .join('');
+
+            gridContainer.innerHTML = servicesHtml;
+        }
+
+        function updateLastCheckTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('last-check-time').textContent = `Last check: ${timeString}`;
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+            errorContainer.style.display = 'block';
+        }
+
+        function getStatusEmoji(status) {
+            const emojis = {
+                'operational': '✅',
+                'degraded': '⚠️',
+                'offline': '❌',
+                'pending': '⏳',
+                'unknown': '❓'
+            };
+            return emojis[status] || '❓';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'operational': 'Operational',
+                'degraded': 'Degraded',
+                'offline': 'Offline',
+                'pending': 'Pending',
+                'on-demand': 'On Demand',
+                'unknown': 'Unknown'
+            };
+            return texts[status] || 'Unknown';
+        }
+    </script>
+</body>
+</html>
