@@ -63,9 +63,9 @@ def handle_decisions_active(ack, body, say):
         # Format as Slack mrkdwn
         message = "*Recent Decisions:*\n\n"
         for decision in decisions:
-            decision_text = decision.get("decision_text", "Unknown")[:100]
-            status = decision.get("status", "proposed")
-            message += f"• {decision_text}... (status: {status})\n"
+            statement = decision.get("statement", "Unknown")[:100]
+            status = decision.get("status", "Active")
+            message += f"• {statement}... (status: {status})\n"
 
         say(message)
         log.info("[memory-queries] /decisions-active executed")
@@ -99,14 +99,14 @@ def handle_memory_search(ack, body, say):
         # Format as Slack mrkdwn
         message = f"*Search results for `{command_text}`:*\n\n"
         for result in results:
-            # Determine result type based on available fields
-            if "mission_id" in result:
+            # Determine result type based on available fields (schema-compliant field names)
+            if "title" in result:
                 title = result.get("title", "Untitled")
-                mission_id = result.get("mission_id", "Unknown")
+                mission_id = result.get("id", "Unknown")
                 message += f"• Mission: `{mission_id}` — {title}\n"
-            elif "decision_text" in result:
-                text = result.get("decision_text", "Unknown")[:80]
-                message += f"• Decision: {text}...\n"
+            elif "statement" in result:
+                statement = result.get("statement", "Unknown")[:80]
+                message += f"• Decision: {statement}...\n"
 
         say(message)
         log.info(f"[memory-queries] /memory-search executed (query: {command_text})")

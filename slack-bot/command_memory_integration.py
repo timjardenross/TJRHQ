@@ -97,7 +97,7 @@ def save_mission_to_memory(
 
 def save_decision_to_memory(
     decision_text: str,
-    status: str = "proposed",
+    status: str = "Active",
     user_id: str = "slack-bot",
     metadata: Optional[Dict[str, Any]] = None,
 ) -> bool:
@@ -105,7 +105,7 @@ def save_decision_to_memory(
 
     Args:
         decision_text: Decision statement
-        status: Decision status (e.g., 'proposed', 'accepted')
+        status: Decision status (e.g., 'Active', 'Superseded', 'Archived')
         user_id: User who logged the decision
         metadata: Optional metadata dict (ignored; not in schema)
 
@@ -117,16 +117,20 @@ def save_decision_to_memory(
         return False
 
     try:
+        from datetime import datetime
         # Normalize status to schema values: Active, Superseded, Archived
         normalized_status = status.capitalize() if status else "Active"
+        decision_id = f"DEC-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         data = {
+            "id": decision_id,
             "statement": decision_text,
+            "rationale": "",
             "status": normalized_status,
             "created_by": user_id,
             "owner": user_id,
         }
         client.table("decisions").insert(data).execute()
-        log.debug(f"[command-memory] Decision saved")
+        log.debug(f"[command-memory] Decision saved: {decision_id}")
         return True
     except Exception as e:
         log.warning(f"[command-memory] Failed to save decision: {e}")
@@ -238,11 +242,11 @@ def search_memory(query: str) -> List[Dict[str, Any]]:
             .execute()
         )
 
-        # Search decisions
+        # Search decisions (schema uses 'statement' field, not 'decision_text')
         decisions = (
             client.table("decisions")
             .select("*")
-            .ilike("decision_text", f"%{query}%")
+            .ilike("statement", f"%{query}%")
             .limit(2)
             .execute()
         )

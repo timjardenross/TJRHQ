@@ -198,36 +198,31 @@ def handle_save_decision(
             rel_path = path_or_reason
         log.info("[decision-log-save] Saved to %s", path_or_reason)
 
-        # MSN-0040A: Log decision to Command Memory
-        try:
-            from commands.decision_to_memory import save_decision_after_logging
-            save_decision_after_logging(
-                decision_text=text,
-                markdown_path=path_or_reason,
-                user_id="slack-bot",  # Will be replaced by actual user_id when available
-            )
-        except Exception as e:
-            log.error("[decision-log-save] Failed to log decision to Command Memory: %s", e)
-            # Non-blocking failure — decision record still created locally
-        # MSN-0040A: persist the decision to Command Memory (non-blocking).
+        # MSN-0040A: Persist decision to Command Memory (non-blocking)
         try:
             from commands.decision_to_memory import save_decision_after_logging
 
             statement = _extract_section(llm_output, "Decision") or text.strip()[:500]
             rationale = _extract_section(llm_output, "Rationale") or ""
-            save_decision_after_logging(
+            saved = save_decision_after_logging(
                 statement=statement,
                 rationale=rationale,
-                user_id=user_id or "unknown",
+                user_id=user_id or "slack-bot",
             )
         except Exception as exc:  # pragma: no cover - non-blocking safety net
             log.error("[decision-log-save] Command Memory write failed: %s", exc)
+            saved = False
 
-        return (
+        result = (
             f"*DECISION LOG ENTRY — SAVED*\n\n"
             f"```{llm_output}```\n\n"
             f":white_check_mark: *Saved to:* `{rel_path}`"
         )
+        if saved:
+            result += "\n\n:white_check_mark: Saved to Command Memory"
+        else:
+            result += "\n\n:warning: Could not reach Command Memory — saved locally only"
+        return result
     else:
         log.warning("[decision-log-save] Save failed: %s", path_or_reason)
         return (
