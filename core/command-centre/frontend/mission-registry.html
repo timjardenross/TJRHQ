@@ -461,7 +461,8 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab-btn active" data-tab="active">🚀 Active Missions</button>
+            <button class="tab-btn active" data-tab="all">📋 All Missions</button>
+            <button class="tab-btn" data-tab="active">🚀 Active Missions</button>
             <button class="tab-btn" data-tab="recent">⭐ Recently Completed</button>
             <button class="tab-btn" data-tab="blocked">🔴 Blocked</button>
         </div>
@@ -479,7 +480,7 @@
     <script>
         // Supabase Configuration - Anon Key Only (RLS enforced)
         const SUPABASE_URL = 'https://cjvrpjwewsrumnbdydgg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwand3c3J1bW5iZHlkZ2ciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcyMzE2MDEzNywiZXhwIjoyMDM4NzM2MTM3fQ.lFQwOgpJvS6kZFNcYnVhzZvP5QxYhDXzYkM8vP9KpXI';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwandld3NydW1uYmR5ZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTYyMjgsImV4cCI6MjA5NjE3MjIyOH0.MNm9UB_xTsLslHxWdg7mITDgQ0zPnciJUG3tpmp6Mjw';
 
         // Debug mode
         const DEBUG = true;
@@ -625,19 +626,19 @@
         function getFilteredMissions() {
             let filtered = allMissions;
 
-            // Tab view overrides filter
-            if (currentTab === 'active') {
+            // Tab view - primary filter
+            if (currentTab === 'all') {
+                // Show all missions, apply status filter if not 'all'
+                if (currentFilter !== 'all') {
+                    filtered = filtered.filter(m => m.status === currentFilter);
+                }
+            } else if (currentTab === 'active') {
                 filtered = filtered.filter(m => m.status === 'active');
             } else if (currentTab === 'recent') {
                 filtered = filtered.filter(m => m.status === 'completed')
-                    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             } else if (currentTab === 'blocked') {
                 filtered = filtered.filter(m => m.status === 'blocked');
-            }
-
-            // If we're on the default tab view, apply filter buttons
-            if (currentTab === 'active' && currentFilter !== 'all') {
-                filtered = filtered.filter(m => m.status === currentFilter);
             }
 
             return filtered;
