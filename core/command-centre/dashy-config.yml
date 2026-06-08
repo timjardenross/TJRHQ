@@ -210,6 +210,12 @@ sections:
         url: "/dashboards/status.html"
         target: _blank
 
+      - title: Mission Registry
+        description: "📋 Active missions, progress tracking (Starfleet Theme)"
+        icon: fas fa-tasks
+        url: "/dashboards/mission-registry.html"
+        target: _blank
+
   # SECTION 8: DEVELOPMENT
   - title: Development
     icon: fas fa-terminal
