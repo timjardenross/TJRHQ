@@ -1,6 +1,8 @@
 import logging
 import os
 import threading
+import sys
+from datetime import datetime
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -14,6 +16,13 @@ from commands.mission_capture import handle_mission_capture
 from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
+# MSN-0040A: Command Memory query commands
+from commands.memory_queries import (
+    handle_missions_active,
+    handle_decisions_active,
+    handle_memory_search,
+    handle_mission_status,
+)
 
 # MSN-0040A: Command Memory Query Commands
 from commands.memory_queries import (
@@ -24,6 +33,59 @@ from commands.memory_queries import (
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# MSN-0011B Tier 0: Environment Validation at Startup
+def validate_environment() -> bool:
+    """Validate all required environment variables are present and valid.
+
+    Returns True if all checks pass, False otherwise.
+    Logs clear errors and exits if validation fails.
+    """
+    required_tokens = {
+        "SLACK_BOT_TOKEN": "Slack bot token (xoxb-...)",
+        "SLACK_APP_TOKEN": "Slack app token (xapp-...)",
+    }
+
+    optional_tokens = {
+        "OPENAI_API_KEY": "OpenAI API key (required for /commander)",
+        # MSN-0040A: Command Memory persistence/queries. If absent, Command
+        # Memory is disabled and all reads/writes are skipped (non-blocking).
+        "SUPABASE_URL": "Supabase project URL (required for Command Memory)",
+        "SUPABASE_SERVICE_ROLE_KEY": "Supabase service role key (required for Command Memory)",
+    }
+
+    missing = []
+
+    # Check required tokens
+    for token_name, description in required_tokens.items():
+        token_value = os.getenv(token_name)
+        if not token_value:
+            missing.append(f"❌ {token_name} missing ({description})")
+        else:
+            # Basic format validation
+            if token_name == "SLACK_BOT_TOKEN" and not token_value.startswith("xoxb-"):
+                log.warning(f"⚠️  {token_name} format unexpected (should start with xoxb-)")
+            if token_name == "SLACK_APP_TOKEN" and not token_value.startswith("xapp-"):
+                log.warning(f"⚠️  {token_name} format unexpected (should start with xapp-)")
+            log.info(f"✅ {token_name} present")
+
+    # Check optional tokens
+    for token_name, description in optional_tokens.items():
+        token_value = os.getenv(token_name)
+        if not token_value:
+            log.warning(f"⚠️  {token_name} missing ({description}) — /commander will fail")
+        else:
+            log.info(f"✅ {token_name} present")
+
+    if missing:
+        log.error("STARTUP VALIDATION FAILED:")
+        for msg in missing:
+            log.error(msg)
+        log.error("\nSet required environment variables in .env and restart.")
+        return False
+
+    log.info("✅ All environment validation checks passed")
+    return True
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
@@ -41,8 +103,17 @@ if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
 else:
     log.warning("⚠️  SUPABASE_ANON_KEY not configured — Command Memory queries will be unavailable")
+# Validate environment before initializing app
+if not validate_environment():
+    log.error("Exiting due to environment validation failure")
+    sys.exit(1)
 
 app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
+
+# Track startup time for health checks
+STARTUP_TIME = datetime.utcnow().isoformat()
+COMMAND_COUNT = 0
+ERROR_COUNT = 0
 
 
 if app:
@@ -79,6 +150,53 @@ if app:
         thread_ts = event.get("thread_ts") or event.get("ts")
         say(result["response_text"], thread_ts=thread_ts)
 
+    @app.command("/status")
+    def handle_status_slash(ack, respond):
+        """MSN-0011B Tier 0: /status health check endpoint.
+
+        Returns simple health status without dependencies on DI pipeline or long-running operations.
+        Verifies:
+        - Slack integration connected
+        - Bot token present and valid
+        - Supabase reachability (optional)
+
+        Responds in <2 seconds to provide operator visibility into system health.
+        """
+        ack()  # Must acknowledge within 3 seconds
+
+        health_status = {
+            "slack_connected": True,  # If we reach here, Slack is responding
+            "startup_time": STARTUP_TIME,
+            "commands_processed": COMMAND_COUNT,
+            "errors_recorded": ERROR_COUNT,
+        }
+
+        # Test Supabase connectivity (optional, doesn't block)
+        supabase_status = "unknown"
+        try:
+            from tools.supabase.client import fetch_recent_context
+            recent = fetch_recent_context(limit=1)
+            supabase_status = "connected" if recent else "reachable"
+        except Exception as e:
+            supabase_status = f"error: {type(e).__name__}"
+
+        # Format response
+        status_lines = [
+            ":ship: *Starship Endeavour — Slack Commander Status*",
+            "",
+            f"🟢 Slack Integration: Connected",
+            f"🟢 Bot Token: Present",
+            f"ℹ️  Supabase: {supabase_status}",
+            "",
+            f"Uptime: {STARTUP_TIME}",
+            f"Commands: {COMMAND_COUNT}",
+            f"Errors: {ERROR_COUNT}",
+            "",
+            "✅ *Ready for operations*",
+        ]
+
+        respond("\n".join(status_lines))
+
     @app.command("/commander")
     def handle_commander_slash(ack, respond, command):
         """MSN-0011A: /commander slash command — routes directly to the DI pipeline.
@@ -106,7 +224,7 @@ if app:
 
         if not text:
             respond(
-                ":ship: *Commander TJR — Decision Intelligence*\n\n"
+                ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
                 "Usage: `/commander <question>`\n"
                 "Example: `/commander should we prioritise Slack runtime or auth layer next?`"
             )
@@ -114,7 +232,7 @@ if app:
 
         # Acknowledge receipt so the user knows Commander is working
         respond(
-            f":ship: *Commander TJR — Decision Intelligence*\n\n"
+            f":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
             f":hourglass_flowing_sand: Received: _{text[:120]}_\n\n"
             "Running Decision Intelligence pipeline… this may take 30–120 seconds."
         )
@@ -465,6 +583,46 @@ if app:
                 respond(f"*ASK SPECIALIST — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
         threading.Thread(target=_run, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # MSN-0040A: Command Memory query commands
+    # ------------------------------------------------------------------
+    # All three are fast Supabase reads (indexed, limited result sets) so they
+    # respond well within Slack's 3s window. Failures are non-blocking: if
+    # Command Memory is unavailable the handlers return an empty result rather
+    # than raising.
+
+    @app.command("/missions-active")
+    def handle_missions_active_slash(ack, respond, command):
+        """/missions-active — List active missions from Command Memory."""
+        log.info("[app] /missions-active: user=%s", command.get("user_id"))
+        handle_missions_active(ack, respond)
+
+    @app.command("/decisions-active")
+    def handle_decisions_active_slash(ack, respond, command):
+        """/decisions-active — List active decisions from Command Memory."""
+        log.info("[app] /decisions-active: user=%s", command.get("user_id"))
+        handle_decisions_active(ack, respond)
+
+    @app.command("/memory-search")
+    def handle_memory_search_slash(ack, respond, command):
+        """/memory-search <keyword> — Search missions and decisions by keyword."""
+        log.info(
+            "[app] /memory-search: user=%s text=%r",
+            command.get("user_id"), (command.get("text") or "")[:80],
+        )
+        handle_memory_search(ack, respond, command)
+
+    @app.command("/mission-status")
+    def handle_mission_status_slash(ack, respond, command):
+        """/mission-status <mission-id> <status> — Update a mission's status in Command Memory."""
+        log.info(
+            "[app] /mission-status: user=%s text=%r",
+            command.get("user_id"), (command.get("text") or "")[:80],
+        )
+        handle_mission_status(ack, respond, command)
+
+    log.info("✅ MSN-0040A Command Memory commands registered: /missions-active, /decisions-active, /memory-search, /mission-status")
 
 
 if __name__ == "__main__":

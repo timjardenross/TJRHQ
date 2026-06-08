@@ -34,7 +34,7 @@ RESPONSE_TYPES = frozenset({
 _DEFAULT_TYPE = "INFO"
 
 # Prefix prepended by supabase_commander_intake.run_supabase_commander()
-_INTAKE_HEADER = ":ship: *Commander TJR — Decision Intelligence*"
+_INTAKE_HEADER = ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*"
 
 # Emoji markers that indicate the intake module posted an error/fallback
 _ERROR_MARKERS = (":warning:", ":hourglass:", ":x:")
@@ -147,6 +147,12 @@ def format_commander_response(response: dict) -> str:
 
         <body>
 
+        _Routing Intelligence_   (MSN-0032: if available)
+        • Primary Specialist: <specialist>
+        • Intent: <intent>
+        • Confidence: <band>
+        (secondary specialists if present)
+
         _Metadata_
         • Source: <source>
         • Lifecycle State: <state>   (line omitted when None)
@@ -155,6 +161,9 @@ def format_commander_response(response: dict) -> str:
     Args:
         response: Dict with keys type, body, lifecycle_state, confidence,
                   metadata. All fields are optional; safe defaults are used.
+                  MSN-0032: Also checks for routing intelligence keys:
+                    - semantic_intent, semantic_confidence_band,
+                    - primary_specialist, secondary_specialists, semantic_rationale
 
     Returns:
         Slack mrkdwn string.
@@ -184,6 +193,9 @@ def format_commander_response(response: dict) -> str:
     confidence = response.get("confidence")
     source = (response.get("metadata") or {}).get("source") or "Commander"
 
+    # MSN-0032: Extract routing intelligence if present
+    routing_lines = _format_routing_intelligence(response)
+
     metadata_lines: list[str] = [f"• Source: {source}"]
     if lifecycle_state:
         metadata_lines.append(f"• Lifecycle State: {lifecycle_state}")
@@ -191,4 +203,37 @@ def format_commander_response(response: dict) -> str:
         metadata_lines.append(f"• Confidence: {confidence}")
 
     metadata_block = "_Metadata_\n" + "\n".join(metadata_lines)
-    return f"*Commander Response — {response_type}*\n\n{body}\n\n{metadata_block}"
+
+    # Combine response, routing intelligence, and metadata
+    if routing_lines:
+        routing_block = "_Routing Intelligence_\n" + "\n".join(routing_lines)
+        return f"*Commander Response — {response_type}*\n\n{body}\n\n{routing_block}\n\n{metadata_block}"
+    else:
+        return f"*Commander Response — {response_type}*\n\n{body}\n\n{metadata_block}"
+
+
+def _format_routing_intelligence(response: dict) -> list[str]:
+    """Extract and format MSN-0032 routing intelligence block.
+
+    MSN-0032: Returns formatted routing decision from semantic routing.
+    Returns empty list if routing data not present.
+    """
+    lines = []
+
+    primary = response.get("primary_specialist")
+    if primary:
+        lines.append(f"• Primary Specialist: {primary}")
+
+    intent = response.get("semantic_intent")
+    if intent:
+        lines.append(f"• Intent: {intent.replace('_', ' ').title()}")
+
+    confidence_band = response.get("semantic_confidence_band")
+    if confidence_band:
+        lines.append(f"• Confidence: {confidence_band.title()}")
+
+    secondaries = response.get("secondary_specialists")
+    if secondaries:
+        lines.append(f"• Secondary Options: {', '.join(secondaries)}")
+
+    return lines

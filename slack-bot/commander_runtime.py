@@ -239,7 +239,7 @@ Mission Domain:
 Assigned Specialists:
 {', '.join(routing['assigned_specialists'])}
 
-Respond as Commander TJR using the USS TJR mission format.
+Respond as Executive Officer of Starship Endeavour using the Starship Endeavour mission format.
 """
     success, response = ask_commander_for_specialists(
         system_prompt=request.context.system_prompt,
@@ -401,7 +401,7 @@ def fallback_response(request: BotRequest, error_message: str) -> BotResponse:
         "",
         "## Next Actions",
         "",
-        "- Retry the request or route it to Chief of Staff for triage.",
+        "- Retry the request or escalate to Executive Officer (XO) for triage.",
     ])
     return BotResponse(False, content, request.context.intent.intent_type, error=error_message)
 
