@@ -163,7 +163,53 @@ sections:
         url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md"
         target: _blank
 
-  # SECTION 7: DEVELOPMENT
+  # SECTION 7: OPERATIONAL DASHBOARDS (TRACK 1)
+  - title: Operational Dashboards
+    icon: fas fa-monitor
+    items:
+      - title: Service Health Widget
+        description: "🟢 Real-time service status (Starfleet Theme)"
+        icon: fas fa-heartbeat
+        url: "/dashboards/service-health-widget.html"
+        target: _blank
+
+      - title: Mission Metrics
+        description: "📊 Performance & mission tracking (Starfleet Theme)"
+        icon: fas fa-chart-bar
+        url: "/dashboards/mission-metrics.html"
+        target: _blank
+
+      - title: Activity Feed
+        description: "📡 Real-time operations log (Starfleet Theme)"
+        icon: fas fa-stream
+        url: "/dashboards/activity-feed.html"
+        target: _blank
+
+      - title: Blocked Missions
+        description: "🔴 Alert: Mission blockers (Starfleet Theme)"
+        icon: fas fa-exclamation-triangle
+        url: "/dashboards/blocked-missions.html"
+        target: _blank
+
+      - title: AI Lab Status
+        description: "🔬 AI services & resources (Starfleet Theme)"
+        icon: fas fa-flask
+        url: "/dashboards/ai-lab-status.html"
+        target: _blank
+
+      - title: Restart History
+        description: "🔄 Service restart logs & trends (Starfleet Theme)"
+        icon: fas fa-sync-alt
+        url: "/dashboards/restart-history.html"
+        target: _blank
+
+      - title: System Status Page
+        description: "★ Overall system health (Starfleet Theme)"
+        icon: fas fa-server
+        url: "/dashboards/status.html"
+        target: _blank
+
+  # SECTION 8: DEVELOPMENT
   - title: Development
     icon: fas fa-terminal
     items:
