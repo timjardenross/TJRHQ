@@ -9,7 +9,7 @@ services:
     ports:
       - "8081:80"
     volumes:
-      - ./dashy-config.yml:/app/public/conf.yml
+      - ./dashy-config.yml:/app/user-data/conf.yml
       - ./theme-starfleet.css:/app/public/theme-starfleet.css
       - ./assets:/app/public/assets
       - ./data:/app/data

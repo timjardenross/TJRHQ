@@ -1,0 +1,149 @@
+# STARFLEET COMMAND Bridge Configuration
+# Dashy v4 Compatible Schema
+# Mission: M-20260609-000000
+#
+# IMPORTANT: Uses only Dashy v4-supported fields
+# - Removes customColors (not supported in v4)
+# - Removes displayData (not standard)
+# - Uses nord theme (verified working)
+# - Simplified appConfig with only supported options
+# - Uses only: pageInfo, appConfig, sections, items
+
+pageInfo:
+  title: STARFLEET COMMAND BRIDGE
+  description: USS TJR Control Deck Launchpad
+  navLinks: []
+
+appConfig:
+  theme: nord
+  layout: grid
+  columns: 4
+  itemSize: small
+  language: en
+  showSettings: false
+  showAbout: false
+  showErrorLog: false
+
+sections:
+  - title: Ship Status
+    icon: fas fa-starship
+    items:
+      - title: Starship Endeavour
+        description: NCC-170230
+        icon: fas fa-rocket
+
+      - title: Captain TJR
+        description: In Command
+        icon: fas fa-user-tie
+
+      - title: Status Operational
+        description: Stardate 2026.160
+        icon: fas fa-check-circle
+
+  - title: Command Operations
+    icon: fas fa-chess-board
+    items:
+      - title: Number One
+        description: Slack Bot - Start When Required
+        url: http://localhost:3001
+        icon: fab fa-slack
+        target: _blank
+
+      - title: Mission Registry
+        description: Active missions
+        url: https://notion.so/uss-tjr-missions
+        icon: fas fa-scroll
+        target: _blank
+
+      - title: Command Memory
+        description: Documentation
+        url: https://github.com/uss-tjr/docs
+        icon: fas fa-brain
+        target: _blank
+
+  - title: Runtime Services
+    icon: fas fa-server
+    items:
+      - title: Slack Runtime
+        description: Chat interface
+        url: http://localhost:3001
+        icon: fab fa-slack
+        target: _blank
+
+      - title: Supabase Database
+        description: Backend storage
+        url: http://localhost:5432
+        icon: fas fa-database
+        target: _blank
+
+      - title: OpenClaw Sandbox
+        description: Code execution
+        url: http://localhost:8000
+        icon: fas fa-flask
+        target: _blank
+
+      - title: Ollama LLM
+        description: Language model
+        url: http://localhost:11434
+        icon: fas fa-brain
+        target: _blank
+
+  - title: Documentation
+    icon: fas fa-book
+    items:
+      - title: Architecture Decisions
+        description: ADRs
+        url: https://github.com/uss-tjr/adr
+        icon: fas fa-scroll
+        target: _blank
+
+      - title: System Architecture
+        description: Design
+        url: https://github.com/uss-tjr/docs/architecture
+        icon: fas fa-diagram-project
+        target: _blank
+
+      - title: Control Deck Foundation
+        description: Service CLI
+        url: https://github.com/uss-tjr/docs/control-deck-foundation
+        icon: fas fa-cogs
+        target: _blank
+
+      - title: Active Missions
+        description: Mission registry
+        url: https://notion.so/uss-tjr-missions
+        icon: fas fa-flag
+        target: _blank
+
+  - title: Development
+    icon: fas fa-terminal
+    items:
+      - title: Main Repository
+        description: USS TJR monorepo
+        url: https://github.com/uss-tjr/uss-tjr
+        icon: fab fa-github
+        target: _blank
+
+      - title: Control Deck Foundation
+        description: Service CLI
+        url: https://github.com/uss-tjr/uss-tjr/tree/main/control
+        icon: fas fa-terminal
+        target: _blank
+
+      - title: Control Deck Launchpad
+        description: Dashy dashboard
+        url: https://github.com/uss-tjr/uss-tjr/tree/main/bridge
+        icon: fas fa-dashboard
+        target: _blank
+
+      - title: Slack Bot Runtime
+        description: Chat interface
+        url: https://github.com/uss-tjr/uss-tjr/tree/main/services/slack-bot
+        icon: fab fa-slack
+        target: _blank
+
+      - title: Local Dev Setup
+        description: Environment guide
+        url: https://github.com/uss-tjr/docs/local-dev
+        icon: fas fa-laptop
+        target: _blank
