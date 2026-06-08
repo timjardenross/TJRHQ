@@ -75,6 +75,7 @@ def handle_mission_capture(
     """
     import sys
     from pathlib import Path
+    from datetime import datetime
     _bot_dir = Path(__file__).resolve().parent.parent
     if str(_bot_dir) not in sys.path:
         sys.path.insert(0, str(_bot_dir))
@@ -99,10 +100,35 @@ def handle_mission_capture(
             system_prompt=_SYSTEM_PROMPT,
         )
         log.info("[mission-capture] Capture generated (%d chars)", len(output))
-        return f"*MISSION CAPTURE*\n\n```{output}```"
+
+        # MSN-0040A: Persist to Command Memory (non-blocking)
+        mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        title = text.strip()[:100] or "Untitled Mission"
+        _persist_mission_capture(mission_id, title, user_id or "slack-bot")
+
+        return f"*MISSION CAPTURE* — `{mission_id}`\n\n```{output}```\n\n:white_check_mark: Saved to Command Memory"
     except Exception as exc:
         log.error("[mission-capture] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_capture(text)
+
+
+def _persist_mission_capture(
+    mission_id: str,
+    title: str,
+    user_id: str,
+) -> None:
+    """Persist mission capture to Command Memory (non-blocking)."""
+    try:
+        from commands.mission_to_memory import save_mission_after_creation
+        save_mission_after_creation(
+            mission_id=mission_id,
+            title=title,
+            user_id=user_id,
+        )
+        log.info("[mission-capture] Saved to Command Memory: %s", mission_id)
+    except Exception as e:
+        log.warning("[mission-capture] Failed to persist to Command Memory: %s", e)
+        # Non-blocking: mission capture still returned to user
 
 
 def _fallback_capture(text: str) -> str:

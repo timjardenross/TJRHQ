@@ -397,30 +397,30 @@ if app:
     # ============================================================================
 
     @app.command("/missions-active")
-    def handle_missions_active_command(ack, respond):
+    def handle_missions_active_command(ack, body, say):
         """Query active missions from Command Memory.
 
         Returns a formatted list of all missions with status = 'Active'.
         This is a non-blocking query that returns empty list if Supabase
         is unavailable.
         """
-        handle_missions_active(ack, respond)
+        handle_missions_active(ack, body, say)
 
     log.info("✅ /missions-active command registered")
 
     @app.command("/decisions-active")
-    def handle_decisions_active_command(ack, respond):
+    def handle_decisions_active_command(ack, body, say):
         """Query active decisions from Command Memory.
 
         Returns a formatted list of all decisions with status = 'Active'.
         Limited to last 5 decisions. Non-blocking if Supabase unavailable.
         """
-        handle_decisions_active(ack, respond)
+        handle_decisions_active(ack, body, say)
 
     log.info("✅ /decisions-active command registered")
 
     @app.command("/memory-search")
-    def handle_memory_search_command(ack, respond, command):
+    def handle_memory_search_command(ack, body, say):
         """Search missions and decisions by keyword.
 
         Usage: /memory-search <keyword>
@@ -429,7 +429,7 @@ if app:
         ILIKE matching. Returns up to 5 results per type.
         Non-blocking if Supabase unavailable.
         """
-        handle_memory_search(ack, respond, command)
+        handle_memory_search(ack, body, say)
 
     log.info("✅ /memory-search command registered")
 
