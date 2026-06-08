@@ -11,6 +11,7 @@ services:
     volumes:
       - ./dashy-config.yml:/app/user-data/conf.yml
       - ./theme-starfleet.css:/app/public/theme-starfleet.css
+      - ./theme-starfleet-advanced.css:/app/public/theme-starfleet-advanced.css
       - ./assets:/app/public/assets
       - ./frontend:/app/public/dashboards
       - ./data:/app/data
