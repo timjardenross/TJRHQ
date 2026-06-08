@@ -198,6 +198,17 @@ def handle_save_decision(
             rel_path = path_or_reason
         log.info("[decision-log-save] Saved to %s", path_or_reason)
 
+        # MSN-0040A: Log decision to Command Memory
+        try:
+            from commands.decision_to_memory import save_decision_after_logging
+            save_decision_after_logging(
+                decision_text=text,
+                markdown_path=path_or_reason,
+                user_id="slack-bot",  # Will be replaced by actual user_id when available
+            )
+        except Exception as e:
+            log.error("[decision-log-save] Failed to log decision to Command Memory: %s", e)
+            # Non-blocking failure — decision record still created locally
         # MSN-0040A: persist the decision to Command Memory (non-blocking).
         try:
             from commands.decision_to_memory import save_decision_after_logging
