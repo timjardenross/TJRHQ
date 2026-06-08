@@ -38,7 +38,7 @@ _LOW_SIGNALS = ("nice to have", "low priority", "p3", "someday", "backlog", "min
 _CREATE_SIGNALS = ("create", "post", "submit", "yes", "confirm", "go ahead", "do it")
 
 _SYSTEM_PROMPT = """\
-You are Mission Scribe for USS TJR. Your role is to convert a user-supplied
+You are Mission Scribe for Starship Endeavour. Your role is to convert a user-supplied
 idea, discussion, or capture into a GitHub-ready issue draft.
 
 Rules:
@@ -67,7 +67,7 @@ Summary:
 <plain English summary — 1–3 sentences>
 
 Background:
-<context and why this matters for USS TJR>
+<context and why this matters for Starship Endeavour>
 
 Scope:
 In Scope:

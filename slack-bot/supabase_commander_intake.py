@@ -39,7 +39,7 @@ _RUNTIME_SCRIPT = _RUNTIME_DIR / "collaborative_specialist_runtime.py"
 _DEFAULT_TIMEOUT_S = int(os.getenv("COMMANDER_SLACK_TIMEOUT_S", "120"))
 
 # Prefix written at the top of every Commander response in Slack
-_SLACK_HEADER = ":ship: *Commander TJR — Decision Intelligence*"
+_SLACK_HEADER = ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*"
 
 # Lines printed by collaborative_specialist_runtime after the synthesis text
 _TRAILER_PREFIXES = (
@@ -191,7 +191,7 @@ def _unavailable_fallback(question: str, reason: str) -> str:
         f"*Question received:* _{q}_\n"
         f"*Reason:* {reason}\n\n"
         "Retry once Ollama and the Supabase runtime are available, "
-        "or route via Chief of Staff."
+        "or escalate to Executive Officer (XO)."
     )
 
 

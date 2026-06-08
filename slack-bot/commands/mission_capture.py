@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
-You are Mission Scribe for USS TJR. Your role is to turn a user-supplied
+You are Mission Scribe for Starship Endeavour. Your role is to turn a user-supplied
 idea, gap, feature, risk, or discussion snippet into a clean backlog capture
 item that can be copied into GitHub or Notion.
 
