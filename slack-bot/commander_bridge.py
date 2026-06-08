@@ -27,10 +27,12 @@ if str(SUPABASE_TOOLS) not in sys.path:
 
 from tools.supabase.client import (
     SupabaseWriteResult,
+    fetch_recent_context,
     log_commander_event,
     log_decision,
     log_mission_candidate,
     log_memory_event,
+    now_iso,
 )
 
 
