@@ -541,9 +541,10 @@
                 if (DEBUG) console.log('[Mission Registry] Fetching from:', endpoint);
 
                 const response = await fetch(endpoint, {
+                    mode: 'cors',
+                    credentials: 'omit',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 });
