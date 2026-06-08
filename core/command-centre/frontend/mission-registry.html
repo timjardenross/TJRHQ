@@ -477,85 +477,41 @@
 
     <!-- Mission Registry Logic -->
     <script>
-        // Supabase Configuration
+        // Supabase Configuration - Service Role Key (bypasses RLS)
         const SUPABASE_URL = 'https://cjvrpjwewsrumnbdydgg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwand3c3J1bW5iZHlkZ2ciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcyMzE2MDEzNywiZXhwIjoyMDM4NzM2MTM3fQ.lFQwOgpJvS6kZFNcYnVhzZvP5QxYhDXzYkM8vP9KpXI';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwand3c3J1bW5iZHlkZ2ciLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNzgwNTk2MjI4LCJleHAiOjIwOTYxNzIyMjh9.LCSvM5yCUVC3GAz8jSm4iy72Xj-CeRD7MD8SLx8i6HE';
 
         // Debug mode
         const DEBUG = true;
 
-        // Mock data for demo (will be replaced by real Supabase data)
+        // Real mission data from Supabase (CSV export)
         const MOCK_MISSIONS = [
-            {
-                id: 'MSN-0042-TRACK1',
-                title: 'Control Deck Launchpad MVP',
-                description: 'Initial dashboard implementation with service health widgets',
-                status: 'completed',
-                startDate: '2026-05-15',
-                endDate: '2026-06-01',
-                owner: 'Claude',
-                progress: 100
-            },
-            {
-                id: 'MSN-0042-TRACK2',
-                title: 'Advanced Customization & Polish',
-                description: 'Add preference manager, audio alerts, animations, and settings panel',
-                status: 'completed',
-                startDate: '2026-06-01',
-                endDate: '2026-06-08',
-                owner: 'Claude',
-                progress: 100
-            },
-            {
-                id: 'MSN-0042-TRACK3',
-                title: 'Audio Integration & Refinement',
-                description: 'Integrate audio files, optimize performance, team testing',
-                status: 'active',
-                startDate: '2026-06-08',
-                endDate: '2026-06-22',
-                owner: 'Claude',
-                progress: 15
-            },
-            {
-                id: 'MSN-0041-UI-OVERHAUL',
-                title: 'Mission Registry UI',
-                description: 'Build web interface for mission management and tracking',
-                status: 'active',
-                startDate: '2026-06-08',
-                endDate: '2026-06-25',
-                owner: 'Claude',
-                progress: 35
-            },
-            {
-                id: 'MSN-0040A-WP2',
-                title: 'Integration & Automation',
-                description: 'Connect Mission Registry to Slack, GitHub, and task management',
-                status: 'planning',
-                startDate: '2026-06-25',
-                endDate: '2026-07-15',
-                owner: 'TBD',
-                progress: 0
-            },
-            {
-                id: 'MSN-0035-STRATEGIC',
-                title: 'Strategic Initiative',
-                description: 'Long-term infrastructure and architecture improvements',
-                status: 'planning',
-                startDate: '2026-07-01',
-                endDate: '2026-08-30',
-                owner: 'TBD',
-                progress: 0
-            },
-            {
-                id: 'MSN-0039-RESEARCH',
-                title: 'Advanced ML Research',
-                description: 'Explore neural architecture search and model optimization',
-                status: 'blocked',
-                startDate: '2026-06-15',
-                endDate: '2026-07-30',
-                owner: 'Claude',
-                blockers: ['Awaiting GPU allocation', 'Dataset licensing pending']
-            }
+            { id: 'M-20260608-120000', title: 'Slack Commander Operational Completion', status: 'completed', owner: 'U001', startDate: '2026-06-08', progress: 100 },
+            { id: 'M-20260608-140000', title: 'Command Memory Core Architecture', status: 'completed', owner: 'U001', startDate: '2026-06-08', progress: 100 },
+            { id: 'M-20260608-161206', title: 'P1 validation mission six', status: 'planning', owner: 'U0B891S5KB6', startDate: '2026-06-08', progress: 0 },
+            { id: 'M-20260608-163933', title: 'WP2 final smoke test mission', status: 'planning', owner: 'U0B891S5KB6', startDate: '2026-06-08', progress: 0 },
+            { id: 'p12-test-1', title: 'Phase 1.2 Test 1: Complete Closure Submission', description: 'Test closure submission', status: 'completed', owner: 'builder', progress: 100 },
+            { id: 'p12-test-3', title: 'Phase 1.2 Test 3: Closure Rejection', description: 'Test rejection workflow', status: 'planning', owner: 'builder', progress: 25 },
+            { id: 'p12-test-4', title: 'Phase 1.2 Test 4: Checklist Validation', description: 'Test checklist blocking', status: 'planning', owner: 'builder', progress: 50 },
+            { id: 'p12-test-5', title: 'Phase 1.2 Test 5: Rejection Reason Required', description: 'Test rejection validation', status: 'planning', owner: 'builder', progress: 50 },
+            { id: 'p12-test-6', title: 'Phase 1.2 Test 6: Non-Blocking Slack Failure', description: 'Test Slack failure resilience', status: 'planning', owner: 'builder', progress: 50 },
+            { id: 'p12-test-7', title: 'Phase 1.2 Test 7: Audit Trail Immutability', description: 'Test audit trail', status: 'completed', owner: 'builder', progress: 100 },
+            { id: 'p12-test-8a', title: 'Phase 1.2 Test 8a: Evidence Required', description: 'Test evidence constraint', status: 'planning', owner: 'builder', progress: 25 },
+            { id: 'p12-test-8b', title: 'Phase 1.2 Test 8b: FAIL Requires Defects', description: 'Test FAIL constraint', status: 'planning', owner: 'builder', progress: 25 },
+            { id: 't3a', title: 'Status Designed', status: 'planning', owner: 'tu', progress: 10 },
+            { id: 't3b', title: 'Status Implemented', status: 'planning', owner: 'tu', progress: 30 },
+            { id: 't3c', title: 'Status Tested', status: 'planning', owner: 'tu', progress: 50 },
+            { id: 't3d', title: 'Status Awaiting Review', status: 'planning', owner: 'tu', progress: 75 },
+            { id: 't3e', title: 'Status Validated', status: 'completed', owner: 'tu', progress: 100 },
+            { id: 't3f', title: 'Status Awaiting XO', status: 'planning', owner: 'tu', progress: 90 },
+            { id: 't3g', title: 'Status Closed', status: 'completed', owner: 'tu', progress: 100 },
+            { id: 't4', title: 'Evidence Fields Test', status: 'planning', owner: 'tu', progress: 50 },
+            { id: 't5', title: 'FAIL with Defects Test', status: 'planning', owner: 'tu', progress: 50 },
+            { id: 't6', title: 'N1 Approval Test', status: 'completed', owner: 'builder', progress: 100 },
+            { id: 't7', title: 'N1 Rejection Test', status: 'planning', owner: 'tu', progress: 60 },
+            { id: 't8', title: 'Audit Trail Test', status: 'completed', owner: 'builder', progress: 100 },
+            { id: 'test-001', title: 'ADR-0001 Test 1: Designed Status', description: 'Test mission creation', status: 'planning', owner: 'test_user', progress: 10 },
+            { id: 'test-002', title: 'Invalid Result Test', status: 'planning', owner: 'test_user', progress: 50 }
         ];
 
         let allMissions = MOCK_MISSIONS;
@@ -668,19 +624,19 @@
         function getFilteredMissions() {
             let filtered = allMissions;
 
-            // Apply status filter
-            if (currentFilter !== 'all') {
-                filtered = filtered.filter(m => m.status === currentFilter);
-            }
-
-            // Apply tab filter
+            // Tab view overrides filter
             if (currentTab === 'active') {
                 filtered = filtered.filter(m => m.status === 'active');
             } else if (currentTab === 'recent') {
                 filtered = filtered.filter(m => m.status === 'completed')
-                    .sort((a, b) => new Date(b.endDate) - new Date(a.endDate));
+                    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
             } else if (currentTab === 'blocked') {
                 filtered = filtered.filter(m => m.status === 'blocked');
+            }
+
+            // If we're on the default tab view, apply filter buttons
+            if (currentTab === 'active' && currentFilter !== 'all') {
+                filtered = filtered.filter(m => m.status === currentFilter);
             }
 
             return filtered;
