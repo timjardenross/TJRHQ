@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # STARFLEET COMMAND CENTRE - Dashy
+  command-centre:
+    container_name: starfleet-command-centre
+    image: lissy93/dashy:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dashy-config.yml:/app/public/conf.yml
+      - ./theme-starfleet.css:/app/public/theme-starfleet.css
+      - ./assets:/app/public/assets
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=80
+      - TITLE=STARFLEET COMMAND
+      - BASE_URL=http://localhost:8080
+    networks:
+      - starfleet
+    labels:
+      - "com.example.description=STARFLEET COMMAND Centre"
+      - "com.example.version=1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  starfleet:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local

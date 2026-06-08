@@ -99,7 +99,7 @@ Specialist model routing:
 
 - Chief Engineer and technical/repository analysis use `OLLAMA_ENGINEER_MODEL`.
 - Research Officer, discovery and trade-off analysis use `OLLAMA_REASONING_MODEL`.
-- Chief of Staff, Knowledge Officer, Medical Officer and general Commander activity use `OLLAMA_COMMANDER_MODEL`.
+- Executive Officer (XO), Knowledge Officer, Medical Officer and general Commander activity use `OLLAMA_COMMANDER_MODEL`.
 - If the selected Ollama model is unavailable, Commander falls back to Commander model, then fast model, then deterministic fallback.
 - `OLLAMA_EMBEDDING_MODEL` is reserved for indexing/search and is never used for conversational responses.
 

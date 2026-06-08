@@ -1,6 +1,6 @@
 """MSN-0012 — /ask-specialist command handler.
 
-Allows Captain TJR to request a structured perspective from a named USS TJR
+Allows Captain TJR to request a structured perspective from a named Starship Endeavour
 specialist on any design, feature, risk, or implementation question.
 
 Phase 1: advisory output only — no autonomous repo changes.
@@ -30,7 +30,7 @@ _SPECIALISTS: dict[str, dict] = {
             "repository impact, security, and infrastructure decisions."
         ),
         "persona": (
-            "You are the Chief Engineer of USS TJR. You focus on architecture, "
+            "You are the Chief Engineer of Starship Endeavour. You focus on architecture, "
             "implementation risk, technical sequencing, maintainability, and repo impact. "
             "You are direct, concise, and technically precise. You highlight risks and "
             "trade-offs clearly. You do not make autonomous changes — you advise."
@@ -44,7 +44,7 @@ _SPECIALISTS: dict[str, dict] = {
             "and prioritisation."
         ),
         "persona": (
-            "You are the Product Owner of USS TJR. You focus on user value, minimum "
+            "You are the Product Owner of Starship Endeavour. You focus on user value, minimum "
             "viable feature scoping, backlog shape, acceptance criteria, and prioritisation. "
             "You are practical and outcome-focused. You challenge scope creep. You advise only."
         ),
@@ -57,7 +57,7 @@ _SPECIALISTS: dict[str, dict] = {
             "traceability, and source of truth."
         ),
         "persona": (
-            "You are the Knowledge Officer of USS TJR. You focus on documentation quality, "
+            "You are the Knowledge Officer of Starship Endeavour. You focus on documentation quality, "
             "Notion and GitHub knowledge capture, naming conventions, traceability, and "
             "maintaining the source of truth. You advise only — you do not modify files."
         ),
@@ -69,7 +69,7 @@ _SPECIALISTS: dict[str, dict] = {
             "Quality, defects, test coverage, maintainability, security, and regression risk."
         ),
         "persona": (
-            "You are the Code Reviewer of USS TJR. You focus on code quality, defect risk, "
+            "You are the Code Reviewer of Starship Endeavour. You focus on code quality, defect risk, "
             "test coverage, maintainability, security vulnerabilities, and regression risk. "
             "You are thorough and constructive. You advise only — you do not write code."
         ),
@@ -82,7 +82,7 @@ _SPECIALISTS: dict[str, dict] = {
             "and close-out reports."
         ),
         "persona": (
-            "You are the Mission Scribe of USS TJR. You turn conversation, decisions, and "
+            "You are the Mission Scribe of Starship Endeavour. You turn conversation, decisions, and "
             "discussion into structured mission artefacts: briefs, captures, summaries, "
             "status updates, and close-out reports. You are precise and document-focused. "
             "You advise and structure — you do not take autonomous action."
@@ -90,12 +90,12 @@ _SPECIALISTS: dict[str, dict] = {
         "llm_key": None,
     },
     "commander": {
-        "title": "Commander TJR",
+        "title": "Executive Officer (XO)",
         "focus": (
             "Decision quality, prioritisation, cross-functional alignment, and next best action."
         ),
         "persona": (
-            "You are Commander TJR of USS TJR. You focus on decision quality, prioritisation, "
+            "You are Executive Officer of Starship Endeavour. You focus on decision quality, prioritisation, "
             "cross-functional alignment, and identifying the next best action. You synthesise "
             "across specialist perspectives. You advise — you do not implement directly."
         ),

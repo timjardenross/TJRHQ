@@ -20,6 +20,13 @@ from router import route_request, score_specialists
 from supabase_commander_intake import is_commander_directed, run_supabase_commander
 from mission_registry import create_mission
 
+# MSN-0032: Semantic Specialist Routing integration
+try:
+    from semantic_router import route_request_semantic
+    SEMANTIC_ROUTING_AVAILABLE = True
+except ImportError:
+    SEMANTIC_ROUTING_AVAILABLE = False
+
 ROOT = Path(__file__).resolve().parents[1]
 SUPABASE_TOOLS = ROOT / "tools" / "supabase"
 if str(SUPABASE_TOOLS) not in sys.path:
@@ -50,13 +57,34 @@ def handle_slack_message(
     message_ts: str | None = None,
     thread_ts: str | None = None,
 ) -> dict[str, Any]:
-    """Route a Slack message through Commander and persist structured events."""
+    """Route a Slack message through Commander and persist structured events.
+
+    MSN-0032: Now includes semantic specialist routing for intent-based specialist selection.
+    """
     cleaned_text = _clean_slack_text(text)
     intent = classify_commander_intent(cleaned_text)
     routing = route_request(cleaned_text)
     route = _primary_route(routing)
     confidence = _route_confidence(cleaned_text)
     timestamp = now_iso()
+
+    # MSN-0032: Semantic Specialist Routing integration
+    semantic_routing = None
+    if SEMANTIC_ROUTING_AVAILABLE:
+        try:
+            semantic_routing = route_request_semantic(cleaned_text)
+            routing["semantic_intent"] = semantic_routing.intent.value
+            routing["semantic_confidence"] = semantic_routing.confidence
+            routing["semantic_confidence_band"] = semantic_routing.confidence_band.value
+            routing["semantic_rationale"] = semantic_routing.rationale
+            routing["primary_specialist"] = semantic_routing.primary_specialist
+            routing["secondary_specialists"] = semantic_routing.secondary_specialists
+            routing["escalate_to_xo"] = semantic_routing.escalate_to_xo
+        except Exception as e:
+            import logging as _logging
+            _log = _logging.getLogger(__name__)
+            _log.warning("[commander-bridge] Semantic routing failed: %s. Using legacy routing.", e)
+            semantic_routing = None
 
     recent_context = fetch_recent_context(limit=3)
     common = {
@@ -73,6 +101,14 @@ def handle_slack_message(
             "priority": routing.get("priority"),
             "routing_status": routing.get("status"),
             "recent_context_counts": {key: len(value) for key, value in recent_context.items()},
+            # MSN-0032: Add semantic routing metadata
+            "semantic_intent": routing.get("semantic_intent"),
+            "semantic_confidence": routing.get("semantic_confidence"),
+            "semantic_confidence_band": routing.get("semantic_confidence_band"),
+            "semantic_rationale": routing.get("semantic_rationale"),
+            "primary_specialist": routing.get("primary_specialist"),
+            "secondary_specialists": routing.get("secondary_specialists"),
+            "escalate_to_xo": routing.get("escalate_to_xo", False),
         },
     }
 
@@ -161,14 +197,25 @@ def handle_slack_message(
         })
         try:
             mission = create_mission(body)
+
+            # MSN-0032: Enrich mission with semantic routing metadata if available
             response_text = (
                 f"*Mission created.*\n"
                 f"ID: `{mission['mission_id']}`\n"
                 f"Title: {mission['title']}\n"
                 f"Domain: {mission['domain']}\n"
                 f"Status: {mission['status']}\n"
-                f"Persistence: {'logged to Supabase' if logged['mission_candidate'] else 'Supabase unavailable'}."
             )
+
+            if semantic_routing:
+                response_text += (
+                    f"\n*Routing Intelligence*\n"
+                    f"Recommended Specialist: {semantic_routing.primary_specialist}\n"
+                    f"Intent: {semantic_routing.intent.value.replace('_', ' ')}\n"
+                    f"Confidence: {semantic_routing.confidence_band.value}\n"
+                )
+
+            response_text += f"Persistence: {'logged to Supabase' if logged['mission_candidate'] else 'Supabase unavailable'}."
         except Exception:
             response_text = _format_explicit_response("mission candidate", route, confidence, logged["mission_candidate"])
     elif intent == INTENT_MEMORY:
@@ -194,7 +241,7 @@ def handle_slack_message(
 
 
 def classify_commander_intent(text: str) -> str:
-    """Classify the intent of a Slack message addressed to Commander TJR.
+    """Classify the intent of a Slack message addressed to Starship Endeavour Executive Officer.
 
     Intent priority (first match wins):
       commander:        → INTENT_COMMANDER   — MSN-0011A: full DI pipeline
@@ -222,7 +269,7 @@ def _clean_slack_text(text: str) -> str:
 
 def _primary_route(routing: dict[str, Any]) -> str:
     specialists = routing.get("assigned_specialists") or []
-    return specialists[0] if specialists else "Chief of Staff"
+    return specialists[0] if specialists else "Executive Officer (XO)"
 
 
 def _route_confidence(text: str) -> float:
