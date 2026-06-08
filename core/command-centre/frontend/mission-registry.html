@@ -450,21 +450,13 @@
         <!-- Controls -->
         <div class="controls">
             <div class="filter-group">
-                <button class="filter-btn active" data-filter="all">All Missions</button>
-                <button class="filter-btn" data-filter="active">Active</button>
-                <button class="filter-btn" data-filter="planning">Planning</button>
-                <button class="filter-btn" data-filter="completed">Completed</button>
-                <button class="filter-btn" data-filter="blocked">Blocked</button>
+                <button class="tab-btn active" data-tab="all">📋 All Missions</button>
+                <button class="tab-btn" data-tab="active">🚀 Active</button>
+                <button class="tab-btn" data-tab="planning">📌 Planning</button>
+                <button class="tab-btn" data-tab="recent">⭐ Completed</button>
+                <button class="tab-btn" data-tab="blocked">🔴 Blocked</button>
             </div>
             <button class="admin-btn" onclick="openAdminPanel()">⚙️ Manage in Supabase</button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="all">📋 All Missions</button>
-            <button class="tab-btn" data-tab="active">🚀 Active Missions</button>
-            <button class="tab-btn" data-tab="recent">⭐ Recently Completed</button>
-            <button class="tab-btn" data-tab="blocked">🔴 Blocked</button>
         </div>
 
         <!-- Missions Grid -->
@@ -516,8 +508,26 @@
         ];
 
         let allMissions = MOCK_MISSIONS;
-        let currentFilter = 'all';
-        let currentTab = 'active';
+        let currentTab = 'all';
+
+        // Map database statuses to display categories
+        const statusMap = {
+            'COMPLETED': 'completed',
+            'completed': 'completed',
+            'Closed': 'completed',
+            'PROPOSED': 'planning',
+            'proposed': 'planning',
+            'Designed': 'planning',
+            'Planning': 'planning',
+            'planning': 'planning',
+            'Implemented': 'active',
+            'Tested': 'active',
+            'Validated': 'active',
+            'Awaiting Number One Review': 'active',
+            'Awaiting XO Approval': 'active',
+            'active': 'active',
+            'blocked': 'blocked'
+        };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -567,7 +577,8 @@
                         id: m.id,
                         title: m.title,
                         description: m.description || 'No description',
-                        status: (m.status || 'planning').toLowerCase(),
+                        dbStatus: m.status || 'planning',  // Keep original status
+                        status: statusMap[m.status] || 'planning',  // Map to category
                         owner: m.owner || 'Unassigned',
                         progress: getProgressFromStatus(m.status),
                         startDate: new Date(m.created_at).toISOString().split('T')[0],
@@ -578,6 +589,10 @@
                     console.log('[Mission Registry] No records in database, using mock data');
                     allMissions = MOCK_MISSIONS;
                 }
+
+                // Debug: log all unique statuses in data
+                const statuses = [...new Set(allMissions.map(m => m.status))];
+                console.log('[Mission Registry] Unique statuses in data:', statuses);
 
                 renderMissions();
                 updateStats();
@@ -602,17 +617,7 @@
         }
 
         function setupEventListeners() {
-            // Filter buttons
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    currentFilter = e.target.dataset.filter;
-                    renderMissions();
-                });
-            });
-
-            // Tab buttons
+            // Tab buttons (unified)
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -626,19 +631,18 @@
         function getFilteredMissions() {
             let filtered = allMissions;
 
-            // Tab view - primary filter
+            // Tab/filter - show based on selection
             if (currentTab === 'all') {
-                // Show all missions, apply status filter if not 'all'
-                if (currentFilter !== 'all') {
-                    filtered = filtered.filter(m => m.status === currentFilter);
-                }
+                filtered = allMissions;
             } else if (currentTab === 'active') {
-                filtered = filtered.filter(m => m.status === 'active');
+                filtered = allMissions.filter(m => m.status === 'active');
+            } else if (currentTab === 'planning') {
+                filtered = allMissions.filter(m => m.status === 'planning');
             } else if (currentTab === 'recent') {
-                filtered = filtered.filter(m => m.status === 'completed')
+                filtered = allMissions.filter(m => m.status === 'completed')
                     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             } else if (currentTab === 'blocked') {
-                filtered = filtered.filter(m => m.status === 'blocked');
+                filtered = allMissions.filter(m => m.status === 'blocked');
             }
 
             return filtered;

@@ -91,6 +91,12 @@ sections:
         url: "/dashboards/mission-registry.html"
         target: _blank
 
+      - title: Decisions Registry
+        description: "📋 Architectural decisions & alternatives (Supabase Live)"
+        icon: fas fa-sitemap
+        url: "/dashboards/decisions-registry.html"
+        target: _blank
+
       - title: Number One (Slack Bot)
         description: "On-Demand — Start via ./control start slack-bot"
         icon: fab fa-slack
@@ -214,6 +220,12 @@ sections:
         description: "📋 Active missions, progress tracking (Starfleet Theme)"
         icon: fas fa-tasks
         url: "/dashboards/mission-registry.html"
+        target: _blank
+
+      - title: Decisions Registry
+        description: "📋 Architectural decisions & alternatives (Starfleet Theme)"
+        icon: fas fa-sitemap
+        url: "/dashboards/decisions-registry.html"
         target: _blank
 
   # SECTION 8: DEVELOPMENT
