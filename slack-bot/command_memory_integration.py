@@ -164,26 +164,28 @@ def update_mission_status_in_memory(
 
 
 def get_active_missions() -> List[Dict[str, Any]]:
-    """Query active missions from Supabase (non-blocking).
+    """Query open/current missions from Supabase (non-blocking).
 
     Returns:
-        List of missions with status='active', or empty list if unavailable
+        List of missions with status in Draft, Planned, Active, Blocked, Review (excludes Completed, Archived)
     """
     client = get_supabase_client()
     if not client:
         return []
 
     try:
+        # Query all open statuses (excludes Completed and Archived)
         result = (
             client.table("missions")
             .select("*")
-            .eq("status", "active")
-            .limit(5)
+            .in_("status", ["Draft", "Planned", "Active", "Blocked", "Review"])
+            .limit(20)
+            .order("created_at", desc=True)
             .execute()
         )
         return result.data or []
     except Exception as e:
-        log.debug(f"[command-memory] Failed to query active missions: {e}")
+        log.debug(f"[command-memory] Failed to query open missions: {e}")
         return []
 
 
@@ -191,16 +193,18 @@ def get_active_decisions() -> List[Dict[str, Any]]:
     """Query active decisions from Supabase (non-blocking).
 
     Returns:
-        List of decisions, or empty list if unavailable
+        List of decisions with status='Active', or empty list if unavailable
     """
     client = get_supabase_client()
     if not client:
         return []
 
     try:
+        # Query only Active decisions (schema-compliant title case)
         result = (
             client.table("decisions")
             .select("*")
+            .eq("status", "Active")
             .limit(5)
             .order("created_at", desc=True)
             .execute()
