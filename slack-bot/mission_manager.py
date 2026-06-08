@@ -72,7 +72,7 @@ def get_active_missions():
     return [
         mission
         for mission in load_index_entries()
-        if mission["status"].lower() == "active"
+        if mission["status"] == "Active"
     ]
 
 
@@ -80,7 +80,7 @@ def get_completed_missions():
     return [
         mission
         for mission in load_index_entries()
-        if mission["status"].lower() == "completed"
+        if mission["status"] == "Completed"
     ]
 
 

@@ -104,9 +104,14 @@ def handle_mission_capture(
         # MSN-0040A: Persist to Command Memory (non-blocking)
         mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         title = text.strip()[:100] or "Untitled Mission"
-        _persist_mission_capture(mission_id, title, user_id or "slack-bot")
+        saved = _persist_mission_capture(mission_id, title, user_id or "slack-bot")
 
-        return f"*MISSION CAPTURE* — `{mission_id}`\n\n```{output}```\n\n:white_check_mark: Saved to Command Memory"
+        result = f"*MISSION CAPTURE* — `{mission_id}`\n\n```{output}```"
+        if saved:
+            result += "\n\n:white_check_mark: Saved to Command Memory"
+        else:
+            result += "\n\n:warning: Could not reach Command Memory — saved locally only"
+        return result
     except Exception as exc:
         log.error("[mission-capture] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_capture(text)
@@ -116,18 +121,23 @@ def _persist_mission_capture(
     mission_id: str,
     title: str,
     user_id: str,
-) -> None:
-    """Persist mission capture to Command Memory (non-blocking)."""
+) -> bool:
+    """Persist mission capture to Command Memory (non-blocking).
+
+    Returns:
+        True if saved to Command Memory, False if Command Memory unavailable or save failed
+    """
     try:
         from commands.mission_to_memory import save_mission_after_creation
-        save_mission_after_creation(
+        saved = save_mission_after_creation(
             mission_id=mission_id,
             title=title,
             user_id=user_id,
         )
-        log.info("[mission-capture] Saved to Command Memory: %s", mission_id)
+        return saved
     except Exception as e:
         log.warning("[mission-capture] Failed to persist to Command Memory: %s", e)
+        return False
         # Non-blocking: mission capture still returned to user
 
 

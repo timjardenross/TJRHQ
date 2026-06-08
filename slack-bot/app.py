@@ -16,15 +16,8 @@ from commands.mission_capture import handle_mission_capture
 from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
-# MSN-0040A: Command Memory query commands
-from commands.memory_queries import (
-    handle_missions_active,
-    handle_decisions_active,
-    handle_memory_search,
-    handle_mission_status,
-)
 
-# MSN-0040A: Command Memory Query Commands
+# MSN-0040A: Command Memory query commands
 from commands.memory_queries import (
     handle_missions_active,
     handle_decisions_active,
@@ -613,16 +606,7 @@ if app:
         )
         handle_memory_search(ack, respond, command)
 
-    @app.command("/mission-status")
-    def handle_mission_status_slash(ack, respond, command):
-        """/mission-status <mission-id> <status> — Update a mission's status in Command Memory."""
-        log.info(
-            "[app] /mission-status: user=%s text=%r",
-            command.get("user_id"), (command.get("text") or "")[:80],
-        )
-        handle_mission_status(ack, respond, command)
-
-    log.info("✅ MSN-0040A Command Memory commands registered: /missions-active, /decisions-active, /memory-search, /mission-status")
+    log.info("✅ MSN-0040A Command Memory commands registered: /missions-active, /decisions-active, /memory-search")
 
 
 if __name__ == "__main__":

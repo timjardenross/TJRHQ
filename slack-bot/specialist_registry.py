@@ -161,7 +161,7 @@ def get_available_specialists(include_future: bool = True) -> list[dict]:
     profiles = list(load_specialist_profiles().values())
     if include_future:
         return profiles
-    return [profile for profile in profiles if profile["status"].lower() == "active"]
+    return [profile for profile in profiles if profile["status"] == "Active"]
 
 
 def find_specialist_by_name(name: str) -> Optional[dict]:
@@ -244,7 +244,7 @@ def format_profile_line(profile: dict) -> str:
 
 def summarise_specialists(include_future: bool = False) -> str:
     profiles = get_available_specialists(include_future=True)
-    selected = profiles if include_future else [profile for profile in profiles if profile["status"].lower() == "active"]
+    selected = profiles if include_future else [profile for profile in profiles if profile["status"] == "Active"]
     title = "SPECIALIST REGISTRY" if include_future else "ACTIVE SPECIALISTS"
 
     if not selected:
@@ -252,7 +252,7 @@ def summarise_specialists(include_future: bool = False) -> str:
 
     lines = [f"# {title}", ""]
     for profile in selected:
-        if include_future or profile["status"].lower() == "active":
+        if include_future or profile["status"] == "Active":
             lines.append(format_profile_line(profile))
     return "\n".join(lines)
 
@@ -261,7 +261,7 @@ def answer_specialist_query(user_text: str) -> str:
     text = user_text.lower()
 
     if "future specialists" in text or "future crew" in text:
-        future = [profile for profile in get_available_specialists(True) if profile["status"].lower() != "active"]
+        future = [profile for profile in get_available_specialists(True) if profile["status"] != "Active"]
         return "\n".join(["# FUTURE SPECIALISTS", "", *(format_profile_line(profile) for profile in future)])
 
     if any(trigger in text for trigger in ["what specialists", "available specialists", "list crew", "current crew", "crew registry", "specialist registry"]):

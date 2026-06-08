@@ -207,10 +207,10 @@ def blocked_missions() -> list[dict]:
 
 def overdue_missions(days: int = OVERDUE_DAYS) -> list[dict]:
     overdue = []
-    active_statuses = {"draft", "planned", "active", "review", "blocked"}
+    active_statuses = {"Draft", "Planned", "Active", "Review", "Blocked"}
 
     for mission in load_registry_entries():
-        if mission["status"].lower() not in active_statuses:
+        if mission["status"] not in active_statuses:
             continue
         age = mission_age_days(mission)
         if age is not None and age > days:
@@ -222,16 +222,16 @@ def overdue_missions(days: int = OVERDUE_DAYS) -> list[dict]:
 def completion_rate(entries: list[dict]) -> float:
     if not entries:
         return 0.0
-    completed = len([mission for mission in entries if mission["status"].lower() in ["completed", "archived"]])
+    completed = len([mission for mission in entries if mission["status"] in ["Completed", "Archived"]])
     return round((completed / len(entries)) * 100, 1)
 
 
 def owner_workload(entries: list[dict]) -> Counter:
-    active_statuses = {"draft", "planned", "active", "review", "blocked"}
+    active_statuses = {"Draft", "Planned", "Active", "Review", "Blocked"}
     owners = [
         mission_owner(mission["mission_id"])
         for mission in entries
-        if mission["status"].lower() in active_statuses
+        if mission["status"] in active_statuses
     ]
     return Counter(owners)
 
@@ -385,7 +385,9 @@ def filter_missions(status: Optional[str] = None, query: Optional[str] = None) -
     missions = load_registry_entries()
 
     if status:
-        missions = [mission for mission in missions if mission["status"].lower() == status.lower()]
+        # Normalize status to title-case for schema compliance
+        normalized_status = status.capitalize() if status else None
+        missions = [mission for mission in missions if normalized_status and mission["status"] == normalized_status]
 
     if query:
         query_text = query.lower()
