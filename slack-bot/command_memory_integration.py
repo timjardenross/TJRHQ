@@ -78,10 +78,12 @@ def save_mission_to_memory(
         return False
 
     try:
+        # Normalize status to schema values: Draft, Planned, Active, Blocked, Review, Completed, Archived
+        normalized_status = status.capitalize() if status else "Draft"
         data = {
             "id": mission_id,
             "title": title,
-            "status": status,
+            "status": normalized_status,
             "created_by": user_id,
             "owner": user_id,
         }
@@ -115,9 +117,11 @@ def save_decision_to_memory(
         return False
 
     try:
+        # Normalize status to schema values: Active, Superseded, Archived
+        normalized_status = status.capitalize() if status else "Active"
         data = {
             "statement": decision_text,
-            "status": status,
+            "status": normalized_status,
             "created_by": user_id,
             "owner": user_id,
         }
