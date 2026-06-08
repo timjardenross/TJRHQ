@@ -1,9 +1,9 @@
 """MSN-0040A: Command Memory query commands for Slack.
 
 Three new Slack commands for querying Command Memory:
-- /missions-active: List active missions
-- /decisions-active: List active decisions
-- /memory-search: Full-text search
+- /missions-active: List active missions (Draft, Planned, Active, Blocked, Review)
+- /decisions-active: List active decisions (status=Active)
+- /memory-search: Full-text search across missions and decisions
 """
 
 import logging
@@ -33,7 +33,7 @@ def handle_missions_active(ack, body, say):
         # Format as Slack mrkdwn
         message = "*Active Missions:*\n\n"
         for mission in missions:
-            mission_id = mission.get("mission_id", "Unknown")
+            mission_id = mission.get("id", "Unknown")
             title = mission.get("title", "Untitled")
             status = mission.get("status", "unknown")
             message += f"• `{mission_id}` — {title} (status: {status})\n"
@@ -57,7 +57,7 @@ def handle_decisions_active(ack, body, say):
         decisions = get_active_decisions()
 
         if not decisions:
-            say("*No decisions logged yet.* Use `/decision-log` to create one.")
+            say("*No decisions logged yet.* Use `/decision-log-save` to create one.")
             return
 
         # Format as Slack mrkdwn
