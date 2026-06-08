@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Service Health Dashboard Widget</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
     <style>
         * {
             margin: 0;
@@ -47,6 +48,31 @@
         .widget-header h1::before {
             content: "◆ ";
             margin-right: 8px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .settings-btn {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .settings-btn:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
         }
 
         .header-controls {
@@ -376,6 +402,7 @@
                     <input type="checkbox" id="auto-refresh-toggle" checked>
                     <label for="auto-refresh-toggle">Auto-refresh (30s)</label>
                 </div>
+                <button class="settings-btn" id="settings-btn">⚙️ Settings</button>
                 <button class="refresh-btn" id="refresh-btn" onclick="refreshHealth()">Refresh Now</button>
             </div>
         </div>
@@ -396,20 +423,37 @@
     </div>
 
     <script src="/frontend/control-engine-client.js"></script>
+    <!-- Track 2: Preference Management, Audio, Animations -->
+    <script src="/dashboards/preference-manager.js"></script>
+    <script src="/dashboards/audio-manager.js"></script>
+    <script src="/dashboards/animation-controller.js"></script>
     <script>
         // Initialize
         let client = new ControlEngineClient('http://localhost:8888');
         let lastHealthData = null;
         let autoRefreshInterval = null;
 
+        // Track 2: Initialize preferences, audio, and animations
+        const preferences = new PreferenceManager();
+        const audioManager = new AudioManager(preferences);
+        const animationController = new AnimationController(preferences);
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             refreshHealth();
             setupAutoRefresh();
+            setupSettings();
         });
 
         // Auto-refresh toggle
         document.getElementById('auto-refresh-toggle').addEventListener('change', setupAutoRefresh);
+
+        // Settings button handler
+        function setupSettings() {
+            document.getElementById('settings-btn').addEventListener('click', () => {
+                window.open('/dashboards/settings-panel.html', 'settings', 'width=900,height=1100,scrollbars=yes');
+            });
+        }
 
         function setupAutoRefresh() {
             if (autoRefreshInterval) {

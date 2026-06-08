@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Status Page</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
     <style>
         * {
             margin: 0;
@@ -313,12 +314,17 @@
     </div>
 
     <script src="/frontend/control-engine-client.js"></script>
+    <!-- Track 2: Preference Management, Audio, Animations -->
+    <script src="/dashboards/preference-manager.js"></script>
+    <script src="/dashboards/audio-manager.js"></script>
+    <script src="/dashboards/animation-controller.js"></script>
     <script>
         let client = new ControlEngineClient('http://localhost:8888');
         let autoRefreshInterval = null;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
+            setupSettings();
             refreshStatus();
             // Auto-refresh every 30 seconds
             autoRefreshInterval = setInterval(refreshStatus, 30000);

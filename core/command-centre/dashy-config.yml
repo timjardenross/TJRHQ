@@ -18,6 +18,7 @@ pageInfo:
 
 appConfig:
   theme: nord
+  externalStyleSheet: /theme-starfleet-advanced.css
   layout: grid
   columns: 4
   itemSize: small
