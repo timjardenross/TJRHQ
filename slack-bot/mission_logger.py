@@ -123,6 +123,18 @@ Optional future notes.
         title=build_title(user_request),
     )
 
+    # MSN-0040A: Log mission to Command Memory
+    try:
+        from commands.mission_to_memory import save_mission_after_creation
+        save_mission_after_creation(
+            mission_id=mission_id,
+            title=build_title(user_request),
+            user_id="slack-bot",  # Will be replaced by actual user_id when available
+        )
+    except Exception as e:
+        log.error("[mission-logger] Failed to save to Command Memory: %s", e)
+        # Non-blocking failure — mission still created locally
+
     return mission_file
 
 

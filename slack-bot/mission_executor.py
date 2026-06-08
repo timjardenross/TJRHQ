@@ -326,6 +326,20 @@ def update_execution_status(mission_id: str, status: str, note: str) -> dict:
     mission_file_for(mission_id).write_text(updated, encoding="utf-8")
     update_index_status(mission_id, normalized_status)
 
+    # MSN-0040A: Update mission status in Command Memory
+    try:
+        from commands.decision_to_memory import update_mission_status_after_change
+        update_mission_status_after_change(
+            mission_id=mission_id,
+            new_status=normalized_status,
+            user_id="slack-bot",  # Will be replaced by actual user_id when available
+        )
+    except Exception as e:
+        import logging
+        log = logging.getLogger(__name__)
+        log.error("[mission-executor] Failed to update mission status in Command Memory: %s", e)
+        # Non-blocking failure — status still updated locally
+
     return {"success": True, "mission_id": mission_id, "status": normalized_status, "marker": marker, "note": note}
 
 

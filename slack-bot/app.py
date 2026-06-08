@@ -15,11 +15,32 @@ from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
+# MSN-0040A: Command Memory Query Commands
+from commands.memory_queries import (
+    handle_missions_active,
+    handle_decisions_active,
+    handle_memory_search,
+)
+
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
+
+# MSN-0040A: Validate Supabase configuration for Command Memory
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if SUPABASE_URL:
+    log.info("✅ SUPABASE_URL configured")
+else:
+    log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
+
+if SUPABASE_ANON_KEY:
+    log.info("✅ SUPABASE_ANON_KEY configured")
+else:
+    log.warning("⚠️  SUPABASE_ANON_KEY not configured — Command Memory queries will be unavailable")
 
 app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 
@@ -370,6 +391,47 @@ if app:
                 respond(f"*MISSION REGISTER SAVE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
         threading.Thread(target=_run, daemon=True).start()
+
+    # ============================================================================
+    # MSN-0040A: Command Memory Query Commands
+    # ============================================================================
+
+    @app.command("/missions-active")
+    def handle_missions_active_command(ack, respond):
+        """Query active missions from Command Memory.
+
+        Returns a formatted list of all missions with status = 'Active'.
+        This is a non-blocking query that returns empty list if Supabase
+        is unavailable.
+        """
+        handle_missions_active(ack, respond)
+
+    log.info("✅ /missions-active command registered")
+
+    @app.command("/decisions-active")
+    def handle_decisions_active_command(ack, respond):
+        """Query active decisions from Command Memory.
+
+        Returns a formatted list of all decisions with status = 'Active'.
+        Limited to last 5 decisions. Non-blocking if Supabase unavailable.
+        """
+        handle_decisions_active(ack, respond)
+
+    log.info("✅ /decisions-active command registered")
+
+    @app.command("/memory-search")
+    def handle_memory_search_command(ack, respond, command):
+        """Search missions and decisions by keyword.
+
+        Usage: /memory-search <keyword>
+
+        Searches both missions.title and decisions.statement using case-insensitive
+        ILIKE matching. Returns up to 5 results per type.
+        Non-blocking if Supabase unavailable.
+        """
+        handle_memory_search(ack, respond, command)
+
+    log.info("✅ /memory-search command registered")
 
     @app.command("/ask-specialist")
     def handle_ask_specialist_slash(ack, respond, command):
