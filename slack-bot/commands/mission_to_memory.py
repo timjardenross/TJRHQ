@@ -13,7 +13,7 @@ def save_mission_after_creation(
     mission_id: str,
     title: str,
     user_id: str = "slack-bot",
-) -> None:
+) -> bool:
     """Save mission to Command Memory after creation.
 
     This hook is called from mission_logger.py after a mission is created.
@@ -23,15 +23,23 @@ def save_mission_after_creation(
         mission_id: Mission ID (e.g., 'M-20260608-120000')
         title: Mission title
         user_id: User who created the mission
+
+    Returns:
+        True if successfully saved to Command Memory, False otherwise
     """
     try:
-        save_mission_to_memory(
+        success = save_mission_to_memory(
             mission_id=mission_id,
             title=title,
             status="draft",
             user_id=user_id,
         )
-        log.debug(f"[mission-to-memory] Mission {mission_id} logged to Command Memory")
+        if success:
+            log.info(f"[mission-to-memory] Mission {mission_id} saved to Command Memory")
+        else:
+            log.warning(f"[mission-to-memory] Command Memory unavailable, mission {mission_id} persisted locally only")
+        return success
     except Exception as e:
         log.error(f"[mission-to-memory] Failed to log mission: {e}")
+        return False
         # Non-blocking failure — mission still created locally

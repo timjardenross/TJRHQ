@@ -68,7 +68,7 @@ def save_mission_to_memory(
         title: Mission title
         status: Mission status (e.g., 'draft', 'active', 'completed')
         user_id: User who created the mission
-        metadata: Optional metadata dict
+        metadata: Optional metadata dict (ignored; not in schema)
 
     Returns:
         True if successful, False if failed (non-blocking)
@@ -79,11 +79,11 @@ def save_mission_to_memory(
 
     try:
         data = {
-            "mission_id": mission_id,
+            "id": mission_id,
             "title": title,
             "status": status,
-            "user_id": user_id,
-            "metadata": metadata or {},
+            "created_by": user_id,
+            "owner": user_id,
         }
         client.table("missions").insert(data).execute()
         log.debug(f"[command-memory] Mission saved: {mission_id}")
@@ -105,7 +105,7 @@ def save_decision_to_memory(
         decision_text: Decision statement
         status: Decision status (e.g., 'proposed', 'accepted')
         user_id: User who logged the decision
-        metadata: Optional metadata dict
+        metadata: Optional metadata dict (ignored; not in schema)
 
     Returns:
         True if successful, False if failed (non-blocking)
@@ -116,10 +116,10 @@ def save_decision_to_memory(
 
     try:
         data = {
-            "decision_text": decision_text,
+            "statement": decision_text,
             "status": status,
-            "user_id": user_id,
-            "metadata": metadata or {},
+            "created_by": user_id,
+            "owner": user_id,
         }
         client.table("decisions").insert(data).execute()
         log.debug(f"[command-memory] Decision saved")
