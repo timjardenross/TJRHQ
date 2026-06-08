@@ -4,7 +4,6 @@
 # This configuration file defines the command centre interface
 # for STARFLEET COMMAND operations.
 
----
 pageInfo:
   title: STARFLEET COMMAND
   description: Starship Endeavour Command Centre (NCC-170230)
@@ -34,7 +33,6 @@ searchSettings:
   searchBannerPos: top
   openSectionInModal: false
 
----
 
 # SECTION 1: COMMAND
 sections:
@@ -433,7 +431,6 @@ sections:
         hotkey: Z
         target: sameTab
 
----
 
 # Optional: Keyboard shortcuts
 keyboardShortcuts:
