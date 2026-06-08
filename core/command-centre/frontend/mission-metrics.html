@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weekly Mission Metrics</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
     <style>
         * {
             margin: 0;
@@ -81,6 +82,26 @@
             border-color: #666;
             color: #888;
             cursor: not-allowed;
+        }
+
+        .settings-btn {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .settings-btn:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
         }
 
         /* Key Metrics Grid */
@@ -370,6 +391,7 @@
                 <h1>Weekly Mission Metrics</h1>
                 <div class="week-indicator" id="week-indicator">Loading...</div>
             </div>
+            <button class="settings-btn" id="settings-btn">⚙️ Settings</button>
             <button class="refresh-btn" id="refresh-btn" onclick="refreshMetrics()">Refresh Data</button>
         </div>
 
@@ -408,13 +430,33 @@
     </div>
 
     <script src="/frontend/control-engine-client.js"></script>
+    <!-- Track 2: Preference Management, Audio, Animations -->
+    <script src="/dashboards/preference-manager.js"></script>
+    <script src="/dashboards/audio-manager.js"></script>
+    <script src="/dashboards/animation-controller.js"></script>
     <script>
+        // Track 2: Initialize preferences, audio, and animations
+        const preferences = new PreferenceManager();
+        const audioManager = new AudioManager(preferences);
+        const animationController = new AnimationController(preferences);
+
+        // Settings button handler
+        function setupSettings() {
+            const settingsBtn = document.getElementById('settings-btn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', () => {
+                    window.open('/dashboards/settings-panel.html', 'settings', 'width=900,height=1100,scrollbars=yes');
+                });
+            }
+        }
+
         let client = new ControlEngineClient('http://localhost:8888');
         let lastMetricsData = null;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             refreshMetrics();
+            setupSettings();
         });
 
         async function refreshMetrics() {
