@@ -479,7 +479,7 @@
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://cjvrpjwewsrumnbdydgg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlibWdzZ3NwY2JoaGJxcnZ6dm5hcSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzIzMTYwMTM3LCJleHAiOjIwMzg3MzYxMzd9.cN3S7KvsFfq1pQqpBtIMxr9u3eBGAn5PjnH2YhVV4vI';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwand3c3J1bW5iZHlkZ2ciLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcyMzE2MDEzNywiZXhwIjoyMDM4NzM2MTM3fQ.lFQwOgpJvS6kZFNcYnVhzZvP5QxYhDXzYkM8vP9KpXI';
 
         // Debug mode
         const DEBUG = true;
@@ -587,6 +587,7 @@
                 const response = await fetch(endpoint, {
                     headers: {
                         'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
                         'Content-Type': 'application/json'
                     }
                 });
