@@ -47,39 +47,43 @@ sections:
         icon: fas fa-check-circle
         url: "#"
 
-  # SECTION 2: SERVICE STATUS
+  # SECTION 2: SERVICE STATUS (Real-time Health via Native Widgets)
   - title: Service Status
     icon: fas fa-heartbeat
     items:
-      - title: Control Deck
-        description: "✅ Operational"
-        icon: fas fa-check
-        url: "#"
-
       - title: Ollama LLM
-        description: "✅ Operational"
-        icon: fas fa-check
-        url: "#"
+        description: "Local inference engine — Real-time health"
+        icon: fas fa-brain
+        url: "http://localhost:11434"
+        target: _blank
+        statusCheck:
+          url: "http://localhost:11434/api/tags"
+          method: GET
+          timeout: 5
+          interval: 30
 
       - title: OpenClaw Chat
-        description: "✅ Operational"
-        icon: fas fa-check
-        url: "#"
+        description: "Code execution environment — Real-time health"
+        icon: fas fa-flask
+        url: "http://localhost:18789"
+        target: _blank
+        statusCheck:
+          url: "http://localhost:18789/"
+          method: GET
+          timeout: 5
+          interval: 30
 
       - title: Number One
-        description: "⏸ On Demand"
-        icon: fas fa-pause
+        description: "AI Decision Assistant — On demand"
+        icon: fas fa-robot
+        url: "http://localhost:3001"
+        target: _blank
+
+      - title: Mission Registry DB
+        description: "Supabase — PostgreSQL backend"
+        icon: fas fa-database
         url: "#"
 
-      - title: Mission Registry UI
-        description: "⏳ Pending"
-        icon: fas fa-clock
-        url: "#"
-
-      - title: Supabase
-        description: "🔧 Backend Only"
-        icon: fas fa-cog
-        url: "#"
 
   # SECTION 3: CORE OPERATIONS
   - title: Core Operations
@@ -109,13 +113,8 @@ sections:
         url: http://localhost:3001
         target: _blank
 
-      - title: Decision Log
-        description: "Architecture decisions & ADRs (GitHub)"
-        icon: fas fa-file-alt
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/architecture/decisions"
-        target: _blank
 
-  # SECTION 4: RUNTIME SERVICES (formerly SECTION 5)
+  # SECTION 4: RUNTIME SERVICES
   - title: Runtime Services
     icon: fas fa-server
     items:
@@ -136,92 +135,31 @@ sections:
         url: "http://localhost:18789/chat?session=agent%3Amain%3Amain"
         target: _blank
 
-  # SECTION 5: DOCUMENTATION
-  - title: Documentation
+  # SECTION 5: HELP & OPERATIONS
+  - title: Help & Operations
     icon: fas fa-book
     items:
-      - title: Architecture Decisions
-        description: "System design & ADRs (GitHub)"
-        icon: fas fa-scroll
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/knowledge/architecture"
-        target: _blank
-
       - title: Setup Guide
-        description: "Getting started & deployment (GitHub)"
+        description: "Getting started & Control Deck startup"
         icon: fas fa-cogs
         url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md"
         target: _blank
 
-  # SECTION 6: OPERATIONAL (VERIFIED)
-  - title: Operational Dashboards
-    icon: fas fa-monitor
-    items:
-      - title: Blocked Missions
-        description: "🔴 Alert: Mission blockers (Supabase Live)"
-        icon: fas fa-exclamation-triangle
-        url: "/dashboards/blocked-missions.html"
-        target: _blank
 
-  # SECTION 7: EXPERIMENTAL / DEFERRED
-  - title: Experimental Dashboards
-    icon: fas fa-flask
-    items:
-      - title: Service Health Widget
-        description: "⏳ Real-time service status (In Development)"
-        icon: fas fa-heartbeat
-        url: "/dashboards/service-health-widget.html"
-        target: _blank
-
-      - title: Mission Metrics
-        description: "⏳ Performance analytics (In Development)"
-        icon: fas fa-chart-bar
-        url: "/dashboards/mission-metrics.html"
-        target: _blank
-
-      - title: Activity Feed
-        description: "⏳ Operations log (In Development)"
-        icon: fas fa-stream
-        url: "/dashboards/activity-feed.html"
-        target: _blank
-
-      - title: AI Lab Status
-        description: "⏳ AI services monitoring (In Development)"
-        icon: fas fa-flask
-        url: "/dashboards/ai-lab-status.html"
-        target: _blank
-
-      - title: Restart History
-        description: "⏳ Service restart logs (In Development)"
-        icon: fas fa-sync-alt
-        url: "/dashboards/restart-history.html"
-        target: _blank
-
-      - title: System Status Page
-        description: "⏳ Overall system health (In Development)"
-        icon: fas fa-server
-        url: "/dashboards/status.html"
-        target: _blank
-
-  # SECTION 8: DEVELOPMENT
-  - title: Development
+  # SECTION 6: DEVELOPER RESOURCES (Not for operational use)
+  - title: Developer Resources
     icon: fas fa-terminal
     items:
-      - title: Main Repository
-        description: "USS TJR monorepo (GitHub)"
+      - title: USS TJR Monorepo
+        description: "GitHub source control & architecture"
         icon: fab fa-github
         url: "https://github.com/timjardenross/USSTJROS"
         target: _blank
 
-      - title: Control Deck Foundation
-        description: "Service CLI source (GitHub)"
+      - title: Control Deck CLI
+        description: "Service management & startup scripts"
         icon: fas fa-terminal
         url: "https://github.com/timjardenross/USSTJROS/tree/main/core/command"
-        target: _blank
-
-      - title: Control Deck Launchpad
-        description: "This dashboard source (GitHub)"
-        icon: fas fa-dashboard
-        url: "https://github.com/timjardenross/USSTJROS/tree/main/core/command-centre"
         target: _blank
 
 # End of Configuration

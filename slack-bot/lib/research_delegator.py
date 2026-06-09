@@ -37,17 +37,20 @@ class ResearchOutcome:
     """Result of a single research task delegation."""
 
     status: str  # "success", "timeout", "error", "no_providers"
-    provider: str  # "gemini", "ollama", "none"
+    provider: str  # "gemini-2.5-flash", "gemini-2-flash", "gemini-2.5-flash-lite", "ollama", "none"
     findings: Optional[str] = None
     references: list[str] = None
     error_message: Optional[str] = None
     execution_time_ms: Optional[int] = None
     tokens_used: Optional[dict[str, int]] = None
     timestamp: str = None
+    provider_attempted: list[str] = None  # List of providers attempted in order (telemetry)
 
     def __post_init__(self):
         if self.references is None:
             self.references = []
+        if self.provider_attempted is None:
+            self.provider_attempted = []
         if self.timestamp is None:
             self.timestamp = datetime.utcnow().isoformat()
 
@@ -305,6 +308,256 @@ Keep response concise but informative."""
 
 
 # ============================================================================
+# Provider: Gemini 2 Flash (Fallback)
+# ============================================================================
+
+def call_gemini_2_flash_research(
+    task_description: str,
+    timeout_sec: int = 120
+) -> ResearchOutcome:
+    """Submit research task to Gemini 2 Flash via Google AI SDK (higher quota fallback).
+
+    Args:
+        task_description: What to research
+        timeout_sec: Timeout for API call
+
+    Returns:
+        ResearchOutcome with findings or error status
+    """
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        log.debug("GEMINI_API_KEY not configured, skipping Gemini 2 Flash provider")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2-flash",
+            error_message="GEMINI_API_KEY not configured"
+        )
+
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        log.warning("google-generativeai not installed, skipping Gemini 2 Flash")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2-flash",
+            error_message="google-generativeai package not installed"
+        )
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2-flash")
+
+        user_prompt = f"Research the following topic and provide findings:\n\n{task_description}"
+
+        log.info("Calling Gemini 2 Flash for research (fallback)")
+
+        # Call Gemini API with 429 rate-limit handling
+        try:
+            response = model.generate_content(
+                user_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=2048,
+                    temperature=0.7,
+                    top_p=0.95,
+                )
+            )
+        except Exception as gemini_error:
+            # Check if this is a 429 rate limit error
+            error_str = str(gemini_error)
+            if "429" in error_str or "quota" in error_str or "rate" in error_str.lower():
+                retry_delay_sec = 34
+                if "retry_delay" in error_str:
+                    try:
+                        import re
+                        match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
+                        if match:
+                            retry_delay_sec = int(match.group(1))
+                    except:
+                        pass
+
+                log.warning(f"Gemini 2 Flash 429 rate limit. Retrying after {retry_delay_sec}s...")
+                time.sleep(retry_delay_sec + 2)
+
+                try:
+                    log.info("Retrying Gemini 2 Flash after rate limit wait")
+                    response = model.generate_content(
+                        user_prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            max_output_tokens=2048,
+                            temperature=0.7,
+                            top_p=0.95,
+                        )
+                    )
+                    log.info("Gemini 2 Flash retry succeeded")
+                except Exception as retry_error:
+                    log.warning(f"Gemini 2 Flash retry failed: {retry_error}. Will try next provider.")
+                    return ResearchOutcome(
+                        status="rate_limited",
+                        provider="gemini-2-flash",
+                        error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}"
+                    )
+            else:
+                raise gemini_error
+
+        findings = response.text if response.text else "No findings returned"
+
+        log.info(f"Gemini 2 Flash research successful: {len(findings)} chars")
+
+        return ResearchOutcome(
+            status="success",
+            provider="gemini-2-flash",
+            findings=findings,
+            references=[],
+            tokens_used={
+                "input": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
+                "output": response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+            }
+        )
+
+    except (ImportError, AttributeError) as e:
+        log.warning(f"Gemini 2 Flash API error: {e}")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2-flash",
+            error_message=f"Gemini 2 Flash API error: {str(e)}"
+        )
+
+    except Exception as e:
+        log.error(f"Gemini 2 Flash research failed: {e}")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2-flash",
+            error_message=f"Gemini 2 Flash error: {str(e)}"
+        )
+
+
+# ============================================================================
+# Provider: Gemini 2.5 Flash Lite (Second Fallback)
+# ============================================================================
+
+def call_gemini_2_5_flash_lite_research(
+    task_description: str,
+    timeout_sec: int = 120
+) -> ResearchOutcome:
+    """Submit research task to Gemini 2.5 Flash Lite (lightweight fallback).
+
+    Args:
+        task_description: What to research
+        timeout_sec: Timeout for API call
+
+    Returns:
+        ResearchOutcome with findings or error status
+    """
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        log.debug("GEMINI_API_KEY not configured, skipping Gemini 2.5 Flash Lite provider")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2.5-flash-lite",
+            error_message="GEMINI_API_KEY not configured"
+        )
+
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        log.warning("google-generativeai not installed, skipping Gemini 2.5 Flash Lite")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2.5-flash-lite",
+            error_message="google-generativeai package not installed"
+        )
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+
+        user_prompt = f"Research the following topic and provide findings:\n\n{task_description}"
+
+        log.info("Calling Gemini 2.5 Flash Lite for research (second fallback)")
+
+        # Call Gemini API with 429 rate-limit handling
+        try:
+            response = model.generate_content(
+                user_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=2048,
+                    temperature=0.7,
+                    top_p=0.95,
+                )
+            )
+        except Exception as gemini_error:
+            # Check if this is a 429 rate limit error
+            error_str = str(gemini_error)
+            if "429" in error_str or "quota" in error_str or "rate" in error_str.lower():
+                retry_delay_sec = 34
+                if "retry_delay" in error_str:
+                    try:
+                        import re
+                        match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
+                        if match:
+                            retry_delay_sec = int(match.group(1))
+                    except:
+                        pass
+
+                log.warning(f"Gemini 2.5 Flash Lite 429 rate limit. Retrying after {retry_delay_sec}s...")
+                time.sleep(retry_delay_sec + 2)
+
+                try:
+                    log.info("Retrying Gemini 2.5 Flash Lite after rate limit wait")
+                    response = model.generate_content(
+                        user_prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            max_output_tokens=2048,
+                            temperature=0.7,
+                            top_p=0.95,
+                        )
+                    )
+                    log.info("Gemini 2.5 Flash Lite retry succeeded")
+                except Exception as retry_error:
+                    log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
+                    return ResearchOutcome(
+                        status="rate_limited",
+                        provider="gemini-2.5-flash-lite",
+                        error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}"
+                    )
+            else:
+                raise gemini_error
+
+        findings = response.text if response.text else "No findings returned"
+
+        log.info(f"Gemini 2.5 Flash Lite research successful: {len(findings)} chars")
+
+        return ResearchOutcome(
+            status="success",
+            provider="gemini-2.5-flash-lite",
+            findings=findings,
+            references=[],
+            tokens_used={
+                "input": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
+                "output": response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+            }
+        )
+
+    except (ImportError, AttributeError) as e:
+        log.warning(f"Gemini 2.5 Flash Lite API error: {e}")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2.5-flash-lite",
+            error_message=f"Gemini 2.5 Flash Lite API error: {str(e)}"
+        )
+
+    except Exception as e:
+        log.error(f"Gemini 2.5 Flash Lite research failed: {e}")
+        return ResearchOutcome(
+            status="error",
+            provider="gemini-2.5-flash-lite",
+            error_message=f"Gemini 2.5 Flash Lite error: {str(e)}"
+        )
+
+
+# ============================================================================
 # Provider Fallback Chain
 # ============================================================================
 
@@ -314,12 +567,23 @@ def delegate_research_task(
     gemini_timeout_sec: int = 120,
     ollama_timeout_sec: int = 120
 ) -> ResearchOutcome:
-    """Delegate research task with automatic provider fallback.
+    """Delegate research task with intelligent provider chain fallback and telemetry.
 
-    Provider chain:
-      1. Gemini 2.5 Flash (if GEMINI_API_KEY available)
-      2. qwen3:8b via Ollama (fallback)
-      3. If all fail: return error status
+    Provider chain (in order):
+      1. Gemini 2.5 Flash (primary, best quality)
+      2. Gemini 2 Flash (first fallback, higher quota)
+      3. Gemini 2.5 Flash Lite (second fallback, lightweight)
+      4. qwen3:8b via Ollama (final fallback, always available)
+
+    For each provider:
+    - If 429 rate limited: wait retry_delay + 2s buffer, retry once
+    - If still fails or other error: continue to next provider
+    - If success: return immediately with provider telemetry
+
+    Telemetry tracked:
+    - provider_attempted: list of providers tried in order
+    - provider: final selected provider that succeeded
+    - execution_time_ms: total time for this task
 
     Args:
         task_description: Research request text
@@ -328,44 +592,55 @@ def delegate_research_task(
         ollama_timeout_sec: Timeout for Ollama calls
 
     Returns:
-        ResearchOutcome with findings (success or error status)
+        ResearchOutcome with findings (success or error status) and provider telemetry
         Never raises exception; returns error status instead.
     """
 
     log.info(f"Starting research delegation: {task_description[:80]}...")
 
-    # Try Gemini first
-    log.debug("Provider chain: Attempting Gemini 2.5 Flash (primary)")
-    outcome = call_gemini_research(task_description, timeout_sec=gemini_timeout_sec)
+    # Track provider chain for telemetry
+    providers_attempted = []
 
-    if outcome.status == "success":
-        log.info("Research delegation succeeded (Gemini)")
-        return outcome
+    # Provider chain: try each in order
+    # Note: Gemini 2 Flash (gemini-2-flash) model not found in current API version
+    # Removed from chain to avoid 404 failures. Chain: 2.5 Flash → 2.5 Flash Lite → Ollama
+    providers = [
+        ("gemini-2.5-flash", "Gemini 2.5 Flash (primary)", call_gemini_research),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (first fallback)", call_gemini_2_5_flash_lite_research),
+        ("ollama", "qwen3:8b via Ollama (final fallback)", call_ollama_research),
+    ]
 
-    # If Gemini hit rate limit, fall through to Ollama
-    if outcome.status == "rate_limited":
-        log.warning(f"Gemini rate limited: {outcome.error_message}. Falling back to Ollama.")
-    else:
-        log.warning(f"Gemini failed: {outcome.error_message}. Attempting fallback provider.")
+    for provider_id, provider_name, provider_func in providers:
+        providers_attempted.append(provider_id)
+        log.debug(f"Provider chain: Attempting {provider_name}")
 
-    # Fallback to Ollama
-    log.debug("Provider chain: Attempting qwen3:8b via Ollama (fallback)")
-    outcome = call_ollama_research(
-        task_description,
-        timeout_sec=ollama_timeout_sec
-    )
+        # Call appropriate timeout for this provider
+        if "Ollama" in provider_name:
+            outcome = provider_func(task_description, timeout_sec=ollama_timeout_sec)
+        else:
+            outcome = provider_func(task_description, timeout_sec=gemini_timeout_sec)
 
-    if outcome.status == "success":
-        log.info("Research delegation succeeded (Ollama fallback)")
-        return outcome
+        # Always track which providers were attempted
+        outcome.provider_attempted = providers_attempted.copy()
 
-    log.error(f"Ollama fallback failed: {outcome.error_message}. All providers exhausted.")
+        # Check if this provider succeeded
+        if outcome.status == "success":
+            log.info(f"Research delegation succeeded via {provider_name}")
+            return outcome
 
-    # All providers failed
+        # Log why this provider failed
+        if outcome.status == "rate_limited":
+            log.warning(f"{provider_name} rate limited: {outcome.error_message}. Continuing to next provider.")
+        else:
+            log.warning(f"{provider_name} failed: {outcome.error_message}. Continuing to next provider.")
+
+    # All providers exhausted
+    log.error("All providers exhausted, research delegation failed")
     return ResearchOutcome(
-        status="no_providers",
+        status="error",
         provider="none",
-        error_message="All providers exhausted: Gemini unavailable, Ollama unavailable"
+        provider_attempted=providers_attempted,
+        error_message="All providers exhausted (Gemini 2.5 Flash, Gemini 2 Flash, Gemini 2.5 Flash Lite, Ollama)"
     )
 
 

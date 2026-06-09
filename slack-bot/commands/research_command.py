@@ -29,10 +29,29 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 from pathlib import Path
 from datetime import datetime
+from collections import deque
+from typing import Callable, Any, Optional
 
 log = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Research Mission Queue (MSN-0054E)
+# ============================================================================
+
+# In-memory FIFO queue for research missions
+_research_queue = deque()  # Queue of (topic, user_id, channel_id, thread_ts)
+_research_lock = threading.Lock()
+_research_executing = False
+
+def _generate_queue_mission_id() -> str:
+    """Generate unique mission ID for queue tracking."""
+    from datetime import datetime
+    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")[:14]
+    return f"QUEUED-{ts}"
 
 
 # ============================================================================
@@ -45,10 +64,13 @@ def handle_research_request(
     channel_id: str | None = None,
 ) -> str:
     """
-    Handle research request from Commander routing.
+    Handle research request from Commander routing with FIFO queue (MSN-0054E).
 
     Called when Commander detects "research" intent in user message.
     Example: "@Commander TJR research operational resilience trends in banking"
+
+    If a research mission is already executing, queues the request and returns
+    a position indicator. Otherwise, executes immediately.
 
     Args:
         text: Raw text from user (with "research" keyword removed by caller)
@@ -56,8 +78,10 @@ def handle_research_request(
         channel_id: Slack channel ID (for logging)
 
     Returns:
-        Slack-formatted markdown response string
+        Slack-formatted markdown response string (or queue position message)
     """
+
+    global _research_lock, _research_queue, _research_executing
 
     log.info(
         "[research] Handling research request: user=%s channel=%s topic_len=%d",
@@ -75,7 +99,51 @@ def handle_research_request(
     # For now, allow all Slack users (can restrict later)
     log.info("[research] Authorization: allowing all users (unrestricted in MVP)")
 
-    # Step 3: Import orchestration module
+    # Step 3: Try to acquire research lock (non-blocking)
+    # MSN-0054E: Check if another mission is executing
+    acquired = _research_lock.acquire(blocking=False)
+
+    if not acquired:
+        # Another mission is executing, queue this request
+        queue_mission_id = _generate_queue_mission_id()
+        _research_queue.append({
+            "topic": text.strip(),
+            "user_id": user_id,
+            "channel_id": channel_id,
+        })
+        position = len(_research_queue)
+        log.warning(
+            "[research] Mission queued: mission_id=%s position=%d user=%s channel=%s",
+            queue_mission_id, position, user_id, channel_id,
+        )
+        return (
+            f"Research mission queued. Position: {position}\n"
+            f"_Mission ID: `{queue_mission_id}`_\n\n"
+            f"Your research will begin when the current mission completes.\n"
+            f"I will post results in this thread."
+        )
+
+    # Lock acquired, execute mission
+    _research_executing = True
+    try:
+        message_text = _execute_research_mission(text.strip(), user_id, channel_id)
+    finally:
+        # Release lock and process queue
+        _research_executing = False
+        _research_lock.release()
+        _process_research_queue()
+
+    return message_text
+
+
+def _execute_research_mission(
+    text: str,
+    user_id: str | None,
+    channel_id: str | None,
+) -> str:
+    """Execute a single research mission (internal, locked)."""
+
+    # Step 1: Import orchestration module
     try:
         _bot_dir = Path(__file__).resolve().parent.parent
         if str(_bot_dir) not in sys.path:
@@ -87,12 +155,12 @@ def handle_research_request(
     except ImportError as e:
         log.error("[research] Could not import orchestrator: %s", e)
         return (
-            ":x: Number One research orchestration unavailable.\n"
+            "❌ Number One research orchestration unavailable.\n"
             "Error: Research delegation module not found."
         )
 
-    # Step 4: Execute research mission
-    log.info("[research] Starting research mission")
+    # Step 2: Execute research mission
+    log.info("[research] Starting research mission (executing)")
     try:
         orchestrator = ResearchOrchestrator()
         result = orchestrator.run_research_mission(text.strip())
@@ -109,14 +177,14 @@ def handle_research_request(
     except Exception as e:
         log.error("[research] Orchestration failed: %s — %s", type(e).__name__, e)
         return (
-            ":x: Research mission failed.\n"
+            "❌ Research mission failed.\n"
             f"Error: {str(e)[:100]}"
         )
 
-    # Step 5: Format result for Slack
+    # Step 3: Format result for Slack
     message_text = _format_research_result(result)
 
-    # Step 6: Guardrail — if formatted message is empty or too short, return explicit fallback
+    # Step 4: Guardrail — if formatted message is empty or too short, return explicit fallback
     if not message_text or len(message_text.strip()) < 20:
         log.error("[research] Formatted message is empty or too short: %d chars", len(message_text or ""))
         message_text = (
@@ -126,12 +194,50 @@ def handle_research_request(
             f"Status: {result.status}"
         )
 
-    # Step 7: Prepare for Phase 5 logging (save mission/decision)
+    # Step 5: Prepare for Phase 5 logging (save mission/decision)
     # TODO: Phase 5 — integrate with mission_to_memory and decision_to_memory
     if result.status != "error":
         _queue_mission_logging(result, user_id)
 
     return message_text
+
+
+def _process_research_queue() -> None:
+    """Process queued research requests one by one."""
+    global _research_lock, _research_queue
+
+    while len(_research_queue) > 0:
+        # Acquire lock for next queued mission
+        _research_lock.acquire()
+
+        if len(_research_queue) == 0:
+            _research_lock.release()
+            break
+
+        # Dequeue next mission
+        mission = _research_queue.popleft()
+        position = len(_research_queue)  # Remaining queue size
+
+        log.info(
+            "[research-queue] Processing queued mission: user=%s channel=%s remaining=%d",
+            mission["user_id"], mission["channel_id"], position,
+        )
+
+        try:
+            # Execute queued mission with original context
+            message_text = _execute_research_mission(
+                mission["topic"],
+                mission["user_id"],
+                mission["channel_id"],
+            )
+            log.info("[research-queue] Queued mission complete, response: %d chars", len(message_text))
+
+        except Exception as e:
+            log.error("[research-queue] Queued mission execution failed: %s", e)
+            message_text = f"❌ Research mission failed: {str(e)[:100]}"
+
+        finally:
+            _research_lock.release()
 
 
 # ============================================================================
@@ -226,6 +332,13 @@ def _format_research_result(result) -> str:
             else:
                 message += f"  {idx}. ✗ {task_desc}\n"
         message += "\n"
+
+        # Provider path telemetry
+        if result.provider_paths:
+            message += "*Provider Path:*\n"
+            for idx, path in enumerate(result.provider_paths, start=1):
+                message += f"  {idx}. {path}\n"
+            message += "\n"
     elif result.status == "error" and result.task_count == 0:
         # Explicit error message when task decomposition failed
         message += "*Research Failure Reason:*\n"

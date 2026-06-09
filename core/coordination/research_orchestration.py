@@ -85,11 +85,12 @@ class ResearchTask:
     order_index: int
     description: str
     status: str = "pending"  # pending, delegated, complete, failed
-    provider: Optional[str] = None  # gemini, ollama, none
+    provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
     findings: Optional[str] = None
     references: list[str] = field(default_factory=list)
     error_message: Optional[str] = None
     execution_time_ms: Optional[int] = None
+    provider_chain: list[str] = field(default_factory=list)  # Telemetry: providers attempted in order
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -117,8 +118,9 @@ class ResearchMissionResult:
     confidence: float = 0.0  # 0.0-1.0
 
     # Metadata
-    primary_provider: Optional[str] = None  # gemini, ollama, none
+    primary_provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
+    provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-2.5-flash → ollama"])
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -234,6 +236,7 @@ class ResearchOrchestrator:
             task.references = outcome.references or []
             task.error_message = outcome.error_message
             task.execution_time_ms = outcome.execution_time_ms
+            task.provider_chain = outcome.provider_attempted or []  # Telemetry: provider chain
 
             if outcome.status == "success":
                 if primary_provider is None:
@@ -291,6 +294,17 @@ class ResearchOrchestrator:
         if consolidation_fallback_used:
             errors.append("Consolidation used fallback (timeout or error). Summary generated from task findings.")
 
+        # Build provider paths for telemetry (e.g., ["gemini-2.5-flash → ollama", "gemini-2.5-flash"])
+        provider_paths = []
+        for t in tasks:
+            if t.provider_chain:
+                # Format: "gemini-2.5-flash → ollama"
+                path = " → ".join(t.provider_chain)
+                provider_paths.append(path)
+            elif t.provider:
+                # Fallback: just the final provider
+                provider_paths.append(t.provider)
+
         result = ResearchMissionResult(
             mission_id=mission_id,
             research_topic=research_topic,
@@ -305,6 +319,7 @@ class ResearchOrchestrator:
             confidence=confidence,
             primary_provider=primary_provider,
             errors=errors,
+            provider_paths=provider_paths,
         )
 
         log.info(f"Research mission {mission_id} complete: {status}")
@@ -391,7 +406,11 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.warning("Could not parse JSON from decomposition; falling back to line parsing")
                 lines = [line.strip() for line in response_text.split("\n") if line.strip()]
                 tasks = [line for line in lines if line and not line.startswith("[") and not line.endswith("]")]
-                return tasks[:5] if tasks else []
+                # MSN-0054E: Cap at 3 tasks (consistent with primary path)
+                capped_tasks = tasks[:3]
+                if len(capped_tasks) != len(tasks):
+                    log.warning(f"Fallback decomposition produced {len(tasks)} tasks; capped at 3 (max for MVP)")
+                return capped_tasks
 
         except Exception as e:
             log.error(f"Task decomposition failed: {e}")
