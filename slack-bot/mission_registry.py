@@ -15,7 +15,14 @@ from mission_logger import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CANONICAL_REGISTRY = BASE_DIR / "missions" / "Mission-Registry.md"
+# MSN-0045 (Captain decision 2): runtime mission logging writes to the AUTHORITATIVE
+# registry. Previously this pointed at the deprecated `missions/Mission-Registry.md`
+# (a write-only dead-end nothing read back). The deprecated file is retained on disk
+# for read compatibility (knowledge_retrieval/repository_awareness reference it) but is
+# no longer a write target.
+CANONICAL_REGISTRY = BASE_DIR / "core" / "mission-control" / "registry" / "mission-index.txt"
+# Legacy (deprecated) write target — RETAINED FOR READ COMPAT ONLY, never written:
+DEPRECATED_REGISTRY = BASE_DIR / "missions" / "Mission-Registry.md"
 
 VALID_STATUSES = ["Draft", "Planned", "Active", "Blocked", "Review", "Completed", "Archived"]
 
@@ -132,6 +139,14 @@ Created from Commander mission registry request.
 
 
 def append_canonical_registry(mission_id: str, title: str, domain: str, status: str) -> None:
+    """Append a runtime mission record to the AUTHORITATIVE registry (MSN-0045).
+
+    Runtime records use timestamp IDs (M-YYYYMMDD-HHMMSS) and are appended as
+    dash-list lines under the "RUNTIME MISSION LOG" section of mission-index.txt.
+    They are intentionally NOT written as canonical table rows (canonical rows use
+    USS-TJR-MSN-NNNN identifiers and require full metadata). This keeps the canonical
+    table intact while ensuring runtime logging lands in the authoritative file.
+    """
     if not CANONICAL_REGISTRY.exists():
         return
 
