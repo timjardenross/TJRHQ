@@ -35,6 +35,9 @@ from datetime import datetime
 from collections import deque
 from typing import Callable, Any, Optional
 
+# MSN-0055C Work Package 2: Provider Circuit Breaker
+from lib.provider_health import ProviderHealth
+
 log = logging.getLogger(__name__)
 
 
@@ -47,6 +50,10 @@ _research_queue = deque()  # Queue of mission dicts with full Slack context
 _research_lock = threading.Lock()
 _research_executing = False
 _slack_say_func = None  # Will be set by handle_research_request_with_slack()
+
+# MSN-0055C Work Package 2: Provider health tracking across mission execution
+# Persists across all tasks within a mission (reset on new mission)
+_provider_health = ProviderHealth()
 
 def _generate_queue_mission_id() -> str:
     """Generate unique mission ID for queue tracking."""
@@ -215,8 +222,14 @@ def _execute_research_mission(
     # Step 2: Execute research mission
     log.info("[research] Starting research mission (executing)")
     try:
+        global _provider_health
+
+        # MSN-0055C WP2: Reset provider health for new mission
+        _provider_health.reset()
+        log.debug("[research] Provider health tracker reset for new mission")
+
         orchestrator = ResearchOrchestrator()
-        result = orchestrator.run_research_mission(text.strip())
+        result = orchestrator.run_research_mission(text.strip(), provider_health=_provider_health)
 
         log.info(
             "[research] Mission complete: id=%s status=%s tasks=%d/%d provider=%s",

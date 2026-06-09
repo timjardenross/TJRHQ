@@ -25,6 +25,9 @@ from typing import Any, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
+# MSN-0055C Work Package 2: Provider Circuit Breaker
+from provider_health import ProviderHealth, extract_failure_reason
+
 log = logging.getLogger(__name__)
 
 
@@ -565,19 +568,26 @@ def delegate_research_task(
     task_description: str,
     timeout_sec: int = 120,
     gemini_timeout_sec: int = 120,
-    ollama_timeout_sec: int = 120
+    ollama_timeout_sec: int = 120,
+    provider_health: Optional[ProviderHealth] = None,
 ) -> ResearchOutcome:
     """Delegate research task with intelligent provider chain fallback and telemetry.
 
     Provider chain (in order):
       1. Gemini 2.5 Flash (primary, best quality)
-      2. Gemini 2 Flash (first fallback, higher quota)
-      3. Gemini 2.5 Flash Lite (second fallback, lightweight)
-      4. qwen3:8b via Ollama (final fallback, always available)
+      2. Gemini 2.5 Flash Lite (first fallback, lightweight)
+      3. qwen3:8b via Ollama (final fallback, always available)
+
+    Circuit Breaker (MSN-0055C WP2):
+    - Tracks provider failures within mission
+    - Skips providers marked unavailable
+    - Marks provider unavailable after first failure
+    - Subsequent tasks bypass unavailable provider (saves ~2-3 seconds per task)
 
     For each provider:
+    - If available: attempt delegation
     - If 429 rate limited: wait retry_delay + 2s buffer, retry once
-    - If still fails or other error: continue to next provider
+    - If fails: mark unavailable, continue to next provider
     - If success: return immediately with provider telemetry
 
     Telemetry tracked:
@@ -590,6 +600,7 @@ def delegate_research_task(
         timeout_sec: Overall timeout (used if no provider-specific timeout set)
         gemini_timeout_sec: Timeout for Gemini calls
         ollama_timeout_sec: Timeout for Ollama calls
+        provider_health: Optional ProviderHealth tracker (MSN-0055C WP2)
 
     Returns:
         ResearchOutcome with findings (success or error status) and provider telemetry
@@ -601,6 +612,10 @@ def delegate_research_task(
     # Track provider chain for telemetry
     providers_attempted = []
 
+    # Initialize provider health tracker if not provided
+    if provider_health is None:
+        provider_health = ProviderHealth()
+
     # Provider chain: try each in order
     # Note: Gemini 2 Flash (gemini-2-flash) model not found in current API version
     # Removed from chain to avoid 404 failures. Chain: 2.5 Flash → 2.5 Flash Lite → Ollama
@@ -611,6 +626,12 @@ def delegate_research_task(
     ]
 
     for provider_id, provider_name, provider_func in providers:
+        # MSN-0055C WP2: Skip providers marked unavailable by circuit breaker
+        if not provider_health.is_available(provider_id):
+            reason = provider_health.get_failure_reason(provider_id)
+            log.debug(f"Provider circuit breaker: Skipping {provider_id} ({reason})")
+            continue
+
         providers_attempted.append(provider_id)
         log.debug(f"Provider chain: Attempting {provider_name}")
 
@@ -625,14 +646,20 @@ def delegate_research_task(
 
         # Check if this provider succeeded
         if outcome.status == "success":
+            # MSN-0055C WP2: Mark as available on success
+            provider_health.mark_available(provider_id)
             log.info(f"Research delegation succeeded via {provider_name}")
             return outcome
 
+        # MSN-0055C WP2: Mark provider unavailable after failure
+        reason = extract_failure_reason(outcome.error_message or "", outcome.status)
+        provider_health.mark_unavailable(provider_id, reason)
+
         # Log why this provider failed
         if outcome.status == "rate_limited":
-            log.warning(f"{provider_name} rate limited: {outcome.error_message}. Continuing to next provider.")
+            log.warning(f"{provider_name} rate limited: {outcome.error_message}. Marking unavailable, continuing to next provider.")
         else:
-            log.warning(f"{provider_name} failed: {outcome.error_message}. Continuing to next provider.")
+            log.warning(f"{provider_name} failed: {outcome.error_message} ({reason}). Marking unavailable, continuing to next provider.")
 
     # All providers exhausted
     log.error("All providers exhausted, research delegation failed")
