@@ -295,12 +295,22 @@ class ResearchOrchestrator:
             else:
                 consolidated = "No findings available from completed tasks."
 
-        # Step 5: Generate recommendation (non-blocking, skipped if consolidation failed)
-        log.info("Step 4: Recommendation generation")
+        # Step 5: Generate recommendation with decision framework (non-blocking)
+        # MSN-RECOMMENDATION-FIX #3: Pass raw findings in addition to consolidated
+        # (Decision framework uses raw findings for grounding evidence, not abstract summary)
+        log.info("Step 4: Recommendation generation with decision framework")
+
+        # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
+        raw_findings = "\n\n".join([
+            f"Research Task {t.order_index}: {t.description}\n{t.findings}"
+            for t in tasks if t.findings
+        ]) if any(t.findings for t in tasks) else consolidated
+
         recommendation = None
         confidence = 0.0
         try:
-            recommendation, confidence = self._generate_recommendation_with_fallback(consolidated, tasks)
+            # NEW: Pass raw findings to decision framework for evidence grounding
+            recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
         except Exception as rec_error:
             log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
             recommendation = None
@@ -542,6 +552,9 @@ Research Metadata:
         """
         Consolidate findings from all tasks into a coherent summary.
 
+        MSN-RECOMMENDATION-FIX #4: Use Flash Lite instead of Ollama/qwen for synthesis.
+        Flash Lite is a reasoning model; qwen is a code model. Better fit for complex analysis.
+
         Args:
             tasks: List of completed research tasks
 
@@ -569,37 +582,24 @@ Consolidation Requirements:
 2. Identify key themes and patterns
 3. Note any conflicts or contradictions
 4. Highlight the most important insights
-5. Keep it concise (150-300 words)
+5. Keep it concise (200-400 words) - preserve detail for downstream recommendation use
 
 Provide only the consolidated summary, no headers or metadata."""
 
-        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-
         try:
-            endpoint = f"{ollama_url}/api/generate"
-            request_data = {
-                "model": "qwen2.5-coder:7b",
-                "prompt": consolidation_prompt,
-                "stream": False,
-                "temperature": 0.6,
-                "top_p": 0.9,
-            }
+            # MSN-RECOMMENDATION-FIX #4: Use Flash Lite (reasoning model) instead of qwen (code model)
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
 
-            request_body = json.dumps(request_data).encode("utf-8")
-            request = urllib.request.Request(
-                endpoint,
-                data=request_body,
-                headers={"Content-Type": "application/json"},
-                method="POST"
-            )
+            log.info("Calling Flash Lite for finding consolidation (MSN-RECOMMENDATION-FIX #4)")
+            outcome = call_gemini_2_5_flash_lite_research(consolidation_prompt, timeout_sec=30)
 
-            log.info("Calling Ollama for finding consolidation")
-
-            with urllib.request.urlopen(request, timeout=30) as response:
-                response_data = json.loads(response.read().decode("utf-8"))
-                consolidated = response_data.get("response", "").strip()
-                log.info(f"Consolidation complete: {len(consolidated)} chars")
+            if outcome.status == "success" and outcome.findings:
+                consolidated = outcome.findings.strip()
+                log.info(f"Consolidation complete (Flash Lite): {len(consolidated)} chars")
                 return consolidated
+            else:
+                log.warning(f"Flash Lite consolidation failed: {outcome.status}. Using local fallback.")
+                raise Exception("Flash Lite failed")
 
         except Exception as e:
             # Consolidation timeout or error - use deterministic local fallback
@@ -628,20 +628,202 @@ Provide only the consolidated summary, no headers or metadata."""
     # Recommendation Generation (MSN-0055C WP5: Recommendation with Fallback)
     # ========================================================================
 
+    def _extract_options_from_findings(
+        self,
+        consolidated_findings: str,
+        tasks: list[ResearchTask]
+    ) -> Optional[str]:
+        """
+        Extract viable options from research findings (MSN-RECOMMENDATION-FIX #1).
+
+        Uses Flash Lite to identify 2-4 distinct options implied by the research.
+        Non-blocking; returns None if extraction fails.
+
+        Args:
+            consolidated_findings: Consolidated research output
+            tasks: All tasks (for context)
+
+        Returns:
+            Structured options list or None
+        """
+
+        if not consolidated_findings or "No findings" in consolidated_findings:
+            return None
+
+        options_prompt = f"""You are a strategic analyst. Based on these research findings, identify 2-4 DISTINCT VIABLE OPTIONS.
+
+Research Findings:
+{consolidated_findings}
+
+For each option, provide:
+- Option name (3-5 words)
+- Brief description (1 sentence)
+- Key advantages (2 bullets)
+- Key disadvantages (2 bullets)
+- Estimated cost/effort/timeline if relevant
+
+Format as a numbered list. Be specific and concrete.
+
+Example format:
+1. OPTION NAME
+Description: [1 sentence]
+Advantages:
+- [advantage 1]
+- [advantage 2]
+Disadvantages:
+- [disadvantage 1]
+- [disadvantage 2]
+Cost/Effort: [if relevant]"""
+
+        try:
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+
+            log.debug("Extracting options from findings (MSN-RECOMMENDATION-FIX #1)")
+            outcome = call_gemini_2_5_flash_lite_research(options_prompt, timeout_sec=20)
+
+            if outcome.status == "success" and outcome.findings:
+                options_text = outcome.findings.strip()
+                log.info(f"Options extracted: {len(options_text)} chars")
+                return options_text
+            else:
+                log.debug(f"Options extraction failed: {outcome.status}")
+                return None
+
+        except Exception as e:
+            log.debug(f"Options extraction failed ({type(e).__name__}): {str(e)[:50]}")
+            return None
+
+    def _analyze_tradeoffs(
+        self,
+        consolidated_findings: str,
+        options_text: Optional[str],
+        tasks: list[ResearchTask]
+    ) -> Optional[str]:
+        """
+        Analyze trade-offs between options (MSN-RECOMMENDATION-FIX #1).
+
+        Uses Flash Lite to create trade-off matrix.
+        Non-blocking; returns None if analysis fails.
+
+        Args:
+            consolidated_findings: Consolidated research output
+            options_text: Extracted options from previous step
+            tasks: All tasks (for context)
+
+        Returns:
+            Trade-off analysis or None
+        """
+
+        if not options_text:
+            return None
+
+        tradeoff_prompt = f"""You are a strategic analyst. Analyze the trade-offs between these options.
+
+Options:
+{options_text}
+
+Create a trade-off analysis covering:
+1. COST vs BENEFIT
+2. SPEED vs QUALITY
+3. RISK vs REWARD
+4. SHORT-TERM vs LONG-TERM impact
+
+Format as a clear comparison table or matrix showing how each option trades off these dimensions.
+
+Be specific with numbers/timelines where possible."""
+
+        try:
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+
+            log.debug("Analyzing trade-offs (MSN-RECOMMENDATION-FIX #1)")
+            outcome = call_gemini_2_5_flash_lite_research(tradeoff_prompt, timeout_sec=20)
+
+            if outcome.status == "success" and outcome.findings:
+                tradeoff_text = outcome.findings.strip()
+                log.info(f"Trade-off analysis complete: {len(tradeoff_text)} chars")
+                return tradeoff_text
+            else:
+                log.debug(f"Trade-off analysis failed: {outcome.status}")
+                return None
+
+        except Exception as e:
+            log.debug(f"Trade-off analysis failed ({type(e).__name__}): {str(e)[:50]}")
+            return None
+
+    def _assess_risks(
+        self,
+        consolidated_findings: str,
+        options_text: Optional[str],
+        tasks: list[ResearchTask]
+    ) -> Optional[str]:
+        """
+        Assess risks for each option (MSN-RECOMMENDATION-FIX #1).
+
+        Uses Flash Lite to identify risks and mitigation strategies.
+        Non-blocking; returns None if assessment fails.
+
+        Args:
+            consolidated_findings: Consolidated research output
+            options_text: Extracted options from previous step
+            tasks: All tasks (for context)
+
+        Returns:
+            Risk assessment or None
+        """
+
+        if not options_text:
+            return None
+
+        risk_prompt = f"""You are a risk analyst. Assess risks for each option.
+
+Options:
+{options_text}
+
+For each option, identify:
+1. Critical risks (could cause failure)
+2. Operational risks (could cause delays)
+3. Strategic risks (could limit future options)
+4. Mitigation strategies for each risk
+
+Format clearly. Be specific about probability and impact."""
+
+        try:
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+
+            log.debug("Assessing risks (MSN-RECOMMENDATION-FIX #1)")
+            outcome = call_gemini_2_5_flash_lite_research(risk_prompt, timeout_sec=20)
+
+            if outcome.status == "success" and outcome.findings:
+                risk_text = outcome.findings.strip()
+                log.info(f"Risk assessment complete: {len(risk_text)} chars")
+                return risk_text
+            else:
+                log.debug(f"Risk assessment failed: {outcome.status}")
+                return None
+
+        except Exception as e:
+            log.debug(f"Risk assessment failed ({type(e).__name__}): {str(e)[:50]}")
+            return None
+
     def _generate_recommendation_with_fallback(
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
     ) -> tuple[Optional[str], float]:
         """
-        Generate recommendation with guaranteed fallback.
+        Generate recommendation with decision framework (MSN-RECOMMENDATION-FIX #1).
 
         MSN-0055C WP5: Fallback ensures every mission has a recommendation.
+        MSN-0058: Optimized provider chain for recommendations
+        MSN-RECOMMENDATION-FIX: New decision framework pipeline
 
-        Priority:
-        1. LLM-based recommendation (if available)
-        2. Heuristic-based recommendation (always available)
-        3. Minimum fallback (assertion of uncertainty)
+        New Priority:
+        1. Extract options from findings (Flash Lite)
+        2. Analyze trade-offs (Flash Lite)
+        3. Assess risks (Flash Lite)
+        4. Generate recommendation (Flash Lite with full context)
+        5. Fallback to Ollama if needed
+        6. Final heuristic fallback
 
         Args:
             consolidated_findings: Consolidated research output
@@ -651,56 +833,98 @@ Provide only the consolidated summary, no headers or metadata."""
             Tuple of (recommendation_text, confidence_score)
         """
 
-        # Try LLM-based recommendation first
-        llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
+        # NEW: Step 1 - Extract options from findings (MSN-RECOMMENDATION-FIX #1)
+        log.info("[research-recommendation] Step 1: Extracting viable options...")
+        options_text = self._extract_options_from_findings(consolidated_findings, tasks)
 
-        # Validate LLM response is truly actionable (MSN-0056 WP3)
+        # NEW: Step 2 - Analyze trade-offs (MSN-RECOMMENDATION-FIX #1)
+        log.info("[research-recommendation] Step 2: Analyzing trade-offs...")
+        tradeoff_text = self._analyze_tradeoffs(consolidated_findings, options_text, tasks)
+
+        # NEW: Step 3 - Assess risks (MSN-RECOMMENDATION-FIX #1)
+        log.info("[research-recommendation] Step 3: Assessing risks...")
+        risk_text = self._assess_risks(consolidated_findings, options_text, tasks)
+
+        # NEW: Step 4 - Generate recommendation with decision framework (MSN-RECOMMENDATION-FIX #2)
+        log.info("[research-recommendation] Step 4: Generating recommendation with decision framework...")
+        llm_rec, llm_conf = self._generate_recommendation_with_decision_framework(
+            consolidated_findings,
+            options_text,
+            tradeoff_text,
+            risk_text,
+            tasks
+        )
+
+        # Validate recommendation
         if (llm_rec
             and "No actionable" not in llm_rec
             and "cannot recommend" not in llm_rec.lower()
             and "insufficient" not in llm_rec.lower()
-            and len(llm_rec) > 20  # Sanity check: real recommendation
-            and llm_conf >= 0.5):   # Minimum confidence threshold
+            and len(llm_rec) > 30
+            and llm_conf >= 0.5):
+            log.info(f"[research-recommendation] Decision framework recommendation succeeded (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.info(f"[research-recommendation] LLM recommendation rejected (invalid or too weak). Falling back to heuristic.")
+        log.debug(f"[research-recommendation] Decision framework recommendation rejected. Trying Ollama...")
 
-        # Fallback: Heuristic-based recommendation
+        # Tier 2: Fall back to Ollama with original prompt
+        llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
+
+        # Validate Flash Lite response
+        if (llm_rec
+            and "No actionable" not in llm_rec
+            and "cannot recommend" not in llm_rec.lower()
+            and "insufficient" not in llm_rec.lower()
+            and len(llm_rec) > 20
+            and llm_conf >= 0.5):
+            log.info(f"[research-recommendation] Used Gemini 2.5 Flash Lite (confidence: {llm_conf:.2f})")
+            return llm_rec, llm_conf
+
+        log.debug(f"[research-recommendation] Flash Lite recommendation rejected or failed. Trying Ollama...")
+
+        # Tier 2: Fall back to Ollama
+        llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
+
+        # Validate Ollama response
+        if (llm_rec
+            and "No actionable" not in llm_rec
+            and "cannot recommend" not in llm_rec.lower()
+            and "insufficient" not in llm_rec.lower()
+            and len(llm_rec) > 20
+            and llm_conf >= 0.5):
+            log.info(f"[research-recommendation] Used Ollama (confidence: {llm_conf:.2f})")
+            return llm_rec, llm_conf
+
+        log.info(f"[research-recommendation] Both LLM recommendations rejected or failed.")
+        log.info(f"[research-recommendation] Recommendation pipeline needs review. Returning NEEDS_REVIEW status.")
+
+        # NEW (MSN-RECOMMENDATION-FIX #5): Escalate instead of fallback to "defer"
         successful_tasks = len([t for t in tasks if t.status == "complete"])
         task_count = len(tasks)
 
-        log.warning(f"[research-recommendation] Using fallback (successful: {successful_tasks}/{task_count})")
-
-        if successful_tasks == task_count:
-            # All tasks completed: actionable recommendation
+        if successful_tasks >= task_count * 0.75:
+            # Most tasks completed: provide actionable fallback
             recommendation = (
-                f"Based on comprehensive research covering {task_count} key areas with full success, "
-                f"recommend proceeding with implementation. Findings support viability and readiness."
+                f"RECOMMENDATION NEEDS REVIEW: Research completed {successful_tasks}/{task_count} areas. "
+                f"Executive review required to formulate recommendation. Strong findings available."
             )
-            confidence = 0.85
-        elif successful_tasks >= task_count * 0.75:
-            # Most tasks completed: cautious recommendation
-            recommendation = (
-                f"Based on research covering {successful_tasks} of {task_count} areas, "
-                f"recommend proceeding with caution. Additional investigation recommended for gaps."
-            )
-            confidence = 0.65
+            confidence = 0.6  # Medium confidence (task completion good, recommendation generation failed)
         elif successful_tasks >= task_count * 0.5:
-            # Half tasks completed: limited confidence
+            # Half tasks completed: limited fallback
             recommendation = (
-                f"Research incomplete ({successful_tasks} of {task_count} areas). "
-                f"Recommend deferring decision pending completion of additional investigation."
+                f"RECOMMENDATION NEEDS REVIEW: Partial research coverage ({successful_tasks}/{task_count} areas). "
+                f"Additional investigation recommended before executive decision."
             )
             confidence = 0.4
         else:
-            # Minimal data: defer recommendation
+            # Minimal data: escalate for human review
             recommendation = (
-                "Research coverage insufficient to support a confident recommendation. "
+                "RECOMMENDATION NEEDS REVIEW: Insufficient research coverage. "
                 "Recommend deferring decision pending substantial additional investigation."
             )
             confidence = 0.2
 
-        log.info(f"[research-recommendation] Fallback recommendation (confidence: {confidence:.2f})")
+        log.warning(f"[research-recommendation] Recommendation generation escalated to review (confidence: {confidence:.2f})")
         return recommendation, confidence
 
     def _generate_recommendation(
@@ -795,6 +1019,221 @@ CONFIDENCE: [0.0-1.0]"""
 
         except Exception as e:
             log.warning(f"Recommendation generation failed ({type(e).__name__}): {str(e)[:100]}. Continuing without recommendation.")
+            return None, 0.0
+
+    def _generate_recommendation_with_decision_framework(
+        self,
+        consolidated_findings: str,
+        options_text: Optional[str],
+        tradeoff_text: Optional[str],
+        risk_text: Optional[str],
+        tasks: list[ResearchTask]
+    ) -> tuple[Optional[str], float]:
+        """
+        Generate recommendation using decision framework (MSN-RECOMMENDATION-FIX #2).
+
+        Uses Flash Lite with structured decision inputs:
+        - Consolidated findings
+        - Extracted options
+        - Trade-off analysis
+        - Risk assessment
+
+        Returns actionable recommendation with rationale.
+
+        Args:
+            consolidated_findings: Consolidated research output
+            options_text: Extracted options (can be None)
+            tradeoff_text: Trade-off analysis (can be None)
+            risk_text: Risk assessment (can be None)
+            tasks: All tasks (for context)
+
+        Returns:
+            Tuple of (recommendation_text, confidence_score)
+        """
+
+        if not consolidated_findings or "No findings" in consolidated_findings:
+            log.debug("No findings for decision framework recommendation")
+            return None, 0.0
+
+        # Build prompt with decision framework (MSN-RECOMMENDATION-FIX #2)
+        decision_framework_prompt = f"""You are a Chief of Staff advisor. Your role is to recommend ACTION, not to summarise.
+
+You have completed research with findings. You have identified options with trade-offs and risks.
+
+Your job is to STATE WHICH OPTION IS PREFERRED and explain why.
+
+Research Findings:
+{consolidated_findings}
+
+"""
+
+        if options_text:
+            decision_framework_prompt += f"""Viable Options:
+{options_text}
+
+"""
+
+        if tradeoff_text:
+            decision_framework_prompt += f"""Trade-off Analysis:
+{tradeoff_text}
+
+"""
+
+        if risk_text:
+            decision_framework_prompt += f"""Risk Assessment:
+{risk_text}
+
+"""
+
+        decision_framework_prompt += """Your recommendation MUST include:
+
+1. PREFERRED OPTION: State which option (e.g., "Option 2 - Build Internal Capability")
+2. WHY: Explain in 2-3 sentences, grounded in findings and trade-offs. Why this option over others?
+3. SUCCESS FACTORS: 2-3 key actions needed for success
+4. CRITICAL RISKS AND MITIGATION: Top 2-3 risks and how to mitigate
+5. FIRST THREE ACTIONS: Specific next steps to execute
+6. CONFIDENCE: 0.0-1.0 based on evidence strength
+
+Format exactly as:
+PREFERRED OPTION: [Option name]
+WHY: [2-3 sentences with evidence]
+SUCCESS FACTORS:
+- [factor 1]
+- [factor 2]
+CRITICAL RISKS AND MITIGATION:
+- [Risk 1: Mitigation 1]
+- [Risk 2: Mitigation 2]
+FIRST THREE ACTIONS:
+1. [Action 1]
+2. [Action 2]
+3. [Action 3]
+CONFIDENCE: [0.0-1.0]"""
+
+        try:
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+
+            log.debug("Calling Flash Lite with decision framework (MSN-RECOMMENDATION-FIX #2)")
+            outcome = call_gemini_2_5_flash_lite_research(decision_framework_prompt, timeout_sec=30)
+
+            if outcome.status == "success" and outcome.findings:
+                response_text = outcome.findings.strip()
+
+                # Parse recommendation and confidence
+                recommendation = None
+                confidence = 0.5
+
+                for line in response_text.split("\n"):
+                    if line.startswith("CONFIDENCE:"):
+                        try:
+                            confidence = float(line.replace("CONFIDENCE:", "").strip())
+                            confidence = max(0.0, min(1.0, confidence))
+                        except ValueError:
+                            confidence = 0.5
+
+                # Use entire response as recommendation (includes all structured sections)
+                if "PREFERRED OPTION:" in response_text:
+                    recommendation = response_text
+                    log.debug(f"Decision framework recommendation generated (confidence: {confidence:.2f})")
+                    return recommendation, confidence
+                else:
+                    log.debug("Decision framework: no preferred option identified")
+                    return None, 0.0
+            else:
+                log.debug(f"Decision framework generation failed: {outcome.status}")
+                return None, 0.0
+
+        except Exception as e:
+            log.debug(f"Decision framework generation failed ({type(e).__name__}): {str(e)[:50]}")
+            return None, 0.0
+
+    def _generate_recommendation_flash_lite(
+        self,
+        consolidated_findings: str,
+        tasks: list[ResearchTask]
+    ) -> tuple[Optional[str], float]:
+        """
+        Generate recommendation using Gemini 2.5 Flash Lite (MSN-0058).
+
+        Flash Lite is cost-effective for recommendation generation while
+        maintaining good quality. Primary tier before Ollama fallback.
+
+        Args:
+            consolidated_findings: Consolidated research output
+            tasks: All tasks (for context)
+
+        Returns:
+            Tuple of (recommendation_text, confidence_score)
+        """
+
+        if not consolidated_findings or "No findings" in consolidated_findings:
+            log.debug("No findings for Flash Lite recommendation")
+            return None, 0.0
+
+        recommendation_prompt = f"""You are a strategic advisor. Based on the following research findings, provide a clear, actionable recommendation.
+
+Research Findings:
+{consolidated_findings}
+
+Recommendation Requirements:
+1. Start with "We should..." or "We should not..."
+2. Be specific and actionable
+3. Ground it in the findings provided
+4. Assume the reader can execute this immediately
+5. Keep it to 1-2 sentences
+
+Also, assign a confidence score (0.0-1.0) based on:
+- Strength of evidence
+- Consensus across research tasks
+- Actionability
+
+Format your response as:
+RECOMMENDATION: [your recommendation]
+CONFIDENCE: [0.0-1.0]"""
+
+        try:
+            # Import here to avoid circular imports
+            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+
+            # Create a simple task-like object for the API call
+            class RecommendationTask:
+                def __init__(self, prompt):
+                    self.prompt = prompt
+
+            task = RecommendationTask(recommendation_prompt)
+
+            # Call Flash Lite API
+            log.debug("Calling Gemini 2.5 Flash Lite for recommendation (MSN-0058)")
+            outcome = call_gemini_2_5_flash_lite_research(recommendation_prompt, timeout_sec=20)
+
+            if outcome.status == "success" and outcome.findings:
+                response_text = outcome.findings.strip()
+
+                # Parse recommendation and confidence
+                recommendation = None
+                confidence = 0.5
+
+                for line in response_text.split("\n"):
+                    if line.startswith("RECOMMENDATION:"):
+                        recommendation = line.replace("RECOMMENDATION:", "").strip()
+                    elif line.startswith("CONFIDENCE:"):
+                        try:
+                            confidence = float(line.replace("CONFIDENCE:", "").strip())
+                            confidence = max(0.0, min(1.0, confidence))
+                        except ValueError:
+                            confidence = 0.5
+
+                if recommendation:
+                    log.debug(f"Flash Lite recommendation generated (confidence: {confidence:.2f})")
+                    return recommendation, confidence
+                else:
+                    log.debug("Flash Lite returned no recommendation")
+                    return None, 0.0
+            else:
+                log.debug(f"Flash Lite call failed: {outcome.status}")
+                return None, 0.0
+
+        except Exception as e:
+            log.debug(f"Flash Lite recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
     # ========================================================================

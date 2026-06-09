@@ -617,12 +617,13 @@ def delegate_research_task(
         provider_health = ProviderHealth()
 
     # Provider chain: try each in order
-    # Note: Gemini 2 Flash (gemini-2-flash) model not found in current API version
-    # Removed from chain to avoid 404 failures. Chain: 2.5 Flash → 2.5 Flash Lite → Ollama
+    # MSN-0058: Optimized for cost & workload balance
+    # Research delegation uses Flash Lite primary (better cost/quality than Flash)
+    # Ollama as fallback (local, free), Flash reserved for strategic work only
     providers = [
-        ("gemini-2.5-flash", "Gemini 2.5 Flash (primary)", call_gemini_research),
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (first fallback)", call_gemini_2_5_flash_lite_research),
-        ("ollama", "qwen3:8b via Ollama (final fallback)", call_ollama_research),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - optimized for cost)", call_gemini_2_5_flash_lite_research),
+        ("ollama", "qwen3:8b via Ollama (fallback - local, free)", call_ollama_research),
+        ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
 
     for provider_id, provider_name, provider_func in providers:

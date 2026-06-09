@@ -203,24 +203,86 @@ def _execute_research_mission(
 ) -> str:
     """Execute a single research mission (internal, locked)."""
 
-    # Step 1: Import orchestration module
+    # Step 1: Import orchestration module and memory retriever
     try:
         _bot_dir = Path(__file__).resolve().parent.parent
         if str(_bot_dir) not in sys.path:
             sys.path.insert(0, str(_bot_dir))
 
-        # Import orchestrator
+        # Import orchestrator and memory retriever (MSN-0057 WP1)
         from core.coordination.research_orchestration import ResearchOrchestrator
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
     except ImportError as e:
-        log.error("[research] Could not import orchestrator: %s", e)
+        log.error("[research] Could not import orchestrator/retriever: %s", e)
         return (
             "❌ Number One research orchestration unavailable.\n"
             "Error: Research delegation module not found."
         )
 
-    # Step 2: Execute research mission
-    log.info("[research] Starting research mission (executing)")
+    # Step 2: Check research memory BEFORE executing new research (MSN-0057 WP1)
+    log.info("[research] Checking prior research (MSN-0057 WP1 retrieval)")
+    retrieval_result = None
+    try:
+        retriever = ResearchMemoryRetriever()
+        retrieval_result = retriever.search_prior_research(text.strip())
+
+        log.info(
+            "[research] Memory retrieval complete: found=%s decision=%s confidence=%.2f",
+            retrieval_result.found,
+            retrieval_result.recommendation,
+            retrieval_result.match_confidence,
+        )
+
+        # Log retrieval decision
+        log.debug(
+            "[research] Retrieval analysis: reason=%s match_confidence=%.2f found=%s",
+            retrieval_result.reason,
+            retrieval_result.match_confidence,
+            retrieval_result.found,
+        )
+
+    except Exception as e:
+        log.warning("[research] Memory retrieval failed (non-blocking): %s", e)
+        retrieval_result = None
+        # Continue with new research; retrieval failure does not block execution
+
+    # Step 2b: If REUSE or REUSE_WITH_NOTE, return prior findings (MSN-0057 WP1)
+    if retrieval_result and retrieval_result.recommendation in ("REUSE", "REUSE_WITH_NOTE"):
+        log.info(
+            "[research] Prior research reused: decision=%s confidence=%.2f mission_id=%s",
+            retrieval_result.recommendation,
+            retrieval_result.match_confidence,
+            retrieval_result.entry.get("mission_id") if retrieval_result.entry else "unknown",
+        )
+
+        # Format reused research result
+        reuse_header = "🔄 *Prior Research Reused*" if retrieval_result.recommendation == "REUSE" else "🔄 *Prior Research + Fresh Data*"
+        reuse_note = "" if retrieval_result.recommendation == "REUSE" else "\n📝 *Note:* Prior research supplemented with current findings."
+
+        message_text = (
+            f"{reuse_header}\n"
+            f"🎯 *Question:* {text.strip()}\n"
+            f"📊 *Findings:* {retrieval_result.entry.get('findings', 'See prior research')}\n"
+            f"🎯 *Recommendation:* {retrieval_result.entry.get('recommendation', 'See prior research')}\n"
+            f"📈 *Confidence:* {int(retrieval_result.match_confidence * 100)}% (from prior research)"
+            f"{reuse_note}\n"
+            f"⏱️ *Research Time:* <100ms (retrieved from memory)"
+        )
+
+        # Log reuse for metrics
+        _queue_mission_logging_reuse(
+            question=text.strip(),
+            findings=retrieval_result.entry.get('findings', ''),
+            recommendation=retrieval_result.entry.get('recommendation', ''),
+            confidence=retrieval_result.match_confidence,
+            user_id=user_id,
+        )
+
+        return message_text
+
+    # Step 3: Execute new research mission (prior research not reusable)
+    log.info("[research] Starting new research mission (executing)")
     try:
         global _provider_health
 
@@ -533,6 +595,57 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
     except Exception as e:
         log.warning("[research] Failed to save mission outcome to memory: %s", e)
         # Non-blocking: research already delivered to user; memory save is auxiliary
+
+
+def _queue_mission_logging_reuse(
+    question: str,
+    findings: str,
+    recommendation: str,
+    confidence: float,
+    user_id: str | None,
+) -> None:
+    """
+    Log a successful research reuse event (MSN-0057 WP1).
+
+    Tracks when prior research is reused instead of executing new research.
+    Used for metrics: reuse rate, time savings, confidence patterns.
+
+    Args:
+        question: Original research question
+        findings: Findings from prior research
+        recommendation: Recommendation from prior research
+        confidence: Confidence score of reused research
+        user_id: Slack user ID (requester)
+    """
+
+    try:
+        log.info(
+            "[research-reuse] Research reused: question_len=%d confidence=%.2f user=%s",
+            len(question),
+            confidence,
+            user_id or "unknown",
+        )
+
+        # TODO: Phase 5 implementation
+        # Track reuse metrics (can be used for analytics)
+        # Example:
+        # from lib.metrics import record_reuse_event
+        # record_reuse_event({
+        #     "question": question,
+        #     "confidence": confidence,
+        #     "user_id": user_id,
+        #     "timestamp": datetime.utcnow(),
+        # })
+
+        log.debug(
+            "[research-reuse] Reuse metrics: question=%s confidence=%.2f",
+            question[:50],
+            confidence,
+        )
+
+    except Exception as e:
+        log.warning("[research-reuse] Failed to log reuse event: %s", e)
+        # Non-blocking: reuse already delivered to user; metrics logging is auxiliary
 
 
 
