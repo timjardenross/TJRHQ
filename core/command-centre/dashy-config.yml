@@ -85,6 +85,12 @@ sections:
   - title: Core Operations
     icon: fas fa-chess-board
     items:
+      - title: Commander Operations Brief
+        description: "📊 Mission status, priorities, blocked items (Supabase Live)"
+        icon: fas fa-briefcase
+        url: "/dashboards/commander-operations-brief.html"
+        target: _blank
+
       - title: Mission Registry
         description: "📋 Active missions, progress tracking (Supabase Live)"
         icon: fas fa-tasks
@@ -109,26 +115,7 @@ sections:
         url: "https://github.com/timjardenross/USSTJROS/tree/main/architecture/decisions"
         target: _blank
 
-  # SECTION 4: RECENT MISSIONS
-  - title: Recent Missions
-    icon: fas fa-tasks
-    items:
-      - title: M-20260609-000000
-        description: "Control Deck Launchpad v1.1"
-        icon: fas fa-check-circle
-        url: "#"
-
-      - title: MSN-0040A-WP2
-        description: "Integration & Automation"
-        icon: fas fa-cogs
-        url: "#"
-
-      - title: MSN-0035
-        description: "Strategic Initiative"
-        icon: fas fa-star
-        url: "#"
-
-  # SECTION 5: RUNTIME SERVICES
+  # SECTION 4: RUNTIME SERVICES (formerly SECTION 5)
   - title: Runtime Services
     icon: fas fa-server
     items:
@@ -149,7 +136,7 @@ sections:
         url: "http://localhost:18789/chat?session=agent%3Amain%3Amain"
         target: _blank
 
-  # SECTION 6: DOCUMENTATION
+  # SECTION 5: DOCUMENTATION
   - title: Documentation
     icon: fas fa-book
     items:
@@ -159,73 +146,60 @@ sections:
         url: "https://github.com/timjardenross/USSTJROS/tree/main/knowledge/architecture"
         target: _blank
 
-      - title: API Reference
-        description: "📋 Coming Soon — API docs in development"
-        icon: fas fa-code
-        url: "#"
-
       - title: Setup Guide
         description: "Getting started & deployment (GitHub)"
         icon: fas fa-cogs
         url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md"
         target: _blank
 
-  # SECTION 7: OPERATIONAL DASHBOARDS (TRACK 1)
+  # SECTION 6: OPERATIONAL (VERIFIED)
   - title: Operational Dashboards
     icon: fas fa-monitor
     items:
+      - title: Blocked Missions
+        description: "🔴 Alert: Mission blockers (Supabase Live)"
+        icon: fas fa-exclamation-triangle
+        url: "/dashboards/blocked-missions.html"
+        target: _blank
+
+  # SECTION 7: EXPERIMENTAL / DEFERRED
+  - title: Experimental Dashboards
+    icon: fas fa-flask
+    items:
       - title: Service Health Widget
-        description: "🟢 Real-time service status (Starfleet Theme)"
+        description: "⏳ Real-time service status (In Development)"
         icon: fas fa-heartbeat
         url: "/dashboards/service-health-widget.html"
         target: _blank
 
       - title: Mission Metrics
-        description: "📊 Performance & mission tracking (Starfleet Theme)"
+        description: "⏳ Performance analytics (In Development)"
         icon: fas fa-chart-bar
         url: "/dashboards/mission-metrics.html"
         target: _blank
 
       - title: Activity Feed
-        description: "📡 Real-time operations log (Starfleet Theme)"
+        description: "⏳ Operations log (In Development)"
         icon: fas fa-stream
         url: "/dashboards/activity-feed.html"
         target: _blank
 
-      - title: Blocked Missions
-        description: "🔴 Alert: Mission blockers (Starfleet Theme)"
-        icon: fas fa-exclamation-triangle
-        url: "/dashboards/blocked-missions.html"
-        target: _blank
-
       - title: AI Lab Status
-        description: "🔬 AI services & resources (Starfleet Theme)"
+        description: "⏳ AI services monitoring (In Development)"
         icon: fas fa-flask
         url: "/dashboards/ai-lab-status.html"
         target: _blank
 
       - title: Restart History
-        description: "🔄 Service restart logs & trends (Starfleet Theme)"
+        description: "⏳ Service restart logs (In Development)"
         icon: fas fa-sync-alt
         url: "/dashboards/restart-history.html"
         target: _blank
 
       - title: System Status Page
-        description: "★ Overall system health (Starfleet Theme)"
+        description: "⏳ Overall system health (In Development)"
         icon: fas fa-server
         url: "/dashboards/status.html"
-        target: _blank
-
-      - title: Mission Registry
-        description: "📋 Active missions, progress tracking (Starfleet Theme)"
-        icon: fas fa-tasks
-        url: "/dashboards/mission-registry.html"
-        target: _blank
-
-      - title: Decisions Registry
-        description: "📋 Architectural decisions & alternatives (Starfleet Theme)"
-        icon: fas fa-sitemap
-        url: "/dashboards/decisions-registry.html"
         target: _blank
 
   # SECTION 8: DEVELOPMENT
