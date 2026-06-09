@@ -27,8 +27,14 @@ CREATE TABLE IF NOT EXISTS missions (
   title       VARCHAR(255) NOT NULL,
   created_by  VARCHAR(50)  NOT NULL,            -- Slack user ID
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  status      VARCHAR(20)  NOT NULL
-              CHECK (status IN ('Draft','Planned','Active','Blocked','Review','Completed','Archived')),
+  -- MSN-0051 / Captain decision D-008: CANONICAL mission lifecycle (ADR-0001 /
+  -- MSN-ENFORCE-001 7-state backbone + operational states Blocked, Archived).
+  -- This is the CANONICAL TARGET for the missions.status set. NOTE: the LIVE table
+  -- currently enforces only the 7 backbone states; adding 'Blocked','Archived' to the
+  -- live CHECK is a DDL ALTER = WP3b, DEFERRED per Captain (NOT executed here).
+  -- TEXT (not VARCHAR(20)) because 'Awaiting Number One Review' exceeds 20 chars (matches live schema).
+  status      TEXT         NOT NULL
+              CHECK (status IN ('Designed','Implemented','Tested','Awaiting Number One Review','Validated','Awaiting XO Approval','Closed','Blocked','Archived')),
   owner       VARCHAR(50)  NOT NULL,
   updated_at  TIMESTAMPTZ  DEFAULT NOW(),
   updated_by  VARCHAR(50)

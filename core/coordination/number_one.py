@@ -39,7 +39,25 @@ import json
 # ============================================================================
 
 class MissionStatus(Enum):
-    """Mission lifecycle states."""
+    """Mission lifecycle states.
+
+    MSN-0053: superset = canonical D-008 lifecycle (ADR-0001/MSN-ENFORCE-001
+    7-state backbone + operational Blocked/Archived) PLUS the legacy
+    pre-D-008 states (retained so existing logic/tests keep working).
+    Parsing is via _to_status() and never raises.
+    """
+    # --- Canonical D-008 backbone (live missions table) ---
+    DESIGNED = "Designed"
+    IMPLEMENTED = "Implemented"
+    TESTED = "Tested"
+    AWAITING_NUMBER_ONE_REVIEW = "Awaiting Number One Review"
+    VALIDATED = "Validated"
+    AWAITING_XO_APPROVAL = "Awaiting XO Approval"
+    CLOSED = "Closed"
+    # --- D-008 operational states (Blocked/Archived; D-009 CHECK deferred) ---
+    BLOCKED_OPS = "Blocked"
+    ARCHIVED = "Archived"
+    # --- Legacy pre-D-008 states (retained for back-compat) ---
     PROPOSED = "PROPOSED"
     TRIAGED = "TRIAGED"
     ACTIVE = "ACTIVE"
@@ -96,20 +114,25 @@ class Mission:
     @staticmethod
     def from_registry(mission_dict: dict) -> Mission:
         """Convert Mission Registry dict to Mission object."""
+        # MSN-0053: tolerate D-008 + legacy field names; never raise on status/priority.
         return Mission(
-            mission_id=mission_dict.get("mission_id", "UNKNOWN"),
+            # live Command Memory uses `id`; legacy uses `mission_id`
+            mission_id=mission_dict.get("mission_id") or mission_dict.get("id") or "UNKNOWN",
             title=mission_dict.get("title", ""),
-            status=MissionStatus(mission_dict.get("status", "PROPOSED")),
-            priority=Priority(mission_dict.get("priority", "P3")),
-            domain=mission_dict.get("domain", ""),
+            status=_to_status(mission_dict.get("status")),
+            priority=_to_priority(mission_dict.get("priority")),
+            domain=mission_dict.get("domain") or "",
             assigned_role=mission_dict.get("assigned_role"),
-            assigned_specialists=mission_dict.get("assigned_specialists", []),
-            dependencies=mission_dict.get("dependencies", []),
-            blockers=mission_dict.get("blockers", []),
+            assigned_specialists=mission_dict.get("assigned_specialists") or [],
+            dependencies=mission_dict.get("dependencies") or [],
+            blockers=mission_dict.get("blockers") or [],
             created_at=_parse_iso_datetime(mission_dict.get("created_at")),
-            last_updated=_parse_iso_datetime(mission_dict.get("last_updated")),
+            # live uses `updated_at`; legacy uses `last_updated`
+            last_updated=_parse_iso_datetime(
+                mission_dict.get("last_updated") or mission_dict.get("updated_at")
+            ),
             next_action=mission_dict.get("next_action"),
-            metadata=mission_dict.get("metadata", {})
+            metadata=mission_dict.get("metadata") or {},
         )
 
 
@@ -195,12 +218,22 @@ class CoordinationConfig:
 
     # Status order within priority
     STATUS_ORDER = [
+        # D-008 active states (most-needs-attention first), then legacy, then terminal
+        MissionStatus.AWAITING_XO_APPROVAL,
+        MissionStatus.AWAITING_NUMBER_ONE_REVIEW,
+        MissionStatus.BLOCKED_OPS,
+        MissionStatus.IMPLEMENTED,
+        MissionStatus.TESTED,
+        MissionStatus.DESIGNED,
+        MissionStatus.VALIDATED,
         MissionStatus.ACTIVE,
         MissionStatus.TRIAGED,
         MissionStatus.IN_REVIEW,
         MissionStatus.PROPOSED,
         MissionStatus.BLOCKED,
         MissionStatus.DEFERRED,
+        MissionStatus.CLOSED,
+        MissionStatus.ARCHIVED,
         MissionStatus.CANCELLED,
         MissionStatus.COMPLETED,
     ]
@@ -245,7 +278,7 @@ class NumberOne:
         # Filter out completed/cancelled missions
         active_missions = [
             m for m in mission_objs
-            if m.status not in [MissionStatus.COMPLETED, MissionStatus.CANCELLED]
+            if m.status not in TERMINAL_STATUSES
         ]
 
         # Build queue items
@@ -286,7 +319,7 @@ class NumberOne:
         follow_ups = []
 
         for mission in mission_objs:
-            if mission.status in [MissionStatus.COMPLETED, MissionStatus.CANCELLED]:
+            if mission.status in TERMINAL_STATUSES:
                 continue
 
             # Rule: Stale mission
@@ -396,7 +429,7 @@ class NumberOne:
         escalations = []
 
         for mission in mission_objs:
-            if mission.status in [MissionStatus.COMPLETED, MissionStatus.CANCELLED]:
+            if mission.status in TERMINAL_STATUSES:
                 continue
 
             routing = routing_results.get(mission.mission_id)
@@ -494,7 +527,7 @@ class NumberOne:
         escalations = self.get_xo_escalations(missions, routing_results)
 
         # Calculate metrics (exclude cancelled/completed)
-        active_missions = [m for m in mission_objs if m.status not in [MissionStatus.COMPLETED, MissionStatus.CANCELLED]]
+        active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES]
         total = len(active_missions)
         active = len([m for m in active_missions if m.status == MissionStatus.ACTIVE])
         blocked = len([m for m in active_missions if m.status == MissionStatus.BLOCKED])
@@ -560,6 +593,14 @@ class NumberOne:
     def _recommend_next_action(self, mission: Mission) -> str:
         """Recommend next action based on mission status."""
         next_actions = {
+            MissionStatus.DESIGNED: "Begin implementation",
+            MissionStatus.IMPLEMENTED: "Run tests",
+            MissionStatus.TESTED: "Submit for Number One review",
+            MissionStatus.AWAITING_NUMBER_ONE_REVIEW: "Number One review pending",
+            MissionStatus.VALIDATED: "Submit for XO approval",
+            MissionStatus.AWAITING_XO_APPROVAL: "XO approval pending",
+            MissionStatus.CLOSED: "Closed",
+            MissionStatus.BLOCKED_OPS: "Resolve blocker",
             MissionStatus.PROPOSED: "Begin triage",
             MissionStatus.TRIAGED: "Activate and assign",
             MissionStatus.ACTIVE: "Continue implementation",
@@ -656,6 +697,46 @@ class NumberOne:
 # ============================================================================
 # Utilities
 # ============================================================================
+
+# MSN-0053: terminal states (excluded from the active work queue / counts).
+TERMINAL_STATUSES = {
+    MissionStatus.CLOSED, MissionStatus.ARCHIVED,        # D-008 terminal
+    MissionStatus.COMPLETED, MissionStatus.CANCELLED,    # legacy terminal
+}
+
+
+def _to_status(value: Optional[str]) -> MissionStatus:
+    """Parse a status string to MissionStatus. Never raises (MSN-0053).
+
+    Handles D-008 values, legacy values, and case differences (e.g. live
+    'Blocked' -> BLOCKED_OPS). Unknown -> DESIGNED (canonical entry state) + warn.
+    """
+    if value is None:
+        return MissionStatus.DESIGNED
+    v = str(value).strip()
+    for s in MissionStatus:          # exact value match (D-008 + legacy)
+        if s.value == v:
+            return s
+    for s in MissionStatus:          # case-insensitive (e.g. 'blocked')
+        if s.value.lower() == v.lower():
+            return s
+    log.warning("[number-one] unknown mission status %r; defaulting to Designed", value)
+    return MissionStatus.DESIGNED
+
+
+def _to_priority(value: Optional[str]) -> Priority:
+    """Parse a priority to Priority. Never raises (MSN-0053).
+
+    Tolerates None (-> P3), 'P1', and 'P1 High' style. Unknown -> P3.
+    """
+    if not value:
+        return Priority.P3
+    token = str(value).strip().split()[0].upper()
+    for p in Priority:
+        if p.value == token:
+            return p
+    return Priority.P3
+
 
 def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
     """Parse ISO 8601 datetime string to naive UTC datetime."""
