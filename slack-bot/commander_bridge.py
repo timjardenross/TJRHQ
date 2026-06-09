@@ -47,6 +47,7 @@ INTENT_COMMANDER = "commander"       # MSN-0011A: routes to Supabase DI pipeline
 INTENT_DECISION = "decision"
 INTENT_MISSION_CANDIDATE = "mission_candidate"
 INTENT_MEMORY = "memory"
+INTENT_RESEARCH = "research"         # MSN-0054: routes to research orchestration
 INTENT_GENERAL = "general"
 
 
@@ -227,6 +228,34 @@ def handle_slack_message(
             "created_at": timestamp,
         })
         response_text = _format_explicit_response("memory event", route, confidence, logged["memory"])
+    elif intent == INTENT_RESEARCH:
+        # MSN-0054: Research delegation via Number One
+        try:
+            import logging as _logging
+            _cb_log = _logging.getLogger(__name__)
+            from commands.research_command import handle_research_request
+
+            # Extract topic (remove "research" keyword)
+            topic = cleaned_text.lower().replace("research", "").strip()
+
+            if not topic:
+                response_text = ":x: Research request incomplete. Please provide a topic.\nUsage: `@Commander TJR research <topic>`"
+            else:
+                _cb_log.info(
+                    "[commander-bridge] Research request: user=%s channel=%s topic=%r",
+                    user_id, channel_id, topic[:80]
+                )
+                response_text = handle_research_request(
+                    text=topic,
+                    user_id=user_id,
+                    channel_id=channel_id
+                )
+                _cb_log.info("[commander-bridge] Research response: %d chars", len(response_text))
+        except Exception as e:
+            import logging as _logging
+            _cb_log = _logging.getLogger(__name__)
+            _cb_log.error("[commander-bridge] Research request failed: %s", e)
+            response_text = f":x: Research request failed: {str(e)[:100]}"
     else:
         response_text = _execute_runtime_safely(cleaned_text)
 
@@ -248,6 +277,7 @@ def classify_commander_intent(text: str) -> str:
       decision:         → INTENT_DECISION    — log to Supabase decision table
       create mission:   → INTENT_MISSION_CANDIDATE — log mission candidate
       remember:         → INTENT_MEMORY      — log memory event
+      research:         → INTENT_RESEARCH    — MSN-0054: research delegation
       (anything else)   → INTENT_GENERAL     — local bot runtime
     """
     lowered = text.strip().lower()
@@ -260,6 +290,9 @@ def classify_commander_intent(text: str) -> str:
         return INTENT_MISSION_CANDIDATE
     if re.match(r"^(remember|memory|context)\s*:", lowered):
         return INTENT_MEMORY
+    # MSN-0054: research intent detection
+    if "research" in lowered:
+        return INTENT_RESEARCH
     return INTENT_GENERAL
 
 
