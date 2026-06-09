@@ -242,14 +242,38 @@ class ResearchOrchestrator:
             else:
                 log.warning(f"    ✗ Task failed ({outcome.status}): {outcome.error_message}")
 
-        # Step 4: Consolidate findings
+        # Step 4: Consolidate findings (non-blocking)
         log.info("Step 3: Consolidation")
-        consolidated = self._consolidate_findings(tasks)
-        log.info(f"  Consolidated {len([t for t in tasks if t.findings])} task findings")
+        consolidation_fallback_used = False
+        try:
+            consolidated = self._consolidate_findings(tasks)
+            if "**Task" in consolidated:  # Indicates fallback format
+                consolidation_fallback_used = True
+                log.warning("  Consolidation used fallback (timeout or error)")
+            else:
+                log.info(f"  Consolidated {len([t for t in tasks if t.findings])} task findings")
+        except Exception as e:
+            log.error(f"Consolidation failed fatally: {e}. Using local fallback.")
+            consolidation_fallback_used = True
+            successful_tasks = [t for t in tasks if t.findings]
+            if successful_tasks:
+                consolidated = "\n\n".join([
+                    f"**Task {t.order_index}:** {t.findings}"
+                    for t in successful_tasks
+                ])
+            else:
+                consolidated = "No findings available from completed tasks."
 
-        # Step 5: Generate recommendation
+        # Step 5: Generate recommendation (non-blocking, skipped if consolidation failed)
         log.info("Step 4: Recommendation generation")
-        recommendation, confidence = self._generate_recommendation(consolidated, tasks)
+        recommendation = None
+        confidence = 0.0
+        try:
+            recommendation, confidence = self._generate_recommendation(consolidated, tasks)
+        except Exception as rec_error:
+            log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
+            recommendation = None
+            confidence = 0.0
 
         if recommendation:
             log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
@@ -261,6 +285,11 @@ class ResearchOrchestrator:
         status = "success" if tasks_completed == len(tasks) else (
             "partial" if tasks_completed > 0 else "error"
         )
+
+        # Add consolidation fallback note if used
+        errors = self._collect_errors(tasks)
+        if consolidation_fallback_used:
+            errors.append("Consolidation used fallback (timeout or error). Summary generated from task findings.")
 
         result = ResearchMissionResult(
             mission_id=mission_id,
@@ -275,7 +304,7 @@ class ResearchOrchestrator:
             recommendation=recommendation,
             confidence=confidence,
             primary_provider=primary_provider,
-            errors=self._collect_errors(tasks),
+            errors=errors,
         )
 
         log.info(f"Research mission {mission_id} complete: {status}")
@@ -348,8 +377,13 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                         json_str = response_text[json_start:json_end]
                         tasks = json.loads(json_str)
                         if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-                            log.info(f"Decomposition successful: {len(tasks)} tasks")
-                            return tasks[:5]  # Cap at 5 tasks
+                            # MSN-0054: Enforce maximum 3 tasks to reduce rate-limit pressure
+                            capped_tasks = tasks[:3]
+                            if len(capped_tasks) != len(tasks):
+                                log.warning(f"Task decomposition produced {len(tasks)} tasks; capped at 3 (max for MVP)")
+                            else:
+                                log.info(f"Decomposition successful: {len(capped_tasks)} tasks")
+                            return capped_tasks
                 except (json.JSONDecodeError, ValueError):
                     pass
 
@@ -431,12 +465,27 @@ Provide only the consolidated summary, no headers or metadata."""
                 return consolidated
 
         except Exception as e:
-            log.error(f"Consolidation failed: {e}")
-            # Fallback: join findings with separators
-            return "\n\n".join([
-                f"**Task {t.order_index}:** {t.findings}"
-                for t in successful_tasks
-            ])
+            # Consolidation timeout or error - use deterministic local fallback
+            log.warning(f"Consolidation failed ({type(e).__name__}): {str(e)[:100]}. Using local fallback consolidation.")
+
+            # Generate simple executive summary from task findings
+            findings_summary = []
+            for t in successful_tasks:
+                # Extract first sentence or first 100 chars as summary
+                finding_text = t.findings.strip()
+                if finding_text:
+                    first_sentence = finding_text.split('\n')[0] if '\n' in finding_text else finding_text[:150]
+                    if len(finding_text) > 150:
+                        first_sentence = first_sentence.rstrip() + "..."
+                    findings_summary.append(f"- {first_sentence}")
+
+            # Build fallback consolidation with clear provenance
+            fallback_text = "Executive Summary (automated consolidation timed out):\n\n"
+            fallback_text += "Key Findings from Research Tasks:\n" + "\n".join(findings_summary)
+            fallback_text += f"\n\nProvider Note: Automated consolidation timed out. Summary generated locally from {len(successful_tasks)} task findings."
+
+            log.info(f"Fallback consolidation generated: {len(fallback_text)} chars")
+            return fallback_text
 
     # ========================================================================
     # Recommendation Generation
@@ -533,7 +582,7 @@ CONFIDENCE: [0.0-1.0]"""
                     return None, 0.0
 
         except Exception as e:
-            log.error(f"Recommendation generation failed: {e}")
+            log.warning(f"Recommendation generation failed ({type(e).__name__}): {str(e)[:100]}. Continuing without recommendation.")
             return None, 0.0
 
     # ========================================================================
