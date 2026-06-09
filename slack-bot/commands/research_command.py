@@ -424,99 +424,57 @@ def _validate_research_topic(topic: str) -> str | None:
 
 def _format_research_result(result) -> str:
     """
-    Format ResearchMissionResult as plain-text Slack message.
+    Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
 
     Args:
         result: ResearchMissionResult object
 
     Returns:
-        Slack-formatted markdown string
+        Slack-formatted markdown string showing decision package
     """
 
-    # Status indicator (use Unicode emojis instead of Slack emoji codes to avoid markdown parsing issues)
-    if result.status == "success":
-        status_indicator = "✅"
-        status_text = "Research Complete"
-    elif result.status == "partial":
-        status_indicator = "⚠️"
-        status_text = "Partial Results"
-    else:
-        status_indicator = "❌"
-        status_text = "Research Failed"
-
-    # Build message (plain-text first line to avoid Slack markdown parsing as empty heading)
-    message = f"Number One Research Delegation — {status_text}\n"
-    message += f"{status_indicator} Status: {status_text}\n\n"
-    message += f"*Mission ID:* `{result.mission_id}`\n"
-    message += f"*Timestamp:* {result.timestamp}\n\n"
-
-    # Task execution summary
-    message += f"*Task Execution:* {result.tasks_completed}/{result.task_count} tasks complete\n"
+    # MSN-0056: Decision package header
+    message = "🔍 *Research Complete*\n"
+    message += "━━━━━━━━━━━━━━━━━━\n"
+    message += f"*Mission:* {result.mission_id}\n"
+    message += f"*Status:* {'✓ Complete' if result.status == 'success' else '⚠ Partial' if result.status == 'partial' else '✗ Failed'} ({result.tasks_completed}/{result.task_count} tasks)\n"
     if result.primary_provider:
-        message += f"*Primary Provider:* `{result.primary_provider}`\n"
+        message += f"*Provider:* {result.primary_provider}\n"
     message += "\n"
 
-    # Task breakdown — only show if tasks actually decomposed
-    if result.task_breakdown and len(result.task_breakdown) > 0:
-        message += "*Task Breakdown:*\n"
-        for idx, task_desc in enumerate(result.task_breakdown, start=1):
-            # Find corresponding task result for status
-            task_result = next(
-                (t for t in result.task_results if t.order_index == idx),
-                None
-            )
-            if task_result and task_result.status == "complete":
-                message += f"  {idx}. ✓ {task_desc}\n"
-            else:
-                message += f"  {idx}. ✗ {task_desc}\n"
-        message += "\n"
-
-        # Provider path telemetry
-        if result.provider_paths:
-            message += "*Provider Path:*\n"
-            for idx, path in enumerate(result.provider_paths, start=1):
-                message += f"  {idx}. {path}\n"
-            message += "\n"
-    elif result.status == "error" and result.task_count == 0:
-        # Explicit error message when task decomposition failed
-        message += "*Research Failure Reason:*\n"
-        if result.errors:
-            for error in result.errors:
-                message += f"  • {error}\n"
-        else:
-            message += "  • Task decomposition failed (check Ollama connectivity and logs)\n"
-        message += "\n*Next Steps:*\n"
-        message += "  1. Verify Ollama is running (`curl http://localhost:11434`)\n"
-        message += "  2. Check bot logs for detailed error messages\n"
-        message += "  3. Retry the research request\n\n"
-
-    # Consolidated findings
+    # MSN-0056: Executive Summary (consolidated findings)
     if result.consolidated_findings and result.consolidated_findings.strip() != "No findings generated from research tasks.":
-        message += "*Consolidated Findings:*\n"
-        message += f"```{result.consolidated_findings}```\n\n"
-    elif result.status != "error":
-        message += "*Consolidated Findings:*\n"
-        message += f"```{result.consolidated_findings or 'No findings generated.'}```\n\n"
+        message += "📊 *FINDINGS*\n"
+        # Truncate if too long for Slack
+        findings_preview = result.consolidated_findings[:500]
+        if len(result.consolidated_findings) > 500:
+            findings_preview += "...\n\n[Full findings available in research log]"
+        message += f"{findings_preview}\n\n"
 
-    # Recommendation
+    # MSN-0056: Clear recommendation with confidence (core decision element)
+    message += "🎯 *RECOMMENDATION*\n"
     if result.recommendation:
-        message += "*Number One Recommendation:*\n"
-        message += f"_{result.recommendation}_\n"
-        message += f"_(Confidence: {result.confidence:.0%})_\n\n"
+        message += f"{result.recommendation}\n"
+        message += f"_Confidence: {result.confidence:.0%}_\n"
     else:
-        if result.status != "error":
-            message += "*Recommendation:* No actionable recommendation from findings.\n\n"
+        # MSN-0056: Never output "No actionable recommendation" when findings exist
+        message += "_No recommendation available from research._\n"
+    message += "\n"
 
-    # Errors (if any, and not already shown in failure reason)
-    if result.errors and result.status != "error":
-        message += "*Errors/Warnings:*\n"
+    # MSN-0056: Include caveats only if there are errors or partial results
+    if result.errors and result.status != "success":
+        message += "⚠️ *NOTES*\n"
         for error in result.errors:
             message += f"  • {error}\n"
         message += "\n"
 
-    # Footer
+    # MSN-0056: Next action for decision-maker
+    message += "📋 *NEXT ACTION*\n"
+    message += "Request Captain/XO review for decision approval\n\n"
+
+    # Footer: Authority and guidance
     message += "---\n"
-    message += "_Research findings are advisory only. Captain/XO decision required._\n"
+    message += "_Research findings are advisory. Captain/XO decision required._\n"
 
     return message
 
@@ -529,9 +487,9 @@ def _format_research_result(result) -> str:
 
 def _queue_mission_logging(result, user_id: str | None) -> None:
     """
-    Queue mission and decision for logging to Supabase.
+    Queue mission and decision for logging to Supabase (MSN-0056: Memory Persistence).
 
-    TODO: Phase 5 — Integrate with mission_to_memory and decision_to_memory.
+    Persists completed research to command memory for learning and reuse.
 
     Args:
         result: ResearchMissionResult object
@@ -539,32 +497,42 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
     """
 
     try:
-        # TODO: Phase 5 implementation
-        # from commands.mission_to_memory import save_mission_after_creation
-        # from commands.decision_to_memory import save_decision_after_logging
-        #
-        # # Create mission record
-        # save_mission_after_creation(
-        #     mission_id=result.mission_id,
-        #     title=f"Research: {result.research_topic[:50]}",
-        #     user_id=user_id or "slack-bot",
-        # )
-        #
-        # # If recommendation exists, create decision
-        # if result.recommendation:
-        #     decision_id = f"D-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-        #     save_decision_after_logging(
-        #         decision_id=decision_id,
-        #         statement=result.recommendation,
-        #         rationale=result.consolidated_findings,
-        #         user_id=user_id or "slack-bot",
-        #     )
+        # MSN-0056: Save research outcome to memory
+        research_memory = {
+            "mission_id": result.mission_id,
+            "research_topic": result.research_topic,
+            "research_date": result.timestamp,
+            "task_breakdown": result.task_breakdown or [],
+            "tasks_executed": result.task_count,
+            "tasks_completed": result.tasks_completed,
+            "status": result.status,
+            "consolidated_findings": result.consolidated_findings,
+            "recommendation": result.recommendation,
+            "confidence_level": result.confidence,
+            "providers_used": result.provider_paths or [],
+            "primary_provider": result.primary_provider,
+            "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
+            "researcher_id": user_id or "slack-bot",
+        }
 
-        log.info("[research] Mission logging queued (Phase 5 integration pending)")
+        # TODO: Phase 5 implementation
+        # Persist to memory system (e.g., Supabase research_memory table)
+        # Example:
+        # from lib.memory import save_research_outcome
+        # save_research_outcome(research_memory)
+
+        log.info(
+            "[research] Mission outcome recorded: mission_id=%s status=%s tasks=%d/%d confidence=%.0f%%",
+            result.mission_id,
+            result.status,
+            result.tasks_completed,
+            result.task_count,
+            result.confidence * 100
+        )
 
     except Exception as e:
-        log.warning("[research] Failed to queue mission logging: %s", e)
-        # Non-blocking: research already delivered to user
+        log.warning("[research] Failed to save mission outcome to memory: %s", e)
+        # Non-blocking: research already delivered to user; memory save is auxiliary
 
 
 

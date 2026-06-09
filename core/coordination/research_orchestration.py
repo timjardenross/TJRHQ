@@ -654,8 +654,16 @@ Provide only the consolidated summary, no headers or metadata."""
         # Try LLM-based recommendation first
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
 
-        if llm_rec and "No actionable" not in llm_rec and llm_conf > 0.0:
+        # Validate LLM response is truly actionable (MSN-0056 WP3)
+        if (llm_rec
+            and "No actionable" not in llm_rec
+            and "cannot recommend" not in llm_rec.lower()
+            and "insufficient" not in llm_rec.lower()
+            and len(llm_rec) > 20  # Sanity check: real recommendation
+            and llm_conf >= 0.5):   # Minimum confidence threshold
             return llm_rec, llm_conf
+
+        log.info(f"[research-recommendation] LLM recommendation rejected (invalid or too weak). Falling back to heuristic.")
 
         # Fallback: Heuristic-based recommendation
         successful_tasks = len([t for t in tasks if t.status == "complete"])
