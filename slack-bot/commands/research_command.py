@@ -43,9 +43,10 @@ log = logging.getLogger(__name__)
 # ============================================================================
 
 # In-memory FIFO queue for research missions
-_research_queue = deque()  # Queue of (topic, user_id, channel_id, thread_ts)
+_research_queue = deque()  # Queue of mission dicts with full Slack context
 _research_lock = threading.Lock()
 _research_executing = False
+_slack_say_func = None  # Will be set by handle_research_request_with_slack()
 
 def _generate_queue_mission_id() -> str:
     """Generate unique mission ID for queue tracking."""
@@ -58,10 +59,58 @@ def _generate_queue_mission_id() -> str:
 # Public API
 # ============================================================================
 
+def handle_research_request_with_slack(
+    text: str,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    message_ts: str | None = None,
+    thread_ts: str | None = None,
+    say: Callable | None = None,
+) -> str:
+    """
+    Handle research request from Commander routing with FIFO queue and Slack posting (MSN-0054E).
+
+    NEW: This version captures full Slack context and enables queued missions to post results.
+
+    Called when Commander detects "research" intent in user message.
+    Example: "@Commander TJR research operational resilience trends in banking"
+
+    If a research mission is already executing, queues the request and returns
+    a position indicator. Otherwise, executes immediately.
+
+    Args:
+        text: Raw text from user (with "research" keyword removed by caller)
+        user_id: Slack user ID (for authorization/logging)
+        channel_id: Slack channel ID (for logging)
+        message_ts: Original message timestamp (for context)
+        thread_ts: Original thread ID (for posting to correct thread)
+        say: Slack say() function for posting results
+
+    Returns:
+        Slack-formatted markdown response string (or queue position message)
+    """
+
+    global _research_lock, _research_queue, _research_executing, _slack_say_func
+
+    # Store say function globally so queue processor can use it
+    _slack_say_func = say
+
+    # Use new version with full context
+    return handle_research_request(
+        text=text,
+        user_id=user_id,
+        channel_id=channel_id,
+        message_ts=message_ts,
+        thread_ts=thread_ts,
+    )
+
+
 def handle_research_request(
     text: str,
     user_id: str | None = None,
     channel_id: str | None = None,
+    message_ts: str | None = None,
+    thread_ts: str | None = None,
 ) -> str:
     """
     Handle research request from Commander routing with FIFO queue (MSN-0054E).
@@ -76,6 +125,8 @@ def handle_research_request(
         text: Raw text from user (with "research" keyword removed by caller)
         user_id: Slack user ID (for authorization/logging)
         channel_id: Slack channel ID (for logging)
+        message_ts: Original message timestamp (for context)
+        thread_ts: Original thread ID (for posting to correct thread)
 
     Returns:
         Slack-formatted markdown response string (or queue position message)
@@ -110,11 +161,13 @@ def handle_research_request(
             "topic": text.strip(),
             "user_id": user_id,
             "channel_id": channel_id,
+            "message_ts": message_ts,
+            "thread_ts": thread_ts,  # MSN-0054E-FIX: Capture thread for result posting
         })
         position = len(_research_queue)
         log.warning(
-            "[research] Mission queued: mission_id=%s position=%d user=%s channel=%s",
-            queue_mission_id, position, user_id, channel_id,
+            "[research] Mission queued: mission_id=%s position=%d user=%s channel=%s thread=%s",
+            queue_mission_id, position, user_id, channel_id, thread_ts,
         )
         return (
             f"Research mission queued. Position: {position}\n"
@@ -203,8 +256,8 @@ def _execute_research_mission(
 
 
 def _process_research_queue() -> None:
-    """Process queued research requests one by one."""
-    global _research_lock, _research_queue
+    """Process queued research requests one by one and post results to Slack (MSN-0054E-FIX)."""
+    global _research_lock, _research_queue, _slack_say_func
 
     while len(_research_queue) > 0:
         # Acquire lock for next queued mission
@@ -232,12 +285,84 @@ def _process_research_queue() -> None:
             )
             log.info("[research-queue] Queued mission complete, response: %d chars", len(message_text))
 
+            # MSN-0054E-FIX: Post result to Slack if say() function available
+            if _slack_say_func and message_text:
+                _post_queued_mission_result(
+                    message_text=message_text,
+                    channel_id=mission["channel_id"],
+                    thread_ts=mission.get("thread_ts"),
+                    user_id=mission["user_id"],
+                )
+
         except Exception as e:
             log.error("[research-queue] Queued mission execution failed: %s", e)
             message_text = f"❌ Research mission failed: {str(e)[:100]}"
 
+            # MSN-0054E-FIX: Also post failure to Slack
+            if _slack_say_func:
+                _post_queued_mission_result(
+                    message_text=message_text,
+                    channel_id=mission["channel_id"],
+                    thread_ts=mission.get("thread_ts"),
+                    user_id=mission["user_id"],
+                    is_error=True,
+                )
+
         finally:
             _research_lock.release()
+
+
+def _post_queued_mission_result(
+    message_text: str,
+    channel_id: str | None,
+    thread_ts: str | None,
+    user_id: str | None,
+    is_error: bool = False,
+) -> None:
+    """
+    Post queued mission result to Slack (MSN-0054E-FIX).
+
+    Posts to original thread if available, otherwise to channel.
+    Failures are logged but do not crash the bot.
+    """
+    global _slack_say_func
+
+    if not _slack_say_func:
+        log.warning(
+            "[research-queue] Cannot post result: no Slack say() function available. "
+            "Result will be lost. user=%s channel=%s",
+            user_id, channel_id,
+        )
+        return
+
+    try:
+        # Use thread_ts if available (post in original thread), otherwise post to channel
+        result_thread_ts = thread_ts
+
+        log.info(
+            "[research-queue] Posting queued mission result: "
+            "channel=%s thread_ts=%s error=%s text_len=%d",
+            channel_id, result_thread_ts, is_error, len(message_text),
+        )
+
+        _slack_say_func(
+            message_text,
+            channel=channel_id,
+            thread_ts=result_thread_ts,
+        )
+
+        log.info(
+            "[research-queue] Queued mission result posted successfully: "
+            "channel=%s thread_ts=%s user=%s",
+            channel_id, result_thread_ts, user_id,
+        )
+
+    except Exception as e:
+        log.error(
+            "[research-queue] Failed to post queued mission result: %s — %s",
+            type(e).__name__, e,
+        )
+        # Do not re-raise; queue processing must continue
 
 
 # ============================================================================

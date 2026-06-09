@@ -133,6 +133,7 @@ if app:
             channel_id=event.get("channel"),
             message_ts=event.get("ts"),
             thread_ts=event.get("thread_ts"),
+            say=say,  # MSN-0054E-FIX: Pass say() for queued mission result posting
         )
         log.info(
             "[app] Responding to mention: intent=%s route=%s",

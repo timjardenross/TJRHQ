@@ -57,10 +57,12 @@ def handle_slack_message(
     channel_id: str | None = None,
     message_ts: str | None = None,
     thread_ts: str | None = None,
+    say: callable | None = None,  # MSN-0054E-FIX: Slack say() for posting queued results
 ) -> dict[str, Any]:
     """Route a Slack message through Commander and persist structured events.
 
     MSN-0032: Now includes semantic specialist routing for intent-based specialist selection.
+    MSN-0054E-FIX: Accepts Slack say() function for queued mission result posting.
     """
     cleaned_text = _clean_slack_text(text)
     intent = classify_commander_intent(cleaned_text)
@@ -233,7 +235,7 @@ def handle_slack_message(
         try:
             import logging as _logging
             _cb_log = _logging.getLogger(__name__)
-            from commands.research_command import handle_research_request
+            from commands.research_command import handle_research_request_with_slack
 
             # Extract topic (remove "research" keyword)
             topic = cleaned_text.lower().replace("research", "").strip()
@@ -242,13 +244,17 @@ def handle_slack_message(
                 response_text = ":x: Research request incomplete. Please provide a topic.\nUsage: `@Commander TJR research <topic>`"
             else:
                 _cb_log.info(
-                    "[commander-bridge] Research request: user=%s channel=%s topic=%r",
-                    user_id, channel_id, topic[:80]
+                    "[commander-bridge] Research request: user=%s channel=%s topic=%r message_ts=%s thread_ts=%s",
+                    user_id, channel_id, topic[:80], message_ts, thread_ts,
                 )
-                response_text = handle_research_request(
+                # MSN-0054E-FIX: Pass Slack context and say() for queued result posting
+                response_text = handle_research_request_with_slack(
                     text=topic,
                     user_id=user_id,
-                    channel_id=channel_id
+                    channel_id=channel_id,
+                    message_ts=message_ts,
+                    thread_ts=thread_ts,
+                    say=say,  # Pass Slack say() for queue processor
                 )
                 _cb_log.info("[commander-bridge] Research response: %d chars", len(response_text))
         except Exception as e:
