@@ -77,14 +77,11 @@ try:
         _research_delegator_file
     )
     if _spec and _spec.loader:
-<<<<<<< Updated upstream
-=======
         # CRITICAL FIX: Ensure slack-bot/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
         if str(_slack_bot_lib_dir) not in sys.path:
             sys.path.insert(0, str(_slack_bot_lib_dir))
 
->>>>>>> Stashed changes
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
         sys.modules["research_delegator"] = _delegator_module
@@ -96,10 +93,6 @@ try:
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
 except (ImportError, AttributeError, FileNotFoundError) as e:
-<<<<<<< Updated upstream
-    log.error(f"Failed to import research_delegator: {e}")
-    call_gemini_2_5_flash_lite_research = None
-=======
     log.error(
         f"Failed to import research_delegator from {_research_delegator_file}: {e}",
         exc_info=True
@@ -118,7 +111,6 @@ log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is 
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
->>>>>>> Stashed changes
 
 
 # ============================================================================

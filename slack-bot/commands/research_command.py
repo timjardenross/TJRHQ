@@ -35,8 +35,6 @@ from datetime import datetime
 from collections import deque
 from typing import Callable, Any, Optional
 
-<<<<<<< Updated upstream
-=======
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
 # This ensures imports work whether app.py has run yet or not
 _research_command_file = Path(__file__).resolve()
@@ -44,7 +42,6 @@ _repo_root = _research_command_file.parent.parent.parent  # slack-bot/commands -
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
->>>>>>> Stashed changes
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
 
