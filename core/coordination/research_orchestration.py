@@ -77,6 +77,14 @@ try:
         _research_delegator_file
     )
     if _spec and _spec.loader:
+<<<<<<< Updated upstream
+=======
+        # CRITICAL FIX: Ensure slack-bot/lib is in sys.path BEFORE exec_module
+        # This allows research_delegator.py to import sibling modules like provider_health.py
+        if str(_slack_bot_lib_dir) not in sys.path:
+            sys.path.insert(0, str(_slack_bot_lib_dir))
+
+>>>>>>> Stashed changes
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
         sys.modules["research_delegator"] = _delegator_module
@@ -88,8 +96,29 @@ try:
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
 except (ImportError, AttributeError, FileNotFoundError) as e:
+<<<<<<< Updated upstream
     log.error(f"Failed to import research_delegator: {e}")
     call_gemini_2_5_flash_lite_research = None
+=======
+    log.error(
+        f"Failed to import research_delegator from {_research_delegator_file}: {e}",
+        exc_info=True
+    )
+    call_gemini_2_5_flash_lite_research = None
+except Exception as e:
+    log.error(
+        f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
+        exc_info=True
+    )
+    call_gemini_2_5_flash_lite_research = None
+
+# Startup logging for troubleshooting
+log.info(f"[startup] research_orchestration.py loaded")
+log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is not None}")
+log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
+log.info(f"[startup] Research delegator file: {_research_delegator_file}")
+log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
+>>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -141,6 +170,10 @@ class ResearchMissionResult:
     primary_provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
     provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-2.5-flash → ollama"])
+<<<<<<< Updated upstream
+=======
+    request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
+>>>>>>> Stashed changes
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -150,6 +183,103 @@ class ResearchMissionResult:
 
 
 # ============================================================================
+<<<<<<< Updated upstream
+=======
+# Request Type Classification (Option B: Adaptive Recommendation Mode)
+# ============================================================================
+
+def classify_request_type(research_topic: str) -> str:
+    """
+    Classify whether request is informational or decision-oriented.
+
+    MSN-RECOMMENDATION-FIX: Option B implementation.
+    - Informational requests (define, explain, list) → findings-only mode
+    - Decision requests (should, which, best) → findings + recommendation mode
+    - Uncertain/ambiguous → default to recommendation (conservative)
+
+    Args:
+        research_topic: The research request text
+
+    Returns:
+        "informational", "decision", or "unclear"
+    """
+
+    if not research_topic:
+        return "unclear"
+
+    topic_lower = research_topic.lower()
+
+    # Informational keywords: asking "what is X?" or "explain/define X"
+    informational_keywords = {
+        "define",
+        "what",
+        "explain",
+        "describe",
+        "list",
+        "identify",
+        "mean",
+        "how does",
+        "what are",
+        "what is",
+        "understanding",
+        "principles of",
+        "background on",
+        "overview of",
+        "summary of",
+    }
+
+    # Decision keywords: asking "should we?" or "which approach?"
+    decision_keywords = {
+        "should",
+        "should we",
+        "which",
+        "best",
+        "recommend",
+        "optimal",
+        "approach",
+        "strategy",
+        "prefer",
+        "how should",
+        "how can we",
+        "what should",
+        "how to",
+        "need to",
+        "require",
+        "implement",
+        "adopt",
+        "choose",
+    }
+
+    # Count keyword matches
+    info_count = 0
+    decision_count = 0
+
+    for kw in informational_keywords:
+        if kw in topic_lower:
+            info_count += 1
+
+    for kw in decision_keywords:
+        if kw in topic_lower:
+            decision_count += 1
+
+    log.debug(f"[request-type] Topic: {research_topic[:60]}...")
+    log.debug(f"[request-type] Informational score: {info_count}, Decision score: {decision_count}")
+
+    # Classify based on scores
+    if info_count > decision_count:
+        classification = "informational"
+    elif decision_count > info_count:
+        classification = "decision"
+    else:
+        # No strong signal or tied → default to recommendation (conservative)
+        classification = "unclear"
+
+    log.info(f"[request-type] Classified as '{classification}' (info:{info_count}, dec:{decision_count})")
+    return classification
+
+
+# ============================================================================
+>>>>>>> Stashed changes
 # Orchestration Engine
 # ============================================================================
 
@@ -197,12 +327,22 @@ class ResearchOrchestrator:
 
         log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
 
+<<<<<<< Updated upstream
+=======
+        # MSN-RECOMMENDATION-FIX Option B: Classify request type (informational vs decision-oriented)
+        request_type = classify_request_type(research_topic)
+
+>>>>>>> Stashed changes
         # MSN-0055C WP7: Initialize metrics collection
         mission_start_time = time.time()
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
+<<<<<<< Updated upstream
         log.info("Step 1: Task decomposition (Ollama)")
+=======
+        log.info("Step 1: Task decomposition (Gemini → Mistral → Ollama fallback chain)")
+>>>>>>> Stashed changes
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -302,6 +442,7 @@ class ResearchOrchestrator:
         # (Decision framework uses raw findings for grounding evidence, not abstract summary)
         log.info("Step 4: Recommendation generation with decision framework")
 
+<<<<<<< Updated upstream
         # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
         raw_findings = "\n\n".join([
             f"Research Task {t.order_index}: {t.description}\n{t.findings}"
@@ -322,6 +463,41 @@ class ResearchOrchestrator:
             log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
         else:
             log.info("  No actionable recommendation")
+=======
+        # MSN-RECOMMENDATION-FIX Option B: Conditional recommendation generation based on request type
+        recommendation = None
+        confidence = 0.0
+
+        if request_type == "informational":
+            # Informational request: skip recommendation generation, findings are the answer
+            log.info(f"[request-type] Informational request: skipping recommendation generation")
+            log.info("  Mode: Findings-only (informational request)")
+        elif request_type in ["decision", "unclear"]:
+            # Decision-oriented or uncertain: generate recommendation (conservative fallback)
+            if request_type == "unclear":
+                log.info(f"[request-type] Unclear request type: generating recommendation (conservative fallback)")
+            else:
+                log.info(f"[request-type] Decision-oriented request: generating recommendation")
+
+            # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
+            raw_findings = "\n\n".join([
+                f"Research Task {t.order_index}: {t.description}\n{t.findings}"
+                for t in tasks if t.findings
+            ]) if any(t.findings for t in tasks) else consolidated
+
+            try:
+                # Pass raw findings to decision framework for evidence grounding
+                recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
+            except Exception as rec_error:
+                log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
+                recommendation = None
+                confidence = 0.0
+
+            if recommendation:
+                log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
+            else:
+                log.info("  No actionable recommendation")
+>>>>>>> Stashed changes
 
         # MSN-0055C WP7: Record metrics before result assembly
         tasks_completed = len([t for t in tasks if t.status == "complete"])
@@ -383,6 +559,10 @@ class ResearchOrchestrator:
             primary_provider=primary_provider,
             errors=errors,
             provider_paths=provider_paths,
+<<<<<<< Updated upstream
+=======
+            request_type=request_type,  # MSN-RECOMMENDATION-FIX Option B: include request type in result
+>>>>>>> Stashed changes
         )
 
         # MSN-0055C WP7: Persist metrics and log summary
@@ -398,19 +578,34 @@ class ResearchOrchestrator:
 
     def _decompose_research_topic(self, research_topic: str) -> list[str]:
         """
+<<<<<<< Updated upstream
         Decompose research topic into tasks using Ollama.
 
         Uses qwen2.5-coder for structured task breakdown.
+=======
+        Decompose research topic into tasks using provider fallback chain.
+
+        Provider chain (DEF-WP1-001):
+        1. Gemini 2.5 Flash Lite (primary)
+        2. Mistral Research Agent (secondary)
+        3. qwen2.5-coder via Ollama (tertiary)
+>>>>>>> Stashed changes
 
         Args:
             research_topic: Research request
 
         Returns:
+<<<<<<< Updated upstream
             List of task descriptions (2-5 tasks typically)
         """
 
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+=======
+            List of task descriptions (2-3 tasks typically)
+        """
+
+>>>>>>> Stashed changes
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
 Research Topic: {research_topic}
@@ -426,11 +621,105 @@ Return ONLY a JSON array of 2-3 task strings, like:
 
 Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
+<<<<<<< Updated upstream
         try:
             endpoint = f"{ollama_url}/api/generate"
             request_data = {
                 "model": "qwen2.5-coder:7b",
                 "prompt": decompose_prompt,
+=======
+        # Provider chain for decomposition (same as task execution)
+        providers = [
+            ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary)", self._decompose_with_gemini_lite),
+            ("mistral-research-agent", "Mistral Research Agent (secondary)", self._decompose_with_mistral),
+            ("ollama", "qwen2.5-coder via Ollama (tertiary)", self._decompose_with_ollama),
+        ]
+
+        for provider_id, provider_name, provider_func in providers:
+            try:
+                log.info(f"Decomposition: Attempting {provider_name}")
+                tasks = provider_func(decompose_prompt)
+                if tasks:
+                    log.info(f"Decomposition successful via {provider_name}: {len(tasks)} tasks")
+                    return tasks[:3]  # Cap at 3 tasks
+            except Exception as e:
+                log.warning(f"Decomposition failed with {provider_name}: {e}. Trying next provider.")
+                continue
+
+        log.error("All decomposition providers exhausted; returning empty task list")
+        return []
+
+    def _decompose_with_gemini_lite(self, prompt: str) -> list[str]:
+        """Decompose using Gemini 2.5 Flash Lite."""
+        try:
+            import google.generativeai as genai
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                log.error("[decompose] Gemini 2.5 Flash Lite: GEMINI_API_KEY not set")
+                return []
+
+            log.info("[decompose] Gemini 2.5 Flash Lite: API key present, configuring...")
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.5-flash-lite")
+            log.info("[decompose] Gemini 2.5 Flash Lite: Sending request...")
+            response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.5))
+
+            if response.text:
+                log.info("[decompose] Gemini 2.5 Flash Lite: SUCCESS - received response")
+                return self._parse_json_tasks(response.text)
+            else:
+                log.error("[decompose] Gemini 2.5 Flash Lite: Empty response from API")
+                return []
+        except Exception as e:
+            log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
+            return []
+
+    def _decompose_with_mistral(self, prompt: str) -> list[str]:
+        """Decompose using Mistral Research Agent (SDK 2.4.9+, matching task execution pattern)."""
+        try:
+            api_key = os.getenv("MISTRAL_API_KEY")
+            if not api_key:
+                log.error("[decompose] Mistral: MISTRAL_API_KEY not set")
+                return []
+
+            log.info("[decompose] Mistral: API key present, importing Mistral client...")
+            from mistralai.client import Mistral
+
+            log.info("[decompose] Mistral: Creating Mistral client instance...")
+            client = Mistral(api_key=api_key)
+
+            log.info("[decompose] Mistral: Calling Mistral Research Agent...")
+            response = client.beta.conversations.start(
+                agent_id="ag_019eafb4bee976348306954617b1c18c",  # Mistral Research Agent
+                agent_version=2,
+                inputs=[{"role": "user", "content": prompt}]
+            )
+
+            if response and hasattr(response, 'messages') and response.messages:
+                text = response.messages[-1].content
+                log.info("[decompose] Mistral: SUCCESS - received response")
+                return self._parse_json_tasks(text)
+            else:
+                log.error("[decompose] Mistral: Empty response from API")
+                return []
+        except ImportError as e:
+            log.error(f"[decompose] Mistral: FAILED - mistralai SDK not installed: {e}")
+            return []
+        except Exception as e:
+            log.error(f"[decompose] Mistral: FAILED - {type(e).__name__}: {e}")
+            return []
+
+    def _decompose_with_ollama(self, prompt: str) -> list[str]:
+        """Decompose using Ollama qwen2.5-coder (tertiary fallback)."""
+        try:
+            ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            log.info(f"[decompose] Ollama: Using URL {ollama_url}")
+
+            endpoint = f"{ollama_url}/api/generate"
+            request_data = {
+                "model": "qwen3:8b",
+                "prompt": prompt,
+>>>>>>> Stashed changes
                 "stream": False,
                 "temperature": 0.5,
                 "top_p": 0.9,
@@ -444,11 +733,16 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 method="POST"
             )
 
+<<<<<<< Updated upstream
             log.info("Calling Ollama (qwen2.5-coder) for task decomposition")
+=======
+            log.info("[decompose] Ollama: Sending request to qwen3:8b...")
+>>>>>>> Stashed changes
 
             with urllib.request.urlopen(request, timeout=30) as response:
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "")
+<<<<<<< Updated upstream
 
                 # Parse JSON from response
                 try:
@@ -482,6 +776,40 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         except Exception as e:
             log.error(f"Task decomposition failed: {e}")
             return []
+=======
+                log.info("[decompose] Ollama: SUCCESS - received response")
+                return self._parse_json_tasks(response_text)
+
+        except urllib.error.URLError as e:
+            log.error(f"[decompose] Ollama: FAILED - Connection error: {e.reason}")
+            return []
+        except urllib.error.HTTPError as e:
+            log.error(f"[decompose] Ollama: FAILED - HTTP {e.code}: {e.reason}")
+            return []
+        except Exception as e:
+            log.error(f"[decompose] Ollama: FAILED - {type(e).__name__}: {e}")
+            return []
+
+    def _parse_json_tasks(self, response_text: str) -> list[str]:
+        """Parse task list from JSON response."""
+        try:
+            # Try to extract JSON array
+            json_start = response_text.find("[")
+            json_end = response_text.rfind("]") + 1
+            if json_start >= 0 and json_end > json_start:
+                json_str = response_text[json_start:json_end]
+                tasks = json.loads(json_str)
+                if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
+                    return tasks
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Fallback: parse line-by-line
+        log.warning("Could not parse JSON from decomposition; falling back to line parsing")
+        lines = [line.strip() for line in response_text.split("\n") if line.strip()]
+        tasks = [line for line in lines if line and not line.startswith("[") and not line.endswith("]")]
+        return tasks
+>>>>>>> Stashed changes
 
     # ========================================================================
     # Finding Consolidation (MSN-0055C WP3: Deterministic Consolidation)

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Mission Metrics</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            padding: 20px;
+        }
+
+        .metrics-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1a1a2e;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 28px;
+            border: 3px solid #FFD700;
+        }
+
+        .metrics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 20px;
+        }
+
+        .metrics-header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .metrics-header h1::before {
+            content: "★ ";
+            margin-right: 8px;
+        }
+
+        .week-indicator {
+            font-size: 14px;
+            color: #AAA;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .refresh-btn:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        .refresh-btn:disabled {
+            background: #444;
+            border-color: #666;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .settings-btn {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .settings-btn:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Key Metrics Grid */
+        .key-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #2a2a3e 0%, #353550 100%);
+            color: white;
+            padding: 28px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border: 2px solid #FFD700;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(255, 215, 0, 0.2);
+        }
+
+        .metric-card.completed {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+        }
+
+        .metric-card.active {
+            border-color: #FF9800;
+            background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%);
+        }
+
+        .metric-card.rate {
+            border-color: #00FFFF;
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1) 0%, rgba(0, 255, 255, 0.05) 100%);
+        }
+
+        .metric-value {
+            font-size: 52px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #FFD700;
+        }
+
+        .metric-card.completed .metric-value {
+            color: #00DD00;
+        }
+
+        .metric-card.active .metric-value {
+            color: #FFAA00;
+        }
+
+        .metric-card.rate .metric-value {
+            color: #00FFFF;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.95;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .metric-subtext {
+            font-size: 12px;
+            opacity: 0.75;
+            margin-top: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Domains Breakdown */
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #FFD700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #00FFFF;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .section-title::before {
+            content: "◆ ";
+            margin-right: 8px;
+        }
+
+        .domains-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .domain-card {
+            border: 2px solid #333;
+            border-radius: 6px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            background: #2a2a3e;
+        }
+
+        .domain-card:hover {
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.2);
+            border-color: #00FFFF;
+            transform: translateY(-2px);
+        }
+
+        .domain-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .domain-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .domain-stat {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        /* Success Rate Bar */
+        .success-rate-bar {
+            display: flex;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .success-rate-fill {
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Mission List */
+        .missions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .mission-item {
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mission-item.completed {
+            border-left-color: #4CAF50;
+            background: #f0f8f5;
+        }
+
+        .mission-item.active {
+            border-left-color: #FF9800;
+            background: #fffbf0;
+        }
+
+        .mission-info {
+            flex: 1;
+        }
+
+        .mission-id {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .mission-title {
+            font-size: 13px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .mission-status {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .mission-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .mission-status.active {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        /* Loading & Error */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            padding: 16px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .metrics-container {
+                padding: 16px;
+            }
+
+            .metrics-header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .key-metrics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .domains-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="metrics-container">
+        <!-- Header -->
+        <div class="metrics-header">
+            <div>
+                <h1>Weekly Mission Metrics</h1>
+                <div class="week-indicator" id="week-indicator">Loading...</div>
+            </div>
+            <button class="settings-btn" id="settings-btn">⚙️ Settings</button>
+            <button class="refresh-btn" id="refresh-btn" onclick="refreshMetrics()">Refresh Data</button>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-container" style="display: none;"></div>
+
+        <!-- Key Metrics -->
+        <div class="key-metrics" id="key-metrics">
+            <div class="loading">
+                <span class="spinner"></span>
+                Loading metrics...
+            </div>
+        </div>
+
+        <!-- Domains Breakdown -->
+        <div class="section">
+            <div class="section-title">Missions by Domain</div>
+            <div class="domains-grid" id="domains-grid">
+                <div class="loading">
+                    <span class="spinner"></span>
+                    Loading domains...
+                </div>
+            </div>
+        </div>
+
+        <!-- This Week's Completed Missions -->
+        <div class="section">
+            <div class="section-title">This Week's Missions</div>
+            <div class="missions-list" id="missions-list">
+                <div class="loading">
+                    <span class="spinner"></span>
+                    Loading missions...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/frontend/control-engine-client.js"></script>
+    <!-- Track 2: Preference Management, Audio, Animations -->
+    <script src="/dashboards/preference-manager.js"></script>
+    <script src="/dashboards/audio-manager.js"></script>
+    <script src="/dashboards/animation-controller.js"></script>
+    <script>
+        // Track 2: Initialize preferences, audio, and animations
+        const preferences = new PreferenceManager();
+        const audioManager = new AudioManager(preferences);
+        const animationController = new AnimationController(preferences);
+
+        // Settings button handler
+        function setupSettings() {
+            const settingsBtn = document.getElementById('settings-btn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', () => {
+                    window.open('/dashboards/settings-panel.html', 'settings', 'width=900,height=1100,scrollbars=yes');
+                });
+            }
+        }
+
+        let client = new ControlEngineClient('http://localhost:8888');
+        let lastMetricsData = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshMetrics();
+            setupSettings();
+        });
+
+        async function refreshMetrics() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const errorContainer = document.getElementById('error-container');
+
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+
+            try {
+                const thisWeek = await client.getMissionsThisWeek();
+                lastMetricsData = thisWeek;
+
+                // Clear error message
+                errorContainer.style.display = 'none';
+                errorContainer.innerHTML = '';
+
+                // Update week indicator
+                updateWeekIndicator();
+
+                // Update key metrics
+                updateKeyMetrics(thisWeek);
+
+                // Update domains breakdown
+                updateDomains(thisWeek);
+
+                // Update missions list
+                updateMissionsList(thisWeek);
+
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+                showError(`Failed to fetch mission metrics: ${error.message}`);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Refresh Data';
+            }
+        }
+
+        function updateWeekIndicator() {
+            const now = new Date();
+            const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+
+            const dateRange = `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`;
+            document.getElementById('week-indicator').textContent = `Week: ${dateRange}`;
+        }
+
+        function updateKeyMetrics(data) {
+            const missions = data.missions || [];
+            const completed = missions.filter(m => m.status?.toLowerCase() === 'completed').length;
+            const active = missions.filter(m => m.status?.toLowerCase() === 'active').length;
+            const total = missions.length;
+            const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            const metricsHtml = `
+                <div class="metric-card completed">
+                    <div class="metric-value">${completed}</div>
+                    <div class="metric-label">Completed</div>
+                    <div class="metric-subtext">This week</div>
+                </div>
+                <div class="metric-card active">
+                    <div class="metric-value">${active}</div>
+                    <div class="metric-label">Active</div>
+                    <div class="metric-subtext">In progress</div>
+                </div>
+                <div class="metric-card rate">
+                    <div class="metric-value">${successRate}%</div>
+                    <div class="metric-label">Success Rate</div>
+                    <div class="metric-subtext">${completed} of ${total}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${total}</div>
+                    <div class="metric-label">Total</div>
+                    <div class="metric-subtext">All missions</div>
+                </div>
+            `;
+
+            document.getElementById('key-metrics').innerHTML = metricsHtml;
+        }
+
+        function updateDomains(data) {
+            const missions = data.missions || [];
+
+            // Group by domain
+            const domains = {};
+            missions.forEach(mission => {
+                const domain = mission.domain || 'Unassigned';
+                if (!domains[domain]) {
+                    domains[domain] = {
+                        total: 0,
+                        completed: 0,
+                        active: 0
+                    };
+                }
+                domains[domain].total++;
+                if (mission.status?.toLowerCase() === 'completed') {
+                    domains[domain].completed++;
+                } else if (mission.status?.toLowerCase() === 'active') {
+                    domains[domain].active++;
+                }
+            });
+
+            // Create domain cards
+            const domainsHtml = Object.entries(domains)
+                .sort((a, b) => b[1].total - a[1].total)
+                .map(([domain, stats]) => {
+                    const rate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+                    return `
+                        <div class="domain-card">
+                            <div class="domain-name">${domain}</div>
+                            <div class="domain-stats">
+                                <div class="domain-stat">
+                                    <span class="stat-label">Total:</span>
+                                    <span class="stat-value">${stats.total}</span>
+                                </div>
+                                <div class="domain-stat">
+                                    <span class="stat-label">Completed:</span>
+                                    <span class="stat-value">${stats.completed}</span>
+                                </div>
+                            </div>
+                            <div class="success-rate-bar">
+                                <div class="success-rate-fill" style="width: ${rate}%">
+                                    ${rate}%
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+
+            document.getElementById('domains-grid').innerHTML = domainsHtml;
+        }
+
+        function updateMissionsList(data) {
+            const missions = data.missions || [];
+
+            if (missions.length === 0) {
+                document.getElementById('missions-list').innerHTML = '<p style="text-align: center; color: #999;">No missions found for this week</p>';
+                return;
+            }
+
+            // Sort by status (completed first) then by mission ID
+            const sorted = [...missions].sort((a, b) => {
+                const statusOrder = { 'completed': 0, 'active': 1, 'pending': 2 };
+                const aStatus = statusOrder[a.status?.toLowerCase()] ?? 99;
+                const bStatus = statusOrder[b.status?.toLowerCase()] ?? 99;
+                if (aStatus !== bStatus) return aStatus - bStatus;
+                return (a.mission_id || '').localeCompare(b.mission_id || '');
+            });
+
+            const missionsHtml = sorted
+                .map(mission => {
+                    const status = mission.status?.toLowerCase() || 'unknown';
+                    const statusClass = status === 'completed' ? 'completed' : status === 'active' ? 'active' : '';
+                    return `
+                        <div class="mission-item ${statusClass}">
+                            <div class="mission-info">
+                                <div class="mission-id">${mission.mission_id || 'Unknown ID'}</div>
+                                <div class="mission-title">${mission.title || mission.description || 'No title'}</div>
+                            </div>
+                            <div class="mission-status ${statusClass}">${status}</div>
+                        </div>
+                    `;
+                })
+                .join('');
+
+            document.getElementById('missions-list').innerHTML = missionsHtml;
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+            errorContainer.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

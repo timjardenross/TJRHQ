@@ -1,0 +1,151 @@
+/**
+ * STARFLEET COMMAND CENTRE — Backend API Server
+ * MSN-0035 Phase 2 — Integration Layer
+ *
+ * Purpose: Central API gateway for mission registry, coordination engine,
+ *          system health, and agent status integrations.
+ *
+ * Architecture:
+ * - Express.js server with CORS enabled
+ * - Modular API routes (missions, coordination, health, agents)
+ * - Cache manager for 30-120s TTL data
+ * - Error handling with 3-tier fallback (cache → stale → placeholder)
+ * - Mock data for local testing and development
+ */
+
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
+// Import route handlers and utilities
+const { cacheManager } = require('./cache/cache-manager');
+const missionRoutes = require('./api/missions');
+const coordinationRoutes = require('./api/coordination');
+const healthRoutes = require('./api/health');
+const agentRoutes = require('./api/agents');
+const { errorHandler } = require('./middleware/error-handling');
+
+// Initialize Express app
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || ['http://localhost:8080', 'http://localhost:3000'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
+// Health check endpoint (always available)
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'operational',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// API routes (v1)
+app.use('/api/v1/missions', missionRoutes);
+app.use('/api/v1/coordination', coordinationRoutes);
+app.use('/api/v1/health', healthRoutes);
+app.use('/api/v1/agents', agentRoutes);
+
+// API documentation endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    service: 'STARFLEET COMMAND CENTRE API',
+    version: '1.0.0',
+    mission: 'MSN-0035 Phase 2',
+    endpoints: {
+      missions: {
+        summary: 'GET /api/v1/missions/summary',
+        active: 'GET /api/v1/missions/active',
+        blocked: 'GET /api/v1/missions/blocked',
+        detail: 'GET /api/v1/missions/:id/detail'
+      },
+      coordination: {
+        brief: 'GET /api/v1/coordination/brief',
+        queue: 'GET /api/v1/coordination/queue',
+        escalations: 'GET /api/v1/coordination/escalations'
+      },
+      health: {
+        summary: 'GET /api/v1/health/summary',
+        services: 'GET /api/v1/health/services',
+        alerts: 'GET /api/v1/health/alerts'
+      },
+      agents: {
+        status: 'GET /api/v1/agents/status',
+        workload: 'GET /api/v1/agents/:agent/workload',
+        activity: 'GET /api/v1/agents/:agent/activity'
+      }
+    },
+    documentation: 'See MSN-0035-PHASE2-INTEGRATION-PLAN.md',
+    health: '/health'
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    path: req.path,
+    method: req.method,
+    message: 'The requested endpoint does not exist. See /api for available endpoints.'
+  });
+});
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+// Start server
+const server = app.listen(PORT, () => {
+  console.log(`
+╔════════════════════════════════════════════════════════════╗
+║         STARFLEET COMMAND CENTRE — API SERVER              ║
+║                  NCC-170230 STARSHIP ENDEAVOUR              ║
+╠════════════════════════════════════════════════════════════╣
+║  Service:    STARFLEET COMMAND CENTRE Backend              ║
+║  Version:    1.0.0 (Phase 2 Day 1)                         ║
+║  Port:       ${PORT}                                              ║
+║  Status:     OPERATIONAL                                   ║
+║  Environment: ${(process.env.NODE_ENV || 'development').toUpperCase()}                                ║
+╠════════════════════════════════════════════════════════════╣
+║  API Documentation:   http://localhost:${PORT}/api              ║
+║  Health Check:        http://localhost:${PORT}/health          ║
+║  Missions:            http://localhost:${PORT}/api/v1/missions  ║
+║  Coordination:        http://localhost:${PORT}/api/v1/coordination
+║  System Health:       http://localhost:${PORT}/api/v1/health    ║
+║  Agent Status:        http://localhost:${PORT}/api/v1/agents    ║
+╠════════════════════════════════════════════════════════════╣
+║  Cache Manager:       INITIALIZED                          ║
+║  Error Handling:      ENABLED (3-tier fallback)            ║
+║  CORS:                ENABLED                              ║
+║  Mock Data:           LOADED                               ║
+╚════════════════════════════════════════════════════════════╝
+  `);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received - shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+module.exports = app;

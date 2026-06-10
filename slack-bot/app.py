@@ -3,10 +3,33 @@ import os
 import threading
 import sys
 from datetime import datetime
+<<<<<<< Updated upstream
+=======
+from pathlib import Path
+>>>>>>> Stashed changes
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
+
+<<<<<<< Updated upstream
+from commander_bridge import handle_slack_message
+from commander_response_formatter import format_commander_response, parse_commander_response
+from supabase_commander_intake import run_supabase_commander
+from commands.mission_brief import handle_mission_brief, handle_mission_register_draft, handle_save_mission_file
+from commands.mission_capture import handle_mission_capture
+from commands.decision_log import handle_decision_log, handle_save_decision
+from commands.ask_specialist import handle_ask_specialist
+from commands.github_issue_draft import handle_github_issue_draft
+
+=======
+# RESEARCH DELEGATOR FIX: Add repo root to sys.path for core/ and slack-bot/ imports
+# This allows us to import from both directories regardless of where app.py is executed from
+_repo_root = Path(__file__).parent.parent  # Go up from slack-bot/ to repo root
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+    log_setup = logging.getLogger(__name__)
+    log_setup.debug(f"Added repo root to sys.path: {_repo_root}")
 
 from commander_bridge import handle_slack_message
 from commander_response_formatter import format_commander_response, parse_commander_response
@@ -17,6 +40,10 @@ from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
+# MSN-0054: Research delegation (RESEARCH DELEGATOR FIX)
+from commands.research_command import handle_research_request_with_slack
+
+>>>>>>> Stashed changes
 # MSN-0040A: Command Memory query commands
 from commands.memory_queries import (
     handle_missions_active,
@@ -27,6 +54,31 @@ from commands.memory_queries import (
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+<<<<<<< Updated upstream
+=======
+# RESEARCH DELEGATOR FIX: Validate research orchestration availability
+def validate_research_delegator() -> bool:
+    """Validate research delegator (core/coordination/research_orchestration.py) is importable.
+
+    Returns True if research delegator is available, False if missing.
+    Non-blocking failure: research commands will fail, but bot continues operating.
+    """
+    try:
+        # Try to import the research orchestration module
+        from core.coordination.research_orchestration import ResearchOrchestrator
+        log.info("✅ Research delegator (ResearchOrchestrator) available")
+        return True
+    except ImportError as e:
+        log.warning(f"⚠️  Research delegator unavailable: {str(e)}")
+        log.warning("   Research commands (@Commander research ...) will fail")
+        log.warning("   This is non-blocking; other commands will work normally")
+        return False
+    except Exception as e:
+        log.warning(f"⚠️  Unexpected error checking research delegator: {str(e)}")
+        return False
+
+
+>>>>>>> Stashed changes
 # MSN-0011B Tier 0: Environment Validation at Startup
 def validate_environment() -> bool:
     """Validate all required environment variables are present and valid.
@@ -78,6 +130,13 @@ def validate_environment() -> bool:
         return False
 
     log.info("✅ All environment validation checks passed")
+<<<<<<< Updated upstream
+=======
+
+    # RESEARCH DELEGATOR FIX: Validate research delegator (non-blocking)
+    validate_research_delegator()
+
+>>>>>>> Stashed changes
     return True
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")

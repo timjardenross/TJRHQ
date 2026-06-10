@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Deck Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            padding: 20px;
+            color: #FFF;
+        }
+
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1a1a2e;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 28px;
+            border: 3px solid #FFD700;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 20px;
+        }
+
+        .settings-header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .settings-header h1::before {
+            content: "⚙️ ";
+            margin-right: 8px;
+        }
+
+        .settings-section {
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .settings-section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-title::before {
+            content: "◆ ";
+            margin-right: 8px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #2a2a3e;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: #CCC;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .setting-control {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        /* Slider */
+        input[type="range"] {
+            width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #333 0%, #FFD700 100%);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FFD700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transform: scale(1.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FFD700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transform: scale(1.2);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            transition: all 0.3s ease;
+            border-radius: 24px;
+            border: 2px solid #555;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #FFF;
+            transition: all 0.3s ease;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #FFD700;
+            border-color: #FFD700;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Select */
+        select {
+            padding: 8px 12px;
+            background: #2a2a3e;
+            color: #FFF;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:hover {
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        select:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        select option {
+            background: #1a1a2e;
+            color: #FFF;
+        }
+
+        /* Color Picker */
+        .color-picker-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            border: 2px solid #FFD700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .color-preview:hover {
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        button:disabled {
+            background: #444;
+            border-color: #666;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: transparent;
+            color: #FFD700;
+            border: 2px solid #FFD700;
+        }
+
+        button.secondary:hover {
+            background: #FFD700;
+            color: #000;
+        }
+
+        /* Value Display */
+        .value-display {
+            font-size: 13px;
+            color: #FFD700;
+            font-weight: 600;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        /* Preview Box */
+        .preview-box {
+            background: #2a2a3e;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            padding: 16px;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .preview-box p {
+            font-size: 14px;
+            color: #CCC;
+            margin-bottom: 8px;
+        }
+
+        .preview-text {
+            font-size: 18px;
+            color: #FFD700;
+            letter-spacing: 1px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .setting-control {
+                width: 100%;
+                margin-top: 8px;
+                flex-wrap: wrap;
+            }
+
+            input[type="range"] {
+                width: 100%;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>Control Deck Settings</h1>
+        </div>
+
+        <!-- Theme & Colors -->
+        <div class="settings-section">
+            <div class="section-title">Theme & Colors</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Division Preset</span>
+                <div class="setting-control">
+                    <select id="divisionSelect">
+                        <option value="command">Command (Gold)</option>
+                        <option value="operations">Operations (Cyan)</option>
+                        <option value="science">Science (Blue)</option>
+                        <option value="engineering">Engineering (Orange)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Primary Color</span>
+                <div class="setting-control">
+                    <div class="color-preview" id="primaryColorPreview" title="Click to change"></div>
+                    <input type="color" id="primaryColorPicker" value="#FFD700">
+                    <span class="value-display" id="primaryColorValue">#FFD700</span>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Accent Color</span>
+                <div class="setting-control">
+                    <div class="color-preview" id="accentColorPreview" title="Click to change"></div>
+                    <input type="color" id="accentColorPicker" value="#00FFFF">
+                    <span class="value-display" id="accentColorValue">#00FFFF</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Animations -->
+        <div class="settings-section">
+            <div class="section-title">Animations</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Enable Animations</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="animationsToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Animation Intensity</span>
+                <div class="setting-control">
+                    <input type="range" id="animationIntensity" min="0" max="100" value="80">
+                    <span class="value-display" id="intensityValue">80%</span>
+                </div>
+            </div>
+
+            <div class="preview-box">
+                <p>Preview:</p>
+                <div class="preview-text pulse-online">◆ Sensor Sweep Animation</div>
+            </div>
+        </div>
+
+        <!-- Audio -->
+        <div class="settings-section">
+            <div class="section-title">Audio</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Enable Audio</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="audioToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Audio Volume</span>
+                <div class="setting-control">
+                    <input type="range" id="audioVolume" min="0" max="100" value="50">
+                    <span class="value-display" id="volumeValue">50%</span>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Test Audio</span>
+                <div class="setting-control">
+                    <button class="secondary" id="testAudioBtn">Play Test Sound</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Display -->
+        <div class="settings-section">
+            <div class="section-title">Display</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Font Size</span>
+                <div class="setting-control">
+                    <select id="fontSizeSelect">
+                        <option value="small">Small (14px)</option>
+                        <option value="normal" selected>Normal (16px)</option>
+                        <option value="large">Large (18px)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Compact Mode</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="compactModeToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">High Contrast</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="highContrastToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Behavior -->
+        <div class="settings-section">
+            <div class="section-title">Behavior</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Auto-Refresh Rate (seconds)</span>
+                <div class="setting-control">
+                    <input type="range" id="refreshRate" min="5" max="120" value="30" step="5">
+                    <span class="value-display" id="refreshValue">30s</span>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Dashboard Layout</span>
+                <div class="setting-control">
+                    <select id="layoutSelect">
+                        <option value="grid" selected>Grid</option>
+                        <option value="list">List</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accessibility -->
+        <div class="settings-section">
+            <div class="section-title">Accessibility</div>
+
+            <div class="setting-item">
+                <span class="setting-label">Reduce Motion</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="reduceMotionToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <span class="setting-label">Color Blind Mode</span>
+                <div class="setting-control">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="colorBlindToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced -->
+        <div class="settings-section">
+            <div class="section-title">Advanced</div>
+
+            <div class="button-group">
+                <button class="secondary" id="exportBtn">Export Settings</button>
+                <button class="secondary" id="importBtn">Import Settings</button>
+                <button class="secondary" id="resetBtn">Reset to Defaults</button>
+                <button id="closeBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="preference-manager.js"></script>
+    <script src="audio-manager.js"></script>
+    <script src="animation-controller.js"></script>
+
+    <script>
+        // Initialize
+        const preferences = new PreferenceManager();
+        const audioManager = new AudioManager(preferences);
+        const animationController = new AnimationController(preferences);
+
+        // Load current preferences into UI
+        function loadPreferences() {
+            const prefs = preferences.getAll();
+
+            document.getElementById('divisionSelect').value = prefs.division;
+            document.getElementById('primaryColorPicker').value = prefs.primaryColor;
+            document.getElementById('primaryColorValue').textContent = prefs.primaryColor;
+            document.getElementById('accentColorPicker').value = prefs.accentColor;
+            document.getElementById('accentColorValue').textContent = prefs.accentColor;
+
+            document.getElementById('animationsToggle').checked = prefs.animationsEnabled;
+            document.getElementById('animationIntensity').value = prefs.animationIntensity * 100;
+            document.getElementById('intensityValue').textContent = Math.round(prefs.animationIntensity * 100) + '%';
+
+            document.getElementById('audioToggle').checked = prefs.audioEnabled;
+            document.getElementById('audioVolume').value = prefs.audioVolume * 100;
+            document.getElementById('volumeValue').textContent = Math.round(prefs.audioVolume * 100) + '%';
+
+            document.getElementById('fontSizeSelect').value = prefs.fontSize;
+            document.getElementById('compactModeToggle').checked = prefs.compactMode;
+            document.getElementById('highContrastToggle').checked = prefs.highContrast;
+
+            document.getElementById('refreshRate').value = prefs.autoRefreshRate;
+            document.getElementById('refreshValue').textContent = prefs.autoRefreshRate + 's';
+
+            document.getElementById('layoutSelect').value = prefs.dashboardLayout;
+            document.getElementById('reduceMotionToggle').checked = prefs.reduceMotion;
+            document.getElementById('colorBlindToggle').checked = prefs.colorBlindMode;
+
+            updateColorPreviews();
+        }
+
+        // Update color preview boxes
+        function updateColorPreviews() {
+            const primaryColor = document.getElementById('primaryColorPicker').value;
+            const accentColor = document.getElementById('accentColorPicker').value;
+            document.getElementById('primaryColorPreview').style.backgroundColor = primaryColor;
+            document.getElementById('accentColorPreview').style.backgroundColor = accentColor;
+        }
+
+        // Event Listeners
+        document.getElementById('divisionSelect').addEventListener('change', (e) => {
+            preferences.setDivision(e.target.value);
+            loadPreferences();
+        });
+
+        document.getElementById('primaryColorPicker').addEventListener('change', (e) => {
+            preferences.set('primaryColor', e.target.value);
+            document.getElementById('primaryColorValue').textContent = e.target.value;
+            updateColorPreviews();
+        });
+
+        document.getElementById('accentColorPicker').addEventListener('change', (e) => {
+            preferences.set('accentColor', e.target.value);
+            document.getElementById('accentColorValue').textContent = e.target.value;
+            updateColorPreviews();
+        });
+
+        document.getElementById('animationsToggle').addEventListener('change', (e) => {
+            preferences.set('animationsEnabled', e.target.checked);
+            animationController.applyAnimationSettings();
+        });
+
+        document.getElementById('animationIntensity').addEventListener('input', (e) => {
+            const value = e.target.value / 100;
+            preferences.set('animationIntensity', value);
+            document.getElementById('intensityValue').textContent = e.target.value + '%';
+            animationController.setIntensity(value);
+        });
+
+        document.getElementById('audioToggle').addEventListener('change', (e) => {
+            preferences.set('audioEnabled', e.target.checked);
+        });
+
+        document.getElementById('audioVolume').addEventListener('input', (e) => {
+            const value = e.target.value / 100;
+            audioManager.setVolume(value);
+            document.getElementById('volumeValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('testAudioBtn').addEventListener('click', () => {
+            audioManager.test();
+        });
+
+        document.getElementById('fontSizeSelect').addEventListener('change', (e) => {
+            preferences.set('fontSize', e.target.value);
+        });
+
+        document.getElementById('compactModeToggle').addEventListener('change', (e) => {
+            preferences.set('compactMode', e.target.checked);
+        });
+
+        document.getElementById('highContrastToggle').addEventListener('change', (e) => {
+            preferences.set('highContrast', e.target.checked);
+        });
+
+        document.getElementById('refreshRate').addEventListener('input', (e) => {
+            preferences.set('autoRefreshRate', parseInt(e.target.value));
+            document.getElementById('refreshValue').textContent = e.target.value + 's';
+        });
+
+        document.getElementById('layoutSelect').addEventListener('change', (e) => {
+            preferences.set('dashboardLayout', e.target.value);
+        });
+
+        document.getElementById('reduceMotionToggle').addEventListener('change', (e) => {
+            preferences.set('reduceMotion', e.target.checked);
+        });
+
+        document.getElementById('colorBlindToggle').addEventListener('change', (e) => {
+            preferences.set('colorBlindMode', e.target.checked);
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const exported = preferences.export();
+            const blob = new Blob([exported], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'control-deck-settings.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('importBtn').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    if (preferences.import(event.target.result)) {
+                        loadPreferences();
+                        alert('Settings imported successfully!');
+                    } else {
+                        alert('Failed to import settings. Invalid file format.');
+                    }
+                };
+                reader.readAsText(file);
+            });
+            input.click();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset all settings to defaults?')) {
+                preferences.reset();
+                loadPreferences();
+                animationController.applyAnimationSettings();
+            }
+        });
+
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            window.close();
+        });
+
+        // Initialize UI
+        loadPreferences();
+    </script>
+</body>
+</html>

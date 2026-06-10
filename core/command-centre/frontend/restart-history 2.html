@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Restart History</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            padding: 20px;
+        }
+
+        .history-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #1a1a2e;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 28px;
+            border: 3px solid #FF9800;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            border-bottom: 3px solid #FF9800;
+            padding-bottom: 20px;
+        }
+
+        .history-header h1 {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FF9800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .history-header h1::before {
+            content: "🔄 ";
+            margin-right: 8px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #FF9800;
+            color: #000;
+            border: 2px solid #FF9800;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .refresh-btn:hover {
+            background: #FFAA00;
+            border-color: #FFAA00;
+            box-shadow: 0 0 15px rgba(255, 152, 0, 0.5);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .filter-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        select {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+
+        .refresh-btn:disabled {
+
+        .settings-btn {
+            padding: 10px 20px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .settings-btn:hover {
+            background: #FFA500;
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Stats Summary */
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f9f9f9;
+            border-radius: 6px;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, #007bff, #ddd);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-left: 40px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            background: #f9f9f9;
+            border-left: 3px solid #FF9800;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-left-color: #FF6F00;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -49px;
+            top: 14px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #FF9800;
+        }
+
+        .timeline-item.success {
+            border-left-color: #4CAF50;
+            background: #f0f8f5;
+        }
+
+        .timeline-item.success::before {
+            border-color: #4CAF50;
+            background: #4CAF50;
+        }
+
+        .timeline-item.failure {
+            border-left-color: #F44336;
+            background: #fff5f5;
+        }
+
+        .timeline-item.failure::before {
+            border-color: #F44336;
+            background: #F44336;
+        }
+
+        .timeline-service {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .timeline-time {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .timeline-reason {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .timeline-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .timeline-badge.auto-restart {
+            background: #E3F2FD;
+            color: #1976D2;
+        }
+
+        .timeline-badge.manual {
+            background: #FFF3E0;
+            color: #E65100;
+        }
+
+        .timeline-badge.success {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .timeline-badge.failure {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        /* Service Stats Cards */
+        .service-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .service-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .service-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-color: #999;
+        }
+
+        .service-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .service-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .detail-value.high {
+            color: #F44336;
+        }
+
+        .detail-value.medium {
+            color: #FF9800;
+        }
+
+        .detail-value.low {
+            color: #4CAF50;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            padding: 16px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        .info-message {
+            padding: 16px;
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .history-container {
+                padding: 16px;
+            }
+
+            .history-header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .timeline-item {
+                margin-left: 30px;
+            }
+
+            .timeline-item::before {
+                left: -39px;
+            }
+
+            .service-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="history-container">
+        <!-- Header -->
+        <div class="history-header">
+            <h1>Service Restart History</h1>
+            <div class="header-controls">
+                <div class="filter-group">
+                    <span class="filter-label">Service:</span>
+                    <select id="service-filter" onchange="applyFilters()">
+                        <option value="">All Services</option>
+                    </select>
+                <button class="settings-btn" id="settings-btn">⚙️ Settings</button>
+                </div>
+                <button class="refresh-btn" id="refresh-btn" onclick="refreshHistory()">Refresh Data</button>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-container" style="display: none;"></div>
+
+        <!-- Info Message -->
+        <div id="info-container" style="display: none;"></div>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary" id="stats-summary">
+            <div class="loading">
+                <span class="spinner"></span>
+            </div>
+        </div>
+
+        <!-- Service Stats -->
+        <div class="service-stats" id="service-stats">
+            <div class="loading">
+                <span class="spinner"></span>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline" id="timeline">
+            <div class="loading">
+                <span class="spinner"></span>
+                Loading restart history...
+            </div>
+        </div>
+    </div>
+
+    <!-- Track 2: Preference Management, Audio, Animations -->
+    <script src="/dashboards/preference-manager.js"></script>
+    <script src="/dashboards/audio-manager.js"></script>
+    <script src="/dashboards/animation-controller.js"></script>
+    <script>
+        let allRestartEvents = [];
+        let monitorStateFile = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setupSettings();
+            refreshHistory();
+        });
+
+        async function refreshHistory() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const errorContainer = document.getElementById('error-container');
+            const infoContainer = document.getElementById('info-container');
+
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Refreshing...';
+
+            try {
+                // Load monitor state file
+                const response = await fetch('/core/command-centre/.monitor_state.json');
+                if (!response.ok && response.status !== 404) {
+                    throw new Error('Failed to load monitor state file');
+                }
+
+                if (response.ok) {
+                    monitorStateFile = await response.json();
+                    buildRestartEvents(monitorStateFile);
+                } else {
+                    showInfo('Monitor state file not found. Start the service monitor to track restarts.');
+                }
+
+                // Clear error message
+                errorContainer.style.display = 'none';
+                errorContainer.innerHTML = '';
+
+                // Update UI
+                updateStatsSummary();
+                updateServiceStats();
+                updateTimeline();
+                updateServiceFilter();
+
+            } catch (error) {
+                console.error('Failed to load history:', error);
+                showError(`Failed to load restart history: ${error.message}`);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Refresh Data';
+            }
+        }
+
+        function buildRestartEvents(state) {
+            allRestartEvents = [];
+
+            // Parse last restart times
+            const lastRestarts = state.last_restart_time || {};
+            const failureCounts = state.failure_count || {};
+
+            Object.entries(lastRestarts).forEach(([service, timestamp]) => {
+                allRestartEvents.push({
+                    service: service,
+                    timestamp: new Date(timestamp),
+                    reason: 'Auto-restart (failure recovery)',
+                    type: 'auto-restart',
+                    status: 'success',
+                    failureCount: failureCounts[service] || 0
+                });
+            });
+
+            // Sort by timestamp descending
+            allRestartEvents.sort((a, b) => b.timestamp - a.timestamp);
+        }
+
+        function updateStatsSummary() {
+            const thisWeek = allRestartEvents.filter(e => {
+                const now = new Date();
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                return e.timestamp >= weekAgo;
+            });
+
+            const today = allRestartEvents.filter(e => {
+                const now = new Date();
+                const dayStart = new Date(now.setHours(0, 0, 0, 0));
+                return e.timestamp >= dayStart;
+            });
+
+            const statsHtml = `
+                <div class="stat-box">
+                    <div class="stat-number">${allRestartEvents.length}</div>
+                    <div class="stat-label">All Time</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${thisWeek.length}</div>
+                    <div class="stat-label">This Week</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${today.length}</div>
+                    <div class="stat-label">Today</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${new Set(allRestartEvents.map(e => e.service)).size}</div>
+                    <div class="stat-label">Unique Services</div>
+                </div>
+            `;
+
+            document.getElementById('stats-summary').innerHTML = statsHtml;
+        }
+
+        function updateServiceStats() {
+            const serviceStats = {};
+
+            allRestartEvents.forEach(event => {
+                if (!serviceStats[event.service]) {
+                    serviceStats[event.service] = {
+                        total: 0,
+                        thisWeek: 0,
+                        lastRestart: null
+                    };
+                }
+                serviceStats[event.service].total++;
+                serviceStats[event.service].lastRestart = event.timestamp;
+
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                if (event.timestamp >= weekAgo) {
+                    serviceStats[event.service].thisWeek++;
+                }
+            });
+
+            const statsHtml = Object.entries(serviceStats)
+                .sort((a, b) => b[1].total - a[1].total)
+                .map(([service, stats]) => {
+                    const rateClass = stats.thisWeek > 3 ? 'high' : stats.thisWeek > 1 ? 'medium' : 'low';
+                    return `
+                        <div class="service-card">
+                            <div class="service-name">${service}</div>
+                            <div class="service-detail">
+                                <span class="detail-label">Total:</span>
+                                <span class="detail-value">${stats.total}</span>
+                            </div>
+                            <div class="service-detail">
+                                <span class="detail-label">This Week:</span>
+                                <span class="detail-value ${rateClass}">${stats.thisWeek}</span>
+                            </div>
+                            <div class="service-detail">
+                                <span class="detail-label">Last Restart:</span>
+                                <span class="detail-value">${stats.lastRestart ? formatDate(stats.lastRestart) : 'Never'}</span>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+
+            document.getElementById('service-stats').innerHTML = statsHtml || '<p class="empty-state">No restart history</p>';
+        }
+
+        function updateTimeline() {
+            if (allRestartEvents.length === 0) {
+                document.getElementById('timeline').innerHTML = '<p class="empty-state">No restart events recorded yet</p>';
+                return;
+            }
+
+            const timelineHtml = allRestartEvents
+                .slice(0, 50) // Show last 50
+                .map(event => `
+                    <div class="timeline-item ${event.status}">
+                        <div class="timeline-service">${event.service}</div>
+                        <div class="timeline-time">${formatDateTime(event.timestamp)}</div>
+                        <div class="timeline-reason">${event.reason}</div>
+                        <div>
+                            <span class="timeline-badge auto-restart">AUTO-RESTART</span>
+                            <span class="timeline-badge success">Success</span>
+                        </div>
+                    </div>
+                `)
+                .join('');
+
+            document.getElementById('timeline').innerHTML = timelineHtml;
+        }
+
+        function updateServiceFilter() {
+            const services = [...new Set(allRestartEvents.map(e => e.service))].sort();
+            const select = document.getElementById('service-filter');
+
+            // Preserve current selection
+            const currentValue = select.value;
+
+            select.innerHTML = '<option value="">All Services</option>' +
+                services.map(s => `<option value="${s}">${s}</option>`).join('');
+
+            if (services.includes(currentValue)) {
+                select.value = currentValue;
+            }
+        }
+
+        function applyFilters() {
+            const serviceFilter = document.getElementById('service-filter').value;
+            const timeline = document.getElementById('timeline');
+
+            let filtered = allRestartEvents;
+            if (serviceFilter) {
+                filtered = filtered.filter(e => e.service === serviceFilter);
+            }
+
+            if (filtered.length === 0) {
+                timeline.innerHTML = '<p class="empty-state">No restart events match the selected filter</p>';
+                return;
+            }
+
+            const timelineHtml = filtered
+                .slice(0, 50)
+                .map(event => `
+                    <div class="timeline-item ${event.status}">
+                        <div class="timeline-service">${event.service}</div>
+                        <div class="timeline-time">${formatDateTime(event.timestamp)}</div>
+                        <div class="timeline-reason">${event.reason}</div>
+                        <div>
+                            <span class="timeline-badge auto-restart">AUTO-RESTART</span>
+                            <span class="timeline-badge success">Success</span>
+                        </div>
+                    </div>
+                `)
+                .join('');
+
+            timeline.innerHTML = timelineHtml;
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+            errorContainer.style.display = 'block';
+        }
+
+        function showInfo(message) {
+            const infoContainer = document.getElementById('info-container');
+            infoContainer.innerHTML = `<div class="info-message">ℹ️ ${message}</div>`;
+            infoContainer.style.display = 'block';
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString();
+        }
+
+        function formatDateTime(date) {
+            const d = new Date(date);
+            return d.toLocaleString();
+        }
+    </script>
+</body>
+</html>
