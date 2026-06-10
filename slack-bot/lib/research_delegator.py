@@ -3,14 +3,23 @@
 
 Delegates individual research tasks to LLM providers with automatic fallback.
 
-Primary flow:
-  1. Gemini 2.5 Flash (if GEMINI_API_KEY available)
-  2. qwen3:8b via Ollama (if Gemini unavailable)
+MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware provider routing prevents repeated
+Gemini quota exhaustion retries. Once daily quota is exceeded:
+  - Gemini marked unavailable for rest of day (no repeated 34-second waits)
+  - Research falls back to OpenRouter or Ollama immediately
+  - Per-mission Gemini call budget prevents quota exhaustion (max 1 call/mission)
+  - Detailed logging tracks provider selection, skipping, and fallback usage
+
+Primary flow (quota-aware):
+  1. Check per-mission Gemini call budget (max GEMINI_MAX_CALLS_PER_MISSION)
+  2. If available AND Gemini not marked unavailable: Gemini 2.5 Flash Lite (primary)
+  3. If Gemini skipped/unavailable: qwen3:8b via Ollama (fallback - local, free)
+  4. If Ollama unavailable: Gemini 2.5 Flash (emergency only - premium)
 
 Non-blocking: If all providers fail, returns error status but does not crash.
 
 Public API:
-    delegate_research_task(task_description: str, timeout_sec: int) -> dict
+    delegate_research_task(task_description: str, timeout_sec: int, mission_id: str) -> dict
 """
 
 from __future__ import annotations
@@ -22,13 +31,25 @@ import time
 import urllib.request
 import urllib.error
 from typing import Any, Optional
-from dataclasses import dataclass, asdict
-from datetime import datetime
+from dataclasses import dataclass, asdict, field
+from datetime import datetime, timedelta
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from provider_health import ProviderHealth, extract_failure_reason
 
 log = logging.getLogger(__name__)
+
+# ============================================================================
+# Configuration: Quota-Aware Routing (MSN-[GEMINI-QUOTA-AWARE-ROUTING])
+# ============================================================================
+
+GEMINI_MAX_CALLS_PER_MISSION = int(os.getenv("GEMINI_MAX_CALLS_PER_MISSION", "1"))
+GEMINI_DISABLE_ON_QUOTA = os.getenv("GEMINI_DISABLE_ON_QUOTA", "true").lower() == "true"
+LOCAL_FALLBACK_MODEL = os.getenv("LOCAL_FALLBACK_MODEL", "qwen3:8b")
+
+log.debug(f"[QUOTA-AWARE] GEMINI_MAX_CALLS_PER_MISSION={GEMINI_MAX_CALLS_PER_MISSION}")
+log.debug(f"[QUOTA-AWARE] GEMINI_DISABLE_ON_QUOTA={GEMINI_DISABLE_ON_QUOTA}")
+log.debug(f"[QUOTA-AWARE] LOCAL_FALLBACK_MODEL={LOCAL_FALLBACK_MODEL}")
 
 
 # ============================================================================
@@ -48,6 +69,8 @@ class ResearchOutcome:
     tokens_used: Optional[dict[str, int]] = None
     timestamp: str = None
     provider_attempted: list[str] = None  # List of providers attempted in order (telemetry)
+    provider_skipped: list[str] = field(default_factory=list)  # Providers skipped due to quota/unavailability
+    fallback_reason: Optional[str] = None  # Why fallback was used (e.g., "gemini_quota_exhausted")
 
     def __post_init__(self):
         if self.references is None:
@@ -60,6 +83,47 @@ class ResearchOutcome:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
+
+
+@dataclass
+class MissionGeminiQuota:
+    """Track Gemini quota usage per mission.
+
+    MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Per-mission call budgeting prevents
+    exhaustion. Once daily quota exceeded, fallback to Ollama for that mission.
+    """
+    mission_id: str
+    gemini_calls_made: int = 0
+    gemini_quota_exhausted: bool = False
+    quota_exhausted_timestamp: Optional[str] = None
+
+    def record_gemini_call(self) -> None:
+        """Record a Gemini call for this mission."""
+        self.gemini_calls_made += 1
+        log.debug(f"[QUOTA-MISSION] {self.mission_id}: Gemini calls={self.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
+
+    def mark_quota_exhausted(self) -> None:
+        """Mark Gemini quota as exhausted for this mission."""
+        self.gemini_quota_exhausted = True
+        self.quota_exhausted_timestamp = datetime.utcnow().isoformat()
+        log.warning(f"[QUOTA-MISSION] {self.mission_id}: Gemini quota exhausted. Falling back to Ollama for remaining tasks.")
+
+    def can_use_gemini(self) -> bool:
+        """Check if this mission can still use Gemini."""
+        if self.gemini_quota_exhausted:
+            return False
+        return self.gemini_calls_made < GEMINI_MAX_CALLS_PER_MISSION
+
+
+# Global tracker for mission Gemini quotas
+_mission_gemini_quotas: dict[str, MissionGeminiQuota] = {}
+
+
+def get_mission_gemini_quota(mission_id: str) -> MissionGeminiQuota:
+    """Get or create Gemini quota tracker for mission."""
+    if mission_id not in _mission_gemini_quotas:
+        _mission_gemini_quotas[mission_id] = MissionGeminiQuota(mission_id=mission_id)
+    return _mission_gemini_quotas[mission_id]
 
 
 # ============================================================================
@@ -112,7 +176,7 @@ def call_gemini_research(
 
         log.info("Calling Gemini 2.5 Flash for research")
 
-        # Call Gemini API with 429 rate-limit handling
+        # Call Gemini API with 429 rate-limit handling (quota-aware)
         try:
             response = model.generate_content(
                 user_prompt,
@@ -123,14 +187,14 @@ def call_gemini_research(
                 )
             )
         except Exception as gemini_error:
-            # Check if this is a 429 rate limit error
+            # Check if this is a 429 rate limit error (quota exhausted)
             error_str = str(gemini_error)
             if "429" in error_str or "quota" in error_str or "rate" in error_str.lower():
-                # Extract retry delay if present
+                # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota exhausted - NO REPEATED RETRIES
+                # Extract retry delay to understand scope of quota exhaustion
                 retry_delay_sec = 34  # Default based on observed error message
                 if "retry_delay" in error_str:
                     try:
-                        # Try to extract numeric retry delay from error message
                         import re
                         match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
                         if match:
@@ -138,34 +202,49 @@ def call_gemini_research(
                     except:
                         pass
 
-                log.warning(
-                    f"Gemini 429 rate limit hit. "
-                    f"retry_delay={retry_delay_sec}s. "
-                    f"Waiting and retrying once..."
-                )
-
-                # Wait for retry delay + 2 second buffer
-                time.sleep(retry_delay_sec + 2)
-
-                # Retry once
-                try:
-                    log.info("Retrying Gemini after rate limit wait")
-                    response = model.generate_content(
-                        user_prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            max_output_tokens=2048,
-                            temperature=0.7,
-                            top_p=0.95,
-                        )
+                # If daily quota exhausted (large retry_delay), log and fail immediately
+                # Do NOT wait and retry - this prevents repeated 34-second waits
+                if retry_delay_sec >= 30 or "daily" in error_str.lower():
+                    log.error(
+                        f"[QUOTA-AWARE] Gemini DAILY quota exhausted "
+                        f"(retry_delay={retry_delay_sec}s). "
+                        f"Failing immediately - NO retry. "
+                        f"Fallback to Ollama for remaining research tasks."
                     )
-                    log.info("Gemini retry succeeded after rate limit wait")
-                except Exception as retry_error:
-                    log.warning(f"Gemini retry failed: {retry_error}. Will fallback to Ollama.")
                     return ResearchOutcome(
-                        status="rate_limited",
+                        status="quota_exhausted",
                         provider="gemini",
-                        error_message=f"Gemini rate limited (retried, failed). Fallback recommended: {str(retry_error)[:100]}"
+                        error_message=f"Gemini daily quota exhausted (retry_delay={retry_delay_sec}s). No fallback retry.",
+                        fallback_reason="gemini_quota_exhausted"
                     )
+                else:
+                    # Smaller retry delay - might be temporary rate limit, retry once
+                    log.warning(
+                        f"[QUOTA-AWARE] Gemini rate limited (retry_delay={retry_delay_sec}s). "
+                        f"Retrying once..."
+                    )
+
+                    time.sleep(min(retry_delay_sec + 2, 5))  # Cap wait at 5s for non-daily quota
+
+                    try:
+                        log.info("Retrying Gemini after rate limit wait")
+                        response = model.generate_content(
+                            user_prompt,
+                            generation_config=genai.types.GenerationConfig(
+                                max_output_tokens=2048,
+                                temperature=0.7,
+                                top_p=0.95,
+                            )
+                        )
+                        log.info("Gemini retry succeeded after rate limit wait")
+                    except Exception as retry_error:
+                        log.warning(f"Gemini retry failed: {retry_error}. Returning rate_limited status.")
+                        return ResearchOutcome(
+                            status="rate_limited",
+                            provider="gemini",
+                            error_message=f"Gemini rate limited (retried, failed): {str(retry_error)[:100]}",
+                            fallback_reason="gemini_rate_limited"
+                        )
             else:
                 # Not a rate limit error, re-raise
                 raise gemini_error
@@ -443,7 +522,11 @@ def call_gemini_2_5_flash_lite_research(
     task_description: str,
     timeout_sec: int = 120
 ) -> ResearchOutcome:
-    """Submit research task to Gemini 2.5 Flash Lite (lightweight fallback).
+    """Submit research task to Gemini 2.5 Flash Lite (primary research provider).
+
+    MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware Gemini calls.
+    On daily quota exhaustion (429 with large retry_delay), return immediately
+    with quota_exhausted status (no retry). Let fallback chain handle recovery.
 
     Args:
         task_description: What to research
@@ -478,9 +561,9 @@ def call_gemini_2_5_flash_lite_research(
 
         user_prompt = f"Research the following topic and provide findings:\n\n{task_description}"
 
-        log.info("Calling Gemini 2.5 Flash Lite for research (second fallback)")
+        log.info("Calling Gemini 2.5 Flash Lite for research (primary)")
 
-        # Call Gemini API with 429 rate-limit handling
+        # Call Gemini API with quota-aware 429 handling
         try:
             response = model.generate_content(
                 user_prompt,
@@ -494,6 +577,7 @@ def call_gemini_2_5_flash_lite_research(
             # Check if this is a 429 rate limit error
             error_str = str(gemini_error)
             if "429" in error_str or "quota" in error_str or "rate" in error_str.lower():
+                # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Detect daily quota exhaustion
                 retry_delay_sec = 34
                 if "retry_delay" in error_str:
                     try:
@@ -504,27 +588,43 @@ def call_gemini_2_5_flash_lite_research(
                     except:
                         pass
 
-                log.warning(f"Gemini 2.5 Flash Lite 429 rate limit. Retrying after {retry_delay_sec}s...")
-                time.sleep(retry_delay_sec + 2)
-
-                try:
-                    log.info("Retrying Gemini 2.5 Flash Lite after rate limit wait")
-                    response = model.generate_content(
-                        user_prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            max_output_tokens=2048,
-                            temperature=0.7,
-                            top_p=0.95,
-                        )
+                # If daily quota exhausted (large retry_delay), fail immediately
+                if retry_delay_sec >= 30 or "daily" in error_str.lower():
+                    log.error(
+                        f"[QUOTA-AWARE] Gemini 2.5 Flash Lite DAILY quota exhausted "
+                        f"(retry_delay={retry_delay_sec}s). "
+                        f"Failing immediately - NO retry."
                     )
-                    log.info("Gemini 2.5 Flash Lite retry succeeded")
-                except Exception as retry_error:
-                    log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
                     return ResearchOutcome(
-                        status="rate_limited",
+                        status="quota_exhausted",
                         provider="gemini-2.5-flash-lite",
-                        error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}"
+                        error_message=f"Gemini daily quota exhausted (retry_delay={retry_delay_sec}s). No fallback retry.",
+                        fallback_reason="gemini_quota_exhausted"
                     )
+                else:
+                    # Temporary rate limit - retry once
+                    log.warning(f"[QUOTA-AWARE] Gemini 2.5 Flash Lite rate limited. Retrying after {retry_delay_sec}s...")
+                    time.sleep(min(retry_delay_sec + 2, 5))
+
+                    try:
+                        log.info("Retrying Gemini 2.5 Flash Lite after rate limit wait")
+                        response = model.generate_content(
+                            user_prompt,
+                            generation_config=genai.types.GenerationConfig(
+                                max_output_tokens=2048,
+                                temperature=0.7,
+                                top_p=0.95,
+                            )
+                        )
+                        log.info("Gemini 2.5 Flash Lite retry succeeded")
+                    except Exception as retry_error:
+                        log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
+                        return ResearchOutcome(
+                            status="rate_limited",
+                            provider="gemini-2.5-flash-lite",
+                            error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}",
+                            fallback_reason="gemini_rate_limited"
+                        )
             else:
                 raise gemini_error
 
@@ -570,13 +670,22 @@ def delegate_research_task(
     gemini_timeout_sec: int = 120,
     ollama_timeout_sec: int = 120,
     provider_health: Optional[ProviderHealth] = None,
+    mission_id: Optional[str] = None,
 ) -> ResearchOutcome:
-    """Delegate research task with intelligent provider chain fallback and telemetry.
+    """Delegate research task with quota-aware provider chain fallback.
 
-    Provider chain (in order):
-      1. Gemini 2.5 Flash (primary, best quality)
-      2. Gemini 2.5 Flash Lite (first fallback, lightweight)
-      3. qwen3:8b via Ollama (final fallback, always available)
+    MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware routing prevents repeated
+    Gemini quota exhaustion retries and 34-second waits that degrade research.
+
+    Provider chain (in order, quota-aware):
+      1. Gemini 2.5 Flash Lite (primary - if quota available AND not exhausted)
+      2. qwen3:8b via Ollama (fallback - local, free, no quota limits)
+      3. Gemini 2.5 Flash (emergency only - premium, reserved)
+
+    Quota Budgeting (per-mission):
+    - Max GEMINI_MAX_CALLS_PER_MISSION (default=1) per mission
+    - Once budget exhausted: skip Gemini, use Ollama for remaining tasks
+    - Once daily quota hit: mark Gemini unavailable for rest of day
 
     Circuit Breaker (MSN-0055C WP2):
     - Tracks provider failures within mission
@@ -585,13 +694,16 @@ def delegate_research_task(
     - Subsequent tasks bypass unavailable provider (saves ~2-3 seconds per task)
 
     For each provider:
-    - If available: attempt delegation
-    - If 429 rate limited: wait retry_delay + 2s buffer, retry once
+    - If available AND quota ok: attempt delegation
+    - If quota exhausted (429 daily): mark unavailable, continue to next provider
+    - If rate limited (429 temp): retry once with timeout
     - If fails: mark unavailable, continue to next provider
     - If success: return immediately with provider telemetry
 
     Telemetry tracked:
     - provider_attempted: list of providers tried in order
+    - provider_skipped: providers skipped due to quota/circuit-breaker
+    - fallback_reason: why fallback was used (e.g., "gemini_quota_exhausted")
     - provider: final selected provider that succeeded
     - execution_time_ms: total time for this task
 
@@ -601,40 +713,58 @@ def delegate_research_task(
         gemini_timeout_sec: Timeout for Gemini calls
         ollama_timeout_sec: Timeout for Ollama calls
         provider_health: Optional ProviderHealth tracker (MSN-0055C WP2)
+        mission_id: Mission ID for per-mission quota budgeting
 
     Returns:
         ResearchOutcome with findings (success or error status) and provider telemetry
         Never raises exception; returns error status instead.
     """
 
+    start_time = time.time()
     log.info(f"Starting research delegation: {task_description[:80]}...")
+    if mission_id:
+        log.debug(f"[QUOTA-AWARE] Mission: {mission_id}")
 
-    # Track provider chain for telemetry
+    # Track provider chain and skipping for telemetry
     providers_attempted = []
+    providers_skipped = []
 
     # Initialize provider health tracker if not provided
     if provider_health is None:
         provider_health = ProviderHealth()
 
+    # Get mission Gemini quota tracker
+    mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
+
     # Provider chain: try each in order
-    # MSN-0058: Optimized for cost & workload balance
-    # Research delegation uses Flash Lite primary (better cost/quality than Flash)
-    # Ollama as fallback (local, free), Flash reserved for strategic work only
+    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
+    # Research delegation uses Flash Lite primary (cost optimized)
+    # Ollama as primary fallback (local, free, no quota)
+    # Flash reserved for emergency only
     providers = [
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - optimized for cost)", call_gemini_2_5_flash_lite_research),
-        ("ollama", "qwen3:8b via Ollama (fallback - local, free)", call_ollama_research),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - quota-aware)", call_gemini_2_5_flash_lite_research),
+        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
 
     for provider_id, provider_name, provider_func in providers:
-        # MSN-0055C WP2: Skip providers marked unavailable by circuit breaker
+        # Check circuit breaker: skip providers marked unavailable
         if not provider_health.is_available(provider_id):
             reason = provider_health.get_failure_reason(provider_id)
-            log.debug(f"Provider circuit breaker: Skipping {provider_id} ({reason})")
+            providers_skipped.append(f"{provider_id}({reason})")
+            log.debug(f"[QUOTA-AWARE] Provider circuit breaker: Skipping {provider_id} ({reason})")
             continue
 
+        # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Skip Gemini if quota exhausted
+        if provider_id.startswith("gemini") and mission_quota:
+            if not mission_quota.can_use_gemini():
+                reason = "mission_quota_exhausted" if mission_quota.gemini_calls_made >= GEMINI_MAX_CALLS_PER_MISSION else "daily_quota_exceeded"
+                providers_skipped.append(f"{provider_id}({reason})")
+                log.debug(f"[QUOTA-AWARE] {provider_id}: Skipping - {reason}. Calls: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
+                continue
+
         providers_attempted.append(provider_id)
-        log.debug(f"Provider chain: Attempting {provider_name}")
+        log.info(f"[QUOTA-AWARE] Provider chain: Attempting {provider_name}")
 
         # Call appropriate timeout for this provider
         if "Ollama" in provider_name:
@@ -642,33 +772,58 @@ def delegate_research_task(
         else:
             outcome = provider_func(task_description, timeout_sec=gemini_timeout_sec)
 
-        # Always track which providers were attempted
+        # Always track which providers were attempted and skipped
         outcome.provider_attempted = providers_attempted.copy()
+        outcome.provider_skipped = providers_skipped.copy()
+
+        # Record Gemini call if this was a Gemini attempt
+        if provider_id.startswith("gemini") and mission_quota:
+            if outcome.status == "success":
+                mission_quota.record_gemini_call()
+                log.debug(f"[QUOTA-AWARE] {mission_id}: Recorded Gemini call. Quota: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
+            elif outcome.status == "quota_exhausted":
+                # Daily quota exhausted - mark for rest of day
+                if GEMINI_DISABLE_ON_QUOTA:
+                    mission_quota.mark_quota_exhausted()
+                    provider_health.mark_unavailable(provider_id, "daily_quota_exceeded")
 
         # Check if this provider succeeded
         if outcome.status == "success":
-            # MSN-0055C WP2: Mark as available on success
+            # Mark as available on success
             provider_health.mark_available(provider_id)
-            log.info(f"Research delegation succeeded via {provider_name}")
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            outcome.execution_time_ms = execution_time_ms
+            log.info(f"[QUOTA-AWARE] Research delegation succeeded via {provider_name} ({execution_time_ms}ms)")
             return outcome
 
-        # MSN-0055C WP2: Mark provider unavailable after failure
+        # Handle quota exhaustion - don't retry
+        if outcome.status == "quota_exhausted":
+            log.warning(f"[QUOTA-AWARE] {provider_id}: Daily quota exhausted. Marking unavailable, continuing to next provider.")
+            reason = extract_failure_reason(outcome.error_message or "", outcome.status)
+            provider_health.mark_unavailable(provider_id, reason)
+            continue
+
+        # Mark provider unavailable after failure
         reason = extract_failure_reason(outcome.error_message or "", outcome.status)
         provider_health.mark_unavailable(provider_id, reason)
 
         # Log why this provider failed
         if outcome.status == "rate_limited":
-            log.warning(f"{provider_name} rate limited: {outcome.error_message}. Marking unavailable, continuing to next provider.")
+            log.warning(f"[QUOTA-AWARE] {provider_name} rate limited: {outcome.error_message}. Marking unavailable, continuing.")
         else:
-            log.warning(f"{provider_name} failed: {outcome.error_message} ({reason}). Marking unavailable, continuing to next provider.")
+            log.warning(f"[QUOTA-AWARE] {provider_name} failed ({reason}): {outcome.error_message}. Continuing to next provider.")
 
     # All providers exhausted
-    log.error("All providers exhausted, research delegation failed")
+    execution_time_ms = int((time.time() - start_time) * 1000)
+    log.error(f"[QUOTA-AWARE] All providers exhausted after {execution_time_ms}ms. Research delegation failed.")
     return ResearchOutcome(
         status="error",
         provider="none",
         provider_attempted=providers_attempted,
-        error_message="All providers exhausted (Gemini 2.5 Flash, Gemini 2 Flash, Gemini 2.5 Flash Lite, Ollama)"
+        provider_skipped=providers_skipped,
+        execution_time_ms=execution_time_ms,
+        error_message="All providers exhausted (Gemini 2.5 Flash Lite, Ollama, Gemini 2.5 Flash)",
+        fallback_reason="all_providers_failed"
     )
 
 

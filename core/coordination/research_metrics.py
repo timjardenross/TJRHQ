@@ -84,23 +84,27 @@ class ResearchMetrics:
         Save metrics to Supabase database.
 
         Persists to public.research_metrics table for analysis and dashboarding.
+
+        MSN-SUPABASE-ACCESS-MODEL: Backend-only access via SERVICE_ROLE_KEY.
+        ANON_KEY intentionally omitted for security.
         """
 
         try:
             from supabase import create_client
 
-            # Get Supabase credentials
+            # Get Supabase credentials (backend-only model)
             supabase_url = os.getenv("SUPABASE_URL")
-            supabase_key = os.getenv("SUPABASE_KEY")
+            # Prefer SERVICE_ROLE_KEY (backend-only), fall back to SUPABASE_KEY for backwards compatibility
+            supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 
             if not supabase_url or not supabase_key:
                 log.warning(
                     "[research-metrics] Supabase credentials not configured. "
-                    "Metrics not persisted. (Set SUPABASE_URL and SUPABASE_KEY)"
+                    "Metrics not persisted. (Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY)"
                 )
                 return
 
-            # Create client and insert
+            # Create client and insert (backend-only access)
             client = create_client(supabase_url, supabase_key)
 
             # Convert to dict, excluding None values

@@ -83,11 +83,13 @@ try:
         _spec.loader.exec_module(_delegator_module)
         delegate_research_task = _delegator_module.delegate_research_task
         ResearchOutcome = _delegator_module.ResearchOutcome
+        call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
 except (ImportError, AttributeError, FileNotFoundError) as e:
     log.error(f"Failed to import research_delegator: {e}")
+    call_gemini_2_5_flash_lite_research = None
 
 
 # ============================================================================
@@ -588,10 +590,15 @@ Provide only the consolidated summary, no headers or metadata."""
 
         try:
             # MSN-RECOMMENDATION-FIX #4: Use Flash Lite (reasoning model) instead of qwen (code model)
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             log.info("Calling Flash Lite for finding consolidation (MSN-RECOMMENDATION-FIX #4)")
-            outcome = call_gemini_2_5_flash_lite_research(consolidation_prompt, timeout_sec=30)
+            # PHASE 1 FIX: Increase timeout from 30s to 60s for complex synthesis task
+            # PHASE 2 FIX: Call consolidation directly (not via delegate_research_task)
+            # to exclude from per-mission Gemini budget tracking, ensuring recommendation
+            # generation can still use Gemini within the mission's quota
+            outcome = call_gemini_2_5_flash_lite_research(consolidation_prompt, timeout_sec=60)
 
             if outcome.status == "success" and outcome.findings:
                 consolidated = outcome.findings.strip()
@@ -676,7 +683,8 @@ Disadvantages:
 Cost/Effort: [if relevant]"""
 
         try:
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             log.debug("Extracting options from findings (MSN-RECOMMENDATION-FIX #1)")
             outcome = call_gemini_2_5_flash_lite_research(options_prompt, timeout_sec=20)
@@ -733,7 +741,8 @@ Format as a clear comparison table or matrix showing how each option trades off 
 Be specific with numbers/timelines where possible."""
 
         try:
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             log.debug("Analyzing trade-offs (MSN-RECOMMENDATION-FIX #1)")
             outcome = call_gemini_2_5_flash_lite_research(tradeoff_prompt, timeout_sec=20)
@@ -788,7 +797,8 @@ For each option, identify:
 Format clearly. Be specific about probability and impact."""
 
         try:
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             log.debug("Assessing risks (MSN-RECOMMENDATION-FIX #1)")
             outcome = call_gemini_2_5_flash_lite_research(risk_prompt, timeout_sec=20)
@@ -908,7 +918,8 @@ Format clearly. Be specific about probability and impact."""
                 f"RECOMMENDATION NEEDS REVIEW: Research completed {successful_tasks}/{task_count} areas. "
                 f"Executive review required to formulate recommendation. Strong findings available."
             )
-            confidence = 0.6  # Medium confidence (task completion good, recommendation generation failed)
+            # PHASE 1 FIX: Increase confidence from 0.6 to 0.8 — task quality is high, only recommendation generation failed
+            confidence = 0.8  # High confidence (task completion excellent, only recommendation synthesis failed)
         elif successful_tasks >= task_count * 0.5:
             # Half tasks completed: limited fallback
             recommendation = (
@@ -1110,7 +1121,8 @@ FIRST THREE ACTIONS:
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             log.debug("Calling Flash Lite with decision framework (MSN-RECOMMENDATION-FIX #2)")
             outcome = call_gemini_2_5_flash_lite_research(decision_framework_prompt, timeout_sec=30)
@@ -1192,7 +1204,8 @@ CONFIDENCE: [0.0-1.0]"""
 
         try:
             # Import here to avoid circular imports
-            from slack_bot.lib.research_delegator import call_gemini_2_5_flash_lite_research
+            if not call_gemini_2_5_flash_lite_research:
+                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
 
             # Create a simple task-like object for the API call
             class RecommendationTask:
