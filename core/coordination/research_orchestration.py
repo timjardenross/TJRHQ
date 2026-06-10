@@ -425,10 +425,6 @@ class ResearchOrchestrator:
         # (Decision framework uses raw findings for grounding evidence, not abstract summary)
         log.info("Step 4: Recommendation generation with decision framework")
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
         # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
         raw_findings = "\n\n".join([
             f"Research Task {t.order_index}: {t.description}\n{t.findings}"
@@ -588,44 +584,21 @@ class ResearchOrchestrator:
 
     def _decompose_research_topic(self, research_topic: str) -> list[str]:
         """
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        Decompose research topic into tasks using Ollama.
-
-        Uses qwen2.5-coder for structured task breakdown.
-=======
         Decompose research topic into tasks using provider fallback chain.
 
         Provider chain (DEF-WP1-001):
         1. Gemini 2.5 Flash Lite (primary)
         2. Mistral Research Agent (secondary)
         3. qwen2.5-coder via Ollama (tertiary)
->>>>>>> Stashed changes
-=======
-        Decompose research topic into tasks using Ollama.
-
-        Uses qwen2.5-coder for structured task breakdown.
->>>>>>> Stashed changes
 
         Args:
             research_topic: Research request
 
         Returns:
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-            List of task descriptions (2-5 tasks typically)
-        """
-
-        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-
-<<<<<<< Updated upstream
-=======
             List of task descriptions (2-3 tasks typically)
         """
 
->>>>>>> Stashed changes
+        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 =======
 >>>>>>> Stashed changes
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
@@ -643,17 +616,6 @@ Return ONLY a JSON array of 2-3 task strings, like:
 
 Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-        try:
-            endpoint = f"{ollama_url}/api/generate"
-            request_data = {
-                "model": "qwen2.5-coder:7b",
-                "prompt": decompose_prompt,
-<<<<<<< Updated upstream
-=======
         # Provider chain for decomposition (same as task execution)
         providers = [
             ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary)", self._decompose_with_gemini_lite),
@@ -761,23 +723,11 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 method="POST"
             )
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            log.info("Calling Ollama (qwen2.5-coder) for task decomposition")
-=======
             log.info("[decompose] Ollama: Sending request to qwen3:8b...")
->>>>>>> Stashed changes
-=======
-            log.info("Calling Ollama (qwen2.5-coder) for task decomposition")
->>>>>>> Stashed changes
 
             with urllib.request.urlopen(request, timeout=30) as response:
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "")
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
 
                 # Parse JSON from response
                 try:
@@ -811,43 +761,6 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         except Exception as e:
             log.error(f"Task decomposition failed: {e}")
             return []
-<<<<<<< Updated upstream
-=======
-                log.info("[decompose] Ollama: SUCCESS - received response")
-                return self._parse_json_tasks(response_text)
-
-        except urllib.error.URLError as e:
-            log.error(f"[decompose] Ollama: FAILED - Connection error: {e.reason}")
-            return []
-        except urllib.error.HTTPError as e:
-            log.error(f"[decompose] Ollama: FAILED - HTTP {e.code}: {e.reason}")
-            return []
-        except Exception as e:
-            log.error(f"[decompose] Ollama: FAILED - {type(e).__name__}: {e}")
-            return []
-
-    def _parse_json_tasks(self, response_text: str) -> list[str]:
-        """Parse task list from JSON response."""
-        try:
-            # Try to extract JSON array
-            json_start = response_text.find("[")
-            json_end = response_text.rfind("]") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response_text[json_start:json_end]
-                tasks = json.loads(json_str)
-                if isinstance(tasks, list) and all(isinstance(t, str) for t in tasks):
-                    return tasks
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        # Fallback: parse line-by-line
-        log.warning("Could not parse JSON from decomposition; falling back to line parsing")
-        lines = [line.strip() for line in response_text.split("\n") if line.strip()]
-        tasks = [line for line in lines if line and not line.startswith("[") and not line.endswith("]")]
-        return tasks
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     # ========================================================================
     # Finding Consolidation (MSN-0055C WP3: Deterministic Consolidation)

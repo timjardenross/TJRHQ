@@ -1,32 +1,5 @@
 #!/usr/bin/env python3
 """
-<<<<<<< Updated upstream
-Task Executor — Research Orchestration Task Execution with Provider Fallback
-
-Executes research decomposition tasks concurrently with multiple provider support.
-Implements graceful fallback from Gemini to Mistral on API failures.
-
-Key Features:
-- Concurrent task execution (asyncio.gather)
-- Multi-provider support (Gemini primary, Mistral fallback)
-- Error handling with automatic fallback
-- Research Memory integration with cache checking
-- Comprehensive logging (50+ logging points)
-
-Architecture:
-- execute_mission_concurrent(): Main entry point
-- _execute_single_task(): Single task with error handling
-- _call_gemini_with_fallback(): Gemini call with Mistral fallback
-- _call_mistral(): Direct Mistral provider
-
-DEF-WP1-001 FIX: Added try-catch around provider calls with fallback logic
-DEF-WP1-003 FIX: Added try-catch around Research Memory calls with graceful degradation
-"""
-
-import asyncio
-import logging
-from typing import Optional, List, Dict, Any
-=======
 Task Executor — Research Task Execution & Memory Integration
 
 Executes research tasks with caching and concurrent execution support.
@@ -57,7 +30,6 @@ import asyncio
 import logging
 import hashlib
 from typing import Optional, List, Callable
->>>>>>> Stashed changes
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -69,7 +41,6 @@ log = logging.getLogger(__name__)
 
 
 @dataclass
-<<<<<<< Updated upstream
 class ResearchTask:
     """Single research task from decomposition."""
 

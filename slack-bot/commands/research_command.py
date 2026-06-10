@@ -35,7 +35,6 @@ from datetime import datetime
 from collections import deque
 from typing import Callable, Any, Optional
 
-<<<<<<< Updated upstream
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
 # This ensures imports work whether app.py has run yet or not
 _research_command_file = Path(__file__).resolve()
@@ -43,19 +42,11 @@ _repo_root = _research_command_file.parent.parent.parent  # slack-bot/commands -
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-=======
->>>>>>> Stashed changes
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
 
 log = logging.getLogger(__name__)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 log.debug(f"[research] Module imported, repo root in sys.path: {_repo_root}")
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -221,26 +212,6 @@ def _execute_research_mission(
     """Execute a single research mission (internal, locked)."""
 
     # Step 1: Import orchestration module and memory retriever
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-    try:
-        _bot_dir = Path(__file__).resolve().parent.parent
-        if str(_bot_dir) not in sys.path:
-            sys.path.insert(0, str(_bot_dir))
-
-        # Import orchestrator and memory retriever (MSN-0057 WP1)
-        from core.coordination.research_orchestration import ResearchOrchestrator
-        from lib.research_memory_retrieval import ResearchMemoryRetriever
-
-    except ImportError as e:
-        log.error("[research] Could not import orchestrator/retriever: %s", e)
-        return (
-            "❌ Number One research orchestration unavailable.\n"
-            "Error: Research delegation module not found."
-<<<<<<< Updated upstream
-=======
     # NOTE: app.py validates ResearchOrchestrator at startup.
     # If it's available at startup, it's available here (Python caches imports).
     try:
@@ -259,9 +230,6 @@ def _execute_research_mission(
             "❌ Number One research orchestration unavailable.\n"
             f"Error: Research delegation module not found.\n"
             f"_Debug: {str(e)}_"
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         )
 
     # Step 2: Check research memory BEFORE executing new research (MSN-0057 WP1)

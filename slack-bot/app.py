@@ -3,33 +3,12 @@ import os
 import threading
 import sys
 from datetime import datetime
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 from pathlib import Path
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-from commander_bridge import handle_slack_message
-from commander_response_formatter import format_commander_response, parse_commander_response
-from supabase_commander_intake import run_supabase_commander
-from commands.mission_brief import handle_mission_brief, handle_mission_register_draft, handle_save_mission_file
-from commands.mission_capture import handle_mission_capture
-from commands.decision_log import handle_decision_log, handle_save_decision
-from commands.ask_specialist import handle_ask_specialist
-from commands.github_issue_draft import handle_github_issue_draft
-
-<<<<<<< Updated upstream
-=======
 # RESEARCH DELEGATOR FIX: Add repo root to sys.path for core/ and slack-bot/ imports
 # This allows us to import from both directories regardless of where app.py is executed from
 _repo_root = Path(__file__).parent.parent  # Go up from slack-bot/ to repo root
@@ -49,10 +28,6 @@ from commands.github_issue_draft import handle_github_issue_draft
 
 # MSN-0054: Research delegation (RESEARCH DELEGATOR FIX)
 from commands.research_command import handle_research_request_with_slack
-
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 # MSN-0040A: Command Memory query commands
 from commands.memory_queries import (
     handle_missions_active,
@@ -63,9 +38,6 @@ from commands.memory_queries import (
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 # RESEARCH DELEGATOR FIX: Validate research orchestration availability
 def validate_research_delegator() -> bool:
     """Validate research delegator (core/coordination/research_orchestration.py) is importable.
@@ -86,11 +58,6 @@ def validate_research_delegator() -> bool:
     except Exception as e:
         log.warning(f"⚠️  Unexpected error checking research delegator: {str(e)}")
         return False
-
-
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 # MSN-0011B Tier 0: Environment Validation at Startup
 def validate_environment() -> bool:
     """Validate all required environment variables are present and valid.
@@ -142,16 +109,10 @@ def validate_environment() -> bool:
         return False
 
     log.info("✅ All environment validation checks passed")
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 
     # RESEARCH DELEGATOR FIX: Validate research delegator (non-blocking)
     validate_research_delegator()
 
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     return True
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -160,17 +121,7 @@ SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 # MSN-0040A: Validate Supabase configuration for Command Memory
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-<<<<<<< Updated upstream
 
-if SUPABASE_URL:
-    log.info("✅ SUPABASE_URL configured")
-else:
-    log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
-
-if SUPABASE_ANON_KEY:
-    log.info("✅ SUPABASE_ANON_KEY configured")
-else:
-    log.warning("⚠️  SUPABASE_ANON_KEY not configured — Command Memory queries will be unavailable")
 # Validate environment before initializing app
 if not validate_environment():
     log.error("Exiting due to environment validation failure")
@@ -182,15 +133,12 @@ app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 STARTUP_TIME = datetime.utcnow().isoformat()
 COMMAND_COUNT = 0
 ERROR_COUNT = 0
-=======
->>>>>>> Stashed changes
 
 if SUPABASE_URL:
     log.info("✅ SUPABASE_URL configured")
 else:
     log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
 
-<<<<<<< Updated upstream
 if app:
     @app.event("app_mention")
     def handle_app_mention_events(body, say):
@@ -426,22 +374,25 @@ if app:
             respond(handle_decision_log("", user_id, channel_id))
             return
 
-=======
+        respond(
+            ":ledger: *Decision Log*\n\n"
+            ":hourglass_flowing_sand: Generating decision record… please wait."
+        )
+
+        def _run():
+            try:
+                result = handle_decision_log(text, user_id, channel_id)
+                respond(result)
+            except Exception as exc:
+                log.error("[app] /decision-log failed: %s", exc)
+                respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+        threading.Thread(target=_run, daemon=True).start()
+
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
 else:
     log.warning("⚠️  SUPABASE_ANON_KEY not configured — Command Memory queries will be unavailable")
-# Validate environment before initializing app
-if not validate_environment():
-    log.error("Exiting due to environment validation failure")
-    sys.exit(1)
-
-app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
-
-# Track startup time for health checks
-STARTUP_TIME = datetime.utcnow().isoformat()
-COMMAND_COUNT = 0
-ERROR_COUNT = 0
 
 # ========================================================================
 # MSN-0060B: Learning Loop Service Initialization
@@ -751,7 +702,6 @@ if app:
             respond(handle_decision_log("", user_id, channel_id))
             return
 
->>>>>>> Stashed changes
         respond(
             ":ledger: *Decision Log*\n\n"
             ":hourglass_flowing_sand: Generating decision record… please wait."

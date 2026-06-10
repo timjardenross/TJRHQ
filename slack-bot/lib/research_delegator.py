@@ -35,15 +35,7 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-from provider_health import ProviderHealth, extract_failure_reason
-=======
 from lib.provider_health import ProviderHealth, extract_failure_reason
->>>>>>> Stashed changes
-=======
-from provider_health import ProviderHealth, extract_failure_reason
->>>>>>> Stashed changes
 
 log = logging.getLogger(__name__)
 
@@ -290,9 +282,6 @@ def call_gemini_research(
 
 
 # ============================================================================
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 # Provider: Mistral Large (Cloud Fallback)
 # ============================================================================
 
@@ -885,17 +874,6 @@ def delegate_research_task(
     # Get mission Gemini quota tracker
     mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
 
-<<<<<<< Updated upstream
-    # Provider chain: try each in order
-    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
-<<<<<<< Updated upstream
-    # Research delegation uses Flash Lite primary (cost optimized)
-    # Ollama as primary fallback (local, free, no quota)
-    # Flash reserved for emergency only
-    providers = [
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - quota-aware)", call_gemini_2_5_flash_lite_research),
-        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
-=======
     # DEF-WP1-001: Provider fallback chain with Mistral Research Agent
     # 1. Gemini 2.5 Flash Lite (primary - cost optimized, quota-aware)
     # 2. Mistral Research Agent (secondary fallback - cloud agent, no quota limits)
@@ -905,11 +883,9 @@ def delegate_research_task(
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("mistral-research-agent", "Mistral Research Agent (secondary fallback - cloud agent, no quota)", call_mistral_research),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (tertiary fallback - local, free, no quota)", call_ollama_research),
->>>>>>> Stashed changes
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
 
-=======
     # ========================================================================
     # MSN-0060B: B1D→B1A Adaptive Routing Integration
     # Reorder providers based on quality metrics from feedback loops
