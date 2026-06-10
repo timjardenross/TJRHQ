@@ -77,14 +77,11 @@ try:
         _research_delegator_file
     )
     if _spec and _spec.loader:
-<<<<<<< Updated upstream
         # CRITICAL FIX: Ensure slack-bot/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
         if str(_slack_bot_lib_dir) not in sys.path:
             sys.path.insert(0, str(_slack_bot_lib_dir))
 
-=======
->>>>>>> Stashed changes
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
         sys.modules["research_delegator"] = _delegator_module
@@ -96,7 +93,6 @@ try:
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
 except (ImportError, AttributeError, FileNotFoundError) as e:
-<<<<<<< Updated upstream
     log.error(
         f"Failed to import research_delegator from {_research_delegator_file}: {e}",
         exc_info=True
@@ -115,10 +111,6 @@ log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is 
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
-=======
-    log.error(f"Failed to import research_delegator: {e}")
-    call_gemini_2_5_flash_lite_research = None
->>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -170,13 +162,8 @@ class ResearchMissionResult:
     primary_provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
     provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-2.5-flash → ollama"])
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
     request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+    captains_brief: Optional[str] = None  # Captain's Brief from Briefing Officer (Path A)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -186,9 +173,6 @@ class ResearchMissionResult:
 
 
 # ============================================================================
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 # Request Type Classification (Option B: Adaptive Recommendation Mode)
 # ============================================================================
 
@@ -333,29 +317,15 @@ class ResearchOrchestrator:
 
         log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
         # MSN-RECOMMENDATION-FIX Option B: Classify request type (informational vs decision-oriented)
         request_type = classify_request_type(research_topic)
 
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         # MSN-0055C WP7: Initialize metrics collection
         mission_start_time = time.time()
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        log.info("Step 1: Task decomposition (Ollama)")
-=======
         log.info("Step 1: Task decomposition (Gemini → Mistral → Ollama fallback chain)")
->>>>>>> Stashed changes
-=======
-        log.info("Step 1: Task decomposition (Ollama)")
->>>>>>> Stashed changes
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -479,8 +449,7 @@ class ResearchOrchestrator:
             log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
         else:
             log.info("  No actionable recommendation")
-<<<<<<< Updated upstream
-=======
+
         # MSN-RECOMMENDATION-FIX Option B: Conditional recommendation generation based on request type
         recommendation = None
         confidence = 0.0
@@ -514,9 +483,6 @@ class ResearchOrchestrator:
                 log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
             else:
                 log.info("  No actionable recommendation")
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
         # MSN-0055C WP7: Record metrics before result assembly
         tasks_completed = len([t for t in tasks if t.status == "complete"])
@@ -578,14 +544,36 @@ class ResearchOrchestrator:
             primary_provider=primary_provider,
             errors=errors,
             provider_paths=provider_paths,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
             request_type=request_type,  # MSN-RECOMMENDATION-FIX Option B: include request type in result
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
         )
+
+        # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Slack Output)
+        # Non-blocking: if briefing fails, mission continues with standard output
+        try:
+            from slack_bot.lib.briefing_officer import generate_captains_brief
+
+            research_package = {
+                "mission_id": mission_id,
+                "topic": research_topic,
+                "status": status,
+                "request_type": request_type,
+                "provider": primary_provider,
+                "confidence": confidence,
+                "task_completion": f"{tasks_completed}/{len(tasks)}",
+                "key_findings": consolidated,
+                "recommendation": recommendation,
+                "timestamp": result.timestamp,
+            }
+
+            brief = generate_captains_brief(research_package)
+            if brief:
+                result.captains_brief = brief
+                log.info("[briefing] Captain's Brief generated and attached to result")
+            else:
+                log.warning("[briefing] Brief generation failed; Slack will use fallback format")
+        except Exception as e:
+            log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
+            # Non-blocking: continue without brief
 
         # MSN-0055C WP7: Persist metrics and log summary
         metrics_summary = metrics.finalize_and_store()

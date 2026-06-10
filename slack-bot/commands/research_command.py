@@ -530,45 +530,31 @@ def _validate_research_topic(topic: str) -> str | None:
 
 def _format_research_result(result) -> str:
     """
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
-=======
-    Format ResearchMissionResult as Slack message (MSN-0056, MSN-RECOMMENDATION-FIX Option B).
+    Format ResearchMissionResult as Slack message (MSN-0056, MSN-BRIEFING-OFFICER Path A).
 
-    Adapts output format based on request type:
-    - Informational: Findings + Next Action only
-    - Decision: Findings + Recommendation + Next Action
-    - Unclear: Recommendation (conservative fallback)
->>>>>>> Stashed changes
-=======
-    Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
->>>>>>> Stashed changes
+    Path A: Captain's Brief as Primary Output
+    - Shows Captain's Brief first (if available, ~150 words)
+    - Preserves full findings in logs
+    - Includes mission ID for log reference
+    - Falls back to standard research format if briefing fails
 
     Args:
         result: ResearchMissionResult object
 
     Returns:
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-        Slack-formatted markdown string showing decision package
-    """
-
-    # MSN-0056: Decision package header
-<<<<<<< Updated upstream
-=======
         Slack-formatted markdown string
     """
 
-    # MSN-RECOMMENDATION-FIX Option B: Adapt format based on request type
-    is_informational = getattr(result, 'request_type', 'unclear') == 'informational'
+    # PATH A: Captain's Brief as Primary Output
+    if hasattr(result, 'captains_brief') and result.captains_brief:
+        # Brief is available - use it as primary output
+        message = result.captains_brief
+        message += f"\n\n---\n"
+        message += f"*Mission ID:* `{result.mission_id}`\n"
+        message += f"Full research available in research log.\n"
+        return message
 
-    # Header (always shown)
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+    # FALLBACK: Standard research format (if brief unavailable)
     message = "🔍 *Research Complete*\n"
     message += "━━━━━━━━━━━━━━━━━━\n"
     message += f"*Mission:* {result.mission_id}\n"
@@ -577,15 +563,7 @@ def _format_research_result(result) -> str:
         message += f"*Provider:* {result.primary_provider}\n"
     message += "\n"
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    # MSN-0056: Executive Summary (consolidated findings)
-=======
-    # Findings (always shown)
->>>>>>> Stashed changes
-=======
-    # MSN-0056: Executive Summary (consolidated findings)
->>>>>>> Stashed changes
+    # Findings (always shown in fallback)
     if result.consolidated_findings and result.consolidated_findings.strip() != "No findings generated from research tasks.":
         message += "📊 *FINDINGS*\n"
         # Truncate if too long for Slack
@@ -594,57 +572,24 @@ def _format_research_result(result) -> str:
             findings_preview += "...\n\n[Full findings available in research log]"
         message += f"{findings_preview}\n\n"
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-    # MSN-0056: Clear recommendation with confidence (core decision element)
-    message += "🎯 *RECOMMENDATION*\n"
-    if result.recommendation:
-        message += f"{result.recommendation}\n"
-        message += f"_Confidence: {result.confidence:.0%}_\n"
-    else:
-        # MSN-0056: Never output "No actionable recommendation" when findings exist
-        message += "_No recommendation available from research._\n"
-    message += "\n"
-
-    # MSN-0056: Include caveats only if there are errors or partial results
-<<<<<<< Updated upstream
-=======
     # Recommendation (conditional: only for decision-oriented or unclear requests)
+    is_informational = getattr(result, 'request_type', 'unclear') == 'informational'
     if not is_informational:
         message += "🎯 *RECOMMENDATION*\n"
         if result.recommendation:
             message += f"{result.recommendation}\n"
             message += f"_Confidence: {result.confidence:.0%}_\n"
         else:
-            # MSN-0056: Never output "No actionable recommendation" when findings exist
             message += "_No recommendation available from research._\n"
         message += "\n"
 
     # Caveats (only if errors or partial results)
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     if result.errors and result.status != "success":
         message += "⚠️ *NOTES*\n"
         for error in result.errors:
             message += f"  • {error}\n"
         message += "\n"
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
-    # MSN-0056: Next action for decision-maker
-    message += "📋 *NEXT ACTION*\n"
-    message += "Request Captain/XO review for decision approval\n\n"
-
-    # Footer: Authority and guidance
-    message += "---\n"
-    message += "_Research findings are advisory. Captain/XO decision required._\n"
-<<<<<<< Updated upstream
-=======
     # Next action (context-dependent)
     message += "📋 *NEXT ACTION*\n"
     if is_informational:
@@ -658,9 +603,6 @@ def _format_research_result(result) -> str:
         message += "_Research findings are available for reference._\n"
     else:
         message += "_Research findings are advisory. Captain/XO decision required._\n"
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     return message
 
