@@ -77,11 +77,14 @@ try:
         _research_delegator_file
     )
     if _spec and _spec.loader:
+<<<<<<< Updated upstream
         # CRITICAL FIX: Ensure slack-bot/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
         if str(_slack_bot_lib_dir) not in sys.path:
             sys.path.insert(0, str(_slack_bot_lib_dir))
 
+=======
+>>>>>>> Stashed changes
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
         sys.modules["research_delegator"] = _delegator_module
@@ -93,6 +96,7 @@ try:
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
 except (ImportError, AttributeError, FileNotFoundError) as e:
+<<<<<<< Updated upstream
     log.error(
         f"Failed to import research_delegator from {_research_delegator_file}: {e}",
         exc_info=True
@@ -111,6 +115,10 @@ log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is 
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
+=======
+    log.error(f"Failed to import research_delegator: {e}")
+    call_gemini_2_5_flash_lite_research = None
+>>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -163,8 +171,11 @@ class ResearchMissionResult:
     errors: list[str] = field(default_factory=list)
     provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-2.5-flash → ollama"])
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
     request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     def to_dict(self) -> dict[str, Any]:
@@ -175,6 +186,7 @@ class ResearchMissionResult:
 
 
 # ============================================================================
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 =======
 # Request Type Classification (Option B: Adaptive Recommendation Mode)
@@ -272,6 +284,8 @@ def classify_request_type(research_topic: str) -> str:
 
 # ============================================================================
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 # Orchestration Engine
 # ============================================================================
 
@@ -320,10 +334,13 @@ class ResearchOrchestrator:
         log.info(f"Starting research mission {mission_id}: {research_topic[:80]}...")
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
         # MSN-RECOMMENDATION-FIX Option B: Classify request type (informational vs decision-oriented)
         request_type = classify_request_type(research_topic)
 
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         # MSN-0055C WP7: Initialize metrics collection
         mission_start_time = time.time()
@@ -331,9 +348,13 @@ class ResearchOrchestrator:
 
         # Step 1: Decompose into tasks
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         log.info("Step 1: Task decomposition (Ollama)")
 =======
         log.info("Step 1: Task decomposition (Gemini → Mistral → Ollama fallback chain)")
+>>>>>>> Stashed changes
+=======
+        log.info("Step 1: Task decomposition (Ollama)")
 >>>>>>> Stashed changes
         task_descriptions = self._decompose_research_topic(research_topic)
 
@@ -435,6 +456,9 @@ class ResearchOrchestrator:
         log.info("Step 4: Recommendation generation with decision framework")
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
         # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
         raw_findings = "\n\n".join([
             f"Research Task {t.order_index}: {t.description}\n{t.findings}"
@@ -455,6 +479,7 @@ class ResearchOrchestrator:
             log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
         else:
             log.info("  No actionable recommendation")
+<<<<<<< Updated upstream
 =======
         # MSN-RECOMMENDATION-FIX Option B: Conditional recommendation generation based on request type
         recommendation = None
@@ -489,6 +514,8 @@ class ResearchOrchestrator:
                 log.info(f"  Recommendation: {recommendation[:100]}... (confidence: {confidence:.2f})")
             else:
                 log.info("  No actionable recommendation")
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
         # MSN-0055C WP7: Record metrics before result assembly
@@ -552,8 +579,11 @@ class ResearchOrchestrator:
             errors=errors,
             provider_paths=provider_paths,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
             request_type=request_type,  # MSN-RECOMMENDATION-FIX Option B: include request type in result
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         )
 
@@ -571,6 +601,7 @@ class ResearchOrchestrator:
     def _decompose_research_topic(self, research_topic: str) -> list[str]:
         """
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         Decompose research topic into tasks using Ollama.
 
         Uses qwen2.5-coder for structured task breakdown.
@@ -582,21 +613,32 @@ class ResearchOrchestrator:
         2. Mistral Research Agent (secondary)
         3. qwen2.5-coder via Ollama (tertiary)
 >>>>>>> Stashed changes
+=======
+        Decompose research topic into tasks using Ollama.
+
+        Uses qwen2.5-coder for structured task breakdown.
+>>>>>>> Stashed changes
 
         Args:
             research_topic: Research request
 
         Returns:
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
             List of task descriptions (2-5 tasks typically)
         """
 
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+<<<<<<< Updated upstream
 =======
             List of task descriptions (2-3 tasks typically)
         """
 
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
@@ -614,11 +656,15 @@ Return ONLY a JSON array of 2-3 task strings, like:
 Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
         try:
             endpoint = f"{ollama_url}/api/generate"
             request_data = {
                 "model": "qwen2.5-coder:7b",
                 "prompt": decompose_prompt,
+<<<<<<< Updated upstream
 =======
         # Provider chain for decomposition (same as task execution)
         providers = [
@@ -712,6 +758,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 "model": "qwen3:8b",
                 "prompt": prompt,
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
                 "stream": False,
                 "temperature": 0.5,
                 "top_p": 0.9,
@@ -726,15 +774,22 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             )
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             log.info("Calling Ollama (qwen2.5-coder) for task decomposition")
 =======
             log.info("[decompose] Ollama: Sending request to qwen3:8b...")
+>>>>>>> Stashed changes
+=======
+            log.info("Calling Ollama (qwen2.5-coder) for task decomposition")
 >>>>>>> Stashed changes
 
             with urllib.request.urlopen(request, timeout=30) as response:
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "")
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 
                 # Parse JSON from response
                 try:
@@ -768,6 +823,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         except Exception as e:
             log.error(f"Task decomposition failed: {e}")
             return []
+<<<<<<< Updated upstream
 =======
                 log.info("[decompose] Ollama: SUCCESS - received response")
                 return self._parse_json_tasks(response_text)
@@ -801,6 +857,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         lines = [line.strip() for line in response_text.split("\n") if line.strip()]
         tasks = [line for line in lines if line and not line.startswith("[") and not line.endswith("]")]
         return tasks
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     # ========================================================================

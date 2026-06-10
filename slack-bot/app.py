@@ -4,8 +4,11 @@ import threading
 import sys
 from datetime import datetime
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 from pathlib import Path
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 from slack_bolt import App
@@ -13,6 +16,9 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
 from commander_bridge import handle_slack_message
 from commander_response_formatter import format_commander_response, parse_commander_response
 from supabase_commander_intake import run_supabase_commander
@@ -22,6 +28,7 @@ from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
+<<<<<<< Updated upstream
 =======
 # RESEARCH DELEGATOR FIX: Add repo root to sys.path for core/ and slack-bot/ imports
 # This allows us to import from both directories regardless of where app.py is executed from
@@ -44,6 +51,8 @@ from commands.github_issue_draft import handle_github_issue_draft
 from commands.research_command import handle_research_request_with_slack
 
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 # MSN-0040A: Command Memory query commands
 from commands.memory_queries import (
     handle_missions_active,
@@ -54,6 +63,7 @@ from commands.memory_queries import (
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 =======
 # RESEARCH DELEGATOR FIX: Validate research orchestration availability
@@ -78,6 +88,8 @@ def validate_research_delegator() -> bool:
         return False
 
 
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 # MSN-0011B Tier 0: Environment Validation at Startup
 def validate_environment() -> bool:
@@ -131,11 +143,14 @@ def validate_environment() -> bool:
 
     log.info("✅ All environment validation checks passed")
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 
     # RESEARCH DELEGATOR FIX: Validate research delegator (non-blocking)
     validate_research_delegator()
 
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     return True
 
@@ -145,6 +160,7 @@ SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
 # MSN-0040A: Validate Supabase configuration for Command Memory
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+<<<<<<< Updated upstream
 
 if SUPABASE_URL:
     log.info("✅ SUPABASE_URL configured")
@@ -166,6 +182,338 @@ app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 STARTUP_TIME = datetime.utcnow().isoformat()
 COMMAND_COUNT = 0
 ERROR_COUNT = 0
+=======
+>>>>>>> Stashed changes
+
+if SUPABASE_URL:
+    log.info("✅ SUPABASE_URL configured")
+else:
+    log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
+
+<<<<<<< Updated upstream
+if app:
+    @app.event("app_mention")
+    def handle_app_mention_events(body, say):
+        """Handle all @Bot mentions.
+
+        Messages with the 'commander:' prefix are routed to the full
+        Decision Intelligence pipeline (MSN-0011A). All other intents
+        (decision:, create mission:, remember:, general) follow the
+        existing commander_bridge classification logic unchanged.
+        """
+        event = body["event"]
+        text = event.get("text", "")
+        log.info(
+            "[app] app_mention received: channel=%s user=%s len=%d",
+            event.get("channel"),
+            event.get("user"),
+            len(text),
+        )
+        result = handle_slack_message(
+            text=text,
+            user_id=event.get("user"),
+            channel_id=event.get("channel"),
+            message_ts=event.get("ts"),
+            thread_ts=event.get("thread_ts"),
+            say=say,  # MSN-0054E-FIX: Pass say() for queued mission result posting
+        )
+        log.info(
+            "[app] Responding to mention: intent=%s route=%s",
+            result.get("intent"),
+            result.get("route"),
+        )
+        # MSN-0011B: thread-aware reply — stay in the same thread as the trigger
+        thread_ts = event.get("thread_ts") or event.get("ts")
+        say(result["response_text"], thread_ts=thread_ts)
+
+    @app.command("/status")
+    def handle_status_slash(ack, respond):
+        """MSN-0011B Tier 0: /status health check endpoint.
+
+        Returns simple health status without dependencies on DI pipeline or long-running operations.
+        Verifies:
+        - Slack integration connected
+        - Bot token present and valid
+        - Supabase reachability (optional)
+
+        Responds in <2 seconds to provide operator visibility into system health.
+        """
+        ack()  # Must acknowledge within 3 seconds
+
+        health_status = {
+            "slack_connected": True,  # If we reach here, Slack is responding
+            "startup_time": STARTUP_TIME,
+            "commands_processed": COMMAND_COUNT,
+            "errors_recorded": ERROR_COUNT,
+        }
+
+        # Test Supabase connectivity (optional, doesn't block)
+        supabase_status = "unknown"
+        try:
+            from tools.supabase.client import fetch_recent_context
+            recent = fetch_recent_context(limit=1)
+            supabase_status = "connected" if recent else "reachable"
+        except Exception as e:
+            supabase_status = f"error: {type(e).__name__}"
+
+        # Format response
+        status_lines = [
+            ":ship: *Starship Endeavour — Slack Commander Status*",
+            "",
+            f"🟢 Slack Integration: Connected",
+            f"🟢 Bot Token: Present",
+            f"ℹ️  Supabase: {supabase_status}",
+            "",
+            f"Uptime: {STARTUP_TIME}",
+            f"Commands: {COMMAND_COUNT}",
+            f"Errors: {ERROR_COUNT}",
+            "",
+            "✅ *Ready for operations*",
+        ]
+
+        respond("\n".join(status_lines))
+
+    @app.command("/commander")
+    def handle_commander_slash(ack, respond, command):
+        """MSN-0011A: /commander slash command — routes directly to the DI pipeline.
+
+        Slack requires ack() within 3 seconds. Commander synthesis takes
+        30–120s. We ack immediately with a status message, run Commander in
+        a background thread, then post the result via respond() (valid for
+        30 minutes via Slack response_url).
+
+        Usage: /commander <question>
+        Example: /commander should we build Slack runtime before fixing the auth layer?
+        """
+        ack()  # Must acknowledge within 3 seconds
+
+        text = (command.get("text") or "").strip()
+        channel_id = command.get("channel_id", "")
+        user_id = command.get("user_id", "")
+
+        log.info(
+            "[app] /commander slash command: user=%s channel=%s question=%r",
+            user_id,
+            channel_id,
+            text[:80],
+        )
+
+        if not text:
+            respond(
+                ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
+                "Usage: `/commander <question>`\n"
+                "Example: `/commander should we prioritise Slack runtime or auth layer next?`"
+            )
+            return
+
+        # Acknowledge receipt so the user knows Commander is working
+        respond(
+            f":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
+            f":hourglass_flowing_sand: Received: _{text[:120]}_\n\n"
+            "Running Decision Intelligence pipeline… this may take 30–120 seconds."
+        )
+
+        # Run synthesis in a background thread; respond() is valid for 30 min
+        def _run_and_reply() -> None:
+            try:
+                raw = run_supabase_commander(text)
+                log.info("[app] /commander synthesis received (%d chars)", len(raw))
+                # MSN-0011B: classify and format the response
+                parsed = parse_commander_response(raw)
+                log.info("[app] /commander response type: %s", parsed["type"])
+                formatted = format_commander_response(parsed)
+                respond(formatted)
+            except Exception as exc:
+                log.error("[app] /commander background thread failed: %s", exc)
+                # Safe error response — no stack trace or secrets in Slack
+                error_response = format_commander_response({
+                    "type": "ERROR",
+                    "body": (
+                        "Commander could not process the request.\n"
+                        f"Reason: `{type(exc).__name__}` (check runtime logs)\n\n"
+                        "Next step: Check local Commander runtime logs and retry."
+                    ),
+                    "lifecycle_state": None,
+                    "confidence": None,
+                    "metadata": {"source": "Commander"},
+                })
+                respond(error_response)
+
+        threading.Thread(target=_run_and_reply, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # MSN-0012: Slack Discovery & Backlog Command Layer
+    # ------------------------------------------------------------------
+
+    @app.command("/mission-brief")
+    def handle_mission_brief_slash(ack, respond, command):
+        """/mission-brief — Convert a description into an implementation-ready brief.
+
+        Usage: /mission-brief <description>
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+
+        log.info("[app] /mission-brief: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+        if not text:
+            respond(handle_mission_brief("", user_id, channel_id))
+            return
+
+        respond(
+            ":scroll: *Mission Brief Generator*\n\n"
+            ":hourglass_flowing_sand: Generating implementation brief… please wait."
+        )
+
+        def _run():
+            try:
+                result = handle_mission_brief(text, user_id, channel_id)
+                respond(result)
+            except Exception as exc:
+                log.error("[app] /mission-brief failed: %s", exc)
+                respond(f"*MISSION BRIEF — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/mission-capture")
+    def handle_mission_capture_slash(ack, respond, command):
+        """/mission-capture — Turn a Slack idea into a structured backlog capture.
+
+        Usage: /mission-capture <description>
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+
+        log.info("[app] /mission-capture: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+        if not text:
+            respond(handle_mission_capture("", user_id, channel_id))
+            return
+
+        respond(
+            ":clipboard: *Mission Capture*\n\n"
+            ":hourglass_flowing_sand: Generating backlog capture… please wait."
+        )
+
+        def _run():
+            try:
+                result = handle_mission_capture(text, user_id, channel_id)
+                respond(result)
+            except Exception as exc:
+                log.error("[app] /mission-capture failed: %s", exc)
+                respond(f"*MISSION CAPTURE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/decision-log")
+    def handle_decision_log_slash(ack, respond, command):
+        """/decision-log — Log a decision as a structured record.
+
+        Usage: /decision-log <decision statement>
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+
+        log.info("[app] /decision-log: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+        if not text:
+            respond(handle_decision_log("", user_id, channel_id))
+            return
+
+=======
+if SUPABASE_ANON_KEY:
+    log.info("✅ SUPABASE_ANON_KEY configured")
+else:
+    log.warning("⚠️  SUPABASE_ANON_KEY not configured — Command Memory queries will be unavailable")
+# Validate environment before initializing app
+if not validate_environment():
+    log.error("Exiting due to environment validation failure")
+    sys.exit(1)
+
+app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
+
+# Track startup time for health checks
+STARTUP_TIME = datetime.utcnow().isoformat()
+COMMAND_COUNT = 0
+ERROR_COUNT = 0
+
+# ========================================================================
+# MSN-0060B: Learning Loop Service Initialization
+# B1C Quality Scoring, B1D Feedback Loops, B1A Adaptive Routing
+# ========================================================================
+
+# Import learning loop services
+from lib.learning_loop_service import LearningLoopService
+from lib.quality_scoring_service import QualityScoring
+from lib.feedback_loops_service import FeedbackLoops
+from lib.adaptive_routing_service import AdaptiveRoutingService
+from lib.quality_forecasting_service import QualityForecasting
+from tools.supabase.client import CommanderSupabaseClient
+
+# Initialize Supabase client (required for learning loop)
+supabase_client = None
+try:
+    supabase_client = CommanderSupabaseClient()
+    if supabase_client.is_enabled():
+        log.info("[msp-0060b] Supabase client initialized for learning loop")
+    else:
+        log.warning("[msp-0060b] Supabase client disabled (missing credentials)")
+        supabase_client = None
+except Exception as e:
+    log.error(f"[msp-0060b] Failed to initialize Supabase client: {e}")
+    supabase_client = None
+
+# Initialize learning loop services (graceful degradation if Supabase unavailable)
+learning_loop_service = None
+quality_scoring_service = None
+feedback_loops_service = None
+adaptive_routing_service = None
+quality_forecasting_service = None
+
+if supabase_client:
+    try:
+        # Initialize services in dependency order
+        feedback_loops_service = FeedbackLoops(supabase_client)
+        quality_scoring_service = QualityScoring(supabase_client)
+        adaptive_routing_service = AdaptiveRoutingService(feedback_loops_service)
+        quality_forecasting_service = QualityForecasting(supabase_client)
+        learning_loop_service = LearningLoopService(supabase_client)
+
+        log.info(
+            "[msp-0060b] Learning loop services initialized: "
+            "B1C (quality scoring) → B1D (feedback loops) → B1A (adaptive routing) → B1E (forecasting)"
+        )
+    except Exception as e:
+        log.error(
+            f"[msp-0060b] Failed to initialize learning loop services: "
+            f"{type(e).__name__}: {str(e)[:100]}"
+        )
+        # Services are optional; bot continues without them (graceful degradation)
+        learning_loop_service = None
+        quality_scoring_service = None
+        feedback_loops_service = None
+        adaptive_routing_service = None
+        quality_forecasting_service = None
+else:
+    log.warning("[msp-0060b] Learning loop services disabled (Supabase unavailable)")
+
+log.info(
+    f"[msp-0060b] Learning loop status: "
+    f"quality_scoring={'enabled' if quality_scoring_service else 'disabled'}, "
+    f"feedback_loops={'enabled' if feedback_loops_service else 'disabled'}, "
+    f"adaptive_routing={'enabled' if adaptive_routing_service else 'disabled'}, "
+    f"forecasting={'enabled' if quality_forecasting_service else 'disabled'}"
+)
+
+# ========================================================================
+# END MSN-0060B INITIALIZATION
+# ========================================================================
 
 
 if app:
@@ -403,6 +751,7 @@ if app:
             respond(handle_decision_log("", user_id, channel_id))
             return
 
+>>>>>>> Stashed changes
         respond(
             ":ledger: *Decision Log*\n\n"
             ":hourglass_flowing_sand: Generating decision record… please wait."

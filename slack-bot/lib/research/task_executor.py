@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+<<<<<<< Updated upstream
 Task Executor — Research Orchestration Task Execution with Provider Fallback
 
 Executes research decomposition tasks concurrently with multiple provider support.
@@ -25,6 +26,38 @@ DEF-WP1-003 FIX: Added try-catch around Research Memory calls with graceful degr
 import asyncio
 import logging
 from typing import Optional, List, Dict, Any
+=======
+Task Executor — Research Task Execution & Memory Integration
+
+Executes research tasks with caching and concurrent execution support.
+Integrates with ResearchProviderRegistry for provider selection and
+Research Memory for deduplication and reuse tracking.
+
+Architecture:
+    ResearchMission (from GeminiXODecomposer)
+        ↓
+    TaskExecutor (THIS)
+        ├─ Check Research Memory for cache hits
+        ├─ Execute tasks concurrently (with provider selection)
+        ├─ Store results in Research Memory
+        └─ Return List[EvidencePack]
+        ↓
+    GeminiSynthesizer (Phase 2B.4)
+
+Provider-Agnostic Design:
+    - Calls ONLY ResearchProviderRegistry
+    - Receives ONLY EvidencePack objects
+    - No provider-specific code
+    - Supports per-task provider selection
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import hashlib
+from typing import Optional, List, Callable
+>>>>>>> Stashed changes
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -36,6 +69,7 @@ log = logging.getLogger(__name__)
 
 
 @dataclass
+<<<<<<< Updated upstream
 class ResearchTask:
     """Single research task from decomposition."""
 
@@ -62,11 +96,28 @@ class TaskResult:
 
 # =====================================================================
 # Task Executor with Provider Fallback
+=======
+class ExecutionMetrics:
+    """Metrics from mission execution."""
+
+    total_tasks: int
+    successful_tasks: int
+    failed_tasks: int
+    cache_hits: int
+    cache_misses: int
+    total_tokens_used: int
+    total_latency_ms: int
+
+
+# =====================================================================
+# Task Executor
+>>>>>>> Stashed changes
 # =====================================================================
 
 
 class TaskExecutor:
     """
+<<<<<<< Updated upstream
     Executes research tasks with automatic provider fallback.
 
     Handles concurrent execution of research tasks with:
@@ -469,3 +520,313 @@ DEF-WP1-002 IMPROVEMENT: Mistral fallback tested
 - Benefit: Provider interchangeability is now implicit in the code structure
 - Evidence: Lines 148-186 show symmetric provider calls
 """
+=======
+    Execute research tasks with concurrent execution and memory caching.
+
+    Features:
+    - Concurrent task execution (all tasks in parallel)
+    - Per-task provider selection
+    - Research Memory integration for deduplication
+    - Comprehensive metrics collection
+    - Non-blocking error handling
+
+    Example:
+        executor = TaskExecutor(registry, memory_service)
+        mission = decomposer.decompose_mission(request)
+        evidence_packs = await executor.execute_mission_concurrent(mission)
+    """
+
+    def __init__(
+        self,
+        provider_registry: object,  # ResearchProviderRegistry
+        memory_service: object,  # ResearchMemoryService
+        default_timeout_seconds: int = 90,
+    ):
+        """
+        Initialize TaskExecutor.
+
+        Args:
+            provider_registry: ResearchProviderRegistry instance
+            memory_service: ResearchMemoryService instance
+            default_timeout_seconds: Default timeout per task
+        """
+        self.registry = provider_registry
+        self.memory = memory_service
+        self.default_timeout_seconds = default_timeout_seconds
+        self.metrics = None
+
+        log.info(
+            "[task-executor] Initialized with registry and memory service"
+        )
+
+    def execute_mission(
+        self,
+        mission: object,  # ResearchMission
+        provider_selector: Optional[Callable] = None,
+    ) -> List[object]:
+        """
+        Execute mission tasks sequentially (backward compatibility).
+
+        Args:
+            mission: ResearchMission with tasks to execute
+            provider_selector: Optional provider selection function
+
+        Returns:
+            List[EvidencePack] from all tasks
+        """
+        log.info(
+            f"[task-executor] Executing mission {mission.mission_id} "
+            f"sequentially ({len(mission.tasks)} tasks)"
+        )
+
+        evidence_packs = []
+
+        for task_index, task in enumerate(mission.tasks):
+            pack = self._execute_single_task(
+                task,
+                mission.mission_id,
+                task_index,
+                provider_selector,
+            )
+            evidence_packs.append(pack)
+
+        return evidence_packs
+
+    async def execute_mission_concurrent(
+        self,
+        mission: object,  # ResearchMission
+        provider_selector: Optional[Callable] = None,
+    ) -> List[object]:
+        """
+        Execute mission tasks concurrently (NEW in Phase 2B.2).
+
+        Each task can use a different provider, selected by provider_selector.
+        All tasks execute in parallel using asyncio.gather().
+
+        Args:
+            mission: ResearchMission with tasks to execute
+            provider_selector: Optional provider selection function
+                Takes (task, mission_id) → provider_name or None
+                If None, registry uses default provider
+
+        Returns:
+            List[EvidencePack] from all tasks (same order as mission.tasks)
+        """
+        log.info(
+            f"[task-executor] Executing mission {mission.mission_id} "
+            f"concurrently ({len(mission.tasks)} tasks)"
+        )
+
+        # Create concurrent tasks
+        tasks = [
+            self._execute_single_task_async(
+                task,
+                mission.mission_id,
+                task_index,
+                provider_selector,
+            )
+            for task_index, task in enumerate(mission.tasks)
+        ]
+
+        # Execute all concurrently
+        evidence_packs = await asyncio.gather(*tasks)
+
+        log.info(
+            f"[task-executor] Mission {mission.mission_id} complete: "
+            f"{len(evidence_packs)} evidence packs"
+        )
+
+        return evidence_packs
+
+    def _execute_single_task(
+        self,
+        task: object,  # ResearchTask
+        mission_id: str,
+        task_index: int,
+        provider_selector: Optional[Callable] = None,
+    ) -> object:
+        """
+        Execute single task synchronously.
+
+        Args:
+            task: ResearchTask to execute
+            mission_id: Parent mission ID
+            task_index: Task index in sequence
+            provider_selector: Optional provider selection function
+
+        Returns:
+            EvidencePack from execution
+        """
+        task_id = getattr(task, "task_id", f"tsk-{task_index}")
+
+        log.info(
+            f"[task-executor] Executing task {task_id} "
+            f"(mission={mission_id}, index={task_index})"
+        )
+
+        # Check memory cache
+        cached_pack = self._check_memory_cache(task)
+        if cached_pack:
+            log.info(
+                f"[task-executor] Cache hit for task {task_id}: "
+                f"reusing previous result"
+            )
+            return cached_pack
+
+        # Execute via registry
+        evidence_pack = self.registry.execute_with_fallback(
+            task,
+            mission_id,
+            task_index,
+            timeout_seconds=self.default_timeout_seconds,
+        )
+
+        # Store in memory
+        if evidence_pack.status == "success":
+            self._store_evidence(evidence_pack)
+
+        return evidence_pack
+
+    async def _execute_single_task_async(
+        self,
+        task: object,  # ResearchTask
+        mission_id: str,
+        task_index: int,
+        provider_selector: Optional[Callable] = None,
+    ) -> object:
+        """
+        Execute single task asynchronously.
+
+        Args:
+            task: ResearchTask to execute
+            mission_id: Parent mission ID
+            task_index: Task index in sequence
+            provider_selector: Optional provider selection function
+
+        Returns:
+            EvidencePack from execution
+        """
+        # Run synchronous execution in thread pool
+        loop = asyncio.get_event_loop()
+        evidence_pack = await loop.run_in_executor(
+            None,
+            self._execute_single_task,
+            task,
+            mission_id,
+            task_index,
+            provider_selector,
+        )
+        return evidence_pack
+
+    def _check_memory_cache(self, task: object) -> Optional[object]:
+        """
+        Check if task result exists in Research Memory.
+
+        Uses query hash for deduplication.
+
+        Args:
+            task: ResearchTask to check
+
+        Returns:
+            EvidencePack if cache hit, None otherwise
+        """
+        # Get task description for hashing
+        description = getattr(task, "description", "")
+        query_hash = self._compute_query_hash(description)
+
+        try:
+            cached_pack = self.memory.find_by_query_hash(query_hash)
+            if cached_pack:
+                self.memory.record_reuse(query_hash)
+                return cached_pack
+        except Exception as e:
+            log.warning(
+                f"[task-executor] Memory lookup failed: {str(e)[:100]}"
+            )
+
+        return None
+
+    def _store_evidence(self, evidence_pack: object) -> bool:
+        """
+        Store evidence pack in Research Memory.
+
+        Args:
+            evidence_pack: EvidencePack to store
+
+        Returns:
+            True if stored successfully
+        """
+        try:
+            query_hash = self._compute_query_hash(
+                getattr(evidence_pack, "research_task", "")
+            )
+            self.memory.store_evidence(evidence_pack, query_hash)
+
+            log.info(
+                f"[task-executor] Stored evidence for task "
+                f"{getattr(evidence_pack, 'task_id', '?')} in memory"
+            )
+            return True
+
+        except Exception as e:
+            log.warning(
+                f"[task-executor] Failed to store evidence: "
+                f"{str(e)[:100]}"
+            )
+            return False
+
+    def _compute_query_hash(self, query: str) -> str:
+        """
+        Compute hash of query for deduplication.
+
+        Args:
+            query: Query string
+
+        Returns:
+            Hex digest hash
+        """
+        return hashlib.sha256(query.encode()).hexdigest()
+
+    def collect_metrics(self, evidence_packs: List[object]) -> ExecutionMetrics:
+        """
+        Collect execution metrics from evidence packs.
+
+        Args:
+            evidence_packs: List of EvidencePack objects
+
+        Returns:
+            ExecutionMetrics object
+        """
+        successful = sum(
+            1 for pack in evidence_packs
+            if getattr(pack, "status", None) == "success"
+        )
+        failed = len(evidence_packs) - successful
+
+        total_tokens = sum(
+            getattr(pack, "tokens_used", 0) or 0
+            for pack in evidence_packs
+        )
+        total_latency = sum(
+            getattr(pack, "latency_ms", 0) or 0
+            for pack in evidence_packs
+        )
+
+        metrics = ExecutionMetrics(
+            total_tasks=len(evidence_packs),
+            successful_tasks=successful,
+            failed_tasks=failed,
+            cache_hits=0,  # TODO: Track actual cache hits
+            cache_misses=len(evidence_packs),  # TODO: Track actual misses
+            total_tokens_used=total_tokens,
+            total_latency_ms=total_latency,
+        )
+
+        log.info(
+            f"[task-executor] Metrics: {successful}/{len(evidence_packs)} "
+            f"successful, {total_tokens} tokens, {total_latency}ms latency"
+        )
+
+        self.metrics = metrics
+        return metrics
+>>>>>>> Stashed changes

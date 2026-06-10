@@ -161,11 +161,19 @@ class QualityScoring:
         model_name: Optional[str] = None,
         provider_route: Optional[str] = None,
         scored_at: Optional[str] = None,
+<<<<<<< Updated upstream
+=======
+        feedback_loops=None,
+>>>>>>> Stashed changes
     ) -> Optional[QualityScore]:
         """
         Score outcome for effectiveness.
 
         MSN-0060B B1C: Score what actually happened after decision.
+<<<<<<< Updated upstream
+=======
+        MSN-0060B B1D: Automatically generate feedback signal from score.
+>>>>>>> Stashed changes
 
         Args:
             outcome_id: FK to decision_outcomes(id)
@@ -176,6 +184,10 @@ class QualityScoring:
             model_name: Model used (Gemini, Mistral, Qwen)
             provider_route: Routing strategy (Primary, Fallback, Local)
             scored_at: When scored (default: now)
+<<<<<<< Updated upstream
+=======
+            feedback_loops: Optional FeedbackLoops service for B1D integration
+>>>>>>> Stashed changes
 
         Returns:
             QualityScore if successful, None if error
@@ -220,6 +232,48 @@ class QualityScoring:
                     f"[quality-scoring] Outcome scored: score_id={score_id}, "
                     f"outcome_id={outcome_id}, effectiveness={score}"
                 )
+<<<<<<< Updated upstream
+=======
+
+                # ====================================================================
+                # B1D INTEGRATION: Generate feedback signal from quality score
+                # ====================================================================
+                if feedback_loops and score is not None:
+                    try:
+                        signal = feedback_loops.generate_feedback(
+                            score_id=score_id,
+                            decision_id=decision_id,
+                            provider_name=provider_name,
+                            effectiveness_score=score,
+                            model_name=model_name,
+                            provider_route=provider_route
+                        )
+
+                        if signal:
+                            log.info(
+                                f"[quality-scoring→b1d] Feedback signal generated: "
+                                f"signal_id={signal.id}, action={signal.suggested_action}, "
+                                f"delta={signal.effectiveness_delta:+.1f}"
+                            )
+                        else:
+                            log.debug(
+                                f"[quality-scoring→b1d] No feedback signal (no delta or error)"
+                            )
+
+                    except Exception as e:
+                        log.error(
+                            f"[quality-scoring→b1d] Error generating feedback: "
+                            f"{type(e).__name__}: {str(e)[:100]}"
+                        )
+                        # Don't block quality scoring if feedback fails (non-critical)
+
+                elif not feedback_loops and score is not None:
+                    log.debug(
+                        f"[quality-scoring→b1d] Feedback loops not configured, "
+                        f"skipping B1D integration"
+                    )
+
+>>>>>>> Stashed changes
                 return quality_score
 
             except Exception as e:

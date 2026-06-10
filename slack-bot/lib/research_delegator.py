@@ -36,9 +36,13 @@ from datetime import datetime, timedelta
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from provider_health import ProviderHealth, extract_failure_reason
 =======
 from lib.provider_health import ProviderHealth, extract_failure_reason
+>>>>>>> Stashed changes
+=======
+from provider_health import ProviderHealth, extract_failure_reason
 >>>>>>> Stashed changes
 
 log = logging.getLogger(__name__)
@@ -287,6 +291,7 @@ def call_gemini_research(
 
 # ============================================================================
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 # Provider: Mistral Large (Cloud Fallback)
 # ============================================================================
@@ -423,6 +428,8 @@ Format your response as clear, actionable research findings."""
 
 
 # ============================================================================
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 # Provider: qwen3 via Ollama (Fallback)
 # ============================================================================
@@ -878,6 +885,7 @@ def delegate_research_task(
     # Get mission Gemini quota tracker
     mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
 
+<<<<<<< Updated upstream
     # Provider chain: try each in order
     # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
 <<<<<<< Updated upstream
@@ -901,6 +909,66 @@ def delegate_research_task(
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
 
+=======
+    # ========================================================================
+    # MSN-0060B: B1D→B1A Adaptive Routing Integration
+    # Reorder providers based on quality metrics from feedback loops
+    # ========================================================================
+
+    # Try to get adaptive routing order from learning loop service (if available)
+    adaptive_routing_service = globals().get('adaptive_routing_service')
+    adaptive_provider_order = None
+
+    if adaptive_routing_service:
+        try:
+            routing_order = adaptive_routing_service.get_routing_order()
+            if routing_order:
+                # Build a quality-ranked provider list
+                adaptive_provider_order = [r.provider_name for r in routing_order]
+                log.info(
+                    f"[msp-0060b] Adaptive routing active: "
+                    f"order={adaptive_provider_order}"
+                )
+        except Exception as e:
+            log.warning(
+                f"[msp-0060b] Adaptive routing unavailable (using default order): {type(e).__name__}"
+            )
+
+    # Provider chain: try each in order
+    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
+    # Research delegation uses Flash Lite primary (cost optimized)
+    # Ollama as primary fallback (local, free, no quota)
+    # Flash reserved for emergency only
+    #
+    # MSN-0060B: If adaptive routing active, reorder by quality metrics
+    providers = [
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - quota-aware)", call_gemini_2_5_flash_lite_research),
+        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
+        ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
+    ]
+
+    # MSN-0060B: Reorder providers by adaptive routing if available
+    if adaptive_provider_order:
+        try:
+            reordered = []
+            for provider_name in adaptive_provider_order:
+                for provider_id, provider_desc, provider_func in providers:
+                    if provider_name.lower() in provider_id.lower() or provider_id.lower() in provider_name.lower():
+                        reordered.append((provider_id, provider_desc, provider_func))
+                        break
+
+            # Add any providers not in adaptive list (fallback)
+            for item in providers:
+                if item not in reordered:
+                    reordered.append(item)
+
+            if len(reordered) > 0:
+                providers = reordered
+                log.info(f"[msp-0060b] Reordered providers by quality: {[p[0] for p in providers]}")
+        except Exception as e:
+            log.warning(f"[msp-0060b] Provider reordering failed, using default: {e}")
+
+>>>>>>> Stashed changes
     for provider_id, provider_name, provider_func in providers:
         # Check circuit breaker: skip providers marked unavailable
         if not provider_health.is_available(provider_id):

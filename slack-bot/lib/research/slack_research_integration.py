@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+<<<<<<< Updated upstream
 Slack Research Integration — Command Processing with Resilient Queuing
 
 Handles research commands from Slack with automatic retry queuing on failures.
@@ -31,11 +32,40 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from enum import Enum
+=======
+Slack Research Integration — Command Handler & Response Formatting
+
+Integrates Research Orchestration into Slack commands.
+
+Commands:
+    /research <query> — Execute research mission
+    @research-bot <query> — Inline research request
+
+Features:
+    - Command parsing
+    - Mission execution via ResearchOrchestrator
+    - Result formatting for Slack display
+    - Citation rendering
+    - Metrics reporting
+
+Provider-Agnostic Design:
+    - Calls ONLY ResearchOrchestrator
+    - Formats FinalAnswer only
+    - No provider-specific code
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Optional, Dict, Any
+>>>>>>> Stashed changes
 
 log = logging.getLogger(__name__)
 
 
 # =====================================================================
+<<<<<<< Updated upstream
 # Data Structures
 # =====================================================================
 
@@ -92,12 +122,15 @@ class SlackMessage:
 
 
 # =====================================================================
+=======
+>>>>>>> Stashed changes
 # Slack Research Integration
 # =====================================================================
 
 
 class SlackResearchIntegration:
     """
+<<<<<<< Updated upstream
     Handles research commands from Slack with automatic retry queuing.
 
     Processes `/research` commands from Slack with:
@@ -113,10 +146,25 @@ class SlackResearchIntegration:
         research_orchestrator: object,
         config: Optional[Dict] = None,
     ):
+=======
+    Handle Slack research commands and format responses.
+
+    Example:
+        handler = SlackResearchIntegration(orchestrator)
+        response = await handler.handle_research_command(
+            command="/research What is APRA CPS 230?",
+            user_id="U1234567",
+            channel_id="C1234567"
+        )
+    """
+
+    def __init__(self, orchestrator: object):  # ResearchOrchestrator
+>>>>>>> Stashed changes
         """
         Initialize Slack Research Integration.
 
         Args:
+<<<<<<< Updated upstream
             slack_client: Slack SDK client (bolt.App or similar)
             research_orchestrator: ResearchOrchestrator instance
             config: Optional configuration (timeout, max_retries, etc.)
@@ -532,3 +580,234 @@ Integration Notes:
 - Retry worker should be started on application boot
 - Queue is monitored via get_queue_status() for operational visibility
 """
+=======
+            orchestrator: ResearchOrchestrator instance
+        """
+        self.orchestrator = orchestrator
+        log.info("[slack-research] Integration initialized")
+
+    async def handle_research_command(
+        self,
+        command: str,
+        user_id: str,
+        channel_id: str,
+        context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Handle /research command from Slack.
+
+        Args:
+            command: Full command text (e.g., "/research <query>")
+            user_id: Slack user ID
+            channel_id: Slack channel ID
+            context: Optional context
+
+        Returns:
+            Slack message dict with response
+        """
+        # Parse command
+        query = self._parse_command(command)
+
+        if not query:
+            return {
+                "text": "Usage: /research <query>",
+                "response_type": "ephemeral",
+            }
+
+        # Create mission ID
+        mission_id = f"slack-{user_id}-{channel_id}"
+
+        log.info(
+            f"[slack-research] Research command: user={user_id}, "
+            f"query={query[:80]}..."
+        )
+
+        try:
+            # Execute mission
+            final_answer = (
+                await self.orchestrator.execute_research_mission(
+                    mission_id=mission_id,
+                    user_query=query,
+                    context=context,
+                )
+            )
+
+            # Format response
+            response = self._format_answer_for_slack(final_answer)
+
+            log.info(
+                f"[slack-research] Research complete: "
+                f"confidence={getattr(final_answer, 'confidence', 0)}"
+            )
+
+            return response
+
+        except Exception as e:
+            log.error(f"[slack-research] Command failed: {str(e)[:100]}")
+            return {
+                "text": f"Error: {str(e)[:200]}",
+                "response_type": "ephemeral",
+            }
+
+    async def handle_research_mention(
+        self,
+        text: str,
+        user_id: str,
+        channel_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Handle @research-bot mention in messages.
+
+        Args:
+            text: Message text (with @research-bot removed)
+            user_id: Slack user ID
+            channel_id: Slack channel ID
+
+        Returns:
+            Slack message dict with response
+        """
+        query = text.strip()
+
+        if not query:
+            return {"text": "Please provide a research question."}
+
+        # Reuse command handler
+        return await self.handle_research_command(
+            command=f"/research {query}",
+            user_id=user_id,
+            channel_id=channel_id,
+        )
+
+    def _parse_command(self, command: str) -> Optional[str]:
+        """
+        Parse research query from command.
+
+        Args:
+            command: Command text
+
+        Returns:
+            Query string or None
+        """
+        if command.startswith("/research "):
+            return command[len("/research ") :].strip()
+
+        if command.startswith("research "):
+            return command[len("research ") :].strip()
+
+        return None
+
+    def _format_answer_for_slack(
+        self,
+        final_answer: object,  # FinalAnswer
+    ) -> Dict[str, Any]:
+        """
+        Format FinalAnswer for Slack display.
+
+        Args:
+            final_answer: FinalAnswer object
+
+        Returns:
+            Slack message dict
+        """
+        answer = getattr(final_answer, "answer", "No answer")
+        sources = getattr(final_answer, "sources", [])
+        confidence = getattr(final_answer, "confidence", 0)
+        cost = getattr(final_answer, "cost_estimate", 0)
+        execution_time = getattr(final_answer, "execution_time_ms", 0)
+
+        # Build message blocks
+        blocks = [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*Research Result*\n\n{answer}"},
+            }
+        ]
+
+        # Add citations if present
+        if sources:
+            citations_text = self._format_citations(sources)
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*Sources*\n{citations_text}"},
+                }
+            )
+
+        # Add metadata
+        metadata_text = self._format_metadata(
+            confidence,
+            len(sources),
+            execution_time,
+            cost,
+        )
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": metadata_text}],
+            }
+        )
+
+        return {
+            "blocks": blocks,
+            "response_type": "in_channel",
+        }
+
+    def _format_citations(
+        self,
+        sources: list,
+    ) -> str:
+        """
+        Format citations for Slack.
+
+        Args:
+            sources: List of Citation objects
+
+        Returns:
+            Formatted citation string
+        """
+        if not sources:
+            return "No sources"
+
+        citations = []
+        for i, source in enumerate(sources, 1):
+            text = getattr(source, "text", "Source")
+            url = getattr(source, "url", None)
+            title = getattr(source, "source_title", text)
+
+            if url:
+                citations.append(f"{i}. <{url}|{title}>")
+            else:
+                citations.append(f"{i}. {text}")
+
+        return "\n".join(citations[:10])  # Limit to 10 citations
+
+    def _format_metadata(
+        self,
+        confidence: float,
+        source_count: int,
+        execution_time_ms: int,
+        cost: float,
+    ) -> str:
+        """
+        Format execution metadata for Slack.
+
+        Args:
+            confidence: Confidence score (0.0-1.0)
+            source_count: Number of sources
+            execution_time_ms: Execution time in ms
+            cost: Estimated cost in dollars
+
+        Returns:
+            Formatted metadata string
+        """
+        execution_time_s = execution_time_ms / 1000
+
+        metadata = (
+            f"_Confidence: {confidence:.0%} | "
+            f"Sources: {source_count} | "
+            f"Time: {execution_time_s:.1f}s | "
+            f"Cost: ${cost:.4f}_"
+        )
+
+        return metadata
+>>>>>>> Stashed changes

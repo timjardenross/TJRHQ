@@ -35,6 +35,7 @@ from datetime import datetime
 from collections import deque
 from typing import Callable, Any, Optional
 
+<<<<<<< Updated upstream
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
 # This ensures imports work whether app.py has run yet or not
 _research_command_file = Path(__file__).resolve()
@@ -42,13 +43,18 @@ _repo_root = _research_command_file.parent.parent.parent  # slack-bot/commands -
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
+=======
+>>>>>>> Stashed changes
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
 
 log = logging.getLogger(__name__)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 log.debug(f"[research] Module imported, repo root in sys.path: {_repo_root}")
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
 
@@ -216,6 +222,9 @@ def _execute_research_mission(
 
     # Step 1: Import orchestration module and memory retriever
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
     try:
         _bot_dir = Path(__file__).resolve().parent.parent
         if str(_bot_dir) not in sys.path:
@@ -230,6 +239,7 @@ def _execute_research_mission(
         return (
             "❌ Number One research orchestration unavailable.\n"
             "Error: Research delegation module not found."
+<<<<<<< Updated upstream
 =======
     # NOTE: app.py validates ResearchOrchestrator at startup.
     # If it's available at startup, it's available here (Python caches imports).
@@ -249,6 +259,8 @@ def _execute_research_mission(
             "❌ Number One research orchestration unavailable.\n"
             f"Error: Research delegation module not found.\n"
             f"_Debug: {str(e)}_"
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         )
 
@@ -519,6 +531,7 @@ def _validate_research_topic(topic: str) -> str | None:
 def _format_research_result(result) -> str:
     """
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
 =======
     Format ResearchMissionResult as Slack message (MSN-0056, MSN-RECOMMENDATION-FIX Option B).
@@ -528,16 +541,23 @@ def _format_research_result(result) -> str:
     - Decision: Findings + Recommendation + Next Action
     - Unclear: Recommendation (conservative fallback)
 >>>>>>> Stashed changes
+=======
+    Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
+>>>>>>> Stashed changes
 
     Args:
         result: ResearchMissionResult object
 
     Returns:
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
         Slack-formatted markdown string showing decision package
     """
 
     # MSN-0056: Decision package header
+<<<<<<< Updated upstream
 =======
         Slack-formatted markdown string
     """
@@ -546,6 +566,8 @@ def _format_research_result(result) -> str:
     is_informational = getattr(result, 'request_type', 'unclear') == 'informational'
 
     # Header (always shown)
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     message = "🔍 *Research Complete*\n"
     message += "━━━━━━━━━━━━━━━━━━\n"
@@ -556,9 +578,13 @@ def _format_research_result(result) -> str:
     message += "\n"
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     # MSN-0056: Executive Summary (consolidated findings)
 =======
     # Findings (always shown)
+>>>>>>> Stashed changes
+=======
+    # MSN-0056: Executive Summary (consolidated findings)
 >>>>>>> Stashed changes
     if result.consolidated_findings and result.consolidated_findings.strip() != "No findings generated from research tasks.":
         message += "📊 *FINDINGS*\n"
@@ -569,6 +595,9 @@ def _format_research_result(result) -> str:
         message += f"{findings_preview}\n\n"
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
     # MSN-0056: Clear recommendation with confidence (core decision element)
     message += "🎯 *RECOMMENDATION*\n"
     if result.recommendation:
@@ -580,6 +609,7 @@ def _format_research_result(result) -> str:
     message += "\n"
 
     # MSN-0056: Include caveats only if there are errors or partial results
+<<<<<<< Updated upstream
 =======
     # Recommendation (conditional: only for decision-oriented or unclear requests)
     if not is_informational:
@@ -594,6 +624,8 @@ def _format_research_result(result) -> str:
 
     # Caveats (only if errors or partial results)
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     if result.errors and result.status != "success":
         message += "⚠️ *NOTES*\n"
         for error in result.errors:
@@ -601,6 +633,9 @@ def _format_research_result(result) -> str:
         message += "\n"
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
     # MSN-0056: Next action for decision-maker
     message += "📋 *NEXT ACTION*\n"
     message += "Request Captain/XO review for decision approval\n\n"
@@ -608,6 +643,7 @@ def _format_research_result(result) -> str:
     # Footer: Authority and guidance
     message += "---\n"
     message += "_Research findings are advisory. Captain/XO decision required._\n"
+<<<<<<< Updated upstream
 =======
     # Next action (context-dependent)
     message += "📋 *NEXT ACTION*\n"
@@ -622,6 +658,8 @@ def _format_research_result(result) -> str:
         message += "_Research findings are available for reference._\n"
     else:
         message += "_Research findings are advisory. Captain/XO decision required._\n"
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     return message

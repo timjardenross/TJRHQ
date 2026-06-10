@@ -117,17 +117,39 @@ class OutcomeCapture:
         status: str,
         implementation_notes: Optional[str] = None,
         outcome_timestamp: Optional[str] = None,
+<<<<<<< Updated upstream
     ) -> Optional[DecisionOutcome]:
         """
         Record outcome for a decision.
 
         MSN-0060B B1B: Record what actually happened after decision.
+=======
+        provider_name: Optional[str] = None,
+        model_name: Optional[str] = None,
+        provider_route: Optional[str] = None,
+        quality_scoring_service=None,
+        feedback_loops_service=None,
+    ) -> Optional[DecisionOutcome]:
+        """
+        Record outcome for a decision AND trigger quality scoring (B1C→B1D).
+
+        MSN-0060B B1B: Record what actually happened after decision.
+        MSN-0060B B1C: Automatically score outcome effectiveness and generate feedback
+>>>>>>> Stashed changes
 
         Args:
             decision_id: FK to decision_records(id)
             status: Outcome status (Implemented, Modified, Deferred, Rejected, Unknown)
             implementation_notes: What was actually done vs. what was decided
             outcome_timestamp: When outcome occurred (default: now)
+<<<<<<< Updated upstream
+=======
+            provider_name: (NEW) Provider that made the recommendation
+            model_name: (NEW) Model used for recommendation
+            provider_route: (NEW) Route taken (Primary, Fallback, etc.)
+            quality_scoring_service: (NEW) B1C Quality Scoring service for auto-scoring
+            feedback_loops_service: (NEW) B1D Feedback Loops for auto-feedback
+>>>>>>> Stashed changes
 
         Returns:
             DecisionOutcome if successful, None if error
@@ -174,6 +196,40 @@ class OutcomeCapture:
                     f"[outcome-capture] Outcome recorded: outcome_id={outcome_id}, "
                     f"decision_id={decision_id}, status={status}"
                 )
+<<<<<<< Updated upstream
+=======
+
+                # ================================================================
+                # MSN-0060B B1C→B1D: Auto-score outcome and generate feedback
+                # ================================================================
+                if quality_scoring_service and outcome_id:
+                    try:
+                        quality_score = quality_scoring_service.score_outcome(
+                            outcome_id=outcome_id,
+                            decision_id=decision_id,
+                            outcome_status=status,
+                            provider_name=provider_name,
+                            model_name=model_name,
+                            provider_route=provider_route,
+                            feedback_loops=feedback_loops_service,
+                        )
+
+                        if quality_score:
+                            log.info(
+                                f"[outcome-capture→b1c] Quality scored: {quality_score.effectiveness_score} "
+                                f"(feedback signal generated: {quality_score.id})"
+                            )
+                        else:
+                            log.warning(f"[outcome-capture→b1c] Quality scoring returned None")
+
+                    except Exception as e:
+                        log.error(
+                            f"[outcome-capture→b1c] Quality scoring failed: "
+                            f"{type(e).__name__}: {str(e)[:100]}"
+                        )
+                        # Non-blocking; outcome still recorded even if scoring fails
+
+>>>>>>> Stashed changes
                 return outcome
 
             except Exception as e:

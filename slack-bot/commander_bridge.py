@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import sys
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from typing import Any
 
 =======
@@ -14,6 +15,10 @@ import logging
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+>>>>>>> Stashed changes
+=======
+from typing import Any
 
 >>>>>>> Stashed changes
 from commander_runtime import execute_commander_runtime
@@ -74,11 +79,15 @@ def handle_slack_message(
     """
     cleaned_text = _clean_slack_text(text)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     intent = classify_commander_intent(cleaned_text)
 =======
     log.info(f"[bridge] Cleaned text for intent detection: '{cleaned_text[:80]}'")
     intent = classify_commander_intent(cleaned_text)
     log.info(f"[bridge] Classified intent: {intent}")
+>>>>>>> Stashed changes
+=======
+    intent = classify_commander_intent(cleaned_text)
 >>>>>>> Stashed changes
     routing = route_request(cleaned_text)
     route = _primary_route(routing)
