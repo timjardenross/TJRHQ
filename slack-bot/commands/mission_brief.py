@@ -9,6 +9,10 @@ MSN-0011D Part 3: adds optional mission file draft and canonical ID assignment
 
 Public API:
     handle_mission_brief(text, user_id, channel_id) -> str
+    handle_build_brief(text, user_id, channel_id) -> str
+    find_build_record_by_thread(thread_ts) -> dict[str, str] | None
+    mark_build_record_approved(build_record, approver_user_id, handoff_path) -> str | None
+    save_engineering_handoff_from_build_record(build_record, approver_user_id) -> str
     handle_mission_register_draft(text, user_id, channel_id) -> str
     next_mission_id(index_path) -> str
     generate_mission_file_draft(text, llm_output, mission_id) -> str
@@ -18,6 +22,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +37,11 @@ _BOT_DIR = Path(__file__).resolve().parent.parent
 _REPO_ROOT = _BOT_DIR.parent
 _MISSION_INDEX = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
 _MISSIONS_ACTIVE_DIR = _REPO_ROOT / "Missions" / "Active"
+_BUILD_RECORDS_DIR = _REPO_ROOT / "Missions" / "Build-Records"
+_ENGINEERING_HANDOFFS_DIR = _REPO_ROOT / "Missions" / "Engineering-Handoffs"
+
+_DEFAULT_MISSION_SCRIBE_AGENT_ID = "ag_019eafb4bee976348306954617b1c18c"
+_DEFAULT_MISSION_SCRIBE_AGENT_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # System prompts
@@ -48,6 +58,17 @@ Rules:
   questions.
 - Keep the brief focused and concise. Omit sections that cannot be populated from
   the available text — do not invent facts.
+- Ground the brief in this repository's actual structure and technology choices.
+  Prefer real Python paths and existing Slack bot modules over generic examples.
+  For Slack slash commands, prefer paths such as `slack-bot/app.py`,
+  `slack-bot/commands/`, and `tools/supabase/client.py` when relevant.
+  Do not suggest JavaScript or TypeScript files unless the request clearly targets
+  code that already uses them in this repo.
+- Do not invent placeholder files such as `example.py`, `utils/responses.py`, or
+  API/router files unless they are explicitly part of the request or clearly exist
+  in the repository.
+- Prefer Slack message responses over HTTP/JSON wording unless the user explicitly
+  asks for an HTTP endpoint or JSON contract.
 - Scope and out-of-scope must be explicit.
 - Acceptance criteria must be testable.
 - Always include the standard implementation guardrail at the end.
@@ -155,6 +176,68 @@ Review mission brief and approve to begin work.
 """
 
 
+def _mistral_agent_id() -> str:
+    """Resolve the Mission Scribe agent id from env, with safe fallback."""
+    return (
+        os.getenv("MISTRAL_MISSION_SCRIBE_AGENT_ID", "").strip()
+        or os.getenv("MISTRAL_BRIEFING_AGENT_ID", "").strip()
+        or _DEFAULT_MISSION_SCRIBE_AGENT_ID
+    )
+
+
+def _mistral_agent_version() -> int:
+    raw_version = (
+        os.getenv("MISTRAL_MISSION_SCRIBE_AGENT_VERSION", "").strip()
+        or os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "").strip()
+        or str(_DEFAULT_MISSION_SCRIBE_AGENT_VERSION)
+    )
+    try:
+        return int(raw_version)
+    except ValueError:
+        return _DEFAULT_MISSION_SCRIBE_AGENT_VERSION
+
+
+def _call_mistral_mission_scribe(prompt: str) -> str:
+    """Generate a mission-scribe response via the configured Mistral agent only."""
+    api_key = os.getenv("MISTRAL_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("MISTRAL_API_KEY not configured")
+
+    from mistralai import Mistral
+
+    client = Mistral(api_key=api_key)
+    response = client.beta.conversations.start(
+        agent_id=_mistral_agent_id(),
+        agent_version=_mistral_agent_version(),
+        inputs=[{"role": "user", "content": prompt}],
+    )
+
+    if hasattr(response, "outputs") and response.outputs:
+        for output in response.outputs:
+            content = getattr(output, "content", "")
+            if isinstance(content, list):
+                content = "\n".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in content
+                )
+            content = str(content).strip()
+            if content:
+                return content
+
+    if hasattr(response, "messages") and response.messages:
+        content = getattr(response.messages[-1], "content", "")
+        if isinstance(content, list):
+            content = "\n".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        content = str(content).strip()
+        if content:
+            return content
+
+    raise RuntimeError("Mistral Mission Scribe returned an empty response")
+
+
 # ---------------------------------------------------------------------------
 # Preview handler (/mission-brief)
 # ---------------------------------------------------------------------------
@@ -172,8 +255,6 @@ def handle_mission_brief(
     if str(_BOT_DIR) not in sys.path:
         sys.path.insert(0, str(_BOT_DIR))
 
-    from llm import generate_response
-
     log.info(
         "[mission-brief] Generating brief for user=%s channel=%s len=%d",
         user_id, channel_id, len(text),
@@ -188,15 +269,51 @@ def handle_mission_brief(
         )
 
     try:
-        output = generate_response(
-            prompt=text,
-            system_prompt=_SYSTEM_PROMPT,
-        )
+        output = _call_mistral_mission_scribe(f"{_SYSTEM_PROMPT}\n\nUser request:\n{text}")
+        output = _normalize_brief_output(output)
         log.info("[mission-brief] Brief generated (%d chars)", len(output))
         return f"*MISSION IMPLEMENTATION BRIEF*\n\n```{output}```"
     except Exception as exc:
-        log.error("[mission-brief] Generation failed: %s — %s", type(exc).__name__, exc)
+        log.error("[mission-brief] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         return _fallback_brief(text)
+
+
+def handle_build_brief(
+    text: str,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    thread_ts: str | None = None,
+) -> str:
+    """Generate a coding brief plus a GitHub-ready issue payload for /build."""
+    brief_result = handle_mission_brief(text=text, user_id=user_id, channel_id=channel_id)
+    brief_text = _unwrap_slack_code_block(brief_result)
+    executive_block = _build_executive_handoff_summary(brief_text)
+    issue_block = _build_github_issue_preview_from_brief(text=text, brief_text=brief_text)
+    approval_block = _build_approval_gate(brief_text)
+    record_path = save_build_record(
+        request_text=text,
+        brief_text=brief_text,
+        github_summary=f"{issue_block}\n\n{approval_block}",
+        user_id=user_id,
+        channel_id=channel_id,
+        thread_ts=thread_ts,
+    )
+    save_build_record_to_memory(
+        request_text=text,
+        brief_text=brief_text,
+        github_summary=f"{issue_block}\n\n{approval_block}",
+        record_path=record_path,
+        user_id=user_id,
+        channel_id=channel_id,
+        thread_ts=thread_ts,
+    )
+    return (
+        f"{executive_block}\n\n"
+        f"{brief_result}\n\n"
+        f"{issue_block}\n\n"
+        f"{approval_block}\n\n"
+        f":file_folder: *Build record saved:* `{record_path}`"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -216,8 +333,6 @@ def handle_mission_register_draft(
     import sys
     if str(_BOT_DIR) not in sys.path:
         sys.path.insert(0, str(_BOT_DIR))
-
-    from llm import generate_response
 
     log.info(
         "[mission-register-draft] Draft requested by user=%s channel=%s len=%d",
@@ -239,13 +354,12 @@ def handle_mission_register_draft(
         log.warning("[mission-register-draft] Index read issue: %s", index_error)
 
     try:
-        llm_output = generate_response(
-            prompt=f"Mission ID: {proposed_id}\n\n{text}",
-            system_prompt=_REGISTER_SYSTEM_PROMPT,
+        llm_output = _call_mistral_mission_scribe(
+            f"{_REGISTER_SYSTEM_PROMPT}\n\nMission ID: {proposed_id}\n\nUser request:\n{text}"
         )
         log.info("[mission-register-draft] LLM draft received (%d chars)", len(llm_output))
     except Exception as exc:
-        log.error("[mission-register-draft] LLM failed: %s — %s", type(exc).__name__, exc)
+        log.error("[mission-register-draft] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_mission_text(text, proposed_id)
 
     markdown = generate_mission_file_draft(text, llm_output, proposed_id)
@@ -293,8 +407,6 @@ def handle_save_mission_file(
     if str(_BOT_DIR) not in sys.path:
         sys.path.insert(0, str(_BOT_DIR))
 
-    from llm import generate_response
-
     log.info(
         "[mission-register-save] Save requested by user=%s channel=%s len=%d",
         user_id, channel_id, len(text),
@@ -311,12 +423,11 @@ def handle_save_mission_file(
     proposed_id, index_error = _read_next_mission_id()
 
     try:
-        llm_output = generate_response(
-            prompt=f"Mission ID: {proposed_id}\n\n{text}",
-            system_prompt=_REGISTER_SYSTEM_PROMPT,
+        llm_output = _call_mistral_mission_scribe(
+            f"{_REGISTER_SYSTEM_PROMPT}\n\nMission ID: {proposed_id}\n\nUser request:\n{text}"
         )
     except Exception as exc:
-        log.error("[mission-register-save] LLM failed: %s — %s", type(exc).__name__, exc)
+        log.error("[mission-register-save] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_mission_text(text, proposed_id)
 
     markdown = generate_mission_file_draft(text, llm_output, proposed_id)
@@ -527,6 +638,219 @@ def save_mission_file(
         return False, f"Write error: {exc}"
 
 
+def save_build_record(
+    *,
+    request_text: str,
+    brief_text: str,
+    github_summary: str,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    thread_ts: str | None = None,
+) -> str:
+    """Persist a /build artifact in the repo for later review and reuse."""
+    _BUILD_RECORDS_DIR.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    slug = _make_slug(request_text)
+    filename = f"BUILD-{timestamp}-{slug}.md"
+    target = _BUILD_RECORDS_DIR / filename
+
+    markdown = (
+        "# Build Record\n\n"
+        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- User ID: {user_id or 'unknown'}\n"
+        f"- Channel ID: {channel_id or 'unknown'}\n\n"
+        f"- Thread TS: {thread_ts or 'unknown'}\n\n"
+        "## Request\n\n"
+        f"{request_text.strip()}\n\n"
+        "## Mission Implementation Brief\n\n"
+        f"```text\n{brief_text.strip()}\n```\n\n"
+        "## GitHub Handoff Summary\n\n"
+        f"{github_summary.strip()}\n"
+    )
+
+    target.write_text(markdown, encoding="utf-8")
+    log.info("[mission-brief] Build record saved: %s", target)
+    try:
+        return str(target.relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(target)
+
+
+def find_build_record_by_thread(thread_ts: str) -> dict[str, str] | None:
+    """Find the newest saved build record for a Slack thread."""
+    if not thread_ts:
+        return None
+
+    try:
+        candidates = sorted(
+            _BUILD_RECORDS_DIR.glob("BUILD-*.md"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return None
+
+    for path in candidates:
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        thread_match = re.search(r"^- Thread TS:\s*(.+)$", content, re.MULTILINE)
+        if not thread_match or thread_match.group(1).strip() != thread_ts:
+            continue
+
+        request_match = re.search(r"## Request\s*\n\s*(.*?)\n\s*## ", content, re.DOTALL)
+        channel_match = re.search(r"^- Channel ID:\s*(.+)$", content, re.MULTILINE)
+        user_match = re.search(r"^- User ID:\s*(.+)$", content, re.MULTILINE)
+        title_match = re.search(r"^Mission Title:\s*(.+)$", content, re.MULTILINE)
+
+        return {
+            "record_path": str(path.relative_to(_REPO_ROOT)),
+            "request_text": request_match.group(1).strip() if request_match else "Build request",
+            "channel_id": channel_match.group(1).strip() if channel_match else "unknown",
+            "user_id": user_match.group(1).strip() if user_match else "unknown",
+            "mission_title": title_match.group(1).strip() if title_match else "Engineering Handoff",
+            "thread_ts": thread_ts,
+        }
+
+    return None
+
+
+def save_engineering_handoff_from_build_record(
+    build_record: dict[str, str],
+    approver_user_id: str,
+) -> str:
+    """Create an approved engineering handoff artifact from a build record."""
+    _ENGINEERING_HANDOFFS_DIR.mkdir(parents=True, exist_ok=True)
+
+    request_text = build_record.get("request_text", "Build request").strip()
+    mission_title = build_record.get("mission_title", "").strip() or request_text[:100] or "Engineering Handoff"
+    source_record = build_record.get("record_path", "unknown")
+    channel_id = build_record.get("channel_id", "unknown")
+    thread_ts = build_record.get("thread_ts", "unknown")
+
+    source_path = _REPO_ROOT / source_record if source_record != "unknown" else None
+    build_record_body = ""
+    if source_path and source_path.exists():
+        try:
+            build_record_body = source_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            build_record_body = ""
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    slug = _make_slug(mission_title)
+    filename = f"ENG-HANDOFF-{timestamp}-{slug}.md"
+    target = _ENGINEERING_HANDOFFS_DIR / filename
+
+    markdown = (
+        "# Engineering Handoff\n\n"
+        f"- Status: APPROVED_FOR_ENGINEERING\n"
+        f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- Approved By: {approver_user_id}\n"
+        f"- Source Build Record: {source_record}\n"
+        f"- Channel ID: {channel_id}\n"
+        f"- Thread TS: {thread_ts}\n\n"
+        "## Mission Title\n\n"
+        f"{mission_title}\n\n"
+        "## Original Request\n\n"
+        f"{request_text}\n\n"
+        "## Implementation Package\n\n"
+        f"{build_record_body or 'Build record contents unavailable.'}\n"
+    )
+
+    target.write_text(markdown, encoding="utf-8")
+    log.info("[mission-brief] Engineering handoff saved: %s", target)
+    try:
+        return str(target.relative_to(_REPO_ROOT))
+    except ValueError:
+        return str(target)
+
+
+def mark_build_record_approved(
+    build_record: dict[str, str],
+    approver_user_id: str,
+    handoff_path: str,
+) -> str | None:
+    """Append approval status metadata to the original build record."""
+    source_record = build_record.get("record_path", "unknown")
+    if source_record == "unknown":
+        return None
+
+    target = _REPO_ROOT / source_record
+    if not target.exists():
+        return None
+
+    try:
+        current = target.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    if "## Approval Status" in current:
+        return source_record
+
+    approval_block = (
+        "\n\n## Approval Status\n\n"
+        "- Status: APPROVED_FOR_ENGINEERING\n"
+        f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- Approved By: {approver_user_id}\n"
+        f"- Engineering Handoff: {handoff_path}\n"
+    )
+
+    try:
+        target.write_text(current.rstrip() + approval_block + "\n", encoding="utf-8")
+        log.info("[mission-brief] Build record marked approved: %s", target)
+        return source_record
+    except OSError:
+        return None
+
+
+def save_build_record_to_memory(
+    *,
+    request_text: str,
+    brief_text: str,
+    github_summary: str,
+    record_path: str,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    thread_ts: str | None = None,
+) -> None:
+    """Persist a compact /build memory event to Supabase (non-blocking)."""
+    try:
+        from tools.supabase.client import log_memory_event
+
+        title = _extract_section(brief_text, "Mission Title") or request_text.strip()[:120] or "Build request"
+        payload = {
+            "memory_text": (
+                f"Build request: {title}\n\n"
+                f"Request:\n{request_text.strip()}\n\n"
+                f"Brief:\n{brief_text.strip()}\n\n"
+                f"GitHub handoff:\n{github_summary.strip()}\n\n"
+                f"Repo record: {record_path}"
+            ),
+            "source": "slack-build",
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "thread_ts": thread_ts,
+            "route": "/build",
+            "confidence": 0.8,
+            "tags": ["build", "mission-brief", "engineering-handoff"],
+            "metadata": {
+                "title": title,
+                "record_path": record_path,
+                "request_length": len(request_text),
+            },
+        }
+        result = log_memory_event(payload)
+        if result.ok:
+            log.info("[mission-brief] Build record saved to Supabase memory")
+        else:
+            log.warning("[mission-brief] Supabase memory save skipped/failed: %s", result.error)
+    except Exception as exc:
+        log.warning("[mission-brief] Failed to persist build record to Supabase memory: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -535,6 +859,21 @@ def _make_slug(text: str) -> str:
     cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", text.strip().lower())
     words = cleaned.split()[:6]
     return "-".join(words) or "mission"
+
+
+def _unwrap_slack_code_block(text: str) -> str:
+    match = re.search(r"```(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
+def _normalize_brief_output(text: str) -> str:
+    """Remove duplicated top-level heading if the agent already emitted it."""
+    cleaned = text.strip()
+    if cleaned.upper().startswith("MISSION IMPLEMENTATION BRIEF"):
+        cleaned = re.sub(r"^MISSION IMPLEMENTATION BRIEF\s*", "", cleaned, count=1).strip()
+    return cleaned
 
 
 def _extract_section(text: str, heading: str) -> str:
@@ -556,6 +895,95 @@ def _extract_list_section(text: str, heading: str) -> str:
     if match:
         return match.group(1).strip()
     return ""
+
+
+def _build_github_issue_preview_from_brief(text: str, brief_text: str) -> str:
+    """Build a compact dry-run GitHub handoff summary from a mission brief."""
+    from tools.supabase.github_issue_builder import build_github_issue
+
+    source = {
+        "mission_candidate_id": None,
+        "decision_id": None,
+        "title": _extract_section(brief_text, "Mission Title") or text.strip()[:100] or "Build mission",
+        "decision_summary": _extract_section(brief_text, "Objective") or "Implementation brief generated from Slack build request.",
+        "question": text.strip(),
+        "recommended_action": _extract_section(brief_text, "Required Changes") or "Implement the mission brief using existing repository patterns.",
+        "current_bottleneck": _extract_section(brief_text, "Background") or "Not explicitly stated.",
+        "strategic_alignment": "Engineering delivery",
+        "time_to_value": "Short",
+        "reversibility": "Medium",
+        "opportunity_cost": "Delay in implementing the requested engineering work.",
+        "success_criteria": _extract_checkbox_list(_extract_section(brief_text, "Acceptance Criteria")),
+        "risks": _extract_checkbox_list(_extract_section(brief_text, "Risks / Guardrails")),
+        "lead_specialist": "Chief Engineer",
+        "supporting_specialists": ["Coder Agent"],
+        "assignment_rationale": "Generated from /build implementation brief for engineering handoff.",
+        "decision_mode": "implementation",
+        "options": [],
+    }
+    issue = build_github_issue(source, priority="Medium")
+    labels = "\n".join(f"- {label}" for label in issue.labels) or "- commander-decision"
+    return (
+        "*GITHUB HANDOFF — DRY RUN*\n\n"
+        ":white_check_mark: GitHub issue draft prepared for engineering handoff.\n\n"
+        f"*Title:* {issue.title}\n"
+        f"*Priority:* {issue.priority}\n"
+        f"*Assignee Hint:* {issue.assignee_hint}\n\n"
+        "*Labels:*\n"
+        f"{labels}\n\n"
+        "Full issue body omitted from Slack to avoid duplicating the brief.\n"
+        "See the saved build record if you want the generated handoff artifact preserved in-repo."
+    )
+
+
+def _build_executive_handoff_summary(brief_text: str) -> str:
+    title = _extract_section(brief_text, "Mission Title") or "Build request"
+    objective = _extract_section(brief_text, "Objective") or "Objective not available."
+    acceptance = _extract_checkbox_list(_extract_section(brief_text, "Acceptance Criteria"))
+    suggested_files = _extract_checkbox_list(_extract_section(brief_text, "Suggested Files / Areas to Inspect"))
+
+    summary_lines = [
+        "*ENGINEERING HANDOFF*",
+        "",
+        f"*Mission:* {title}",
+        f"*Objective:* {objective}",
+    ]
+    if acceptance:
+        summary_lines.extend([
+            "",
+            "*Success looks like:*",
+            *[f"- {item}" for item in acceptance[:3]],
+        ])
+    if suggested_files:
+        summary_lines.extend([
+            "",
+            "*Primary files:*",
+            *[f"- {item}" for item in suggested_files[:3]],
+        ])
+    return "\n".join(summary_lines)
+
+
+def _build_approval_gate(brief_text: str) -> str:
+    title = _extract_section(brief_text, "Mission Title") or "this build"
+    return (
+        "*APPROVAL GATE*\n\n"
+        f":white_check_mark: If approved, engineering can proceed on *{title}*.\n"
+        "Recommended next step: reply with `Approved for engineering` and move this brief into implementation."
+    )
+
+
+def _extract_checkbox_list(section_text: str) -> list[str]:
+    items = []
+    for line in section_text.splitlines():
+        cleaned = re.sub(r"^[ \t]*[-*•\[]+\s*", "", line).strip(" ]")
+        if cleaned:
+            items.append(cleaned)
+    return items
+
+
+def _format_slack_list_section(title: str, items: list[str]) -> str:
+    body = "\n".join(f"- {item}" for item in items)
+    return f"{title}\n{body}\n\n"
 
 
 def _raw_fallback_mission_text(text: str, mission_id: str) -> str:

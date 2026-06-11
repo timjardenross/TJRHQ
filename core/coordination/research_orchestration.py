@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Optional
 import sys
+import re
 from pathlib import Path
 import time
 import importlib.util
@@ -88,6 +89,7 @@ try:
         _spec.loader.exec_module(_delegator_module)
         delegate_research_task = _delegator_module.delegate_research_task
         ResearchOutcome = _delegator_module.ResearchOutcome
+        call_mistral_research = _delegator_module.call_mistral_research
         call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
@@ -97,12 +99,14 @@ except (ImportError, AttributeError, FileNotFoundError) as e:
         f"Failed to import research_delegator from {_research_delegator_file}: {e}",
         exc_info=True
     )
+    call_mistral_research = None
     call_gemini_2_5_flash_lite_research = None
 except Exception as e:
     log.error(
         f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
         exc_info=True
     )
+    call_mistral_research = None
     call_gemini_2_5_flash_lite_research = None
 
 # Startup logging for troubleshooting
@@ -267,9 +271,6 @@ def classify_request_type(research_topic: str) -> str:
 
 
 # ============================================================================
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 # Orchestration Engine
 # ============================================================================
 
@@ -325,7 +326,7 @@ class ResearchOrchestrator:
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
-        log.info("Step 1: Task decomposition (Gemini → Mistral → Ollama fallback chain)")
+        log.info("Step 1: Task decomposition (Mistral → Gemini → Ollama fallback chain)")
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -546,7 +547,7 @@ class ResearchOrchestrator:
         # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Slack Output)
         # Non-blocking: if briefing fails, mission continues with standard output
         try:
-            from slack_bot.lib.briefing_officer import generate_captains_brief
+            from briefing_officer import generate_captains_brief
 
             research_package = {
                 "mission_id": mission_id,
@@ -571,12 +572,63 @@ class ResearchOrchestrator:
             log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
             # Non-blocking: continue without brief
 
+        # Step 7b: Optional summary/challenge enrichments from recovered specialist layer.
+        # These are best-effort only and must never block mission completion or startup.
+        try:
+            from summary_officer import call_summary_officer
+            summary_result = call_summary_officer(
+                {
+                    "mission_id": mission_id,
+                    "topic": research_topic,
+                    "request_type": request_type,
+                    "key_findings": consolidated,
+                    "recommendation": recommendation,
+                    "confidence_score": confidence,
+                    "task_count": len(tasks),
+                    "successful_tasks": tasks_completed,
+                    "timestamp": result.timestamp,
+                }
+            )
+            if summary_result.get("status") == "success":
+                result.captains_brief = result.captains_brief or summary_result.get("summary")
+                log.info("[summary] Summary officer enrichment completed")
+        except Exception as e:
+            log.debug(f"[summary] Optional summary enrichment skipped: {e}")
+
+        try:
+            from risk_challenge_officer import call_risk_challenge_officer
+            challenge_result = call_risk_challenge_officer(
+                topic=research_topic,
+                research_type=request_type,
+                confidence=confidence,
+                recommendation=recommendation or "",
+                synthesis=consolidated,
+            )
+            if challenge_result:
+                result.errors.append("challenge_review_attached")
+                log.info("[challenge] Risk & challenge enrichment completed")
+        except Exception as e:
+            log.debug(f"[challenge] Optional risk/challenge enrichment skipped: {e}")
+
         # MSN-0055C WP7: Persist metrics and log summary
         metrics_summary = metrics.finalize_and_store()
         log.info(f"Research mission {mission_id} complete: {status}")
         log.info(f"Metrics:\n{metrics_summary}")
 
         return result
+
+    def orchestrate(
+        self,
+        research_topic: str,
+        mission_id: Optional[str] = None,
+        provider_health: Optional[Any] = None,
+    ) -> ResearchMissionResult:
+        """Backward-compatible alias for callers expecting an orchestrate() API."""
+        return self.run_research_mission(
+            research_topic=research_topic,
+            mission_id=mission_id,
+            provider_health=provider_health,
+        )
 
     # ========================================================================
     # Task Decomposition
@@ -587,8 +639,8 @@ class ResearchOrchestrator:
         Decompose research topic into tasks using provider fallback chain.
 
         Provider chain (DEF-WP1-001):
-        1. Gemini 2.5 Flash Lite (primary)
-        2. Mistral Research Agent (secondary)
+        1. Mistral Research Agent (primary)
+        2. Gemini 2.5 Flash Lite (secondary)
         3. qwen2.5-coder via Ollama (tertiary)
 
         Args:
@@ -599,8 +651,6 @@ class ResearchOrchestrator:
         """
 
         ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-=======
->>>>>>> Stashed changes
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
 Research Topic: {research_topic}
@@ -618,8 +668,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
         # Provider chain for decomposition (same as task execution)
         providers = [
-            ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary)", self._decompose_with_gemini_lite),
-            ("mistral-research-agent", "Mistral Research Agent (secondary)", self._decompose_with_mistral),
+            ("mistral-research-agent", "Mistral Research Agent (primary)", self._decompose_with_mistral),
+            ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
             ("ollama", "qwen2.5-coder via Ollama (tertiary)", self._decompose_with_ollama),
         ]
 
@@ -634,8 +684,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.warning(f"Decomposition failed with {provider_name}: {e}. Trying next provider.")
                 continue
 
-        log.error("All decomposition providers exhausted; returning empty task list")
-        return []
+        log.error("All decomposition providers exhausted; using deterministic fallback decomposition")
+        return self._fallback_decomposition_tasks(research_topic)
 
     def _decompose_with_gemini_lite(self, prompt: str) -> list[str]:
         """Decompose using Gemini 2.5 Flash Lite."""
@@ -678,8 +728,11 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
             log.info("[decompose] Mistral: Calling Mistral Research Agent...")
             response = client.beta.conversations.start(
-                agent_id="ag_019eafb4bee976348306954617b1c18c",  # Mistral Research Agent
-                agent_version=2,
+                agent_id=os.getenv(
+                    "MISTRAL_DECOMPOSITION_AGENT_ID",
+                    "ag_019eafb4bee976348306954617b1c18c",
+                ),
+                agent_version=int(os.getenv("MISTRAL_DECOMPOSITION_AGENT_VERSION", "2")),
                 inputs=[{"role": "user", "content": prompt}]
             )
 
@@ -691,10 +744,41 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.error("[decompose] Mistral: Empty response from API")
                 return []
         except ImportError as e:
-            log.error(f"[decompose] Mistral: FAILED - mistralai SDK not installed: {e}")
-            return []
+            log.warning(f"[decompose] Mistral SDK unavailable, falling back to REST: {e}")
+            return self._decompose_with_mistral_rest(prompt)
         except Exception as e:
             log.error(f"[decompose] Mistral: FAILED - {type(e).__name__}: {e}")
+            return []
+
+    def _decompose_with_mistral_rest(self, prompt: str) -> list[str]:
+        """Fallback Mistral path using direct REST chat completions."""
+        try:
+            api_key = os.getenv("MISTRAL_API_KEY")
+            if not api_key:
+                return []
+
+            endpoint = "https://api.mistral.ai/v1/chat/completions"
+            payload = {
+                "model": "mistral-large-latest",
+                "messages": [{"role": "user", "content": prompt}],
+            }
+            request = urllib.request.Request(
+                endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=45) as response:
+                response_data = json.loads(response.read().decode("utf-8"))
+            text = ""
+            if response_data and response_data.get("choices"):
+                text = response_data["choices"][0].get("message", {}).get("content", "")
+            return self._parse_json_tasks(text)
+        except Exception as e:
+            log.error(f"[decompose] Mistral REST fallback failed: {type(e).__name__}: {e}")
             return []
 
     def _decompose_with_ollama(self, prompt: str) -> list[str]:
@@ -707,9 +791,6 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             request_data = {
                 "model": "qwen3:8b",
                 "prompt": prompt,
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
                 "stream": False,
                 "temperature": 0.5,
                 "top_p": 0.9,
@@ -761,6 +842,56 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         except Exception as e:
             log.error(f"Task decomposition failed: {e}")
             return []
+
+    def _parse_json_tasks(self, text: str) -> list[str]:
+        """Parse tasks from a JSON array or a loose fallback text block."""
+        if not text:
+            return []
+
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except Exception:
+            pass
+
+        start = text.find("[")
+        end = text.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            try:
+                parsed = json.loads(text[start : end + 1])
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
+            except Exception:
+                pass
+
+        tasks = []
+        for line in text.splitlines():
+            candidate = re.sub(r"^[\-\*\d\.\)\(]+\s*", "", line.strip()).strip()
+            if candidate:
+                tasks.append(candidate)
+        return tasks
+
+    def _fallback_decomposition_tasks(self, research_topic: str) -> list[str]:
+        """Deterministically split a research topic into a small task set.
+
+        This is the last-resort path when all providers fail or return empty
+        output. It keeps the research pipeline alive so Slack never receives a
+        zero-task mission result.
+        """
+        topic = (research_topic or "").strip()
+        if not topic:
+            return [
+                "Task 1: Clarify the research topic and identify the main question",
+                "Task 2: Gather the most relevant current evidence and examples",
+                "Task 3: Summarise findings and note any caveats or gaps",
+            ]
+
+        return [
+            f"Task 1: Identify the latest relevant information about {topic}",
+            f"Task 2: Compare the top findings, risks, and practical implications for {topic}",
+            f"Task 3: Summarise the answer for Slack with clear next steps on {topic}",
+        ]
 
     # ========================================================================
     # Finding Consolidation (MSN-0055C WP3: Deterministic Consolidation)
@@ -834,7 +965,7 @@ Research Metadata:
         Consolidate findings from all tasks into a coherent summary.
 
         MSN-RECOMMENDATION-FIX #4: Use Flash Lite instead of Ollama/qwen for synthesis.
-        Flash Lite is a reasoning model; qwen is a code model. Better fit for complex analysis.
+        Mistral is the primary reasoning model; qwen is the local code-model fallback.
 
         Args:
             tasks: List of completed research tasks
@@ -868,24 +999,19 @@ Consolidation Requirements:
 Provide only the consolidated summary, no headers or metadata."""
 
         try:
-            # MSN-RECOMMENDATION-FIX #4: Use Flash Lite (reasoning model) instead of qwen (code model)
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
-            log.info("Calling Flash Lite for finding consolidation (MSN-RECOMMENDATION-FIX #4)")
-            # PHASE 1 FIX: Increase timeout from 30s to 60s for complex synthesis task
-            # PHASE 2 FIX: Call consolidation directly (not via delegate_research_task)
-            # to exclude from per-mission Gemini budget tracking, ensuring recommendation
-            # generation can still use Gemini within the mission's quota
-            outcome = call_gemini_2_5_flash_lite_research(consolidation_prompt, timeout_sec=60)
+            log.info("Calling Mistral for finding consolidation")
+            outcome = call_mistral_research(consolidation_prompt, timeout_sec=60)
 
             if outcome.status == "success" and outcome.findings:
                 consolidated = outcome.findings.strip()
-                log.info(f"Consolidation complete (Flash Lite): {len(consolidated)} chars")
+                log.info(f"Consolidation complete (Mistral): {len(consolidated)} chars")
                 return consolidated
             else:
-                log.warning(f"Flash Lite consolidation failed: {outcome.status}. Using local fallback.")
-                raise Exception("Flash Lite failed")
+                log.warning(f"Mistral consolidation failed: {outcome.status}. Using local fallback.")
+                raise Exception("Mistral failed")
 
         except Exception as e:
             # Consolidation timeout or error - use deterministic local fallback
@@ -922,7 +1048,7 @@ Provide only the consolidated summary, no headers or metadata."""
         """
         Extract viable options from research findings (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Flash Lite to identify 2-4 distinct options implied by the research.
+        Uses Mistral to identify 2-4 distinct options implied by the research.
         Non-blocking; returns None if extraction fails.
 
         Args:
@@ -962,11 +1088,11 @@ Disadvantages:
 Cost/Effort: [if relevant]"""
 
         try:
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
-            log.debug("Extracting options from findings (MSN-RECOMMENDATION-FIX #1)")
-            outcome = call_gemini_2_5_flash_lite_research(options_prompt, timeout_sec=20)
+            log.debug("Extracting options from findings (Mistral)")
+            outcome = call_mistral_research(options_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 options_text = outcome.findings.strip()
@@ -989,7 +1115,7 @@ Cost/Effort: [if relevant]"""
         """
         Analyze trade-offs between options (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Flash Lite to create trade-off matrix.
+        Uses Mistral to create trade-off matrix.
         Non-blocking; returns None if analysis fails.
 
         Args:
@@ -1020,11 +1146,11 @@ Format as a clear comparison table or matrix showing how each option trades off 
 Be specific with numbers/timelines where possible."""
 
         try:
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
-            log.debug("Analyzing trade-offs (MSN-RECOMMENDATION-FIX #1)")
-            outcome = call_gemini_2_5_flash_lite_research(tradeoff_prompt, timeout_sec=20)
+            log.debug("Analyzing trade-offs (Mistral)")
+            outcome = call_mistral_research(tradeoff_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 tradeoff_text = outcome.findings.strip()
@@ -1047,7 +1173,7 @@ Be specific with numbers/timelines where possible."""
         """
         Assess risks for each option (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Flash Lite to identify risks and mitigation strategies.
+        Uses Mistral to identify risks and mitigation strategies.
         Non-blocking; returns None if assessment fails.
 
         Args:
@@ -1076,11 +1202,11 @@ For each option, identify:
 Format clearly. Be specific about probability and impact."""
 
         try:
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
-            log.debug("Assessing risks (MSN-RECOMMENDATION-FIX #1)")
-            outcome = call_gemini_2_5_flash_lite_research(risk_prompt, timeout_sec=20)
+            log.debug("Assessing risks (Mistral)")
+            outcome = call_mistral_research(risk_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 risk_text = outcome.findings.strip()
@@ -1107,10 +1233,10 @@ Format clearly. Be specific about probability and impact."""
         MSN-RECOMMENDATION-FIX: New decision framework pipeline
 
         New Priority:
-        1. Extract options from findings (Flash Lite)
-        2. Analyze trade-offs (Flash Lite)
-        3. Assess risks (Flash Lite)
-        4. Generate recommendation (Flash Lite with full context)
+        1. Extract options from findings (Mistral)
+        2. Analyze trade-offs (Mistral)
+        3. Assess risks (Mistral)
+        4. Generate recommendation (Mistral with full context)
         5. Fallback to Ollama if needed
         6. Final heuristic fallback
 
@@ -1166,10 +1292,10 @@ Format clearly. Be specific about probability and impact."""
             and "insufficient" not in llm_rec.lower()
             and len(llm_rec) > 20
             and llm_conf >= 0.5):
-            log.info(f"[research-recommendation] Used Gemini 2.5 Flash Lite (confidence: {llm_conf:.2f})")
+            log.info(f"[research-recommendation] Used Mistral (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Flash Lite recommendation rejected or failed. Trying Ollama...")
+        log.debug(f"[research-recommendation] Mistral recommendation rejected or failed. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1322,7 +1448,7 @@ CONFIDENCE: [0.0-1.0]"""
         """
         Generate recommendation using decision framework (MSN-RECOMMENDATION-FIX #2).
 
-        Uses Flash Lite with structured decision inputs:
+        Uses Mistral with structured decision inputs:
         - Consolidated findings
         - Extracted options
         - Trade-off analysis
@@ -1400,11 +1526,11 @@ FIRST THREE ACTIONS:
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
-            log.debug("Calling Flash Lite with decision framework (MSN-RECOMMENDATION-FIX #2)")
-            outcome = call_gemini_2_5_flash_lite_research(decision_framework_prompt, timeout_sec=30)
+            log.debug("Calling Mistral with decision framework")
+            outcome = call_mistral_research(decision_framework_prompt, timeout_sec=30)
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()
@@ -1443,10 +1569,10 @@ CONFIDENCE: [0.0-1.0]"""
         tasks: list[ResearchTask]
     ) -> tuple[Optional[str], float]:
         """
-        Generate recommendation using Gemini 2.5 Flash Lite (MSN-0058).
+        Generate recommendation using Mistral (MSN-0058).
 
-        Flash Lite is cost-effective for recommendation generation while
-        maintaining good quality. Primary tier before Ollama fallback.
+        Mistral is the primary model for recommendation generation while
+        Ollama remains the local fallback.
 
         Args:
             consolidated_findings: Consolidated research output
@@ -1457,7 +1583,7 @@ CONFIDENCE: [0.0-1.0]"""
         """
 
         if not consolidated_findings or "No findings" in consolidated_findings:
-            log.debug("No findings for Flash Lite recommendation")
+            log.debug("No findings for Mistral recommendation")
             return None, 0.0
 
         recommendation_prompt = f"""You are a strategic advisor. Based on the following research findings, provide a clear, actionable recommendation.
@@ -1482,9 +1608,8 @@ RECOMMENDATION: [your recommendation]
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            # Import here to avoid circular imports
-            if not call_gemini_2_5_flash_lite_research:
-                raise Exception("call_gemini_2_5_flash_lite_research not loaded")
+            if not call_mistral_research:
+                raise Exception("call_mistral_research not loaded")
 
             # Create a simple task-like object for the API call
             class RecommendationTask:
@@ -1493,9 +1618,8 @@ CONFIDENCE: [0.0-1.0]"""
 
             task = RecommendationTask(recommendation_prompt)
 
-            # Call Flash Lite API
-            log.debug("Calling Gemini 2.5 Flash Lite for recommendation (MSN-0058)")
-            outcome = call_gemini_2_5_flash_lite_research(recommendation_prompt, timeout_sec=20)
+            log.debug("Calling Mistral for recommendation (MSN-0058)")
+            outcome = call_mistral_research(recommendation_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()
@@ -1515,17 +1639,17 @@ CONFIDENCE: [0.0-1.0]"""
                             confidence = 0.5
 
                 if recommendation:
-                    log.debug(f"Flash Lite recommendation generated (confidence: {confidence:.2f})")
+                    log.debug(f"Mistral recommendation generated (confidence: {confidence:.2f})")
                     return recommendation, confidence
                 else:
-                    log.debug("Flash Lite returned no recommendation")
+                    log.debug("Mistral returned no recommendation")
                     return None, 0.0
             else:
                 log.debug(f"Flash Lite call failed: {outcome.status}")
                 return None, 0.0
 
         except Exception as e:
-            log.debug(f"Flash Lite recommendation failed ({type(e).__name__}): {str(e)[:50]}")
+            log.debug(f"Mistral recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
     # ========================================================================

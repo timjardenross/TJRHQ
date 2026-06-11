@@ -3,16 +3,16 @@
 
 Converts ResearchPackage output into a short Captain's Brief for Slack.
 
-Agent: Mistral Captain's Briefing Officer
-- agent_id: ag_019eb077b0d47239bebcbabd719a2e7b
-- agent_version: 0
+Uses Mistral Chat Completions API (mistral-large-latest model).
+Previous Agents API endpoint returned 404 for all agent IDs.
+Switched to direct model API (same pattern as decomposition - verified working).
 
 Public API:
     generate_captains_brief(research_package: dict) -> str
 
 Behavior:
 - Takes ResearchPackage as input
-- Calls Mistral briefing agent
+- Calls Mistral direct model API
 - Returns short brief (max ~150 words)
 - Fails gracefully if Mistral unavailable
 """
@@ -20,17 +20,20 @@ Behavior:
 import os
 import json
 import logging
+import urllib.request
+import urllib.error
 from typing import Optional, Dict, Any
 
 log = logging.getLogger(__name__)
 
-# Mistral agent configuration
-BRIEFING_AGENT_ID = "ag_019eb077b0d47239bebcbabd719a2e7b"
-BRIEFING_AGENT_VERSION = 0
+
+def _mistral_agent_id(env_name: str, fallback: str) -> str:
+    agent_id = os.getenv(env_name, "").strip()
+    return agent_id or fallback
 
 
 def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
-    """Generate a Captain's Brief from a ResearchPackage.
+    """Generate a Captain's Brief from a ResearchPackage using direct Mistral API.
 
     Args:
         research_package: ResearchPackage dict with findings, recommendation, etc.
@@ -43,35 +46,67 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
     try:
         api_key = os.getenv("MISTRAL_API_KEY")
         if not api_key:
-            log.warning("[briefing] MISTRAL_API_KEY not set; briefing unavailable")
+            log.warning("[briefing-officer] MISTRAL_API_KEY not set; briefing unavailable")
             return None
 
+        # Add downstream outputs if available
+        summary_output = research_package.get("summary_officer_output")
+        challenge_output = research_package.get("risk_challenge_output")
+        has_summary = summary_output is not None
+        has_challenge = challenge_output is not None
+
+        log.info(f"[briefing-officer] Calling Captain's Briefing Officer (summary={has_summary} challenge={has_challenge})...")
+
+        # Build briefing prompt
+        briefing_prompt = _build_briefing_prompt(research_package)
+
+        # Call the configured Mistral briefing agent
         from mistralai.client import Mistral
 
         client = Mistral(api_key=api_key)
-
-        # Build briefing prompt from research package
-        brief_prompt = _build_briefing_prompt(research_package)
-
-        log.info(f"[briefing] Calling Mistral agent {BRIEFING_AGENT_ID}...")
-
-        response = client.beta.conversations.start(
-            agent_id=BRIEFING_AGENT_ID,
-            agent_version=BRIEFING_AGENT_VERSION,
-            inputs=[{"role": "user", "content": brief_prompt}],
+        agent_id = _mistral_agent_id(
+            "MISTRAL_BRIEFING_AGENT_ID",
+            "ag_019eafb4bee976348306954617b1c18c",
         )
+        agent_version = int(os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "2"))
 
-        if response and hasattr(response, 'messages') and response.messages:
-            brief_text = response.messages[-1].content
-            brief_length = len(brief_text.split())
-            log.info(f"[briefing] SUCCESS - Brief generated ({brief_length} words)")
-            return brief_text
+        payload = {
+            "messages": [
+                {"role": "user", "content": briefing_prompt}
+            ]
+        }
+        response = client.beta.conversations.start(
+            agent_id=agent_id,
+            agent_version=agent_version,
+            messages=payload["messages"],
+        )
+        response_data = response
+
+        # Extract brief from response
+        brief = ""
+        if hasattr(response_data, "choices") and response_data.choices:
+            brief = response_data.choices[0].message.content if response_data.choices[0].message else ""
+        elif hasattr(response_data, "messages") and response_data.messages:
+            brief = response_data.messages[-1].content if response_data.messages[-1] else ""
+
+        if brief:
+            brief_length = len(brief.split())
+            log.info(f"[briefing-officer] SUCCESS - Brief generated ({brief_length} words)")
+            return brief
         else:
-            log.error("[briefing] FAILED - Empty response from Mistral")
+            log.warning("[briefing-officer] Empty response from Mistral agent")
             return None
 
+    except urllib.error.HTTPError as e:
+        log.warning(f"[briefing-officer] HTTP {e.code}: {e.reason}")
+        return None
+
+    except urllib.error.URLError as e:
+        log.warning(f"[briefing-officer] Connection failed: {e}")
+        return None
+
     except Exception as e:
-        log.error(f"[briefing] FAILED - {type(e).__name__}: {e}", exc_info=True)
+        log.error(f"[briefing-officer] FAILED - {type(e).__name__}: {e}", exc_info=True)
         return None
 
 
@@ -89,8 +124,10 @@ def _build_briefing_prompt(research_package: Dict[str, Any]) -> str:
         timestamp = research_package.get("timestamp", "")
 
         # Build structured input for briefing agent
-        brief_input = f"""
-Research Package Summary
+        recommendation_section = f"Recommendation:\n{recommendation}" if recommendation else ""
+        output_format = "RECOMMENDATION\n[What Captain should do next]" if research_type == "decision" and recommendation else "KEY INSIGHTS\n[Key findings for decision-making]"
+
+        brief_input = f"""Research Package Summary
 =======================
 
 Topic: {topic}
@@ -101,7 +138,7 @@ Timestamp: {timestamp}
 Key Findings:
 {key_findings}
 
-{"Recommendation:\n" + recommendation if recommendation else ""}
+{recommendation_section}
 
 Task: Generate a Captain's Brief in ~150 words.
 
@@ -117,7 +154,7 @@ WHY IT MATTERS
 ATTENTION REQUIRED
 [Any critical issues, risks, or blockers]
 
-{"RECOMMENDATION\n[What Captain should do next]" if research_type == "decision" and recommendation else "KEY INSIGHTS\n[Key findings for decision-making]"}
+{output_format}
 
 CONFIDENCE
 [High/Medium/Low based on research confidence]
