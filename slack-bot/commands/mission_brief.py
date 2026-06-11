@@ -747,6 +747,9 @@ def save_engineering_handoff_from_build_record(
     markdown = (
         "# Engineering Handoff\n\n"
         f"- Status: APPROVED_FOR_ENGINEERING\n"
+        f"- Batch Status: PENDING\n"
+        f"- Batch Group: unassigned\n"
+        f"- Priority: P2\n"
         f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"- Approved By: {approver_user_id}\n"
         f"- Source Build Record: {source_record}\n"
@@ -793,6 +796,9 @@ def mark_build_record_approved(
     approval_block = (
         "\n\n## Approval Status\n\n"
         "- Status: APPROVED_FOR_ENGINEERING\n"
+        "- Batch Status: PENDING\n"
+        "- Batch Group: unassigned\n"
+        "- Priority: P2\n"
         f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"- Approved By: {approver_user_id}\n"
         f"- Engineering Handoff: {handoff_path}\n"
