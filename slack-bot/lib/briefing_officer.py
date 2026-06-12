@@ -18,18 +18,11 @@ Behavior:
 """
 
 import os
-import json
 import logging
-import urllib.request
-import urllib.error
 from typing import Optional, Dict, Any
 
 log = logging.getLogger(__name__)
 
-
-def _mistral_agent_id(env_name: str, fallback: str) -> str:
-    agent_id = os.getenv(env_name, "").strip()
-    return agent_id or fallback
 
 
 def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
@@ -57,52 +50,18 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
 
         log.info(f"[briefing-officer] Calling Captain's Briefing Officer (summary={has_summary} challenge={has_challenge})...")
 
-        # Build briefing prompt
         briefing_prompt = _build_briefing_prompt(research_package)
 
-        # Call the configured Mistral briefing agent
-        from mistralai import Mistral
-
-        client = Mistral(api_key=api_key)
-        agent_id = _mistral_agent_id(
-            "MISTRAL_BRIEFING_AGENT_ID",
-            "ag_019eafb4bee976348306954617b1c18c",
+        from lib.mistral_agent_client import call_agent, AGENT_BRIEFING
+        brief = call_agent(
+            stage="brief",
+            agent_name=AGENT_BRIEFING,
+            prompt=briefing_prompt,
+            mission_id=research_package.get("mission_id"),
         )
-        agent_version = int(os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "2"))
-
-        payload = {
-            "messages": [
-                {"role": "user", "content": briefing_prompt}
-            ]
-        }
-        response = client.beta.conversations.start(
-            agent_id=agent_id,
-            agent_version=agent_version,
-            inputs={"messages": payload["messages"]},
-        )
-
-        # Extract text from v1.x ConversationResponse (outputs[].content)
-        brief = ""
-        if hasattr(response, "outputs") and response.outputs:
-            for entry in response.outputs:
-                if getattr(entry, "role", None) == "assistant":
-                    content = getattr(entry, "content", None)
-                    if content:
-                        if isinstance(content, list):
-                            brief = " ".join(
-                                c.text if hasattr(c, "text") else str(c)
-                                for c in content
-                            ).strip()
-                        else:
-                            brief = str(content).strip()
-                        break
-        # Legacy fallback
-        if not brief and hasattr(response, "choices") and response.choices:
-            brief = response.choices[0].message.content or ""
 
         if brief:
-            brief_length = len(brief.split())
-            log.info(f"[briefing-officer] SUCCESS - Brief generated ({brief_length} words)")
+            log.info(f"[briefing-officer] SUCCESS - Brief generated ({len(brief.split())} words)")
             return brief
         else:
             log.warning("[briefing-officer] Empty response from Mistral agent")

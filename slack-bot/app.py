@@ -196,6 +196,13 @@ def validate_environment() -> bool:
     validate_research_delegator()
     validate_research_runtime()
 
+    # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW: Mistral agent startup health check
+    try:
+        from lib.mistral_agent_client import check_startup_health
+        check_startup_health()
+    except Exception as _mhc_exc:
+        log.warning("[startup] Mistral agent health check failed (non-blocking): %s", _mhc_exc)
+
     return True
 
 

@@ -146,6 +146,58 @@ log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
 
+# ─── Mistral agent client ─────────────────────────────────────────────────────
+# _slack_bot_lib_dir is already in sys.path (added above), so this import works.
+try:
+    import mistral_agent_client as _mac
+    log.info("[startup] mistral_agent_client loaded from slack-bot/lib")
+except ImportError as _e:
+    _mac = None
+    log.warning(f"[startup] mistral_agent_client not available — Mistral stages will fall back: {_e}")
+
+
+class _StageOutcome:
+    """Minimal duck-typed stand-in for ResearchOutcome used by _call_stage()."""
+    __slots__ = ("status", "findings")
+    def __init__(self, status: str, findings: str):
+        self.status = status
+        self.findings = findings
+
+
+def _call_stage(
+    stage: str,
+    agent_name: str,
+    prompt: str,
+    timeout_sec: int = 30,
+    mission_id: str = None,
+) -> "_StageOutcome":
+    """
+    Mistral-first stage call with automatic fallback to the legacy provider chain.
+
+    Priority:
+      1. Mistral Agents (agent_name maps to MISTRAL_<NAME>_AGENT_ID)
+      2. Legacy routing (Gemini 2.5 Flash Lite → Gemini Flash → Ollama)
+
+    Returns a _StageOutcome compatible with ResearchOutcome (.status / .findings).
+    """
+    # 1. Try Mistral first
+    if _mac is not None:
+        text = _mac.call_agent(
+            stage=stage,
+            agent_name=agent_name,
+            prompt=prompt,
+            mission_id=mission_id,
+            timeout_ms=timeout_sec * 1000,
+        )
+        if text:
+            return _StageOutcome(status="success", findings=text)
+
+    # 2. Fall back to legacy provider chain (Gemini Lite → Gemini Flash → Ollama)
+    if call_legacy_research_routing:
+        outcome = call_legacy_research_routing(prompt, timeout_sec=timeout_sec)
+        return outcome  # already has .status and .findings
+    return _StageOutcome(status="failed", findings="")
+
 
 # ============================================================================
 # Data Classes
@@ -1004,11 +1056,8 @@ Consolidation Requirements:
 Provide only the consolidated summary, no headers or metadata."""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            log.info("Calling provider for finding consolidation")
-            outcome = call_legacy_research_routing(consolidation_prompt, timeout_sec=60)
+            log.info("[research] stage=consolidate provider=mistral_agent_or_fallback")
+            outcome = _call_stage("consolidate", "summary", consolidation_prompt, timeout_sec=60, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 consolidated = outcome.findings.strip()
@@ -1093,11 +1142,8 @@ Disadvantages:
 Cost/Effort: [if relevant]"""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            log.debug("Extracting options from findings")
-            outcome = call_legacy_research_routing(options_prompt, timeout_sec=20)
+            log.debug("[research] stage=extract_options provider=mistral_agent_or_fallback")
+            outcome = _call_stage("extract_options", "summary", options_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 options_text = outcome.findings.strip()
@@ -1151,11 +1197,8 @@ Format as a clear comparison table or matrix showing how each option trades off 
 Be specific with numbers/timelines where possible."""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            log.debug("Analyzing trade-offs")
-            outcome = call_legacy_research_routing(tradeoff_prompt, timeout_sec=20)
+            log.debug("[research] stage=tradeoff_analysis provider=mistral_agent_or_fallback")
+            outcome = _call_stage("tradeoff_analysis", "summary", tradeoff_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 tradeoff_text = outcome.findings.strip()
@@ -1207,11 +1250,8 @@ For each option, identify:
 Format clearly. Be specific about probability and impact."""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            log.debug("Assessing risks")
-            outcome = call_legacy_research_routing(risk_prompt, timeout_sec=20)
+            log.debug("[research] stage=risk_assessment provider=mistral_agent_or_fallback")
+            outcome = _call_stage("risk_assessment", "challenge", risk_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 risk_text = outcome.findings.strip()
@@ -1531,11 +1571,8 @@ FIRST THREE ACTIONS:
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            log.debug("Calling LLM with decision framework")
-            outcome = call_legacy_research_routing(decision_framework_prompt, timeout_sec=30)
+            log.debug("[research] stage=decision_framework provider=mistral_agent_or_fallback")
+            outcome = _call_stage("decision_framework", "summary", decision_framework_prompt, timeout_sec=30, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()
@@ -1612,18 +1649,8 @@ RECOMMENDATION: [your recommendation]
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            if not call_legacy_research_routing:
-                raise Exception("call_legacy_research_routing not loaded")
-
-            # Create a simple task-like object for the API call
-            class RecommendationTask:
-                def __init__(self, prompt):
-                    self.prompt = prompt
-
-            task = RecommendationTask(recommendation_prompt)
-
-            log.debug("Calling LLM for recommendation (MSN-0058)")
-            outcome = call_legacy_research_routing(recommendation_prompt, timeout_sec=20)
+            log.debug("[research] stage=recommend provider=mistral_agent_or_fallback")
+            outcome = _call_stage("recommend", "summary", recommendation_prompt, timeout_sec=20, mission_id=getattr(self, '_current_mission_id', None))
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()

@@ -130,6 +130,53 @@ def get_mission_gemini_quota(mission_id: str) -> MissionGeminiQuota:
 
 
 # ============================================================================
+# Provider: Mistral Research Agent (primary — M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW)
+# ============================================================================
+
+def call_mistral_research(
+    task_description: str,
+    timeout_sec: int = 60,
+    mission_id: str = None,
+) -> "ResearchOutcome":
+    """
+    Call the Mistral Research Agent as primary provider for task execution.
+
+    Uses the shared mistral_agent_client (slack-bot/lib/mistral_agent_client.py).
+    Requires MISTRAL_RESEARCH_AGENT_ID in the environment.
+    Returns a ResearchOutcome; does not raise.
+    """
+    try:
+        import mistral_agent_client as _mac
+    except ImportError:
+        return ResearchOutcome(
+            status="failed",
+            findings="",
+            provider="mistral_agent",
+            error_message="mistral_agent_client not available",
+        )
+
+    text = _mac.call_agent(
+        stage="execute",
+        agent_name=_mac.AGENT_RESEARCH,
+        prompt=task_description,
+        mission_id=mission_id,
+        timeout_ms=timeout_sec * 1000,
+    )
+    if text:
+        return ResearchOutcome(
+            status="success",
+            findings=text,
+            provider="mistral_agent",
+        )
+    return ResearchOutcome(
+        status="failed",
+        findings="",
+        provider="mistral_agent",
+        error_message="empty or failed response",
+    )
+
+
+# ============================================================================
 # Provider: Gemini 2.5 Flash
 # ============================================================================
 
@@ -751,12 +798,11 @@ def delegate_research_task(
     # Get mission Gemini quota tracker
     mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
 
-    # Provider fallback chain without Mistral
-    # 1. qwen3:8b via Ollama (primary local fallback)
-    # 2. Gemini 2.5 Flash Lite (secondary fallback - quota-aware)
-    # 3. Gemini 2.5 Flash (emergency only - premium)
+    # Provider chain: Mistral first, then Ollama, then Gemini
+    # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
     providers = [
-        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
+        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
+        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
@@ -785,10 +831,11 @@ def delegate_research_task(
                 f"[msp-0060b] Adaptive routing unavailable (using default order): {type(e).__name__}"
             )
 
-    # Provider chain: try each in order
-    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order without Mistral
+    # Provider chain: Mistral first, Ollama second, Gemini fallback
+    # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
     providers = [
-        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
+        ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
+        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
