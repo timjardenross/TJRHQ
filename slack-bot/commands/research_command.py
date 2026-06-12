@@ -30,15 +30,26 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from collections import deque
 from typing import Callable, Any, Optional
 
+# RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
+# This ensures imports work whether app.py has run yet or not
+_research_command_file = Path(__file__).resolve()
+_repo_root = _research_command_file.parent.parent.parent  # slack-bot/commands -> repo root
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
+from core.coordination.advisory_memory_formatter import format_memory_block
+from core.coordination.memory_metrics import log_memory_metric
 
 log = logging.getLogger(__name__)
+log.debug(f"[research] Module imported, repo root in sys.path: {_repo_root}")
 
 
 # ============================================================================
@@ -54,6 +65,46 @@ _slack_say_func = None  # Will be set by handle_research_request_with_slack()
 # MSN-0055C Work Package 2: Provider health tracking across mission execution
 # Persists across all tasks within a mission (reset on new mission)
 _provider_health = ProviderHealth()
+
+
+def _build_research_supabase_client():
+    """Return a raw Supabase client for read paths, if available."""
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+
+        client = CommanderSupabaseClient()
+        raw_client = client.raw_client
+        if raw_client is not None:
+            return raw_client
+    except Exception as exc:
+        log.warning("[research] Supabase client unavailable for research memory: %s", exc)
+    return None
+
+
+def _build_mission_registry_memory_adapter():
+    """Return the mission registry memory adapter if available."""
+    try:
+        from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
+
+        return MissionRegistryMemoryAdapter()
+    except Exception as exc:
+        log.warning("[research] Mission registry memory adapter unavailable: %s", exc)
+        return None
+
+
+def _build_decision_registry_memory_adapter():
+    """Return the decision registry memory adapter if available."""
+    try:
+        from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+
+        return DecisionRegistryMemoryAdapter()
+    except Exception as exc:
+        log.warning("[research] Decision registry memory adapter unavailable: %s", exc)
+        return None
+
+
+def _compute_research_query_hash(query: str) -> str:
+    return hashlib.sha256(query.strip().lower().encode("utf-8")).hexdigest()
 
 def _generate_queue_mission_id() -> str:
     """Generate unique mission ID for queue tracking."""
@@ -204,27 +255,32 @@ def _execute_research_mission(
     """Execute a single research mission (internal, locked)."""
 
     # Step 1: Import orchestration module and memory retriever
+    # NOTE: app.py validates ResearchOrchestrator at startup.
+    # If it's available at startup, it's available here (Python caches imports).
     try:
-        _bot_dir = Path(__file__).resolve().parent.parent
-        if str(_bot_dir) not in sys.path:
-            sys.path.insert(0, str(_bot_dir))
-
         # Import orchestrator and memory retriever (MSN-0057 WP1)
+        # These are validated at app.py startup, so import should succeed
         from core.coordination.research_orchestration import ResearchOrchestrator
         from lib.research_memory_retrieval import ResearchMemoryRetriever
 
+        log.info("[research] ResearchOrchestrator imported successfully (cached from startup)")
+
     except ImportError as e:
-        log.error("[research] Could not import orchestrator/retriever: %s", e)
+        log.error("[research] CRITICAL: Could not import orchestrator/retriever: %s", e)
+        log.error("[research] sys.path entries: %s", sys.path[:5])  # Log first 5 entries for debugging
+        log.error("[research] RESEARCH_DELEGATOR_AVAILABLE=false - Import failed at execution time")
         return (
             "❌ Number One research orchestration unavailable.\n"
-            "Error: Research delegation module not found."
+            f"Error: Research delegation module not found.\n"
+            f"_Debug: {str(e)}_"
         )
 
     # Step 2: Check research memory BEFORE executing new research (MSN-0057 WP1)
     log.info("[research] Checking prior research (MSN-0057 WP1 retrieval)")
     retrieval_result = None
     try:
-        retriever = ResearchMemoryRetriever()
+        research_supabase = _build_research_supabase_client()
+        retriever = ResearchMemoryRetriever(research_supabase)
         retrieval_result = retriever.search_prior_research(text.strip())
 
         log.info(
@@ -242,12 +298,95 @@ def _execute_research_mission(
             retrieval_result.found,
         )
 
+        log_memory_metric(
+            source="research",
+            action="memory_lookup",
+            outcome="hit" if retrieval_result.found else "miss",
+            confidence=retrieval_result.match_confidence,
+            memory_type="research",
+            details={"recommendation": retrieval_result.recommendation},
+        )
+
     except Exception as e:
         log.warning("[research] Memory retrieval failed (non-blocking): %s", e)
         retrieval_result = None
         # Continue with new research; retrieval failure does not block execution
 
     # Step 2b: If REUSE or REUSE_WITH_NOTE, return prior findings (MSN-0057 WP1)
+    mission_registry_note = ""
+    try:
+        registry_adapter = _build_mission_registry_memory_adapter()
+        if registry_adapter:
+            registry_context = registry_adapter.retrieve_related_missions(
+                title=text.strip(),
+                objective=text.strip(),
+                text=text.strip(),
+                limit=3,
+            )
+            if registry_context.found and registry_context.related_missions:
+                mission_registry_note = "\n" + format_memory_block(
+                    label="📚 Related missions",
+                    items=[
+                        {
+                            "mission_id": m.mission_id,
+                            "status": m.status,
+                            "reason": m.reason,
+                        }
+                        for m in registry_context.related_missions[:3]
+                    ],
+                    source_types=["mission registry"],
+                    summary=registry_context.summary,
+                    confidence=registry_context.confidence,
+                )
+                log_memory_metric(
+                    source="research",
+                    action="mission_overlap_warning",
+                    outcome="warning",
+                    confidence=registry_context.confidence,
+                    memory_type="mission",
+                    details={"related_count": len(registry_context.related_missions)},
+                )
+    except Exception as exc:
+        log.warning("[research] Mission registry lookup failed (non-blocking): %s", exc)
+
+    decision_registry_note = ""
+    try:
+        decision_adapter = _build_decision_registry_memory_adapter()
+        if decision_adapter:
+            decision_context = decision_adapter.retrieve_related_decisions(
+                title=text.strip(),
+                objective=text.strip(),
+                text=text.strip(),
+                limit=3,
+            )
+            if decision_context.found and decision_context.related_decisions:
+                decision_registry_note = "\n" + format_memory_block(
+                    label="🧭 Related decisions",
+                    items=[
+                        {
+                            "decision_id": d.decision_id,
+                            "status": d.status,
+                            "reason": d.reason,
+                        }
+                        for d in decision_context.related_decisions[:3]
+                    ],
+                    source_types=["decision registry"],
+                    summary=decision_context.summary,
+                    confidence=decision_context.confidence,
+                )
+                if decision_context.conflict_warnings:
+                    decision_registry_note += "\n⚠️ Decision conflict: review overlapping approved or superseded decisions."
+                    log_memory_metric(
+                        source="research",
+                        action="decision_conflict_warning",
+                        outcome="warning",
+                        confidence=decision_context.confidence,
+                        memory_type="decision",
+                        details={"conflict_count": len(decision_context.conflict_warnings)},
+                    )
+    except Exception as exc:
+        log.warning("[research] Decision registry lookup failed (non-blocking): %s", exc)
+
     if retrieval_result and retrieval_result.recommendation in ("REUSE", "REUSE_WITH_NOTE"):
         log.info(
             "[research] Prior research reused: decision=%s confidence=%.2f mission_id=%s",
@@ -267,6 +406,8 @@ def _execute_research_mission(
             f"🎯 *Recommendation:* {retrieval_result.entry.get('recommendation', 'See prior research')}\n"
             f"📈 *Confidence:* {int(retrieval_result.match_confidence * 100)}% (from prior research)"
             f"{reuse_note}\n"
+            f"{mission_registry_note}"
+            f"{decision_registry_note}"
             f"⏱️ *Research Time:* <100ms (retrieved from memory)"
         )
 
@@ -277,6 +418,14 @@ def _execute_research_mission(
             recommendation=retrieval_result.entry.get('recommendation', ''),
             confidence=retrieval_result.match_confidence,
             user_id=user_id,
+        )
+        log_memory_metric(
+            source="research",
+            action="reuse_accepted",
+            outcome="accepted",
+            confidence=retrieval_result.match_confidence,
+            memory_type="research",
+            details={"mission_id": retrieval_result.entry.get("mission_id") if retrieval_result.entry else ""},
         )
 
         return message_text
@@ -311,6 +460,10 @@ def _execute_research_mission(
 
     # Step 3: Format result for Slack
     message_text = _format_research_result(result)
+    if mission_registry_note:
+        message_text = f"{message_text}\n{mission_registry_note}"
+    if decision_registry_note:
+        message_text = f"{message_text}\n{decision_registry_note}"
 
     # Step 4: Guardrail — if formatted message is empty or too short, return explicit fallback
     if not message_text or len(message_text.strip()) < 20:
@@ -326,6 +479,15 @@ def _execute_research_mission(
     # TODO: Phase 5 — integrate with mission_to_memory and decision_to_memory
     if result.status != "error":
         _queue_mission_logging(result, user_id)
+        _persist_research_memory(result, user_id)
+        log_memory_metric(
+            source="research",
+            action="new_research_completed",
+            outcome="fresh_research",
+            confidence=getattr(result, "confidence", 0.0),
+            memory_type="research",
+            details={"mission_id": getattr(result, "mission_id", "")},
+        )
 
     return message_text
 
@@ -486,16 +648,31 @@ def _validate_research_topic(topic: str) -> str | None:
 
 def _format_research_result(result) -> str:
     """
-    Format ResearchMissionResult as decision-ready Slack message (MSN-0056).
+    Format ResearchMissionResult as Slack message (MSN-0056, MSN-BRIEFING-OFFICER Path A).
+
+    Path A: Captain's Brief as Primary Output
+    - Shows Captain's Brief first (if available, ~150 words)
+    - Preserves full findings in logs
+    - Includes mission ID for log reference
+    - Falls back to standard research format if briefing fails
 
     Args:
         result: ResearchMissionResult object
 
     Returns:
-        Slack-formatted markdown string showing decision package
+        Slack-formatted markdown string
     """
 
-    # MSN-0056: Decision package header
+    # PATH A: Captain's Brief as Primary Output
+    if hasattr(result, 'captains_brief') and result.captains_brief:
+        # Brief is available - use it as primary output
+        message = result.captains_brief
+        message += f"\n\n---\n"
+        message += f"*Mission ID:* `{result.mission_id}`\n"
+        message += f"Full research available in research log.\n"
+        return message
+
+    # FALLBACK: Standard research format (if brief unavailable)
     message = "🔍 *Research Complete*\n"
     message += "━━━━━━━━━━━━━━━━━━\n"
     message += f"*Mission:* {result.mission_id}\n"
@@ -504,7 +681,7 @@ def _format_research_result(result) -> str:
         message += f"*Provider:* {result.primary_provider}\n"
     message += "\n"
 
-    # MSN-0056: Executive Summary (consolidated findings)
+    # Findings (always shown in fallback)
     if result.consolidated_findings and result.consolidated_findings.strip() != "No findings generated from research tasks.":
         message += "📊 *FINDINGS*\n"
         # Truncate if too long for Slack
@@ -513,30 +690,37 @@ def _format_research_result(result) -> str:
             findings_preview += "...\n\n[Full findings available in research log]"
         message += f"{findings_preview}\n\n"
 
-    # MSN-0056: Clear recommendation with confidence (core decision element)
-    message += "🎯 *RECOMMENDATION*\n"
-    if result.recommendation:
-        message += f"{result.recommendation}\n"
-        message += f"_Confidence: {result.confidence:.0%}_\n"
-    else:
-        # MSN-0056: Never output "No actionable recommendation" when findings exist
-        message += "_No recommendation available from research._\n"
-    message += "\n"
+    # Recommendation (conditional: only for decision-oriented or unclear requests)
+    is_informational = getattr(result, 'request_type', 'unclear') == 'informational'
+    if not is_informational:
+        message += "🎯 *RECOMMENDATION*\n"
+        if result.recommendation:
+            message += f"{result.recommendation}\n"
+            message += f"_Confidence: {result.confidence:.0%}_\n"
+        else:
+            message += "_No recommendation available from research._\n"
+        message += "\n"
 
-    # MSN-0056: Include caveats only if there are errors or partial results
+    # Caveats (only if errors or partial results)
     if result.errors and result.status != "success":
         message += "⚠️ *NOTES*\n"
         for error in result.errors:
             message += f"  • {error}\n"
         message += "\n"
 
-    # MSN-0056: Next action for decision-maker
+    # Next action (context-dependent)
     message += "📋 *NEXT ACTION*\n"
-    message += "Request Captain/XO review for decision approval\n\n"
+    if is_informational:
+        message += "Research findings available for review\n\n"
+    else:
+        message += "Request Captain/XO review for decision approval\n\n"
 
     # Footer: Authority and guidance
     message += "---\n"
-    message += "_Research findings are advisory. Captain/XO decision required._\n"
+    if is_informational:
+        message += "_Research findings are available for reference._\n"
+    else:
+        message += "_Research findings are advisory. Captain/XO decision required._\n"
 
     return message
 
@@ -648,6 +832,50 @@ def _queue_mission_logging_reuse(
         # Non-blocking: reuse already delivered to user; metrics logging is auxiliary
 
 
+def _persist_research_memory(result, user_id: str | None) -> None:
+    """Persist completed research to the existing Supabase memory layer."""
+    try:
+        client = _build_research_supabase_client()
+        if client is None:
+            log.info("[research] Supabase disabled; skipping research memory persistence")
+            return
+
+        query_text = result.research_topic or ""
+        query_hash = _compute_research_query_hash(query_text)
+        payload = {
+            "mission_id": result.mission_id,
+            "original_question": query_text,
+            "consolidated_findings": result.consolidated_findings,
+            "recommendation": result.recommendation or "",
+            "confidence_level": float(result.confidence or 0.0),
+            "created_at": result.timestamp,
+            "tags": [term for term in query_text.lower().split() if len(term) > 2][:10],
+            "reuse_count": 0,
+            "provider_path": result.provider_paths or [],
+            "tasks_completed": int(result.tasks_completed or 0),
+            "task_count": int(result.task_count or 0),
+            "query_hash": query_hash,
+            "researcher_id": user_id or "slack-bot",
+            "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
+            "stored_at": datetime.utcnow().isoformat(),
+        }
+
+        write_result = client.insert("research_memory", payload)
+        if not write_result.ok:
+            log.warning(
+                "[research] Research memory persistence failed: table=%s error=%s",
+                write_result.table,
+                write_result.error,
+            )
+            return
+
+        log.info(
+            "[research] Research memory persisted: mission_id=%s query_hash=%s",
+            result.mission_id,
+            query_hash[:8],
+        )
+    except Exception as exc:
+        log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
 
 
 # ============================================================================

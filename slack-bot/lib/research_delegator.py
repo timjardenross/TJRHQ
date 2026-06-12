@@ -10,11 +10,10 @@ Gemini quota exhaustion retries. Once daily quota is exceeded:
   - Per-mission Gemini call budget prevents quota exhaustion (max 1 call/mission)
   - Detailed logging tracks provider selection, skipping, and fallback usage
 
-Primary flow (quota-aware):
-  1. Check per-mission Gemini call budget (max GEMINI_MAX_CALLS_PER_MISSION)
-  2. If available AND Gemini not marked unavailable: Gemini 2.5 Flash Lite (primary)
-  3. If Gemini skipped/unavailable: qwen3:8b via Ollama (fallback - local, free)
-  4. If Ollama unavailable: Gemini 2.5 Flash (emergency only - premium)
+Primary flow:
+  1. qwen3:8b via Ollama (primary local fallback)
+  2. Gemini 2.5 Flash Lite (secondary fallback)
+  3. Gemini 2.5 Flash (emergency only - premium)
 
 Non-blocking: If all providers fail, returns error status but does not crash.
 
@@ -35,9 +34,13 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
-from provider_health import ProviderHealth, extract_failure_reason
+try:
+    from provider_health import ProviderHealth, extract_failure_reason
+except ImportError:
+    from lib.provider_health import ProviderHealth, extract_failure_reason
 
 log = logging.getLogger(__name__)
+
 
 # ============================================================================
 # Configuration: Quota-Aware Routing (MSN-[GEMINI-QUOTA-AWARE-ROUTING])
@@ -280,6 +283,18 @@ def call_gemini_research(
             error_message=f"Gemini error: {str(e)}"
         )
 
+
+# ============================================================================
+# Provider: Compatibility Shim for Legacy Gemini Lite Routing
+# ============================================================================
+
+def call_legacy_research_routing(
+    task_description: str,
+    timeout_sec: int = 120
+) -> ResearchOutcome:
+    """Compatibility shim that routes legacy calls to Gemini Lite."""
+    log.info("Legacy research call routed to Gemini Lite")
+    return call_gemini_2_5_flash_lite_research(task_description, timeout_sec)
 
 # ============================================================================
 # Provider: qwen3 via Ollama (Fallback)
@@ -736,6 +751,16 @@ def delegate_research_task(
     # Get mission Gemini quota tracker
     mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
 
+    # Provider fallback chain without Mistral
+    # 1. qwen3:8b via Ollama (primary local fallback)
+    # 2. Gemini 2.5 Flash Lite (secondary fallback - quota-aware)
+    # 3. Gemini 2.5 Flash (emergency only - premium)
+    providers = [
+        ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
+        ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
+    ]
+
     # ========================================================================
     # MSN-0060B: B1D→B1A Adaptive Routing Integration
     # Reorder providers based on quality metrics from feedback loops
@@ -761,15 +786,10 @@ def delegate_research_task(
             )
 
     # Provider chain: try each in order
-    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
-    # Research delegation uses Flash Lite primary (cost optimized)
-    # Ollama as primary fallback (local, free, no quota)
-    # Flash reserved for emergency only
-    #
-    # MSN-0060B: If adaptive routing active, reorder by quality metrics
+    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order without Mistral
     providers = [
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (primary - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
+        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
     ]
 

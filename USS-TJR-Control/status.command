@@ -5,7 +5,6 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config/services.conf"
-SESSION_NAME="usstjr"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -14,7 +13,7 @@ SESSION_NAME="usstjr"
 # Print a status line: symbol, label, detail
 _status() {
   local symbol="$1" label="$2" detail="$3"
-  printf "  %-6s %-22s %s\n" "$symbol" "$label" "$detail"
+  printf "  %s %s|%s\n" "$symbol" "$label" "$detail"
 }
 
 _ok()   { _status "✅" "$1" "$2"; }
@@ -61,23 +60,6 @@ else
   CONFIG_OK=false
 fi
 
-# ---------------------------------------------------------------------------
-# tmux session
-# ---------------------------------------------------------------------------
-
-echo "── TMUX SESSION ────────────────────────────"
-if command -v tmux >/dev/null 2>&1; then
-  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    _ok "Session" "'$SESSION_NAME' is running"
-    PANE_COUNT=$(tmux list-panes -t "$SESSION_NAME" 2>/dev/null | wc -l | tr -d ' ')
-    _info "Panes" "${PANE_COUNT} active pane(s)"
-  else
-    _fail "Session" "'$SESSION_NAME' not running — use start.command"
-  fi
-else
-  _fail "tmux" "not installed — brew install tmux"
-fi
-echo ""
 
 # ---------------------------------------------------------------------------
 # Service health (process + port)
@@ -85,41 +67,44 @@ echo ""
 
 echo "── SERVICE HEALTH ──────────────────────────"
 
-# Slack Bot: process match on "app.py"
-if _proc_running "python.*app\.py"; then
+# Slack Bot: process match on "app.py" (Python or python — macOS bundle uses capital P)
+if _proc_running "[Pp]ython.*app\.py"; then
   _ok "Slack Bot" "process running"
 else
   _fail "Slack Bot" "process not found"
 fi
 
-# Slack Bot also needs NGROK port to be reachable by Slack
+# Ngrok tunnel: Slack needs this to receive inbound events
 if [ "${CONFIG_OK}" = true ] && _port_listening "${NGROK_PORT:-3100}"; then
-  _ok "Ngrok tunnel" "port ${NGROK_PORT:-3100} listening"
+  _ok "Ngrok Tunnel" "port ${NGROK_PORT:-3100} listening"
 else
-  _warn "Ngrok tunnel" "port ${NGROK_PORT:-3100} not listening"
+  _warn "Ngrok Tunnel" "port ${NGROK_PORT:-3100} not listening"
 fi
 
-# Commander: process match on "commander.py"
-if _proc_running "python.*commander\.py"; then
-  _ok "Commander" "process running"
+# Commander bot: same app.py binary as all bots — check for 2+ instances (both profiles running)
+_bot_count=$(pgrep -f "[Pp]ython.*app\.py" 2>/dev/null | wc -l | tr -d ' ')
+if [ "${_bot_count}" -ge 2 ]; then
+  _ok "Bot Instances" "${_bot_count} running (commander + engineering)"
+elif [ "${_bot_count}" -eq 1 ]; then
+  _warn "Bot Instances" "1 running — only one profile active"
 else
-  _warn "Commander" "process not found (may be expected if standalone)"
+  _warn "Bot Instances" "none running"
 fi
 
-# Ollama: process match on "ollama"
+# Ollama: local LLM inference
 if _proc_running "ollama"; then
-  _ok "Ollama" "process running"
+  _ok "Ollama LLM" "process running"
 elif command -v ollama >/dev/null 2>&1; then
-  _warn "Ollama" "installed but not running — run: ollama serve"
+  _warn "Ollama LLM" "installed but not running — run: ollama serve"
 else
-  _warn "Ollama" "not installed — LLM fallback mode active"
+  _warn "Ollama LLM" "not installed — LLM fallback active"
 fi
 
 # Paperclip: port 3100
 if [ "${CONFIG_OK}" = true ] && _port_listening "${PAPERCLIP_PORT:-3100}"; then
   _ok "Paperclip" "port ${PAPERCLIP_PORT:-3100} listening"
 else
-  _info "Paperclip" "port ${PAPERCLIP_PORT:-3100} not listening (OPTIONAL)"
+  _info "Paperclip" "not running (optional)"
 fi
 
 # Health monitor: btop or htop process
@@ -128,7 +113,7 @@ if _proc_running "btop"; then
 elif _proc_running "htop"; then
   _ok "Health Monitor" "htop running"
 else
-  _info "Health Monitor" "not running in tmux pane"
+  _info "Health Monitor" "not running"
 fi
 
 echo ""
@@ -148,7 +133,7 @@ if [ -f "$SLACK_BOT_ENV" ]; then
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
       _ok "Supabase" "reachable (HTTP $HTTP_CODE)"
     elif [ "$HTTP_CODE" = "000" ]; then
-      _fail "Supabase" "unreachable (curl timeout or no network)"
+      _fail "Supabase" "unreachable — check network"
     else
       _warn "Supabase" "HTTP $HTTP_CODE — check SUPABASE_URL in .env"
     fi
@@ -156,7 +141,7 @@ if [ -f "$SLACK_BOT_ENV" ]; then
     _warn "Supabase" "SUPABASE_URL not set in .env"
   fi
 else
-  _warn "Supabase" ".env not found at $SLACK_BOT_ENV"
+  _warn "Supabase" ".env not found"
 fi
 echo ""
 
@@ -165,19 +150,27 @@ echo ""
 # ---------------------------------------------------------------------------
 
 echo "── TOOLS ───────────────────────────────────"
-for tool in ngrok jq curl; do
-  if command -v "$tool" >/dev/null 2>&1; then
-    _ok "$tool" "$(command -v "$tool")"
-  else
-    _fail "$tool" "not installed"
-  fi
-done
-if command -v btop >/dev/null 2>&1; then
-  _ok "btop" "$(command -v btop)"
-elif command -v htop >/dev/null 2>&1; then
-  _ok "htop" "$(command -v htop) (btop preferred)"
+if command -v ngrok >/dev/null 2>&1; then
+  _ok "ngrok" "installed"
 else
-  _warn "btop/htop" "not installed — Health Monitor pane will fail"
+  _fail "ngrok" "not installed"
+fi
+if command -v jq >/dev/null 2>&1; then
+  _ok "jq" "installed"
+else
+  _fail "jq" "not installed"
+fi
+if command -v curl >/dev/null 2>&1; then
+  _ok "curl" "installed"
+else
+  _fail "curl" "not installed"
+fi
+if command -v btop >/dev/null 2>&1; then
+  _ok "System Monitor" "btop installed"
+elif command -v htop >/dev/null 2>&1; then
+  _ok "System Monitor" "htop installed"
+else
+  _warn "System Monitor" "btop/htop not installed"
 fi
 echo ""
 
@@ -187,14 +180,16 @@ echo ""
 
 echo "── CONFIGURED PATHS ────────────────────────"
 if [ "$CONFIG_OK" = true ]; then
+  declare -A dir_labels=([SLACK_BOT_DIR]="Slack Bot Path" [COMMANDER_DIR]="Commander Path" [PAPERCLIP_DIR]="Paperclip Path")
   for dir_var in SLACK_BOT_DIR COMMANDER_DIR PAPERCLIP_DIR; do
     dir_val="${!dir_var:-not set}"
+    label="${dir_labels[$dir_var]}"
     if [ "$dir_val" = "not set" ]; then
-      _warn "$dir_var" "not set"
+      _warn "$label" "not set in config"
     elif [ -d "$dir_val" ]; then
-      _ok "$dir_var" "$dir_val"
+      _ok "$label" "found"
     else
-      _fail "$dir_var" "$dir_val (not found)"
+      _fail "$label" "path not found"
     fi
   done
 else

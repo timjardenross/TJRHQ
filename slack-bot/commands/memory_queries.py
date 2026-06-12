@@ -16,6 +16,9 @@ Public API:
 from __future__ import annotations
 
 import logging
+import re
+
+from core.coordination.memory_metrics import fetch_memory_metrics_summary
 
 log = logging.getLogger(__name__)
 
@@ -217,3 +220,52 @@ def handle_mission_status(ack, respond, command) -> None:
     except Exception as e:
         log.error(f"[memory-queries] Error in /mission-status: {e}")
         respond(f"❌ Status update failed: {e}")
+
+
+def handle_memory_metrics_summary(ack, respond, command) -> None:
+    """Slack command: /memory-metrics [window-days]
+
+    Reports read-only memory effectiveness metrics from existing Commander memory events.
+    """
+    ack()
+
+    text = (command.get("text") or "").strip()
+    window_days = 7
+    if text:
+        first = text.split()[0].lower()
+        match = re.fullmatch(r"--?(?P<days>\d{1,2})d?", first)
+        if match:
+            window_days = max(1, min(30, int(match.group("days"))))
+        elif first.isdigit():
+            window_days = max(1, min(30, int(first)))
+
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+        summary = fetch_memory_metrics_summary(CommanderSupabaseClient(), window_days=window_days)
+        if not summary.get("found"):
+            respond(
+                f"🧠 *Memory Metrics*\n\n"
+                f"Window: last {window_days} days\n"
+                "Not enough data yet.\n"
+                "Usage: `/memory-metrics`, `/memory-metrics --7d`, `/memory-metrics --30d`"
+            )
+            return
+
+        response_lines = ["🧠 *Memory Metrics*", ""]
+        response_lines.extend(summary["lines"])
+        alerts = summary.get("alerts") or []
+        if alerts:
+            response_lines.append("")
+            response_lines.append("Operational notes:")
+            response_lines.extend(f"• {alert}" for alert in alerts[:3])
+        if window_days == 30 and summary.get("comparison", {}).get("lines"):
+            response_lines.append("")
+            response_lines.extend(summary["comparison"]["lines"])
+        response_lines.append("")
+        response_lines.append("Usage: `/memory-metrics`, `/memory-metrics --7d`, `/memory-metrics --30d`")
+
+        respond("\n".join(response_lines))
+        log.info("[memory-queries] Memory metrics summary returned for %sd", window_days)
+    except Exception as e:
+        log.error(f"[memory-queries] Error in /memory-metrics: {e}")
+        respond(f"❌ Metrics summary failed: {e}")
