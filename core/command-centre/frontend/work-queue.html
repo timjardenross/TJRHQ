@@ -4,71 +4,225 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Work Queue — USS TJR Command Centre</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0a14; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 20px; }
-        h1 { color: #00FFFF; font-size: 20px; margin-bottom: 4px; letter-spacing: 2px; }
-        .subtitle { color: #666; font-size: 12px; margin-bottom: 16px; }
 
-        .trust-banner { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-        .trust-live        { background: rgba(76,175,80,0.15);  border: 1px solid #4CAF50; color: #4CAF50; }
-        .trust-stale       { background: rgba(255,152,0,0.15);  border: 1px solid #FF9800; color: #FF9800; }
-        .trust-unavailable { background: rgba(244,67,54,0.15);  border: 1px solid #EF5350; color: #EF5350; }
-        .trust-loading     { background: rgba(100,100,120,0.15); border: 1px solid #555;    color: #888; }
-        .trust-right { font-size: 10px; font-weight: 400; opacity: 0.8; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 20px;
+            color: #FFF;
+        }
 
-        /* Priority colours */
-        .p0 { color: #FF1744; font-weight: 700; }
-        .p1 { color: #FF9800; font-weight: 700; }
-        .p2 { color: #FFC107; font-weight: 700; }
-        .p3 { color: #4CAF50; font-weight: 700; }
+        .brief-container { max-width: 1400px; margin: 0 auto; }
 
-        .wq-card { background: #111122; border-left: 4px solid #333; border-radius: 4px; padding: 14px 16px; margin-bottom: 10px; }
-        .wq-card.p-P0 { border-left-color: #FF1744; }
-        .wq-card.p-P1 { border-left-color: #FF9800; }
-        .wq-card.p-P2 { border-left-color: #FFC107; }
-        .wq-card.p-P3 { border-left-color: #4CAF50; }
+        .header {
+            margin-bottom: 40px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 32px;
+            color: #FFD700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .header h1::before { content: "⬤ "; margin-right: 8px; }
+        .header p { color: #BBB; font-size: 14px; }
+        .header-meta { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+        .count-pill {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            background: rgba(255,215,0,0.15);
+            color: #FFD700;
+            border: 1px solid #FFD700;
+        }
 
-        .wq-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .wq-title { font-size: 14px; font-weight: 700; color: #fff; }
-        .wq-id { font-size: 11px; color: #00FFFF; margin-top: 2px; }
-        .wq-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-        .priority-badge { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 3px; }
-        .status-badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; background: rgba(0,255,255,0.1); border: 1px solid #00FFFF; color: #00FFFF; }
+        /* Trust banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888;    border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15);  color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-stale       { background: rgba(255,152,0,0.15);  color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15);  color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
 
-        .wq-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-top: 8px; }
-        .wq-meta-item { font-size: 11px; color: #888; }
-        .wq-meta-item span { color: #CCC; }
+        /* Section */
+        .attention-section { margin-bottom: 40px; }
+        .section-title {
+            font-size: 18px;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            border-left: 4px solid #FFD700;
+            padding-left: 12px;
+        }
 
-        .next-action { font-size: 12px; color: #BBB; margin-top: 8px; padding: 6px 10px; background: rgba(0,255,255,0.05); border-left: 2px solid #00FFFF; border-radius: 0 3px 3px 0; }
-        .next-action::before { content: '▶ NEXT: '; color: #00FFFF; font-size: 10px; font-weight: 700; }
+        /* Work queue cards */
+        .priority-list { display: grid; gap: 12px; }
+        .priority-item {
+            background: #1a1a2e;
+            border-left: 4px solid #FFD700;
+            padding: 16px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .priority-item.p-P0 { border-left-color: #FF1744; }
+        .priority-item.p-P1 { border-left-color: #FF9800; }
+        .priority-item.p-P2 { border-left-color: #FFD700; }
+        .priority-item.p-P3 { border-left-color: #4CAF50; }
 
-        .deps { font-size: 10px; color: #555; margin-top: 6px; }
-        .dep-tag { display: inline-block; background: #1a1a2e; border: 1px solid #333; border-radius: 3px; padding: 1px 5px; margin-right: 4px; color: #888; }
+        .priority-item-title { font-weight: 600; color: #FFF; margin-bottom: 4px; }
+        .priority-item-sub   { font-size: 12px; color: #888; margin-top: 4px; }
 
-        .empty-state { color: #555; font-size: 13px; text-align: center; padding: 40px; border: 1px dashed #333; border-radius: 4px; }
-        #loading { color: #666; font-size: 13px; padding: 20px; }
-        #error { display: none; background: rgba(244,67,54,0.1); border: 1px solid #EF5350; border-radius: 4px; padding: 12px; color: #EF5350; font-size: 12px; margin-bottom: 12px; }
+        .next-action {
+            font-size: 12px;
+            color: #CCC;
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: #0a0e27;
+            border-left: 2px solid #FFD700;
+            border-radius: 0 3px 3px 0;
+        }
+        .next-action::before { content: "▶ NEXT: "; color: #FFD700; font-size: 10px; font-weight: 700; }
 
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-        .count-badge { font-size: 11px; color: #888; }
+        .blocker-line { font-size: 11px; color: #FF9800; margin-top: 6px; }
+        .blocker-line::before { content: "⚠ "; }
+
+        .deps { font-size: 10px; color: #666; margin-top: 6px; }
+        .dep-tag {
+            display: inline-block;
+            background: #0a0e27;
+            border: 1px solid #333;
+            border-radius: 3px;
+            padding: 1px 6px;
+            margin-right: 4px;
+            color: #888;
+        }
+
+        .priority-badge {
+            flex-shrink: 0;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            background: #0a0e27;
+        }
+        .priority-badge.P0 { color: #FF1744; }
+        .priority-badge.P1 { color: #FF9800; }
+        .priority-badge.P2 { color: #FFD700; }
+        .priority-badge.P3 { color: #4CAF50; }
+
+        .status-tag {
+            flex-shrink: 0;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #0a0e27;
+            color: #BBB;
+            border: 1px solid #333;
+            text-transform: uppercase;
+        }
+
+        .badges { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+        /* Loading / error / empty */
+        .loading { text-align: center; padding: 40px; color: #FFD700; }
+        .spinner {
+            border: 2px solid #333;
+            border-top: 2px solid #FFD700;
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .error-state {
+            background: #1a1a2e;
+            border: 2px solid #FF4444;
+            border-radius: 8px;
+            padding: 20px;
+            color: #FF4444;
+            margin-top: 20px;
+        }
+        .error-state strong { display: block; margin-bottom: 8px; }
+
+        .empty-state { text-align: center; padding: 40px; color: #888; }
+
+        .footer-info {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            color: #888;
+            font-size: 12px;
+        }
+        .refresh-time { display: inline-block; margin-left: 20px; }
     </style>
 </head>
 <body>
-    <div class="header-row">
-        <h1>WORK QUEUE</h1>
-        <span class="count-badge" id="countBadge"></span>
-    </div>
-    <div class="subtitle">Active mission work queue from NUMBER ONE — priority ordered</div>
+    <div class="brief-container">
+        <div class="header">
+            <h1>Work Queue</h1>
+            <p>Starship Endeavour — Active mission work queue, priority ordered</p>
+            <div class="header-meta">
+                <span class="count-pill" id="countPill"></span>
+            </div>
+        </div>
 
-    <div class="trust-banner trust-loading" id="trust-banner">
-        <span id="trust-label">⏳ LOADING</span>
-        <span class="trust-right"><span id="trust-source"></span> <span id="trust-time"></span></span>
-    </div>
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
+        </div>
 
-    <div id="error">Control Engine unreachable. Verify it is running on localhost:8888.</div>
-    <div id="loading">Loading work queue…</div>
-    <div id="workQueueList"></div>
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading work queue…</p>
+        </div>
+
+        <div id="error" class="error-state" style="display:none;">
+            <strong>Unable to Load Data</strong>
+            <p>Could not connect to Control Engine (localhost:8888). Check that control_engine.py is running.</p>
+        </div>
+
+        <div class="attention-section" id="queueSection" style="display:none;">
+            <div class="section-title">📋 Mission Work Queue — NUMBER ONE</div>
+            <div class="priority-list" id="queueList"></div>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display:none;">
+            <p>Work queue is empty.</p>
+        </div>
+
+        <div class="footer-info">
+            <span>Last updated: <span id="refreshTime">—</span></span>
+            <span class="refresh-time">Auto-refresh every 60 seconds</span>
+        </div>
+    </div>
 
     <script>
         const CONTROL_ENGINE = 'http://localhost:8888';
@@ -94,79 +248,70 @@
             timeEl.textContent   = opts.time   ? opts.time           : '';
         }
 
-        const PRIORITY_CLASS = { P0: 'p0', P1: 'p1', P2: 'p2', P3: 'p3' };
-        const PRIORITY_STYLE = {
-            P0: 'background:rgba(255,23,68,0.2);color:#FF1744;border:1px solid #FF1744',
-            P1: 'background:rgba(255,152,0,0.2);color:#FF9800;border:1px solid #FF9800',
-            P2: 'background:rgba(255,193,7,0.2);color:#FFC107;border:1px solid #FFC107',
-            P3: 'background:rgba(76,175,80,0.2);color:#4CAF50;border:1px solid #4CAF50',
-        };
+        function showEl(id, vis) {
+            document.getElementById(id).style.display = vis ? 'block' : 'none';
+        }
 
         async function fetchWorkQueue() {
             setTrustState('loading');
             try {
                 const resp = await fetch(`${CONTROL_ENGINE}/api/dashboard/work-queue`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
                 const d = await resp.json();
-                const state = d.status === 'unavailable' ? 'unavailable' : (d.status || 'live');
-                setTrustState(state, {
+
+                const trustState = d.status === 'unavailable' ? 'unavailable' : (d.status || 'live');
+                setTrustState(trustState, {
                     source: d.source_label || 'NUMBER ONE',
                     time: new Date().toLocaleTimeString(),
                 });
 
-                document.getElementById('error').style.display = 'none';
-                document.getElementById('loading').style.display = 'none';
+                showEl('loading', false);
+                showEl('error', false);
 
                 const items = d.data || [];
-                document.getElementById('countBadge').textContent = items.length > 0 ? `${items.length} items` : 'empty';
+                document.getElementById('countPill').textContent = items.length > 0 ? `${items.length} items` : 'Empty';
 
                 if (items.length === 0) {
-                    document.getElementById('workQueueList').innerHTML =
-                        '<div class="empty-state">Work queue is empty.</div>';
-                    return;
+                    showEl('queueSection', false);
+                    showEl('emptyState', true);
+                } else {
+                    showEl('emptyState', false);
+                    showEl('queueSection', true);
+
+                    const order = { P0: 0, P1: 1, P2: 2, P3: 3 };
+                    items.sort((a, b) => (order[a.priority] ?? 9) - (order[b.priority] ?? 9));
+
+                    document.getElementById('queueList').innerHTML = items.map(item => {
+                        const p = item.priority || 'P3';
+                        const blockers = Array.isArray(item.blockers) && item.blockers.length > 0
+                            ? `<div class="blocker-line">${item.blockers.map(escapeHtml).join(' · ')}</div>` : '';
+                        const deps = Array.isArray(item.dependencies) && item.dependencies.length > 0
+                            ? `<div class="deps">Depends on: ${item.dependencies.map(dep => `<span class="dep-tag">${escapeHtml(dep)}</span>`).join('')}</div>` : '';
+                        return `
+                            <div class="priority-item p-${escapeHtml(p)}">
+                                <div style="flex:1">
+                                    <div class="priority-item-title">${escapeHtml(item.title)}</div>
+                                    <div class="priority-item-sub">
+                                        ${escapeHtml(item.mission_id)} · ${escapeHtml(item.assigned_specialist || 'Unassigned')}
+                                    </div>
+                                    ${item.next_action ? `<div class="next-action">${escapeHtml(item.next_action)}</div>` : ''}
+                                    ${blockers}
+                                    ${deps}
+                                </div>
+                                <div class="badges">
+                                    <span class="priority-badge ${escapeHtml(p)}">${escapeHtml(p)}</span>
+                                    <span class="status-tag">${escapeHtml(item.status)}</span>
+                                </div>
+                            </div>`;
+                    }).join('');
                 }
-
-                const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
-                items.sort((a, b) => (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9));
-
-                document.getElementById('workQueueList').innerHTML = items.map(item => {
-                    const p = item.priority || 'P3';
-                    const pStyle = PRIORITY_STYLE[p] || '';
-                    const deps = Array.isArray(item.dependencies) && item.dependencies.length > 0
-                        ? `<div class="deps">Depends on: ${item.dependencies.map(dep => `<span class="dep-tag">${escapeHtml(dep)}</span>`).join('')}</div>`
-                        : '';
-                    const blockers = Array.isArray(item.blockers) && item.blockers.length > 0
-                        ? `<div style="font-size:11px;color:#FF9800;margin-top:6px;">⚠ Blocked: ${item.blockers.map(escapeHtml).join(' · ')}</div>`
-                        : '';
-                    return `
-                        <div class="wq-card p-${escapeHtml(p)}">
-                            <div class="wq-header">
-                                <div>
-                                    <div class="wq-title">${escapeHtml(item.title)}</div>
-                                    <div class="wq-id">${escapeHtml(item.mission_id)}</div>
-                                </div>
-                                <div class="wq-badges">
-                                    <span class="priority-badge" style="${pStyle}">${escapeHtml(p)}</span>
-                                    <span class="status-badge">${escapeHtml(item.status)}</span>
-                                </div>
-                            </div>
-                            <div class="wq-meta">
-                                <div class="wq-meta-item">Assigned: <span>${escapeHtml(item.assigned_specialist || 'Unassigned')}</span></div>
-                                ${item.confidence ? `<div class="wq-meta-item">Confidence: <span>${escapeHtml(item.confidence_band || item.confidence)}</span></div>` : ''}
-                            </div>
-                            ${item.next_action ? `<div class="next-action">${escapeHtml(item.next_action)}</div>` : ''}
-                            ${blockers}
-                            ${deps}
-                            ${item.rationale ? `<div style="font-size:11px;color:#555;margin-top:6px;font-style:italic;">${escapeHtml(item.rationale)}</div>` : ''}
-                        </div>`;
-                }).join('');
-
             } catch (err) {
                 console.error('Work queue fetch error:', err);
                 setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
-                document.getElementById('error').style.display = 'block';
-                document.getElementById('loading').style.display = 'none';
+                showEl('loading', false);
+                showEl('error', true);
+            } finally {
+                document.getElementById('refreshTime').textContent = new Date().toLocaleTimeString();
             }
         }
 
