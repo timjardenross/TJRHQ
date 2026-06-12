@@ -311,12 +311,16 @@ docker-compose restart
 ### Revert to Defaults
 
 ```bash
-# Restore from backup
-cp dashy-config-v4-COMPATIBLE.yml dashy-config.yml
+# Restore from a dated backup (created during Weekly Tasks)
+cp dashy-config.backup.<YYYYMMDD>.yml dashy-config.yml
 
 # Restart container
 docker-compose restart
 ```
+
+> **Note:** `dashy-config-v4-COMPATIBLE.yml` was the former fallback reference.
+> It was archived to `archive/cleanup-2026-06-12/command-centre/superseded-config/`
+> during WP1 cleanup (MSN-0063). The canonical config is `dashy-config.yml`.
 
 ---
 
@@ -587,12 +591,16 @@ curl http://localhost:8081
 # Stop and remove everything
 docker-compose down -v
 
-# Reset to defaults
-cp dashy-config-v4-COMPATIBLE.yml dashy-config.yml
+# Restore canonical config from git (source of truth)
+git checkout core/command-centre/dashy-config.yml
 
-# Restart with defaults
+# Restart with restored config
 docker-compose up -d
 ```
+
+> **Note:** The former factory-reset source (`dashy-config-v4-COMPATIBLE.yml`) was
+> archived during WP1 cleanup (MSN-0063). Use `git checkout` to restore
+> `dashy-config.yml` to its last committed state instead.
 
 ---
 
