@@ -65,11 +65,6 @@ sections:
         icon: fas fa-satellite
         url: "http://localhost:5000/api"
         target: _blank
-        statusCheck:
-          url: "http://localhost:5000/health"
-          method: GET
-          timeout: 5
-          interval: 60
 
       - title: Mission Registry DB
         description: "Supabase — PostgreSQL backend"
@@ -87,11 +82,6 @@ sections:
         icon: fas fa-map-marked-alt
         url: "http://localhost:8080"
         target: _blank
-        statusCheck:
-          url: "http://localhost:5000/api/v1/context/status"
-          method: GET
-          timeout: 5
-          interval: 60
 
       - title: Captain Daily Brief
         description: "Full assembled brief — priorities, decisions, blockers, health"
