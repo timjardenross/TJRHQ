@@ -39,8 +39,8 @@
             margin-bottom: 8px;
         }
 
-        .header::before {
-            content: "📋 ";
+        .header h1::before {
+            content: "⬤ ";
             margin-right: 8px;
         }
 
@@ -92,7 +92,7 @@
         .admin-btn {
             margin-left: auto;
             padding: 8px 16px;
-            background: #00FFFF;
+            background: #FFD700;
             color: #0a0e27;
             border: none;
             border-radius: 6px;
@@ -104,7 +104,7 @@
         }
 
         .admin-btn:hover {
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+            background: #FFA500;
             transform: scale(1.02);
         }
 
@@ -164,8 +164,8 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #FFD700, #00FFFF);
+            height: 3px;
+            background: #FFD700;
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -305,12 +305,12 @@
         }
 
         .action-btn.edit {
-            border-color: #00FFFF;
-            color: #00FFFF;
+            border-color: #FFD700;
+            color: #FFD700;
         }
 
         .action-btn.edit:hover {
-            background: rgba(0, 255, 255, 0.1);
+            background: rgba(255, 215, 0, 0.1);
         }
 
         /* Empty State */
@@ -342,12 +342,14 @@
         .stat-card {
             flex: 1;
             min-width: 140px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #2a2a3e 100%);
-            border: 2px solid #FFD700;
+            background: #1a1a2e;
+            border: 2px solid #333;
             border-radius: 8px;
             padding: 16px;
             text-align: center;
+            transition: all 0.3s ease;
         }
+        .stat-card:hover { border-color: #FFD700; box-shadow: 0 0 15px rgba(255,215,0,0.2); }
 
         .stat-number {
             font-size: 28px;
