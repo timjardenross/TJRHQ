@@ -50,17 +50,22 @@ class CoordinationWidget {
    * Get status badge HTML
    */
   getStatusBadge(source) {
-    const badgeClass = source === 'from-number-one'
-      ? 'badge-live'
-      : source.includes('fallback')
-      ? 'badge-fallback'
-      : 'badge-stale';
+    const s = (source || 'unknown').toLowerCase();
+    const isLive = s === 'fresh' || s === 'from-number-one' || s === 'number-one-file'
+                || s === 'supabase' || s === 'live-checks' || s === 'mission-index.txt'
+                || s === 'from-supabase';
+    const isCached = s === 'cache' || s === 'from-cache';
+    const isStaleCached = s === 'stale_cache';
+    const isFallback = s.includes('fallback');
+    const isError = s.includes('error');
 
-    const badgeText = source === 'from-number-one'
-      ? '🟢 LIVE'
-      : source.includes('fallback')
-      ? '🟡 FALLBACK'
-      : '🔴 STALE';
+    const [badgeClass, badgeText] =
+      isLive       ? ['badge-live',     '🟢 LIVE']
+    : isCached     ? ['badge-cached',   '🟡 CACHED']
+    : isStaleCached? ['badge-stale',    '🟡 STALE']
+    : isFallback   ? ['badge-fallback', '🟡 FALLBACK']
+    : isError      ? ['badge-error',    '🔴 ERROR']
+    :                ['badge-unknown',  '⚪ UNKNOWN'];
 
     return `<span class="data-badge ${badgeClass}">${badgeText}</span>`;
   }
@@ -399,15 +404,18 @@ class ShipSystemsWidget extends CoordinationWidget {
     if (!this.container) return;
 
     const systemsHtml = (services.services || []).map((service) => {
-      const statusIcon = service.status === 'operational' ? '🟢' :
-                        service.status === 'degraded' ? '🟡' : '🔴';
+      const s = (service.status || 'unknown').toLowerCase();
+      const statusIcon = s === 'operational' ? '🟢'
+                       : s === 'degraded'    ? '🟡'
+                       : s === 'failed'      ? '🔴'
+                       :                      '⚪';
 
       return `
-        <div class="system-item status-${service.status || 'unknown'}">
+        <div class="system-item status-${s}">
           <div class="system-icon">${statusIcon}</div>
           <div class="system-info">
             <div class="system-name">${service.name || 'Unknown'}</div>
-            <div class="system-status">${(service.status || 'UNKNOWN').toUpperCase()}</div>
+            <div class="system-status">${s.toUpperCase()}</div>
           </div>
         </div>
       `;
