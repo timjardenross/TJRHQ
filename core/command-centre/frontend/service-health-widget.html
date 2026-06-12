@@ -190,6 +190,13 @@
             letter-spacing: 1px;
         }
 
+        .service-description {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 6px;
+            font-style: italic;
+        }
+
         .service-status {
             font-size: 13px;
             color: #AAA;
@@ -433,12 +440,15 @@
                     const status    = serviceData.status || 'unknown';
                     const timestamp = serviceData.timestamp ? new Date(serviceData.timestamp).toLocaleTimeString() : 'N/A';
 
+                    const description = serviceData.description || '';
+
                     return `
                         <div class="service-card ${status}${isCached ? ' api-unavailable' : ''}">
                             <div class="service-name">
                                 <span class="status-indicator">${getStatusEmoji(status)}</span>
                                 ${serviceName}
                             </div>
+                            ${description ? `<div class="service-description">${escapeHtml(description)}</div>` : ''}
                             <div class="service-status">${getStatusText(status)}</div>
                             <div class="service-details">
                                 <div class="service-detail-line">
@@ -467,6 +477,13 @@
             const errorContainer = document.getElementById('error-container');
             errorContainer.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
             errorContainer.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function getStatusEmoji(status) {

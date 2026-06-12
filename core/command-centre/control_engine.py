@@ -249,22 +249,25 @@ def parse_service_status(status_output: str) -> Dict:
         if not line:
             continue
 
-        # Extract status symbol and service name
-        # Format: "✅ Service Name | details"
+        # Format: "✅ Service Name|detail" (| separator added in status.command)
+        # Split on | first, then strip the leading emoji+space from the name part.
         if line.startswith('✅'):
             status = 'operational'
-            name = line[2:].split('|')[0].strip()
         elif line.startswith('⚠️'):
             status = 'degraded'
-            name = line[2:].split('|')[0].strip()
         elif line.startswith('❌'):
             status = 'offline'
-            name = line[2:].split('|')[0].strip()
         else:
             continue
 
+        parts = line.split('|', 1)
+        # parts[0] = "✅ Service Name" — split on first whitespace to drop the emoji
+        name = parts[0].split(None, 1)[-1].strip()
+        description = parts[1].strip() if len(parts) > 1 else ''
+
         services[name] = {
             'status': status,
+            'description': description,
             'timestamp': datetime.now().isoformat()
         }
 
