@@ -63,7 +63,7 @@ sections:
       - title: Command Centre API
         description: "Context Assembly backend — WP6 Express API"
         icon: fas fa-satellite
-        url: "http://localhost:5000/api"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Mission Registry DB
@@ -80,37 +80,37 @@ sections:
       - title: Captain Operating Picture
         description: "5-min view — priorities, health, blockers, Number One advisory"
         icon: fas fa-map-marked-alt
-        url: "http://localhost:8080"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Captain Daily Brief
         description: "Full assembled brief — priorities, decisions, blockers, health"
         icon: fas fa-clipboard-list
-        url: "http://localhost:5000/api/v1/context/captain-brief"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Top Recommendations
         description: "Number One ranked mission priorities"
         icon: fas fa-sort-amount-down
-        url: "http://localhost:5000/api/v1/context/recommendations"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Active Blockers
         description: "Blocked missions sorted by escalation level"
         icon: fas fa-ban
-        url: "http://localhost:5000/api/v1/context/blockers"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Decisions Awaiting Captain
         description: "Proposed decisions needing Captain input"
         icon: fas fa-gavel
-        url: "http://localhost:5000/api/v1/context/captain-brief"
+        url: "http://localhost:8081/"
         target: _blank
 
       - title: Context Assembly Status
         description: "File freshness and adapter health — WP6 monitoring"
         icon: fas fa-satellite-dish
-        url: "http://localhost:5000/api/v1/context/status"
+        url: "http://localhost:8081/"
         target: _blank
 
 
