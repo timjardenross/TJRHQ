@@ -1,6 +1,7 @@
 #!/bin/bash
-# USS TJR Control Deck — Commander startup script.
-# MSN-0013: Hardened to activate venv, load .env, and set PYTHONPATH.
+# USS TJR Control Deck — Commander Bot startup script.
+# Commander runs the same app.py codebase as the main Slack Bot but uses
+# .env.commander to load the Commander Bot's own token pair.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +23,7 @@ else
 fi
 
 echo "========================================"
-echo "USS TJR Control Deck - Commander"
+echo "USS TJR Control Deck — Commander Bot"
 echo "========================================"
 echo "Log: $LOG_FILE"
 echo "Working directory: $COMMANDER_DIR"
@@ -37,7 +38,6 @@ if [ ! -d "$COMMANDER_DIR" ]; then
   exit 1
 fi
 
-# Commander shares the slack-bot venv
 VENV_ACTIVATE="$COMMANDER_DIR/.venv/bin/activate"
 if [ ! -f "$VENV_ACTIVATE" ]; then
   echo "[ERROR] Python venv not found: $VENV_ACTIVATE"
@@ -46,18 +46,18 @@ if [ ! -f "$VENV_ACTIVATE" ]; then
   exit 1
 fi
 
-ENV_FILE="$COMMANDER_DIR/.env"
+# Commander uses .env.commander (separate token pair from the main Slack Bot)
+ENV_FILE="$COMMANDER_DIR/.env.commander"
 if [ ! -f "$ENV_FILE" ]; then
-  echo "[ERROR] .env file not found: $ENV_FILE"
-  echo "        Copy slack-bot/.env.example to slack-bot/.env and populate secrets."
+  echo "[ERROR] .env.commander not found: $ENV_FILE"
+  echo "        Populate $ENV_FILE with SLACK_BOT_TOKEN and SLACK_APP_TOKEN for the Commander Bot."
   read -r -p "Press Enter to keep this pane open..."
   exit 1
 fi
 
-COMMANDER_SCRIPT="$COMMANDER_DIR/commander.py"
-if [ ! -f "$COMMANDER_SCRIPT" ]; then
-  echo "[WARN] commander.py not found at $COMMANDER_SCRIPT"
-  echo "       The Commander service may not be implemented yet."
+APP_SCRIPT="$COMMANDER_DIR/app.py"
+if [ ! -f "$APP_SCRIPT" ]; then
+  echo "[ERROR] app.py not found at $APP_SCRIPT"
   read -r -p "Press Enter to keep this pane open..."
   exit 1
 fi
@@ -66,10 +66,10 @@ fi
 
 cd "$COMMANDER_DIR" || exit 1
 
-echo "Starting Commander..."
+echo "Starting Commander Bot..."
 echo "  venv:   $VENV_ACTIVATE"
 echo "  env:    $ENV_FILE"
-echo "  cmd:    python commander.py"
+echo "  cmd:    python app.py"
 echo ""
 
 (
@@ -79,15 +79,15 @@ echo ""
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
-  export PYTHONPATH="${COMMANDER_DIR}:${PYTHONPATH:-}"
-  bash -c "python commander.py"
+  export PYTHONPATH="${PROJECT_ROOT}:${COMMANDER_DIR}:${PYTHONPATH:-}"
+  bash -c "python app.py"
 ) 2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE="${PIPESTATUS[0]}"
 echo ""
 if [ "$EXIT_CODE" -eq 0 ]; then
-  echo "Commander exited normally (exit 0)."
+  echo "Commander Bot exited normally (exit 0)."
 else
-  echo "[WARN] Commander exited with code $EXIT_CODE. Check log: $LOG_FILE"
+  echo "[WARN] Commander Bot exited with code $EXIT_CODE. Check log: $LOG_FILE"
 fi
 read -r -p "Press Enter to keep this pane open..."
