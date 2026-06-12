@@ -1,0 +1,44 @@
+{
+  "assembled_at": "2026-06-12T08:03:43.855346Z",
+  "source": "fresh",
+  "health_snapshot": {
+    "pain_level": "high",
+    "energy": null,
+    "trend": "unknown",
+    "recovery_focus": "Maintain daily function"
+  },
+  "top_3_priorities": [],
+  "operational_status": {
+    "overall": "green",
+    "alert_count": 0,
+    "active_missions": 7,
+    "services_status": "all_green"
+  },
+  "blockers_summary": {
+    "count": 0,
+    "top_blocker": null
+  },
+  "number_one_says": null,
+  "quick_actions": [
+    {
+      "label": "View Mission Details",
+      "action": "open_missions"
+    },
+    {
+      "label": "Open Slack",
+      "action": "open_slack"
+    },
+    {
+      "label": "Review Health",
+      "action": "open_health"
+    },
+    {
+      "label": "Weekly Review",
+      "action": "open_weekly_review"
+    },
+    {
+      "label": "Request XO Brief",
+      "action": "request_xo_brief"
+    }
+  ]
+}
