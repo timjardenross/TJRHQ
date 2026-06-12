@@ -13,6 +13,13 @@ Public API:
     find_build_record_by_thread(thread_ts) -> dict[str, str] | None
     mark_build_record_approved(build_record, approver_user_id, handoff_path) -> str | None
     save_engineering_handoff_from_build_record(build_record, approver_user_id) -> str
+    scan_pending_engineering_handoffs(limit=20) -> list[dict[str, str]]
+    format_pending_engineering_handoffs_report(limit=20) -> str
+    claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool
+    claim_oldest_pending_engineering_handoff(batch_group: str) -> dict[str, str] | None
+    update_engineering_handoff_batch_status(handoff_path: str, status: str) -> bool
+    read_engineering_handoff_batch_status(handoff_path: str) -> dict[str, str] | None
+    find_latest_claimed_engineering_handoff() -> dict[str, str] | None
     handle_mission_register_draft(text, user_id, channel_id) -> str
     next_mission_id(index_path) -> str
     generate_mission_file_draft(text, llm_output, mission_id) -> str
@@ -740,6 +747,12 @@ def save_engineering_handoff_from_build_record(
             build_record_body = ""
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    try:
+        from lib.build_learning_loop import generate_build_decision_id
+        decision_id = generate_build_decision_id()
+    except Exception:
+        decision_id = f"DEC-REC-{timestamp}"
+    build_record["decision_id"] = decision_id
     slug = _make_slug(mission_title)
     filename = f"ENG-HANDOFF-{timestamp}-{slug}.md"
     target = _ENGINEERING_HANDOFFS_DIR / filename
@@ -750,8 +763,15 @@ def save_engineering_handoff_from_build_record(
         f"- Batch Status: PENDING\n"
         f"- Batch Group: unassigned\n"
         f"- Priority: P2\n"
+        f"- Decision ID: {decision_id}\n"
         f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"- Approved By: {approver_user_id}\n"
+        "- Approved By: XO\n"
+        f"- Requesting User: {approver_user_id}\n"
+        "- System Actor: XO\n"
+        "- Policy Decision: APPROVED\n"
+        "- Decision Reason: XO system policy accepted\n"
+        "- Resulting State: APPROVED_FOR_ENGINEERING + PENDING\n"
+        "- Policy Trace: context loaded -> governance validated -> approval issued\n"
         f"- Source Build Record: {source_record}\n"
         f"- Channel ID: {channel_id}\n"
         f"- Thread TS: {thread_ts}\n\n"
@@ -765,10 +785,144 @@ def save_engineering_handoff_from_build_record(
 
     target.write_text(markdown, encoding="utf-8")
     log.info("[mission-brief] Engineering handoff saved: %s", target)
+
+    try:
+        from lib.build_learning_loop import record_build_lifecycle_event
+
+        record_build_lifecycle_event(
+            event_type="handoff_created",
+            decision_id=decision_id,
+            source_record=source_record,
+            handoff_path=str(target.relative_to(_REPO_ROOT)),
+            mission_title=mission_title,
+            status="APPROVED_FOR_ENGINEERING",
+            batch_status="PENDING",
+            batch_group="unassigned",
+            priority="P2",
+            approver_user_id=approver_user_id,
+            notes="XO system approved engineering handoff from build request.",
+            channel_id=channel_id,
+            user_id=approver_user_id,
+            thread_ts=thread_ts,
+        )
+    except Exception as exc:
+        log.warning("[mission-brief] Learning loop event write skipped: %s", exc)
+
     try:
         return str(target.relative_to(_REPO_ROOT))
     except ValueError:
         return str(target)
+
+
+def xo_can_approve(context: dict[str, str]) -> tuple[bool, str]:
+    """Return (can_approve, reason) from the XO system policy engine."""
+    try:
+        from lib.xo_policy import xo_can_approve as _xo_can_approve
+
+        decision = _xo_can_approve(context)
+        return decision.approved, decision.decision_reason
+    except Exception as exc:
+        log.warning("[xo-guard] XO system policy check failed (fail secure): %s", exc)
+        return False, f"Policy evaluation failed: {type(exc).__name__}"
+
+
+def is_approver_authorized(user_id: str) -> bool:
+    """Deprecated compatibility wrapper for legacy callers.
+
+    XO approval is now policy-driven via ``lib.xo_policy.xo_can_approve``.
+    This shim remains only to avoid breaking older call sites and fails secure
+    when no full governance context is available.
+    """
+    allowed, _ = xo_can_approve({})
+    return allowed
+
+
+def find_existing_engineering_handoff(build_record_path: str) -> str | None:
+    """Check if an engineering handoff already exists for this build record.
+
+    Returns repo-relative path if found, None otherwise.
+    """
+    if not _ENGINEERING_HANDOFFS_DIR.exists():
+        return None
+    try:
+        marker = f"Source Build Record: {build_record_path}"
+        for path in _ENGINEERING_HANDOFFS_DIR.glob("*.md"):
+            try:
+                content = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if marker in content:
+                try:
+                    return str(path.relative_to(_REPO_ROOT))
+                except ValueError:
+                    return str(path)
+    except OSError:
+        pass
+    return None
+
+
+def can_agent_claim_handoff(handoff_path: str) -> bool:
+    """GUARD RAIL #1: Return True only if handoff is ready for agent execution.
+
+    Requires Status=APPROVED_FOR_ENGINEERING, Batch Status=SUBMITTED, and
+    Batch Group not unassigned.
+    """
+    target = _REPO_ROOT / handoff_path
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    status = _extract_metadata_field(content, "Status")
+    batch_status = _extract_metadata_field(content, "Batch Status")
+    batch_group = _extract_metadata_field(content, "Batch Group")
+
+    return (
+        status == "APPROVED_FOR_ENGINEERING"
+        and batch_status == "SUBMITTED"
+        and batch_group not in ("", "unassigned")
+    )
+
+
+def require_explicit_assignment(handoff_path: str) -> bool:
+    """GUARD RAIL #2: Return True if handoff was explicitly assigned by a human."""
+    target = _REPO_ROOT / handoff_path
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    assigned_by = _extract_metadata_field(content, "Assigned By")
+    return bool(assigned_by and assigned_by.strip())
+
+
+def validate_agent_execution_preconditions(handoff_path: str) -> tuple[bool, str]:
+    """Apply all guard rails; return (can_execute, reason_if_blocked).
+
+    Combines GUARD RAIL #1, GUARD RAIL #2, and a concurrent-execution check.
+    """
+    target = _REPO_ROOT / handoff_path
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return False, f"Cannot read handoff file: {handoff_path}"
+
+    if not can_agent_claim_handoff(handoff_path):
+        batch_status = _extract_metadata_field(content, "Batch Status")
+        batch_group = _extract_metadata_field(content, "Batch Group")
+        return False, (
+            f"Guard rail #1 failed: Batch Status={batch_status!r} "
+            f"Batch Group={batch_group!r} — must be SUBMITTED with an assigned group"
+        )
+
+    if not require_explicit_assignment(handoff_path):
+        return False, "Guard rail #2 failed: no explicit Assigned By — human assignment required"
+
+    current_batch_status = _extract_metadata_field(content, "Batch Status")
+    if current_batch_status == "IN_PROGRESS":
+        return False, "Concurrent execution guard: handoff is already IN_PROGRESS"
+
+    return True, ""
 
 
 def mark_build_record_approved(
@@ -799,8 +953,14 @@ def mark_build_record_approved(
         "- Batch Status: PENDING\n"
         "- Batch Group: unassigned\n"
         "- Priority: P2\n"
+        f"- Decision ID: {build_record.get('decision_id', 'unknown')}\n"
         f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"- Approved By: {approver_user_id}\n"
+        "- Approved By: XO\n"
+        f"- Requesting User: {approver_user_id}\n"
+        "- System Actor: XO\n"
+        "- Policy Decision: APPROVED\n"
+        "- Decision Reason: XO system policy accepted\n"
+        "- Resulting State: APPROVED_FOR_ENGINEERING + PENDING\n"
         f"- Engineering Handoff: {handoff_path}\n"
     )
 
@@ -810,6 +970,353 @@ def mark_build_record_approved(
         return source_record
     except OSError:
         return None
+
+
+def _extract_metadata_field(content: str, field_name: str) -> str:
+    """Extract a simple top-level metadata field from a handoff markdown file."""
+    match = re.search(rf"^- {re.escape(field_name)}:\s*(.+)$", content, re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _extract_decision_id(content: str) -> str:
+    """Extract decision id from a handoff or build record."""
+    decision_id = _extract_metadata_field(content, "Decision ID")
+    if decision_id:
+        return decision_id
+    match = re.search(r"Decision ID:\s*(DEC-[A-Z0-9-]+)", content)
+    return match.group(1).strip() if match else ""
+
+
+def _extract_markdown_section(content: str, heading: str) -> str:
+    """Extract the body text immediately following a markdown section heading."""
+    pattern = rf"^##\s+{re.escape(heading)}\s*\n\n(.*?)(?=\n##\s+|\Z)"
+    match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+    return match.group(1).strip() if match else ""
+
+
+def scan_pending_engineering_handoffs(limit: int = 20) -> list[dict[str, str]]:
+    """Return engineering handoff files that are ready for batch assignment."""
+    if not _ENGINEERING_HANDOFFS_DIR.exists():
+        return []
+
+    results: list[dict[str, str]] = []
+    for path in sorted(_ENGINEERING_HANDOFFS_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        status = _extract_metadata_field(content, "Status")
+        batch_status = _extract_metadata_field(content, "Batch Status")
+        if status != "APPROVED_FOR_ENGINEERING" or batch_status != "PENDING":
+            continue
+
+        results.append({
+            "path": str(path.relative_to(_REPO_ROOT)),
+            "mission_title": _extract_markdown_section(content, "Mission Title") or path.stem,
+            "decision_id": _extract_decision_id(content),
+            "source_build_record": _extract_metadata_field(content, "Source Build Record"),
+            "batch_group": _extract_metadata_field(content, "Batch Group") or "unassigned",
+            "priority": _extract_metadata_field(content, "Priority") or "P2",
+            "approved_at": _extract_metadata_field(content, "Approved At"),
+            "approved_by": _extract_metadata_field(content, "Approved By"),
+        })
+
+        if len(results) >= max(limit, 0):
+            break
+
+    return results
+
+
+def format_pending_engineering_handoffs_report(limit: int = 20, detailed: bool = False) -> str:
+    """Format a short report of handoffs awaiting batch processing."""
+    pending = scan_pending_engineering_handoffs(limit=limit)
+    header = [
+        ":package: *Batch Scanner*",
+        "",
+        f"Found *{len(pending)}* engineering handoff(s) with `Batch Status: PENDING`.",
+    ]
+
+    if not pending:
+        header.append("No pending handoffs were found.")
+        return "\n".join(header)
+
+    lines = header + ["", "*Pending handoffs:*"]
+    for item in pending:
+        lines.extend([
+            f"- `{item['path']}`",
+            f"  - Mission: {item['mission_title']}",
+        ])
+        if detailed:
+            lines.extend([
+                f"  - Decision ID: {item.get('decision_id') or 'unknown'}",
+                f"  - Approved By: {item.get('approved_by') or 'unknown'}",
+                f"  - Approved At: {item.get('approved_at') or 'unknown'}",
+                f"  - Source Build Record: {item.get('source_build_record') or 'unknown'}",
+            ])
+        lines.extend([
+            f"  - Priority: {item['priority']}",
+            f"  - Batch Group: {item['batch_group']}",
+        ])
+    lines.append("")
+    lines.append("Next step: assign a `Batch Group` and advance `Batch Status` to `SUBMITTED`.")
+    return "\n".join(lines)
+
+
+def claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool:
+    """Assign a pending engineering handoff to a batch group."""
+    target = _REPO_ROOT / handoff_path
+    if not target.exists():
+        return False
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    if "Status: APPROVED_FOR_ENGINEERING" not in content or "Batch Status: PENDING" not in content:
+        return False
+
+    updated = content
+    updated = re.sub(
+        r"^- Batch Status:\s*PENDING\s*$",
+        "- Batch Status: SUBMITTED",
+        updated,
+        flags=re.MULTILINE,
+        count=1,
+    )
+    updated = re.sub(
+        r"^- Batch Group:\s*.*$",
+        f"- Batch Group: {batch_group}",
+        updated,
+        flags=re.MULTILINE,
+        count=1,
+    )
+
+    try:
+        target.write_text(updated, encoding="utf-8")
+        log.info("[mission-brief] Engineering handoff claimed: %s -> %s", target, batch_group)
+        try:
+            from lib.build_learning_loop import record_build_lifecycle_event
+            from lib.build_learning_loop import generate_build_outcome_id
+            from lib.build_learning_loop import generate_build_decision_id
+
+            mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
+            source_record = _extract_metadata_field(updated, "Source Build Record")
+            decision_id = _extract_decision_id(updated) or generate_build_decision_id()
+            priority = _extract_metadata_field(updated, "Priority") or "P2"
+            outcome_id = generate_build_outcome_id()
+            record_build_lifecycle_event(
+                event_type="batch_claimed",
+                decision_id=decision_id,
+                source_record=source_record,
+                handoff_path=str(target.relative_to(_REPO_ROOT)),
+                mission_title=mission_title,
+                status="APPROVED_FOR_ENGINEERING",
+                batch_status="SUBMITTED",
+                batch_group=batch_group,
+                priority=priority,
+                outcome_id=outcome_id,
+                batch_actor=batch_group,
+                notes="Engineering handoff claimed for batch processing.",
+            )
+        except Exception as exc:
+            log.warning("[mission-brief] Learning loop claim event skipped: %s", exc)
+        return True
+    except OSError:
+        return False
+
+
+def claim_oldest_pending_engineering_handoff(batch_group: str) -> dict[str, str] | None:
+    """Claim the oldest pending handoff and return the updated record metadata."""
+    pending = scan_pending_engineering_handoffs(limit=1)
+    if not pending:
+        return None
+
+    handoff = pending[0]
+    if not claim_engineering_handoff_batch(handoff["path"], batch_group):
+        return None
+
+    handoff["batch_group"] = batch_group
+    handoff["batch_status"] = "SUBMITTED"
+    return handoff
+
+
+def update_engineering_handoff_batch_status(handoff_path: str, status: str) -> bool:
+    """Advance a claimed engineering handoff to a new lifecycle status."""
+    allowed_statuses = {"SUBMITTED", "IN_PROGRESS", "DELIVERED", "FAILED"}
+    if status not in allowed_statuses:
+        return False
+
+    target = _REPO_ROOT / handoff_path
+    if not target.exists():
+        return False
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    if "Status: APPROVED_FOR_ENGINEERING" not in content:
+        return False
+
+    current_status = _extract_metadata_field(content, "Batch Status")
+    if not current_status:
+        return False
+
+    updated = re.sub(
+        r"^- Batch Status:\s*.*$",
+        f"- Batch Status: {status}",
+        content,
+        flags=re.MULTILINE,
+        count=1,
+    )
+
+    try:
+        target.write_text(updated, encoding="utf-8")
+        log.info("[mission-brief] Engineering handoff status updated: %s -> %s", target, status)
+        try:
+            from lib.build_learning_loop import record_build_lifecycle_event
+            from lib.build_learning_loop import generate_build_outcome_id
+            from lib.build_learning_loop import generate_build_decision_id
+
+            mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
+            source_record = _extract_metadata_field(updated, "Source Build Record")
+            decision_id = _extract_decision_id(updated) or generate_build_decision_id()
+            batch_group = _extract_metadata_field(updated, "Batch Group") or "unassigned"
+            priority = _extract_metadata_field(updated, "Priority") or "P2"
+            outcome_id = generate_build_outcome_id()
+            record_build_lifecycle_event(
+                event_type="batch_advanced",
+                decision_id=decision_id,
+                source_record=source_record,
+                handoff_path=str(target.relative_to(_REPO_ROOT)),
+                mission_title=mission_title,
+                status="APPROVED_FOR_ENGINEERING",
+                batch_status=status,
+                batch_group=batch_group,
+                priority=priority,
+                outcome_id=outcome_id,
+                batch_actor=batch_group,
+                notes=f"Batch status advanced to {status}.",
+            )
+        except Exception as exc:
+            log.warning("[mission-brief] Learning loop advance event skipped: %s", exc)
+        return True
+    except OSError:
+        return False
+
+
+def read_engineering_handoff_batch_status(handoff_path: str) -> dict[str, str] | None:
+    """Read the current batch metadata for a handoff file."""
+    target = _REPO_ROOT / handoff_path
+    if not target.exists():
+        return None
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    return {
+        "path": handoff_path,
+        "status": _extract_metadata_field(content, "Status"),
+        "batch_status": _extract_metadata_field(content, "Batch Status"),
+        "batch_group": _extract_metadata_field(content, "Batch Group"),
+        "priority": _extract_metadata_field(content, "Priority"),
+        "mission_title": _extract_markdown_section(content, "Mission Title") or target.stem,
+    }
+
+
+def summarize_engineering_handoff_chain(handoff_path: str) -> dict[str, str] | None:
+    """Summarize the decision/outcome chain for a handoff."""
+    snapshot = read_engineering_handoff_batch_status(handoff_path)
+    if not snapshot:
+        return None
+
+    source_record = ""
+    target = _REPO_ROOT / handoff_path
+    try:
+        content = target.read_text(encoding="utf-8")
+        source_record = _extract_metadata_field(content, "Source Build Record")
+    except OSError:
+        pass
+
+    return {
+        "handoff_path": handoff_path,
+        "mission_title": snapshot.get("mission_title", "unknown"),
+        "decision_id": _extract_decision_id(content) if "content" in locals() else "",
+        "outcome_status": snapshot.get("batch_status", "unknown"),
+        "batch_group": snapshot.get("batch_group", "unknown"),
+        "priority": snapshot.get("priority", "unknown"),
+        "source_build_record": source_record or "unknown",
+        "status": snapshot.get("status", "unknown"),
+    }
+
+
+def format_engineering_handoff_chain_summary(handoff_path: str) -> str:
+    """Format a readable Slack summary for a handoff chain."""
+    summary = summarize_engineering_handoff_chain(handoff_path)
+    if not summary:
+        return (
+            ":package: *Batch Status*\n\n"
+            f"No handoff found for `{handoff_path}`."
+        )
+
+    return (
+        ":package: *Batch Status*\n\n"
+        f"*Mission:* {summary['mission_title']}\n"
+        f"*Decision ID:* `{summary['decision_id'] or 'unknown'}`\n"
+        f"*Source Build Record:* `{summary['source_build_record']}`\n"
+        f"*Status:* `{summary['status']}`\n"
+        f"*Batch Status:* `{summary['outcome_status']}`\n"
+        f"*Batch Group:* `{summary['batch_group']}`\n"
+        f"*Priority:* `{summary['priority']}`\n"
+        f"*Handoff:* `{summary['handoff_path']}`"
+    )
+
+
+def find_latest_claimed_engineering_handoff() -> dict[str, str] | None:
+    """Return the most recently modified claimed handoff, if any."""
+    if not _ENGINEERING_HANDOFFS_DIR.exists():
+        return None
+
+    claimed_statuses = {"SUBMITTED", "IN_PROGRESS", "DELIVERED", "FAILED"}
+    candidates: list[tuple[float, dict[str, str]]] = []
+
+    for path in _ENGINEERING_HANDOFFS_DIR.glob("*.md"):
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        status = _extract_metadata_field(content, "Status")
+        batch_status = _extract_metadata_field(content, "Batch Status")
+        if status != "APPROVED_FOR_ENGINEERING" or batch_status not in claimed_statuses:
+            continue
+
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+
+        candidates.append((
+            mtime,
+            {
+                "path": str(path.relative_to(_REPO_ROOT)),
+                "status": status,
+                "batch_status": batch_status,
+                "batch_group": _extract_metadata_field(content, "Batch Group") or "unassigned",
+                "priority": _extract_metadata_field(content, "Priority") or "P2",
+                "mission_title": _extract_markdown_section(content, "Mission Title") or path.stem,
+            },
+        ))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1]
 
 
 def save_build_record_to_memory(
