@@ -23,6 +23,7 @@ const missionRoutes = require('./api/missions');
 const coordinationRoutes = require('./api/coordination');
 const healthRoutes = require('./api/health');
 const agentRoutes = require('./api/agents');
+const contextRoutes = require('./api/context');
 const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
@@ -63,6 +64,7 @@ app.use('/api/v1/missions', missionRoutes);
 app.use('/api/v1/coordination', coordinationRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/agents', agentRoutes);
+app.use('/api/v1/context', contextRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -91,6 +93,15 @@ app.get('/api', (req, res) => {
         status: 'GET /api/v1/agents/status',
         workload: 'GET /api/v1/agents/:agent/workload',
         activity: 'GET /api/v1/agents/:agent/activity'
+      },
+      context: {
+        captainBrief:       'GET /api/v1/context/captain-brief',
+        operatingPicture:   'GET /api/v1/context/operating-picture',
+        health:             'GET /api/v1/context/health',
+        blockers:           'GET /api/v1/context/blockers',
+        recommendations:    'GET /api/v1/context/recommendations',
+        mission:            'GET /api/v1/context/mission/:id',
+        status:             'GET /api/v1/context/status'
       }
     },
     documentation: 'See MSN-0035-PHASE2-INTEGRATION-PLAN.md',
