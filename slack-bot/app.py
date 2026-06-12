@@ -59,6 +59,17 @@ from commands.mission_brief import (
 from lib.xo_policy import xo_can_approve as xo_policy_can_approve
 from commands.mission_capture import handle_mission_capture
 from commands.decision_log import handle_decision_log, handle_save_decision
+from commands.health_check import (
+    MODAL_CALLBACK_ID as HEALTH_CHECK_MODAL_CALLBACK_ID,
+    build_health_check_modal,
+    handle_health_check_submit,
+)
+from commands.health_event import (
+    EVENT_MODAL_CALLBACK_ID as HEALTH_EVENT_MODAL_CALLBACK_ID,
+    build_health_event_modal,
+    handle_health_event_submit,
+)
+from commands.health_synthesis import handle_health_brief
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -75,6 +86,7 @@ from commands.memory_queries import (
     handle_memory_metrics_summary,
 )
 # WP8: Context Assembly Captain Brief + Operating Picture
+from commands.resilience_brief import handle_resilience_brief
 from commands.captain_brief import (
     fetch_and_format_captain_brief,
     fetch_and_format_operating_picture,
@@ -896,6 +908,117 @@ if app:
                     ":warning: *Operating Picture — Error*\n\n"
                     f"`{type(exc).__name__}` — check runtime logs."
                 )
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/resilience-brief")
+    def handle_resilience_brief_slash(ack, respond, command):
+        """/resilience-brief — Operational Resilience Intelligence Brief.
+
+        Subcommands:
+          /resilience-brief           — show latest brief
+          /resilience-brief sources   — show source health
+          /resilience-brief generate  — trigger on-demand generation
+        """
+        ack()
+
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        text = command.get("text", "")
+        log.info("[app] /resilience-brief: user=%s channel=%s sub=%r", user_id, channel_id, text)
+
+        def _run():
+            handle_resilience_brief(text, respond)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    # ── Health Check ──────────────────────────────────────────────────────────
+
+    @app.command("/health-check")
+    def handle_health_check_slash(ack, command, client):
+        """/health-check — open daily health check-in modal.
+
+        Immediately acks and opens the guided Block Kit modal.
+        The submission is handled by the view handler below.
+        """
+        ack()
+        trigger_id = command.get("trigger_id")
+        user_id = command.get("user_id", "")
+        log.info("[app] /health-check: user=%s trigger_id=%s", user_id, trigger_id)
+
+        if not trigger_id:
+            log.error("[health-check] No trigger_id — cannot open modal")
+            return
+
+        try:
+            client.views_open(trigger_id=trigger_id, view=build_health_check_modal())
+        except Exception as exc:
+            log.error("[health-check] views_open failed: %s — %s", type(exc).__name__, exc)
+
+    @app.view(HEALTH_CHECK_MODAL_CALLBACK_ID)
+    def handle_health_check_view_submission(ack, body, client):
+        """Process health check modal submission (view_submission event)."""
+        ack()
+        user_id = body.get("user", {}).get("id", "")
+        values = body.get("view", {}).get("state", {}).get("values", {})
+        log.info("[health-check] Modal submitted by user=%s", user_id)
+
+        def _run():
+            handle_health_check_submit(values, user_id, client)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    # ── Health Event ──────────────────────────────────────────────────────────
+
+    @app.command("/health-event")
+    def handle_health_event_slash(ack, command, client):
+        """/health-event — log a significant health timeline event via modal."""
+        ack()
+        trigger_id = command.get("trigger_id")
+        user_id = command.get("user_id", "")
+        log.info("[app] /health-event: user=%s trigger_id=%s", user_id, trigger_id)
+
+        if not trigger_id:
+            log.error("[health-event] No trigger_id — cannot open modal")
+            return
+
+        try:
+            client.views_open(trigger_id=trigger_id, view=build_health_event_modal())
+        except Exception as exc:
+            log.error("[health-event] views_open failed: %s — %s", type(exc).__name__, exc)
+
+    @app.view(HEALTH_EVENT_MODAL_CALLBACK_ID)
+    def handle_health_event_view_submission(ack, body, client):
+        """Process health event modal submission (view_submission event)."""
+        ack()
+        user_id = body.get("user", {}).get("id", "")
+        values = body.get("view", {}).get("state", {}).get("values", {})
+        log.info("[health-event] Modal submitted by user=%s", user_id)
+
+        def _run():
+            handle_health_event_submit(values, user_id, client)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    # ── Health Brief ──────────────────────────────────────────────────────────
+
+    @app.command("/health-brief")
+    def handle_health_brief_slash(ack, command, client):
+        """/health-brief — run weekly health synthesis and receive the brief as a DM."""
+        ack()
+        user_id = command.get("user_id", "")
+        log.info("[app] /health-brief: user=%s", user_id)
+
+        try:
+            client.chat_postMessage(
+                channel=user_id,
+                text=":hourglass_flowing_sand: Generating health brief… this may take up to 30 seconds.",
+            )
+        except Exception:
+            pass
+
+        def _run():
+            handle_health_brief(user_id, client)
 
         threading.Thread(target=_run, daemon=True).start()
 
