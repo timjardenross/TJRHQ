@@ -85,8 +85,8 @@ echo ""
 
 echo "── SERVICE HEALTH ──────────────────────────"
 
-# Slack Bot: process match on "app.py"
-if _proc_running "python.*app\.py"; then
+# Slack Bot: process match on "app.py" (Python or python — macOS bundle uses capital P)
+if _proc_running "[Pp]ython.*app\.py"; then
   _ok "Slack Bot" "process running"
 else
   _fail "Slack Bot" "process not found"
