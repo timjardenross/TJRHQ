@@ -1112,12 +1112,9 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     def _socket_mode_watchdog() -> None:
-        """Emit a heartbeat if Socket Mode startup appears stuck."""
-        start = time.monotonic()
-        while True:
-            time.sleep(5)
-            elapsed = time.monotonic() - start
-            log.warning("[startup] Socket Mode start still running after %.1fs", elapsed)
+        """Log once after 5s to confirm Socket Mode is running, then stay silent."""
+        time.sleep(5)
+        log.info("[startup] Socket Mode running")
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
 

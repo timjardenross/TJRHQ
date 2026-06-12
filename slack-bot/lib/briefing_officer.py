@@ -61,7 +61,7 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
         briefing_prompt = _build_briefing_prompt(research_package)
 
         # Call the configured Mistral briefing agent
-        from mistralai.client import Mistral
+        from mistralai import Mistral
 
         client = Mistral(api_key=api_key)
         agent_id = _mistral_agent_id(
@@ -78,16 +78,27 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
         response = client.beta.conversations.start(
             agent_id=agent_id,
             agent_version=agent_version,
-            messages=payload["messages"],
+            inputs={"messages": payload["messages"]},
         )
-        response_data = response
 
-        # Extract brief from response
+        # Extract text from v1.x ConversationResponse (outputs[].content)
         brief = ""
-        if hasattr(response_data, "choices") and response_data.choices:
-            brief = response_data.choices[0].message.content if response_data.choices[0].message else ""
-        elif hasattr(response_data, "messages") and response_data.messages:
-            brief = response_data.messages[-1].content if response_data.messages[-1] else ""
+        if hasattr(response, "outputs") and response.outputs:
+            for entry in response.outputs:
+                if getattr(entry, "role", None) == "assistant":
+                    content = getattr(entry, "content", None)
+                    if content:
+                        if isinstance(content, list):
+                            brief = " ".join(
+                                c.text if hasattr(c, "text") else str(c)
+                                for c in content
+                            ).strip()
+                        else:
+                            brief = str(content).strip()
+                        break
+        # Legacy fallback
+        if not brief and hasattr(response, "choices") and response.choices:
+            brief = response.choices[0].message.content or ""
 
         if brief:
             brief_length = len(brief.split())

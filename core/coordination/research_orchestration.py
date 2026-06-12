@@ -5,7 +5,7 @@ Orchestrates research delegation for the Number One Research Mission.
 
 Core Responsibilities:
   - Accept research topic
-  - Decompose topic into tasks (via Ollama)
+  - Decompose topic into tasks (via Mistral Agents API → Gemini → Ollama fallback)
   - Execute tasks sequentially (via research_delegator.py)
   - Consolidate findings
   - Generate recommendation/decision candidate
@@ -41,6 +41,36 @@ import time
 import importlib.util
 
 log = logging.getLogger(__name__)
+
+
+def _extract_mistral_text(response) -> str:
+    """Extract assistant text from a Mistral ConversationResponse (v1.x SDK).
+
+    The v1.x response has response.outputs: List[Outputs] where each entry
+    may be a MessageOutputEntry (type='message.output', role='assistant').
+    Falls back to legacy .choices/.messages shapes for forward compatibility.
+    """
+    if hasattr(response, "outputs") and response.outputs:
+        for entry in response.outputs:
+            role = getattr(entry, "role", None)
+            content = getattr(entry, "content", None)
+            if role == "assistant" and content:
+                if isinstance(content, list):
+                    # content may be a list of content chunks
+                    parts = []
+                    for chunk in content:
+                        if isinstance(chunk, str):
+                            parts.append(chunk)
+                        elif hasattr(chunk, "text"):
+                            parts.append(chunk.text or "")
+                    return " ".join(parts).strip()
+                return str(content).strip()
+    # Legacy fallback
+    if hasattr(response, "choices") and response.choices:
+        return response.choices[0].message.content or ""
+    if hasattr(response, "messages") and response.messages:
+        return response.messages[-1].content or ""
+    return ""
 
 # MSN-0055C WP7: Import metrics collection (same directory)
 try:
@@ -326,7 +356,7 @@ class ResearchOrchestrator:
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
-        log.info("Step 1: Task decomposition (Ollama → Gemini fallback chain)")
+        log.info("Step 1: Task decomposition (Mistral → Gemini → Ollama fallback chain)")
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -639,8 +669,9 @@ class ResearchOrchestrator:
         Decompose research topic into tasks using provider fallback chain.
 
         Provider chain:
-        1. qwen3:8b via Ollama (primary local fallback)
+        1. Mistral Decomposition Agent (primary)
         2. Gemini 2.5 Flash Lite (secondary)
+        3. qwen3:8b via Ollama (local fallback)
 
         Args:
             research_topic: Research request
@@ -665,10 +696,11 @@ Return ONLY a JSON array of 2-3 task strings, like:
 
 Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
-        # Provider chain for decomposition (same as task execution)
+        # Provider chain: Mistral Agents API primary, then Gemini, then Ollama local fallback
         providers = [
-            ("ollama", "qwen3:8b via Ollama (primary local)", self._decompose_with_ollama),
+            ("mistral-agent", "Mistral Decomposition Agent (primary)", self._decompose_with_mistral),
             ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
+            ("ollama", "qwen3:8b via Ollama (local fallback)", self._decompose_with_ollama),
         ]
 
         for provider_id, provider_name, provider_func in providers:
@@ -684,6 +716,45 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
         log.error("All decomposition providers exhausted; using deterministic fallback decomposition")
         return self._fallback_decomposition_tasks(research_topic)
+
+    def _decompose_with_mistral(self, prompt: str) -> list[str]:
+        """Decompose using Mistral Decomposition Agent (primary)."""
+        try:
+            api_key = os.getenv("MISTRAL_API_KEY")
+            if not api_key:
+                log.warning("[decompose] Mistral: MISTRAL_API_KEY not set")
+                return []
+
+            agent_id = os.getenv("MISTRAL_DECOMPOSITION_AGENT_ID", "").strip()
+            if not agent_id:
+                log.warning("[decompose] Mistral: MISTRAL_DECOMPOSITION_AGENT_ID not set")
+                return []
+
+            agent_version = int(os.getenv("MISTRAL_DECOMPOSITION_AGENT_VERSION", "2"))
+
+            log.info(f"[decompose] Mistral: Calling agent {agent_id} v{agent_version}...")
+            from mistralai import Mistral
+
+            client = Mistral(api_key=api_key)
+            response = client.beta.conversations.start(
+                agent_id=agent_id,
+                agent_version=agent_version,
+                inputs={"messages": [{"role": "user", "content": prompt}]},
+            )
+
+            text = _extract_mistral_text(response)
+            if not text:
+                log.warning("[decompose] Mistral: Empty response")
+                return []
+
+            tasks = self._parse_json_tasks(text)
+            if tasks:
+                log.info(f"[decompose] Mistral: SUCCESS — {len(tasks)} tasks")
+            return tasks
+
+        except Exception as e:
+            log.warning(f"[decompose] Mistral: FAILED — {type(e).__name__}: {e}")
+            return []
 
     def _decompose_with_gemini_lite(self, prompt: str) -> list[str]:
         """Decompose using Gemini 2.5 Flash Lite."""
