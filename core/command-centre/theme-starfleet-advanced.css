@@ -5,8 +5,9 @@
  */
 
 :root {
+  /* Internal theme aliases */
   --primary-color: #FFD700;
-  --accent-color: #00FFFF;
+  --accent-color: #FFD700;
   --bg-dark: #0a0e27;
   --bg-container: #1a1a2e;
   --bg-card: #2a2a3e;
@@ -16,6 +17,35 @@
   --border-color: #333;
   --animation-intensity: 0.8;
   --animation-duration-multiplier: 1.25;
+
+  /* Dashy native CSS variable overrides — replaces nord cyan with gold */
+  --primary: #FFD700;
+  --foreground: #FFD700;
+  --background: #0a0e27;
+  --background-darker: #05070e;
+  --heading-text-color: #FFD700;
+  --nav-link-text-color: #CCC;
+  --item-text-color: #FFF;
+  --item-background: #1a1a2e;
+  --scroll-bar-color: #FFD700;
+  --side-bar-color: #FFD700;
+
+  /* Section group colors — prevent solid gold section backgrounds */
+  --item-group-outer-background: #1a1a2e;
+  --item-group-background: #0d1130cc;
+}
+
+/* Section group — dark bg with gold top border accent */
+.collapsable {
+  border-top: 3px solid #FFD700 !important;
+  border-radius: 4px !important;
+}
+
+.section-header {
+  color: #FFD700 !important;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 13px !important;
 }
 
 /* Settings Panel Enhancements */
