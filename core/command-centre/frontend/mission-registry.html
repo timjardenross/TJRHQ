@@ -385,6 +385,40 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Trust Indicator Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+        .trust-banner.trust-live    { background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-stale   { background: rgba(255,152,0,0.15); color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15); color: #EF5350; border: 1px solid #EF5350; }
+        .trust-banner.trust-mock {
+            background: rgba(244,67,54,0.25);
+            color: #FF1744;
+            border: 2px solid #FF1744;
+            font-size: 14px;
+            padding: 12px 16px;
+            justify-content: center;
+            animation: mock-pulse 2s infinite;
+        }
+        @keyframes mock-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(255,23,68,0.3); }
+            50%       { box-shadow: 0 0 20px rgba(255,23,68,0.6); }
+        }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
+
         /* Responsive */
         @media (max-width: 768px) {
             .missions-grid {
@@ -425,6 +459,13 @@
         <div class="header">
             <h1>Mission Registry</h1>
             <p>USS TJR Operational Missions & Projects</p>
+        </div>
+
+        <!-- Trust Indicator -->
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
         </div>
 
         <!-- Stats -->
@@ -476,6 +517,26 @@
 
         // Debug mode
         const DEBUG = true;
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner = document.getElementById('trust-banner');
+            const labelEl = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴', mock: '⚠️' };
+            const labels = {
+                loading:     'LOADING',
+                live:        'LIVE',
+                stale:       'STALE',
+                unavailable: 'UNAVAILABLE',
+                mock:        'MOCK DATA — CONTROL ENGINE UNAVAILABLE',
+            };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
 
         // Real mission data from Supabase (CSV export)
         const MOCK_MISSIONS = [
@@ -546,13 +607,12 @@
         });
 
         async function fetchMissionsFromSupabase() {
+            setTrustState('loading');
             try {
                 const endpoint = `${CONTROL_ENGINE}/api/dashboard/missions`;
-
                 if (DEBUG) console.log('[Mission Registry] Fetching from:', endpoint);
 
                 const response = await fetch(endpoint);
-
                 if (DEBUG) console.log('[Mission Registry] Response status:', response.status);
 
                 if (!response.ok) {
@@ -563,11 +623,10 @@
                 if (DEBUG) console.log('[Mission Registry] Response:', envelope);
 
                 const data = envelope.data;
+                const fetchTime = new Date().toLocaleTimeString();
 
-                // If data exists and has records, use it
                 if (data && Array.isArray(data) && data.length > 0) {
                     console.log(`[Mission Registry] ✓ Loaded ${data.length} missions`);
-                    // Transform data to match our component format
                     allMissions = data.map(m => ({
                         id: m.mission_id || m.id,
                         title: m.title,
@@ -580,21 +639,32 @@
                         endDate: 'TBD',
                         blockers: []
                     }));
+                    setTrustState('live', {
+                        source: envelope.source || 'Supabase missions',
+                        time: fetchTime,
+                    });
                 } else {
-                    console.log('[Mission Registry] No records returned, using mock data');
-                    allMissions = MOCK_MISSIONS;
+                    // Backend responded but returned 0 records — show live empty state, NOT mock
+                    console.log('[Mission Registry] Backend OK but 0 records returned');
+                    allMissions = [];
+                    setTrustState('live', {
+                        source: (envelope.source || 'Supabase missions') + ' — 0 records',
+                        time: fetchTime,
+                    });
                 }
 
-                // Debug: log all unique statuses in data
-                const statuses = [...new Set(allMissions.map(m => m.status))];
-                console.log('[Mission Registry] Unique statuses in data:', statuses);
+                if (DEBUG) {
+                    const statuses = [...new Set(allMissions.map(m => m.status))];
+                    console.log('[Mission Registry] Unique statuses:', statuses);
+                }
 
                 renderMissions();
                 updateStats();
             } catch (error) {
                 console.error('[Mission Registry] ✗ Fetch error:', error);
-                console.warn('[Mission Registry] Control Engine unavailable — falling back to mock data');
+                // Control Engine unreachable — show MOCK banner, never silent
                 allMissions = MOCK_MISSIONS;
+                setTrustState('mock');
                 renderMissions();
                 updateStats();
             }

@@ -92,6 +92,13 @@ REPO_ROOT = CONTROL_ENGINE_DIR.parent.parent
 CONTROL_DECK_DIR = REPO_ROOT / "USS-TJR-Control"
 SLACK_BOT_DIR = REPO_ROOT / "slack-bot"
 
+# Number One output directory — daily_brief.json written here when Number One runs.
+# Override with NUMBER_ONE_OUTPUT_DIR env var if output lives elsewhere.
+NUMBER_ONE_OUTPUT_DIR = Path(os.environ.get(
+    'NUMBER_ONE_OUTPUT_DIR',
+    str(REPO_ROOT / 'core' / 'coordination')
+))
+
 logger.info(f"Control Engine starting...")
 logger.info(f"Repo root: {REPO_ROOT}")
 logger.info(f"Control Deck dir: {CONTROL_DECK_DIR}")
@@ -747,6 +754,7 @@ def get_dashboard_missions():
         'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
         'order': 'created_at.desc',
     })
+    now = datetime.now().isoformat()
     if error:
         logger.warning(f'[supabase-proxy] missions unavailable: {error}')
         return jsonify({
@@ -754,8 +762,10 @@ def get_dashboard_missions():
             'data': [],
             'count': 0,
             'source': 'supabase',
+            'fallback_used': True,
             'error': error,
-            'timestamp': datetime.now().isoformat(),
+            'generated_at': now,
+            'timestamp': now,
         }), 503
 
     return jsonify({
@@ -763,7 +773,9 @@ def get_dashboard_missions():
         'data': data,
         'count': len(data),
         'source': 'supabase',
-        'timestamp': datetime.now().isoformat(),
+        'fallback_used': False,
+        'generated_at': now,
+        'timestamp': now,
     })
 
 
@@ -775,6 +787,7 @@ def get_dashboard_decisions():
     """
     # decisions table columns unknown until populated; omit order to avoid 400
     data, error = _supabase_get('decisions', {'select': '*'})
+    now = datetime.now().isoformat()
     if error:
         logger.warning(f'[supabase-proxy] decisions unavailable: {error}')
         return jsonify({
@@ -782,8 +795,10 @@ def get_dashboard_decisions():
             'data': [],
             'count': 0,
             'source': 'supabase',
+            'fallback_used': True,
             'error': error,
-            'timestamp': datetime.now().isoformat(),
+            'generated_at': now,
+            'timestamp': now,
         }), 503
 
     return jsonify({
@@ -791,29 +806,59 @@ def get_dashboard_decisions():
         'data': data,
         'count': len(data),
         'source': 'supabase',
-        'timestamp': datetime.now().isoformat(),
+        'fallback_used': False,
+        'generated_at': now,
+        'timestamp': now,
     })
 
 
 @app.get('/api/dashboard/commander-brief')
 def get_dashboard_commander_brief():
     """
-    Proxy: missions data shaped for the Commander Operations Brief dashboard.
-    Intentionally a separate route so it can diverge (e.g. add Number One data) in WP3+.
+    Commander Operations Brief: Number One daily_brief.json if present, else Supabase missions.
+    Source label is always explicit so the frontend can display it clearly.
+    WP3: daily_brief.json check added; WP4 will merge Number One analysis fields.
     """
+    now = datetime.now().isoformat()
+    daily_brief_path = NUMBER_ONE_OUTPUT_DIR / 'daily_brief.json'
+
+    if daily_brief_path.exists():
+        try:
+            with open(daily_brief_path, 'r') as f:
+                brief = json.load(f)
+            missions = brief.get('missions', [])
+            generated_at = brief.get('generated_at', now)
+            logger.info(f'[commander-brief] serving Number One daily_brief.json ({len(missions)} missions)')
+            return jsonify({
+                'status': 'ok',
+                'data': missions,
+                'count': len(missions),
+                'source': 'number_one_daily_brief',
+                'source_label': 'Number One daily_brief.json',
+                'fallback_used': False,
+                'generated_at': generated_at,
+                'timestamp': now,
+            })
+        except Exception as e:
+            logger.warning(f'[commander-brief] daily_brief.json unreadable: {e} — falling back to Supabase')
+
+    # daily_brief.json absent or unreadable → fall back to Supabase missions
     data, error = _supabase_get('missions', {
         'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
         'order': 'created_at.desc',
     })
     if error:
-        logger.warning(f'[supabase-proxy] commander-brief unavailable: {error}')
+        logger.warning(f'[commander-brief] Supabase unavailable: {error}')
         return jsonify({
             'status': 'unavailable',
             'data': [],
             'count': 0,
             'source': 'supabase',
+            'source_label': 'Supabase missions (Number One unavailable)',
+            'fallback_used': True,
             'error': error,
-            'timestamp': datetime.now().isoformat(),
+            'generated_at': now,
+            'timestamp': now,
         }), 503
 
     return jsonify({
@@ -821,7 +866,137 @@ def get_dashboard_commander_brief():
         'data': data,
         'count': len(data),
         'source': 'supabase',
-        'timestamp': datetime.now().isoformat(),
+        'source_label': 'Supabase missions (Number One unavailable)',
+        'fallback_used': True,
+        'generated_at': now,
+        'timestamp': now,
+    })
+
+
+@app.get('/api/dashboard/blocked-missions')
+def get_dashboard_blocked_missions():
+    """
+    Proxy: Supabase missions filtered to status='blocked'.
+    Authoritative source: Supabase missions table.
+    Returns empty list (not an error) when no blocked missions exist.
+    """
+    now = datetime.now().isoformat()
+    data, error = _supabase_get('missions', {
+        'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
+        'status': 'eq.blocked',
+        'order': 'created_at.desc',
+    })
+    if error:
+        logger.warning(f'[supabase-proxy] blocked-missions unavailable: {error}')
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'count': 0,
+            'source': 'supabase',
+            'source_label': 'Supabase missions — blocked filter',
+            'fallback_used': True,
+            'error': error,
+            'generated_at': now,
+            'timestamp': now,
+        }), 503
+
+    return jsonify({
+        'status': 'ok',
+        'data': data,
+        'count': len(data),
+        'source': 'supabase',
+        'source_label': 'Supabase missions — blocked filter',
+        'fallback_used': False,
+        'generated_at': now,
+        'timestamp': now,
+    })
+
+
+@app.get('/api/dashboard/service-health')
+def get_dashboard_service_health():
+    """
+    Service health via USS-TJR-Control/status.command output.
+    Authoritative source: Control Engine health endpoint (interim — not Uptime Kuma).
+    Labelled explicitly as interim so dashboards can display the source honestly.
+    """
+    now = datetime.now().isoformat()
+    status_output = get_status_command_output()
+    services = parse_service_status(status_output)
+
+    uptime_kuma_url = os.environ.get('UPTIME_KUMA_URL', '')
+    if uptime_kuma_url:
+        source = 'uptime_kuma'
+        source_label = f'Uptime Kuma ({uptime_kuma_url})'
+    else:
+        source = 'control_engine_health'
+        source_label = 'INTERIM SOURCE — CONTROL ENGINE HEALTH (Uptime Kuma not configured)'
+
+    overall = 'operational'
+    if any(s['status'] == 'offline' for s in services.values()):
+        overall = 'offline'
+    elif any(s['status'] == 'degraded' for s in services.values()):
+        overall = 'degraded'
+
+    return jsonify({
+        'status': 'ok',
+        'overall': overall,
+        'services': services,
+        'count': len(services),
+        'source': source,
+        'source_label': source_label,
+        'fallback_used': False,
+        'generated_at': now,
+        'timestamp': now,
+    })
+
+
+@app.get('/api/dashboard/source-status')
+def get_dashboard_source_status():
+    """
+    Metadata about all data sources used by dashboards.
+    Consumers can use this to show an overall data trust summary.
+    """
+    now = datetime.now().isoformat()
+    supabase_configured = bool(SUPABASE_URL and SUPABASE_ANON_KEY)
+    daily_brief_path = NUMBER_ONE_OUTPUT_DIR / 'daily_brief.json'
+
+    # Quick Supabase reachability check (head request, no data returned)
+    supabase_reachable = False
+    if supabase_configured:
+        try:
+            resp = http_client.get(
+                f'{SUPABASE_URL}/rest/v1/',
+                headers={'apikey': SUPABASE_ANON_KEY},
+                timeout=5,
+            )
+            supabase_reachable = resp.status_code < 500
+        except Exception:
+            supabase_reachable = False
+
+    return jsonify({
+        'status': 'ok',
+        'sources': {
+            'supabase': {
+                'configured': supabase_configured,
+                'reachable': supabase_reachable,
+                'description': 'Supabase PostgreSQL — missions and decisions tables',
+            },
+            'control_engine': {
+                'reachable': True,
+                'description': 'This process — wraps USS-TJR-Control health scripts',
+            },
+            'number_one_daily_brief': {
+                'available': daily_brief_path.exists(),
+                'path': str(daily_brief_path),
+                'description': 'Number One daily_brief.json — written by number_one.py',
+            },
+            'uptime_kuma': {
+                'configured': bool(os.environ.get('UPTIME_KUMA_URL', '')),
+                'description': 'Uptime Kuma — full service health monitoring (not yet configured)',
+            },
+        },
+        'generated_at': now,
+        'timestamp': now,
     })
 
 
@@ -862,9 +1037,12 @@ def api_root():
             },
             'dashboard': {
                 'GET /api/dashboard/summary': 'Dashboard summary (all key metrics)',
-                'GET /api/dashboard/missions': 'Missions data (Supabase proxy)',
-                'GET /api/dashboard/decisions': 'Decisions data (Supabase proxy)',
-                'GET /api/dashboard/commander-brief': 'Commander brief data (Supabase proxy)',
+                'GET /api/dashboard/missions': 'Missions — Supabase proxy, all records',
+                'GET /api/dashboard/decisions': 'Decisions — Supabase proxy, all records',
+                'GET /api/dashboard/commander-brief': 'Commander brief — Number One daily_brief.json or Supabase fallback',
+                'GET /api/dashboard/blocked-missions': 'Blocked missions — Supabase filtered by status=blocked',
+                'GET /api/dashboard/service-health': 'Service health — Control Engine health (interim source)',
+                'GET /api/dashboard/source-status': 'Source metadata — trust/availability of all data sources',
             }
         },
         'timestamp': datetime.now().isoformat()

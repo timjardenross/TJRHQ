@@ -96,31 +96,31 @@
         }
 
         .refresh-btn:disabled {
-
-        .settings-btn {
-            padding: 10px 20px;
-            background: #FFD700;
-            color: #000;
-            border: 2px solid #FFD700;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .settings-btn:hover {
-            background: #FFA500;
-            border-color: #FFA500;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-        }
             background: #444;
             border-color: #666;
             color: #888;
             cursor: not-allowed;
         }
+
+        /* Trust Indicator Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15); color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
 
         /* Filter Buttons */
         .filter-buttons {
@@ -408,6 +408,13 @@
             </div>
         </div>
 
+        <!-- Trust Indicator -->
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
+        </div>
+
         <!-- Error Message -->
         <div id="error-container" style="display: none;"></div>
 
@@ -423,137 +430,75 @@
         </div>
     </div>
 
-    <script src="/frontend/control-engine-client.js"></script>
-    <!-- Track 2: Preference Management, Audio, Animations -->
-    <script src="/dashboards/preference-manager.js"></script>
-    <script src="/dashboards/audio-manager.js"></script>
-    <script src="/dashboards/animation-controller.js"></script>
     <script>
-        let client = new ControlEngineClient('http://localhost:8888');
-        let allMissions = [];
+        // Data source: /api/dashboard/blocked-missions (Supabase missions filtered by status=blocked)
+        // No hardcoded mock data. No Supabase credentials in this file.
+        const CONTROL_ENGINE = 'http://localhost:8888';
+
         let blockedMissions = [];
-        let currentFilter = 'all';
 
-        // Sample blocked mission reasons (can be extended or fetched from API)
-        const blockedReasons = {
-            'MSN-0001': {
-                reason: 'Awaiting Service Dependency',
-                detail: 'Ollama LLM service is offline. Cannot proceed with AI processing.',
-                service: 'ollama',
-                severity: 'high',
-                resolutionSteps: [
-                    'Check Ollama service health',
-                    'Restart Ollama container',
-                    'Wait for model loading (~2-5 minutes)',
-                    'Mission will auto-resume when service online'
-                ]
-            },
-            'MSN-0002': {
-                reason: 'Resource Constraint',
-                detail: 'GPU memory insufficient for large model inference.',
-                service: 'openclaw',
-                severity: 'medium',
-                resolutionSteps: [
-                    'Check GPU memory availability',
-                    'Reduce concurrent missions',
-                    'Clear model cache',
-                    'Retry mission'
-                ]
-            },
-            'MSN-0003': {
-                reason: 'Dependency Failed',
-                detail: 'Previous mission (MSN-0002) failed and is required for this workflow.',
-                dependsOn: 'MSN-0002',
-                severity: 'high',
-                resolutionSteps: [
-                    'Fix blocking mission MSN-0002',
-                    'Verify dependency resolution',
-                    'Retry this mission'
-                ]
-            }
-        };
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
 
-        // Initialize on page load
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            setupSettings();
             refreshBlocked();
-            setupFilterButtons();
+            setInterval(refreshBlocked, 30000);
         });
 
         async function refreshBlocked() {
             const refreshBtn = document.getElementById('refresh-btn');
-            const errorContainer = document.getElementById('error-container');
-
             refreshBtn.disabled = true;
             refreshBtn.textContent = 'Refreshing...';
+            setTrustState('loading');
 
             try {
-                // Fetch all missions
-                const active = await client.getMissionsActive();
-                const recent = await client.getMissionsRecent(20);
+                const response = await fetch(`${CONTROL_ENGINE}/api/dashboard/blocked-missions`);
 
-                allMissions = [...(recent.missions || []), ...(active.missions || [])];
+                if (!response.ok) {
+                    throw new Error(`Control Engine error: ${response.status}`);
+                }
 
-                // Filter for blocked missions
-                blockedMissions = allMissions.filter(mission => {
-                    const id = mission.mission_id;
-                    return blockedReasons[id] !== undefined;
-                }).map(mission => {
-                    const id = mission.mission_id;
-                    const reason = blockedReasons[id];
-                    return {
-                        ...mission,
-                        blocking: reason
-                    };
+                const envelope = await response.json();
+                const fetchTime = new Date().toLocaleTimeString();
+                blockedMissions = Array.isArray(envelope.data) ? envelope.data : [];
+
+                setTrustState('live', {
+                    source: envelope.source_label || 'Supabase missions — blocked filter',
+                    time: fetchTime,
                 });
-
-                // Clear error
-                errorContainer.style.display = 'none';
-
-                // Update UI
-                updateBlockedCount();
-                displayBlockedMissions();
+                document.getElementById('error-container').style.display = 'none';
 
             } catch (error) {
-                console.error('Failed to fetch missions:', error);
-                showError(`Failed to fetch blocked missions: ${error.message}`);
+                console.error('[Blocked Missions] Fetch error:', error);
+                blockedMissions = [];
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                const ec = document.getElementById('error-container');
+                ec.innerHTML = `<div class="error-message">⚠️ Cannot reach Control Engine. Check that control_engine.py is running on port 8888.</div>`;
+                ec.style.display = 'block';
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.textContent = 'Refresh';
+                document.getElementById('blocked-count').textContent = blockedMissions.length;
+                displayBlockedMissions();
             }
-        }
-
-        function setupFilterButtons() {
-            const filters = [
-                { id: 'all', label: 'All Blocked' },
-                { id: 'service', label: 'Service Dependencies' },
-                { id: 'resource', label: 'Resource Constraints' },
-                { id: 'dependency', label: 'Mission Dependencies' }
-            ];
-
-            const filterButtons = document.getElementById('filter-buttons');
-            filterButtons.innerHTML = filters
-                .map(f => `
-                    <button class="filter-btn ${f.id === 'all' ? 'active' : ''}"
-                            onclick="filterMissions('${f.id}')">${f.label}</button>
-                `)
-                .join('');
-        }
-
-        function filterMissions(filter) {
-            currentFilter = filter;
-
-            // Update button states
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            displayBlockedMissions();
-        }
-
-        function updateBlockedCount() {
-            document.getElementById('blocked-count').textContent = blockedMissions.length;
         }
 
         function displayBlockedMissions() {
@@ -564,102 +509,42 @@
                     <div class="empty-state" style="grid-column: 1 / -1;">
                         <div class="empty-icon">✅</div>
                         <div class="empty-title">No Blocked Missions</div>
-                        <div class="empty-text">All missions are able to proceed</div>
+                        <div class="empty-text">No missions with status "blocked" found in Supabase</div>
                     </div>
                 `;
                 return;
             }
 
-            let filtered = blockedMissions;
-            if (currentFilter !== 'all') {
-                filtered = filtered.filter(m => {
-                    const reason = m.blocking.reason.toLowerCase();
-                    if (currentFilter === 'service') return reason.includes('service');
-                    if (currentFilter === 'resource') return reason.includes('resource');
-                    if (currentFilter === 'dependency') return reason.includes('dependency');
-                    return true;
-                });
-            }
-
-            if (filtered.length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state" style="grid-column: 1 / -1;">
-                        <div class="empty-icon">🔍</div>
-                        <div class="empty-title">No Missions Match Filter</div>
-                        <div class="empty-text">Try a different filter</div>
-                    </div>
-                `;
-                return;
-            }
-
-            const html = filtered
-                .map(mission => renderBlockedCard(mission))
-                .join('');
-
-            grid.innerHTML = html;
-        }
-
-        function renderBlockedCard(mission) {
-            const blocking = mission.blocking;
-            const severity = blocking.severity || 'medium';
-            const severityClass = `severity-${severity}`;
-
-            const resolutionSteps = (blocking.resolutionSteps || [])
-                .map(step => `<li class="resolution-step">${step}</li>`)
-                .join('');
-
-            return `
-                <div class="blocked-card ${severityClass}">
-                    <div class="blocked-title">🚫 ${mission.title || mission.mission_id}</div>
-                    <div class="blocked-id">${mission.mission_id}</div>
+            grid.innerHTML = blockedMissions.map(m => `
+                <div class="blocked-card">
+                    <div class="blocked-title">🚫 ${escapeHtml(m.title || m.mission_id)}</div>
+                    <div class="blocked-id">${escapeHtml(m.mission_id || m.id || '—')}</div>
 
                     <div class="block-reason">
-                        <div class="block-reason-label">🔒 Blocking Reason</div>
-                        <div class="block-reason-text">${blocking.reason}</div>
-                        <div class="block-reason-detail">${blocking.detail}</div>
-                    </div>
-
-                    <div class="resolution-steps">
-                        <div class="resolution-label">✓ How to Resolve</div>
-                        <ul class="resolution-steps-list">
-                            ${resolutionSteps}
-                        </ul>
+                        <div class="block-reason-label">📋 Description</div>
+                        <div class="block-reason-text">${escapeHtml(m.description || 'No description recorded')}</div>
                     </div>
 
                     <div class="block-metadata">
                         <div class="metadata-item">
-                            <span class="metadata-label">Domain:</span>
-                            <span class="metadata-value">${mission.domain || 'General'}</span>
+                            <span class="metadata-label">Owner:</span>
+                            <span class="metadata-value">${escapeHtml(m.created_by || 'Unassigned')}</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Type:</span>
+                            <span class="metadata-value">${escapeHtml(m.task_type || 'N/A')}</span>
                         </div>
                         <div class="metadata-item">
                             <span class="metadata-label">Status:</span>
-                            <span class="metadata-value">Blocked</span>
+                            <span class="metadata-value">BLOCKED</span>
                         </div>
-                        ${blocking.service ? `
                         <div class="metadata-item">
-                            <span class="metadata-label">Service:</span>
-                            <span class="metadata-value">${blocking.service}</span>
-                        </div>
-                        ` : ''}
-                        ${blocking.dependsOn ? `
-                        <div class="metadata-item">
-                            <span class="metadata-label">Depends On:</span>
-                            <span class="metadata-value">${blocking.dependsOn}</span>
-                        </div>
-                        ` : ''}
-                        <div class="metadata-item">
-                            <span class="metadata-label">Severity:</span>
-                            <span class="metadata-value">${severity.toUpperCase()}</span>
+                            <span class="metadata-label">Created:</span>
+                            <span class="metadata-value">${m.created_at ? new Date(m.created_at).toLocaleDateString() : 'N/A'}</span>
                         </div>
                     </div>
                 </div>
-            `;
-        }
-
-        function showError(message) {
-            const errorContainer = document.getElementById('error-container');
-            errorContainer.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
-            errorContainer.style.display = 'block';
+            `).join('');
         }
     </script>
 </body>

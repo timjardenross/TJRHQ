@@ -311,6 +311,27 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Trust Indicator Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-stale       { background: rgba(255,152,0,0.15); color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15); color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
     </style>
 </head>
 <body>
@@ -319,6 +340,13 @@
         <div class="header">
             <h1>📋 DECISIONS REGISTRY</h1>
             <p>USS TJR Architectural Decisions & Alternatives</p>
+        </div>
+
+        <!-- Trust Indicator -->
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
         </div>
 
         <!-- Stats -->
@@ -367,11 +395,23 @@
         // No Supabase credentials in this file.
         const CONTROL_ENGINE = 'http://localhost:8888';
 
-        // Debug mode
         const DEBUG = true;
-
         let allDecisions = [];
         let currentTab = 'all';
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner  = document.getElementById('trust-banner');
+            const labelEl = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -381,13 +421,12 @@
         });
 
         async function fetchDecisionsFromSupabase() {
+            setTrustState('loading');
             try {
                 const endpoint = `${CONTROL_ENGINE}/api/dashboard/decisions`;
-
                 if (DEBUG) console.log('[Decisions Registry] Fetching from:', endpoint);
 
                 const response = await fetch(endpoint);
-
                 if (DEBUG) console.log('[Decisions Registry] Response status:', response.status);
 
                 if (!response.ok) {
@@ -398,6 +437,7 @@
                 if (DEBUG) console.log('[Decisions Registry] Response:', envelope);
 
                 const data = envelope.data;
+                const fetchTime = new Date().toLocaleTimeString();
 
                 if (data && Array.isArray(data) && data.length > 0) {
                     console.log(`[Decisions Registry] ✓ Loaded ${data.length} decisions`);
@@ -411,19 +451,30 @@
                         updatedAt: d.updated_at ? new Date(d.updated_at).toISOString().split('T')[0] : 'N/A',
                         alternatives: Array.isArray(d.alternatives) ? d.alternatives : []
                     }));
+                    setTrustState('live', {
+                        source: envelope.source || 'Supabase decisions',
+                        time: fetchTime,
+                    });
                 } else {
-                    console.log('[Decisions Registry] No records returned');
+                    console.log('[Decisions Registry] Backend OK — 0 decisions in table');
                     allDecisions = [];
+                    setTrustState('live', {
+                        source: (envelope.source || 'Supabase decisions') + ' — 0 records',
+                        time: fetchTime,
+                    });
                 }
 
-                const statuses = [...new Set(allDecisions.map(d => d.status))];
-                console.log('[Decisions Registry] Unique statuses in data:', statuses);
+                if (DEBUG) {
+                    const statuses = [...new Set(allDecisions.map(d => d.status))];
+                    console.log('[Decisions Registry] Unique statuses:', statuses);
+                }
 
                 renderDecisions();
                 updateStats();
             } catch (error) {
-                console.error('[Decisions Registry] ✗ Fetch error (Control Engine unavailable?):', error);
+                console.error('[Decisions Registry] ✗ Fetch error:', error);
                 allDecisions = [];
+                setTrustState('unavailable', { source: 'Control Engine unreachable' });
                 renderDecisions();
                 updateStats();
             }

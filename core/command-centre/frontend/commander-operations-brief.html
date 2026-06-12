@@ -200,6 +200,27 @@
             margin-bottom: 8px;
         }
 
+        /* Trust Indicator Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-stale       { background: rgba(255,152,0,0.15); color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15); color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
+
         /* Footer */
         .footer-info {
             margin-top: 40px;
@@ -220,6 +241,13 @@
         <div class="header">
             <h1>Commander Operations Brief</h1>
             <p>Starship Endeavour — Mission Status & Operational Overview</p>
+        </div>
+
+        <!-- Trust Indicator -->
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
         </div>
 
         <!-- Overview Stats Grid -->
@@ -293,7 +321,22 @@
 
         let refreshInterval;
 
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner  = document.getElementById('trust-banner');
+            const labelEl = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
         async function fetchMissions() {
+            setTrustState('loading');
             try {
                 const response = await fetch(`${CONTROL_ENGINE}/api/dashboard/commander-brief`);
 
@@ -302,11 +345,16 @@
                 }
 
                 const envelope = await response.json();
+                const fetchTime = new Date().toLocaleTimeString();
+                const sourceLabel = envelope.source_label || envelope.source || 'Control Engine';
+
+                setTrustState('live', { source: sourceLabel, time: fetchTime });
                 updateBrief(envelope.data);
                 showError(false);
 
             } catch (error) {
                 console.error('Error fetching commander brief:', error);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
                 showError(true);
             } finally {
                 updateRefreshTime();

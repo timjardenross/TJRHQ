@@ -314,6 +314,27 @@
             color: #FF4444;
         }
 
+        /* Trust Indicator Banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-interim     { background: rgba(255,152,0,0.15); color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15); color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
+
         /* Loading & Error States */
         .loading {
             text-align: center;
@@ -407,6 +428,13 @@
             </div>
         </div>
 
+        <!-- Trust Indicator -->
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
+        </div>
+
         <!-- Error Message (if needed) -->
         <div id="error-container" style="display: none;"></div>
 
@@ -422,79 +450,82 @@
         </div>
     </div>
 
-    <script src="/frontend/control-engine-client.js"></script>
-    <!-- Track 2: Preference Management, Audio, Animations -->
-    <script src="/dashboards/preference-manager.js"></script>
-    <script src="/dashboards/audio-manager.js"></script>
-    <script src="/dashboards/animation-controller.js"></script>
     <script>
-        // Initialize
-        let client = new ControlEngineClient('http://localhost:8888');
+        // Data source: /api/dashboard/service-health (Control Engine health — interim source)
+        // Authoritative source is Uptime Kuma when configured; until then, Control Engine health.
+        // Source is always labelled explicitly — never presented as Uptime Kuma coverage.
+        const CONTROL_ENGINE = 'http://localhost:8888';
+
         let lastHealthData = null;
         let autoRefreshInterval = null;
 
-        // Track 2: Initialize preferences, audio, and animations
-        const preferences = new PreferenceManager();
-        const audioManager = new AudioManager(preferences);
-        const animationController = new AnimationController(preferences);
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', interim: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', interim: 'INTERIM SOURCE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
 
-        // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             refreshHealth();
             setupAutoRefresh();
-            setupSettings();
-        });
-
-        // Auto-refresh toggle
-        document.getElementById('auto-refresh-toggle').addEventListener('change', setupAutoRefresh);
-
-        // Settings button handler
-        function setupSettings() {
             document.getElementById('settings-btn').addEventListener('click', () => {
                 window.open('/dashboards/settings-panel.html', 'settings', 'width=900,height=1100,scrollbars=yes');
             });
-        }
+        });
+
+        document.getElementById('auto-refresh-toggle').addEventListener('change', setupAutoRefresh);
 
         function setupAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-            }
-
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
             if (document.getElementById('auto-refresh-toggle').checked) {
-                autoRefreshInterval = setInterval(refreshHealth, 30000); // 30 seconds
+                autoRefreshInterval = setInterval(refreshHealth, 30000);
             }
         }
 
         async function refreshHealth() {
-            const refreshBtn = document.getElementById('refresh-btn');
+            const refreshBtn    = document.getElementById('refresh-btn');
             const gridContainer = document.getElementById('services-grid');
             const errorContainer = document.getElementById('error-container');
 
             refreshBtn.disabled = true;
             refreshBtn.textContent = 'Refreshing...';
+            setTrustState('loading');
 
             try {
-                const health = await client.getHealth();
+                const response = await fetch(`${CONTROL_ENGINE}/api/dashboard/service-health`);
+
+                if (!response.ok) throw new Error(`Control Engine error: ${response.status}`);
+
+                const health = await response.json();
                 lastHealthData = health;
 
-                // Clear error message
+                const fetchTime = new Date().toLocaleTimeString();
+                // source is 'control_engine_health' until Uptime Kuma is configured
+                const trustState = health.source === 'uptime_kuma' ? 'live' : 'interim';
+                setTrustState(trustState, {
+                    source: health.source_label || health.source || 'Control Engine health',
+                    time: fetchTime,
+                });
+
                 errorContainer.style.display = 'none';
                 errorContainer.innerHTML = '';
-
-                // Update summary stats
                 updateSummaryStats(health);
-
-                // Update services grid
                 updateServicesGrid(health);
-
-                // Update last check time
                 updateLastCheckTime();
 
             } catch (error) {
                 console.error('Failed to fetch health:', error);
-                showError(`Failed to fetch service health: ${error.message}`);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                showError(`Cannot reach Control Engine. Check that control_engine.py is running on port 8888.`);
 
-                // Show cached data if available
                 if (lastHealthData) {
                     updateSummaryStats(lastHealthData);
                     updateServicesGrid(lastHealthData, true);

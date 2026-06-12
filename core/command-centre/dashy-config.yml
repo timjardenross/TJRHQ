@@ -113,6 +113,18 @@ sections:
         url: http://localhost:3001
         target: _blank
 
+      - title: Blocked Missions
+        description: "🔴 Missions with status=blocked (Supabase live filter)"
+        icon: fas fa-ban
+        url: "/dashboards/blocked-missions.html"
+        target: _blank
+
+      - title: Service Health
+        description: "🟡 Service status — Interim: Control Engine health"
+        icon: fas fa-heartbeat
+        url: "/dashboards/service-health-widget.html"
+        target: _blank
+
 
   # SECTION 4: RUNTIME SERVICES
   - title: Runtime Services
