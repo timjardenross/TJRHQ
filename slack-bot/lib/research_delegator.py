@@ -11,10 +11,9 @@ Gemini quota exhaustion retries. Once daily quota is exceeded:
   - Detailed logging tracks provider selection, skipping, and fallback usage
 
 Primary flow:
-  1. Mistral Research Agent (primary)
-  2. qwen3:8b via Ollama (fallback - local, free)
-  3. Gemini 2.5 Flash Lite (secondary fallback)
-  4. Gemini 2.5 Flash (emergency only - premium)
+  1. qwen3:8b via Ollama (primary local fallback)
+  2. Gemini 2.5 Flash Lite (secondary fallback)
+  3. Gemini 2.5 Flash (emergency only - premium)
 
 Non-blocking: If all providers fail, returns error status but does not crash.
 
@@ -42,88 +41,6 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-
-def _mistral_agent_id(env_name: str, fallback: str) -> str:
-    agent_id = os.getenv(env_name, "").strip()
-    return agent_id or fallback
-
-
-def _run_mistral_agent_research(
-    task_description: str,
-    timeout_sec: int,
-    agent_env: str,
-    agent_version_env: str,
-    fallback_agent_id: str,
-    fallback_agent_version: int = 2,
-) -> ResearchOutcome:
-    """Execute a Mistral agent using the configured agent ID/version."""
-    agent_id = _mistral_agent_id(agent_env, fallback_agent_id)
-    raw_version = os.getenv(agent_version_env, "").strip()
-    try:
-        agent_version = int(raw_version) if raw_version else fallback_agent_version
-    except ValueError:
-        agent_version = fallback_agent_version
-    return _call_mistral_agent_impl(task_description, timeout_sec, agent_id, agent_version)
-
-
-def _call_mistral_agent_impl(
-    task_description: str,
-    timeout_sec: int,
-    agent_id: str,
-    agent_version: int,
-) -> ResearchOutcome:
-    try:
-        mistral_api_key = os.getenv("MISTRAL_API_KEY")
-        if not mistral_api_key:
-            log.warning("MISTRAL_API_KEY not configured; skipping Mistral")
-            return ResearchOutcome(
-                status="skipped",
-                provider="mistral-research-agent",
-                error_message="MISTRAL_API_KEY not configured",
-            )
-
-        try:
-            from mistralai.client import Mistral
-        except ImportError:
-            log.warning("mistralai package not installed; skipping Mistral")
-            return ResearchOutcome(
-                status="skipped",
-                provider="mistral-research-agent",
-                error_message="mistralai package not installed",
-            )
-
-        client = Mistral(api_key=mistral_api_key)
-        prompt = f"Research the following topic and provide clear, factual findings:\n\n{task_description}"
-        start_time = time.time()
-        response = client.beta.conversations.start(
-            agent_id=agent_id,
-            agent_version=agent_version,
-            inputs=[{"role": "user", "content": prompt}],
-        )
-        elapsed_ms = int((time.time() - start_time) * 1000)
-        if response and hasattr(response, "messages") and response.messages:
-            findings = response.messages[-1].content if response.messages else "No findings returned"
-            log.info(f"Mistral Research Agent successful: {len(findings)} chars in {elapsed_ms}ms")
-            return ResearchOutcome(
-                status="success",
-                provider="mistral-research-agent",
-                findings=findings,
-                references=[],
-                execution_time_ms=elapsed_ms,
-            )
-        log.warning(f"Mistral Research Agent returned empty response: {response}")
-        return ResearchOutcome(
-            status="error",
-            provider="mistral-research-agent",
-            error_message="Empty response from Mistral Research Agent",
-        )
-    except Exception as api_error:
-        error_str = str(api_error).lower()
-        if "429" in error_str or "rate" in error_str:
-            return ResearchOutcome(status="rate_limited", provider="mistral-research-agent", error_message="Mistral rate limited (429)")
-        if "401" in error_str or "unauthorized" in error_str or "authentication" in error_str:
-            return ResearchOutcome(status="error", provider="mistral-research-agent", error_message="Mistral authentication failed (invalid API key)")
-        return ResearchOutcome(status="error", provider="mistral-research-agent", error_message=f"Mistral Research Agent error: {str(api_error)[:100]}")
 
 # ============================================================================
 # Configuration: Quota-Aware Routing (MSN-[GEMINI-QUOTA-AWARE-ROUTING])
@@ -368,22 +285,16 @@ def call_gemini_research(
 
 
 # ============================================================================
-# Provider: Mistral Large (Cloud Fallback)
+# Provider: Compatibility Shim for Legacy Gemini Lite Routing
 # ============================================================================
 
-def call_mistral_research(
+def call_legacy_research_routing(
     task_description: str,
     timeout_sec: int = 120
 ) -> ResearchOutcome:
-    """Compatibility wrapper for the primary Mistral research agent."""
-    return _run_mistral_agent_research(
-        task_description,
-        timeout_sec,
-        "MISTRAL_DECOMPOSITION_AGENT_ID",
-        "MISTRAL_DECOMPOSITION_AGENT_VERSION",
-        "ag_019eafb4bee976348306954617b1c18c",
-        2,
-    )
+    """Compatibility shim that routes legacy calls to Gemini Lite."""
+    log.info("Legacy research call routed to Gemini Lite")
+    return call_gemini_2_5_flash_lite_research(task_description, timeout_sec)
 
 # ============================================================================
 # Provider: qwen3 via Ollama (Fallback)
@@ -840,13 +751,11 @@ def delegate_research_task(
     # Get mission Gemini quota tracker
     mission_quota = get_mission_gemini_quota(mission_id or "default") if mission_id else None
 
-    # DEF-WP1-001: Provider fallback chain with Mistral Research Agent
-    # 1. Mistral Research Agent (primary - cloud agent, no quota limits)
-    # 2. qwen3:8b via Ollama (fallback - local, free, no quota)
-    # 3. Gemini 2.5 Flash Lite (secondary fallback - quota-aware)
-    # 4. Gemini 2.5 Flash (emergency only - premium)
+    # Provider fallback chain without Mistral
+    # 1. qwen3:8b via Ollama (primary local fallback)
+    # 2. Gemini 2.5 Flash Lite (secondary fallback - quota-aware)
+    # 3. Gemini 2.5 Flash (emergency only - premium)
     providers = [
-        ("mistral-research-agent", "Mistral Research Agent (primary - cloud agent, no quota)", call_mistral_research),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
@@ -877,15 +786,8 @@ def delegate_research_task(
             )
 
     # Provider chain: try each in order
-    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order
-    # Research delegation uses Mistral primary
-    # Ollama as local fallback (free, no quota)
-    # Gemini Flash Lite as secondary fallback
-    # Flash reserved for emergency only
-    #
-    # MSN-0060B: If adaptive routing active, reorder by quality metrics
+    # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware order without Mistral
     providers = [
-        ("mistral-research-agent", "Mistral Research Agent (primary - cloud agent, no quota)", call_mistral_research),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (fallback - local, free, no quota)", call_ollama_research),
         ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
         ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
