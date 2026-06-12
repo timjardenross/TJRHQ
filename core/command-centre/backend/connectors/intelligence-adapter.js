@@ -159,6 +159,17 @@ class IntelligenceAdapter {
     return { status, brief };
   }
 
+  // ── Brief by ID ───────────────────────────────────────────────────────────────
+
+  async getBriefById(id) {
+    const rows = await _supabaseGet(
+      'intelligence_briefs',
+      `brief_id=eq.${encodeURIComponent(id)}&limit=1`
+    );
+    if (!rows.length) return null;
+    return rows[0];
+  }
+
   // ── Brief Archive ─────────────────────────────────────────────────────────────
 
   async getBriefArchive({ limit = 20, offset = 0 } = {}) {

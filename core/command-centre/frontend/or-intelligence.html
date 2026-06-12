@@ -545,7 +545,7 @@ function fmtDateShort(iso) {
 function statusPill(status) {
     const cls = {
         LIVE: 'pill-live', CACHED: 'pill-cached', STALE: 'pill-stale',
-        PARTIAL: 'pill-partial', FAILED: 'pill-failed'
+        PARTIAL: 'pill-partial', FAILED: 'pill-failed', ARCHIVED: 'pill-cached'
     }[status] || 'pill-unknown';
     return `<span class="status-pill ${cls}">${status || '—'}</span>`;
 }
@@ -935,10 +935,28 @@ async function generateBrief() {
     }
 }
 
-function loadBriefById(id) {
-    // Scroll to top and show selected brief (future: modal)
-    window.scrollTo(0, 0);
-    showStale(`Viewing archived brief ${id.substring(0, 8)}... (full brief detail coming in next iteration)`);
+async function loadBriefById(id) {
+    clearBanners();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showStale(`Loading archived brief ${id.substring(0, 8)}…`);
+    try {
+        const result = await apiFetch(`/brief/${id}`);
+        const { brief } = result;
+        if (!brief) { showError('Archived brief not found'); return; }
+
+        _briefData = brief;
+        clearBanners();
+        showStale(`📁 Archived brief — generated ${fmtDate(brief.generated_at)}`);
+
+        renderSnapshot(brief, 'ARCHIVED');
+        renderEvents(brief);
+        renderNarrative(brief);
+
+        document.getElementById('last-updated').textContent =
+            `Archived: ${fmtDate(brief.generated_at)}`;
+    } catch (err) {
+        showError(`Could not load archived brief: ${err.message}`);
+    }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

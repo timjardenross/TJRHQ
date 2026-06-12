@@ -34,6 +34,17 @@ router.get('/latest', async (req, res) => {
   }
 });
 
+// ── GET /brief/:id ────────────────────────────────────────────────────────────
+router.get('/brief/:id', async (req, res) => {
+  try {
+    const brief = await adapter.getBriefById(req.params.id);
+    if (!brief) return fail(res, 404, 'Brief not found', req.params.id);
+    res.json({ status: 'ARCHIVED', brief });
+  } catch (err) {
+    fail(res, 503, 'Could not retrieve brief', err.message);
+  }
+});
+
 // ── GET /archive ──────────────────────────────────────────────────────────────
 router.get('/archive', async (req, res) => {
   try {
