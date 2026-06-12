@@ -195,27 +195,35 @@ class LearningLoopBridge:
                 f"outcome_id={outcome_id}, mission_id={decision.mission_id}"
             )
 
-            # Record with outcome capture service
-            outcome_record = {
-                "outcome_id": outcome_id,
-                "mission_id": decision.mission_id,
-                "user_id": decision.user_id,
-                "original_query": decision.original_query,
-                "provider_used": decision.provider_used,
-                "tokens_used": decision.tokens_used,
-                "execution_time_ms": decision.execution_time_ms,
-                "confidence": decision.confidence,
-                "outcome_description": outcome_description,
-                "created_at": datetime.utcnow().isoformat(),
-            }
-
-            self.outcome_capture.record_outcome(
-                outcome_id=outcome_id,
-                metadata=outcome_record,
+            # Record with the real outcome capture contract so the loop closes
+            status = "Implemented" if outcome_description else "Unknown"
+            outcome_notes = outcome_description or (
+                f"Research outcome captured for mission {decision.mission_id}"
             )
 
+            outcome = self.outcome_capture.record_outcome(
+                decision_id=decision.mission_id,
+                status=status,
+                implementation_notes=outcome_notes,
+                provider_name=getattr(decision, "provider_used", None),
+                model_name=None,
+                provider_route=None,
+            )
+
+            if outcome:
+                log.info(
+                    f"[learning-loop-bridge] Outcome recorded successfully: "
+                    f"decision_id={decision.mission_id}, outcome_id={outcome.id}"
+                )
+            else:
+                log.warning(
+                    f"[learning-loop-bridge] Outcome capture returned no record: "
+                    f"decision_id={decision.mission_id}"
+                )
+
             log.info(
-                f"[learning-loop-bridge] Outcome recorded successfully"
+                f"[learning-loop-bridge] Outcome bridge context: "
+                f"bridge_outcome_id={outcome_id}, mission_id={decision.mission_id}"
             )
 
             return True
