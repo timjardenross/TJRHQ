@@ -261,6 +261,7 @@ class QualityScoring:
                         f"[quality-scoring→b1d] Feedback loops not configured, "
                         f"skipping B1D integration"
                     )
+
                 return quality_score
 
             except Exception as e:

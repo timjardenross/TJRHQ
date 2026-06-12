@@ -6,10 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 import sys
-import logging
 from typing import Any
-
-log = logging.getLogger(__name__)
 
 from commander_runtime import execute_commander_runtime
 from commander_response_formatter import format_commander_response, parse_commander_response
@@ -22,7 +19,6 @@ from paperclip_issue_creator import (
 from router import route_request, score_specialists
 from supabase_commander_intake import is_commander_directed, run_supabase_commander
 from mission_registry import create_mission
-from core.coordination.commander_memory_adapter import CommanderMemoryAdapter
 
 # MSN-0032: Semantic Specialist Routing integration
 try:
@@ -54,8 +50,6 @@ INTENT_MEMORY = "memory"
 INTENT_RESEARCH = "research"         # MSN-0054: routes to research orchestration
 INTENT_GENERAL = "general"
 
-_commander_memory_adapter = CommanderMemoryAdapter()
-
 
 def handle_slack_message(
     text: str,
@@ -71,9 +65,7 @@ def handle_slack_message(
     MSN-0054E-FIX: Accepts Slack say() function for queued mission result posting.
     """
     cleaned_text = _clean_slack_text(text)
-    log.info(f"[bridge] Cleaned text for intent detection: '{cleaned_text[:80]}'")
     intent = classify_commander_intent(cleaned_text)
-    log.info(f"[bridge] Classified intent: {intent}")
     routing = route_request(cleaned_text)
     route = _primary_route(routing)
     confidence = _route_confidence(cleaned_text)
@@ -272,17 +264,6 @@ def handle_slack_message(
             response_text = f":x: Research request failed: {str(e)[:100]}"
     else:
         response_text = _execute_runtime_safely(cleaned_text)
-
-    try:
-        memory_context = _commander_memory_adapter.build_memory_note(
-            text=cleaned_text,
-            intent=intent,
-            routing_results=routing,
-        )
-        if memory_context.found and memory_context.note:
-            response_text = f"{response_text}\n\n{memory_context.note}"
-    except Exception as exc:
-        log.warning("[commander-bridge] Memory note skipped (non-blocking): %s", exc)
 
     return {
         "ok": True,

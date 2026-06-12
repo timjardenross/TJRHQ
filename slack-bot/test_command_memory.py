@@ -3,7 +3,7 @@
 Covers:
   - CommandMemoryClient.insert/update — success/failure detection, Prefer header
   - CommandMemoryClient.select / writes — disabled mode (no creds) is non-blocking
-  - save_mission_to_command_memory()  — payload shape, status=Designed, owner default
+  - save_mission_to_command_memory()  — payload shape, status=Draft, owner default
   - log_decision_to_command_memory()  — DEC- id generation, return value
   - update_mission_status_in_command_memory() — payload shape
   - search_memory() — return shape
@@ -109,7 +109,7 @@ class TestWriteFunctions(unittest.TestCase):
         self.assertEqual(table, "missions")
         self.assertEqual(record["id"], "M-X")
         self.assertEqual(record["title"], "Test Mission")
-        self.assertEqual(record["status"], "Designed")  # MSN-0051/D-008 canonical entry state (was Draft)
+        self.assertEqual(record["status"], "Draft")
         self.assertEqual(record["owner"], "U001")  # defaults to creator
         self.assertEqual(record["created_by"], "U001")
 

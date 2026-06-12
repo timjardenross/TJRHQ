@@ -215,6 +215,7 @@ class OutcomeCapture:
                             f"{type(e).__name__}: {str(e)[:100]}"
                         )
                         # Non-blocking; outcome still recorded even if scoring fails
+
                 return outcome
 
             except Exception as e:

@@ -37,7 +37,6 @@ class CommanderSupabaseClient:
     def __init__(self) -> None:
         self.url = os.environ.get("SUPABASE_URL", "").rstrip("/")
         self.key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-        self.key_source = "service_role" if self.key else "missing"
         self._supabase = None
         if self.is_enabled():
             try:
@@ -46,11 +45,6 @@ class CommanderSupabaseClient:
                 self._supabase = create_client(self.url, self.key)
             except Exception:
                 self._supabase = None
-
-    @property
-    def raw_client(self):
-        """Return the underlying supabase-py client when available."""
-        return self._supabase
 
     def is_enabled(self) -> bool:
         return bool(self.url and self.key)
@@ -64,16 +58,6 @@ class CommanderSupabaseClient:
             else:
                 self._rest_insert(table, payload)
             return SupabaseWriteResult(ok=True, enabled=True, table=table)
-        except urllib.error.HTTPError as error:
-            detail = ""
-            try:
-                detail = error.read().decode("utf-8")[:200]
-            except Exception:
-                detail = ""
-            error_name = f"HTTPError({error.code})"
-            if error.code == 401:
-                error_name = f"{error_name}:unauthorized:{self.key_source}"
-            return SupabaseWriteResult(ok=False, enabled=True, table=table, error=error_name + (f":{detail}" if detail else ""))
         except Exception as error:
             return SupabaseWriteResult(ok=False, enabled=True, table=table, error=type(error).__name__)
 
