@@ -2,11 +2,12 @@
 LLM provider chain for OR Intelligence brief narrative generation.
 Used ONLY for executive narrative sections (not classification/ranking).
 
-Provider order (per Captain's decision):
-  1. Gemini 2.5 Flash
-  2. Mistral Small
-  3. Ollama qwen3:8b
-  4. Rule-based fallback (always available)
+Provider order:
+  1. Mistral Research Agent (Endeavour Research Scout)
+  2. Gemini 2.5 Flash
+  3. Mistral Small (chat completions fallback)
+  4. Ollama qwen3:8b
+  5. Rule-based fallback (always available)
 
 If all LLM providers fail:
   - Events are still collected, classified, ranked, and persisted
@@ -22,6 +23,7 @@ from typing import Optional
 
 from intelligence.config import (
     GEMINI_API_KEY, MISTRAL_API_KEY,
+    MISTRAL_RESEARCH_AGENT_ID, MISTRAL_RESEARCH_AGENT_VERSION,
     OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
 
@@ -47,9 +49,10 @@ class LLMProvider:
         Returns (text, provider_name) or (None, None) if all fail.
         """
         providers = [
-            ("gemini-2.5-flash",  self._gemini),
-            ("mistral-small",     self._mistral),
-            (OLLAMA_MODEL,        self._ollama),
+            ("mistral-research-agent", self._mistral_agent),
+            ("gemini-2.5-flash",       self._gemini),
+            ("mistral-small",          self._mistral),
+            (OLLAMA_MODEL,             self._ollama),
         ]
         for name, fn in providers:
             try:
@@ -62,6 +65,26 @@ class LLMProvider:
 
         log.warning("All LLM providers failed — narrative will be unavailable")
         return None, None
+
+    # ─── Mistral Research Agent (Endeavour Research Scout) ───────────────────
+
+    def _mistral_agent(self, prompt: str) -> Optional[str]:
+        if not MISTRAL_RESEARCH_AGENT_ID or not MISTRAL_API_KEY:
+            raise RuntimeError("MISTRAL_RESEARCH_AGENT_ID or MISTRAL_API_KEY not set")
+        from mistralai import Mistral
+        client = Mistral(api_key=MISTRAL_API_KEY)
+        response = client.beta.conversations.start(
+            agent_id=MISTRAL_RESEARCH_AGENT_ID,
+            agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
+            inputs={"messages": [{"role": "user", "content": f"{_SYSTEM_PROMPT}\n\n{prompt}"}]},
+        )
+        for entry in (response.outputs or []):
+            if entry.role == "assistant":
+                content = entry.content
+                if isinstance(content, list):
+                    return "".join(c.text for c in content if hasattr(c, "text")).strip()
+                return str(content).strip()
+        return None
 
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 

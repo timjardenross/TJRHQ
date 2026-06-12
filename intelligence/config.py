@@ -24,13 +24,18 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
 # ─── LLM Providers ───────────────────────────────────────────────────────────
-# Provider preference order per Captain's decision:
-# 1. Gemini 2.5 Flash  2. Mistral Small  3. Ollama qwen3:8b  4. Rule-based
+# Provider preference order:
+# 1. Mistral Research Agent (Endeavour Research Scout)
+# 2. Gemini 2.5 Flash  3. Mistral Small  4. Ollama qwen3:8b  5. Rule-based
 
 GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
+
+# Mistral Agents — Endeavour Research Scout
+MISTRAL_RESEARCH_AGENT_ID      = os.getenv("MISTRAL_RESEARCH_AGENT_ID", "")
+MISTRAL_RESEARCH_AGENT_VERSION = os.getenv("MISTRAL_RESEARCH_AGENT_VERSION", "1")
 
 # ─── Scheduling ───────────────────────────────────────────────────────────────
 # Cron expression for scheduled brief generation (default: fortnightly, Monday 06:00 AEST)
