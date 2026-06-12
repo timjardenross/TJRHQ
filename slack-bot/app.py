@@ -74,6 +74,11 @@ from commands.memory_queries import (
     handle_memory_search,
     handle_memory_metrics_summary,
 )
+# WP8: Context Assembly Captain Brief + Operating Picture
+from commands.captain_brief import (
+    fetch_and_format_captain_brief,
+    fetch_and_format_operating_picture,
+)
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -829,6 +834,70 @@ if app:
         Usage: /memory-metrics [--7d|--30d]
         """
         handle_memory_metrics_summary(ack, respond, command)
+
+    # ------------------------------------------------------------------
+    # WP-C: Context Assembly — Captain's Brief
+    # ------------------------------------------------------------------
+
+    @app.command("/captain-brief")
+    def handle_captain_brief_slash(ack, respond, command):
+        """/captain-brief — Fetch the current Captain's Brief from Context Assembly.
+
+        Returns top priorities, blockers, decisions awaiting input, and
+        workload capacity from the Context Assembly service (port 5001).
+
+        Falls back to a degraded-state message if the service is unavailable.
+        No persistent state is created.
+
+        Rollback: remove commands/captain_brief.py and this registration.
+        """
+        ack()
+
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /captain-brief: user=%s channel=%s", user_id, channel_id)
+
+        def _run():
+            try:
+                blocks = fetch_and_format_captain_brief()
+                respond(blocks=blocks)
+            except Exception as exc:
+                log.error("[app] /captain-brief failed: %s — %s", type(exc).__name__, exc)
+                respond(
+                    ":warning: *Captain's Brief — Error*\n\n"
+                    f"`{type(exc).__name__}` — check runtime logs.\n\n"
+                    "Verify context service: "
+                    "`python3 core/context-assembly/context_service.py serve`"
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/operating-picture")
+    def handle_operating_picture_slash(ack, respond, command):
+        """/operating-picture — 5-minute Captain Operating Picture.
+
+        Returns health snapshot, top 3 priorities, blockers summary, and
+        Number One advisory from the Context Assembly service (WP6).
+        No LLM synthesis — retrieval only.
+        """
+        ack()
+
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /operating-picture: user=%s channel=%s", user_id, channel_id)
+
+        def _run():
+            try:
+                blocks = fetch_and_format_operating_picture()
+                respond(blocks=blocks)
+            except Exception as exc:
+                log.error("[app] /operating-picture failed: %s — %s", type(exc).__name__, exc)
+                respond(
+                    ":warning: *Operating Picture — Error*\n\n"
+                    f"`{type(exc).__name__}` — check runtime logs."
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
