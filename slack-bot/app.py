@@ -505,6 +505,27 @@ if app:
         except Exception as e:
             supabase_status = f"error: {type(e).__name__}"
 
+        # Captain's Inbox health
+        try:
+            from lib.captains_inbox_events import get_inbox_health
+            import time as _time
+            inbox = get_inbox_health()
+            if not inbox["enabled"]:
+                inbox_line = "⚪ Captain's Inbox: DISABLED (CAPTAINS_INBOX_CHANNEL_ID not set)"
+            elif inbox["last_capture_ts"] is None:
+                inbox_line = "🟡 Captain's Inbox: ready, no captures yet this session"
+            else:
+                age_min = int((_time.time() - inbox["last_capture_ts"]) / 60)
+                failures = inbox["capture_failures"]
+                inbox_line = (
+                    f"🟢 Captain's Inbox: {inbox['capture_count']} captured"
+                    f" (last {age_min}m ago"
+                    + (f", failures: {failures}" if failures else "")
+                    + ")"
+                )
+        except Exception:
+            inbox_line = "⚪ Captain's Inbox: status unavailable"
+
         # Format response
         status_lines = [
             ":ship: *Starship Endeavour — Slack Commander Status*",
@@ -512,6 +533,7 @@ if app:
             f"🟢 Slack Integration: Connected",
             f"🟢 Bot Token: Present",
             f"ℹ️  Supabase: {supabase_status}",
+            inbox_line,
             "",
             f"Uptime: {STARTUP_TIME}",
             f"Commands: {COMMAND_COUNT}",
@@ -521,6 +543,129 @@ if app:
         ]
 
         respond("\n".join(status_lines))
+
+    @app.command("/inbox-status")
+    def handle_inbox_status_slash(ack, respond):
+        """M-20260612-CAPTAINS-INBOX: Operational health check for Captain's Inbox intake pipeline.
+
+        Reports:
+        - Socket Mode connection status
+        - Supabase captured_items table reachability
+        - Last successful capture timestamp
+        - Session capture count and failure count
+        - Channel configuration
+        """
+        ack()
+
+        import time as _time
+        import os as _os
+        import urllib.request as _urllib
+
+        lines = [":inbox_tray: *Captain's Inbox — Health Status*", ""]
+
+        # 1. Channel configuration
+        channel_id = _os.environ.get("CAPTAINS_INBOX_CHANNEL_ID", "")
+        if channel_id:
+            lines.append(f"🟢 Channel configured: `{channel_id}`")
+        else:
+            lines.append("🔴 Channel NOT configured: `CAPTAINS_INBOX_CHANNEL_ID` missing")
+
+        # 2. Socket Mode — if we're responding, we're connected
+        lines.append("🟢 Socket Mode: connected (responding to this command confirms it)")
+
+        # 3. Supabase captured_items reachability
+        supabase_url = _os.environ.get("SUPABASE_URL", "")
+        supabase_key = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not supabase_url or not supabase_key:
+            lines.append("🔴 Supabase: not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing)")
+        else:
+            try:
+                req = _urllib.Request(
+                    f"{supabase_url.rstrip('/')}/rest/v1/captured_items?select=count&limit=1",
+                    headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"},
+                )
+                with _urllib.urlopen(req, timeout=5) as resp:
+                    count_data = resp.read().decode()
+                import json as _json
+                count = _json.loads(count_data)[0].get("count", "?") if count_data.startswith("[") else "?"
+                lines.append(f"🟢 Supabase `captured_items`: reachable ({count} total rows)")
+            except Exception as exc:
+                lines.append(f"🔴 Supabase `captured_items`: {type(exc).__name__}: {exc}")
+
+        # 4. Session capture stats
+        try:
+            from lib.captains_inbox_events import get_inbox_health
+            inbox = get_inbox_health()
+            lines.append("")
+            lines.append("*Session stats:*")
+            lines.append(f"  Captures: {inbox['capture_count']}")
+            lines.append(f"  Failures: {inbox['capture_failures']}")
+            if inbox["last_capture_ts"]:
+                age_s = int(_time.time() - inbox["last_capture_ts"])
+                age_str = f"{age_s // 60}m {age_s % 60}s ago"
+                lines.append(f"  Last capture: {age_str} (item `{inbox['last_capture_item_id']}`)")
+            else:
+                lines.append("  Last capture: none this session")
+        except Exception as exc:
+            lines.append(f"⚪ Session stats unavailable: {exc}")
+
+        lines.append("")
+        if not channel_id:
+            lines.append("❌ *Intake DISABLED — set `CAPTAINS_INBOX_CHANNEL_ID` in `.env` and restart.*")
+        else:
+            lines.append("✅ *Intake pipeline operational*")
+
+        respond("\n".join(lines))
+
+    @app.command("/inbox-capture")
+    def handle_inbox_capture_slash(ack, respond, command, client):
+        """M-20260612-CAPTAINS-INBOX: Manual ingestion command for recovering missed captures.
+
+        Usage: /inbox-capture <url> [optional note]
+        Example: /inbox-capture https://example.com/article This was missed during the outage.
+
+        Creates a captured_items row and triggers orchestration, identical to automatic intake.
+        Use for recovery of links posted before the bot was running.
+        """
+        ack()
+
+        text = (command.get("text") or "").strip()
+        if not text:
+            respond("Usage: `/inbox-capture <url> [optional note]`")
+            return
+
+        channel_id = command.get("channel_id", "")
+        user_id = command.get("user_id", "")
+
+        import re as _re
+        url_match = _re.match(r"(https?://[^\s]+)(.*)", text)
+        if not url_match:
+            respond(f"❌ No URL detected in: `{text[:200]}`\nUsage: `/inbox-capture <url> [note]`")
+            return
+
+        url = url_match.group(1)
+        note = url_match.group(2).strip()
+
+        try:
+            from lib.captains_inbox_capture import capture_item, ack_to_slack, extract_urls
+            from lib.captains_inbox_events import _dispatch, CAPTAINS_INBOX_CHANNEL_ID
+
+            target_channel = CAPTAINS_INBOX_CHANNEL_ID or channel_id
+            capture_ev = {
+                "source_type": "channel_message",
+                "item_type": "url",
+                "source_channel_id": target_channel,
+                "source_message_id": f"manual-{user_id}-{url[:60]}",
+                "source_message_ts": f"manual-{user_id}-{url[:60]}",
+                "raw_text": f"{url} {note}".strip(),
+                "source_url": url,
+                "captured_by": user_id,
+            }
+            _dispatch(capture_ev, client)
+            respond(f"✅ Manual capture queued for `{url}`. Check `#captains-inbox` for acknowledgement.")
+        except Exception as exc:
+            log.error("[inbox-capture] Manual capture failed: %s", exc)
+            respond(f"❌ Capture failed: {type(exc).__name__}: {exc}")
 
     @app.command("/commander")
     def handle_commander_slash(ack, respond, command):

@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
+from typing import Any
 
 from lib.captains_inbox_capture import (
     capture_item,
@@ -28,6 +30,23 @@ from lib.captains_inbox_capture import (
 log = logging.getLogger(__name__)
 
 CAPTAINS_INBOX_CHANNEL_ID = os.environ.get("CAPTAINS_INBOX_CHANNEL_ID", "")
+
+# ---------------------------------------------------------------------------
+# Health state — updated on every successful capture
+# ---------------------------------------------------------------------------
+_health: dict[str, Any] = {
+    "last_capture_ts": None,       # epoch float of last successful capture
+    "last_capture_item_id": None,  # Supabase item id
+    "capture_count": 0,
+    "capture_failures": 0,
+    "channel_id": CAPTAINS_INBOX_CHANNEL_ID,
+    "enabled": bool(CAPTAINS_INBOX_CHANNEL_ID),
+}
+
+
+def get_inbox_health() -> dict[str, Any]:
+    """Return a snapshot of Captain's Inbox operational health."""
+    return dict(_health)
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +62,9 @@ def _dispatch(capture_event: dict, client) -> None:
     def _run():
         try:
             item_id = capture_item(capture_event)
+            _health["last_capture_ts"] = time.time()
+            _health["last_capture_item_id"] = item_id
+            _health["capture_count"] += 1
             ack_to_slack(client, channel, thread_ts)
             # Async enrichment (classification, governance) — best-effort
             if item_id:
@@ -52,6 +74,7 @@ def _dispatch(capture_event: dict, client) -> None:
                 except Exception as orch_exc:
                     log.warning("[captains-inbox] Orchestration failed (non-blocking): %s", orch_exc)
         except Exception as exc:
+            _health["capture_failures"] += 1
             log.error("[captains-inbox] Permanent capture failure: %s", exc)
             alert_capture_failure(client, channel, thread_ts)
 
@@ -111,9 +134,14 @@ def register_captains_inbox_handlers(app) -> None:
         logger.info("[captains-inbox] file_shared: file_id=%s", file_id)
         _dispatch(capture_event, client)
 
-    @app.event({"type": "message", "channel": CAPTAINS_INBOX_CHANNEL_ID} if CAPTAINS_INBOX_CHANNEL_ID else {"type": "message", "channel": "__disabled__"})
+    @app.event("message")
     def handle_captains_inbox_message(body, client, logger):
         event = body.get("event", {})
+
+        # Guard: only process events from the configured inbox channel
+        channel = event.get("channel")
+        if not CAPTAINS_INBOX_CHANNEL_ID or channel != CAPTAINS_INBOX_CHANNEL_ID:
+            return
 
         # Skip bot messages and message edits/deletes
         if event.get("bot_id") or event.get("subtype") in (
@@ -128,7 +156,6 @@ def register_captains_inbox_handlers(app) -> None:
         message_ts = event.get("ts")
         message_text = event.get("text") or ""
         user_id = event.get("user")
-        channel = event.get("channel")
 
         if not message_ts or not channel:
             return
