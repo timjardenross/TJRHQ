@@ -321,6 +321,13 @@
         let allDecisions = [];
         let currentTab = 'all';
 
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function setTrustState(state, opts) {
             opts = opts || {};
             const banner  = document.getElementById('trust-banner');
@@ -363,16 +370,24 @@
 
                 if (data && Array.isArray(data) && data.length > 0) {
                     console.log(`[Decisions Registry] ✓ Loaded ${data.length} decisions`);
-                    allDecisions = data.map(d => ({
-                        id: d.id,
-                        statement: d.statement,
-                        rationale: d.rationale || 'No rationale provided',
-                        status: (d.status || 'Active').toLowerCase(),
-                        owner: d.owner || d.created_by || 'Unassigned',
-                        createdAt: new Date(d.created_at).toISOString().split('T')[0],
-                        updatedAt: d.updated_at ? new Date(d.updated_at).toISOString().split('T')[0] : 'N/A',
-                        alternatives: Array.isArray(d.alternatives) ? d.alternatives : []
-                    }));
+                    allDecisions = data.map(d => {
+                        const hd = (d.human_decision || '').toLowerCase();
+                        let status = 'active';
+                        if (hd.startsWith('reject')) status = 'inactive';
+                        else if (hd === 'superseded') status = 'superseded';
+                        return {
+                            id: d.id,
+                            statement: d.recommendation_text || d.statement || 'No recommendation recorded',
+                            rationale: d.decision_reason || d.rationale || 'No rationale provided',
+                            verdict: d.human_decision || 'Pending',
+                            status,
+                            owner: d.decision_maker || d.owner || 'Unassigned',
+                            missionId: d.mission_id || '',
+                            createdAt: d.decision_timestamp ? new Date(d.decision_timestamp).toISOString().split('T')[0] : 'N/A',
+                            updatedAt: d.captured_timestamp ? new Date(d.captured_timestamp).toISOString().split('T')[0] : 'N/A',
+                            alternatives: Array.isArray(d.alternatives) ? d.alternatives : []
+                        };
+                    });
                     setTrustState('live', {
                         source: envelope.source || 'Supabase decisions',
                         time: fetchTime,
@@ -447,27 +462,27 @@
             grid.innerHTML = decisions.map(decision => `
                 <div class="decision-card">
                     <div class="decision-header">
-                        <div class="decision-id">${decision.id}</div>
+                        <div class="decision-id">${escapeHtml(decision.id)}${decision.missionId ? ' · ' + escapeHtml(decision.missionId) : ''}</div>
                         <div class="decision-status status-${decision.status}">
-                            ${decision.status.toUpperCase()}
+                            ${escapeHtml(decision.verdict)}
                         </div>
                     </div>
 
                     <div class="decision-title">
-                        ${decision.statement.substring(0, 60)}${decision.statement.length > 60 ? '...' : ''}
+                        ${escapeHtml(decision.statement.substring(0, 80))}${decision.statement.length > 80 ? '…' : ''}
                     </div>
 
                     <div class="decision-statement">
-                        ${decision.rationale.substring(0, 150)}${decision.rationale.length > 150 ? '...' : ''}
+                        ${escapeHtml(decision.rationale.substring(0, 160))}${decision.rationale.length > 160 ? '…' : ''}
                     </div>
 
                     <div class="decision-meta">
                         <div class="meta-item">
-                            <div class="meta-label">Owner</div>
-                            <div class="meta-value">${decision.owner}</div>
+                            <div class="meta-label">Decision Maker</div>
+                            <div class="meta-value">${escapeHtml(decision.owner)}</div>
                         </div>
                         <div class="meta-item">
-                            <div class="meta-label">Created</div>
+                            <div class="meta-label">Date</div>
                             <div class="meta-value">${decision.createdAt}</div>
                         </div>
                     </div>
