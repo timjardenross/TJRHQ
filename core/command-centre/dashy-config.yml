@@ -80,37 +80,37 @@ sections:
       - title: Captain Operating Picture
         description: "5-min view — priorities, health, blockers, Number One advisory"
         icon: fas fa-map-marked-alt
-        url: "http://localhost:8081/"
+        url: "/dashboards/index.html"
         target: _blank
 
       - title: Captain Daily Brief
         description: "Full assembled brief — priorities, decisions, blockers, health"
         icon: fas fa-clipboard-list
-        url: "http://localhost:8081/"
+        url: "/dashboards/commander-operations-brief.html"
         target: _blank
 
       - title: Top Recommendations
         description: "Number One ranked mission priorities"
         icon: fas fa-sort-amount-down
-        url: "http://localhost:8081/"
+        url: "/dashboards/index.html"
         target: _blank
 
       - title: Active Blockers
         description: "Blocked missions sorted by escalation level"
         icon: fas fa-ban
-        url: "http://localhost:8081/"
+        url: "/dashboards/blocked-missions.html"
         target: _blank
 
       - title: Decisions Awaiting Captain
         description: "Proposed decisions needing Captain input"
         icon: fas fa-gavel
-        url: "http://localhost:8081/"
+        url: "/dashboards/decisions-registry.html"
         target: _blank
 
       - title: Context Assembly Status
         description: "File freshness and adapter health — WP6 monitoring"
         icon: fas fa-satellite-dish
-        url: "http://localhost:8081/"
+        url: "/dashboards/service-health-widget.html"
         target: _blank
 
 
