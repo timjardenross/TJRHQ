@@ -28,6 +28,9 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
+from dotenv import load_dotenv
+import requests as http_client
 
 # ============================================================================
 # CONFIGURATION
@@ -36,12 +39,52 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
+# Load .env from same directory as this file (silently ignored if absent)
+load_dotenv(Path(__file__).parent / '.env')
+
+# Allow Dashy (port 8081) to fetch from this API without CORS errors
+CORS(app, origins=['http://localhost:8081', 'http://127.0.0.1:8081'])
+
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# SUPABASE PROXY CONFIGURATION
+# ============================================================================
+
+# Loaded from .env (or real environment). Never hardcoded, never sent to frontend.
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_KEY', '')
+
+def _supabase_get(table: str, params: dict = None):
+    """
+    Authenticated read-only GET against Supabase REST API.
+    Returns (data_list, error_str). Key never leaves this process.
+    """
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return None, 'Supabase not configured — set SUPABASE_URL and SUPABASE_KEY in .env'
+
+    url = f'{SUPABASE_URL}/rest/v1/{table}'
+    headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': f'Bearer {SUPABASE_ANON_KEY}',
+        'Content-Type': 'application/json',
+    }
+
+    try:
+        resp = http_client.get(url, headers=headers, params=params, timeout=10)
+        resp.raise_for_status()
+        return resp.json(), None
+    except http_client.exceptions.Timeout:
+        return None, 'Supabase request timed out (10 s)'
+    except http_client.exceptions.HTTPError as e:
+        return None, f'Supabase HTTP error: {e.response.status_code}'
+    except Exception as e:
+        return None, str(e)
 
 # Determine repo root based on this file's location
 CONTROL_ENGINE_DIR = Path(__file__).parent
@@ -688,6 +731,101 @@ def get_dashboard_summary():
     })
 
 # ============================================================================
+# SUPABASE PROXY DASHBOARD ENDPOINTS
+# Supabase credentials stay in the backend. Frontend fetches these routes only.
+# All three are GET-only; no write operations are exposed.
+# ============================================================================
+
+@app.get('/api/dashboard/missions')
+def get_dashboard_missions():
+    """
+    Proxy: Supabase missions table → dashboard.
+    Returns all missions ordered newest-first.
+    Frontend uses this for Mission Registry and Commander Brief dashboards.
+    """
+    data, error = _supabase_get('missions', {
+        'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
+        'order': 'created_at.desc',
+    })
+    if error:
+        logger.warning(f'[supabase-proxy] missions unavailable: {error}')
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'count': 0,
+            'source': 'supabase',
+            'error': error,
+            'timestamp': datetime.now().isoformat(),
+        }), 503
+
+    return jsonify({
+        'status': 'ok',
+        'data': data,
+        'count': len(data),
+        'source': 'supabase',
+        'timestamp': datetime.now().isoformat(),
+    })
+
+
+@app.get('/api/dashboard/decisions')
+def get_dashboard_decisions():
+    """
+    Proxy: Supabase decisions table → dashboard.
+    Returns all decisions ordered newest-first.
+    """
+    # decisions table columns unknown until populated; omit order to avoid 400
+    data, error = _supabase_get('decisions', {'select': '*'})
+    if error:
+        logger.warning(f'[supabase-proxy] decisions unavailable: {error}')
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'count': 0,
+            'source': 'supabase',
+            'error': error,
+            'timestamp': datetime.now().isoformat(),
+        }), 503
+
+    return jsonify({
+        'status': 'ok',
+        'data': data,
+        'count': len(data),
+        'source': 'supabase',
+        'timestamp': datetime.now().isoformat(),
+    })
+
+
+@app.get('/api/dashboard/commander-brief')
+def get_dashboard_commander_brief():
+    """
+    Proxy: missions data shaped for the Commander Operations Brief dashboard.
+    Intentionally a separate route so it can diverge (e.g. add Number One data) in WP3+.
+    """
+    data, error = _supabase_get('missions', {
+        'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
+        'order': 'created_at.desc',
+    })
+    if error:
+        logger.warning(f'[supabase-proxy] commander-brief unavailable: {error}')
+        return jsonify({
+            'status': 'unavailable',
+            'data': [],
+            'count': 0,
+            'source': 'supabase',
+            'error': error,
+            'timestamp': datetime.now().isoformat(),
+        }), 503
+
+    return jsonify({
+        'status': 'ok',
+        'data': data,
+        'count': len(data),
+        'source': 'supabase',
+        'timestamp': datetime.now().isoformat(),
+    })
+
+
+# ============================================================================
 # ROOT & INFO ENDPOINTS
 # ============================================================================
 
@@ -723,7 +861,10 @@ def api_root():
                 'GET /api/missions/this-week': 'Missions completed this week'
             },
             'dashboard': {
-                'GET /api/dashboard/summary': 'Dashboard summary (all key metrics)'
+                'GET /api/dashboard/summary': 'Dashboard summary (all key metrics)',
+                'GET /api/dashboard/missions': 'Missions data (Supabase proxy)',
+                'GET /api/dashboard/decisions': 'Decisions data (Supabase proxy)',
+                'GET /api/dashboard/commander-brief': 'Commander brief data (Supabase proxy)',
             }
         },
         'timestamp': datetime.now().isoformat()

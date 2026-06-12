@@ -470,9 +470,9 @@
 
     <!-- Mission Registry Logic -->
     <script>
-        // Supabase Configuration - Anon Key Only (RLS enforced)
-        const SUPABASE_URL = 'https://cjvrpjwewsrumnbdydgg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwandld3NydW1uYmR5ZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTYyMjgsImV4cCI6MjA5NjE3MjIyOH0.MNm9UB_xTsLslHxWdg7mITDgQ0zPnciJUG3tpmp6Mjw';
+        // Data is fetched via the Control Engine proxy (localhost:8888).
+        // No Supabase credentials in this file.
+        const CONTROL_ENGINE = 'http://localhost:8888';
 
         // Debug mode
         const DEBUG = true;
@@ -547,46 +547,41 @@
 
         async function fetchMissionsFromSupabase() {
             try {
-                const endpoint = `${SUPABASE_URL}/rest/v1/missions?select=id,title,description,status,owner,due_date,created_at,blockers,priority&order=created_at.desc`;
+                const endpoint = `${CONTROL_ENGINE}/api/dashboard/missions`;
 
                 if (DEBUG) console.log('[Mission Registry] Fetching from:', endpoint);
 
-                const response = await fetch(endpoint, {
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Content-Type': 'application/json'
-                    }
-                });
+                const response = await fetch(endpoint);
 
                 if (DEBUG) console.log('[Mission Registry] Response status:', response.status);
 
                 if (!response.ok) {
-                    throw new Error(`API error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Control Engine error: ${response.status} ${response.statusText}`);
                 }
 
-                const data = await response.json();
-                if (DEBUG) console.log('[Mission Registry] Raw data:', data);
+                const envelope = await response.json();
+                if (DEBUG) console.log('[Mission Registry] Response:', envelope);
+
+                const data = envelope.data;
 
                 // If data exists and has records, use it
                 if (data && Array.isArray(data) && data.length > 0) {
-                    console.log(`[Mission Registry] ✓ Loaded ${data.length} missions from Supabase`);
-                    // Transform Supabase data to match our component format
+                    console.log(`[Mission Registry] ✓ Loaded ${data.length} missions`);
+                    // Transform data to match our component format
                     allMissions = data.map(m => ({
-                        id: m.id,
+                        id: m.mission_id || m.id,
                         title: m.title,
                         description: m.description || 'No description',
-                        dbStatus: m.status || 'planning',  // Keep original status
-                        status: statusMap[m.status] || 'planning',  // Map to category
-                        owner: m.owner || 'Unassigned',
+                        dbStatus: m.status || 'pending',
+                        status: statusMap[m.status] || 'planning',
+                        owner: m.created_by || 'Unassigned',
                         progress: getProgressFromStatus(m.status),
                         startDate: new Date(m.created_at).toISOString().split('T')[0],
-                        endDate: m.due_date || 'TBD',
-                        blockers: m.blockers ? (typeof m.blockers === 'string' ? m.blockers.split(',') : m.blockers) : []
+                        endDate: 'TBD',
+                        blockers: []
                     }));
                 } else {
-                    console.log('[Mission Registry] No records in database, using mock data');
+                    console.log('[Mission Registry] No records returned, using mock data');
                     allMissions = MOCK_MISSIONS;
                 }
 
@@ -598,7 +593,7 @@
                 updateStats();
             } catch (error) {
                 console.error('[Mission Registry] ✗ Fetch error:', error);
-                console.warn('[Mission Registry] Falling back to mock data');
+                console.warn('[Mission Registry] Control Engine unavailable — falling back to mock data');
                 allMissions = MOCK_MISSIONS;
                 renderMissions();
                 updateStats();

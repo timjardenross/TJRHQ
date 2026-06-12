@@ -276,7 +276,7 @@
         <!-- Error state -->
         <div id="error" class="error-state" style="display: none;">
             <strong>Unable to Load Data</strong>
-            <p>Could not connect to Mission Registry. Check Supabase connection.</p>
+            <p>Could not connect to Control Engine (localhost:8888). Check that control_engine.py is running.</p>
         </div>
 
         <!-- Footer -->
@@ -287,35 +287,26 @@
     </div>
 
     <script>
-        // Supabase Configuration - Anon Key Only (RLS enforced)
-        const SUPABASE_URL = 'https://cjvrpjwewsrumnbdydgg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqdnJwandld3NydW1uYmR5ZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1OTYyMjgsImV4cCI6MjA5NjE3MjIyOH0.MNm9UB_xTsLslHxWdg7mITDgQ0zPnciJUG3tpmp6Mjw';
+        // Data is fetched via the Control Engine proxy (localhost:8888).
+        // No Supabase credentials in this file.
+        const CONTROL_ENGINE = 'http://localhost:8888';
 
         let refreshInterval;
 
         async function fetchMissions() {
             try {
-                const endpoint = `${SUPABASE_URL}/rest/v1/missions?select=id,title,description,status,owner,due_date,created_at,blockers,priority&order=created_at.desc`;
-
-                const response = await fetch(endpoint, {
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Content-Type': 'application/json'
-                    }
-                });
+                const response = await fetch(`${CONTROL_ENGINE}/api/dashboard/commander-brief`);
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
+                    throw new Error(`Control Engine error: ${response.status}`);
                 }
 
-                const missions = await response.json();
-                updateBrief(missions);
+                const envelope = await response.json();
+                updateBrief(envelope.data);
                 showError(false);
 
             } catch (error) {
-                console.error('Error fetching missions:', error);
+                console.error('Error fetching commander brief:', error);
                 showError(true);
             } finally {
                 updateRefreshTime();
@@ -350,12 +341,16 @@
                 'blocked': 'blocked'
             };
 
-            // Normalize missions: convert blockers to array, map status to categories
+            // Normalize missions using actual schema fields
             const normalizedMissions = missions.map(m => ({
                 ...m,
-                dbStatus: m.status || 'planning',  // Keep original status
-                status: statusMap[m.status] || 'planning',  // Map to display category
-                blockers: m.blockers ? (typeof m.blockers === 'string' ? m.blockers.split(',').map(b => b.trim()) : Array.isArray(m.blockers) ? m.blockers : []) : []
+                id: m.mission_id || m.id,
+                owner: m.created_by || 'Unassigned',
+                dbStatus: m.status || 'pending',
+                status: statusMap[m.status] || 'planning',
+                blockers: [],
+                due_date: null,
+                priority: null,
             }));
 
             // Calculate stats using mapped statuses
