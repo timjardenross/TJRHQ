@@ -1246,6 +1246,103 @@ def get_dashboard_source_status():
 
 
 # ============================================================================
+# SYSTEM STATUS / KPI AGGREGATOR
+# ============================================================================
+
+@app.get('/api/dashboard/kpis')
+def get_dashboard_kpis():
+    """
+    Aggregated system status snapshot — no synthetic KPIs, only real data.
+    Pulls from Number One files + Supabase + Control Engine health.
+    Frontend uses this as a single call to populate the system status dashboard.
+    """
+    now = datetime.now().isoformat()
+
+    # --- Number One brief ---
+    brief_data, _, brief_age, brief_generated_at, brief_freshness = _load_n1_file('daily_brief.json')
+    wq_data,    _, wq_age,    wq_generated_at,    wq_freshness    = _load_n1_file('work_queue.json')
+    esc_data,   _, esc_age,   esc_generated_at,   esc_freshness   = _load_n1_file('escalations.json')
+
+    missions = {}
+    if brief_data:
+        missions = {
+            'total':    brief_data.get('total_missions', 0),
+            'active':   brief_data.get('active_count', 0),
+            'blocked':  brief_data.get('blocked_count', 0),
+            'proposed': brief_data.get('proposed_count', 0),
+            'system_health': brief_data.get('system_health', 'unknown'),
+            'freshness': brief_freshness,
+            'generated_at': brief_generated_at,
+            'age_seconds': brief_age,
+        }
+    else:
+        missions = {'freshness': 'unavailable'}
+
+    work_queue = {}
+    if wq_data:
+        items = wq_data.get('items', [])
+        p0 = sum(1 for i in items if i.get('priority') == 'P0')
+        p1 = sum(1 for i in items if i.get('priority') == 'P1')
+        work_queue = {
+            'total': len(items),
+            'p0_count': p0,
+            'p1_count': p1,
+            'freshness': wq_freshness,
+            'generated_at': wq_generated_at,
+            'age_seconds': wq_age,
+        }
+    else:
+        work_queue = {'freshness': 'unavailable'}
+
+    escalations = {}
+    if esc_data:
+        esc_items = esc_data.get('escalations', [])
+        critical = sum(1 for e in esc_items if e.get('level') == 'critical')
+        high     = sum(1 for e in esc_items if e.get('level') == 'high')
+        escalations = {
+            'total': len(esc_items),
+            'critical': critical,
+            'high': high,
+            'freshness': esc_freshness,
+            'generated_at': esc_generated_at,
+            'age_seconds': esc_age,
+        }
+    else:
+        escalations = {'freshness': 'unavailable'}
+
+    # --- Decisions (Supabase) ---
+    decisions = {'freshness': 'unavailable'}
+    dec_data, dec_error = _supabase_get('decisions', {})
+    if dec_data is not None:
+        decisions = {
+            'total': len(dec_data),
+            'active': sum(1 for d in dec_data if str(d.get('status', '')).lower() in ('active', 'accepted')),
+            'freshness': 'live',
+        }
+
+    # --- Worst-case overall freshness ---
+    freshness_rank = {'live': 0, 'stale': 1, 'unavailable': 2}
+    all_freshness = [
+        missions.get('freshness', 'unavailable'),
+        work_queue.get('freshness', 'unavailable'),
+        escalations.get('freshness', 'unavailable'),
+        decisions.get('freshness', 'unavailable'),
+    ]
+    worst = max(all_freshness, key=lambda f: freshness_rank.get(f, 2))
+
+    return jsonify({
+        'status': worst,
+        'source_label': 'SYSTEM STATUS',
+        'timestamp': now,
+        'missions': missions,
+        'work_queue': work_queue,
+        'escalations': escalations,
+        'decisions': decisions,
+        'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+    })
+
+
+# ============================================================================
 # ROOT & INFO ENDPOINTS
 # ============================================================================
 

@@ -89,6 +89,12 @@ sections:
   - title: Core Operations
     icon: fas fa-chess-board
     items:
+      - title: System Status
+        description: "🖥️ Live snapshot — missions, escalations, work queue, decisions"
+        icon: fas fa-tachometer-alt
+        url: "/dashboards/system-status.html"
+        target: _blank
+
       - title: Commander Operations Brief
         description: "📊 Mission status, priorities, blocked items (Supabase Live)"
         icon: fas fa-briefcase

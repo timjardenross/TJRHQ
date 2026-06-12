@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status — USS TJR Command Centre</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 20px;
+            color: #FFF;
+        }
+
+        .brief-container { max-width: 1400px; margin: 0 auto; }
+
+        .header {
+            margin-bottom: 32px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .header-left h1 {
+            font-size: 32px;
+            color: #FFD700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .header-left h1::before { content: "⬤ "; margin-right: 8px; }
+        .header-left p { color: #BBB; font-size: 14px; }
+        .header-right { text-align: right; font-size: 11px; color: #555; }
+
+        /* System health pill */
+        .health-pill {
+            display: inline-block;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 8px;
+        }
+        .health-green   { background: rgba(76,175,80,0.2);  color: #4CAF50; border: 1px solid #4CAF50; }
+        .health-yellow  { background: rgba(255,152,0,0.2);  color: #FF9800; border: 1px solid #FF9800; }
+        .health-red     { background: rgba(244,67,54,0.2);  color: #EF5350; border: 1px solid #EF5350; }
+        .health-unknown { background: rgba(100,100,120,0.2); color: #888;   border: 1px solid #444; }
+
+        /* Trust banner */
+        .trust-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 28px;
+            text-transform: uppercase;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+        .trust-banner.trust-loading     { background: rgba(100,100,120,0.2); color: #888;    border: 1px solid #444; }
+        .trust-banner.trust-live        { background: rgba(76,175,80,0.15);  color: #4CAF50; border: 1px solid #4CAF50; }
+        .trust-banner.trust-stale       { background: rgba(255,152,0,0.15);  color: #FF9800; border: 1px solid #FF9800; }
+        .trust-banner.trust-unavailable { background: rgba(244,67,54,0.15);  color: #EF5350; border: 1px solid #EF5350; }
+        .trust-source { font-weight: 400; font-size: 11px; opacity: 0.85; }
+        .trust-time   { font-weight: 400; font-size: 11px; opacity: 0.7; margin-left: auto; }
+
+        /* ── SECTION LAYOUT ── */
+        .section { margin-bottom: 36px; }
+        .section-title {
+            font-size: 14px;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+            border-left: 4px solid #FFD700;
+            padding-left: 10px;
+        }
+        .section-title .source-tag {
+            font-size: 10px;
+            color: #555;
+            font-weight: 400;
+            margin-left: 8px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* ── STAT GRID ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+        }
+        .stat-card {
+            background: #1a1a2e;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 18px 16px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover { border-color: #FFD700; box-shadow: 0 0 12px rgba(255,215,0,0.15); }
+        .stat-card h3 {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        .stat-value {
+            font-size: 44px;
+            font-weight: 700;
+            color: #FFD700;
+            line-height: 1;
+        }
+        .stat-value.green  { color: #4CAF50; }
+        .stat-value.red    { color: #EF5350; }
+        .stat-value.orange { color: #FF9800; }
+        .stat-value.muted  { color: #555; font-size: 28px; padding-top: 8px; }
+        .stat-subtitle { font-size: 12px; color: #666; margin-top: 8px; }
+        .stat-freshness {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 6px;
+            opacity: 0.7;
+        }
+        .stat-freshness.live        { color: #4CAF50; }
+        .stat-freshness.stale       { color: #FF9800; }
+        .stat-freshness.unavailable { color: #EF5350; }
+
+        /* ── ESCALATION INLINE LIST ── */
+        .esc-list { display: grid; gap: 8px; }
+        .esc-row {
+            background: #1a1a2e;
+            border-left: 4px solid #FF9800;
+            border-radius: 0 4px 4px 0;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .esc-row.critical { border-left-color: #FF1744; }
+        .esc-row.high     { border-left-color: #FF9800; }
+        .esc-row.medium   { border-left-color: #FFD700; }
+        .esc-row-left  { font-size: 13px; color: #FFF; }
+        .esc-row-sub   { font-size: 11px; color: #888; margin-top: 3px; }
+        .esc-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+            margin-left: 12px;
+            background: #0a0e27;
+        }
+        .esc-badge.critical { color: #FF1744; }
+        .esc-badge.high     { color: #FF9800; }
+        .esc-badge.medium   { color: #FFD700; }
+
+        /* ── WORK QUEUE INLINE ── */
+        .wq-list { display: grid; gap: 8px; }
+        .wq-row {
+            background: #1a1a2e;
+            border-left: 4px solid #333;
+            border-radius: 0 4px 4px 0;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .wq-row.P0 { border-left-color: #FF1744; }
+        .wq-row.P1 { border-left-color: #FF9800; }
+        .wq-row.P2 { border-left-color: #FFD700; }
+        .wq-row.P3 { border-left-color: #4CAF50; }
+        .wq-row-left  { font-size: 13px; color: #FFF; }
+        .wq-row-sub   { font-size: 11px; color: #888; margin-top: 3px; }
+        .wq-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 3px;
+            background: #0a0e27;
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+        .wq-badge.P0 { color: #FF1744; }
+        .wq-badge.P1 { color: #FF9800; }
+        .wq-badge.P2 { color: #FFD700; }
+        .wq-badge.P3 { color: #4CAF50; }
+
+        /* ── EMPTY / GOOD STATE ── */
+        .all-clear {
+            background: rgba(76,175,80,0.08);
+            border: 1px solid rgba(76,175,80,0.3);
+            border-radius: 6px;
+            padding: 14px 18px;
+            font-size: 13px;
+            color: #4CAF50;
+        }
+        .all-clear::before { content: "✓ "; font-weight: 700; }
+
+        /* ── SOURCE PROVENANCE FOOTER ── */
+        .provenance {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            margin-bottom: 32px;
+        }
+        .prov-item {
+            background: #111;
+            border: 1px solid #1e1e3a;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 11px;
+        }
+        .prov-label { color: #666; text-transform: uppercase; letter-spacing: 0.5px; font-size: 9px; margin-bottom: 3px; }
+        .prov-value { color: #AAA; }
+        .prov-freshness { font-size: 9px; font-weight: 700; text-transform: uppercase; margin-top: 3px; }
+        .prov-freshness.live { color: #4CAF50; }
+        .prov-freshness.stale { color: #FF9800; }
+        .prov-freshness.unavailable { color: #EF5350; }
+
+        /* Loading / error */
+        .loading { text-align: center; padding: 40px; color: #FFD700; }
+        .spinner {
+            border: 2px solid #333;
+            border-top: 2px solid #FFD700;
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .error-state {
+            background: #1a1a2e;
+            border: 2px solid #FF4444;
+            border-radius: 8px;
+            padding: 20px;
+            color: #FF4444;
+        }
+        .error-state strong { display: block; margin-bottom: 8px; }
+
+        .footer-info {
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #222;
+            color: #555;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="brief-container">
+
+        <div class="header">
+            <div class="header-left">
+                <h1>System Status</h1>
+                <p>Starship Endeavour — Live snapshot of what's actually in the system</p>
+                <div id="healthPill" class="health-pill health-unknown" style="display:none;"></div>
+            </div>
+            <div class="header-right">
+                <div>Control Engine: localhost:8888</div>
+                <div style="margin-top:4px;">Auto-refresh: 30s</div>
+            </div>
+        </div>
+
+        <div id="trust-banner" class="trust-banner trust-loading">
+            <span id="trust-label">⏳ LOADING</span>
+            <span class="trust-source" id="trust-source"></span>
+            <span class="trust-time" id="trust-time"></span>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading system status…</p>
+        </div>
+
+        <div id="error" class="error-state" style="display:none;">
+            <strong>Unable to Load Data</strong>
+            <p>Could not connect to Control Engine (localhost:8888). Check that control_engine.py is running.</p>
+        </div>
+
+        <div id="content" style="display:none;">
+
+            <!-- MISSIONS -->
+            <div class="section">
+                <div class="section-title">
+                    Missions
+                    <span class="source-tag" id="missionsFreshTag"></span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <h3>Total</h3>
+                        <div class="stat-value" id="mTotal">—</div>
+                        <div class="stat-subtitle">All tracked</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active</h3>
+                        <div class="stat-value green" id="mActive">—</div>
+                        <div class="stat-subtitle">In progress</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Blocked</h3>
+                        <div class="stat-value" id="mBlocked">—</div>
+                        <div class="stat-subtitle">Require attention</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Proposed</h3>
+                        <div class="stat-value" id="mProposed">—</div>
+                        <div class="stat-subtitle">Awaiting activation</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESCALATIONS -->
+            <div class="section" id="escSection">
+                <div class="section-title">
+                    Escalations
+                    <span class="source-tag" id="escFreshTag"></span>
+                </div>
+                <div id="escContent"></div>
+            </div>
+
+            <!-- WORK QUEUE -->
+            <div class="section">
+                <div class="section-title">
+                    Work Queue
+                    <span class="source-tag" id="wqFreshTag"></span>
+                </div>
+                <div class="stat-grid" style="margin-bottom: 14px;">
+                    <div class="stat-card">
+                        <h3>Total Items</h3>
+                        <div class="stat-value" id="wqTotal">—</div>
+                        <div class="stat-subtitle">In queue</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>P0 — Critical</h3>
+                        <div class="stat-value red" id="wqP0">—</div>
+                        <div class="stat-subtitle">Immediate action</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>P1 — High</h3>
+                        <div class="stat-value orange" id="wqP1">—</div>
+                        <div class="stat-subtitle">This sprint</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DECISIONS -->
+            <div class="section">
+                <div class="section-title">
+                    Decisions Registry
+                    <span class="source-tag">SOURCE: Supabase</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <h3>Total ADRs</h3>
+                        <div class="stat-value" id="decTotal">—</div>
+                        <div class="stat-subtitle">Registered</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active</h3>
+                        <div class="stat-value green" id="decActive">—</div>
+                        <div class="stat-subtitle">In force</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATA PROVENANCE -->
+            <div class="section">
+                <div class="section-title">Data Sources</div>
+                <div class="provenance" id="provenance"></div>
+            </div>
+
+        </div>
+
+        <div class="footer-info">
+            <span>Last updated: <span id="refreshTime">—</span></span>
+            <span>Data shown as-is from authoritative sources — no synthetic KPIs</span>
+        </div>
+    </div>
+
+    <script>
+        const CONTROL_ENGINE = 'http://localhost:8888';
+        let refreshInterval;
+
+        function escapeHtml(t) {
+            if (t === null || t === undefined) return '—';
+            const d = document.createElement('div');
+            d.textContent = String(t);
+            return d.innerHTML;
+        }
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
+        function showEl(id, vis) {
+            document.getElementById(id).style.display = vis ? 'block' : 'none';
+        }
+
+        function freshTag(f, age) {
+            if (!f) return '';
+            const ageStr = age != null ? ` · ${Math.floor(age / 60)}m ago` : '';
+            return `SOURCE: NUMBER ONE · ${f.toUpperCase()}${ageStr}`;
+        }
+
+        function freshPill(f) {
+            if (!f) return '';
+            const icons = { live: '🟢', stale: '🟡', unavailable: '🔴' };
+            return (icons[f] || '') + ' ' + f.toUpperCase();
+        }
+
+        async function fetchStatus() {
+            setTrustState('loading');
+            try {
+                const resp = await fetch(`${CONTROL_ENGINE}/api/dashboard/kpis`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const d = await resp.json();
+
+                const trustState = d.status === 'unavailable' ? 'unavailable' : (d.status || 'live');
+                setTrustState(trustState, {
+                    source: 'NUMBER ONE + Supabase',
+                    time: new Date().toLocaleTimeString(),
+                });
+
+                showEl('loading', false);
+                showEl('error', false);
+                showEl('content', true);
+
+                renderMissions(d.missions || {});
+                renderEscalations(d.escalations || {});
+                renderWorkQueue(d.work_queue || {});
+                renderDecisions(d.decisions || {});
+                renderProvenance(d);
+
+            } catch (err) {
+                console.error('System status fetch error:', err);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                showEl('loading', false);
+                showEl('error', true);
+            } finally {
+                document.getElementById('refreshTime').textContent = new Date().toLocaleTimeString();
+            }
+        }
+
+        function renderMissions(m) {
+            document.getElementById('mTotal').textContent    = m.total    ?? '—';
+            document.getElementById('mActive').textContent   = m.active   ?? '—';
+            document.getElementById('mProposed').textContent = m.proposed ?? '—';
+
+            const blockedEl = document.getElementById('mBlocked');
+            blockedEl.textContent = m.blocked ?? '—';
+            blockedEl.className = 'stat-value ' + ((m.blocked > 0) ? 'red' : 'green');
+
+            document.getElementById('missionsFreshTag').textContent =
+                freshTag(m.freshness, m.age_seconds);
+
+            // System health pill in header
+            if (m.system_health) {
+                const h = m.system_health.toLowerCase();
+                const cls = { green: 'health-green', yellow: 'health-yellow', red: 'health-red' }[h] || 'health-unknown';
+                const pill = document.getElementById('healthPill');
+                pill.className = 'health-pill ' + cls;
+                pill.textContent = '⬤ SYSTEM HEALTH: ' + h.toUpperCase();
+                pill.style.display = 'inline-block';
+            }
+        }
+
+        function renderEscalations(e) {
+            document.getElementById('escFreshTag').textContent = freshTag(e.freshness, e.age_seconds);
+
+            if (e.freshness === 'unavailable') {
+                document.getElementById('escContent').innerHTML =
+                    '<div class="error-state" style="padding:12px;font-size:12px;"><strong>Unavailable</strong>Run number_one_exporter.py to generate escalations.json</div>';
+                return;
+            }
+
+            if (e.total === 0) {
+                document.getElementById('escContent').innerHTML =
+                    '<div class="all-clear">No active escalations — system operating normally</div>';
+                return;
+            }
+
+            // Fetch full escalation detail for display
+            fetch(`${CONTROL_ENGINE}/api/dashboard/escalations`)
+                .then(r => r.json())
+                .then(full => {
+                    const items = full.data || [];
+                    const order = { critical: 0, high: 1, medium: 2, low: 3 };
+                    items.sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9));
+                    document.getElementById('escContent').innerHTML =
+                        `<div class="esc-list">${items.map(i => {
+                            const lvl = (i.level || 'medium').toLowerCase();
+                            return `
+                                <div class="esc-row ${lvl}">
+                                    <div>
+                                        <div class="esc-row-left">${escapeHtml(i.mission_id)} — ${escapeHtml(i.escalation_type)}</div>
+                                        <div class="esc-row-sub">${escapeHtml(i.reason)}</div>
+                                    </div>
+                                    <span class="esc-badge ${lvl}">${lvl.toUpperCase()}</span>
+                                </div>`;
+                        }).join('')}</div>`;
+                }).catch(() => {
+                    document.getElementById('escContent').innerHTML =
+                        `<div class="stat-card" style="color:#FF9800;">${e.total} escalation${e.total !== 1 ? 's' : ''} (detail unavailable)</div>`;
+                });
+        }
+
+        function renderWorkQueue(wq) {
+            document.getElementById('wqTotal').textContent = wq.total ?? '—';
+            document.getElementById('wqP0').textContent    = wq.p0_count ?? '—';
+            document.getElementById('wqP1').textContent    = wq.p1_count ?? '—';
+            document.getElementById('wqFreshTag').textContent = freshTag(wq.freshness, wq.age_seconds);
+        }
+
+        function renderDecisions(dec) {
+            document.getElementById('decTotal').textContent  = dec.total  ?? '—';
+            document.getElementById('decActive').textContent = dec.active ?? '—';
+        }
+
+        function renderProvenance(d) {
+            const sources = [
+                {
+                    label: 'Missions / Escalations / Work Queue',
+                    value: 'NUMBER ONE — core/coordination/outputs/',
+                    freshness: d.missions?.freshness,
+                    age: d.missions?.age_seconds,
+                },
+                {
+                    label: 'Decisions Registry',
+                    value: 'Supabase decisions table',
+                    freshness: d.decisions?.freshness,
+                    age: null,
+                },
+                {
+                    label: 'Control Engine',
+                    value: 'localhost:8888 (this process)',
+                    freshness: 'live',
+                    age: null,
+                },
+            ];
+            document.getElementById('provenance').innerHTML = sources.map(s => {
+                const f = s.freshness || 'unavailable';
+                const ageStr = s.age != null ? ` · ${Math.floor(s.age / 60)}m ago` : '';
+                return `
+                    <div class="prov-item">
+                        <div class="prov-label">${escapeHtml(s.label)}</div>
+                        <div class="prov-value">${escapeHtml(s.value)}</div>
+                        <div class="prov-freshness ${f}">${freshPill(f)}${escapeHtml(ageStr)}</div>
+                    </div>`;
+            }).join('');
+        }
+
+        fetchStatus();
+        refreshInterval = setInterval(fetchStatus, 30000);
+        window.addEventListener('beforeunload', () => { if (refreshInterval) clearInterval(refreshInterval); });
+    </script>
+</body>
+</html>
