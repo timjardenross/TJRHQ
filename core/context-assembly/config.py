@@ -8,7 +8,7 @@ MISSIONS_ACTIVE   = REPO_ROOT / "Missions" / "Active"
 MISSIONS_COMPLETE = REPO_ROOT / "Missions" / "Completed"
 ADR_DIR           = REPO_ROOT / "core" / "governance" / "architecture-decision-records"
 CAPABILITY_FILE   = REPO_ROOT / "capability-inventory.md"
-DECISIONS_DIR     = REPO_ROOT  # DECISION-*.md live at repo root
+DECISIONS_DIR     = REPO_ROOT / "governance" / "decisions"  # DECISION-*.md moved here P6B
 
 # WP3: Health context
 HEALTH_SUMMARY_PATH = REPO_ROOT / "memory" / "Health-Summary.md"
