@@ -99,11 +99,14 @@ else
   _warn "Ngrok tunnel" "port ${NGROK_PORT:-3100} not listening"
 fi
 
-# Commander: process match on "commander.py"
-if _proc_running "python.*commander\.py"; then
-  _ok "Commander" "process running"
+# Commander bot: same app.py binary as all bots — check for 2+ instances (both profiles running)
+_bot_count=$(pgrep -f "[Pp]ython.*app\.py" 2>/dev/null | wc -l | tr -d ' ')
+if [ "${_bot_count}" -ge 2 ]; then
+  _ok "Commander" "${_bot_count} bot instances running (commander + engineering)"
+elif [ "${_bot_count}" -eq 1 ]; then
+  _warn "Commander" "1 bot instance running — commander or engineering, not both"
 else
-  _warn "Commander" "process not found (may be expected if standalone)"
+  _warn "Commander" "no bot instances running (may be expected if standalone)"
 fi
 
 # Ollama: process match on "ollama"
