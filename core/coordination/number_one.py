@@ -33,6 +33,12 @@ from typing import Any, Optional
 from datetime import datetime, timedelta
 import json
 
+try:
+    from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter, MemoryContext
+except Exception:  # pragma: no cover - advisory-only fallback
+    NumberOneMemoryAdapter = None
+    MemoryContext = None
+
 
 # ============================================================================
 # Enums & Constants
@@ -255,6 +261,7 @@ class NumberOne:
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
         self.current_time = datetime.utcnow()
+        self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
     def get_work_queue(
         self,
@@ -525,6 +532,7 @@ class NumberOne:
         work_queue = self.get_work_queue(missions, routing_results)
         follow_ups = self.get_follow_ups(missions)
         escalations = self.get_xo_escalations(missions, routing_results)
+        memory_context = self._get_memory_context(missions, routing_results)
 
         # Calculate metrics (exclude cancelled/completed)
         active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES]
@@ -549,10 +557,10 @@ class NumberOne:
 
         # Recommended actions
         recommended_actions = self._generate_recommendations(
-            work_queue, follow_ups, escalations, blocked_missions
+            work_queue, follow_ups, escalations, blocked_missions, memory_context
         )
 
-        return CoordinationBrief(
+        brief = CoordinationBrief(
             timestamp=self.current_time,
             total_missions=total,
             active_count=active,
@@ -566,6 +574,16 @@ class NumberOne:
             specialist_workload=specialist_workload,
             recommended_actions=recommended_actions,
         )
+        self._persist_memory_context(brief, missions, routing_results)
+        return brief
+
+    def build_memory_enhanced_brief(
+        self,
+        missions: list[dict[str, Any]],
+        routing_results: dict[str, RoutingDecision] | None = None,
+    ) -> CoordinationBrief:
+        """Compatibility wrapper for memory-aware brief generation."""
+        return self.get_daily_brief(missions, routing_results)
 
     # ========================================================================
     # Private Helper Methods
@@ -665,7 +683,8 @@ class NumberOne:
         queue: list[WorkQueueItem],
         follow_ups: list[dict],
         escalations: list[Escalation],
-        blocked: list[WorkQueueItem]
+        blocked: list[WorkQueueItem],
+        memory_context: Optional[Any] = None,
     ) -> list[str]:
         """Generate recommended actions for brief."""
         recommendations = []
@@ -691,7 +710,47 @@ class NumberOne:
         if high_escalations:
             recommendations.append(f"XO: {high_escalations[0].recommendation}")
 
+        if memory_context and getattr(memory_context, "found", False):
+            for item in getattr(memory_context, "recommendations", [])[:3]:
+                recommendations.append(f"Memory context: {item}")
+            summary = getattr(memory_context, "summary", "")
+            if summary:
+                recommendations.append(f"Memory context summary: {summary[:160]}")
+
         return recommendations
+
+    def _get_memory_context(
+        self,
+        missions: list[dict[str, Any]],
+        routing_results: dict[str, RoutingDecision] | None = None,
+    ) -> Any:
+        if not self.memory_adapter:
+            return None
+        try:
+            return self.memory_adapter.retrieve_context(missions, routing_results or {})
+        except Exception as exc:
+            log.warning("[number-one] memory retrieval failed (non-blocking): %s", exc)
+            return None
+
+    def _persist_memory_context(
+        self,
+        brief: CoordinationBrief,
+        missions: list[dict[str, Any]],
+        routing_results: dict[str, RoutingDecision] | None = None,
+    ) -> None:
+        if not self.memory_adapter:
+            return
+        try:
+            payload = {
+                "brief_id": f"NUM1-BRIEF-{brief.timestamp.strftime('%Y%m%d%H%M%S')}",
+                "mission_id": missions[0].get("mission_id") if missions else "",
+                "summary": " | ".join(brief.recommended_actions[:5]),
+                "recommendations": brief.recommended_actions,
+                "confidence": 0.0,
+            }
+            self.memory_adapter.persist_brief(payload)
+        except Exception as exc:
+            log.warning("[number-one] memory persistence failed (non-blocking): %s", exc)
 
 
 # ============================================================================
