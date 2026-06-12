@@ -42,8 +42,15 @@ def _dispatch(capture_event: dict, client) -> None:
 
     def _run():
         try:
-            capture_item(capture_event)
+            item_id = capture_item(capture_event)
             ack_to_slack(client, channel, thread_ts)
+            # Async enrichment (classification, governance) — best-effort
+            if item_id:
+                try:
+                    from core.inbox.orchestrator import process_captured_item
+                    process_captured_item(item_id)
+                except Exception as orch_exc:
+                    log.warning("[captains-inbox] Orchestration failed (non-blocking): %s", orch_exc)
         except Exception as exc:
             log.error("[captains-inbox] Permanent capture failure: %s", exc)
             alert_capture_failure(client, channel, thread_ts)
