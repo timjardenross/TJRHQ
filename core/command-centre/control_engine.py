@@ -926,7 +926,7 @@ def get_dashboard_decisions():
     Returns all decisions ordered newest-first.
     """
     # decisions table columns unknown until populated; omit order to avoid 400
-    data, error = _supabase_get('decisions', {'select': '*'})
+    data, error = _supabase_get('decision_records', {'select': '*'})
     now = datetime.now().isoformat()
     if error:
         logger.warning(f'[supabase-proxy] decisions unavailable: {error}')
@@ -1170,7 +1170,7 @@ def get_dashboard_governance():
     Coverage % is TBD until mission-decision links are available in schema.
     """
     now = datetime.now().isoformat()
-    data, error = _supabase_get('decisions', {'select': '*'})
+    data, error = _supabase_get('decision_records', {'select': '*'})
 
     if error:
         return jsonify({
@@ -1434,7 +1434,7 @@ def get_dashboard_kpis():
 
     # --- Decisions (Supabase) ---
     decisions = {'freshness': 'unavailable'}
-    dec_data, dec_error = _supabase_get('decisions', {})
+    dec_data, dec_error = _supabase_get('decision_records', {})
     if dec_data is not None:
         decisions = {
             'total': len(dec_data),
