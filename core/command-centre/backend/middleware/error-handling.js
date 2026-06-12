@@ -116,7 +116,7 @@ const successResponse = (data, statusCode = 200, metadata = {}) => {
 /**
  * Partial success response (cached with some fresh)
  */
-const partialSuccessResponse = (freshData, cachedData = null, message = 'Partial data available') {
+const partialSuccessResponse = (freshData, cachedData = null, message = 'Partial data available') => {
   return {
     status: 'partial',
     statusCode: 200,

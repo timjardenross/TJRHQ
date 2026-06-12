@@ -5,7 +5,7 @@ formats it for Slack. No LLM synthesis here — the brief is pre-assembled by
 the Python Context Assembly Foundation (WP1–6).
 
 Data source priority:
-  1. Command Centre HTTP API  (localhost:5000, Express — WP6, uses TTL cache)
+  1. Command Centre HTTP API  (localhost:5050, Express — WP6, uses TTL cache)
   2. context_service.py CLI   (subprocess fallback, bypasses Express)
   3. Degraded placeholder     (both unavailable)
 
@@ -40,7 +40,7 @@ _CONTEXT_SERVICE_PY = _REPO_ROOT / "core" / "context-assembly" / "context_servic
 _PYTHON = sys.executable
 
 # WP6 Express backend — configurable for staging
-_API_BASE = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5000")
+_API_BASE = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5050")
 _TIMEOUT = int(os.environ.get("CONTEXT_SERVICE_TIMEOUT", "8"))
 
 _ENDPOINT = {

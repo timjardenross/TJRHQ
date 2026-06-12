@@ -51,12 +51,12 @@ class CommandCentre {
    * Determine API base URL based on environment
    */
   getAPIBaseURL() {
-    // If running on localhost, use localhost:5000
+    // If running on localhost, use localhost:5050
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://localhost:5000';
+      return 'http://localhost:5050';
     }
     // Otherwise, use same origin
-    return `${window.location.protocol}//${window.location.hostname}:5000`;
+    return `${window.location.protocol}//${window.location.hostname}:5050`;
   }
 
   /**

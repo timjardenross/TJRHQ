@@ -28,11 +28,11 @@ const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['http://localhost:8080', 'http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN || ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081', 'null'],
   credentials: true,
   optionsSuccessStatus: 200
 }));
