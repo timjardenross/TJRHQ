@@ -357,6 +357,39 @@
             <div class="workload-grid" id="workloadGrid"></div>
         </div>
 
+        <!-- Context Assembly Brief (WP-B) — shown only when CA service is live -->
+        <div class="attention-section" id="caSection" style="display: none;">
+            <div class="section-title">⚓ Context Assembly Brief</div>
+            <div id="caSourceBadge" style="font-size:11px;color:#888;margin-bottom:8px;"></div>
+
+            <!-- Capacity indicator -->
+            <div id="caHealth" style="margin-bottom:12px;"></div>
+
+            <!-- CA Top Priorities -->
+            <div id="caPrioritiesWrap" style="display:none;">
+                <div style="font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">
+                    Top Priorities — Context Assembly
+                </div>
+                <div class="priority-list" id="caPrioritiesList"></div>
+            </div>
+
+            <!-- CA Blockers -->
+            <div id="caBlockersWrap" style="display:none;margin-top:10px;">
+                <div style="font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">
+                    Blockers
+                </div>
+                <div id="caBlockersList"></div>
+            </div>
+
+            <!-- CA Decisions awaiting input -->
+            <div id="caDecisionsWrap" style="display:none;margin-top:10px;">
+                <div style="font-size:12px;font-weight:600;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">
+                    Decisions Awaiting Input
+                </div>
+                <div id="caDecisionsList"></div>
+            </div>
+        </div>
+
         <!-- Loading state -->
         <div id="loading" class="loading">
             <div class="spinner"></div>
@@ -521,6 +554,98 @@
                     .join('');
             } else {
                 showEl('workloadSection', false);
+            }
+
+            // WP-B: Context Assembly section
+            renderContextAssembly(d.context_assembly);
+        }
+
+        function renderContextAssembly(ca) {
+            if (!ca || ca.fallback_used) {
+                showEl('caSection', false);
+                return;
+            }
+
+            showEl('caSection', true);
+
+            // Source badge
+            const corpus = ca.corpus || {};
+            const assembledAt = ca.assembled_at ? ca.assembled_at.replace('T', ' ').replace('Z', ' UTC') : '';
+            document.getElementById('caSourceBadge').textContent =
+                `Assembled: ${assembledAt}  ·  `
+                + `${corpus.missions || 0}M ${corpus.decisions || 0}D ${corpus.adrs || 0}ADR ${corpus.capabilities || 0}CAP`
+                + (corpus.avg_completeness != null ? `  ·  ${Math.round(corpus.avg_completeness * 100)}% complete` : '');
+
+            // Capacity / health indicator
+            const hc = ca.health_capacity_context || {};
+            const constraint = hc.workload_constraint || 'unknown';
+            const hEmoji = { reduced: '🟡', normal: '🟢', unknown: '⚪' }[constraint] || '⚪';
+            const quality = hc.data_quality || 'missing';
+            let healthHtml = `<span>${hEmoji} Workload capacity: <strong>${constraint.charAt(0).toUpperCase() + constraint.slice(1)}</strong> <span style="color:#888;font-size:11px;">(health data quality: ${quality})</span></span>`;
+            const flags = hc.safety_flags || [];
+            if (flags.length) healthHtml += `<br><span style="color:#FF9800;">⚠ Safety flags: ${flags.map(f => escapeHtml(f)).join(', ')}</span>`;
+            document.getElementById('caHealth').innerHTML = healthHtml;
+
+            // Priorities
+            const caPriorities = ca.top_priorities || [];
+            if (caPriorities.length) {
+                showEl('caPrioritiesWrap', true);
+                const _statusEmoji = s => ({ IN_PROGRESS:'🔄', ACTIVE:'🔄', PLANNED:'📋', DRAFT:'📋', BLOCKED:'🔴' })[(s||'').toUpperCase().split(' ')[0]] || '📌';
+                document.getElementById('caPrioritiesList').innerHTML = caPriorities.map(p => {
+                    const pClass = { P0:'priority-p0', P1:'priority-p1', P2:'priority-p2', P3:'priority-p3' }[p.priority] || '';
+                    const adrs = (p.governing_adrs || []).slice(0, 2).join(', ');
+                    const deps = (p.blockers || []).slice(0, 2).join(', ');
+                    const detail = [
+                        p.assigned_specialist ? escapeHtml(p.assigned_specialist) : null,
+                        p.status ? escapeHtml(p.status) : null,
+                        adrs ? `ADRs: ${escapeHtml(adrs)}` : null,
+                        deps ? `Depends on: ${escapeHtml(deps)}` : null,
+                    ].filter(Boolean).join(' · ') || 'No detail available';
+                    const mid  = p.mission_id  || '—';
+                    const titl = p.title || mid;
+                    return `<div class="priority-item">
+                        <div>
+                            <div class="priority-item-title">${_statusEmoji(p.status)} ${escapeHtml(titl)}</div>
+                            <div style="font-size:12px;color:#888;margin-top:4px;">${escapeHtml(mid)} · ${detail}</div>
+                        </div>
+                        <div class="priority-item-status ${pClass}">${escapeHtml(p.priority || '—')}</div>
+                    </div>`;
+                }).join('');
+            } else {
+                showEl('caPrioritiesWrap', false);
+            }
+
+            // Blockers
+            const caBlockers = ca.blockers || [];
+            if (caBlockers.length) {
+                showEl('caBlockersWrap', true);
+                document.getElementById('caBlockersList').innerHTML = caBlockers.map(b => {
+                    const lvl = (b.escalation_level || '').toLowerCase();
+                    const icon = lvl === 'critical' ? '🔴' : lvl === 'high' ? '🟡' : '⚪';
+                    const bmid = b.mission_id || '—';
+                    return `<div style="margin-bottom:6px;">
+                        ${icon} <strong>${escapeHtml(bmid)}</strong> — ${escapeHtml(b.mission_title || '')}
+                        ${b.recommended_action ? `<div style="font-size:12px;color:#aaa;margin-left:18px;">→ ${escapeHtml(b.recommended_action)}</div>` : ''}
+                    </div>`;
+                }).join('');
+            } else {
+                showEl('caBlockersWrap', false);
+            }
+
+            // Decisions awaiting input
+            const caDecisions = ca.decisions_awaiting_input || [];
+            if (caDecisions.length) {
+                showEl('caDecisionsWrap', true);
+                document.getElementById('caDecisionsList').innerHTML = caDecisions.map(d => {
+                    const urgTag = d.urgency && d.urgency !== 'none' ? ` <span style="color:#FF9800;font-size:11px;">[${escapeHtml(d.urgency)}]</span>` : '';
+                    const did = d.decision_id || '—';
+                    return `<div style="margin-bottom:6px;">
+                        <strong>${escapeHtml(did)}</strong>${urgTag}
+                        <div style="font-size:12px;color:#aaa;margin-top:2px;">${escapeHtml(d.question || '')}</div>
+                    </div>`;
+                }).join('');
+            } else {
+                showEl('caDecisionsWrap', false);
             }
         }
 

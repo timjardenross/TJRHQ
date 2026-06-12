@@ -1,0 +1,60 @@
+{
+  "entity_id": "MSN-0001",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.045696Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0001 \u2014 Number One Assignment Authority",
+    "status": "DRAFT",
+    "owner": "Captain TJR",
+    "priority": "P1 High",
+    "created": "2026-06-12",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/enriched/MSN-0001.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-002",
+      "type": "adr",
+      "title": "Mission Control to GitHub Execution Model",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0001",
+      "target_id": "ADR-002",
+      "target_type": "adr",
+      "relationship_type": "governed_by",
+      "confidence": 0.95,
+      "evidence": "n and, only after approval, begin coding the Assignment Authority layer.  ---  ## Context Relationships  Governed By: - ADR-002 - ADR-001  Owner: Captain TJR  Related Research: - UNKNOWN \u2014 no directly preceding research mission identified  Notes:"
+    },
+    {
+      "source_id": "MSN-0001",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "governed_by",
+      "confidence": 0.95,
+      "evidence": "y after approval, begin coding the Assignment Authority layer.  ---  ## Context Relationships  Governed By: - ADR-002 - ADR-001  Owner: Captain TJR  Related Research: - UNKNOWN \u2014 no directly preceding research mission identified  Notes: Mission de"
+    }
+  ],
+  "completeness_score": 0.62,
+  "gaps": [
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}

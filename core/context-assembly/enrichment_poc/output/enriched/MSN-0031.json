@@ -1,0 +1,60 @@
+{
+  "entity_id": "MSN-0031",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.098666Z",
+  "overview": {
+    "title": "MSN-0031 \u2014 Mission Registry & Workflow Engine",
+    "status": "COMPLETED \u2705",
+    "owner": "Captain TJR",
+    "priority": "P2",
+    "created": "",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/enriched/MSN-0031.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    },
+    {
+      "id": "ADR-006",
+      "type": "adr",
+      "title": "Supabase Memory Layer Architecture",
+      "status": "APPROVED"
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0031",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "supports",
+      "confidence": 0.9,
+      "evidence": "Claude (STARFLEET COMMAND Operations)   **Mission Accomplished**: YES \u2705  ---  ## Context Relationships  Governed By: - ADR-001 - ADR-006  Supports: - CAP-1 - CAP-2  Owner: Captain TJR  Notes: MSN-0031 built the Mission Registry (CAP-1) and the pa"
+    },
+    {
+      "source_id": "MSN-0031",
+      "target_id": "ADR-006",
+      "target_type": "adr",
+      "relationship_type": "supports",
+      "confidence": 0.9,
+      "evidence": "TARFLEET COMMAND Operations)   **Mission Accomplished**: YES \u2705  ---  ## Context Relationships  Governed By: - ADR-001 - ADR-006  Supports: - CAP-1 - CAP-2  Owner: Captain TJR  Notes: MSN-0031 built the Mission Registry (CAP-1) and the pattern used"
+    }
+  ],
+  "completeness_score": 0.62,
+  "gaps": [
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}

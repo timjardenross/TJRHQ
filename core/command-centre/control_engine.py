@@ -109,6 +109,115 @@ def _load_n1_file(filename: str):
         return None, str(e), None, None, 'unavailable'
 
 
+# WP-B: Context Assembly enrichment
+# Configurable via CONTEXT_SERVICE_URL env var. Fails silently — caller always
+# gets a dict with fallback_used=True when the service is unavailable.
+_CA_SERVICE_URL = os.environ.get('CONTEXT_SERVICE_URL', 'http://127.0.0.1:5001')
+_CA_BRIEF_URL = f'{_CA_SERVICE_URL}/brief/captain'
+_CA_TIMEOUT_SECS = int(os.environ.get('CONTEXT_SERVICE_TIMEOUT', '5'))
+
+_PRIORITY_RE = __import__('re').compile(r'P([0-3])', __import__('re').IGNORECASE)
+
+
+def _fetch_context_assembly_brief() -> dict:
+    """
+    Fetch Captain Brief from the Context Assembly service.
+
+    Always returns a dict. On failure, returns a degraded skeleton with
+    fallback_used=True so callers never need to handle None.
+
+    Health data is summary-level only: workload_constraint, data_quality,
+    safety_flags. No clinical detail (pain_level, mood, energy, stress).
+
+    Rollback: remove this function and the _ca_data call in
+    get_dashboard_commander_brief().
+    """
+    try:
+        resp = http_client.get(_CA_BRIEF_URL, timeout=_CA_TIMEOUT_SECS)
+        resp.raise_for_status()
+        raw = resp.json()
+
+        # Reject service-level error payloads
+        if 'error' in raw and 'top_priorities' not in raw:
+            raise ValueError(f"CA service error: {raw.get('error')}")
+
+        health_raw = raw.get('health') or {}
+
+        # Normalise top_priorities to Dashy-compatible format while keeping
+        # CA-specific extras. Maps CA 'owner' → 'assigned_specialist',
+        # normalises 'P1 High' → 'P1' for CSS class matching.
+        def _norm_priority(raw_p: str) -> str:
+            m = _PRIORITY_RE.search(raw_p or '')
+            return f'P{m.group(1)}' if m else 'P3'
+
+        priorities = []
+        for p in (raw.get('top_priorities') or []):
+            priorities.append({
+                'mission_id':          p.get('mission_id', ''),
+                'title':               p.get('title', ''),
+                'priority':            _norm_priority(p.get('priority', '')),
+                'status':              p.get('status', ''),
+                'assigned_specialist': p.get('owner', ''),
+                'blockers':            p.get('depends_on') or [],
+                'governing_adrs':      p.get('governing_adrs') or [],
+                'completeness_score':  p.get('completeness_score'),
+            })
+
+        blockers = []
+        for b in (raw.get('blockers') or []):
+            blockers.append({
+                'mission_id':      b.get('mission_id', ''),
+                'mission_title':   b.get('mission_title', ''),
+                'escalation_level': b.get('escalation_level', ''),
+                'recommended_action': b.get('recommended_action', ''),
+            })
+
+        decisions = []
+        for d in (raw.get('decisions_awaiting_input') or []):
+            decisions.append({
+                'decision_id': d.get('decision_id', ''),
+                'question':    (d.get('question') or '')[:200],
+                'urgency':     d.get('urgency', 'none'),
+            })
+
+        return {
+            'assembled_at':   raw.get('assembled_at', ''),
+            'source':         'context_assembly_service',
+            'fallback_used':  False,
+            'corpus':         raw.get('corpus', {}),
+            'health_capacity_context': {
+                'workload_constraint': health_raw.get('workload_constraint', 'unknown'),
+                'data_quality':        health_raw.get('data_quality', 'missing'),
+                'safety_flags':        health_raw.get('safety_flags') or [],
+            },
+            'top_priorities':           priorities,
+            'blockers':                 blockers,
+            'decisions_awaiting_input': decisions,
+        }
+
+    except http_client.exceptions.ConnectionError:
+        logger.debug('[context-assembly] Service not reachable at %s', _CA_BRIEF_URL)
+    except http_client.exceptions.Timeout:
+        logger.debug('[context-assembly] Service timed out after %ds', _CA_TIMEOUT_SECS)
+    except Exception as exc:
+        logger.debug('[context-assembly] Fetch failed: %s — %s', type(exc).__name__, exc)
+
+    return {
+        'assembled_at':   None,
+        'source':         'fallback',
+        'fallback_used':  True,
+        'corpus':         {},
+        'health_capacity_context': {
+            'workload_constraint': 'unknown',
+            'data_quality':        'missing',
+            'safety_flags':        [],
+        },
+        'top_priorities':           [],
+        'blockers':                 [],
+        'decisions_awaiting_input': [],
+    }
+
+
 # Determine repo root based on this file's location
 CONTROL_ENGINE_DIR = Path(__file__).parent
 REPO_ROOT = CONTROL_ENGINE_DIR.parent.parent
@@ -858,6 +967,11 @@ def get_dashboard_commander_brief():
 
     if brief_data is not None:
         logger.info(f'[commander-brief] Number One daily_brief.json loaded (age={age_secs}s, freshness={freshness})')
+        ca_data = _fetch_context_assembly_brief()
+        logger.info(
+            '[commander-brief] Context Assembly enrichment: fallback=%s corpus=%s',
+            ca_data['fallback_used'], ca_data.get('corpus', {})
+        )
         return jsonify({
             'status': freshness,                                   # 'live' | 'stale'
             'source': 'number_one_daily_brief',
@@ -867,7 +981,7 @@ def get_dashboard_commander_brief():
             'age_seconds': age_secs,
             'freshness_threshold_secs': FRESHNESS_STALE_SECS,
             'timestamp': now,
-            # Number One coordination fields
+            # Number One coordination fields (unchanged)
             'system_health': brief_data.get('system_health', 'unknown'),
             'total_missions': brief_data.get('total_missions', 0),
             'active_count': brief_data.get('active_count', 0),
@@ -879,6 +993,8 @@ def get_dashboard_commander_brief():
             'escalations': brief_data.get('escalations', []),
             'specialist_workload': brief_data.get('specialist_workload', {}),
             'recommended_actions': brief_data.get('recommended_actions', []),
+            # WP-B: Context Assembly enrichment (new key — does not affect existing fields)
+            'context_assembly': ca_data,
         })
 
     # daily_brief.json absent or unreadable → Supabase missions fallback
@@ -938,6 +1054,7 @@ def get_dashboard_commander_brief():
         for m in missions[:5]
     ]
 
+    ca_data = _fetch_context_assembly_brief()
     return jsonify({
         'status': 'live',
         'source': 'supabase',
@@ -959,6 +1076,8 @@ def get_dashboard_commander_brief():
         'escalations': [],
         'specialist_workload': {},
         'recommended_actions': [],
+        # WP-B: Context Assembly enrichment (new key — does not affect existing fields)
+        'context_assembly': ca_data,
     })
 
 

@@ -1,0 +1,62 @@
+{
+  "entity_id": "MSN-0004",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.054583Z",
+  "overview": {
+    "title": "Context Relationships",
+    "status": "",
+    "owner": "Captain TJR",
+    "priority": "",
+    "created": "USS TJR knowledge assets available",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/enriched/MSN-0004.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-006",
+      "type": "adr",
+      "title": "Supabase Memory Layer Architecture",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0004",
+      "target_id": "ADR-006",
+      "target_type": "adr",
+      "relationship_type": "supports",
+      "confidence": 0.9,
+      "evidence": "can access authorised content - Prototype ready for integration testing  ---  ## Context Relationships  Governed By: - ADR-006 - ADR-001  Supports: - CAP-1 - CAP-2  Owner: Captain TJR  Notes: This mission created the Supabase collections that und"
+    },
+    {
+      "source_id": "MSN-0004",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "supports",
+      "confidence": 0.9,
+      "evidence": "s authorised content - Prototype ready for integration testing  ---  ## Context Relationships  Governed By: - ADR-006 - ADR-001  Supports: - CAP-1 - CAP-2  Owner: Captain TJR  Notes: This mission created the Supabase collections that underpin the"
+    }
+  ],
+  "completeness_score": 0.5,
+  "gaps": [
+    "status known",
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record.",
+    "Context completeness is low \u2014 enrich mission document with explicit ID references."
+  ]
+}

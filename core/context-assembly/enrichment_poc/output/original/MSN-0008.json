@@ -1,0 +1,62 @@
+{
+  "entity_id": "MSN-0008",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.004241Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0008",
+    "status": "COMPLETE",
+    "owner": "Captain TJR",
+    "priority": "",
+    "created": "",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/original/MSN-0008.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-006",
+      "type": "adr",
+      "title": "Supabase Memory Layer Architecture",
+      "status": "APPROVED"
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0008",
+      "target_id": "MSN-0009",
+      "target_type": "mission",
+      "relationship_type": "references",
+      "confidence": 0.55,
+      "evidence": "ediocre outputs. MSN-0008 built the pipeline but has not yet optimised the endpoint. This is the highest-value item for MSN-0009.  **3. Architecture documentation before implementation is worth the investment.** The Commander Runtime v1.0 documenta"
+    },
+    {
+      "source_id": "MSN-0008",
+      "target_id": "MSN-0011",
+      "target_type": "mission",
+      "relationship_type": "references",
+      "confidence": 0.55,
+      "evidence": "ible failures in current use. | | Notion Missions database not automatically populated | Logged as TD-009. Addressed in MSN-0011. Manual entry accepted for Phase 1. |  ---  ## Deferred Items  | Item | Destination | |---|---| | Commander Decision In"
+    },
+    {
+      "source_id": "MSN-0008",
+      "target_id": "ADR-006",
+      "target_type": "adr",
+      "relationship_type": "references",
+      "confidence": 0.7,
+      "evidence": "ed some rework in the MSN-0008C Fix.  ---  ## Architectural Decisions Made  | ADR | Decision | Status | |---|---|---| | ADR-006 | Fan-out + synthesis over specialist discussion rounds | Accepted | | ADR-007 | Per-specialist retrieval rather than s"
+    }
+  ],
+  "completeness_score": 0.62,
+  "gaps": [
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}
