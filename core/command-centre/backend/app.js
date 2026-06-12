@@ -26,6 +26,9 @@ const coordinationRoutes = require('./api/coordination');
 const healthRoutes = require('./api/health');
 const agentRoutes = require('./api/agents');
 const contextRoutes = require('./api/context');
+const captainsLogRoutes = require('./api/captains-log');
+const personalHealthRoutes = require('./api/personal-health');
+const intelligenceRoutes = require('./api/intelligence');
 const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
@@ -67,6 +70,9 @@ app.use('/api/v1/coordination', coordinationRoutes);
 app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/agents', agentRoutes);
 app.use('/api/v1/context', contextRoutes);
+app.use('/api/v1/captains-log', captainsLogRoutes);
+app.use('/api/v1/intelligence', intelligenceRoutes);
+app.use('/api/v1/personal-health', personalHealthRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -104,6 +110,24 @@ app.get('/api', (req, res) => {
         recommendations:    'GET /api/v1/context/recommendations',
         mission:            'GET /api/v1/context/mission/:id',
         status:             'GET /api/v1/context/status'
+      },
+      captainsLog: {
+        today:           'GET  /api/v1/captains-log/today',
+        upsert:          'POST /api/v1/captains-log',
+        recent:          'GET  /api/v1/captains-log/recent?days=14',
+        summary:         'GET  /api/v1/captains-log/summary',
+        synthesiseWeek:  'POST /api/v1/captains-log/synthesise-week',
+        latestSynthesis: 'GET  /api/v1/captains-log/latest-synthesis',
+        capacityModel:   'GET  /api/v1/captains-log/capacity-model'
+      },
+      intelligence: {
+        latest:       'GET /api/v1/intelligence/latest',
+        archive:      'GET /api/v1/intelligence/archive',
+        sourceHealth: 'GET /api/v1/intelligence/source-health',
+        sources:      'GET /api/v1/intelligence/sources',
+        events:       'GET /api/v1/intelligence/events',
+        themes:       'GET /api/v1/intelligence/themes',
+        generate:     'POST /api/v1/intelligence/generate'
       }
     },
     documentation: 'See MSN-0035-PHASE2-INTEGRATION-PLAN.md',

@@ -1,0 +1,97 @@
+"""
+RSS/Atom adapter — uses feedparser.
+Handles both RSS 2.0 and Atom 1.0.
+Used for: AWS, GCP, Azure, BOM, ABC, Reuters, Bloomberg, BBC, AFR, RBA, etc.
+"""
+
+import logging
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Optional
+
+from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
+from intelligence.ingestion.base_adapter import BaseSourceAdapter
+from intelligence.models import IntelligenceItem, SourceRecord
+
+log = logging.getLogger(__name__)
+
+
+class RSSAdapter(BaseSourceAdapter):
+
+    def __init__(self, source: SourceRecord):
+        super().__init__(source)
+        self._feed_url = source.rss_url or source.url
+
+    def collect(self) -> list[IntelligenceItem]:
+        try:
+            import feedparser
+        except ImportError:
+            raise RuntimeError("feedparser not installed — run: pip install feedparser")
+
+        # feedparser < 6.x does not support timeout kwarg; use socket-level timeout
+        import socket
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(HTTP_TIMEOUT_SECONDS)
+        try:
+            feed = feedparser.parse(
+                self._feed_url,
+                request_headers={"User-Agent": "USS-TJR-Intelligence-Agent/1.0"},
+            )
+        finally:
+            socket.setdefaulttimeout(old_timeout)
+
+        if feed.get("bozo") and not feed.entries:
+            exc = feed.get("bozo_exception")
+            raise RuntimeError(f"Feed parse error: {exc}")
+
+        items = []
+        for entry in feed.entries[:MAX_ITEMS_PER_SOURCE]:
+            title = entry.get("title", "").strip()
+            if not title:
+                continue
+
+            summary = self._get_summary(entry)
+            url = entry.get("link") or entry.get("id") or None
+            published = self._parse_date(entry)
+
+            items.append(self._make_item(
+                raw_title=title,
+                raw_summary=summary,
+                canonical_url=url,
+                published_at=published,
+            ))
+
+        return items
+
+    def _get_summary(self, entry) -> Optional[str]:
+        for field in ("summary", "description", "content"):
+            val = entry.get(field)
+            if val:
+                if isinstance(val, list):
+                    val = val[0].get("value", "") if val else ""
+                # Strip basic HTML tags
+                import re
+                val = re.sub(r"<[^>]+>", " ", str(val))
+                val = " ".join(val.split())
+                return val[:1000] if val else None
+        return None
+
+    def _parse_date(self, entry) -> Optional[datetime]:
+        for field in ("published_parsed", "updated_parsed"):
+            val = entry.get(field)
+            if val:
+                try:
+                    import time as _time
+                    ts = _time.mktime(val)
+                    return datetime.fromtimestamp(ts, tz=timezone.utc)
+                except Exception:
+                    pass
+        # Fallback: try string fields
+        for field in ("published", "updated"):
+            val = entry.get(field)
+            if val:
+                try:
+                    return parsedate_to_datetime(val)
+                except Exception:
+                    pass
+        return None

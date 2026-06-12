@@ -107,6 +107,12 @@ sections:
         url: "/dashboards/decisions-registry.html"
         target: _blank
 
+      - title: Captain Health Status
+        description: "Daily health check-in — GREEN/AMBER/RED status card"
+        icon: fas fa-heartbeat
+        url: "/dashboards/health-status.html"
+        target: _blank
+
       - title: Context Assembly Status
         description: "File freshness and adapter health — WP6 monitoring"
         icon: fas fa-satellite-dish
@@ -170,6 +176,35 @@ sections:
         description: "Decision register metrics (Supabase)"
         icon: fas fa-balance-scale
         url: "/dashboards/governance-health.html"
+        target: _blank
+
+
+  # SECTION: OPERATIONAL RESILIENCE INTELLIGENCE
+  - title: OR Intelligence
+    icon: fas fa-shield-alt
+    items:
+      - title: OR Intelligence Cockpit
+        description: "Operational Resilience Intelligence — executive brief, source health, top events"
+        icon: fas fa-radar
+        url: "/dashboards/or-intelligence.html"
+        target: _blank
+
+      - title: Source Health Monitor
+        description: "Live status of all 33 intelligence sources — LIVE/STALE/FAILED per source"
+        icon: fas fa-satellite-dish
+        url: "/dashboards/or-intelligence.html#source-health"
+        target: _blank
+
+      - title: Brief Archive
+        description: "Historical OR Intelligence Briefs — searchable and date-filtered"
+        icon: fas fa-archive
+        url: "/dashboards/or-intelligence.html#archive"
+        target: _blank
+
+      - title: Intelligence API
+        description: "OR Intelligence API — latest, events, source-health, themes"
+        icon: fas fa-plug
+        url: "http://localhost:5050/api/v1/intelligence/latest"
         target: _blank
 
 

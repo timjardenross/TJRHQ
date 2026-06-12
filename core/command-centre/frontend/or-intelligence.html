@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OR Intelligence — USS TJR Command Centre</title>
+    <link rel="stylesheet" href="/theme-starfleet-advanced.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 20px;
+            color: #FFF;
+        }
+
+        .page-container { max-width: 1600px; margin: 0 auto; }
+
+        /* ── Header ──────────────────────────────────────────────────────── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 18px;
+        }
+        .header-left h1 {
+            font-size: 26px;
+            font-weight: bold;
+            color: #FFD700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .header-left .subtitle {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .header-right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .btn {
+            padding: 9px 18px;
+            background: #FFD700;
+            color: #000;
+            border: 2px solid #FFD700;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: #e6c200; border-color: #e6c200; }
+        .btn-secondary {
+            background: transparent;
+            color: #FFD700;
+        }
+        .btn-secondary:hover { background: rgba(255,215,0,0.1); }
+        .btn-danger {
+            background: transparent;
+            color: #ff4444;
+            border-color: #ff4444;
+        }
+        .btn-danger:hover { background: rgba(255,68,68,0.1); }
+        .last-updated { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── Status pill ─────────────────────────────────────────────────── */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .status-pill::before { content: "●"; }
+        .pill-live    { background: rgba(0,255,100,0.15); color: #00ff64; border: 1px solid #00ff64; }
+        .pill-cached  { background: rgba(255,215,0,0.15); color: #FFD700; border: 1px solid #FFD700; }
+        .pill-stale   { background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #ffa500; }
+        .pill-partial { background: rgba(255,165,0,0.15); color: #ffa500; border: 1px solid #ffa500; }
+        .pill-failed  { background: rgba(255,68,68,0.15);  color: #ff4444; border: 1px solid #ff4444; }
+        .pill-unknown { background: rgba(128,128,128,0.15); color: #888;   border: 1px solid #888; }
+
+        /* ── Risk badge ──────────────────────────────────────────────────── */
+        .risk-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .risk-RED     { background: rgba(255,68,68,0.2);   color: #ff4444; border: 2px solid #ff4444; }
+        .risk-AMBER   { background: rgba(255,165,0,0.2);   color: #ffa500; border: 2px solid #ffa500; }
+        .risk-GREEN   { background: rgba(0,255,100,0.2);   color: #00ff64; border: 2px solid #00ff64; }
+        .risk-UNKNOWN { background: rgba(128,128,128,0.2); color: #888;    border: 2px solid #888; }
+
+        /* ── Grid layout ─────────────────────────────────────────────────── */
+        .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .grid-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .grid-auto { display: grid; grid-template-columns: 320px 1fr; gap: 16px; margin-bottom: 16px; }
+        .full-row  { margin-bottom: 16px; }
+
+        /* ── Card ────────────────────────────────────────────────────────── */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 8px;
+            padding: 18px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .card-body { font-size: 14px; }
+
+        /* ── Executive snapshot ──────────────────────────────────────────── */
+        .snapshot-text {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #ddd;
+        }
+        .snapshot-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            font-size: 12px;
+            color: #888;
+            flex-wrap: wrap;
+        }
+        .snapshot-meta span { display: flex; align-items: center; gap: 6px; }
+
+        /* ── Source health ───────────────────────────────────────────────── */
+        .health-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .health-stat {
+            text-align: center;
+            padding: 12px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .health-stat .hs-num  { font-size: 28px; font-weight: 700; }
+        .health-stat .hs-label{ font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+        .hs-ok     .hs-num { color: #00ff64; }
+        .hs-failed .hs-num { color: #ff4444; }
+        .hs-stale  .hs-num { color: #ffa500; }
+        .hs-total  .hs-num { color: #FFD700; }
+
+        .source-list { max-height: 280px; overflow-y: auto; }
+        .source-row {
+            display: flex;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            gap: 10px;
+            font-size: 13px;
+        }
+        .source-row:last-child { border-bottom: none; }
+        .src-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .src-dot-ok      { background: #00ff64; box-shadow: 0 0 5px #00ff64; }
+        .src-dot-failed  { background: #ff4444; box-shadow: 0 0 5px #ff4444; }
+        .src-dot-stale   { background: #ffa500; }
+        .src-dot-degraded{ background: #ffa500; }
+        .src-dot-skipped { background: #666; }
+        .src-dot-unknown { background: #555; }
+        .src-name  { flex: 1; color: #ccc; }
+        .src-items { font-size: 11px; color: #888; width: 70px; text-align: right; }
+        .src-cat   { font-size: 10px; color: #666; width: 100px; text-align: right; text-transform: uppercase; }
+
+        /* ── Events ──────────────────────────────────────────────────────── */
+        .event-card {
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,0.02);
+            transition: background 0.2s;
+        }
+        .event-card:hover { background: rgba(255,255,255,0.05); }
+        .event-card:last-child { margin-bottom: 0; }
+        .event-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .event-title  { font-size: 14px; font-weight: 600; color: #fff; flex: 1; line-height: 1.4; }
+        .event-title a { color: #9bb3ff; text-decoration: none; }
+        .event-title a:hover { text-decoration: underline; }
+        .event-meta   {
+            display: flex;
+            gap: 10px;
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .event-meta .em-type {
+            background: rgba(155,179,255,0.1);
+            color: #9bb3ff;
+            padding: 2px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+        .event-summary  { font-size: 13px; color: #bbb; line-height: 1.5; margin-bottom: 8px; }
+        .event-impact   { font-size: 12px; color: #888; font-style: italic; }
+        .event-so-what  {
+            font-size: 12px;
+            color: #ffa500;
+            padding: 6px 10px;
+            background: rgba(255,165,0,0.06);
+            border-left: 3px solid #ffa500;
+            border-radius: 0 4px 4px 0;
+            margin-top: 8px;
+        }
+        .event-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* ── Themes / Forward watch ──────────────────────────────────────── */
+        .theme-list { list-style: none; }
+        .theme-list li {
+            padding: 8px 0 8px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+            color: #ccc;
+            position: relative;
+        }
+        .theme-list li:last-child { border-bottom: none; }
+        .theme-list li::before { content: "▸"; position: absolute; left: 0; color: #FFD700; }
+
+        /* ── Bottom line ─────────────────────────────────────────────────── */
+        .bottom-line {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #ddd;
+            padding: 16px;
+            background: rgba(255,215,0,0.04);
+            border: 1px solid rgba(255,215,0,0.2);
+            border-radius: 6px;
+        }
+
+        /* ── Archive ─────────────────────────────────────────────────────── */
+        .archive-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            gap: 14px;
+            cursor: pointer;
+        }
+        .archive-row:last-child { border-bottom: none; }
+        .archive-row:hover { background: rgba(255,255,255,0.03); }
+        .arc-date   { font-size: 12px; color: #888; width: 160px; flex-shrink: 0; }
+        .arc-events { font-size: 12px; color: #888; width: 70px; text-align: center; }
+        .arc-risk   { width: 80px; text-align: center; }
+        .arc-snapshot { font-size: 13px; color: #ccc; flex: 1; }
+        .arc-provider { font-size: 11px; color: #555; width: 100px; text-align: right; }
+
+        /* ── Empty / error states ────────────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+        }
+        .empty-state .es-icon { font-size: 40px; margin-bottom: 12px; }
+        .empty-state .es-title { font-size: 16px; font-weight: 600; color: #aaa; margin-bottom: 8px; }
+        .empty-state .es-msg   { font-size: 13px; line-height: 1.6; }
+        .empty-state .es-action { margin-top: 16px; }
+
+        .error-banner {
+            padding: 12px 16px;
+            background: rgba(255,68,68,0.1);
+            border: 1px solid rgba(255,68,68,0.3);
+            border-radius: 6px;
+            color: #ff8888;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .stale-banner {
+            padding: 10px 16px;
+            background: rgba(255,165,0,0.1);
+            border: 1px solid rgba(255,165,0,0.3);
+            border-radius: 6px;
+            color: #ffc060;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        /* ── Tabs (archive section) ──────────────────────────────────────── */
+        .tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid rgba(255,215,0,0.2); }
+        .tab-btn {
+            padding: 10px 20px;
+            background: transparent;
+            color: #888;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { color: #FFD700; border-bottom-color: #FFD700; }
+        .tab-btn:hover { color: #FFD700; }
+        .tab-panel { display: none; padding-top: 16px; }
+        .tab-panel.active { display: block; }
+
+        /* ── No-data label ───────────────────────────────────────────────── */
+        .na-label { color: #555; font-style: italic; font-size: 13px; }
+
+        /* ── Loader ──────────────────────────────────────────────────────── */
+        .loader {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            color: #888;
+            font-size: 13px;
+            gap: 10px;
+        }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,215,0,0.3);
+            border-top-color: #FFD700;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Scrollbar ───────────────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.3); border-radius: 3px; }
+
+        /* ── CPS 230 panel ───────────────────────────────────────────────── */
+        .cps230-item {
+            padding: 8px 0 8px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+            color: #ccc;
+            position: relative;
+        }
+        .cps230-item:last-child { border-bottom: none; }
+        .cps230-item::before { content: "◆"; position: absolute; left: 0; color: #9bb3ff; font-size: 10px; top: 10px; }
+
+        /* ── Narrative unavailable ───────────────────────────────────────── */
+        .narrative-unavailable {
+            padding: 14px;
+            background: rgba(128,128,128,0.08);
+            border: 1px solid rgba(128,128,128,0.2);
+            border-radius: 6px;
+            color: #666;
+            font-size: 13px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="page-container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>⬤ Operational Resilience Intelligence</h1>
+            <div class="subtitle">Starship Endeavour NCC-170230 · Intelligence Platform · Banking & Critical Infrastructure</div>
+        </div>
+        <div class="header-right">
+            <span class="last-updated" id="last-updated">Loading...</span>
+            <button class="btn btn-secondary" onclick="generateBrief()" id="gen-btn">Generate Brief</button>
+            <button class="btn" onclick="loadAll()">Refresh</button>
+        </div>
+    </div>
+
+    <!-- Error / stale banners (shown conditionally) -->
+    <div id="error-banner" class="error-banner" style="display:none"></div>
+    <div id="stale-banner" class="stale-banner" style="display:none"></div>
+
+    <!-- Row 1: Executive Snapshot + Source Health -->
+    <div class="grid-auto">
+
+        <!-- Executive Snapshot -->
+        <div id="snapshot-card" class="card">
+            <div class="card-header">
+                <span class="card-title">Executive Snapshot</span>
+                <span id="snapshot-status" class="status-pill pill-unknown">—</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div>Loading...</div>
+            </div>
+        </div>
+
+        <!-- Source Health -->
+        <div id="source-health-card" class="card">
+            <div class="card-header">
+                <span class="card-title">Source Health</span>
+                <span id="health-status-pill" class="status-pill pill-unknown">—</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div>Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Top Events (full width) -->
+    <div class="full-row">
+        <div class="card" id="events-card">
+            <div class="card-header">
+                <span class="card-title">Top Events</span>
+                <span id="events-risk" class="risk-badge risk-UNKNOWN">⚪ Unknown</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div>Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Themes + Forward Watch + CPS 230 -->
+    <div class="grid-3col">
+
+        <div class="card" id="themes-card">
+            <div class="card-header">
+                <span class="card-title">Emerging Themes</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <div class="card" id="forward-card">
+            <div class="card-header">
+                <span class="card-title">Forward Watch</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <div class="card" id="cps230-card">
+            <div class="card-header">
+                <span class="card-title">CPS 230 / Banking Implications</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Bottom Line -->
+    <div class="full-row">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Bottom Line</span>
+            </div>
+            <div class="card-body" id="bottom-line-body">
+                <div class="loader"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 5: Brief Archive + Source Explorer (tabs) -->
+    <div id="archive" class="full-row">
+        <div class="card">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('archive-tab', this)">Brief Archive</button>
+                <button class="tab-btn" onclick="switchTab('sources-tab', this)">Source Explorer</button>
+            </div>
+
+            <div id="archive-tab" class="tab-panel active">
+                <div id="archive-body">
+                    <div class="loader"><div class="spinner"></div>Loading archive...</div>
+                </div>
+            </div>
+
+            <div id="sources-tab" class="tab-panel">
+                <div id="sources-body">
+                    <div class="loader"><div class="spinner"></div>Loading sources...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:5050/api/v1/intelligence';
+const REFRESH_MS = 5 * 60 * 1000;  // 5 minutes
+
+let _briefData = null;
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+
+function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-AU', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Australia/Melbourne'
+    });
+}
+
+function fmtDateShort(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-AU', {
+        day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Australia/Melbourne'
+    });
+}
+
+function statusPill(status) {
+    const cls = {
+        LIVE: 'pill-live', CACHED: 'pill-cached', STALE: 'pill-stale',
+        PARTIAL: 'pill-partial', FAILED: 'pill-failed'
+    }[status] || 'pill-unknown';
+    return `<span class="status-pill ${cls}">${status || '—'}</span>`;
+}
+
+function riskBadge(risk) {
+    const icons = { RED: '🔴', AMBER: '🟡', GREEN: '🟢', UNKNOWN: '⚪' };
+    const cls = `risk-${risk || 'UNKNOWN'}`;
+    return `<span class="risk-badge ${cls}">${icons[risk] || '⚪'} ${risk || 'UNKNOWN'}</span>`;
+}
+
+function eventTypeBadge(type) {
+    return `<span class="em-type">${(type || '').replace(/_/g,' ')}</span>`;
+}
+
+async function apiFetch(path) {
+    const resp = await fetch(`${API}${path}`);
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    return resp.json();
+}
+
+function showError(msg) {
+    const el = document.getElementById('error-banner');
+    el.textContent = `⚠ ${msg}`;
+    el.style.display = 'block';
+}
+
+function showStale(msg) {
+    const el = document.getElementById('stale-banner');
+    el.textContent = `⏱ ${msg}`;
+    el.style.display = 'block';
+}
+
+function clearBanners() {
+    document.getElementById('error-banner').style.display = 'none';
+    document.getElementById('stale-banner').style.display = 'none';
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+
+function switchTab(panelId, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(panelId).classList.add('active');
+    btn.classList.add('active');
+
+    // Lazy-load sources on first open
+    if (panelId === 'sources-tab') loadSources();
+}
+
+// ── Load functions ────────────────────────────────────────────────────────────
+
+async function loadBrief() {
+    try {
+        const result = await apiFetch('/latest');
+        const { status, brief, message } = result;
+
+        // Status banners
+        if (status === 'STALE')   showStale(`Intelligence data is stale — last generated ${fmtDate(brief?.generated_at)}`);
+        if (status === 'PARTIAL') showStale(`Some sources failed during collection — brief may be incomplete`);
+        if (status === 'FAILED' || !brief) {
+            renderSnapshotEmpty(message || 'No briefs have been generated yet');
+            renderEventsEmpty();
+            renderNarrativeEmpty();
+            document.getElementById('events-risk').outerHTML = riskBadge('UNKNOWN');
+            return;
+        }
+
+        _briefData = brief;
+        renderSnapshot(brief, status);
+        renderEvents(brief);
+        renderNarrative(brief);
+
+        document.getElementById('last-updated').textContent =
+            `Generated: ${fmtDate(brief.generated_at)}`;
+    } catch (err) {
+        showError(`Could not load brief: ${err.message}`);
+        renderSnapshotEmpty('API unavailable — ensure Command Centre backend is running on port 5050');
+    }
+}
+
+async function loadSourceHealth() {
+    const card = document.getElementById('source-health-card');
+    try {
+        const result = await apiFetch('/source-health');
+        const { status, summary, sources, checked_at } = result;
+
+        const pill = document.getElementById('health-status-pill');
+        pill.className = `status-pill pill-${status.toLowerCase()}`;
+        pill.textContent = status;
+
+        const { total_configured, ok, failed, stale } = summary || {};
+
+        card.querySelector('.card-body').innerHTML = `
+            <div class="health-stats">
+                <div class="health-stat hs-total">
+                    <div class="hs-num">${total_configured || '—'}</div>
+                    <div class="hs-label">Configured</div>
+                </div>
+                <div class="health-stat hs-ok">
+                    <div class="hs-num">${ok ?? '—'}</div>
+                    <div class="hs-label">Available</div>
+                </div>
+                <div class="health-stat hs-failed">
+                    <div class="hs-num">${failed ?? '—'}</div>
+                    <div class="hs-label">Failed</div>
+                </div>
+                <div class="health-stat hs-stale">
+                    <div class="hs-num">${stale ?? '—'}</div>
+                    <div class="hs-label">Degraded</div>
+                </div>
+            </div>
+            <div class="source-list">
+                ${(sources || []).map(s => `
+                    <div class="source-row">
+                        <span class="src-dot src-dot-${s.status || 'unknown'}"></span>
+                        <span class="src-name">${s.source_name || s.source_id}</span>
+                        <span class="src-items">${s.items_retrieved != null ? s.items_retrieved + ' items' : '—'}</span>
+                        <span class="src-cat">${(s.category || '').replace('_',' ')}</span>
+                    </div>
+                `).join('')}
+                ${!sources?.length ? '<div class="na-label" style="padding:12px 0">No health data yet — run collection first</div>' : ''}
+            </div>
+            <div style="font-size:11px;color:#555;margin-top:10px">Last checked: ${fmtDate(checked_at)}</div>
+        `;
+    } catch (err) {
+        card.querySelector('.card-body').innerHTML =
+            `<div class="empty-state">
+                <div class="es-icon">⚡</div>
+                <div class="es-title">Source Health Unavailable</div>
+                <div class="es-msg">${err.message}</div>
+            </div>`;
+    }
+}
+
+async function loadArchive() {
+    const body = document.getElementById('archive-body');
+    try {
+        const result = await apiFetch('/archive?limit=20');
+        const { data } = result;
+
+        if (!data?.length) {
+            body.innerHTML = `
+                <div class="empty-state">
+                    <div class="es-icon">📁</div>
+                    <div class="es-title">No Briefs in Archive</div>
+                    <div class="es-msg">Generate your first brief using the button above or via <code>python -m intelligence.scheduler --once</code></div>
+                </div>`;
+            return;
+        }
+
+        body.innerHTML = `
+            <div style="display:flex;gap:14px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.08);font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.5px;">
+                <span style="width:160px">Generated</span>
+                <span style="width:70px;text-align:center">Events</span>
+                <span style="width:80px;text-align:center">Risk</span>
+                <span style="flex:1">Snapshot</span>
+                <span style="width:100px;text-align:right">Provider</span>
+            </div>
+            ${data.map(b => `
+                <div class="archive-row" onclick="loadBriefById('${b.brief_id}')">
+                    <span class="arc-date">${fmtDate(b.generated_at)}</span>
+                    <span class="arc-events">${b.events_included ?? '—'}</span>
+                    <span class="arc-risk">${riskBadge(b.overall_risk)}</span>
+                    <span class="arc-snapshot">${(b.executive_snapshot || 'Narrative unavailable').substring(0,120)}...</span>
+                    <span class="arc-provider">${b.provider_used || (b.narrative_available ? '—' : 'rule-based')}</span>
+                </div>
+            `).join('')}
+        `;
+    } catch (err) {
+        body.innerHTML = `<div class="error-banner">Archive unavailable: ${err.message}</div>`;
+    }
+}
+
+let _sourcesLoaded = false;
+async function loadSources() {
+    if (_sourcesLoaded) return;
+    const body = document.getElementById('sources-body');
+    try {
+        const result = await apiFetch('/sources');
+        const { data } = result;
+        _sourcesLoaded = true;
+
+        const categories = [...new Set(data.map(s => s.category))].sort();
+
+        body.innerHTML = categories.map(cat => {
+            const catSources = data.filter(s => s.category === cat);
+            return `
+                <div style="margin-bottom:16px">
+                    <div style="font-size:11px;color:#FFD700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(255,215,0,0.2)">${cat.replace(/_/g,' ')}</div>
+                    ${catSources.map(s => `
+                        <div class="source-row">
+                            <span class="src-dot ${s.active ? 'src-dot-ok' : 'src-dot-unknown'}"></span>
+                            <span class="src-name">
+                                <a href="${s.url}" target="_blank" style="color:${s.active?'#9bb3ff':'#555'};text-decoration:none">${s.source_name}</a>
+                                ${!s.active ? '<span style="font-size:10px;color:#555;margin-left:6px">[future]</span>' : ''}
+                            </span>
+                            <span class="src-cat">P${s.priority_rank} · ${s.source_type}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        body.innerHTML = `<div class="error-banner">Source registry unavailable: ${err.message}</div>`;
+    }
+}
+
+// ── Render functions ──────────────────────────────────────────────────────────
+
+function renderSnapshot(brief, status) {
+    const card = document.getElementById('snapshot-card');
+    const pill = document.getElementById('snapshot-status');
+    pill.className = `status-pill pill-${status.toLowerCase()}`;
+    pill.textContent = status;
+
+    const period = `${fmtDateShort(brief.period_start)} – ${fmtDateShort(brief.period_end)}`;
+    const snapshotText = brief.executive_snapshot
+        || '<span class="na-label">Narrative unavailable — LLM providers were offline during generation. Structured event data is below.</span>';
+
+    card.querySelector('.card-body').innerHTML = `
+        <div class="snapshot-text">${snapshotText}</div>
+        <div class="snapshot-meta">
+            <span>📅 Period: ${period}</span>
+            <span>📡 Sources: ${brief.sources_available}/${brief.sources_checked} available</span>
+            <span>📋 Events: ${brief.events_included} included, ${brief.events_suppressed} suppressed</span>
+            ${brief.sources_failed > 0 ? `<span style="color:#ffa500">⚠ ${brief.sources_failed} sources failed</span>` : ''}
+            ${brief.provider_used ? `<span>🤖 ${brief.provider_used}</span>` : ''}
+        </div>
+    `;
+}
+
+function renderSnapshotEmpty(message) {
+    const card = document.getElementById('snapshot-card');
+    document.getElementById('snapshot-status').className = 'status-pill pill-failed';
+    document.getElementById('snapshot-status').textContent = 'FAILED';
+    card.querySelector('.card-body').innerHTML = `
+        <div class="empty-state">
+            <div class="es-icon">📡</div>
+            <div class="es-title">No Intelligence Available</div>
+            <div class="es-msg">${message}</div>
+            <div class="es-action">
+                <button class="btn" onclick="generateBrief()">Generate First Brief</button>
+            </div>
+        </div>`;
+}
+
+function renderEvents(brief) {
+    const card = document.getElementById('events-card');
+    const riskEl = document.getElementById('events-risk');
+    if (riskEl) riskEl.outerHTML = riskBadge(brief.overall_risk).replace('class="risk-badge', 'id="events-risk" class="risk-badge');
+
+    const events = brief.top_events || [];
+    if (!events.length) {
+        renderEventsEmpty();
+        return;
+    }
+
+    card.querySelector('.card-body').innerHTML = events.map((e, i) => `
+        <div class="event-card">
+            <div class="event-header">
+                <div class="event-title">
+                    ${i + 1}. ${e.canonical_url
+                        ? `<a href="${e.canonical_url}" target="_blank">${e.title}</a>`
+                        : e.title}
+                </div>
+                ${riskBadge(e.risk_rating)}
+            </div>
+            <div class="event-meta">
+                ${eventTypeBadge(e.event_type)}
+                <span>📍 ${e.location}</span>
+                <span>📋 ${e.status}</span>
+                <span>📡 ${e.source_name}</span>
+                <span>Score: ${(e.rank_score||0).toFixed(1)}</span>
+            </div>
+            <div class="event-summary">${e.summary || '—'}</div>
+            ${e.operational_impact ? `<div class="event-impact">Impact: ${e.operational_impact}</div>` : ''}
+            ${e.so_what ? `<div class="event-so-what"><strong>So what:</strong> ${e.so_what}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+function renderEventsEmpty() {
+    document.getElementById('events-card').querySelector('.card-body').innerHTML = `
+        <div class="empty-state">
+            <div class="es-title">No Events</div>
+            <div class="es-msg">No events collected in the brief period, or brief not yet generated.</div>
+        </div>`;
+}
+
+function renderNarrative(brief) {
+    // Themes
+    const themes = brief.emerging_themes;
+    document.getElementById('themes-card').querySelector('.card-body').innerHTML =
+        themes?.length
+            ? `<ul class="theme-list">${themes.map(t => `<li>${t}</li>`).join('')}</ul>`
+            : `<div class="narrative-unavailable">Narrative unavailable — LLM providers offline during generation</div>`;
+
+    // Forward Watch
+    const fw = brief.forward_watch;
+    document.getElementById('forward-card').querySelector('.card-body').innerHTML =
+        fw?.length
+            ? `<ul class="theme-list">${fw.map(t => `<li>${t}</li>`).join('')}</ul>`
+            : `<div class="narrative-unavailable">Forward watch unavailable</div>`;
+
+    // CPS 230
+    const cps = brief.cps230_implications;
+    document.getElementById('cps230-card').querySelector('.card-body').innerHTML =
+        cps?.length
+            ? cps.map(c => `<div class="cps230-item">${c}</div>`).join('')
+            : `<div class="narrative-unavailable">CPS 230 implications unavailable</div>`;
+
+    // Bottom line
+    document.getElementById('bottom-line-body').innerHTML =
+        brief.bottom_line
+            ? `<div class="bottom-line">${brief.bottom_line}</div>`
+            : `<div class="narrative-unavailable">Bottom line narrative unavailable — structured event data is above</div>`;
+}
+
+function renderNarrativeEmpty() {
+    ['themes-card','forward-card','cps230-card'].forEach(id => {
+        document.getElementById(id).querySelector('.card-body').innerHTML =
+            `<div class="narrative-unavailable">No data available</div>`;
+    });
+    document.getElementById('bottom-line-body').innerHTML =
+        `<div class="narrative-unavailable">No data available</div>`;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+async function generateBrief() {
+    const btn = document.getElementById('gen-btn');
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    try {
+        const resp = await fetch(`${API}/generate`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'ACCEPTED') {
+            showStale('Brief generation started — refresh in a few minutes to see results');
+        }
+    } catch (err) {
+        showError(`Could not start generation: ${err.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Brief';
+    }
+}
+
+function loadBriefById(id) {
+    // Scroll to top and show selected brief (future: modal)
+    window.scrollTo(0, 0);
+    showStale(`Viewing archived brief ${id.substring(0, 8)}... (full brief detail coming in next iteration)`);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+async function loadAll() {
+    clearBanners();
+    await Promise.allSettled([
+        loadBrief(),
+        loadSourceHealth(),
+        loadArchive(),
+    ]);
+}
+
+// Handle hash-based deep links
+if (window.location.hash === '#source-health') {
+    setTimeout(() => document.getElementById('source-health-card')?.scrollIntoView({ behavior: 'smooth' }), 500);
+} else if (window.location.hash === '#archive') {
+    setTimeout(() => document.getElementById('archive')?.scrollIntoView({ behavior: 'smooth' }), 500);
+}
+
+loadAll();
+setInterval(loadAll, REFRESH_MS);
+</script>
+</body>
+</html>
