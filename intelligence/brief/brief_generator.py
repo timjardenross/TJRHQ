@@ -288,12 +288,15 @@ Only use information from the TOP EVENTS provided. Do not invent incidents."""
 
         try:
             import re, json
-            # Extract JSON from the response (may be wrapped in markdown)
-            json_match = re.search(r"\{.*\}", raw, re.DOTALL)
+            # Strip markdown code fences (```json ... ``` or ``` ... ```)
+            raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
+            raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)
+            # Extract JSON object — greedy match from first { to last }
+            json_match = re.search(r"\{.*\}", raw_clean, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
             else:
-                data = json.loads(raw)
+                data = json.loads(raw_clean)
 
             return (
                 data.get("executive_snapshot"),
@@ -306,5 +309,4 @@ Only use information from the TOP EVENTS provided. Do not invent incidents."""
             )
         except Exception as exc:
             log.warning("Failed to parse LLM JSON response: %s\nRaw: %s", exc, raw[:200])
-            # If we got text but JSON parse failed, use raw text as snapshot only
-            return raw[:800] if raw else None, None, None, None, None, True, provider
+            return None, None, None, None, None, True, provider

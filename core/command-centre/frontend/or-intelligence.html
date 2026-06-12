@@ -413,25 +413,12 @@
     <div id="error-banner" class="error-banner" style="display:none"></div>
     <div id="stale-banner" class="stale-banner" style="display:none"></div>
 
-    <!-- Row 1: Executive Snapshot + Source Health -->
-    <div class="grid-auto">
-
-        <!-- Executive Snapshot -->
+    <!-- Row 1: Executive Snapshot (full width) -->
+    <div class="full-row">
         <div id="snapshot-card" class="card">
             <div class="card-header">
                 <span class="card-title">Executive Snapshot</span>
                 <span id="snapshot-status" class="status-pill pill-unknown">—</span>
-            </div>
-            <div class="card-body">
-                <div class="loader"><div class="spinner"></div>Loading...</div>
-            </div>
-        </div>
-
-        <!-- Source Health -->
-        <div id="source-health-card" class="card">
-            <div class="card-header">
-                <span class="card-title">Source Health</span>
-                <span id="health-status-pill" class="status-pill pill-unknown">—</span>
             </div>
             <div class="card-body">
                 <div class="loader"><div class="spinner"></div>Loading...</div>
@@ -513,6 +500,19 @@
                 <div id="sources-body">
                     <div class="loader"><div class="spinner"></div>Loading sources...</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 6: Source Health -->
+    <div class="full-row">
+        <div id="source-health-card" class="card">
+            <div class="card-header">
+                <span class="card-title">Source Health</span>
+                <span id="health-status-pill" class="status-pill pill-unknown">—</span>
+            </div>
+            <div class="card-body">
+                <div class="loader"><div class="spinner"></div>Loading...</div>
             </div>
         </div>
     </div>
@@ -755,18 +755,60 @@ async function loadSources() {
 
 // ── Render functions ──────────────────────────────────────────────────────────
 
+function _parseEmbeddedJson(raw) {
+    // LLM sometimes returns ```json { ... } ``` — extract and parse
+    if (!raw) return null;
+    try {
+        const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'');
+        // Try full JSON parse first
+        const m = clean.match(/\{[\s\S]*\}/);
+        if (m) return JSON.parse(m[0]);
+    } catch { /* fall through to field extraction */ }
+    // JSON may be truncated — extract individual string fields with regex
+    const result = {};
+    const strField = (key) => {
+        const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+        return m ? m[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : null;
+    };
+    const arrField = (key) => {
+        const m = raw.match(new RegExp(`"${key}"\\s*:\\s*\\[([^\\]]*?)\\]`));
+        if (!m) return null;
+        return [...m[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(x => x[1]);
+    };
+    result.executive_snapshot  = strField('executive_snapshot');
+    result.emerging_themes     = arrField('emerging_themes');
+    result.forward_watch       = arrField('forward_watch');
+    result.bottom_line         = strField('bottom_line');
+    result.cps230_implications = arrField('cps230_implications');
+    return result.executive_snapshot ? result : null;
+}
+
 function renderSnapshot(brief, status) {
     const card = document.getElementById('snapshot-card');
     const pill = document.getElementById('snapshot-status');
     pill.className = `status-pill pill-${status.toLowerCase()}`;
     pill.textContent = status;
 
+    // Recover fields if LLM response was stored raw (markdown-fenced JSON blob)
+    let snapshotText = brief.executive_snapshot;
+    if (snapshotText && snapshotText.trimStart().startsWith('```')) {
+        const parsed = _parseEmbeddedJson(snapshotText);
+        if (parsed) {
+            snapshotText = parsed.executive_snapshot || snapshotText;
+            // Back-fill other fields if the brief didn't have them
+            if (!brief.emerging_themes?.length)    brief.emerging_themes    = parsed.emerging_themes;
+            if (!brief.forward_watch?.length)      brief.forward_watch      = parsed.forward_watch;
+            if (!brief.cps230_implications?.length) brief.cps230_implications = parsed.cps230_implications;
+            if (!brief.bottom_line)                brief.bottom_line        = parsed.bottom_line;
+        }
+    }
+
     const period = `${fmtDateShort(brief.period_start)} – ${fmtDateShort(brief.period_end)}`;
-    const snapshotText = brief.executive_snapshot
+    const displayText = snapshotText
         || '<span class="na-label">Narrative unavailable — LLM providers were offline during generation. Structured event data is below.</span>';
 
     card.querySelector('.card-body').innerHTML = `
-        <div class="snapshot-text">${snapshotText}</div>
+        <div class="snapshot-text">${displayText}</div>
         <div class="snapshot-meta">
             <span>📅 Period: ${period}</span>
             <span>📡 Sources: ${brief.sources_available}/${brief.sources_checked} available</span>
