@@ -5,7 +5,6 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config/services.conf"
-SESSION_NAME="usstjr"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -61,23 +60,6 @@ else
   CONFIG_OK=false
 fi
 
-# ---------------------------------------------------------------------------
-# tmux session
-# ---------------------------------------------------------------------------
-
-echo "── TMUX SESSION ────────────────────────────"
-if command -v tmux >/dev/null 2>&1; then
-  if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    _ok "Session" "'$SESSION_NAME' is running"
-    PANE_COUNT=$(tmux list-panes -t "$SESSION_NAME" 2>/dev/null | wc -l | tr -d ' ')
-    _info "Panes" "${PANE_COUNT} active pane(s)"
-  else
-    _fail "Session" "'$SESSION_NAME' not running — use start.command"
-  fi
-else
-  _fail "tmux" "not installed — brew install tmux"
-fi
-echo ""
 
 # ---------------------------------------------------------------------------
 # Service health (process + port)
