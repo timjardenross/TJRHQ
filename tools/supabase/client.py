@@ -47,6 +47,11 @@ class CommanderSupabaseClient:
             except Exception:
                 self._supabase = None
 
+    @property
+    def raw_client(self):
+        """Return the underlying supabase-py client when available."""
+        return self._supabase
+
     def is_enabled(self) -> bool:
         return bool(self.url and self.key)
 
