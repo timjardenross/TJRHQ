@@ -89,7 +89,7 @@ try:
         _spec.loader.exec_module(_delegator_module)
         delegate_research_task = _delegator_module.delegate_research_task
         ResearchOutcome = _delegator_module.ResearchOutcome
-        call_mistral_research = _delegator_module.call_mistral_research
+        call_legacy_research_routing = _delegator_module.call_legacy_research_routing
         call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
@@ -99,14 +99,14 @@ except (ImportError, AttributeError, FileNotFoundError) as e:
         f"Failed to import research_delegator from {_research_delegator_file}: {e}",
         exc_info=True
     )
-    call_mistral_research = None
+    call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
 except Exception as e:
     log.error(
         f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
         exc_info=True
     )
-    call_mistral_research = None
+    call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
 
 # Startup logging for troubleshooting
@@ -326,7 +326,7 @@ class ResearchOrchestrator:
         metrics = ResearchMetricsCollector(mission_id, research_topic)
 
         # Step 1: Decompose into tasks
-        log.info("Step 1: Task decomposition (Mistral → Gemini → Ollama fallback chain)")
+        log.info("Step 1: Task decomposition (Ollama → Gemini fallback chain)")
         task_descriptions = self._decompose_research_topic(research_topic)
 
         if not task_descriptions:
@@ -638,10 +638,9 @@ class ResearchOrchestrator:
         """
         Decompose research topic into tasks using provider fallback chain.
 
-        Provider chain (DEF-WP1-001):
-        1. Mistral Research Agent (primary)
+        Provider chain:
+        1. qwen3:8b via Ollama (primary local fallback)
         2. Gemini 2.5 Flash Lite (secondary)
-        3. qwen2.5-coder via Ollama (tertiary)
 
         Args:
             research_topic: Research request
@@ -668,9 +667,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
         # Provider chain for decomposition (same as task execution)
         providers = [
-            ("mistral-research-agent", "Mistral Research Agent (primary)", self._decompose_with_mistral),
+            ("ollama", "qwen3:8b via Ollama (primary local)", self._decompose_with_ollama),
             ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
-            ("ollama", "qwen2.5-coder via Ollama (tertiary)", self._decompose_with_ollama),
         ]
 
         for provider_id, provider_name, provider_func in providers:
@@ -712,74 +710,10 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
             return []
 
-    def _decompose_with_mistral(self, prompt: str) -> list[str]:
-        """Decompose using Mistral Research Agent (SDK 2.4.9+, matching task execution pattern)."""
-        try:
-            api_key = os.getenv("MISTRAL_API_KEY")
-            if not api_key:
-                log.error("[decompose] Mistral: MISTRAL_API_KEY not set")
-                return []
-
-            log.info("[decompose] Mistral: API key present, importing Mistral client...")
-            from mistralai.client import Mistral
-
-            log.info("[decompose] Mistral: Creating Mistral client instance...")
-            client = Mistral(api_key=api_key)
-
-            log.info("[decompose] Mistral: Calling Mistral Research Agent...")
-            response = client.beta.conversations.start(
-                agent_id=os.getenv(
-                    "MISTRAL_DECOMPOSITION_AGENT_ID",
-                    "ag_019eafb4bee976348306954617b1c18c",
-                ),
-                agent_version=int(os.getenv("MISTRAL_DECOMPOSITION_AGENT_VERSION", "2")),
-                inputs=[{"role": "user", "content": prompt}]
-            )
-
-            if response and hasattr(response, 'messages') and response.messages:
-                text = response.messages[-1].content
-                log.info("[decompose] Mistral: SUCCESS - received response")
-                return self._parse_json_tasks(text)
-            else:
-                log.error("[decompose] Mistral: Empty response from API")
-                return []
-        except ImportError as e:
-            log.warning(f"[decompose] Mistral SDK unavailable, falling back to REST: {e}")
-            return self._decompose_with_mistral_rest(prompt)
-        except Exception as e:
-            log.error(f"[decompose] Mistral: FAILED - {type(e).__name__}: {e}")
-            return []
-
-    def _decompose_with_mistral_rest(self, prompt: str) -> list[str]:
-        """Fallback Mistral path using direct REST chat completions."""
-        try:
-            api_key = os.getenv("MISTRAL_API_KEY")
-            if not api_key:
-                return []
-
-            endpoint = "https://api.mistral.ai/v1/chat/completions"
-            payload = {
-                "model": "mistral-large-latest",
-                "messages": [{"role": "user", "content": prompt}],
-            }
-            request = urllib.request.Request(
-                endpoint,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(request, timeout=45) as response:
-                response_data = json.loads(response.read().decode("utf-8"))
-            text = ""
-            if response_data and response_data.get("choices"):
-                text = response_data["choices"][0].get("message", {}).get("content", "")
-            return self._parse_json_tasks(text)
-        except Exception as e:
-            log.error(f"[decompose] Mistral REST fallback failed: {type(e).__name__}: {e}")
-            return []
+    def _decompose_with_legacy_routing(self, prompt: str) -> list[str]:
+        """Compatibility hook retained for legacy task decomposition paths."""
+        log.info("[decompose] Legacy routing active; using Ollama")
+        return self._decompose_with_ollama(prompt)
 
     def _decompose_with_ollama(self, prompt: str) -> list[str]:
         """Decompose using Ollama qwen2.5-coder (tertiary fallback)."""
@@ -965,7 +899,7 @@ Research Metadata:
         Consolidate findings from all tasks into a coherent summary.
 
         MSN-RECOMMENDATION-FIX #4: Use Flash Lite instead of Ollama/qwen for synthesis.
-        Mistral is the primary reasoning model; qwen is the local code-model fallback.
+        Ollama is the primary local reasoning model; Gemini handles fallback synthesis.
 
         Args:
             tasks: List of completed research tasks
@@ -999,19 +933,19 @@ Consolidation Requirements:
 Provide only the consolidated summary, no headers or metadata."""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
-            log.info("Calling Mistral for finding consolidation")
-            outcome = call_mistral_research(consolidation_prompt, timeout_sec=60)
+            log.info("Calling provider for finding consolidation")
+            outcome = call_legacy_research_routing(consolidation_prompt, timeout_sec=60)
 
             if outcome.status == "success" and outcome.findings:
                 consolidated = outcome.findings.strip()
-                log.info(f"Consolidation complete (Mistral): {len(consolidated)} chars")
+                log.info(f"Consolidation complete: {len(consolidated)} chars")
                 return consolidated
             else:
-                log.warning(f"Mistral consolidation failed: {outcome.status}. Using local fallback.")
-                raise Exception("Mistral failed")
+                log.warning(f"Consolidation provider failed: {outcome.status}. Using local fallback.")
+                raise Exception("Legacy routing failed")
 
         except Exception as e:
             # Consolidation timeout or error - use deterministic local fallback
@@ -1048,7 +982,7 @@ Provide only the consolidated summary, no headers or metadata."""
         """
         Extract viable options from research findings (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Mistral to identify 2-4 distinct options implied by the research.
+        Uses the provider chain to identify 2-4 distinct options implied by the research.
         Non-blocking; returns None if extraction fails.
 
         Args:
@@ -1088,11 +1022,11 @@ Disadvantages:
 Cost/Effort: [if relevant]"""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
-            log.debug("Extracting options from findings (Mistral)")
-            outcome = call_mistral_research(options_prompt, timeout_sec=20)
+            log.debug("Extracting options from findings")
+            outcome = call_legacy_research_routing(options_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 options_text = outcome.findings.strip()
@@ -1115,7 +1049,7 @@ Cost/Effort: [if relevant]"""
         """
         Analyze trade-offs between options (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Mistral to create trade-off matrix.
+        Uses the provider chain to create trade-off matrix.
         Non-blocking; returns None if analysis fails.
 
         Args:
@@ -1146,11 +1080,11 @@ Format as a clear comparison table or matrix showing how each option trades off 
 Be specific with numbers/timelines where possible."""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
-            log.debug("Analyzing trade-offs (Mistral)")
-            outcome = call_mistral_research(tradeoff_prompt, timeout_sec=20)
+            log.debug("Analyzing trade-offs")
+            outcome = call_legacy_research_routing(tradeoff_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 tradeoff_text = outcome.findings.strip()
@@ -1173,7 +1107,7 @@ Be specific with numbers/timelines where possible."""
         """
         Assess risks for each option (MSN-RECOMMENDATION-FIX #1).
 
-        Uses Mistral to identify risks and mitigation strategies.
+        Uses the provider chain to identify risks and mitigation strategies.
         Non-blocking; returns None if assessment fails.
 
         Args:
@@ -1202,11 +1136,11 @@ For each option, identify:
 Format clearly. Be specific about probability and impact."""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
-            log.debug("Assessing risks (Mistral)")
-            outcome = call_mistral_research(risk_prompt, timeout_sec=20)
+            log.debug("Assessing risks")
+            outcome = call_legacy_research_routing(risk_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 risk_text = outcome.findings.strip()
@@ -1233,10 +1167,10 @@ Format clearly. Be specific about probability and impact."""
         MSN-RECOMMENDATION-FIX: New decision framework pipeline
 
         New Priority:
-        1. Extract options from findings (Mistral)
-        2. Analyze trade-offs (Mistral)
-        3. Assess risks (Mistral)
-        4. Generate recommendation (Mistral with full context)
+        1. Extract options from findings
+        2. Analyze trade-offs
+        3. Assess risks
+        4. Generate recommendation with full context
         5. Fallback to Ollama if needed
         6. Final heuristic fallback
 
@@ -1292,10 +1226,10 @@ Format clearly. Be specific about probability and impact."""
             and "insufficient" not in llm_rec.lower()
             and len(llm_rec) > 20
             and llm_conf >= 0.5):
-            log.info(f"[research-recommendation] Used Mistral (confidence: {llm_conf:.2f})")
+            log.info(f"[research-recommendation] Used LLM provider (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Mistral recommendation rejected or failed. Trying Ollama...")
+        log.debug(f"[research-recommendation] Provider recommendation rejected or failed. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1448,7 +1382,7 @@ CONFIDENCE: [0.0-1.0]"""
         """
         Generate recommendation using decision framework (MSN-RECOMMENDATION-FIX #2).
 
-        Uses Mistral with structured decision inputs:
+        Uses structured decision inputs:
         - Consolidated findings
         - Extracted options
         - Trade-off analysis
@@ -1526,11 +1460,11 @@ FIRST THREE ACTIONS:
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
-            log.debug("Calling Mistral with decision framework")
-            outcome = call_mistral_research(decision_framework_prompt, timeout_sec=30)
+            log.debug("Calling LLM with decision framework")
+            outcome = call_legacy_research_routing(decision_framework_prompt, timeout_sec=30)
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()
@@ -1569,9 +1503,8 @@ CONFIDENCE: [0.0-1.0]"""
         tasks: list[ResearchTask]
     ) -> tuple[Optional[str], float]:
         """
-        Generate recommendation using Mistral (MSN-0058).
+        Generate recommendation using the active provider chain (MSN-0058).
 
-        Mistral is the primary model for recommendation generation while
         Ollama remains the local fallback.
 
         Args:
@@ -1583,7 +1516,7 @@ CONFIDENCE: [0.0-1.0]"""
         """
 
         if not consolidated_findings or "No findings" in consolidated_findings:
-            log.debug("No findings for Mistral recommendation")
+            log.debug("No findings for recommendation")
             return None, 0.0
 
         recommendation_prompt = f"""You are a strategic advisor. Based on the following research findings, provide a clear, actionable recommendation.
@@ -1608,8 +1541,8 @@ RECOMMENDATION: [your recommendation]
 CONFIDENCE: [0.0-1.0]"""
 
         try:
-            if not call_mistral_research:
-                raise Exception("call_mistral_research not loaded")
+            if not call_legacy_research_routing:
+                raise Exception("call_legacy_research_routing not loaded")
 
             # Create a simple task-like object for the API call
             class RecommendationTask:
@@ -1618,8 +1551,8 @@ CONFIDENCE: [0.0-1.0]"""
 
             task = RecommendationTask(recommendation_prompt)
 
-            log.debug("Calling Mistral for recommendation (MSN-0058)")
-            outcome = call_mistral_research(recommendation_prompt, timeout_sec=20)
+            log.debug("Calling LLM for recommendation (MSN-0058)")
+            outcome = call_legacy_research_routing(recommendation_prompt, timeout_sec=20)
 
             if outcome.status == "success" and outcome.findings:
                 response_text = outcome.findings.strip()
@@ -1639,17 +1572,17 @@ CONFIDENCE: [0.0-1.0]"""
                             confidence = 0.5
 
                 if recommendation:
-                    log.debug(f"Mistral recommendation generated (confidence: {confidence:.2f})")
+                    log.debug(f"Recommendation generated (confidence: {confidence:.2f})")
                     return recommendation, confidence
                 else:
-                    log.debug("Mistral returned no recommendation")
+                    log.debug("Provider returned no recommendation")
                     return None, 0.0
             else:
                 log.debug(f"Flash Lite call failed: {outcome.status}")
                 return None, 0.0
 
         except Exception as e:
-            log.debug(f"Mistral recommendation failed ({type(e).__name__}): {str(e)[:50]}")
+            log.debug(f"Recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
     # ========================================================================
