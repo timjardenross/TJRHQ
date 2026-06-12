@@ -28,26 +28,7 @@ appConfig:
   showErrorLog: false
 
 sections:
-  # SECTION 1: COMMAND STATUS
-  - title: Command Status
-    icon: fas fa-shield-alt
-    items:
-      - title: Starship Endeavour
-        description: NCC-170230
-        icon: fas fa-rocket
-        url: "#"
-
-      - title: Captain TJR
-        description: In Command
-        icon: fas fa-user-tie
-        url: "#"
-
-      - title: Status Operational
-        description: Stardate 2026.160
-        icon: fas fa-check-circle
-        url: "#"
-
-  # SECTION 2: SERVICE STATUS (Real-time Health via Native Widgets)
+  # SECTION 1: SERVICE STATUS (Real-time Health via Native Widgets)
   - title: Service Status
     icon: fas fa-heartbeat
     items:
@@ -73,105 +54,79 @@ sections:
           timeout: 5
           interval: 30
 
-      - title: Number One
-        description: "AI Decision Assistant — On demand"
-        icon: fas fa-robot
+      - title: Number One (Slack Bot)
+        description: "AI Decision Assistant — Start via ./control start slack-bot"
+        icon: fab fa-slack
         url: "http://localhost:3001"
         target: _blank
 
       - title: Mission Registry DB
         description: "Supabase — PostgreSQL backend"
         icon: fas fa-database
-        url: "#"
+        url: "https://app.supabase.com/project/cjvrpjwewsrumnbdydgg"
+        target: _blank
 
 
-  # SECTION 3: CORE OPERATIONS
+  # SECTION 2: CORE OPERATIONS
   - title: Core Operations
     icon: fas fa-chess-board
     items:
       - title: System Status
-        description: "🖥️ Live snapshot — missions, escalations, work queue, decisions"
+        description: "Live snapshot — missions, escalations, work queue, decisions"
         icon: fas fa-tachometer-alt
         url: "/dashboards/system-status.html"
         target: _blank
 
       - title: Commander Operations Brief
-        description: "📊 Mission status, priorities, blocked items (Supabase Live)"
+        description: "Mission status, priorities, blocked items (Supabase Live)"
         icon: fas fa-briefcase
         url: "/dashboards/commander-operations-brief.html"
         target: _blank
 
       - title: Mission Registry
-        description: "📋 Active missions, progress tracking (Supabase Live)"
+        description: "Active missions, progress tracking (Supabase Live)"
         icon: fas fa-tasks
         url: "/dashboards/mission-registry.html"
         target: _blank
 
       - title: Decisions Registry
-        description: "📋 Architectural decisions & alternatives (Supabase Live)"
+        description: "Architectural decisions & alternatives (Supabase Live)"
         icon: fas fa-sitemap
         url: "/dashboards/decisions-registry.html"
         target: _blank
 
-      - title: Number One (Slack Bot)
-        description: "On-Demand — Start via ./control start slack-bot"
-        icon: fab fa-slack
-        url: http://localhost:3001
-        target: _blank
-
       - title: Blocked Missions
-        description: "🔴 Missions with status=blocked (Supabase live filter)"
+        description: "Missions with status=blocked (Supabase live filter)"
         icon: fas fa-ban
         url: "/dashboards/blocked-missions.html"
         target: _blank
 
       - title: Service Health
-        description: "🟡 Service status — Interim: Control Engine health"
+        description: "Service status — Interim: Control Engine health"
         icon: fas fa-heartbeat
         url: "/dashboards/service-health-widget.html"
         target: _blank
 
       - title: Escalations
-        description: "🚨 Active escalations from NUMBER ONE (LIVE/STALE)"
+        description: "Active escalations from NUMBER ONE (LIVE/STALE)"
         icon: fas fa-exclamation-triangle
         url: "/dashboards/escalations.html"
         target: _blank
 
       - title: Work Queue
-        description: "📋 Mission work queue — priority ordered (NUMBER ONE)"
+        description: "Mission work queue — priority ordered (NUMBER ONE)"
         icon: fas fa-list-ol
         url: "/dashboards/work-queue.html"
         target: _blank
 
       - title: Governance Health
-        description: "⚖️ Decision register metrics (Supabase)"
+        description: "Decision register metrics (Supabase)"
         icon: fas fa-balance-scale
         url: "/dashboards/governance-health.html"
         target: _blank
 
 
-  # SECTION 4: RUNTIME SERVICES
-  - title: Runtime Services
-    icon: fas fa-server
-    items:
-      - title: Ollama LLM
-        description: "Local inference (localhost:11434) 🟢"
-        icon: fas fa-brain
-        url: http://localhost:11434
-        target: _blank
-
-      - title: Supabase Database
-        description: "📋 Database port (5432) — See operations docs"
-        icon: fas fa-database
-        url: "#"
-
-      - title: OpenClaw Chat
-        description: "Code execution chat (localhost:18789) ✅"
-        icon: fas fa-flask
-        url: "http://localhost:18789/chat?session=agent%3Amain%3Amain"
-        target: _blank
-
-  # SECTION 5: HELP & OPERATIONS
+  # SECTION 3: HELP & OPERATIONS
   - title: Help & Operations
     icon: fas fa-book
     items:
@@ -181,8 +136,20 @@ sections:
         url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/CONTROL-DECK-STARTUP.md"
         target: _blank
 
+      - title: Operations Runbook
+        description: "Standard operating procedures & incident response"
+        icon: fas fa-book-open
+        url: "https://github.com/timjardenross/USSTJROS/blob/main/core/command-centre/OPERATIONS-RUNBOOK.md"
+        target: _blank
 
-  # SECTION 6: DEVELOPER RESOURCES (Not for operational use)
+      - title: ADR Index
+        description: "Architectural Decision Record index"
+        icon: fas fa-list-alt
+        url: "https://github.com/timjardenross/USSTJROS/blob/main/ADRs/README.md"
+        target: _blank
+
+
+  # SECTION 4: DEVELOPER RESOURCES (Not for operational use)
   - title: Developer Resources
     icon: fas fa-terminal
     items:
