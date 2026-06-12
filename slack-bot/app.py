@@ -347,7 +347,7 @@ else:
     log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
 
 if app:
-    @app.event("app_mention")
+@app.event("app_mention")
     def handle_app_mention_events(body, say):
         """Handle all @Bot mentions.
 
@@ -382,15 +382,50 @@ if app:
         say(result["response_text"], thread_ts=thread_ts)
 
     @app.event("message")
-    def handle_build_thread_approvals(body, say):
-        """Detect approval replies in active /build threads."""
+    def handle_message_events(body, say, client):
+        """Single message event dispatcher — Bolt v1.x only calls the first matching listener.
+
+        Routes:
+          1. Captain's Inbox (#captains-inbox) — capture and acknowledge
+          2. Build thread approvals — detect 'approved for engineering' replies
+        """
+        from lib.captains_inbox_events import CAPTAINS_INBOX_CHANNEL_ID
+        from lib.captains_inbox_events import _dispatch as inbox_dispatch
+        from lib.captains_inbox_capture import extract_urls
+
         event = body.get("event", {})
-        text = (event.get("text") or "").strip()
-        thread_ts = event.get("thread_ts")
-        user_id = event.get("user")
+        channel = event.get("channel")
         subtype = event.get("subtype")
         bot_id = event.get("bot_id")
+        user_id = event.get("user")
+        message_ts = event.get("ts")
+        text = (event.get("text") or "").strip()
+        thread_ts = event.get("thread_ts")
 
+        # --- Route 1: Captain's Inbox ---
+        if (
+            CAPTAINS_INBOX_CHANNEL_ID
+            and channel == CAPTAINS_INBOX_CHANNEL_ID
+            and not bot_id
+            and subtype not in ("message_changed", "message_deleted", "bot_message", "slackbot_response")
+            and not (thread_ts and thread_ts != message_ts)
+        ):
+            log.info("[captains-inbox] message: ts=%s user=%s channel=%s", message_ts, user_id, channel)
+            urls = extract_urls(text)
+            capture_ev = {
+                "source_type": "channel_message",
+                "item_type": "url" if urls else "text_note",
+                "source_channel_id": channel,
+                "source_message_id": message_ts,
+                "source_message_ts": message_ts,
+                "raw_text": text,
+                "source_url": urls[0] if urls else None,
+                "captured_by": user_id,
+            }
+            inbox_dispatch(capture_ev, client)
+            return
+
+        # --- Route 2: Build thread approvals ---
         if subtype is not None or bot_id or not thread_ts or not user_id:
             return
 

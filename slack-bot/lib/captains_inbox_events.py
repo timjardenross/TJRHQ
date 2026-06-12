@@ -134,49 +134,6 @@ def register_captains_inbox_handlers(app) -> None:
         logger.info("[captains-inbox] file_shared: file_id=%s", file_id)
         _dispatch(capture_event, client)
 
-    @app.event("message")
-    def handle_captains_inbox_message(body, client, logger):
-        event = body.get("event", {})
-
-        # Guard: only process events from the configured inbox channel
-        channel = event.get("channel")
-        if not CAPTAINS_INBOX_CHANNEL_ID or channel != CAPTAINS_INBOX_CHANNEL_ID:
-            return
-
-        # Skip bot messages and message edits/deletes
-        if event.get("bot_id") or event.get("subtype") in (
-            "message_changed", "message_deleted", "bot_message", "slackbot_response"
-        ):
-            return
-
-        # Skip thread replies (top-level posts only for MVP)
-        if event.get("thread_ts") and event.get("thread_ts") != event.get("ts"):
-            return
-
-        message_ts = event.get("ts")
-        message_text = event.get("text") or ""
-        user_id = event.get("user")
-
-        if not message_ts or not channel:
-            return
-
-        urls = extract_urls(message_text)
-        item_type = "url" if urls else "text_note"
-        first_url = urls[0] if urls else None
-
-        capture_event = {
-            "source_type": "channel_message",
-            "item_type": item_type,
-            "source_channel_id": channel,
-            "source_message_id": message_ts,
-            "source_message_ts": message_ts,
-            "raw_text": message_text,
-            "source_url": first_url,
-            "captured_by": user_id,
-        }
-
-        logger.info(
-            "[captains-inbox] message: ts=%s item_type=%s user=%s",
-            message_ts, item_type, user_id,
-        )
-        _dispatch(capture_event, client)
+    # Message events are handled by handle_message_events in app.py — Bolt v1.x
+    # only dispatches to the first matching listener, so the single dispatcher
+    # in app.py calls inbox_dispatch() directly rather than registering here.
