@@ -326,15 +326,15 @@ SOURCES = [
     {
         "source_name":        "Microsoft Azure Status",
         "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.azure.com/en-us/status",
-        "rss_url":            "https://status.azure.com/en-us/status/feed/",
+        "priority_rank":      1,
+        "url":                "https://azure.status.microsoft/en-us/status",
+        "rss_url":            "https://azurestatuscdn.azureedge.net/en-us/status/feed/",
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
+        "confidence_weight":  0.95,
         "active":             True,
-        "notes":              "Microsoft Azure / M365 / Teams service health RSS feed.",
+        "notes":              "Azure global service health. Use CDN URL — direct azure.status.microsoft/feed/ unreliable.",
     },
     {
         "source_name":        "AWS Service Health Dashboard",
@@ -352,15 +352,15 @@ SOURCES = [
     {
         "source_name":        "Google Cloud Status",
         "category":           "cloud_technology",
-        "priority_rank":      2,
+        "priority_rank":      1,
         "url":                "https://status.cloud.google.com/",
         "rss_url":            "https://status.cloud.google.com/en/feed.atom",
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
+        "confidence_weight":  0.95,
         "active":             True,
-        "notes":              "Google Cloud Platform and Workspace status Atom feed.",
+        "notes":              "GCP global status Atom feed. JSON incidents also at /incidents.json.",
     },
     {
         "source_name":        "Salesforce Trust Status",
@@ -734,6 +734,157 @@ SOURCES = [
         "active":             False,
         "notes":              "FUTURE: ASX market operational notices and trading halts.",
     },
+
+    # ─── Category: Regulatory — International & Central Bank ────────────────
+    {
+        "source_name":        "RBA Financial Stability Review",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.rba.gov.au/publications/fsr/",
+        "rss_url":            "https://www.rba.gov.au/rss/rss-cb-fsr.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "Semi-annual systemic risk assessment. Key for macro resilience monitoring.",
+    },
+    {
+        "source_name":        "FSB Press Releases",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.fsb.org/press/press-releases/",
+        "rss_url":            "https://www.fsb.org/wordpress/content_type/press-releases/feed/",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.92,
+        "active":             True,
+        "notes":              "Financial Stability Board — G20 systemic risk, TBTF, resolution frameworks.",
+    },
+    {
+        "source_name":        "FSB Publications",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.fsb.org/publications/",
+        "rss_url":            "https://www.fsb.org/wordpress/content_type/publications/feed/",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "FSB policy papers, consultation reports, peer reviews.",
+    },
+    {
+        "source_name":        "BIS Press Releases",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.bis.org/press/",
+        "rss_url":            "https://www.bis.org/doclist/all_pressrels.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.92,
+        "active":             True,
+        "notes":              "Bank for International Settlements — Basel Committee, CPMI, BCBS prudential standards.",
+    },
+    {
+        "source_name":        "BIS FSI Publications",
+        "category":           "regulatory",
+        "priority_rank":      3,
+        "url":                "https://www.bis.org/fsi/publications.htm",
+        "rss_url":            "https://www.bis.org/doclist/bis_fsi_publs.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "Financial Stability Institute — supervisory guidance, policy implementation notes.",
+    },
+
+    # ─── Category: Cloud Infrastructure Status ───────────────────────────────
+    {
+        "source_name":        "AWS Service Health",
+        "category":           "cloud_technology",
+        "priority_rank":      1,
+        "url":                "https://health.aws.amazon.com/health/status",
+        "rss_url":            "http://status.aws.amazon.com/rss/all.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "AWS all-regions health feed. Third-party cloud dependency risk.",
+    },
+    {
+        "source_name":        "AWS Sydney (ap-southeast-2)",
+        "category":           "cloud_technology",
+        "priority_rank":      1,
+        "url":                "https://health.aws.amazon.com/health/status",
+        "rss_url":            "https://status.aws.amazon.com/rss/ec2-ap-southeast-2.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.97,
+        "active":             True,
+        "notes":              "AWS EC2 Sydney region — most relevant for AU-hosted workloads.",
+    },
+    {
+        "source_name":        "Oracle Cloud (OCI) Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://ocistatus.oraclecloud.com/",
+        "rss_url":            "https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "OCI incident summary RSS. Relevant for banks using Oracle Cloud.",
+    },
+
+    # ─── Category: SaaS Vendor Status ────────────────────────────────────────
+    {
+        "source_name":        "Atlassian Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://status.atlassian.com/",
+        "rss_url":            "https://status.atlassian.com/history.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "Covers Jira, Confluence, Bitbucket, Trello. Operational tooling dependency.",
+    },
+    {
+        "source_name":        "Cloudflare Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.cloudflarestatus.com/",
+        "rss_url":            "https://www.cloudflarestatus.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "CDN/DNS/DDoS protection. Cloudflare outage impacts availability of web-facing services.",
+    },
+
+    # ─── Category: Cyber — Additional feeds ──────────────────────────────────
+    {
+        "source_name":        "NCSC UK Threat Reports",
+        "category":           "critical_infrastructure",
+        "priority_rank":      2,
+        "url":                "https://www.ncsc.gov.uk/section/keep-up-to-date/reports-advisories",
+        "rss_url":            "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.92,
+        "active":             True,
+        "notes":              "NCSC UK threat intelligence reports. Frequently co-authored with ACSC. Separate from advisories feed.",
+    },
 ]
 
 
@@ -766,39 +917,55 @@ def _fetch_existing_ids() -> dict:
 
 
 def _upsert(rows: list[dict]) -> tuple[int, int]:
-    """Upsert rows into intelligence_source_registry. Returns (inserted, failed).
+    """Upsert rows into intelligence_source_registry. Returns (upserted, failed).
 
-    Looks up existing source_ids by name so merge-duplicates works on the
-    primary key rather than always inserting new rows.
+    Splits into two requests to avoid PostgREST PGRST102 ("All object keys must
+    match") — merge-duplicates requires every row in a batch to either all have
+    the PK or all omit it:
+      - New rows  (no source_id): plain INSERT
+      - Existing  (source_id injected): POST with merge-duplicates on PK
     """
     existing = _fetch_existing_ids()
 
-    # Inject source_id for rows that already exist in the DB
-    enriched = []
+    new_rows    = []
+    update_rows = []
     for row in rows:
         r = dict(row)
         if r["source_name"] in existing:
             r["source_id"] = existing[r["source_name"]]
-        enriched.append(r)
+            update_rows.append(r)
+        else:
+            new_rows.append(r)
 
-    url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry"
-    headers = {
-        **_headers(),
-        "Prefer": "resolution=merge-duplicates,return=representation",
-    }
-    body = json.dumps(enriched).encode()
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            result = json.loads(resp.read())
-            return len(result) if isinstance(result, list) else 1, 0
-    except urllib.error.HTTPError as exc:
-        body_err = exc.read().decode()
-        print(f"  ✗ Supabase HTTP {exc.code}: {body_err[:200]}", file=sys.stderr)
-        return 0, len(rows)
-    except Exception as exc:
-        print(f"  ✗ Error: {exc}", file=sys.stderr)
-        return 0, len(rows)
+    inserted = 0
+    failed   = 0
+
+    def _post_batch(batch: list[dict], prefer: str) -> tuple[int, int]:
+        if not batch:
+            return 0, 0
+        url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry"
+        headers = {**_headers(), "Prefer": f"{prefer},return=representation"}
+        body = json.dumps(batch).encode()
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read())
+                return len(result) if isinstance(result, list) else 1, 0
+        except urllib.error.HTTPError as exc:
+            body_err = exc.read().decode()
+            print(f"  ✗ Supabase HTTP {exc.code}: {body_err[:300]}", file=sys.stderr)
+            return 0, len(batch)
+        except Exception as exc:
+            print(f"  ✗ Error: {exc}", file=sys.stderr)
+            return 0, len(batch)
+
+    i, f = _post_batch(new_rows, "return=representation")
+    inserted += i; failed += f
+
+    i, f = _post_batch(update_rows, "resolution=merge-duplicates")
+    inserted += i; failed += f
+
+    return inserted, failed
 
 
 def _delete_all() -> None:
