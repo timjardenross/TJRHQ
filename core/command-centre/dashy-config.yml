@@ -60,6 +60,17 @@ sections:
         url: "http://localhost:3001"
         target: _blank
 
+      - title: Command Centre API
+        description: "Context Assembly backend — WP6 Express API"
+        icon: fas fa-satellite
+        url: "http://localhost:5000/api"
+        target: _blank
+        statusCheck:
+          url: "http://localhost:5000/health"
+          method: GET
+          timeout: 5
+          interval: 60
+
       - title: Mission Registry DB
         description: "Supabase — PostgreSQL backend"
         icon: fas fa-database
@@ -67,7 +78,53 @@ sections:
         target: _blank
 
 
-  # SECTION 2: CORE OPERATIONS
+  # SECTION 2: CAPTAIN EXPERIENCE (Context Assembly Foundation — WP1-9)
+  - title: Captain Experience
+    icon: fas fa-crosshairs
+    items:
+      - title: Captain Operating Picture
+        description: "5-min view — priorities, health, blockers, Number One advisory"
+        icon: fas fa-map-marked-alt
+        url: "http://localhost:8080"
+        target: _blank
+        statusCheck:
+          url: "http://localhost:5000/api/v1/context/status"
+          method: GET
+          timeout: 5
+          interval: 60
+
+      - title: Captain Daily Brief
+        description: "Full assembled brief — priorities, decisions, blockers, health"
+        icon: fas fa-clipboard-list
+        url: "http://localhost:5000/api/v1/context/captain-brief"
+        target: _blank
+
+      - title: Top Recommendations
+        description: "Number One ranked mission priorities"
+        icon: fas fa-sort-amount-down
+        url: "http://localhost:5000/api/v1/context/recommendations"
+        target: _blank
+
+      - title: Active Blockers
+        description: "Blocked missions sorted by escalation level"
+        icon: fas fa-ban
+        url: "http://localhost:5000/api/v1/context/blockers"
+        target: _blank
+
+      - title: Decisions Awaiting Captain
+        description: "Proposed decisions needing Captain input"
+        icon: fas fa-gavel
+        url: "http://localhost:5000/api/v1/context/captain-brief"
+        target: _blank
+
+      - title: Context Assembly Status
+        description: "File freshness and adapter health — WP6 monitoring"
+        icon: fas fa-satellite-dish
+        url: "http://localhost:5000/api/v1/context/status"
+        target: _blank
+
+
+  # SECTION 3: CORE OPERATIONS
   - title: Core Operations
     icon: fas fa-chess-board
     items:
