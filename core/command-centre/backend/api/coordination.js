@@ -76,7 +76,7 @@ router.get('/brief', asyncHandler(async (req, res) => {
   // Get fresh data from Number One adapter
   const briefData = numberOneAdapter.getDailyBrief();
 
-  cacheManager.set(cacheKey, briefData, 30);
+  cacheManager.set(cacheKey, briefData, 120);
   const response = successResponse(briefData, 200, {
     source: 'fresh',
     generatedAt: new Date().toISOString(),
@@ -107,7 +107,7 @@ router.get('/queue', asyncHandler(async (req, res) => {
   // Get fresh data from Number One adapter
   const queueData = numberOneAdapter.getWorkQueue();
 
-  cacheManager.set(cacheKey, queueData, 30);
+  cacheManager.set(cacheKey, queueData, 120);
   const response = successResponse(queueData, 200, {
     source: 'fresh',
     generatedAt: new Date().toISOString(),
@@ -137,21 +137,26 @@ router.get('/escalations', asyncHandler(async (req, res) => {
   try {
     const rows = await getEscalations({ limit: 20 });
     if (rows.length > 0) {
-      escalationData = {
-        escalations: rows.map(row => ({
+      const mapped = rows.map(row => {
+        const pri = row.metadata?.priority || '';
+        const level = pri.includes('P0') ? 'CRITICAL' : pri.includes('P1') ? 'HIGH' : 'MEDIUM';
+        return {
           id: row.id,
           escalation_type: row.event_type || 'XO_ESCALATION',
-          mission_id: row.metadata?.mission_id || null,
-          level: row.metadata?.priority?.includes('P0') ? 'critical'
-               : row.metadata?.priority?.includes('P1') ? 'high' : 'medium',
-          reason: row.message_text || 'Escalated to XO',
+          mission: row.metadata?.mission_id || null,
+          title: row.message_text || 'XO escalation from Slack',
+          level,
           recommendation: row.metadata?.semantic_rationale || '',
           timestamp: row.created_at,
-          source: 'slack',
-          channel: row.channel_id
-        })),
-        timestamp: new Date().toISOString()
+          source: 'slack'
+        };
+      });
+      const levelSummary = {
+        CRITICAL: mapped.filter(e => e.level === 'CRITICAL').length,
+        HIGH: mapped.filter(e => e.level === 'HIGH').length,
+        MEDIUM: mapped.filter(e => e.level === 'MEDIUM').length
       };
+      escalationData = { escalations: mapped, levelSummary, timestamp: new Date().toISOString() };
       dataSource = 'supabase';
     }
   } catch (err) {
@@ -164,7 +169,7 @@ router.get('/escalations', asyncHandler(async (req, res) => {
     dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
   }
 
-  cacheManager.set(cacheKey, escalationData, 30);
+  cacheManager.set(cacheKey, escalationData, 120);
   res.json(successResponse(escalationData, 200, {
     source: 'fresh',
     dataSource,

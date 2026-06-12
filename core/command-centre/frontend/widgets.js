@@ -242,7 +242,7 @@ class WorkQueueWidget extends CoordinationWidget {
           </div>
 
           <div class="queue-footer">
-            <span class="queue-count">Showing top 5 of ${queue.totalItems || 0} items</span>
+            <span class="queue-count">Showing top ${items.length} of ${queue.totalItems || items.length} items</span>
           </div>
         </div>
       </div>
