@@ -43,7 +43,7 @@ const path = require('path');
  * Falls back to mock data if files unavailable.
  */
 class NumberOneAdapter {
-  constructor(dataDir = '../../../core/coordination/outputs') {
+  constructor(dataDir = '../../../../core/coordination/outputs') {
     this.dataDir = path.resolve(__dirname, dataDir);
     this.debug = true;
     this.lastLoadTime = null;

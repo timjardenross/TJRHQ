@@ -45,6 +45,7 @@ const router = express.Router();
 const { cacheManager } = require('../cache/cache-manager');
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
 const { NumberOneAdapter } = require('../connectors/number-one-adapter');
+const { getEscalations, getDecisionRecords } = require('../connectors/supabase-connector');
 
 // Initialize adapter
 const numberOneAdapter = new NumberOneAdapter();
@@ -126,24 +127,83 @@ router.get('/escalations', asyncHandler(async (req, res) => {
   const { value, isStale } = cacheManager.get(cacheKey);
 
   if (value) {
-    const response = successResponse(value, 200, {
-      source: isStale ? 'stale_cache' : 'cache',
-      cacheKey: cacheKey,
-      dataSource: 'from-cache'
-    });
-    return res.json(response);
+    return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
   }
 
-  // Get fresh data from Number One adapter
-  const escalationData = numberOneAdapter.getEscalations();
+  // 1. Try Supabase escalations (commander_events with escalate_to_xo)
+  let escalationData = null;
+  let dataSource = 'mock-fallback';
+
+  try {
+    const rows = await getEscalations({ limit: 20 });
+    if (rows.length > 0) {
+      escalationData = {
+        escalations: rows.map(row => ({
+          id: row.id,
+          escalation_type: row.event_type || 'XO_ESCALATION',
+          mission_id: row.metadata?.mission_id || null,
+          level: row.metadata?.priority?.includes('P0') ? 'critical'
+               : row.metadata?.priority?.includes('P1') ? 'high' : 'medium',
+          reason: row.message_text || 'Escalated to XO',
+          recommendation: row.metadata?.semantic_rationale || '',
+          timestamp: row.created_at,
+          source: 'slack',
+          channel: row.channel_id
+        })),
+        timestamp: new Date().toISOString()
+      };
+      dataSource = 'supabase';
+    }
+  } catch (err) {
+    // fall through to Number One file data
+  }
+
+  // 2. Fall back to Number One JSON file
+  if (!escalationData) {
+    escalationData = numberOneAdapter.getEscalations();
+    dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
+  }
 
   cacheManager.set(cacheKey, escalationData, 30);
-  const response = successResponse(escalationData, 200, {
+  res.json(successResponse(escalationData, 200, {
     source: 'fresh',
-    generatedAt: new Date().toISOString(),
-    dataSource: numberOneAdapter.isDataAvailable() ? 'from-number-one' : 'from-mock-fallback'
-  });
-  res.json(response);
+    dataSource,
+    generatedAt: new Date().toISOString()
+  }));
+}));
+
+/**
+ * GET /api/v1/coordination/decisions
+ * Returns recent decision records from Supabase
+ */
+router.get('/decisions', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:decisions';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  try {
+    const rows = await getDecisionRecords({ limit: 20 });
+    const data = {
+      decisions: rows.map(row => ({
+        id: row.id,
+        mission_id: row.mission_id,
+        summary: row.recommendation_text?.substring(0, 120) + '...',
+        decision: row.human_decision,
+        decision_maker: row.decision_maker,
+        reason: row.decision_reason,
+        timestamp: row.decision_timestamp,
+        status: row.human_decision ? 'decided' : 'pending'
+      })),
+      total: rows.length,
+      timestamp: new Date().toISOString()
+    };
+    cacheManager.set(cacheKey, data, 60);
+    return res.json(successResponse(data, 200, { source: 'fresh', dataSource: 'supabase' }));
+  } catch (err) {
+    return res.json(successResponse({ decisions: [], total: 0, error: err.message }, 200, {
+      source: 'error-fallback'
+    }));
+  }
 }));
 
 /**

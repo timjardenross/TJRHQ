@@ -15,7 +15,9 @@
 
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+// Load .env from repo root (4 levels up from backend/)
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../../.env') });
+require('dotenv').config(); // fallback: local .env in backend/
 
 // Import route handlers and utilities
 const { cacheManager } = require('./cache/cache-manager');
