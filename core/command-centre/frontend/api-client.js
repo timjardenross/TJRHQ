@@ -167,6 +167,38 @@ class CommandCentreAPIClient {
   }
 
   // ============================================================================
+  // CONTEXT ASSEMBLY API  (WP6/WP7)
+  // ============================================================================
+
+  async getCaptainBrief() {
+    return this.request('/api/v1/context/captain-brief');
+  }
+
+  async getOperatingPicture() {
+    return this.request('/api/v1/context/operating-picture');
+  }
+
+  async getContextHealth() {
+    return this.request('/api/v1/context/health');
+  }
+
+  async getContextBlockers() {
+    return this.request('/api/v1/context/blockers');
+  }
+
+  async getContextRecommendations() {
+    return this.request('/api/v1/context/recommendations');
+  }
+
+  async getMissionContext(missionId) {
+    return this.request(`/api/v1/context/mission/${missionId}`);
+  }
+
+  async getContextStatus() {
+    return this.request('/api/v1/context/status');
+  }
+
+  // ============================================================================
   // AGENTS API
   // ============================================================================
 

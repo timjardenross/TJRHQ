@@ -106,6 +106,91 @@
       background-color: #ff4444;
     }
 
+    /* Captain Operating Picture — full-width banner above the grid */
+    .cop-banner {
+      margin-bottom: 20px;
+    }
+
+    .cop-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .cop-overall-status {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-left: auto;
+    }
+
+    .cop-panels {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 1400px) {
+      .cop-panels { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 700px) {
+      .cop-panels { grid-template-columns: 1fr; }
+    }
+
+    .cop-panel {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(0,204,255,0.12);
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .cop-panel-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--starfleet-accent);
+      margin-bottom: 10px;
+    }
+
+    .cop-empty        { color: var(--widget-subtitle); font-size: 12px; margin: 0; }
+    .cop-all-clear    { color: var(--starfleet-success); font-size: 13px; margin: 0; }
+
+    /* Health panel */
+    .cop-health-grid  { display: flex; flex-direction: column; gap: 5px; }
+    .cop-health-row   { display: flex; justify-content: space-between; font-size: 12px; }
+    .cop-health-label { color: var(--widget-subtitle); }
+    .cop-health-value { font-weight: 600; }
+    .cop-health-good  { color: var(--starfleet-success); }
+    .cop-health-bad   { color: var(--starfleet-danger); }
+    .cop-health-moderate { color: var(--starfleet-warning); }
+    .cop-health-focus { font-size: 11px; color: var(--widget-subtitle); margin-top: 6px; }
+
+    /* Priorities panel */
+    .cop-priority-item  { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+    .cop-rank           { font-size: 18px; font-weight: 700; color: var(--starfleet-accent); min-width: 18px; line-height: 1; }
+    .cop-priority-info  { flex: 1; min-width: 0; }
+    .cop-priority-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cop-priority-action { font-size: 11px; color: var(--widget-subtitle); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cop-priority-status { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; align-self: flex-start; }
+    .cop-status-active   { background: rgba(0,221,0,0.15); color: var(--starfleet-success); }
+    .cop-status-blocked  { background: rgba(255,68,68,0.15); color: var(--starfleet-danger); }
+    .cop-status-completed { background: rgba(0,204,255,0.12); color: var(--starfleet-accent); }
+
+    /* Blockers panel */
+    .cop-blocker-count { font-size: 22px; font-weight: 700; color: var(--widget-text); }
+    .cop-blocker-count.cop-warn { color: var(--starfleet-warning); }
+    .cop-blocker-top   { font-size: 11px; color: var(--widget-subtitle); margin-top: 4px; }
+    .cop-alert-count   { font-size: 11px; color: var(--starfleet-danger); margin-top: 4px; }
+
+    /* Number One panel */
+    .cop-n1-summary     { font-size: 12px; color: var(--widget-text); margin: 0 0 8px; line-height: 1.4; }
+    .cop-quick-actions  { display: flex; flex-direction: column; gap: 4px; }
+    .cop-quick-action   { font-size: 11px; background: rgba(0,204,255,0.08); border: 1px solid rgba(0,204,255,0.2); border-radius: 4px; padding: 3px 7px; color: var(--starfleet-accent); }
+
     .dashboard-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -257,6 +342,11 @@
       </div>
     </div>
 
+    <!-- CAPTAIN OPERATING PICTURE — full-width banner -->
+    <div class="cop-banner">
+      <div id="cop-widget"></div>
+    </div>
+
     <!-- DASHBOARD GRID -->
     <div class="dashboard-grid">
       <!-- Column 1 -->
@@ -299,6 +389,7 @@
   <!-- SCRIPTS -->
   <script src="api-client.js"></script>
   <script src="widgets.js"></script>
+  <script src="captain-operating-picture-widget.js"></script>
   <script src="command-centre.js"></script>
 </body>
 </html>

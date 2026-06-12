@@ -65,6 +65,12 @@ class CommandCentre {
   initializeWidgets() {
     this.log('Initializing widgets...');
 
+    // Captain Operating Picture Widget (full-width banner, 120s poll)
+    this.widgets.cop = new CaptainOperatingPictureWidget('cop-widget', this.apiClient, {
+      pollingInterval: 120000,
+      debug: this.debugMode
+    });
+
     // XO Daily Brief Widget
     this.widgets.brief = new XODailyBriefWidget('brief-widget', this.apiClient, {
       pollingInterval: this.refreshInterval,
@@ -132,6 +138,7 @@ class CommandCentre {
     try {
       // Refresh all widgets in parallel
       await Promise.all([
+        this.widgets.cop?.refresh(),
         this.widgets.brief?.refresh(),
         this.widgets.queue?.refresh(),
         this.widgets.escalations?.refresh(),
