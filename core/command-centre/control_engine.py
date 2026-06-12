@@ -86,18 +86,46 @@ def _supabase_get(table: str, params: dict = None):
     except Exception as e:
         return None, str(e)
 
+def _load_n1_file(filename: str):
+    """
+    Load a Number One JSON output file from NUMBER_ONE_OUTPUT_DIR.
+
+    Returns (data, error, age_seconds, generated_at, freshness)
+    where freshness is 'live' | 'stale' | 'unavailable'.
+    """
+    path = NUMBER_ONE_OUTPUT_DIR / filename
+    if not path.exists():
+        return None, f'{filename} not found (run number_one_exporter.py to generate)', None, None, 'unavailable'
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+        age_secs = int(datetime.now().timestamp() - path.stat().st_mtime)
+        generated_at = data.get('timestamp', datetime.fromtimestamp(path.stat().st_mtime).isoformat())
+        freshness = 'stale' if age_secs > FRESHNESS_STALE_SECS else 'live'
+        return data, None, age_secs, generated_at, freshness
+    except json.JSONDecodeError as e:
+        return None, f'{filename} is not valid JSON: {e}', None, None, 'unavailable'
+    except Exception as e:
+        return None, str(e), None, None, 'unavailable'
+
+
 # Determine repo root based on this file's location
 CONTROL_ENGINE_DIR = Path(__file__).parent
 REPO_ROOT = CONTROL_ENGINE_DIR.parent.parent
 CONTROL_DECK_DIR = REPO_ROOT / "USS-TJR-Control"
 SLACK_BOT_DIR = REPO_ROOT / "slack-bot"
 
-# Number One output directory — daily_brief.json written here when Number One runs.
-# Override with NUMBER_ONE_OUTPUT_DIR env var if output lives elsewhere.
+# Number One output directory — daily_brief.json, work_queue.json, escalations.json
+# written here by number_one_exporter.py.
+# Default: core/coordination/outputs (where the exporter writes by default).
 NUMBER_ONE_OUTPUT_DIR = Path(os.environ.get(
     'NUMBER_ONE_OUTPUT_DIR',
-    str(REPO_ROOT / 'core' / 'coordination')
+    str(REPO_ROOT / 'core' / 'coordination' / 'outputs')
 ))
+
+# Age threshold (seconds) above which a Number One file is considered STALE.
+# Configurable via N1_STALE_THRESHOLD_SECS. Default: 3600 (1 hour).
+FRESHNESS_STALE_SECS = int(os.environ.get('N1_STALE_THRESHOLD_SECS', '3600'))
 
 logger.info(f"Control Engine starting...")
 logger.info(f"Repo root: {REPO_ROOT}")
@@ -815,61 +843,256 @@ def get_dashboard_decisions():
 @app.get('/api/dashboard/commander-brief')
 def get_dashboard_commander_brief():
     """
-    Commander Operations Brief: Number One daily_brief.json if present, else Supabase missions.
-    Source label is always explicit so the frontend can display it clearly.
-    WP3: daily_brief.json check added; WP4 will merge Number One analysis fields.
+    Commander Operations Brief — WP4: full Number One daily_brief.json consumption.
+
+    Primary source: daily_brief.json (Number One exporter output).
+    Fields exposed: system_health, top_priorities, blocked_missions, follow_ups,
+                    escalations, specialist_workload, recommended_actions, counters.
+    Fallback: Supabase missions summary with explicit source_label.
     """
     now = datetime.now().isoformat()
-    daily_brief_path = NUMBER_ONE_OUTPUT_DIR / 'daily_brief.json'
+    brief_data, error, age_secs, generated_at, freshness = _load_n1_file('daily_brief.json')
 
-    if daily_brief_path.exists():
-        try:
-            with open(daily_brief_path, 'r') as f:
-                brief = json.load(f)
-            missions = brief.get('missions', [])
-            generated_at = brief.get('generated_at', now)
-            logger.info(f'[commander-brief] serving Number One daily_brief.json ({len(missions)} missions)')
-            return jsonify({
-                'status': 'ok',
-                'data': missions,
-                'count': len(missions),
-                'source': 'number_one_daily_brief',
-                'source_label': 'Number One daily_brief.json',
-                'fallback_used': False,
-                'generated_at': generated_at,
-                'timestamp': now,
-            })
-        except Exception as e:
-            logger.warning(f'[commander-brief] daily_brief.json unreadable: {e} — falling back to Supabase')
+    if brief_data is not None:
+        logger.info(f'[commander-brief] Number One daily_brief.json loaded (age={age_secs}s, freshness={freshness})')
+        return jsonify({
+            'status': freshness,                                   # 'live' | 'stale'
+            'source': 'number_one_daily_brief',
+            'source_label': 'NUMBER ONE',
+            'fallback_used': False,
+            'generated_at': generated_at,
+            'age_seconds': age_secs,
+            'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+            'timestamp': now,
+            # Number One coordination fields
+            'system_health': brief_data.get('system_health', 'unknown'),
+            'total_missions': brief_data.get('total_missions', 0),
+            'active_count': brief_data.get('active_count', 0),
+            'blocked_count': brief_data.get('blocked_count', 0),
+            'proposed_count': brief_data.get('proposed_count', 0),
+            'top_priorities': brief_data.get('top_priorities', []),
+            'blocked_missions': brief_data.get('blocked_missions', []),
+            'follow_ups': brief_data.get('follow_ups', []),
+            'escalations': brief_data.get('escalations', []),
+            'specialist_workload': brief_data.get('specialist_workload', {}),
+            'recommended_actions': brief_data.get('recommended_actions', []),
+        })
 
-    # daily_brief.json absent or unreadable → fall back to Supabase missions
-    data, error = _supabase_get('missions', {
+    # daily_brief.json absent or unreadable → Supabase missions fallback
+    logger.warning(f'[commander-brief] Number One unavailable: {error}')
+    sb_data, sb_error = _supabase_get('missions', {
         'select': 'id,mission_id,title,description,status,task_type,repo,created_by,created_at,updated_at',
         'order': 'created_at.desc',
     })
-    if error:
-        logger.warning(f'[commander-brief] Supabase unavailable: {error}')
+    if sb_error:
         return jsonify({
             'status': 'unavailable',
-            'data': [],
-            'count': 0,
             'source': 'supabase',
-            'source_label': 'Supabase missions (Number One unavailable)',
+            'source_label': 'SUPABASE FALLBACK',
+            'fallback_used': True,
+            'error': sb_error,
+            'n1_error': error,
+            'generated_at': now,
+            'age_seconds': None,
+            'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+            'timestamp': now,
+            'system_health': 'unknown',
+            'total_missions': 0,
+            'active_count': 0,
+            'blocked_count': 0,
+            'proposed_count': 0,
+            'top_priorities': [],
+            'blocked_missions': [],
+            'follow_ups': [],
+            'escalations': [],
+            'specialist_workload': {},
+            'recommended_actions': [],
+        }), 503
+
+    # Supabase available — shape raw mission rows into brief-compatible structure
+    missions = sb_data or []
+    status_counts = {'active': 0, 'blocked': 0, 'planning': 0}
+    active_statuses = {'Implemented', 'Tested', 'Validated', 'Awaiting Number One Review', 'Awaiting XO Approval', 'ACTIVE'}
+    blocked_statuses = {'BLOCKED', 'Blocked'}
+    for m in missions:
+        s = m.get('status', '')
+        if s in active_statuses:
+            status_counts['active'] += 1
+        elif s in blocked_statuses:
+            status_counts['blocked'] += 1
+        else:
+            status_counts['planning'] += 1
+
+    top_priorities = [
+        {
+            'mission_id': m.get('mission_id') or m.get('id'),
+            'title': m.get('title'),
+            'priority': None,
+            'status': m.get('status'),
+            'assigned_specialist': m.get('created_by'),
+            'blockers': [],
+        }
+        for m in missions[:5]
+    ]
+
+    return jsonify({
+        'status': 'live',
+        'source': 'supabase',
+        'source_label': 'SUPABASE FALLBACK',
+        'fallback_used': True,
+        'n1_error': error,
+        'generated_at': now,
+        'age_seconds': 0,
+        'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+        'timestamp': now,
+        'system_health': 'unknown',
+        'total_missions': len(missions),
+        'active_count': status_counts['active'],
+        'blocked_count': status_counts['blocked'],
+        'proposed_count': status_counts['planning'],
+        'top_priorities': top_priorities,
+        'blocked_missions': [],
+        'follow_ups': [],
+        'escalations': [],
+        'specialist_workload': {},
+        'recommended_actions': [],
+    })
+
+
+@app.get('/api/dashboard/escalations')
+def get_dashboard_escalations():
+    """
+    XO escalations from Number One escalations.json.
+    Authoritative source: Number One escalation engine output.
+    Freshness: live/stale/unavailable based on file age vs FRESHNESS_STALE_SECS.
+    """
+    now = datetime.now().isoformat()
+    data, error, age_secs, generated_at, freshness = _load_n1_file('escalations.json')
+
+    if data is not None:
+        escalations = data.get('escalations', [])
+        return jsonify({
+            'status': freshness,
+            'data': escalations,
+            'count': len(escalations),
+            'source': 'number_one_escalations',
+            'source_label': 'Number One escalations.json',
+            'fallback_used': False,
+            'generated_at': generated_at,
+            'age_seconds': age_secs,
+            'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+            'timestamp': now,
+        })
+
+    return jsonify({
+        'status': 'unavailable',
+        'data': [],
+        'count': 0,
+        'source': 'number_one_escalations',
+        'source_label': 'Number One escalations.json',
+        'fallback_used': True,
+        'error': error,
+        'generated_at': None,
+        'age_seconds': None,
+        'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+        'timestamp': now,
+    }), 503
+
+
+@app.get('/api/dashboard/work-queue')
+def get_dashboard_work_queue():
+    """
+    Prioritized work queue from Number One work_queue.json.
+    Authoritative source: Number One priority engine output.
+    Freshness: live/stale/unavailable based on file age vs FRESHNESS_STALE_SECS.
+    """
+    now = datetime.now().isoformat()
+    data, error, age_secs, generated_at, freshness = _load_n1_file('work_queue.json')
+
+    if data is not None:
+        items = data.get('items', [])
+        return jsonify({
+            'status': freshness,
+            'data': items,
+            'count': len(items),
+            'source': 'number_one_work_queue',
+            'source_label': 'Number One work_queue.json',
+            'fallback_used': False,
+            'generated_at': generated_at,
+            'age_seconds': age_secs,
+            'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+            'timestamp': now,
+        })
+
+    return jsonify({
+        'status': 'unavailable',
+        'data': [],
+        'count': 0,
+        'source': 'number_one_work_queue',
+        'source_label': 'Number One work_queue.json',
+        'fallback_used': True,
+        'error': error,
+        'generated_at': None,
+        'age_seconds': None,
+        'freshness_threshold_secs': FRESHNESS_STALE_SECS,
+        'timestamp': now,
+    }), 503
+
+
+@app.get('/api/dashboard/governance')
+def get_dashboard_governance():
+    """
+    Governance health metrics from Supabase decisions table.
+    Authoritative source: Supabase decisions (canonical architectural decisions).
+    Computes: total, active, superseded, added this month.
+    Coverage % is TBD until mission-decision links are available in schema.
+    """
+    now = datetime.now().isoformat()
+    data, error = _supabase_get('decisions', {'select': '*'})
+
+    if error:
+        return jsonify({
+            'status': 'unavailable',
+            'source': 'supabase',
+            'source_label': 'Supabase decisions',
             'fallback_used': True,
             'error': error,
             'generated_at': now,
             'timestamp': now,
+            'metrics': {},
         }), 503
 
+    decisions = data or []
+    current_month = datetime.now().strftime('%Y-%m')
+
+    def safe_status(d):
+        return (d.get('status') or '').lower()
+
+    active_count = sum(1 for d in decisions if safe_status(d) == 'active')
+    superseded_count = sum(1 for d in decisions if safe_status(d) == 'superseded')
+    inactive_count = sum(1 for d in decisions if safe_status(d) == 'inactive')
+
+    this_month_count = sum(
+        1 for d in decisions
+        if (d.get('created_at') or '').startswith(current_month)
+    )
+
     return jsonify({
-        'status': 'ok',
-        'data': data,
-        'count': len(data),
+        'status': 'live',
         'source': 'supabase',
-        'source_label': 'Supabase missions (Number One unavailable)',
-        'fallback_used': True,
+        'source_label': 'Supabase decisions',
+        'fallback_used': False,
         'generated_at': now,
         'timestamp': now,
+        'metrics': {
+            'total': len(decisions),
+            'active': active_count,
+            'superseded': superseded_count,
+            'inactive': inactive_count,
+            'added_this_month': this_month_count,
+            'coverage_percent': None,   # TBD — requires mission-decision link schema (WP5)
+        },
+        'decisions': decisions,
     })
 
 
@@ -959,6 +1182,18 @@ def get_dashboard_source_status():
     now = datetime.now().isoformat()
     supabase_configured = bool(SUPABASE_URL and SUPABASE_ANON_KEY)
     daily_brief_path = NUMBER_ONE_OUTPUT_DIR / 'daily_brief.json'
+    work_queue_path  = NUMBER_ONE_OUTPUT_DIR / 'work_queue.json'
+    escalations_path = NUMBER_ONE_OUTPUT_DIR / 'escalations.json'
+
+    def _file_status(path):
+        if not path.exists():
+            return {'available': False, 'age_seconds': None, 'freshness': 'unavailable'}
+        age = int(datetime.now().timestamp() - path.stat().st_mtime)
+        return {
+            'available': True,
+            'age_seconds': age,
+            'freshness': 'stale' if age > FRESHNESS_STALE_SECS else 'live',
+        }
 
     # Quick Supabase reachability check (head request, no data returned)
     supabase_reachable = False
@@ -986,9 +1221,19 @@ def get_dashboard_source_status():
                 'description': 'This process — wraps USS-TJR-Control health scripts',
             },
             'number_one_daily_brief': {
-                'available': daily_brief_path.exists(),
+                **_file_status(daily_brief_path),
                 'path': str(daily_brief_path),
-                'description': 'Number One daily_brief.json — written by number_one.py',
+                'description': 'Number One daily_brief.json — written by number_one_exporter.py',
+            },
+            'number_one_work_queue': {
+                **_file_status(work_queue_path),
+                'path': str(work_queue_path),
+                'description': 'Number One work_queue.json — prioritized work queue',
+            },
+            'number_one_escalations': {
+                **_file_status(escalations_path),
+                'path': str(escalations_path),
+                'description': 'Number One escalations.json — XO escalations',
             },
             'uptime_kuma': {
                 'configured': bool(os.environ.get('UPTIME_KUMA_URL', '')),
@@ -1040,6 +1285,10 @@ def api_root():
                 'GET /api/dashboard/missions': 'Missions — Supabase proxy, all records',
                 'GET /api/dashboard/decisions': 'Decisions — Supabase proxy, all records',
                 'GET /api/dashboard/commander-brief': 'Commander brief — Number One daily_brief.json or Supabase fallback',
+                'GET /api/dashboard/commander-brief': 'Commander brief — Number One daily_brief.json or Supabase fallback (WP4)',
+                'GET /api/dashboard/escalations': 'XO escalations — Number One escalations.json (WP4)',
+                'GET /api/dashboard/work-queue': 'Work queue — Number One work_queue.json (WP4)',
+                'GET /api/dashboard/governance': 'Governance metrics — Supabase decisions (WP4)',
                 'GET /api/dashboard/blocked-missions': 'Blocked missions — Supabase filtered by status=blocked',
                 'GET /api/dashboard/service-health': 'Service health — Control Engine health (interim source)',
                 'GET /api/dashboard/source-status': 'Source metadata — trust/availability of all data sources',

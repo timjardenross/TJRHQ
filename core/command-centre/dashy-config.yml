@@ -125,6 +125,24 @@ sections:
         url: "/dashboards/service-health-widget.html"
         target: _blank
 
+      - title: Escalations
+        description: "🚨 Active escalations from NUMBER ONE (LIVE/STALE)"
+        icon: fas fa-exclamation-triangle
+        url: "/dashboards/escalations.html"
+        target: _blank
+
+      - title: Work Queue
+        description: "📋 Mission work queue — priority ordered (NUMBER ONE)"
+        icon: fas fa-list-ol
+        url: "/dashboards/work-queue.html"
+        target: _blank
+
+      - title: Governance Health
+        description: "⚖️ Decision register metrics (Supabase)"
+        icon: fas fa-balance-scale
+        url: "/dashboards/governance-health.html"
+        target: _blank
+
 
   # SECTION 4: RUNTIME SERVICES
   - title: Runtime Services

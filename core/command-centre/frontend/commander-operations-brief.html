@@ -49,19 +49,35 @@
             font-size: 14px;
         }
 
+        /* System health badge */
+        .health-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 8px;
+        }
+        .health-green   { background: rgba(76,175,80,0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+        .health-yellow  { background: rgba(255,152,0,0.2); color: #FF9800; border: 1px solid #FF9800; }
+        .health-red     { background: rgba(244,67,54,0.2); color: #EF5350; border: 1px solid #EF5350; }
+        .health-unknown { background: rgba(100,100,120,0.2); color: #888; border: 1px solid #444; }
+
         /* Grid layout for overview cards */
         .overview-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
         }
 
         .stat-card {
             background: #1a1a2e;
             border: 2px solid #333;
             border-radius: 8px;
-            padding: 24px;
+            padding: 20px;
             transition: all 0.3s ease;
         }
 
@@ -95,6 +111,48 @@
         .status-green { color: #00FF00; }
         .status-yellow { color: #FFD700; }
         .status-red { color: #FF4444; }
+
+        /* Priority colour bands */
+        .priority-p0 { color: #FF1744; font-weight: 700; }
+        .priority-p1 { color: #FF9800; font-weight: 700; }
+        .priority-p2 { color: #FFD700; }
+        .priority-p3 { color: #4CAF50; }
+
+        /* Escalation severity */
+        .esc-critical { border-left-color: #FF1744 !important; }
+        .esc-high     { border-left-color: #FF9800 !important; }
+        .esc-medium   { border-left-color: #FFD700 !important; }
+        .esc-badge-critical { background: rgba(255,23,68,0.2); color: #FF1744; border: 1px solid #FF1744; }
+        .esc-badge-high     { background: rgba(255,152,0,0.2); color: #FF9800; border: 1px solid #FF9800; }
+        .esc-badge-medium   { background: rgba(255,215,0,0.2); color: #FFD700; border: 1px solid #FFD700; }
+
+        /* Recommended actions list */
+        .action-list { list-style: none; padding: 0; display: grid; gap: 8px; }
+        .action-list li {
+            background: #1a1a2e;
+            border-left: 3px solid #00FFFF;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #CCC;
+            border-radius: 0 4px 4px 0;
+        }
+        .action-list li::before { content: "→ "; color: #00FFFF; font-weight: 700; }
+
+        /* Specialist workload */
+        .workload-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .workload-chip {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            color: #BBB;
+        }
+        .workload-chip strong { color: #FFD700; }
 
         /* Attention Items Section */
         .attention-section {
@@ -241,6 +299,7 @@
         <div class="header">
             <h1>Commander Operations Brief</h1>
             <p>Starship Endeavour — Mission Status & Operational Overview</p>
+            <div id="system-health-badge" class="health-badge health-unknown" style="display:none;">⬤ SYSTEM HEALTH: —</div>
         </div>
 
         <!-- Trust Indicator -->
@@ -253,46 +312,49 @@
         <!-- Overview Stats Grid -->
         <div class="overview-grid">
             <div class="stat-card">
-                <h3>Active Missions</h3>
-                <div class="stat-value" id="activeMissions">—</div>
-                <div class="stat-subtitle">Currently in progress</div>
+                <h3>Total Missions</h3>
+                <div class="stat-value" id="totalMissions">—</div>
+                <div class="stat-subtitle">All tracked</div>
             </div>
-
             <div class="stat-card">
-                <h3>Blocked Missions</h3>
+                <h3>Active</h3>
+                <div class="stat-value status-green" id="activeMissions">—</div>
+                <div class="stat-subtitle">In progress</div>
+            </div>
+            <div class="stat-card">
+                <h3>Blocked</h3>
                 <div class="stat-value status-red" id="blockedMissions">—</div>
                 <div class="stat-subtitle">Require attention</div>
             </div>
-
             <div class="stat-card">
-                <h3>Completed (Today)</h3>
-                <div class="stat-value status-green" id="completedToday">—</div>
-                <div class="stat-subtitle">Accomplished</div>
-            </div>
-
-            <div class="stat-card">
-                <h3>Due Soon</h3>
-                <div class="stat-value status-yellow" id="dueSoon">—</div>
-                <div class="stat-subtitle">Within 7 days</div>
+                <h3>Proposed</h3>
+                <div class="stat-value status-yellow" id="proposedMissions">—</div>
+                <div class="stat-subtitle">Awaiting activation</div>
             </div>
         </div>
 
-        <!-- Attention Items -->
-        <div class="attention-section" id="blockedSection" style="display: none;">
-            <div class="section-title">🔴 Blocked Missions Requiring Attention</div>
-            <div class="priority-list" id="blockedList"></div>
+        <!-- Top Priorities (from Number One) -->
+        <div class="attention-section" id="prioritiesSection" style="display: none;">
+            <div class="section-title">⭐ Top Priorities — Number One</div>
+            <div class="priority-list" id="prioritiesList"></div>
         </div>
 
-        <!-- High Priority Active -->
-        <div class="attention-section" id="highPrioritySection" style="display: none;">
-            <div class="section-title">⭐ High Priority Active Missions</div>
-            <div class="priority-list" id="highPriorityList"></div>
+        <!-- Escalations (from Number One) -->
+        <div class="attention-section" id="escalationsSection" style="display: none;">
+            <div class="section-title">🔴 Active Escalations</div>
+            <div class="priority-list" id="escalationsList"></div>
         </div>
 
-        <!-- Due Soon -->
-        <div class="attention-section" id="dueSoonSection" style="display: none;">
-            <div class="section-title">⏰ Missions Due Within 7 Days</div>
-            <div class="priority-list" id="dueSoonList"></div>
+        <!-- Recommended Actions (from Number One) -->
+        <div class="attention-section" id="actionsSection" style="display: none;">
+            <div class="section-title">📋 Recommended Actions</div>
+            <ul class="action-list" id="actionsList"></ul>
+        </div>
+
+        <!-- Specialist Workload (from Number One) -->
+        <div class="attention-section" id="workloadSection" style="display: none;">
+            <div class="section-title">👥 Specialist Workload</div>
+            <div class="workload-grid" id="workloadGrid"></div>
         </div>
 
         <!-- Loading state -->
@@ -315,203 +377,156 @@
     </div>
 
     <script>
-        // Data is fetched via the Control Engine proxy (localhost:8888).
+        // Data source: /api/dashboard/commander-brief
+        // Primary: Number One daily_brief.json | Fallback: Supabase missions
         // No Supabase credentials in this file.
         const CONTROL_ENGINE = 'http://localhost:8888';
-
         let refreshInterval;
+
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = String(t);
+            return d.innerHTML;
+        }
 
         function setTrustState(state, opts) {
             opts = opts || {};
-            const banner  = document.getElementById('trust-banner');
-            const labelEl = document.getElementById('trust-label');
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
             const sourceEl = document.getElementById('trust-source');
             const timeEl   = document.getElementById('trust-time');
             const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
             const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
             banner.className = 'trust-banner trust-' + state;
-            labelEl.textContent = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
             sourceEl.textContent = opts.source ? '— ' + opts.source : '';
             timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
+        function showEl(id, visible) {
+            document.getElementById(id).style.display = visible ? 'block' : 'none';
         }
 
         async function fetchMissions() {
             setTrustState('loading');
             try {
                 const response = await fetch(`${CONTROL_ENGINE}/api/dashboard/commander-brief`);
+                if (!response.ok) throw new Error(`Control Engine error: ${response.status}`);
 
-                if (!response.ok) {
-                    throw new Error(`Control Engine error: ${response.status}`);
-                }
-
-                const envelope = await response.json();
+                const d = await response.json();
                 const fetchTime = new Date().toLocaleTimeString();
-                const sourceLabel = envelope.source_label || envelope.source || 'Control Engine';
 
-                setTrustState('live', { source: sourceLabel, time: fetchTime });
-                updateBrief(envelope.data);
-                showError(false);
+                // status field from API: 'live' | 'stale' | 'unavailable'
+                const trustState = (d.status === 'unavailable') ? 'unavailable' : (d.status || 'live');
+                setTrustState(trustState, {
+                    source: d.source_label || d.source || 'Control Engine',
+                    time: fetchTime,
+                });
 
+                renderBrief(d);
+                showEl('error', false);
+                showEl('loading', false);
             } catch (error) {
-                console.error('Error fetching commander brief:', error);
+                console.error('Commander Brief fetch error:', error);
                 setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
-                showError(true);
+                showEl('error', true);
+                showEl('loading', false);
             } finally {
-                updateRefreshTime();
+                document.getElementById('refreshTime').textContent = new Date().toLocaleTimeString();
             }
         }
 
-        function updateBrief(missions) {
-            if (!Array.isArray(missions)) {
-                showError(true);
-                return;
-            }
+        function renderBrief(d) {
+            // System health badge
+            const healthEl = document.getElementById('system-health-badge');
+            const health = (d.system_health || 'unknown').toLowerCase();
+            const healthClass = { green: 'health-green', yellow: 'health-yellow', red: 'health-red' }[health] || 'health-unknown';
+            healthEl.className = 'health-badge ' + healthClass;
+            healthEl.textContent = '⬤ SYSTEM HEALTH: ' + health.toUpperCase();
+            healthEl.style.display = 'inline-block';
 
-            const now = new Date();
-            const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            // Stat cards
+            document.getElementById('totalMissions').textContent   = d.total_missions  ?? '—';
+            document.getElementById('activeMissions').textContent  = d.active_count    ?? '—';
+            document.getElementById('blockedMissions').textContent = d.blocked_count   ?? '—';
+            document.getElementById('proposedMissions').textContent = d.proposed_count ?? '—';
 
-            // Status mapping: Map database statuses to display categories
-            const statusMap = {
-                'COMPLETED': 'completed',
-                'completed': 'completed',
-                'Closed': 'completed',
-                'PROPOSED': 'planning',
-                'proposed': 'planning',
-                'Designed': 'planning',
-                'Planning': 'planning',
-                'planning': 'planning',
-                'Implemented': 'active',
-                'Tested': 'active',
-                'Validated': 'active',
-                'Awaiting Number One Review': 'active',
-                'Awaiting XO Approval': 'active',
-                'active': 'active',
-                'blocked': 'blocked'
-            };
-
-            // Normalize missions using actual schema fields
-            const normalizedMissions = missions.map(m => ({
-                ...m,
-                id: m.mission_id || m.id,
-                owner: m.created_by || 'Unassigned',
-                dbStatus: m.status || 'pending',
-                status: statusMap[m.status] || 'planning',
-                blockers: [],
-                due_date: null,
-                priority: null,
-            }));
-
-            // Calculate stats using mapped statuses
-            const activeMissions = normalizedMissions.filter(m => m.status === 'active').length;
-            const blockedMissions = normalizedMissions.filter(m => m.blockers && m.blockers.length > 0).length;
-            const completedToday = normalizedMissions.filter(m =>
-                m.status === 'completed' &&
-                new Date(m.created_at).toDateString() === now.toDateString()
-            ).length;
-            const dueSoon = normalizedMissions.filter(m => {
-                if (!m.due_date) return false;
-                const dueDate = new Date(m.due_date);
-                return dueDate <= sevenDaysFromNow && dueDate >= now;
-            }).length;
-
-            // Update stat cards
-            document.getElementById('activeMissions').textContent = activeMissions;
-            document.getElementById('blockedMissions').textContent = blockedMissions;
-            document.getElementById('completedToday').textContent = completedToday;
-            document.getElementById('dueSoon').textContent = dueSoon;
-
-            // Populate blocked missions list
-            const blockedList = normalizedMissions.filter(m => m.blockers && m.blockers.length > 0);
-            if (blockedList.length > 0) {
-                document.getElementById('blockedSection').style.display = 'block';
-                const html = blockedList.map(m => `
-                    <div class="priority-item urgent">
-                        <div>
-                            <div class="priority-item-title">${escapeHtml(m.title)}</div>
-                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
-                                ${escapeHtml(m.blockers[0])}
+            // Top priorities
+            const priorities = d.top_priorities || [];
+            if (priorities.length > 0) {
+                showEl('prioritiesSection', true);
+                document.getElementById('prioritiesList').innerHTML = priorities.map(m => {
+                    const p = m.priority || '—';
+                    const pClass = { P0: 'priority-p0', P1: 'priority-p1', P2: 'priority-p2', P3: 'priority-p3' }[p] || '';
+                    const blockers = Array.isArray(m.blockers) && m.blockers.length > 0
+                        ? `<div style="font-size:11px;color:#FF9800;margin-top:4px;">⚠ ${escapeHtml(m.blockers[0])}</div>`
+                        : '';
+                    return `
+                        <div class="priority-item">
+                            <div>
+                                <div class="priority-item-title">${escapeHtml(m.title)}</div>
+                                <div style="font-size:12px;color:#888;margin-top:4px;">
+                                    ${escapeHtml(m.mission_id)} · ${escapeHtml(m.assigned_specialist || 'Unassigned')} · ${escapeHtml(m.status)}
+                                </div>
+                                ${blockers}
                             </div>
-                        </div>
-                        <div class="priority-item-status">Blocked</div>
-                    </div>
-                `).join('');
-                document.getElementById('blockedList').innerHTML = html;
+                            <div class="priority-item-status ${pClass}">${escapeHtml(p)}</div>
+                        </div>`;
+                }).join('');
+            } else {
+                showEl('prioritiesSection', false);
             }
 
-            // Populate high priority active missions
-            const highPriority = normalizedMissions.filter(m =>
-                m.status === 'active' &&
-                (m.priority === 'P1' || m.priority === 'P2')
-            ).slice(0, 5);
-            if (highPriority.length > 0) {
-                document.getElementById('highPrioritySection').style.display = 'block';
-                const html = highPriority.map(m => `
-                    <div class="priority-item">
-                        <div>
-                            <div class="priority-item-title">${escapeHtml(m.title)}</div>
-                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
-                                Owner: ${escapeHtml(m.owner || 'Unassigned')}
+            // Escalations
+            const escalations = d.escalations || [];
+            if (escalations.length > 0) {
+                showEl('escalationsSection', true);
+                document.getElementById('escalationsList').innerHTML = escalations.map(e => {
+                    const lvl = (e.level || 'medium').toLowerCase();
+                    const badgeClass = `esc-badge-${lvl}`;
+                    const itemClass  = `esc-${lvl}`;
+                    return `
+                        <div class="priority-item urgent ${itemClass}">
+                            <div>
+                                <div class="priority-item-title">${escapeHtml(e.mission_id)} — ${escapeHtml(e.escalation_type)}</div>
+                                <div style="font-size:12px;color:#AAA;margin-top:4px;">${escapeHtml(e.reason)}</div>
+                                <div style="font-size:11px;color:#888;margin-top:3px;font-style:italic;">${escapeHtml(e.recommendation)}</div>
                             </div>
-                        </div>
-                        <div class="priority-item-status">${escapeHtml(m.priority || 'P3')}</div>
-                    </div>
-                `).join('');
-                document.getElementById('highPriorityList').innerHTML = html;
+                            <div class="priority-item-status ${badgeClass}">${lvl.toUpperCase()}</div>
+                        </div>`;
+                }).join('');
+            } else {
+                showEl('escalationsSection', false);
             }
 
-            // Populate due soon missions
-            const dueSoonList = normalizedMissions.filter(m => {
-                if (!m.due_date) return false;
-                const dueDate = new Date(m.due_date);
-                return dueDate <= sevenDaysFromNow && dueDate >= now;
-            }).slice(0, 5);
-            if (dueSoonList.length > 0) {
-                document.getElementById('dueSoonSection').style.display = 'block';
-                const html = dueSoonList.map(m => `
-                    <div class="priority-item">
-                        <div>
-                            <div class="priority-item-title">${escapeHtml(m.title)}</div>
-                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
-                                Due: ${new Date(m.due_date).toLocaleDateString()}
-                            </div>
-                        </div>
-                        <div class="priority-item-status">${escapeHtml(m.status)}</div>
-                    </div>
-                `).join('');
-                document.getElementById('dueSoonList').innerHTML = html;
+            // Recommended actions
+            const actions = d.recommended_actions || [];
+            if (actions.length > 0) {
+                showEl('actionsSection', true);
+                document.getElementById('actionsList').innerHTML = actions
+                    .map(a => `<li>${escapeHtml(a)}</li>`).join('');
+            } else {
+                showEl('actionsSection', false);
             }
 
-            // Hide loading
-            document.getElementById('loading').style.display = 'none';
+            // Specialist workload
+            const workload = d.specialist_workload || {};
+            const workloadEntries = Object.entries(workload);
+            if (workloadEntries.length > 0) {
+                showEl('workloadSection', true);
+                document.getElementById('workloadGrid').innerHTML = workloadEntries
+                    .map(([name, count]) =>
+                        `<div class="workload-chip"><strong>${escapeHtml(name)}</strong> · ${count} mission${count !== 1 ? 's' : ''}</div>`)
+                    .join('');
+            } else {
+                showEl('workloadSection', false);
+            }
         }
 
-        function showError(isError) {
-            document.getElementById('error').style.display = isError ? 'block' : 'none';
-            document.getElementById('loading').style.display = isError ? 'none' : 'none';
-        }
-
-        function updateRefreshTime() {
-            const now = new Date();
-            document.getElementById('refreshTime').textContent = now.toLocaleTimeString();
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        // Initial load
         fetchMissions();
-
-        // Refresh every 30 seconds
         refreshInterval = setInterval(fetchMissions, 30000);
-
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (refreshInterval) clearInterval(refreshInterval);
-        });
+        window.addEventListener('beforeunload', () => { if (refreshInterval) clearInterval(refreshInterval); });
     </script>
 </body>
 </html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escalations — USS TJR Command Centre</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a14; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 20px; }
+        h1 { color: #00FFFF; font-size: 20px; margin-bottom: 4px; letter-spacing: 2px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 16px; }
+
+        /* Trust banner */
+        .trust-banner { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .trust-live      { background: rgba(76,175,80,0.15); border: 1px solid #4CAF50; color: #4CAF50; }
+        .trust-stale     { background: rgba(255,152,0,0.15); border: 1px solid #FF9800; color: #FF9800; }
+        .trust-unavailable { background: rgba(244,67,54,0.15); border: 1px solid #EF5350; color: #EF5350; }
+        .trust-loading   { background: rgba(100,100,120,0.15); border: 1px solid #555; color: #888; }
+        .trust-right { font-size: 10px; font-weight: 400; color: inherit; opacity: 0.8; }
+
+        /* Escalation cards */
+        .esc-card { background: #111122; border-left: 4px solid #555; border-radius: 4px; padding: 14px 16px; margin-bottom: 10px; }
+        .esc-card.level-critical { border-left-color: #FF1744; }
+        .esc-card.level-high     { border-left-color: #FF9800; }
+        .esc-card.level-medium   { border-left-color: #FFC107; }
+        .esc-card.level-low      { border-left-color: #4CAF50; }
+
+        .esc-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .esc-title { font-size: 14px; font-weight: 700; color: #fff; }
+        .esc-mission { font-size: 11px; color: #00FFFF; font-family: monospace; margin-top: 2px; }
+        .level-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 3px; text-transform: uppercase; white-space: nowrap; }
+        .badge-critical { background: rgba(255,23,68,0.2);  color: #FF1744; border: 1px solid #FF1744; }
+        .badge-high     { background: rgba(255,152,0,0.2);  color: #FF9800; border: 1px solid #FF9800; }
+        .badge-medium   { background: rgba(255,193,7,0.2);  color: #FFC107; border: 1px solid #FFC107; }
+        .badge-low      { background: rgba(76,175,80,0.2);  color: #4CAF50; border: 1px solid #4CAF50; }
+
+        .esc-reason { font-size: 12px; color: #CCC; margin-bottom: 6px; }
+        .esc-rec { font-size: 11px; color: #888; font-style: italic; border-top: 1px solid #222; padding-top: 6px; margin-top: 6px; }
+        .esc-rec::before { content: '→ '; color: #00FFFF; }
+        .esc-meta { font-size: 10px; color: #555; margin-top: 6px; }
+
+        .empty-state { color: #555; font-size: 13px; text-align: center; padding: 40px; border: 1px dashed #333; border-radius: 4px; }
+        #loading { color: #666; font-size: 13px; padding: 20px; }
+        #error { display: none; background: rgba(244,67,54,0.1); border: 1px solid #EF5350; border-radius: 4px; padding: 12px; color: #EF5350; font-size: 12px; margin-bottom: 12px; }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .count-badge { font-size: 11px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <h1>ESCALATIONS</h1>
+        <span class="count-badge" id="countBadge"></span>
+    </div>
+    <div class="subtitle">Active escalations from NUMBER ONE — requires immediate review</div>
+
+    <div class="trust-banner trust-loading" id="trust-banner">
+        <span id="trust-label">⏳ LOADING</span>
+        <span class="trust-right"><span id="trust-source"></span> <span id="trust-time"></span></span>
+    </div>
+
+    <div id="error">Control Engine unreachable. Verify it is running on localhost:8888.</div>
+    <div id="loading">Loading escalations…</div>
+    <div id="escalationsList"></div>
+
+    <script>
+        const CONTROL_ENGINE = 'http://localhost:8888';
+
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = String(t);
+            return d.innerHTML;
+        }
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
+        function formatAge(secs) {
+            if (!secs && secs !== 0) return '';
+            if (secs < 60)   return `${secs}s ago`;
+            if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+            return `${Math.floor(secs / 3600)}h ago`;
+        }
+
+        async function fetchEscalations() {
+            setTrustState('loading');
+            try {
+                const resp = await fetch(`${CONTROL_ENGINE}/api/dashboard/escalations`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                const d = await resp.json();
+                const state = d.status === 'unavailable' ? 'unavailable' : (d.status || 'live');
+                setTrustState(state, {
+                    source: d.source_label || 'NUMBER ONE',
+                    time: new Date().toLocaleTimeString(),
+                });
+
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
+
+                const items = d.data || [];
+                document.getElementById('countBadge').textContent = items.length > 0 ? `${items.length} active` : 'none';
+
+                if (items.length === 0) {
+                    document.getElementById('escalationsList').innerHTML =
+                        '<div class="empty-state">No active escalations. System operating normally.</div>';
+                    return;
+                }
+
+                // Sort: critical → high → medium → low
+                const order = { critical: 0, high: 1, medium: 2, low: 3 };
+                items.sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9));
+
+                document.getElementById('escalationsList').innerHTML = items.map(e => {
+                    const lvl = (e.level || 'medium').toLowerCase();
+                    const badgeClass = `badge-${lvl}`;
+                    const ts = e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '';
+                    return `
+                        <div class="esc-card level-${lvl}">
+                            <div class="esc-header">
+                                <div>
+                                    <div class="esc-title">${escapeHtml(e.escalation_type)}</div>
+                                    <div class="esc-mission">${escapeHtml(e.mission_id)}</div>
+                                </div>
+                                <span class="level-badge ${badgeClass}">${escapeHtml(lvl)}</span>
+                            </div>
+                            <div class="esc-reason">${escapeHtml(e.reason)}</div>
+                            ${e.recommendation ? `<div class="esc-rec">${escapeHtml(e.recommendation)}</div>` : ''}
+                            <div class="esc-meta">${ts ? `Raised: ${ts}` : ''}</div>
+                        </div>`;
+                }).join('');
+
+            } catch (err) {
+                console.error('Escalations fetch error:', err);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        fetchEscalations();
+        setInterval(fetchEscalations, 60000);
+    </script>
+</body>
+</html>

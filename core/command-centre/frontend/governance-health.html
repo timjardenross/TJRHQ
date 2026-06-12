@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Governance Health — USS TJR Command Centre</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a14; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 20px; }
+        h1 { color: #00FFFF; font-size: 20px; margin-bottom: 4px; letter-spacing: 2px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 16px; }
+
+        .trust-banner { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .trust-live        { background: rgba(76,175,80,0.15);  border: 1px solid #4CAF50; color: #4CAF50; }
+        .trust-stale       { background: rgba(255,152,0,0.15);  border: 1px solid #FF9800; color: #FF9800; }
+        .trust-unavailable { background: rgba(244,67,54,0.15);  border: 1px solid #EF5350; color: #EF5350; }
+        .trust-loading     { background: rgba(100,100,120,0.15); border: 1px solid #555;    color: #888; }
+        .trust-right { font-size: 10px; font-weight: 400; opacity: 0.8; }
+
+        /* Metric cards */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .metric-card { background: #111122; border: 1px solid #1e1e3a; border-radius: 6px; padding: 16px; text-align: center; }
+        .metric-value { font-size: 36px; font-weight: 700; color: #00FFFF; line-height: 1; }
+        .metric-label { font-size: 10px; color: #666; margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; }
+        .metric-tbd { font-size: 20px; color: #555; }
+
+        /* Coverage TBD note */
+        .tbd-notice { background: rgba(255,152,0,0.08); border: 1px solid #333; border-radius: 4px; padding: 12px 16px; margin-bottom: 16px; font-size: 11px; color: #666; }
+        .tbd-notice strong { color: #FF9800; }
+
+        /* Decision breakdown */
+        .breakdown { background: #111122; border: 1px solid #1e1e3a; border-radius: 4px; padding: 14px 16px; }
+        .breakdown-title { font-size: 11px; color: #666; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+        .breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #1a1a2e; }
+        .breakdown-row:last-child { border-bottom: none; }
+        .breakdown-label { font-size: 12px; color: #AAA; }
+        .breakdown-count { font-size: 14px; font-weight: 700; color: #fff; }
+        .breakdown-pct { font-size: 10px; color: #555; margin-left: 6px; }
+        .status-active { color: #4CAF50; }
+        .status-superseded { color: #FF9800; }
+        .status-inactive { color: #666; }
+        .status-new { color: #00FFFF; }
+
+        #loading { color: #666; font-size: 13px; padding: 20px; }
+        #error { display: none; background: rgba(244,67,54,0.1); border: 1px solid #EF5350; border-radius: 4px; padding: 12px; color: #EF5350; font-size: 12px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <h1>GOVERNANCE HEALTH</h1>
+    <div class="subtitle">Decision register metrics from Supabase — architectural decision tracking</div>
+
+    <div class="trust-banner trust-loading" id="trust-banner">
+        <span id="trust-label">⏳ LOADING</span>
+        <span class="trust-right"><span id="trust-source"></span> <span id="trust-time"></span></span>
+    </div>
+
+    <div id="error">Control Engine unreachable. Verify it is running on localhost:8888.</div>
+    <div id="loading">Loading governance metrics…</div>
+
+    <div id="content" style="display:none">
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value" id="metricTotal">—</div>
+                <div class="metric-label">Total Decisions</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value status-active" id="metricActive">—</div>
+                <div class="metric-label">Active</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value status-superseded" id="metricSuperseded">—</div>
+                <div class="metric-label">Superseded</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value status-inactive" id="metricInactive">—</div>
+                <div class="metric-label">Inactive</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value status-new" id="metricMonth">—</div>
+                <div class="metric-label">Added This Month</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value metric-tbd" id="metricCoverage">TBD</div>
+                <div class="metric-label">Coverage %</div>
+            </div>
+        </div>
+
+        <div class="tbd-notice">
+            <strong>Coverage % — WP5</strong><br>
+            Mission-decision traceability link schema not yet defined. Coverage will be calculated once the mission↔decision relationship is established in Supabase (deferred to WP5).
+        </div>
+
+        <div class="breakdown">
+            <div class="breakdown-title">Decision Status Breakdown</div>
+            <div id="breakdownRows"></div>
+        </div>
+    </div>
+
+    <script>
+        const CONTROL_ENGINE = 'http://localhost:8888';
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
+        function pct(count, total) {
+            if (!total) return '';
+            return `(${Math.round((count / total) * 100)}%)`;
+        }
+
+        async function fetchGovernance() {
+            setTrustState('loading');
+            try {
+                const resp = await fetch(`${CONTROL_ENGINE}/api/dashboard/governance`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                const d = await resp.json();
+                const state = d.status === 'unavailable' ? 'unavailable' : 'live';
+                setTrustState(state, {
+                    source: d.source_label || 'Supabase decisions',
+                    time: new Date().toLocaleTimeString(),
+                });
+
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                const total      = d.total          ?? 0;
+                const active     = d.active         ?? 0;
+                const superseded = d.superseded      ?? 0;
+                const inactive   = d.inactive        ?? 0;
+                const month      = d.added_this_month ?? 0;
+
+                document.getElementById('metricTotal').textContent      = total;
+                document.getElementById('metricActive').textContent     = active;
+                document.getElementById('metricSuperseded').textContent = superseded;
+                document.getElementById('metricInactive').textContent   = inactive;
+                document.getElementById('metricMonth').textContent      = month;
+
+                const rows = [
+                    { label: 'Active',      count: active,     cls: 'status-active' },
+                    { label: 'Superseded',  count: superseded, cls: 'status-superseded' },
+                    { label: 'Inactive',    count: inactive,   cls: 'status-inactive' },
+                    { label: 'New this month', count: month,   cls: 'status-new' },
+                ];
+                document.getElementById('breakdownRows').innerHTML = rows.map(r => `
+                    <div class="breakdown-row">
+                        <span class="breakdown-label">${r.label}</span>
+                        <span>
+                            <span class="breakdown-count ${r.cls}">${r.count}</span>
+                            <span class="breakdown-pct">${pct(r.count, total)}</span>
+                        </span>
+                    </div>`).join('');
+
+            } catch (err) {
+                console.error('Governance fetch error:', err);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        fetchGovernance();
+        setInterval(fetchGovernance, 60000);
+    </script>
+</body>
+</html>

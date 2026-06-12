@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Queue — USS TJR Command Centre</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a14; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 20px; }
+        h1 { color: #00FFFF; font-size: 20px; margin-bottom: 4px; letter-spacing: 2px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 16px; }
+
+        .trust-banner { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .trust-live        { background: rgba(76,175,80,0.15);  border: 1px solid #4CAF50; color: #4CAF50; }
+        .trust-stale       { background: rgba(255,152,0,0.15);  border: 1px solid #FF9800; color: #FF9800; }
+        .trust-unavailable { background: rgba(244,67,54,0.15);  border: 1px solid #EF5350; color: #EF5350; }
+        .trust-loading     { background: rgba(100,100,120,0.15); border: 1px solid #555;    color: #888; }
+        .trust-right { font-size: 10px; font-weight: 400; opacity: 0.8; }
+
+        /* Priority colours */
+        .p0 { color: #FF1744; font-weight: 700; }
+        .p1 { color: #FF9800; font-weight: 700; }
+        .p2 { color: #FFC107; font-weight: 700; }
+        .p3 { color: #4CAF50; font-weight: 700; }
+
+        .wq-card { background: #111122; border-left: 4px solid #333; border-radius: 4px; padding: 14px 16px; margin-bottom: 10px; }
+        .wq-card.p-P0 { border-left-color: #FF1744; }
+        .wq-card.p-P1 { border-left-color: #FF9800; }
+        .wq-card.p-P2 { border-left-color: #FFC107; }
+        .wq-card.p-P3 { border-left-color: #4CAF50; }
+
+        .wq-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .wq-title { font-size: 14px; font-weight: 700; color: #fff; }
+        .wq-id { font-size: 11px; color: #00FFFF; margin-top: 2px; }
+        .wq-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+        .priority-badge { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 3px; }
+        .status-badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; background: rgba(0,255,255,0.1); border: 1px solid #00FFFF; color: #00FFFF; }
+
+        .wq-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-top: 8px; }
+        .wq-meta-item { font-size: 11px; color: #888; }
+        .wq-meta-item span { color: #CCC; }
+
+        .next-action { font-size: 12px; color: #BBB; margin-top: 8px; padding: 6px 10px; background: rgba(0,255,255,0.05); border-left: 2px solid #00FFFF; border-radius: 0 3px 3px 0; }
+        .next-action::before { content: '▶ NEXT: '; color: #00FFFF; font-size: 10px; font-weight: 700; }
+
+        .deps { font-size: 10px; color: #555; margin-top: 6px; }
+        .dep-tag { display: inline-block; background: #1a1a2e; border: 1px solid #333; border-radius: 3px; padding: 1px 5px; margin-right: 4px; color: #888; }
+
+        .empty-state { color: #555; font-size: 13px; text-align: center; padding: 40px; border: 1px dashed #333; border-radius: 4px; }
+        #loading { color: #666; font-size: 13px; padding: 20px; }
+        #error { display: none; background: rgba(244,67,54,0.1); border: 1px solid #EF5350; border-radius: 4px; padding: 12px; color: #EF5350; font-size: 12px; margin-bottom: 12px; }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .count-badge { font-size: 11px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <h1>WORK QUEUE</h1>
+        <span class="count-badge" id="countBadge"></span>
+    </div>
+    <div class="subtitle">Active mission work queue from NUMBER ONE — priority ordered</div>
+
+    <div class="trust-banner trust-loading" id="trust-banner">
+        <span id="trust-label">⏳ LOADING</span>
+        <span class="trust-right"><span id="trust-source"></span> <span id="trust-time"></span></span>
+    </div>
+
+    <div id="error">Control Engine unreachable. Verify it is running on localhost:8888.</div>
+    <div id="loading">Loading work queue…</div>
+    <div id="workQueueList"></div>
+
+    <script>
+        const CONTROL_ENGINE = 'http://localhost:8888';
+
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = String(t);
+            return d.innerHTML;
+        }
+
+        function setTrustState(state, opts) {
+            opts = opts || {};
+            const banner   = document.getElementById('trust-banner');
+            const labelEl  = document.getElementById('trust-label');
+            const sourceEl = document.getElementById('trust-source');
+            const timeEl   = document.getElementById('trust-time');
+            const icons  = { loading: '⏳', live: '🟢', stale: '🟡', unavailable: '🔴' };
+            const labels = { loading: 'LOADING', live: 'LIVE', stale: 'STALE', unavailable: 'UNAVAILABLE' };
+            banner.className = 'trust-banner trust-' + state;
+            labelEl.textContent  = (icons[state] || '') + ' ' + (labels[state] || state.toUpperCase());
+            sourceEl.textContent = opts.source ? '— ' + opts.source : '';
+            timeEl.textContent   = opts.time   ? opts.time           : '';
+        }
+
+        const PRIORITY_CLASS = { P0: 'p0', P1: 'p1', P2: 'p2', P3: 'p3' };
+        const PRIORITY_STYLE = {
+            P0: 'background:rgba(255,23,68,0.2);color:#FF1744;border:1px solid #FF1744',
+            P1: 'background:rgba(255,152,0,0.2);color:#FF9800;border:1px solid #FF9800',
+            P2: 'background:rgba(255,193,7,0.2);color:#FFC107;border:1px solid #FFC107',
+            P3: 'background:rgba(76,175,80,0.2);color:#4CAF50;border:1px solid #4CAF50',
+        };
+
+        async function fetchWorkQueue() {
+            setTrustState('loading');
+            try {
+                const resp = await fetch(`${CONTROL_ENGINE}/api/dashboard/work-queue`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+                const d = await resp.json();
+                const state = d.status === 'unavailable' ? 'unavailable' : (d.status || 'live');
+                setTrustState(state, {
+                    source: d.source_label || 'NUMBER ONE',
+                    time: new Date().toLocaleTimeString(),
+                });
+
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('loading').style.display = 'none';
+
+                const items = d.data || [];
+                document.getElementById('countBadge').textContent = items.length > 0 ? `${items.length} items` : 'empty';
+
+                if (items.length === 0) {
+                    document.getElementById('workQueueList').innerHTML =
+                        '<div class="empty-state">Work queue is empty.</div>';
+                    return;
+                }
+
+                const priorityOrder = { P0: 0, P1: 1, P2: 2, P3: 3 };
+                items.sort((a, b) => (priorityOrder[a.priority] ?? 9) - (priorityOrder[b.priority] ?? 9));
+
+                document.getElementById('workQueueList').innerHTML = items.map(item => {
+                    const p = item.priority || 'P3';
+                    const pStyle = PRIORITY_STYLE[p] || '';
+                    const deps = Array.isArray(item.dependencies) && item.dependencies.length > 0
+                        ? `<div class="deps">Depends on: ${item.dependencies.map(dep => `<span class="dep-tag">${escapeHtml(dep)}</span>`).join('')}</div>`
+                        : '';
+                    const blockers = Array.isArray(item.blockers) && item.blockers.length > 0
+                        ? `<div style="font-size:11px;color:#FF9800;margin-top:6px;">⚠ Blocked: ${item.blockers.map(escapeHtml).join(' · ')}</div>`
+                        : '';
+                    return `
+                        <div class="wq-card p-${escapeHtml(p)}">
+                            <div class="wq-header">
+                                <div>
+                                    <div class="wq-title">${escapeHtml(item.title)}</div>
+                                    <div class="wq-id">${escapeHtml(item.mission_id)}</div>
+                                </div>
+                                <div class="wq-badges">
+                                    <span class="priority-badge" style="${pStyle}">${escapeHtml(p)}</span>
+                                    <span class="status-badge">${escapeHtml(item.status)}</span>
+                                </div>
+                            </div>
+                            <div class="wq-meta">
+                                <div class="wq-meta-item">Assigned: <span>${escapeHtml(item.assigned_specialist || 'Unassigned')}</span></div>
+                                ${item.confidence ? `<div class="wq-meta-item">Confidence: <span>${escapeHtml(item.confidence_band || item.confidence)}</span></div>` : ''}
+                            </div>
+                            ${item.next_action ? `<div class="next-action">${escapeHtml(item.next_action)}</div>` : ''}
+                            ${blockers}
+                            ${deps}
+                            ${item.rationale ? `<div style="font-size:11px;color:#555;margin-top:6px;font-style:italic;">${escapeHtml(item.rationale)}</div>` : ''}
+                        </div>`;
+                }).join('');
+
+            } catch (err) {
+                console.error('Work queue fetch error:', err);
+                setTrustState('unavailable', { source: 'Control Engine unreachable (localhost:8888)' });
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        fetchWorkQueue();
+        setInterval(fetchWorkQueue, 60000);
+    </script>
+</body>
+</html>
