@@ -39,20 +39,31 @@ if str(_repo_root) not in sys.path:
 
 from commander_bridge import handle_slack_message
 from commander_response_formatter import format_commander_response, parse_commander_response
+from core.coordination.commander_memory_adapter import CommanderMemoryAdapter
 from supabase_commander_intake import run_supabase_commander
 from commands.mission_brief import (
+    claim_engineering_handoff_batch,
+    claim_oldest_pending_engineering_handoff,
+    find_existing_engineering_handoff,
+    format_engineering_handoff_chain_summary,
     find_build_record_by_thread,
     handle_build_brief,
     handle_mission_brief,
     handle_mission_register_draft,
     handle_save_mission_file,
+    format_pending_engineering_handoffs_report,
+    xo_can_approve,
     mark_build_record_approved,
     save_engineering_handoff_from_build_record,
 )
+from lib.xo_policy import xo_can_approve as xo_policy_can_approve
 from commands.mission_capture import handle_mission_capture
 from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
+
+# MSN-DISCOVERY-001: Captain's Inbox intake (WP2)
+from lib.captains_inbox_events import register_captains_inbox_handlers
 
 # MSN-0054: Research delegation (RESEARCH DELEGATOR FIX)
 from commands.research_command import handle_research_request_with_slack
@@ -61,10 +72,12 @@ from commands.memory_queries import (
     handle_missions_active,
     handle_decisions_active,
     handle_memory_search,
+    handle_memory_metrics_summary,
 )
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+_commander_memory_adapter = CommanderMemoryAdapter()
 
 # RESEARCH DELEGATOR FIX: Validate research orchestration availability
 def validate_research_delegator() -> bool:
@@ -86,6 +99,23 @@ def validate_research_delegator() -> bool:
     except Exception as e:
         log.warning(f"⚠️  Unexpected error checking research delegator: {str(e)}")
         return False
+
+
+def validate_research_runtime() -> None:
+    """Log research runtime readiness without blocking startup."""
+    try:
+        from commands.research_command import _build_research_supabase_client
+
+        supabase_client = _build_research_supabase_client()
+        if supabase_client is None:
+            log.warning("[startup] Research memory client unavailable: raw Supabase client missing")
+        else:
+            log.info(
+                "[startup] Research memory client ready: %s",
+                type(supabase_client).__name__,
+            )
+    except Exception as exc:
+        log.warning("[startup] Research runtime validation failed: %s", exc)
 # MSN-0011B Tier 0: Environment Validation at Startup
 def validate_environment() -> bool:
     """Validate all required environment variables are present and valid.
@@ -111,7 +141,6 @@ def validate_environment() -> bool:
         "SUPABASE_URL": "Supabase project URL (required for Command Memory)",
         "SUPABASE_SERVICE_ROLE_KEY": "Supabase service role key (required for Command Memory)",
         "GEMINI_API_KEY": "Google Gemini API key (required for research)",
-        "MISTRAL_API_KEY": "Mistral AI API key (required for research fallback)",
     }
 
     missing = []
@@ -148,6 +177,7 @@ def validate_environment() -> bool:
 
     # RESEARCH DELEGATOR FIX: Validate research delegator (non-blocking)
     validate_research_delegator()
+    validate_research_runtime()
 
     return True
 
@@ -188,6 +218,44 @@ def _should_skip_duplicate_command(command_name: str, command: dict, text: str) 
 
         _recent_command_fingerprints[fingerprint] = now
         return False
+
+
+def handle_batch_status_request(text: str) -> str:
+    """Render the read-only batch status summary for a handoff path."""
+    handoff_path = text.strip()
+    if handoff_path == "--latest":
+        from commands.mission_brief import find_latest_claimed_engineering_handoff
+
+        latest = find_latest_claimed_engineering_handoff()
+        if not latest:
+            return (
+                ":package: *Batch Status*\n\n"
+                "No claimed handoffs were available to inspect."
+            )
+        handoff_path = latest["path"]
+
+    if not handoff_path:
+        return (
+            ":package: *Batch Status*\n\n"
+            "Usage: `/batch-status Missions/Engineering-Handoffs/ENG-HANDOFF-001.md`\n"
+            "Or: `/batch-status --latest`"
+        )
+
+    return format_engineering_handoff_chain_summary(handoff_path)
+
+
+def _append_commander_memory_note(response_text: str, *, text: str, intent: str) -> str:
+    """Append a compact advisory memory block when relevant."""
+    try:
+        memory_context = _commander_memory_adapter.build_memory_note(
+            text=text,
+            intent=intent,
+        )
+        if memory_context.found and memory_context.note:
+            return f"{response_text}\n\n{memory_context.note}"
+    except Exception as exc:
+        log.warning("[app] Commander memory note skipped (non-blocking): %s", exc)
+    return response_text
 
 
 def _handle_implementation_brief_command(
@@ -323,6 +391,43 @@ if app:
             user_id,
             event.get("channel"),
         )
+
+        policy_context = {
+            "requesting_user": user_id,
+            "thread_ts": thread_ts,
+            "channel_id": event.get("channel", ""),
+            "mission_title": build_context.get("mission_title", ""),
+            "record_path": build_context.get("record_path", ""),
+            "current_status": "APPROVED_FOR_ENGINEERING",
+            "current_batch_status": "PENDING",
+            "batch_group": "unassigned",
+            "priority": "P2",
+            "assigned_by": "",
+            "decision_id": build_context.get("decision_id", ""),
+            "guard_rails_ok": "true",
+            "validation_evidence": "slack-thread-approval",
+        }
+        policy_decision = xo_policy_can_approve(policy_context)
+        if not policy_decision.approved:
+            say(
+                ":warning: *Approval Denied*\n\n"
+                f"XO policy denied approval: {policy_decision.decision_reason}",
+                thread_ts=thread_ts,
+            )
+            return
+
+        # Idempotency check — prevent duplicate handoffs for the same build record
+        source_record = build_context.get("record_path", "")
+        existing_handoff = find_existing_engineering_handoff(source_record)
+        if existing_handoff:
+            say(
+                f":white_check_mark: *Already Approved (Idempotent)*\n\n"
+                f"Handoff: `{existing_handoff}`\n"
+                "Status: PENDING (awaiting batch assignment)",
+                thread_ts=thread_ts,
+            )
+            return
+
         handoff_path = save_engineering_handoff_from_build_record(
             build_record=build_context,
             approver_user_id=user_id,
@@ -333,13 +438,18 @@ if app:
             handoff_path=handoff_path,
         )
         say(
-            ":white_check_mark: *Engineering approval recorded*\n"
-            f"Approved by <@{user_id}>.\n"
-            f"Mission: {build_context.get('request_text', 'Build request')[:180]}\n"
-            f":file_folder: *Engineering handoff created:* `{handoff_path}`\n"
-            f":memo: *Build record updated:* `{updated_record_path or build_context.get('record_path', 'unavailable')}`",
+            ":white_check_mark: *Approved for Engineering*\n\n"
+            f"Handoff: `{handoff_path}`\n"
+            "Status: APPROVED_FOR_ENGINEERING\n"
+            "Batch Status: PENDING\n\n"
+            ":point_right: *Next step:* Number One or the assignment authority moves the handoff to `SUBMITTED`.\n"
+            "Engineering agents only act after that explicit assignment step.\n"
+            f"XO policy trace: {', '.join(policy_decision.policy_trace)}",
             thread_ts=thread_ts,
         )
+
+    # MSN-DISCOVERY-001: Captain's Inbox — register message + file_shared handlers
+    register_captains_inbox_handlers(app)
 
     @app.command("/status")
     def handle_status_slash(ack, respond):
@@ -500,6 +610,7 @@ if app:
         def _run():
             try:
                 result = handle_mission_capture(text, user_id, channel_id)
+                result = _append_commander_memory_note(result, text=text, intent="mission")
                 respond(result)
             except Exception as exc:
                 log.error("[app] /mission-capture failed: %s", exc)
@@ -532,6 +643,7 @@ if app:
         def _run():
             try:
                 result = handle_decision_log(text, user_id, channel_id)
+                result = _append_commander_memory_note(result, text=text, intent="decision")
                 respond(result)
             except Exception as exc:
                 log.error("[app] /decision-log failed: %s", exc)
@@ -647,6 +759,76 @@ if app:
                 respond(f"*BUILD ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
         threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/batch-scan")
+    def handle_batch_scan_slash(ack, respond, command):
+        """/batch-scan — List engineering handoffs pending batch assignment.
+
+        Usage: /batch-scan [--detailed]
+        """
+        ack()
+
+        text = (command.get("text") or "").strip()
+        if text and text not in {"--detailed", "-d"}:
+            respond(
+                ":package: *Batch Scanner*\n\n"
+                "Usage: `/batch-scan [--detailed]`\n"
+                "This command scans `Missions/Engineering-Handoffs` for items where "
+                "`Status: APPROVED_FOR_ENGINEERING` and `Batch Status: PENDING`."
+            )
+            return
+
+        respond(format_pending_engineering_handoffs_report(detailed=text in {"--detailed", "-d"}))
+
+    @app.command("/batch-claim")
+    def handle_batch_claim_slash(ack, respond, command):
+        """/batch-claim — Claim the first pending engineering handoff.
+
+        Usage: /batch-claim BATCH-001
+        """
+        ack()
+
+        batch_group = (command.get("text") or "").strip()
+        if not batch_group:
+            respond(
+                ":package: *Batch Claim*\n\n"
+                "Usage: `/batch-claim BATCH-001`\n"
+                "This command claims the oldest pending handoff and sets `Batch Status: SUBMITTED`."
+            )
+            return
+
+        claimed = claim_oldest_pending_engineering_handoff(batch_group)
+        if not claimed:
+            respond(
+                ":package: *Batch Claim*\n\n"
+                "No pending handoffs were available to claim."
+            )
+            return
+
+        respond(
+            ":package: *Batch Claim*\n\n"
+            f"Claimed `{claimed['path']}`\n"
+            f"- Mission: {claimed['mission_title']}\n"
+            f"- Batch Group: {batch_group}\n"
+            f"- Batch Status: SUBMITTED"
+        )
+
+    @app.command("/batch-status")
+    def handle_batch_status_slash(ack, respond, command):
+        """/batch-status — Show the decision/outcome chain for a handoff.
+
+        Usage: /batch-status <hand-off path>
+        """
+        ack()
+        respond(handle_batch_status_request(command.get("text") or ""))
+
+    @app.command("/memory-metrics")
+    def handle_memory_metrics_slash(ack, respond, command):
+        """/memory-metrics — Show read-only memory effectiveness metrics.
+
+        Usage: /memory-metrics [--7d|--30d]
+        """
+        handle_memory_metrics_summary(ack, respond, command)
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
