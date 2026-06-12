@@ -101,13 +101,52 @@ SOURCES = [
         "category":           "regulatory",
         "priority_rank":      1,
         "url":                "https://www.cyber.gov.au/about-us/view-all-content/alerts-and-advisories",
-        "rss_url":            None,
+        "rss_url":            "https://www.cyber.gov.au/rss/alerts",
         "api_endpoint":       None,
-        "source_type":        "scrape",
+        "source_type":        "rss",
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
-        "active":             False,
-        "notes":              "ACSC/ASD critical cyber security advisories. Scrape URL consistently times out — deactivated.",
+        "active":             True,
+        "notes":              "ASD/ACSC critical cyber security alerts. Scrape times out but official RSS feed at /rss/alerts is live.",
+    },
+    {
+        "source_name":        "ACSC Advisories",
+        "category":           "regulatory",
+        "priority_rank":      1,
+        "url":                "https://www.cyber.gov.au/about-us/view-all-content/advisories",
+        "rss_url":            "https://www.cyber.gov.au/rss/advisories",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.95,
+        "active":             True,
+        "notes":              "ASD/ACSC cyber security advisories (broader than alerts). Official RSS feed confirmed live.",
+    },
+    {
+        "source_name":        "NCSC UK Advisories",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.ncsc.gov.uk/section/keep-up-to-date/alerts-advisories",
+        "rss_url":            "https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "UK NCSC advisories — Five Eyes partner, co-authored with ASD/ACSC on global threats. Confirmed live.",
+    },
+    {
+        "source_name":        "CISA Known Exploited Vulnerabilities",
+        "category":           "regulatory",
+        "priority_rank":      2,
+        "url":                "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+        "rss_url":            None,
+        "api_endpoint":       "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+        "source_type":        "api",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.92,
+        "active":             True,
+        "notes":              "CISA KEV catalog — authoritative list of actively-exploited CVEs. ACSC advisories frequently reference this. Confirmed live JSON API.",
     },
 
     # ─── Category 2: Emergency Management & Hazard Intelligence ──────────────
@@ -125,17 +164,30 @@ SOURCES = [
         "notes":              "Severe weather warnings. All BOM feed/page URLs return 403 (bot detection active) — deactivated.",
     },
     {
+        "source_name":        "Weatherzone Warnings",
+        "category":           "emergency_management",
+        "priority_rank":      1,
+        "url":                "https://www.weatherzone.com.au/warnings",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "BOM replacement — Weatherzone aggregates official BOM-issued warning texts for all states. No auth, HTTP 200 confirmed.",
+    },
+    {
         "source_name":        "VicEmergency",
         "category":           "emergency_management",
         "priority_rank":      1,
         "url":                "https://www.emergency.vic.gov.au/",
         "rss_url":            None,
-        "api_endpoint":       "https://www.emergency.vic.gov.au/public/osom-public-common/public/events-feed",
+        "api_endpoint":       "https://data.emergency.vic.gov.au/Show?pageId=getIncidentJSON",
         "source_type":        "api",
         "jurisdiction":       "AU",
         "confidence_weight":  0.93,
-        "active":             False,
-        "notes":              "Victoria emergency incidents. API endpoint returns HTTP 404 — deactivated pending new endpoint discovery.",
+        "active":             True,
+        "notes":              "Victoria emergency incidents. Original OSOM API 404 — replaced with EMV data.emergency.vic.gov.au JSON feed. Confirmed live with real incidents.",
     },
     {
         "source_name":        "NSW SES",
@@ -190,6 +242,32 @@ SOURCES = [
         "confidence_weight":  0.97,
         "active":             False,
         "notes":              "National Electricity Market operational notices. Scrape page returns 403 (bot detection) — deactivated.",
+    },
+    {
+        "source_name":        "AEMO NEMweb Market Notices",
+        "category":           "critical_infrastructure",
+        "priority_rank":      1,
+        "url":                "https://www.nemweb.com.au/REPORTS/CURRENT/Market_Notice/",
+        "rss_url":            None,
+        "api_endpoint":       "https://www.nemweb.com.au/REPORTS/CURRENT/Market_Notice/",
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.97,
+        "active":             True,
+        "notes":              "AEMO replacement — NEMweb public directory of NEM market notice files. Official AEMO data dissemination path. HTTP 200 confirmed, real notices visible.",
+    },
+    {
+        "source_name":        "TPG Telecom Service Status",
+        "category":           "critical_infrastructure",
+        "priority_rank":      2,
+        "url":                "https://status.messaging.tpgtelecom.com.au/",
+        "rss_url":            "https://status.messaging.tpgtelecom.com.au/history.rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.82,
+        "active":             True,
+        "notes":              "TPG/Vodafone/iiNet replacement — official TPG Telecom status page with working RSS feed. Confirmed live.",
     },
     {
         "source_name":        "NBN Network Status",
@@ -326,6 +404,19 @@ SOURCES = [
         "notes":              "Australian Payments Network. All URL variants return 404 or timeout — deactivated pending site restructure.",
     },
     {
+        "source_name":        "AusPayNet Insights",
+        "category":           "banking_payments",
+        "priority_rank":      1,
+        "url":                "https://auspaynet.com.au/insights",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "AusPayNet replacement — /insights page is scrapeable (HTTP 200). Covers payments policy, fraud stats, and industry developments. Note: no-www URL required.",
+    },
+    {
         "source_name":        "SWIFT Newsroom",
         "category":           "banking_payments",
         "priority_rank":      2,
@@ -434,6 +525,32 @@ SOURCES = [
         "notes":              "Reuters business news. feeds.reuters.com DNS no longer resolves — Reuters removed public RSS feeds. Deactivated.",
     },
     {
+        "source_name":        "AP News Business",
+        "category":           "media",
+        "priority_rank":      4,
+        "url":                "https://apnews.com/business",
+        "rss_url":            "https://feeds.apnews.com/rss/apf-business",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "Reuters replacement — AP News wire service, authoritative global financial/business news, no paywall. RSS confirmed live.",
+    },
+    {
+        "source_name":        "Guardian Australia",
+        "category":           "media",
+        "priority_rank":      4,
+        "url":                "https://www.theguardian.com/australia-news",
+        "rss_url":            "https://www.theguardian.com/australia-news/rss",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.78,
+        "active":             True,
+        "notes":              "Guardian Australia — no paywall, strong Australian political/regulatory/business coverage. RSS confirmed live.",
+    },
+    {
         "source_name":        "Bloomberg",
         "category":           "media",
         "priority_rank":      4,
@@ -484,6 +601,32 @@ SOURCES = [
         "confidence_weight":  0.82,
         "active":             False,
         "notes":              "AFR — Australian financial and business news. RSS feed returns malformed XML (paywall redirect). Deactivated.",
+    },
+    {
+        "source_name":        "ABC News Business",
+        "category":           "media",
+        "priority_rank":      4,
+        "url":                "https://www.abc.net.au/news/business/",
+        "rss_url":            "https://www.abc.net.au/news/feed/104217374/rss.xml",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.80,
+        "active":             True,
+        "notes":              "AFR replacement — ABC News Business section. Authoritative Australian business/banking/regulatory coverage. No paywall. RSS confirmed live.",
+    },
+    {
+        "source_name":        "Financial Newswire",
+        "category":           "media",
+        "priority_rank":      4,
+        "url":                "https://financialnewswire.com.au/",
+        "rss_url":            "https://financialnewswire.com.au/feed/",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.78,
+        "active":             True,
+        "notes":              "Australian financial services industry news. Covers banking, super, regulation. Free RSS feed confirmed live.",
     },
 
     # ─── Future Sources (inactive at MVP — activate without code change) ──────
@@ -605,14 +748,45 @@ def _headers() -> dict:
     }
 
 
+def _fetch_existing_ids() -> dict:
+    """Fetch {source_name: source_id} for all rows already in the table."""
+    url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry?select=source_id,source_name"
+    req = urllib.request.Request(url, headers=_headers())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            rows = json.loads(resp.read())
+            # Keep only the first occurrence per name (oldest record)
+            seen = {}
+            for r in rows:
+                if r["source_name"] not in seen:
+                    seen[r["source_name"]] = r["source_id"]
+            return seen
+    except Exception:
+        return {}
+
+
 def _upsert(rows: list[dict]) -> tuple[int, int]:
-    """Upsert rows into intelligence_source_registry. Returns (inserted, failed)."""
+    """Upsert rows into intelligence_source_registry. Returns (inserted, failed).
+
+    Looks up existing source_ids by name so merge-duplicates works on the
+    primary key rather than always inserting new rows.
+    """
+    existing = _fetch_existing_ids()
+
+    # Inject source_id for rows that already exist in the DB
+    enriched = []
+    for row in rows:
+        r = dict(row)
+        if r["source_name"] in existing:
+            r["source_id"] = existing[r["source_name"]]
+        enriched.append(r)
+
     url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry"
     headers = {
         **_headers(),
         "Prefer": "resolution=merge-duplicates,return=representation",
     }
-    body = json.dumps(rows).encode()
+    body = json.dumps(enriched).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
