@@ -427,25 +427,35 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-astrometrics">
       <div class="intel-grid">
+
+        <!-- OR Intelligence Brief -->
         <div class="intel-card">
-          <div class="intel-card-title">📌 Recommendations</div>
+          <div class="intel-card-title">📡 OR Intelligence Brief</div>
+          <div id="astro-or-brief"><p class="intel-loading">Loading intelligence brief…</p></div>
+        </div>
+
+        <!-- Strategic Watchlist -->
+        <div class="intel-card">
+          <div class="intel-card-title">🔭 Strategic Watchlist</div>
+          <div id="astro-watchlist"><p class="intel-loading">Loading watchlist…</p></div>
+        </div>
+
+        <!-- Recommendation Engine -->
+        <div class="intel-card">
+          <div class="intel-card-title">📌 Recommendation Engine</div>
           <div id="recommendations-widget"><p class="intel-loading">Loading recommendations…</p></div>
         </div>
+
+        <!-- Lessons Learned -->
         <div class="intel-card">
-          <div class="intel-card-title">🎯 Captain Readiness</div>
-          <div id="readiness-intel-widget"><p class="intel-loading">Loading readiness…</p></div>
-        </div>
-        <div class="intel-card">
-          <div class="intel-card-title">🚧 Active Blockers</div>
-          <div id="blockers-intel-widget"><p class="intel-loading">Loading blockers…</p></div>
-        </div>
-        <div class="intel-card">
-          <div class="intel-card-title">📚 Applicable Lessons</div>
+          <div class="intel-card-title">📚 Lessons Learned</div>
           <div id="lessons-widget"><p class="intel-loading">Loading lessons…</p></div>
         </div>
+
       </div>
       <div class="dept-links">
-        <a class="dept-link dept-link-primary" href="or-intelligence.html">📡 OR Intelligence Cockpit →</a>
+        <a class="dept-link dept-link-primary" href="or-intelligence.html">📡 Full OR Intelligence Cockpit →</a>
+        <a class="dept-link dept-link-secondary" href="or-intelligence.html#archive">🗂 Intelligence Archive →</a>
       </div>
     </div>
 
@@ -754,19 +764,82 @@
       if (astrometricsLoaded) return;
       astrometricsLoaded = true;
       try {
-        const [recs, readiness, blockers, lessons] = await Promise.all([
+        const [intel, recs, lessons] = await Promise.all([
+          fetchJSON('/api/v1/intelligence/latest').catch(() => null),
           fetchJSON('/api/recommendations').catch(() => null),
-          fetchJSON('/api/readiness').catch(() => null),
-          fetchJSON('/api/blockers').catch(() => null),
           fetchJSON('/api/lessons').catch(() => null),
         ]);
+        renderORBrief(intel);
+        renderStrategicWatchlist(intel);
         renderRecsIntel(recs);
-        renderReadinessIntel(readiness);
-        renderBlockersIntel(blockers);
         renderLessons(lessons);
       } catch (e) {
         console.warn('Astrometrics load error:', e);
       }
+    }
+
+    function renderORBrief(data) {
+      const el = document.getElementById('astro-or-brief');
+      if (!el) return;
+      const brief = data && data.brief;
+      if (!brief) {
+        el.innerHTML = '<p class="chair-empty">No intelligence brief available.<br>OR Intelligence pipeline not yet run.</p>';
+        return;
+      }
+      const riskColour = brief.overall_risk === 'RED' ? '#ff4444'
+                       : brief.overall_risk === 'AMBER' ? '#ffaa00' : '#00dd00';
+      const genDate = brief.generated_at
+        ? new Date(brief.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+        : '—';
+      const topEvents = (brief.top_events || []).slice(0, 3);
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:18px;font-weight:700;color:${riskColour};">${brief.overall_risk || 'UNKNOWN'}</span>
+          <span style="font-size:10px;color:#a0a6c0;">Generated ${genDate} · ${brief.sources_available ?? '—'} sources · Confidence ${brief.confidence != null ? Math.round(brief.confidence * 100) + '%' : '—'}</span>
+        </div>
+        <p style="font-size:12px;color:#c0c6e0;line-height:1.5;margin-bottom:12px;">${brief.executive_snapshot || ''}</p>
+        ${topEvents.length ? `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#a0a6c0;margin-bottom:6px;">Top Events</div>
+        ${topEvents.map(e => `<div style="padding:5px 0;border-bottom:1px solid rgba(0,204,255,0.06);">
+          <div style="font-size:12px;font-weight:600;">${e.title}</div>
+          <div style="font-size:10px;color:#a0a6c0;margin-top:2px;">${e.so_what || e.operational_impact || ''}</div>
+        </div>`).join('')}` : ''}
+        ${brief.bottom_line ? `<div style="margin-top:10px;padding:8px;background:rgba(0,204,255,0.05);border-left:2px solid rgba(0,204,255,0.3);font-size:11px;color:#c0c6e0;line-height:1.5;">${brief.bottom_line}</div>` : ''}`;
+    }
+
+    function renderStrategicWatchlist(data) {
+      const el = document.getElementById('astro-watchlist');
+      if (!el) return;
+      const brief = data && data.brief;
+      if (!brief) {
+        el.innerHTML = '<p class="chair-empty">Strategic watchlist unavailable.</p>';
+        return;
+      }
+      const forward = (brief.forward_watch || []);
+      const themes  = (brief.emerging_themes || []);
+      const cps230  = (brief.cps230_implications || []);
+
+      let html = '';
+
+      if (themes.length) {
+        html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#a0a6c0;margin-bottom:6px;">Emerging Themes</div>`;
+        html += themes.map(t => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid rgba(0,204,255,0.06);">• ${t}</div>`).join('');
+      }
+
+      if (forward.length) {
+        html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#a0a6c0;margin:10px 0 6px;">Forward Watch</div>`;
+        html += forward.map(f => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid rgba(0,204,255,0.06);">📍 ${f}</div>`).join('');
+      }
+
+      if (cps230.length) {
+        html += `<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#a0a6c0;margin:10px 0 6px;">CPS 230 Implications</div>`;
+        html += cps230.map(c => `<div style="font-size:11px;color:#a0a6c0;padding:3px 0;line-height:1.4;">• ${c}</div>`).join('');
+      }
+
+      if (!html) {
+        html = '<p class="chair-clear">✅ No emerging themes or forward watch items — environment stable</p>';
+      }
+
+      el.innerHTML = html;
     }
 
     function renderRecsIntel(data) {
@@ -786,41 +859,6 @@
       if (data.health_constraints_applied) {
         el.innerHTML += '<p style="font-size:10px;color:#ffaa00;margin-top:8px;">⚠️ Health constraints applied</p>';
       }
-    }
-
-    function renderReadinessIntel(data) {
-      const el = document.getElementById('readiness-intel-widget');
-      if (!el) return;
-      if (!data || data.score == null) { el.innerHTML = '<p class="intel-loading">Readiness data unavailable.</p>'; return; }
-      const colour = statusColour(data.status);
-      const pct = Math.min(100, Math.max(0, data.score));
-      el.innerHTML = `
-        <div class="readiness-score-display" style="color:${colour}">${pct}</div>
-        <div class="readiness-status" style="color:${colour}">${data.status || 'Unknown'}</div>
-        <div class="readiness-bar">
-          <div class="readiness-bar-fill" style="width:${pct}%;background:${colour}"></div>
-        </div>
-        <div class="readiness-contributors">${(data.contributors || []).map(c => `<div>• ${c}</div>`).join('')}</div>`;
-    }
-
-    function renderBlockersIntel(data) {
-      const el = document.getElementById('blockers-intel-widget');
-      if (!el) return;
-      if (!data) { el.innerHTML = '<p class="intel-loading">Blocker data unavailable.</p>'; return; }
-      const total = data.total_blockers || 0;
-      if (total === 0) { el.innerHTML = '<p style="color:#00dd00;font-size:13px;">✅ No active blockers</p>'; return; }
-      function section(title, items, cls) {
-        if (!items || !items.length) return '';
-        return `<div class="blocker-section">
-          <div class="blocker-section-title ${cls}">${title} (${items.length})</div>
-          ${items.map(b => `<div class="blocker-item"><strong>${b.mission_id}</strong> (${b.priority})<span class="blocker-age"> — ${b.age_days}d</span></div>`).join('')}
-        </div>`;
-      }
-      el.innerHTML =
-        `<p style="font-size:12px;margin-bottom:10px;">Total: <strong>${total}</strong></p>` +
-        section('Critical (P0)', data.critical, 'critical') +
-        section('High (P1)', data.high, 'high') +
-        section('Normal', data.normal, 'normal');
     }
 
     function renderLessons(data) {
