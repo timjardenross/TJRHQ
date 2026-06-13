@@ -115,6 +115,8 @@ class LLMProvider:
             stage2_prompt = (
                 f"{_SYSTEM_PROMPT}\n\n"
                 "STAGE 2 — RISK & CHALLENGE REVIEW\n"
+                "IMPORTANT: All intelligence data is already provided below. "
+                "Do NOT search the web or use any tools — respond directly using only the research package provided.\n\n"
                 "You have received a research package from the Research Scout. "
                 "Your role is to stress-test these findings as Risk & Challenge Officer. "
                 "Identify any weak signals being over-weighted, under-weighted risks, "
@@ -145,6 +147,8 @@ class LLMProvider:
             stage3_prompt = (
                 f"{_SYSTEM_PROMPT}\n\n"
                 "STAGE 3 — SUMMARY & COMPRESSION\n"
+                "IMPORTANT: All intelligence data is already provided below. "
+                "Do NOT search the web or use any tools — respond directly using only the material provided.\n\n"
                 "You have received a research package and risk challenge review. "
                 "Your role as Summary Officer is to compress and prioritise this material "
                 "into a clean, actionable intelligence package for the Captain's briefing. "
@@ -209,7 +213,12 @@ class LLMProvider:
         agent_version: int,
         prompt: str,
     ) -> Optional[str]:
-        """Call a single Mistral agent in a fresh conversation. Retries once on transient errors."""
+        """
+        Call a Mistral agent via the conversations API.
+        If the agent triggers web_search tool calls and returns no final message
+        (conversations API returns intermediate state), fall back to calling
+        mistral-small-latest directly via chat completions with the same prompt.
+        """
         from mistralai import Mistral
         client = Mistral(api_key=MISTRAL_API_KEY)
 
@@ -223,8 +232,15 @@ class LLMProvider:
                 text = self._extract_text(response)
                 if text:
                     return text
-                log.warning("[pipeline] %s returned empty response (attempt %d)", stage, attempt)
-                return None
+
+                # Agent used tools but conversations API returned no final message.
+                # Fall back to direct chat completions on the same underlying model.
+                log.warning(
+                    "[pipeline] %s returned no final message (tool calls pending) — "
+                    "falling back to direct chat completions", stage
+                )
+                return self._call_mistral_direct(stage, prompt)
+
             except Exception as exc:
                 exc_str = str(exc)
                 retryable = any(c in exc_str for c in ("429", "503", "502", "500", "timeout"))
@@ -235,6 +251,36 @@ class LLMProvider:
                 log.warning("[pipeline] %s failed: %s", stage, exc)
                 return None
         return None
+
+    def _call_mistral_direct(self, stage: str, prompt: str) -> Optional[str]:
+        """Direct mistral-small-latest chat completions — used when conversations API stalls on tool calls."""
+        try:
+            body = json.dumps({
+                "model": "mistral-small-latest",
+                "messages": [
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": 2048,
+                "temperature": 0.3,
+            }).encode()
+            req = urllib.request.Request(
+                "https://api.mistral.ai/v1/chat/completions",
+                data=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+            text = data["choices"][0]["message"]["content"].strip()
+            log.info("[pipeline] %s direct completions fallback succeeded (%d chars)", stage, len(text))
+            return text
+        except Exception as exc:
+            log.warning("[pipeline] %s direct completions fallback failed: %s", stage, exc)
+            return None
 
     @staticmethod
     def _extract_text(response) -> str:
