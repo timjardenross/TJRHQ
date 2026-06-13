@@ -367,11 +367,23 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-operations">
       <div class="dashboard-grid">
+        <!-- Mission Queue with capacity overlay -->
         <div class="widget-container">
-          <div id="brief-widget-missions"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">🚀 Mission Queue</div>
+            <div id="ops-queue"><p class="intel-loading">Loading mission queue…</p></div>
+          </div>
+          <div class="intel-card">
+            <div class="intel-card-title">🚧 Active Blockers</div>
+            <div id="ops-blockers"><p class="intel-loading">Loading blockers…</p></div>
+          </div>
         </div>
+        <!-- Lessons Applied -->
         <div class="widget-container">
-          <div id="blockers-widget"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">📚 Lessons Applied</div>
+            <div id="ops-lessons"><p class="intel-loading">Loading lessons…</p></div>
+          </div>
         </div>
       </div>
       <div class="dept-links">
@@ -384,12 +396,24 @@
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-sickbay">
       <div class="dashboard-grid">
+        <!-- Left: health widget + readiness detail -->
         <div class="widget-container">
           <div id="health-status-widget"></div>
-          <div id="readiness-widget"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">🎯 Captain Readiness</div>
+            <div id="sickbay-readiness"><p class="intel-loading">Loading readiness…</p></div>
+          </div>
         </div>
+        <!-- Right: weekly brief + medical watchlist + captain's log -->
         <div class="widget-container">
-          <div id="health-queue-widget"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">🩺 Weekly Medical Brief</div>
+            <div id="sickbay-weekly"><p class="intel-loading">Loading weekly brief…</p></div>
+          </div>
+          <div class="intel-card">
+            <div class="intel-card-title">📋 Medical Watchlist</div>
+            <div id="sickbay-watchlist"><p class="intel-loading">Loading watchlist…</p></div>
+          </div>
           <div id="captains-log-widget"></div>
         </div>
       </div>
@@ -526,6 +550,8 @@
         if (name === 'astrometrics') loadAstrometricsTab();
         if (name === 'records')      loadRecordsTab();
         if (name === 'command')      loadCommandBlockers();
+        if (name === 'operations')   loadOperationsTab();
+        if (name === 'sickbay')      loadSickbayTab();
       }
 
       // Drill links in Captain's Chair panels
@@ -835,6 +861,199 @@
       } catch (e) {
         console.warn('Records tab load error:', e);
       }
+    }
+
+    // ── Operations tab ───────────────────────────────────────────────────
+    let operationsLoaded = false;
+    async function loadOperationsTab() {
+      if (operationsLoaded) return;
+      operationsLoaded = true;
+      try {
+        const [queue, blockers, lessons] = await Promise.all([
+          fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
+          fetchJSON('/api/blockers').catch(() => null),
+          fetchJSON('/api/lessons').catch(() => null),
+        ]);
+        renderOpsQueue(queue);
+        renderOpsBlockers(blockers);
+        renderOpsLessons(lessons);
+      } catch (e) {
+        console.warn('Operations tab load error:', e);
+      }
+    }
+
+    function renderOpsQueue(data) {
+      const el = document.getElementById('ops-queue');
+      if (!el) return;
+      const queue = (data && data.queue) || [];
+      const capacity = (data && data.capacity_status) || 'Unknown';
+      if (!queue.length) {
+        el.innerHTML = '<p class="chair-empty">No active missions in queue.<br>System operating normally.</p>';
+        return;
+      }
+      const capClass = capacity.toLowerCase() === 'green' ? 'capacity-green'
+                     : capacity.toLowerCase() === 'amber' ? 'capacity-amber' : 'capacity-red';
+      el.innerHTML = `<span class="mission-capacity ${capClass}" style="margin-bottom:12px;display:inline-block;">Capacity: ${capacity}</span>` +
+        queue.map(m => {
+          const priClass = m.priority === 'P0' ? 'priority-p0' : m.priority === 'P1' ? 'priority-p1' : 'priority-p2';
+          const blocked = m.blockers && m.blockers.length > 0;
+          return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;">
+            <div style="display:flex;gap:6px;align-items:center;width:100%;">
+              <span class="mission-priority ${priClass}">${m.priority}</span>
+              <span class="mission-title" style="font-weight:600">${m.title}</span>
+              ${blocked ? '<span style="font-size:9px;color:#ff4444;margin-left:auto;">BLOCKED</span>' : ''}
+            </div>
+            ${m.next_action ? `<div class="mission-next" style="margin-top:3px;padding-left:2px;">→ ${m.next_action}</div>` : ''}
+            ${m.assigned_specialist ? `<div class="mission-next">Assigned: ${m.assigned_specialist}</div>` : ''}
+            ${m.capacity_note ? `<div style="font-size:10px;color:#ffaa00;margin-top:2px;">⚠ ${m.capacity_note}</div>` : ''}
+          </div>`;
+        }).join('');
+    }
+
+    function renderOpsBlockers(data) {
+      const el = document.getElementById('ops-blockers');
+      if (!el) return;
+      const total = (data && data.total_blockers) || 0;
+      if (total === 0) {
+        el.innerHTML = '<p class="chair-clear">✅ No active blockers — all missions clear to proceed</p>';
+        return;
+      }
+      function section(title, items, cls) {
+        if (!items || !items.length) return '';
+        return `<div class="blocker-section">
+          <div class="blocker-section-title ${cls}">${title} (${items.length})</div>
+          ${items.map(b => `<div class="blocker-item">
+            <strong>${b.mission_id}</strong> (${b.priority})<span class="blocker-age"> — ${b.age_days}d blocked</span>
+          </div>`).join('')}
+        </div>`;
+      }
+      el.innerHTML = `<p style="font-size:12px;margin-bottom:10px;">Total blocked: <strong>${total}</strong></p>` +
+        section('Critical (P0)', data.critical, 'critical') +
+        section('High (P1)', data.high, 'high') +
+        section('Normal', data.normal, 'normal');
+    }
+
+    function renderOpsLessons(data) {
+      const el = document.getElementById('ops-lessons');
+      if (!el) return;
+      const lessons = (data && data.lessons) || [];
+      if (!lessons.length) {
+        el.innerHTML = '<p class="chair-empty">No lessons on record yet.<br>Lessons are captured at mission closure.</p>';
+        return;
+      }
+      el.innerHTML = `<p style="font-size:10px;color:#a0a6c0;margin-bottom:10px;">${lessons.length} lesson${lessons.length !== 1 ? 's' : ''} captured — showing most recent</p>` +
+        lessons.slice(0, 10).map(l => `
+          <div class="lesson-item">
+            <span class="lesson-id">${l.lesson_id}</span>
+            <div class="lesson-title">${l.title}</div>
+            ${l.mission_id ? `<div class="lesson-mission">↳ ${l.mission_id}</div>` : ''}
+            ${l.guidance ? `<div style="font-size:11px;color:#a0a6c0;margin-top:3px;line-height:1.4;">${l.guidance.slice(0, 120)}${l.guidance.length > 120 ? '…' : ''}</div>` : ''}
+          </div>`).join('');
+    }
+
+    // ── Sickbay tab ──────────────────────────────────────────────────────
+    let sickbayLoaded = false;
+    async function loadSickbayTab() {
+      if (sickbayLoaded) return;
+      sickbayLoaded = true;
+      try {
+        const [readiness, synthesis, queue] = await Promise.all([
+          fetchJSON('/api/readiness').catch(() => null),
+          fetchJSON('/api/v1/captains-log/latest-synthesis').catch(() => null),
+          fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
+        ]);
+        renderSickbayReadiness(readiness);
+        renderWeeklyBrief(synthesis);
+        renderMedicalWatchlist(queue);
+      } catch (e) {
+        console.warn('Sickbay tab load error:', e);
+      }
+    }
+
+    function renderSickbayReadiness(data) {
+      const el = document.getElementById('sickbay-readiness');
+      if (!el) return;
+      if (!data || data.score == null) {
+        el.innerHTML = '<p class="chair-empty">Readiness data unavailable.<br>Log a Captain\'s Log entry to activate scoring.</p>';
+        return;
+      }
+      const colour = statusColour(data.status);
+      const pct = Math.min(100, Math.max(0, data.score));
+      const focus = (data.recommended_focus || []).map(f => `<div style="padding:3px 0;border-bottom:1px solid rgba(0,204,255,0.06);">→ ${f}</div>`).join('');
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+          <div class="readiness-score-big" style="color:${colour};font-size:40px;">${pct}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:${colour};text-transform:uppercase;letter-spacing:1px;">${data.status}</div>
+            <div style="font-size:10px;color:#a0a6c0;margin-top:2px;">Health: ${data.health_component ?? '—'}/60 · Ops: ${data.ops_component ?? '—'}/40</div>
+          </div>
+        </div>
+        <div class="readiness-bar" style="margin-bottom:12px;">
+          <div class="readiness-bar-fill" style="width:${pct}%;background:${colour}"></div>
+        </div>
+        ${focus ? `<div style="font-size:11px;color:#a0a6c0;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Recommended Focus</div>${focus}` : ''}
+        <div style="font-size:10px;color:#a0a6c0;margin-top:8px;">${(data.contributors || []).map(c => `<div>• ${c}</div>`).join('')}</div>`;
+    }
+
+    function renderWeeklyBrief(data) {
+      const el = document.getElementById('sickbay-weekly');
+      if (!el) return;
+      if (!data || !data.summary) {
+        el.innerHTML = '<p class="chair-empty">No weekly brief available.<br>Run weekly synthesis to generate.</p>';
+        return;
+      }
+      const sd = data.supporting_data || {};
+      const period = data.period_start && data.period_end
+        ? `${data.period_start} → ${data.period_end}`
+        : 'This week';
+      const stats = [
+        sd.log_count != null      ? `${sd.log_count} days logged`          : null,
+        sd.avg_pain != null       ? `Pain avg ${sd.avg_pain.toFixed(1)}/10` : null,
+        sd.avg_sleep_hours != null? `Sleep avg ${sd.avg_sleep_hours.toFixed(1)}h` : null,
+        sd.avg_cpap_hours != null ? `CPAP ${sd.avg_cpap_hours.toFixed(1)}h avg`   : null,
+      ].filter(Boolean);
+      // Render the markdown summary as plain text, stripping ## headings
+      const summaryText = data.summary
+        .replace(/^#{1,3}\s+/gm, '')
+        .replace(/\*\*/g, '')
+        .split('\n').filter(l => l.trim()).slice(0, 12).join('\n');
+      el.innerHTML = `
+        <div style="font-size:10px;color:#a0a6c0;margin-bottom:8px;">${period}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          ${stats.map(s => `<span style="font-size:10px;background:rgba(0,204,255,0.08);border:1px solid rgba(0,204,255,0.15);border-radius:3px;padding:2px 6px;color:#a0a6c0;">${s}</span>`).join('')}
+        </div>
+        <pre style="font-size:11px;color:#c0c6e0;line-height:1.6;white-space:pre-wrap;font-family:inherit;">${summaryText}</pre>`;
+    }
+
+    function renderMedicalWatchlist(data) {
+      const el = document.getElementById('sickbay-watchlist');
+      if (!el) return;
+      const capacity = (data && data.capacity_status) || null;
+      const advisory = (data && data.advisory) || null;
+      const queue = (data && data.queue) || [];
+      if (!capacity) {
+        el.innerHTML = '<p class="chair-empty">Medical watchlist unavailable.<br>Health queue data not yet generated.</p>';
+        return;
+      }
+      const capClass = capacity.toLowerCase() === 'green' ? 'capacity-green'
+                     : capacity.toLowerCase() === 'amber' ? 'capacity-amber' : 'capacity-red';
+      // Surface missions with capacity notes or blockers
+      const flagged = queue.filter(m => m.capacity_note || (m.blockers && m.blockers.length));
+      el.innerHTML = `
+        <div style="margin-bottom:10px;">
+          <span class="mission-capacity ${capClass}">Capacity: ${capacity}</span>
+          ${advisory ? `<div style="font-size:11px;color:#a0a6c0;margin-top:6px;line-height:1.4;">${advisory}</div>` : ''}
+        </div>
+        ${flagged.length === 0
+          ? '<p class="chair-clear" style="font-size:12px;">✅ No health-flagged missions — capacity operating normally</p>'
+          : flagged.map(m => `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:6px 0;">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <span class="mission-priority ${m.priority === 'P0' ? 'priority-p0' : m.priority === 'P1' ? 'priority-p1' : 'priority-p2'}">${m.priority}</span>
+                <span class="mission-title" style="font-weight:600">${m.title}</span>
+              </div>
+              ${m.capacity_note ? `<div style="font-size:10px;color:#ffaa00;margin-top:3px;">⚠ ${m.capacity_note}</div>` : ''}
+            </div>`).join('')
+        }`;
     }
 
     // ── Boot ─────────────────────────────────────────────────────────────

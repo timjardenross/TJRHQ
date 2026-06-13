@@ -42,8 +42,11 @@ app.config['JSON_SORT_KEYS'] = False
 # Load .env from same directory as this file (silently ignored if absent)
 load_dotenv(Path(__file__).parent / '.env')
 
-# Allow Dashy (port 8081) to fetch from this API without CORS errors
-CORS(app, origins=['http://localhost:8081', 'http://127.0.0.1:8081'])
+# Allow Control Deck (8080), Dashy (8081), and localhost variants
+CORS(app, origins=[
+    'http://localhost:8080', 'http://127.0.0.1:8080',
+    'http://localhost:8081', 'http://127.0.0.1:8081',
+])
 
 # Logging setup
 logging.basicConfig(
