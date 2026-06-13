@@ -1,0 +1,835 @@
+"""
+Proactive Scheduler — Starship Endeavour Number One Heartbeat
+
+Converts USS TJR OS from a reactive command-response platform into a
+proactive operating system that initiates interaction with the Captain.
+
+Schedules:
+  - Morning Brief push at BRIEF_TIME (default 07:30 local)
+  - Health check-in reminder if no entry logged today
+  - Stale mission detection (daily, after brief)
+  - Pending decision review (Friday, 16:00)
+  - Weekly review generation (Friday, 16:30)
+  - Weekly health synthesis (Saturday 08:00)  [M-20260614 WP3]
+  - Appointment preparation check (daily 08:45)  [M-20260614 WP4]
+  - Pain escalation detection (daily, after brief)  [M-20260614 WP6]
+
+Configuration (.env):
+  BRIEF_TIME              = "07:30"   # 24h local time for morning push
+  BRIEF_CHANNEL           = "D..."    # Slack DM channel or channel ID
+  BRIEF_USER_ID           = "U..."    # Captain's Slack user ID (for DM)
+  STALE_MISSION_DAYS      = "7"       # Days before a mission is flagged stale
+  SCHEDULER_ENABLED       = "true"    # Set false to disable all scheduled jobs
+  PAIN_ALERT_THRESHOLD    = "7"       # Pain score >= this triggers escalation alert
+  PAIN_ALERT_DAYS         = "3"       # Consecutive days at threshold to trigger alert
+  APPOINTMENT_LEAD_DAYS   = "2"       # Days ahead to detect upcoming appointments
+
+Usage:
+  from proactive_scheduler import start_scheduler
+  start_scheduler(slack_client)   # call after bot is initialised
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+import threading
+from datetime import datetime, date, timedelta
+from pathlib import Path
+from typing import Optional
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_BRIEF_TIME      = os.environ.get("BRIEF_TIME", "07:30")
+_BRIEF_CHANNEL   = os.environ.get("BRIEF_CHANNEL", "")
+_BRIEF_USER_ID   = os.environ.get("BRIEF_USER_ID", "")
+_STALE_DAYS      = int(os.environ.get("STALE_MISSION_DAYS", "7"))
+_ENABLED         = os.environ.get("SCHEDULER_ENABLED", "true").lower() not in ("false", "0", "no")
+_PAIN_THRESHOLD  = int(os.environ.get("PAIN_ALERT_THRESHOLD", "7"))
+_PAIN_DAYS       = int(os.environ.get("PAIN_ALERT_DAYS", "3"))
+_APPT_LEAD_DAYS  = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
+
+# ---------------------------------------------------------------------------
+# Slack post helper
+# ---------------------------------------------------------------------------
+
+def _post(client, text: str, blocks=None) -> bool:
+    """Post a message to the configured channel/DM. Returns True on success."""
+    channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
+    if not channel:
+        log.warning("[scheduler] BRIEF_CHANNEL and BRIEF_USER_ID not set — cannot push message")
+        return False
+    try:
+        kwargs: dict = {"channel": channel, "text": text}
+        if blocks:
+            kwargs["blocks"] = blocks
+        client.chat_postMessage(**kwargs)
+        return True
+    except Exception as exc:
+        log.error("[scheduler] Slack post failed: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Brief generation
+# ---------------------------------------------------------------------------
+
+def _fetch_captain_brief_text() -> str:
+    """Call the context service and return a formatted brief string."""
+    try:
+        import urllib.request, json as _json
+        api_base = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5050")
+        url = f"{api_base}/api/v1/context/captain-brief"
+        headers = {}
+        api_key = os.environ.get("BACKEND_API_KEY")
+        if api_key:
+            headers["X-Api-Key"] = api_key
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = _json.loads(resp.read())
+        return _format_brief(data)
+    except Exception as exc:
+        log.warning("[scheduler] HTTP brief fetch failed (%s), trying subprocess", exc)
+        return _fetch_brief_subprocess()
+
+
+def _fetch_brief_subprocess() -> str:
+    """Fallback: run context_service.py captain-brief via subprocess."""
+    import subprocess
+    script = _REPO_ROOT / "core" / "context-assembly" / "context_service.py"
+    if not script.exists():
+        return "_(Captain's Brief unavailable — context service not found)_"
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), "captain-brief"],
+            capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PYTHONPATH": str(_REPO_ROOT / "core" / "context-assembly")},
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()[:2000]
+        return "_(Captain's Brief generation failed — check context service logs)_"
+    except Exception as exc:
+        return f"_(Captain's Brief unavailable: {exc})_"
+
+
+def _format_brief(data: dict) -> str:
+    lines = ["*:star: Good morning, Captain. Number One reporting.*", ""]
+    if data.get("assembled_at"):
+        lines.append(f"_Brief assembled: {data['assembled_at'][:16].replace('T', ' ')} UTC_")
+        lines.append("")
+
+    missions = data.get("missions") or data.get("top_priorities") or []
+    if missions:
+        lines.append("*Active Missions:*")
+        for m in missions[:5]:
+            mid = m.get("id") or m.get("mission_id", "")
+            title = m.get("title", "")
+            status = m.get("status", "")
+            lines.append(f"  • {mid} — {title} `{status}`")
+        lines.append("")
+
+    blockers = data.get("blockers") or []
+    if blockers:
+        lines.append(f"*:warning: Blockers ({len(blockers)}):*")
+        for b in blockers[:3]:
+            lines.append(f"  • {b.get('mission_id', '')} — {b.get('reason', b.get('description', ''))}")
+        lines.append("")
+
+    rec = data.get("recommended_next_action") or data.get("recommendation") or {}
+    if rec:
+        lines.append(f"*Number One recommends:* {rec.get('action', rec.get('rationale', ''))}")
+        lines.append("")
+
+    health = data.get("health") or {}
+    wl = health.get("workload_constraint", "unknown")
+    dq = health.get("data_quality", "missing")
+    if dq == "missing":
+        lines.append(":heart: *Health:* No check-in data — please log /health-check today.")
+    else:
+        lines.append(f":heart: *Health:* Workload capacity `{wl}` (data quality: `{dq}`)")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Health check-in reminder
+# ---------------------------------------------------------------------------
+
+def _check_health_logged_today() -> bool:
+    """Return True if a health check-in entry exists for today."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get, is_configured
+        if not is_configured():
+            return False
+        today = date.today().isoformat()
+        rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
+        return bool(rows)
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Stale mission detection
+# ---------------------------------------------------------------------------
+
+def _get_stale_missions() -> list[dict]:
+    """Return missions that have not been updated in _STALE_DAYS days."""
+    try:
+        registry = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
+        if not registry.exists():
+            return []
+        cutoff = date.today() - timedelta(days=_STALE_DAYS)
+        stale = []
+        with open(registry) as f:
+            for line in f:
+                if "| IN_PROGRESS |" in line or "| Active |" in line or "| IN_PROGRESS" in line:
+                    parts = [p.strip() for p in line.split("|")]
+                    if len(parts) >= 3:
+                        stale.append({"id": parts[1], "title": parts[2], "status": parts[4] if len(parts) > 4 else ""})
+        return stale[:10]
+    except Exception as exc:
+        log.warning("[scheduler] Stale mission check failed: %s", exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Pending decisions
+# ---------------------------------------------------------------------------
+
+def _get_pending_decisions() -> list[dict]:
+    """Return runtime decision logs with no Captain outcome review."""
+    decisions_dir = _REPO_ROOT / "USS-TJR-Control" / "logs" / "decisions"
+    if not decisions_dir.exists():
+        decisions_dir = _REPO_ROOT / "logs" / "decisions"
+    if not decisions_dir.exists():
+        return []
+    try:
+        import json as _json
+        pending = []
+        for f in sorted(decisions_dir.glob("*.json"))[-50:]:
+            try:
+                data = _json.loads(f.read_text())
+                outcome = data.get("captain_outcome") or data.get("outcome") or data.get("captain_review")
+                if not outcome or outcome in (None, "null", ""):
+                    pending.append({
+                        "id": data.get("decision_id") or f.stem,
+                        "question": data.get("question") or data.get("title") or "(no title)",
+                        "date": data.get("date") or data.get("timestamp", "")[:10],
+                        "file": str(f),
+                    })
+            except Exception:
+                continue
+        return pending[:10]
+    except Exception as exc:
+        log.warning("[scheduler] Pending decision check failed: %s", exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Knowledge freshness check (Month 2)
+# ---------------------------------------------------------------------------
+
+_KNOWLEDGE_STALENESS_DAYS = 90
+_KNOWLEDGE_WATCH_DIRS = [
+    "knowledge",
+    "governance",
+    "Captains-Log",
+]
+
+
+def _get_stale_knowledge_files(limit: int = 10) -> list[dict]:
+    """Return knowledge files not modified in 90+ days."""
+    cutoff = datetime.now().timestamp() - (_KNOWLEDGE_STALENESS_DAYS * 86400)
+    stale = []
+    for rel in _KNOWLEDGE_WATCH_DIRS:
+        base = _REPO_ROOT / rel
+        if not base.exists():
+            continue
+        for path in base.rglob("*.md"):
+            try:
+                mtime = path.stat().st_mtime
+                if mtime < cutoff:
+                    age_days = int((datetime.now().timestamp() - mtime) / 86400)
+                    stale.append({
+                        "path": str(path.relative_to(_REPO_ROOT)),
+                        "age_days": age_days,
+                    })
+            except OSError:
+                continue
+    stale.sort(key=lambda f: f["age_days"], reverse=True)
+    return stale[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Decision outcome reminders (Month 3)
+# ---------------------------------------------------------------------------
+
+_DECISION_OUTCOME_DAYS = 14
+
+
+def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
+    """Return decision records > 14 days old with no outcome review recorded."""
+    import re as _re
+    decisions_dir = _REPO_ROOT / "knowledge" / "decisions"
+    if not decisions_dir.exists():
+        return []
+
+    cutoff = datetime.now().timestamp() - (_DECISION_OUTCOME_DAYS * 86400)
+    overdue = []
+    for path in sorted(decisions_dir.glob("*.md")):
+        try:
+            mtime = path.stat().st_mtime
+            if mtime > cutoff:
+                continue  # too recent
+            content = path.read_text(encoding="utf-8", errors="replace")
+            # Skip if outcome review already present
+            if any(marker in content.lower() for marker in [
+                "captain_outcome_review", "outcome review:", "outcome recorded",
+                "decision outcome:", "review complete",
+            ]):
+                continue
+            id_match = _re.search(r"decision id:\s*(DEC-\S+)", content, _re.IGNORECASE)
+            dec_id = id_match.group(1).upper() if id_match else path.stem
+            age_days = int((datetime.now().timestamp() - mtime) / 86400)
+            overdue.append({"id": dec_id, "age_days": age_days, "file": path.name})
+        except OSError:
+            continue
+    overdue.sort(key=lambda d: d["age_days"], reverse=True)
+    return overdue[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Monthly lessons digest (Month 3)
+# ---------------------------------------------------------------------------
+
+def _generate_lessons_digest() -> str:
+    """Read Lessons-Learned.md and produce a summary of entries from the last 30 days."""
+    import re as _re
+    lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
+    if not lessons_path.exists():
+        return ""
+
+    content = lessons_path.read_text(encoding="utf-8", errors="replace")
+    # Lessons are delimited by ## LL-XXX headers
+    entries = _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
+    if len(entries) <= 1:
+        return ""
+
+    # Pick entries that contain last month's date pattern (approximate)
+    from datetime import date as _date
+    today = _date.today()
+    last_month = today.replace(day=1) - timedelta(days=1)
+    month_pattern = last_month.strftime("%Y-%m")
+    this_month_pattern = today.strftime("%Y-%m")
+
+    recent = [e for e in entries if month_pattern in e or this_month_pattern in e]
+    all_entries = [e for e in entries if e.strip().startswith("## LL-")]
+
+    lines = [f":books: *Monthly Lessons Digest — {today.strftime('%B %Y')}*", ""]
+    if recent:
+        lines.append(f"*{len(recent)} lesson(s) this period:*")
+        for entry in recent:
+            id_match = _re.search(r"## (LL-\d+)", entry)
+            mission_match = _re.search(r"Mission:\s*(.+)", entry)
+            outcome_match = _re.search(r"Outcome:\s*(.+)", entry)
+            eid = id_match.group(1) if id_match else "?"
+            mission = mission_match.group(1).strip()[:60] if mission_match else "unknown"
+            outcome = outcome_match.group(1).strip()[:80] if outcome_match else "see record"
+            lines.append(f"  • `{eid}` — {mission}: {outcome}")
+    else:
+        lines.append(f"_No new lessons recorded this period. {len(all_entries)} total in register._")
+        lines.append("_Use `close mission [ID] outcome: ...` when closing missions to build the register._")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Officer monthly brief (Month 3)
+# ---------------------------------------------------------------------------
+
+def _generate_ko_monthly_brief() -> str:
+    """Generate a KO brief: lessons count, knowledge records, stale files, ADR count."""
+    import re as _re
+    from datetime import date as _date
+    today = _date.today()
+
+    lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
+    knowledge_records_dir = _REPO_ROOT / "knowledge" / "missions"
+    adr_dir = _REPO_ROOT / "core" / "governance" / "architecture-decision-records"
+
+    # Lesson count
+    lesson_count = 0
+    if lessons_path.exists():
+        content = lessons_path.read_text(encoding="utf-8", errors="replace")
+        lesson_count = len(_re.findall(r"^## LL-\d+", content, _re.MULTILINE))
+
+    # Knowledge record count
+    kr_count = len(list(knowledge_records_dir.glob("*-knowledge-record.md"))) if knowledge_records_dir.exists() else 0
+
+    # ADR count
+    adr_count = len(list(adr_dir.glob("ADR-*.txt")) + list(adr_dir.glob("ADR-*.md"))) if adr_dir.exists() else 0
+
+    # Stale files
+    stale = _get_stale_knowledge_files(limit=3)
+
+    lines = [
+        f":anchor: *Knowledge Officer Monthly Brief — {today.strftime('%B %Y')}*",
+        "",
+        "*Knowledge State:*",
+        f"  • Lessons Learned register: {lesson_count} entries",
+        f"  • Mission knowledge records: {kr_count} records",
+        f"  • Architecture Decision Records: {adr_count} ADRs",
+        "",
+    ]
+    if stale:
+        lines.append(f"*Stale knowledge (90+ days unchanged):*")
+        for f in stale:
+            lines.append(f"  • `{f['path']}` — {f['age_days']} days")
+        lines.append("")
+    lines.append("*Number One asks:* What knowledge gaps exist that would change a current decision?")
+    lines.append("_Review lessons register with `/knowledge lessons` or close open missions with outcome reviews._")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Scheduled jobs
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Captain Readiness Score helper  [M-20260614 WP7]
+# ---------------------------------------------------------------------------
+
+def _fetch_readiness_block() -> str:
+    """Generate Captain Readiness Score block for inclusion in morning brief."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
+        from readiness_score import compute_readiness_score, format_readiness_for_slack
+        from capacity_score import compute_capacity_score
+        from supabase_client import supabase_get, is_configured
+
+        if not is_configured():
+            return ""
+
+        today = date.today().isoformat()
+        rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1") or []
+        entry = rows[0] if rows else {}
+        cap_score, cap_status = compute_capacity_score(entry) if entry else (None, "Unknown")
+
+        # Fetch missions for ops component
+        from pathlib import Path as _Path
+        registry = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
+        missions = []
+        if registry.exists():
+            with open(registry) as f:
+                for line in f:
+                    parts = [p.strip() for p in line.split("|")]
+                    if len(parts) >= 5:
+                        missions.append({
+                            "mission_id": parts[1],
+                            "title": parts[2],
+                            "priority": parts[3],
+                            "status": parts[4],
+                        })
+
+        result = compute_readiness_score(cap_score, cap_status, missions)
+        return "\n" + format_readiness_for_slack(result)
+    except Exception as exc:
+        log.debug("[scheduler] Readiness score unavailable: %s", exc)
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Pain escalation detection  [M-20260614 WP6]
+# ---------------------------------------------------------------------------
+
+def _check_pain_escalation() -> Optional[dict]:
+    """
+    Return escalation info if pain has been >= _PAIN_THRESHOLD for >= _PAIN_DAYS consecutive days.
+    Returns None if no escalation warranted or data is unavailable.
+    """
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get, is_configured
+        if not is_configured():
+            return None
+
+        cutoff = (date.today() - timedelta(days=_PAIN_DAYS + 2)).isoformat()
+        rows = supabase_get(
+            f"analytics_health_daily"
+            f"?log_date=gte.{cutoff}"
+            f"&order=log_date.desc"
+            f"&limit={_PAIN_DAYS + 2}"
+        ) or []
+
+        if len(rows) < _PAIN_DAYS:
+            return None
+
+        # Check most recent _PAIN_DAYS rows all exceed threshold
+        recent = rows[:_PAIN_DAYS]
+        scores = [r.get("pain_score") for r in recent if r.get("pain_score") is not None]
+        if len(scores) < _PAIN_DAYS:
+            return None
+
+        if all(s >= _PAIN_THRESHOLD for s in scores):
+            return {
+                "consecutive_days": _PAIN_DAYS,
+                "threshold": _PAIN_THRESHOLD,
+                "scores": scores,
+                "avg_pain": round(sum(scores) / len(scores), 1),
+                "latest_date": recent[0].get("log_date", ""),
+            }
+        return None
+    except Exception as exc:
+        log.warning("[scheduler] Pain escalation check failed: %s", exc)
+        return None
+
+
+def _job_pain_escalation(client) -> None:
+    """Post pain escalation alert if threshold exceeded for consecutive days."""
+    escalation = _check_pain_escalation()
+    if not escalation:
+        return
+
+    scores_str = ", ".join(str(s) for s in escalation["scores"])
+    lines = [
+        f":rotating_light: *Medical Officer — Pain Escalation Alert*",
+        f"",
+        f"Pain score has been *≥{escalation['threshold']}/10 for {escalation['consecutive_days']} consecutive days*.",
+        f"Recent scores: {scores_str}  (average: {escalation['avg_pain']}/10)",
+        f"",
+        f"*Recommended actions:*",
+        f"  • Review pain management plan",
+        f"  • Consider whether a GP or specialist contact is warranted",
+        f"  • Reduce operational load — consider switching to RED capacity mode",
+        f"  • Log today's check-in if not already done (`/health-check`)",
+        f"",
+        f"_This is an advisory alert. Consult your healthcare provider for clinical guidance._",
+    ]
+    _post(client, "\n".join(lines))
+    log.warning(
+        "[scheduler] Pain escalation alert posted: %d consecutive days >= %d (avg %.1f)",
+        escalation["consecutive_days"], escalation["threshold"], escalation["avg_pain"]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Weekly health synthesis  [M-20260614 WP3]
+# ---------------------------------------------------------------------------
+
+def _job_weekly_health_synthesis(client) -> None:
+    """Saturday: run weekly health synthesis and post brief to Captain."""
+    log.info("[scheduler] Running weekly health synthesis")
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from commands.health_synthesis import run_weekly_synthesis, handle_health_brief
+        result = run_weekly_synthesis(period_days=7)
+        if result and result.summary:
+            channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
+            if channel:
+                # Build a clean header then the synthesis text
+                header = ":medical_symbol: *Medical Officer — Weekly Health Brief*\n"
+                _post(client, header + result.summary)
+                log.info("[scheduler] Weekly health synthesis posted (period: 7 days)")
+            else:
+                log.warning("[scheduler] Weekly synthesis generated but no channel configured")
+        else:
+            log.warning("[scheduler] Weekly synthesis returned no summary")
+    except Exception as exc:
+        log.error("[scheduler] Weekly health synthesis failed: %s", exc)
+        channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
+        if channel:
+            _post(client, f":warning: *Medical Officer:* Weekly health synthesis failed — {exc}\nUse `/health-brief` to trigger manually.")
+
+
+# ---------------------------------------------------------------------------
+# Appointment preparation check  [M-20260614 WP4]
+# ---------------------------------------------------------------------------
+
+def _job_appointment_prep(client) -> None:
+    """Daily: check for upcoming appointments and post preparation briefs."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from commands.health_appointment_prep import check_upcoming_appointments
+        count = check_upcoming_appointments(client, lead_days=_APPT_LEAD_DAYS)
+        if count:
+            log.info("[scheduler] Appointment prep: %d brief(s) posted", count)
+        else:
+            log.debug("[scheduler] Appointment prep: no upcoming appointments within %d days", _APPT_LEAD_DAYS)
+    except Exception as exc:
+        log.error("[scheduler] Appointment prep check failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Scheduled jobs
+# ---------------------------------------------------------------------------
+
+def _job_morning_brief(client) -> None:
+    log.info("[scheduler] Generating morning brief")
+    brief_text = _fetch_captain_brief_text()
+
+    # Append Captain Readiness Score  [M-20260614 WP7]
+    readiness_block = _fetch_readiness_block()
+    if readiness_block:
+        brief_text += "\n" + readiness_block
+
+    health_logged = _check_health_logged_today()
+    if not health_logged:
+        brief_text += "\n\n:bell: *Health check-in not yet logged today.* Use `/health-check` to log your daily entry."
+    _post(client, brief_text)
+    log.info("[scheduler] Morning brief pushed")
+
+    # Post-brief async jobs
+    threading.Thread(target=_job_stale_missions,  args=(client,), daemon=True).start()
+    threading.Thread(target=_job_pain_escalation, args=(client,), daemon=True).start()
+
+
+def _job_stale_missions(client) -> None:
+    stale = _get_stale_missions()
+    if not stale:
+        return
+    lines = [f":hourglass: *Stale missions — no update in {_STALE_DAYS}+ days:*"]
+    for m in stale:
+        lines.append(f"  • `{m['id']}` — {m['title']}")
+    lines.append("\nUse `/mission-status <id>` to review or `/mission-close <id>` to close.")
+    _post(client, "\n".join(lines))
+    log.info("[scheduler] Stale mission alert pushed (%d missions)", len(stale))
+
+
+def _job_decision_review(client) -> None:
+    """Friday: surface pending decision reviews."""
+    pending = _get_pending_decisions()
+    if not pending:
+        log.info("[scheduler] No pending decisions for review")
+        return
+    lines = [f":ballot_box_with_ballot: *{len(pending)} decision(s) awaiting your review:*", ""]
+    for d in pending[:8]:
+        lines.append(f"  • `{d['id']}` ({d['date']}) — {d['question'][:80]}")
+    lines.append("\nReview via `/decision-log` to record outcomes.")
+    _post(client, "\n".join(lines))
+    log.info("[scheduler] Decision review push sent (%d items)", len(pending))
+
+
+def _job_knowledge_freshness(client) -> None:
+    """Weekly: flag knowledge files not updated in 90+ days."""
+    stale = _get_stale_knowledge_files()
+    if not stale:
+        log.info("[scheduler] Knowledge freshness check: all files current")
+        return
+    lines = [
+        f":file_cabinet: *Knowledge Freshness Alert — {len(stale)} file(s) not updated in {_KNOWLEDGE_STALENESS_DAYS}+ days:*",
+        "",
+    ]
+    for f in stale[:8]:
+        lines.append(f"  • `{f['path']}` — {f['age_days']} days")
+    lines.append("\nReview and update these files to keep the knowledge base current.")
+    _post(client, "\n".join(lines))
+    log.info("[scheduler] Knowledge freshness alert pushed (%d stale files)", len(stale))
+
+
+def _job_decision_outcome_reminder(client) -> None:
+    """Weekly: remind Captain of decisions overdue for outcome review."""
+    overdue = _get_decisions_overdue_outcome()
+    if not overdue:
+        log.info("[scheduler] Decision outcome check: all decisions have outcomes")
+        return
+    lines = [
+        f":ballot_box_with_ballot: *{len(overdue)} decision(s) overdue for outcome review ({_DECISION_OUTCOME_DAYS}+ days):*",
+        "",
+    ]
+    for d in overdue[:6]:
+        lines.append(f"  • `{d['id']}` — {d['age_days']} days old")
+    lines.append(
+        "\nAdd `captain_outcome_review:` to each decision record or note in `/decision-log`."
+    )
+    _post(client, "\n".join(lines))
+    log.info("[scheduler] Decision outcome reminder pushed (%d overdue)", len(overdue))
+
+
+def _job_monthly_lessons_digest(client) -> None:
+    """First of month: push lessons digest."""
+    digest = _generate_lessons_digest()
+    if not digest:
+        log.info("[scheduler] Monthly lessons digest: no lessons to surface")
+        return
+    _post(client, digest)
+    log.info("[scheduler] Monthly lessons digest pushed")
+
+
+def _job_ko_monthly_brief(client) -> None:
+    """First of month: push Knowledge Officer monthly brief."""
+    brief = _generate_ko_monthly_brief()
+    if brief:
+        _post(client, brief)
+    log.info("[scheduler] KO monthly brief pushed")
+
+
+def _job_weekly_review(client) -> None:
+    """Friday: weekly review summary."""
+    stale = _get_stale_missions()
+    pending = _get_pending_decisions()
+    health_logged = _check_health_logged_today()
+
+    lines = [
+        ":anchor: *Weekly Review — Starship Endeavour*",
+        f"_Week ending {date.today().strftime('%Y-%m-%d')}_",
+        "",
+        f"*Stale missions:* {len(stale)} missions with no update in {_STALE_DAYS}+ days",
+        f"*Pending decisions:* {len(pending)} runtime decisions awaiting review",
+        f"*Health check-in today:* {'✅ logged' if health_logged else '❌ not logged'}",
+        "",
+        "*Number One asks:* What did you learn this week that should enter permanent knowledge?",
+        "",
+        "_Use `/captain-brief` for a full picture, `/mission-list` for mission status._",
+    ]
+    _post(client, "\n".join(lines))
+    log.info("[scheduler] Weekly review pushed")
+
+
+# ---------------------------------------------------------------------------
+# Scheduler bootstrap
+# ---------------------------------------------------------------------------
+
+def _parse_time(time_str: str) -> tuple[int, int]:
+    """Parse 'HH:MM' → (hour, minute)."""
+    try:
+        h, m = time_str.split(":")
+        return int(h), int(m)
+    except Exception:
+        log.warning("[scheduler] Invalid BRIEF_TIME '%s', defaulting to 07:30", time_str)
+        return 7, 30
+
+
+def start_scheduler(client) -> None:
+    """Start the APScheduler background scheduler. Call once after bot initialises."""
+    if not _ENABLED:
+        log.info("[scheduler] Scheduler disabled (SCHEDULER_ENABLED=false)")
+        return
+
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+    except ImportError:
+        log.warning("[scheduler] apscheduler not installed — scheduled jobs disabled. Run: pip install apscheduler")
+        return
+
+    brief_hour, brief_minute = _parse_time(_BRIEF_TIME)
+
+    scheduler = BackgroundScheduler(timezone="Australia/Sydney")
+
+    # Morning brief — every day at BRIEF_TIME
+    scheduler.add_job(
+        _job_morning_brief,
+        CronTrigger(hour=brief_hour, minute=brief_minute),
+        args=[client],
+        id="morning_brief",
+        name="Morning Brief Push",
+        replace_existing=True,
+    )
+
+    # Decision review — Friday at 16:00
+    scheduler.add_job(
+        _job_decision_review,
+        CronTrigger(day_of_week="fri", hour=16, minute=0),
+        args=[client],
+        id="decision_review",
+        name="Friday Decision Review",
+        replace_existing=True,
+    )
+
+    # Weekly review — Friday at 16:30
+    scheduler.add_job(
+        _job_weekly_review,
+        CronTrigger(day_of_week="fri", hour=16, minute=30),
+        args=[client],
+        id="weekly_review",
+        name="Friday Weekly Review",
+        replace_existing=True,
+    )
+
+    # Knowledge freshness check — Wednesday 09:00
+    scheduler.add_job(
+        _job_knowledge_freshness,
+        CronTrigger(day_of_week="wed", hour=9, minute=0),
+        args=[client],
+        id="knowledge_freshness",
+        name="Weekly Knowledge Freshness Check",
+        replace_existing=True,
+    )
+
+    # Decision outcome reminder — Wednesday 09:15
+    scheduler.add_job(
+        _job_decision_outcome_reminder,
+        CronTrigger(day_of_week="wed", hour=9, minute=15),
+        args=[client],
+        id="decision_outcome_reminder",
+        name="Decision Outcome Reminder",
+        replace_existing=True,
+    )
+
+    # Monthly lessons digest — 1st of month 08:00
+    scheduler.add_job(
+        _job_monthly_lessons_digest,
+        CronTrigger(day=1, hour=8, minute=0),
+        args=[client],
+        id="monthly_lessons_digest",
+        name="Monthly Lessons Digest",
+        replace_existing=True,
+    )
+
+    # KO monthly brief — 1st of month 08:30
+    scheduler.add_job(
+        _job_ko_monthly_brief,
+        CronTrigger(day=1, hour=8, minute=30),
+        args=[client],
+        id="ko_monthly_brief",
+        name="Knowledge Officer Monthly Brief",
+        replace_existing=True,
+    )
+
+    # Weekly health synthesis — Saturday 08:00  [M-20260614 WP3]
+    scheduler.add_job(
+        _job_weekly_health_synthesis,
+        CronTrigger(day_of_week="sat", hour=8, minute=0),
+        args=[client],
+        id="weekly_health_synthesis",
+        name="Medical Officer Weekly Health Synthesis",
+        replace_existing=True,
+    )
+
+    # Appointment preparation check — daily 08:45  [M-20260614 WP4]
+    scheduler.add_job(
+        _job_appointment_prep,
+        CronTrigger(hour=8, minute=45),
+        args=[client],
+        id="appointment_prep",
+        name="Medical Officer Appointment Preparation Check",
+        replace_existing=True,
+    )
+
+    scheduler.start()
+    log.info(
+        "[scheduler] Proactive scheduler started — brief at %02d:%02d AEST, "
+        "stale mission + pain escalation checks post-brief daily, "
+        "appointment prep daily 08:45, "
+        "weekly health synthesis Saturdays 08:00, "
+        "decision review Fridays 16:00, weekly review Fridays 16:30, "
+        "knowledge freshness Wednesdays 09:00, "
+        "decision outcome reminder Wednesdays 09:15, "
+        "monthly digest 1st of month 08:00",
+        brief_hour, brief_minute,
+    )
+    log.info("[scheduler] Target channel: %s", _BRIEF_CHANNEL or _BRIEF_USER_ID or "(not configured — set BRIEF_CHANNEL or BRIEF_USER_ID)")
+    log.info(
+        "[scheduler] Pain alert: threshold=%d/10 for %d consecutive days | "
+        "Appointment lead: %d days | Stale mission threshold: %d days",
+        _PAIN_THRESHOLD, _PAIN_DAYS, _APPT_LEAD_DAYS, _STALE_DAYS,
+    )

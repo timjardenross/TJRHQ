@@ -70,6 +70,7 @@ from commands.health_event import (
     handle_health_event_submit,
 )
 from commands.health_synthesis import handle_health_brief
+from commands.health_appointment_prep import handle_health_prep
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -78,6 +79,14 @@ from lib.captains_inbox_events import register_captains_inbox_handlers
 
 # MSN-0054: Research delegation (RESEARCH DELEGATOR FIX)
 from commands.research_command import handle_research_request_with_slack
+# WP-4: Mission lifecycle commands
+from commands.mission_lifecycle import (
+    handle_mission_list,
+    handle_mission_status,
+    handle_mission_close,
+)
+# WP-9: /research command
+from commands.research_command import handle_research_request_with_slack as _handle_research_slash
 # MSN-0040A: Command Memory query commands
 from commands.memory_queries import (
     handle_missions_active,
@@ -346,868 +355,1000 @@ if SUPABASE_URL:
 else:
     log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
 
-if app:
 @app.event("app_mention")
-    def handle_app_mention_events(body, say):
-        """Handle all @Bot mentions.
+def handle_app_mention_events(body, say):
+    """Handle all @Bot mentions.
 
-        Messages with the 'commander:' prefix are routed to the full
-        Decision Intelligence pipeline (MSN-0011A). All other intents
-        (decision:, create mission:, remember:, general) follow the
-        existing commander_bridge classification logic unchanged.
-        """
-        event = body["event"]
-        text = event.get("text", "")
-        log.info(
-            "[app] app_mention received: channel=%s user=%s len=%d",
-            event.get("channel"),
-            event.get("user"),
-            len(text),
-        )
-        result = handle_slack_message(
-            text=text,
-            user_id=event.get("user"),
-            channel_id=event.get("channel"),
-            message_ts=event.get("ts"),
-            thread_ts=event.get("thread_ts"),
-            say=say,  # MSN-0054E-FIX: Pass say() for queued mission result posting
-        )
-        log.info(
-            "[app] Responding to mention: intent=%s route=%s",
-            result.get("intent"),
-            result.get("route"),
-        )
-        # MSN-0011B: thread-aware reply — stay in the same thread as the trigger
-        thread_ts = event.get("thread_ts") or event.get("ts")
-        say(result["response_text"], thread_ts=thread_ts)
+    Messages with the 'commander:' prefix are routed to the full
+    Decision Intelligence pipeline (MSN-0011A). All other intents
+    (decision:, create mission:, remember:, general) follow the
+    existing commander_bridge classification logic unchanged.
+    """
+    event = body["event"]
+    text = event.get("text", "")
+    log.info(
+        "[app] app_mention received: channel=%s user=%s len=%d",
+        event.get("channel"),
+        event.get("user"),
+        len(text),
+    )
+    result = handle_slack_message(
+        text=text,
+        user_id=event.get("user"),
+        channel_id=event.get("channel"),
+        message_ts=event.get("ts"),
+        thread_ts=event.get("thread_ts"),
+        say=say,  # MSN-0054E-FIX: Pass say() for queued mission result posting
+    )
+    log.info(
+        "[app] Responding to mention: intent=%s route=%s",
+        result.get("intent"),
+        result.get("route"),
+    )
+    # MSN-0011B: thread-aware reply — stay in the same thread as the trigger
+    thread_ts = event.get("thread_ts") or event.get("ts")
+    say(result["response_text"], thread_ts=thread_ts)
 
-    @app.event("message")
-    def handle_message_events(body, say, client):
-        """Single message event dispatcher — Bolt v1.x only calls the first matching listener.
+@app.event("message")
+def handle_message_events(body, say, client):
+    """Single message event dispatcher — Bolt v1.x only calls the first matching listener.
 
-        Routes:
-          1. Captain's Inbox (#captains-inbox) — capture and acknowledge
-          2. Build thread approvals — detect 'approved for engineering' replies
-        """
-        from lib.captains_inbox_events import CAPTAINS_INBOX_CHANNEL_ID
-        from lib.captains_inbox_events import _dispatch as inbox_dispatch
-        from lib.captains_inbox_capture import extract_urls
+    Routes:
+      1. Captain's Inbox (#captains-inbox) — capture and acknowledge
+      2. Build thread approvals — detect 'approved for engineering' replies
+    """
+    from lib.captains_inbox_events import CAPTAINS_INBOX_CHANNEL_ID
+    from lib.captains_inbox_events import _dispatch as inbox_dispatch
+    from lib.captains_inbox_capture import extract_urls
 
-        event = body.get("event", {})
-        channel = event.get("channel")
-        subtype = event.get("subtype")
-        bot_id = event.get("bot_id")
-        user_id = event.get("user")
-        message_ts = event.get("ts")
-        text = (event.get("text") or "").strip()
-        thread_ts = event.get("thread_ts")
+    event = body.get("event", {})
+    channel = event.get("channel")
+    subtype = event.get("subtype")
+    bot_id = event.get("bot_id")
+    user_id = event.get("user")
+    message_ts = event.get("ts")
+    text = (event.get("text") or "").strip()
+    thread_ts = event.get("thread_ts")
 
-        # --- Route 1: Captain's Inbox ---
-        if (
-            CAPTAINS_INBOX_CHANNEL_ID
-            and channel == CAPTAINS_INBOX_CHANNEL_ID
-            and not bot_id
-            and subtype not in ("message_changed", "message_deleted", "bot_message", "slackbot_response")
-            and not (thread_ts and thread_ts != message_ts)
-        ):
-            log.info("[captains-inbox] message: ts=%s user=%s channel=%s", message_ts, user_id, channel)
-            urls = extract_urls(text)
-            capture_ev = {
-                "source_type": "channel_message",
-                "item_type": "url" if urls else "text_note",
-                "source_channel_id": channel,
-                "source_message_id": message_ts,
-                "source_message_ts": message_ts,
-                "raw_text": text,
-                "source_url": urls[0] if urls else None,
-                "captured_by": user_id,
-            }
-            inbox_dispatch(capture_ev, client)
-            return
-
-        # --- Route 2: Build thread approvals ---
-        if subtype is not None or bot_id or not thread_ts or not user_id:
-            return
-
-        normalized = " ".join(text.lower().split())
-        if normalized != "approved for engineering":
-            return
-
-        with _build_thread_lock:
-            build_context = _active_build_threads.get(thread_ts)
-
-        if not build_context:
-            recovered_context = find_build_record_by_thread(thread_ts)
-            if not recovered_context:
-                return
-            build_context = recovered_context
-            with _build_thread_lock:
-                _active_build_threads[thread_ts] = build_context
-
-        log.info(
-            "[app] /build approval detected: thread_ts=%s user=%s channel=%s",
-            thread_ts,
-            user_id,
-            event.get("channel"),
-        )
-
-        policy_context = {
-            "requesting_user": user_id,
-            "thread_ts": thread_ts,
-            "channel_id": event.get("channel", ""),
-            "mission_title": build_context.get("mission_title", ""),
-            "record_path": build_context.get("record_path", ""),
-            "current_status": "APPROVED_FOR_ENGINEERING",
-            "current_batch_status": "PENDING",
-            "batch_group": "unassigned",
-            "priority": "P2",
-            "assigned_by": "",
-            "decision_id": build_context.get("decision_id", ""),
-            "guard_rails_ok": "true",
-            "validation_evidence": "slack-thread-approval",
+    # --- Route 1: Captain's Inbox ---
+    if (
+        CAPTAINS_INBOX_CHANNEL_ID
+        and channel == CAPTAINS_INBOX_CHANNEL_ID
+        and not bot_id
+        and subtype not in ("message_changed", "message_deleted", "bot_message", "slackbot_response")
+        and not (thread_ts and thread_ts != message_ts)
+    ):
+        log.info("[captains-inbox] message: ts=%s user=%s channel=%s", message_ts, user_id, channel)
+        urls = extract_urls(text)
+        capture_ev = {
+            "source_type": "channel_message",
+            "item_type": "url" if urls else "text_note",
+            "source_channel_id": channel,
+            "source_message_id": message_ts,
+            "source_message_ts": message_ts,
+            "raw_text": text,
+            "source_url": urls[0] if urls else None,
+            "captured_by": user_id,
         }
-        policy_decision = xo_policy_can_approve(policy_context)
-        if not policy_decision.approved:
-            say(
-                ":warning: *Approval Denied*\n\n"
-                f"XO policy denied approval: {policy_decision.decision_reason}",
-                thread_ts=thread_ts,
-            )
-            return
+        inbox_dispatch(capture_ev, client)
+        return
 
-        # Idempotency check — prevent duplicate handoffs for the same build record
-        source_record = build_context.get("record_path", "")
-        existing_handoff = find_existing_engineering_handoff(source_record)
-        if existing_handoff:
-            say(
-                f":white_check_mark: *Already Approved (Idempotent)*\n\n"
-                f"Handoff: `{existing_handoff}`\n"
-                "Status: PENDING (awaiting batch assignment)",
-                thread_ts=thread_ts,
-            )
-            return
+    # --- Route 2: Build thread approvals ---
+    if subtype is not None or bot_id or not thread_ts or not user_id:
+        return
 
-        handoff_path = save_engineering_handoff_from_build_record(
-            build_record=build_context,
-            approver_user_id=user_id,
-        )
-        updated_record_path = mark_build_record_approved(
-            build_record=build_context,
-            approver_user_id=user_id,
-            handoff_path=handoff_path,
-        )
+    normalized = " ".join(text.lower().split())
+    if normalized != "approved for engineering":
+        return
+
+    with _build_thread_lock:
+        build_context = _active_build_threads.get(thread_ts)
+
+    if not build_context:
+        recovered_context = find_build_record_by_thread(thread_ts)
+        if not recovered_context:
+            return
+        build_context = recovered_context
+        with _build_thread_lock:
+            _active_build_threads[thread_ts] = build_context
+
+    log.info(
+        "[app] /build approval detected: thread_ts=%s user=%s channel=%s",
+        thread_ts,
+        user_id,
+        event.get("channel"),
+    )
+
+    policy_context = {
+        "requesting_user": user_id,
+        "thread_ts": thread_ts,
+        "channel_id": event.get("channel", ""),
+        "mission_title": build_context.get("mission_title", ""),
+        "record_path": build_context.get("record_path", ""),
+        "current_status": "APPROVED_FOR_ENGINEERING",
+        "current_batch_status": "PENDING",
+        "batch_group": "unassigned",
+        "priority": "P2",
+        "assigned_by": "",
+        "decision_id": build_context.get("decision_id", ""),
+        "guard_rails_ok": "true",
+        "validation_evidence": "slack-thread-approval",
+    }
+    policy_decision = xo_policy_can_approve(policy_context)
+    if not policy_decision.approved:
         say(
-            ":white_check_mark: *Approved for Engineering*\n\n"
-            f"Handoff: `{handoff_path}`\n"
-            "Status: APPROVED_FOR_ENGINEERING\n"
-            "Batch Status: PENDING\n\n"
-            ":point_right: *Next step:* Number One or the assignment authority moves the handoff to `SUBMITTED`.\n"
-            "Engineering agents only act after that explicit assignment step.\n"
-            f"XO policy trace: {', '.join(policy_decision.policy_trace)}",
+            ":warning: *Approval Denied*\n\n"
+            f"XO policy denied approval: {policy_decision.decision_reason}",
             thread_ts=thread_ts,
         )
+        return
 
-    # MSN-DISCOVERY-001: Captain's Inbox — register message + file_shared handlers
-    register_captains_inbox_handlers(app)
+    # Idempotency check — prevent duplicate handoffs for the same build record
+    source_record = build_context.get("record_path", "")
+    existing_handoff = find_existing_engineering_handoff(source_record)
+    if existing_handoff:
+        say(
+            f":white_check_mark: *Already Approved (Idempotent)*\n\n"
+            f"Handoff: `{existing_handoff}`\n"
+            "Status: PENDING (awaiting batch assignment)",
+            thread_ts=thread_ts,
+        )
+        return
 
-    @app.command("/status")
-    def handle_status_slash(ack, respond):
-        """MSN-0011B Tier 0: /status health check endpoint.
+    handoff_path = save_engineering_handoff_from_build_record(
+        build_record=build_context,
+        approver_user_id=user_id,
+    )
+    updated_record_path = mark_build_record_approved(
+        build_record=build_context,
+        approver_user_id=user_id,
+        handoff_path=handoff_path,
+    )
+    say(
+        ":white_check_mark: *Approved for Engineering*\n\n"
+        f"Handoff: `{handoff_path}`\n"
+        "Status: APPROVED_FOR_ENGINEERING\n"
+        "Batch Status: PENDING\n\n"
+        ":point_right: *Next step:* Number One or the assignment authority moves the handoff to `SUBMITTED`.\n"
+        "Engineering agents only act after that explicit assignment step.\n"
+        f"XO policy trace: {', '.join(policy_decision.policy_trace)}",
+        thread_ts=thread_ts,
+    )
 
-        Returns simple health status without dependencies on DI pipeline or long-running operations.
-        Verifies:
-        - Slack integration connected
-        - Bot token present and valid
-        - Supabase reachability (optional)
+# MSN-DISCOVERY-001: Captain's Inbox — register message + file_shared handlers
+register_captains_inbox_handlers(app)
 
-        Responds in <2 seconds to provide operator visibility into system health.
-        """
-        ack()  # Must acknowledge within 3 seconds
+@app.command("/status")
+def handle_status_slash(ack, respond):
+    """MSN-0011B Tier 0: /status health check endpoint.
 
-        health_status = {
-            "slack_connected": True,  # If we reach here, Slack is responding
-            "startup_time": STARTUP_TIME,
-            "commands_processed": COMMAND_COUNT,
-            "errors_recorded": ERROR_COUNT,
-        }
+    Returns simple health status without dependencies on DI pipeline or long-running operations.
+    Verifies:
+    - Slack integration connected
+    - Bot token present and valid
+    - Supabase reachability (optional)
 
-        # Test Supabase connectivity (optional, doesn't block)
-        supabase_status = "unknown"
-        try:
-            from tools.supabase.client import fetch_recent_context
-            recent = fetch_recent_context(limit=1)
-            supabase_status = "connected" if recent else "reachable"
-        except Exception as e:
-            supabase_status = f"error: {type(e).__name__}"
+    Responds in <2 seconds to provide operator visibility into system health.
+    """
+    ack()  # Must acknowledge within 3 seconds
 
-        # Captain's Inbox health
-        try:
-            from lib.captains_inbox_events import get_inbox_health
-            import time as _time
-            inbox = get_inbox_health()
-            if not inbox["enabled"]:
-                inbox_line = "⚪ Captain's Inbox: DISABLED (CAPTAINS_INBOX_CHANNEL_ID not set)"
-            elif inbox["last_capture_ts"] is None:
-                inbox_line = "🟡 Captain's Inbox: ready, no captures yet this session"
-            else:
-                age_min = int((_time.time() - inbox["last_capture_ts"]) / 60)
-                failures = inbox["capture_failures"]
-                inbox_line = (
-                    f"🟢 Captain's Inbox: {inbox['capture_count']} captured"
-                    f" (last {age_min}m ago"
-                    + (f", failures: {failures}" if failures else "")
-                    + ")"
-                )
-        except Exception:
-            inbox_line = "⚪ Captain's Inbox: status unavailable"
+    health_status = {
+        "slack_connected": True,  # If we reach here, Slack is responding
+        "startup_time": STARTUP_TIME,
+        "commands_processed": COMMAND_COUNT,
+        "errors_recorded": ERROR_COUNT,
+    }
 
-        # Format response
-        status_lines = [
-            ":ship: *Starship Endeavour — Slack Commander Status*",
-            "",
-            f"🟢 Slack Integration: Connected",
-            f"🟢 Bot Token: Present",
-            f"ℹ️  Supabase: {supabase_status}",
-            inbox_line,
-            "",
-            f"Uptime: {STARTUP_TIME}",
-            f"Commands: {COMMAND_COUNT}",
-            f"Errors: {ERROR_COUNT}",
-            "",
-            "✅ *Ready for operations*",
-        ]
+    # Test Supabase connectivity (optional, doesn't block)
+    supabase_status = "unknown"
+    try:
+        from tools.supabase.client import fetch_recent_context
+        recent = fetch_recent_context(limit=1)
+        supabase_status = "connected" if recent else "reachable"
+    except Exception as e:
+        supabase_status = f"error: {type(e).__name__}"
 
-        respond("\n".join(status_lines))
-
-    @app.command("/inbox-status")
-    def handle_inbox_status_slash(ack, respond):
-        """M-20260612-CAPTAINS-INBOX: Operational health check for Captain's Inbox intake pipeline.
-
-        Reports:
-        - Socket Mode connection status
-        - Supabase captured_items table reachability
-        - Last successful capture timestamp
-        - Session capture count and failure count
-        - Channel configuration
-        """
-        ack()
-
+    # Captain's Inbox health
+    try:
+        from lib.captains_inbox_events import get_inbox_health
         import time as _time
-        import os as _os
-        import urllib.request as _urllib
-
-        lines = [":inbox_tray: *Captain's Inbox — Health Status*", ""]
-
-        # 1. Channel configuration
-        channel_id = _os.environ.get("CAPTAINS_INBOX_CHANNEL_ID", "")
-        if channel_id:
-            lines.append(f"🟢 Channel configured: `{channel_id}`")
+        inbox = get_inbox_health()
+        if not inbox["enabled"]:
+            inbox_line = "⚪ Captain's Inbox: DISABLED (CAPTAINS_INBOX_CHANNEL_ID not set)"
+        elif inbox["last_capture_ts"] is None:
+            inbox_line = "🟡 Captain's Inbox: ready, no captures yet this session"
         else:
-            lines.append("🔴 Channel NOT configured: `CAPTAINS_INBOX_CHANNEL_ID` missing")
-
-        # 2. Socket Mode — if we're responding, we're connected
-        lines.append("🟢 Socket Mode: connected (responding to this command confirms it)")
-
-        # 3. Supabase captured_items reachability
-        supabase_url = _os.environ.get("SUPABASE_URL", "")
-        supabase_key = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-        if not supabase_url or not supabase_key:
-            lines.append("🔴 Supabase: not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing)")
-        else:
-            try:
-                req = _urllib.Request(
-                    f"{supabase_url.rstrip('/')}/rest/v1/captured_items?select=count&limit=1",
-                    headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"},
-                )
-                with _urllib.urlopen(req, timeout=5) as resp:
-                    count_data = resp.read().decode()
-                import json as _json
-                count = _json.loads(count_data)[0].get("count", "?") if count_data.startswith("[") else "?"
-                lines.append(f"🟢 Supabase `captured_items`: reachable ({count} total rows)")
-            except Exception as exc:
-                lines.append(f"🔴 Supabase `captured_items`: {type(exc).__name__}: {exc}")
-
-        # 4. Session capture stats
-        try:
-            from lib.captains_inbox_events import get_inbox_health
-            inbox = get_inbox_health()
-            lines.append("")
-            lines.append("*Session stats:*")
-            lines.append(f"  Captures: {inbox['capture_count']}")
-            lines.append(f"  Failures: {inbox['capture_failures']}")
-            if inbox["last_capture_ts"]:
-                age_s = int(_time.time() - inbox["last_capture_ts"])
-                age_str = f"{age_s // 60}m {age_s % 60}s ago"
-                lines.append(f"  Last capture: {age_str} (item `{inbox['last_capture_item_id']}`)")
-            else:
-                lines.append("  Last capture: none this session")
-        except Exception as exc:
-            lines.append(f"⚪ Session stats unavailable: {exc}")
-
-        lines.append("")
-        if not channel_id:
-            lines.append("❌ *Intake DISABLED — set `CAPTAINS_INBOX_CHANNEL_ID` in `.env` and restart.*")
-        else:
-            lines.append("✅ *Intake pipeline operational*")
-
-        respond("\n".join(lines))
-
-    @app.command("/inbox-capture")
-    def handle_inbox_capture_slash(ack, respond, command, client):
-        """M-20260612-CAPTAINS-INBOX: Manual ingestion command for recovering missed captures.
-
-        Usage: /inbox-capture <url> [optional note]
-        Example: /inbox-capture https://example.com/article This was missed during the outage.
-
-        Creates a captured_items row and triggers orchestration, identical to automatic intake.
-        Use for recovery of links posted before the bot was running.
-        """
-        ack()
-
-        text = (command.get("text") or "").strip()
-        if not text:
-            respond("Usage: `/inbox-capture <url> [optional note]`")
-            return
-
-        channel_id = command.get("channel_id", "")
-        user_id = command.get("user_id", "")
-
-        import re as _re
-        url_match = _re.match(r"(https?://[^\s]+)(.*)", text)
-        if not url_match:
-            respond(f"❌ No URL detected in: `{text[:200]}`\nUsage: `/inbox-capture <url> [note]`")
-            return
-
-        url = url_match.group(1)
-        note = url_match.group(2).strip()
-
-        try:
-            from lib.captains_inbox_capture import capture_item, ack_to_slack, extract_urls
-            from lib.captains_inbox_events import _dispatch, CAPTAINS_INBOX_CHANNEL_ID
-
-            target_channel = CAPTAINS_INBOX_CHANNEL_ID or channel_id
-            capture_ev = {
-                "source_type": "channel_message",
-                "item_type": "url",
-                "source_channel_id": target_channel,
-                "source_message_id": f"manual-{user_id}-{url[:60]}",
-                "source_message_ts": f"manual-{user_id}-{url[:60]}",
-                "raw_text": f"{url} {note}".strip(),
-                "source_url": url,
-                "captured_by": user_id,
-            }
-            _dispatch(capture_ev, client)
-            respond(f"✅ Manual capture queued for `{url}`. Check `#captains-inbox` for acknowledgement.")
-        except Exception as exc:
-            log.error("[inbox-capture] Manual capture failed: %s", exc)
-            respond(f"❌ Capture failed: {type(exc).__name__}: {exc}")
-
-    @app.command("/commander")
-    def handle_commander_slash(ack, respond, command):
-        """MSN-0011A: /commander slash command — routes directly to the DI pipeline.
-
-        Slack requires ack() within 3 seconds. Commander synthesis takes
-        30–120s. We ack immediately with a status message, run Commander in
-        a background thread, then post the result via respond() (valid for
-        30 minutes via Slack response_url).
-
-        Usage: /commander <question>
-        Example: /commander should we build Slack runtime before fixing the auth layer?
-        """
-        ack()  # Must acknowledge within 3 seconds
-
-        text = (command.get("text") or "").strip()
-        channel_id = command.get("channel_id", "")
-        user_id = command.get("user_id", "")
-
-        log.info(
-            "[app] /commander slash command: user=%s channel=%s question=%r",
-            user_id,
-            channel_id,
-            text[:80],
-        )
-
-        if not text:
-            respond(
-                ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
-                "Usage: `/commander <question>`\n"
-                "Example: `/commander should we prioritise Slack runtime or auth layer next?`"
+            age_min = int((_time.time() - inbox["last_capture_ts"]) / 60)
+            failures = inbox["capture_failures"]
+            inbox_line = (
+                f"🟢 Captain's Inbox: {inbox['capture_count']} captured"
+                f" (last {age_min}m ago"
+                + (f", failures: {failures}" if failures else "")
+                + ")"
             )
-            return
+    except Exception:
+        inbox_line = "⚪ Captain's Inbox: status unavailable"
 
-        # Acknowledge receipt so the user knows Commander is working
+    # Format response
+    status_lines = [
+        ":ship: *Starship Endeavour — Slack Commander Status*",
+        "",
+        f"🟢 Slack Integration: Connected",
+        f"🟢 Bot Token: Present",
+        f"ℹ️  Supabase: {supabase_status}",
+        inbox_line,
+        "",
+        f"Uptime: {STARTUP_TIME}",
+        f"Commands: {COMMAND_COUNT}",
+        f"Errors: {ERROR_COUNT}",
+        "",
+        "✅ *Ready for operations*",
+    ]
+
+    respond("\n".join(status_lines))
+
+@app.command("/inbox-status")
+def handle_inbox_status_slash(ack, respond):
+    """M-20260612-CAPTAINS-INBOX: Operational health check for Captain's Inbox intake pipeline.
+
+    Reports:
+    - Socket Mode connection status
+    - Supabase captured_items table reachability
+    - Last successful capture timestamp
+    - Session capture count and failure count
+    - Channel configuration
+    """
+    ack()
+
+    import time as _time
+    import os as _os
+    import urllib.request as _urllib
+
+    lines = [":inbox_tray: *Captain's Inbox — Health Status*", ""]
+
+    # 1. Channel configuration
+    channel_id = _os.environ.get("CAPTAINS_INBOX_CHANNEL_ID", "")
+    if channel_id:
+        lines.append(f"🟢 Channel configured: `{channel_id}`")
+    else:
+        lines.append("🔴 Channel NOT configured: `CAPTAINS_INBOX_CHANNEL_ID` missing")
+
+    # 2. Socket Mode — if we're responding, we're connected
+    lines.append("🟢 Socket Mode: connected (responding to this command confirms it)")
+
+    # 3. Supabase captured_items reachability
+    supabase_url = _os.environ.get("SUPABASE_URL", "")
+    supabase_key = _os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_url or not supabase_key:
+        lines.append("🔴 Supabase: not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing)")
+    else:
+        try:
+            req = _urllib.Request(
+                f"{supabase_url.rstrip('/')}/rest/v1/captured_items?select=count&limit=1",
+                headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"},
+            )
+            with _urllib.urlopen(req, timeout=5) as resp:
+                count_data = resp.read().decode()
+            import json as _json
+            count = _json.loads(count_data)[0].get("count", "?") if count_data.startswith("[") else "?"
+            lines.append(f"🟢 Supabase `captured_items`: reachable ({count} total rows)")
+        except Exception as exc:
+            lines.append(f"🔴 Supabase `captured_items`: {type(exc).__name__}: {exc}")
+
+    # 4. Session capture stats
+    try:
+        from lib.captains_inbox_events import get_inbox_health
+        inbox = get_inbox_health()
+        lines.append("")
+        lines.append("*Session stats:*")
+        lines.append(f"  Captures: {inbox['capture_count']}")
+        lines.append(f"  Failures: {inbox['capture_failures']}")
+        if inbox["last_capture_ts"]:
+            age_s = int(_time.time() - inbox["last_capture_ts"])
+            age_str = f"{age_s // 60}m {age_s % 60}s ago"
+            lines.append(f"  Last capture: {age_str} (item `{inbox['last_capture_item_id']}`)")
+        else:
+            lines.append("  Last capture: none this session")
+    except Exception as exc:
+        lines.append(f"⚪ Session stats unavailable: {exc}")
+
+    lines.append("")
+    if not channel_id:
+        lines.append("❌ *Intake DISABLED — set `CAPTAINS_INBOX_CHANNEL_ID` in `.env` and restart.*")
+    else:
+        lines.append("✅ *Intake pipeline operational*")
+
+    respond("\n".join(lines))
+
+@app.command("/inbox-capture")
+def handle_inbox_capture_slash(ack, respond, command, client):
+    """M-20260612-CAPTAINS-INBOX: Manual ingestion command for recovering missed captures.
+
+    Usage: /inbox-capture <url> [optional note]
+    Example: /inbox-capture https://example.com/article This was missed during the outage.
+
+    Creates a captured_items row and triggers orchestration, identical to automatic intake.
+    Use for recovery of links posted before the bot was running.
+    """
+    ack()
+
+    text = (command.get("text") or "").strip()
+    if not text:
+        respond("Usage: `/inbox-capture <url> [optional note]`")
+        return
+
+    channel_id = command.get("channel_id", "")
+    user_id = command.get("user_id", "")
+
+    import re as _re
+    url_match = _re.match(r"(https?://[^\s]+)(.*)", text)
+    if not url_match:
+        respond(f"❌ No URL detected in: `{text[:200]}`\nUsage: `/inbox-capture <url> [note]`")
+        return
+
+    url = url_match.group(1)
+    note = url_match.group(2).strip()
+
+    try:
+        from lib.captains_inbox_capture import capture_item, ack_to_slack, extract_urls
+        from lib.captains_inbox_events import _dispatch, CAPTAINS_INBOX_CHANNEL_ID
+
+        target_channel = CAPTAINS_INBOX_CHANNEL_ID or channel_id
+        capture_ev = {
+            "source_type": "channel_message",
+            "item_type": "url",
+            "source_channel_id": target_channel,
+            "source_message_id": f"manual-{user_id}-{url[:60]}",
+            "source_message_ts": f"manual-{user_id}-{url[:60]}",
+            "raw_text": f"{url} {note}".strip(),
+            "source_url": url,
+            "captured_by": user_id,
+        }
+        _dispatch(capture_ev, client)
+        respond(f"✅ Manual capture queued for `{url}`. Check `#captains-inbox` for acknowledgement.")
+    except Exception as exc:
+        log.error("[inbox-capture] Manual capture failed: %s", exc)
+        respond(f"❌ Capture failed: {type(exc).__name__}: {exc}")
+
+@app.command("/commander")
+def handle_commander_slash(ack, respond, command):
+    """MSN-0011A: /commander slash command — routes directly to the DI pipeline.
+
+    Slack requires ack() within 3 seconds. Commander synthesis takes
+    30–120s. We ack immediately with a status message, run Commander in
+    a background thread, then post the result via respond() (valid for
+    30 minutes via Slack response_url).
+
+    Usage: /commander <question>
+    Example: /commander should we build Slack runtime before fixing the auth layer?
+    """
+    ack()  # Must acknowledge within 3 seconds
+
+    text = (command.get("text") or "").strip()
+    channel_id = command.get("channel_id", "")
+    user_id = command.get("user_id", "")
+
+    log.info(
+        "[app] /commander slash command: user=%s channel=%s question=%r",
+        user_id,
+        channel_id,
+        text[:80],
+    )
+
+    if not text:
         respond(
-            f":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
-            f":hourglass_flowing_sand: Received: _{text[:120]}_\n\n"
-            "Running Decision Intelligence pipeline… this may take 30–120 seconds."
+            ":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
+            "Usage: `/commander <question>`\n"
+            "Example: `/commander should we prioritise Slack runtime or auth layer next?`"
         )
+        return
 
-        # Run synthesis in a background thread; respond() is valid for 30 min
-        def _run_and_reply() -> None:
+    # Acknowledge receipt so the user knows Commander is working
+    respond(
+        f":ship: *Starship Endeavour — Executive Officer Decision Intelligence*\n\n"
+        f":hourglass_flowing_sand: Received: _{text[:120]}_\n\n"
+        "Running Decision Intelligence pipeline… this may take 30–120 seconds."
+    )
+
+    # Run synthesis in a background thread; respond() is valid for 30 min
+    def _run_and_reply() -> None:
+        try:
+            raw = run_supabase_commander(text)
+            log.info("[app] /commander synthesis received (%d chars)", len(raw))
+            # MSN-0011B: classify and format the response
+            parsed = parse_commander_response(raw)
+            log.info("[app] /commander response type: %s", parsed["type"])
+            formatted = format_commander_response(parsed)
+            respond(formatted)
+        except Exception as exc:
+            log.error("[app] /commander background thread failed: %s", exc)
+            # Safe error response — no stack trace or secrets in Slack
+            error_response = format_commander_response({
+                "type": "ERROR",
+                "body": (
+                    "Commander could not process the request.\n"
+                    f"Reason: `{type(exc).__name__}` (check runtime logs)\n\n"
+                    "Next step: Check local Commander runtime logs and retry."
+                ),
+                "lifecycle_state": None,
+                "confidence": None,
+                "metadata": {"source": "Commander"},
+            })
+            respond(error_response)
+
+    threading.Thread(target=_run_and_reply, daemon=True).start()
+
+# ------------------------------------------------------------------
+# MSN-0012: Slack Discovery & Backlog Command Layer
+# ------------------------------------------------------------------
+
+@app.command("/mission-brief")
+def handle_mission_brief_slash(ack, respond, command):
+    """/mission-brief — Convert a description into an implementation-ready brief.
+
+    Usage: /mission-brief <description>
+    """
+    _handle_implementation_brief_command(
+        command_name="/mission-brief",
+        empty_result_fn=handle_mission_brief,
+        result_fn=handle_mission_brief,
+        ack=ack,
+        respond=respond,
+        command=command,
+    )
+
+@app.command("/mission-capture")
+def handle_mission_capture_slash(ack, respond, command):
+    """/mission-capture — Turn a Slack idea into a structured backlog capture.
+
+    Usage: /mission-capture <description>
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /mission-capture: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if not text:
+        respond(handle_mission_capture("", user_id, channel_id))
+        return
+
+    respond(
+        ":clipboard: *Mission Capture*\n\n"
+        ":hourglass_flowing_sand: Generating backlog capture… please wait."
+    )
+
+    def _run():
+        try:
+            result = handle_mission_capture(text, user_id, channel_id)
+            result = _append_commander_memory_note(result, text=text, intent="mission")
+            respond(result)
+        except Exception as exc:
+            log.error("[app] /mission-capture failed: %s", exc)
+            respond(f"*MISSION CAPTURE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+@app.command("/mission-list")
+def handle_mission_list_slash(ack, respond, command):
+    """/mission-list — List active missions from the registry.
+
+    Usage:
+      /mission-list           — active/in-progress missions
+      /mission-list all       — all missions
+      /mission-list blocked   — blocked missions
+      /mission-list completed — completed missions
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    log.info("[app] /mission-list: user=%s filter=%r", user_id, text)
+    respond(handle_mission_list(text, user_id, channel_id))
+
+
+@app.command("/mission-status")
+def handle_mission_status_slash(ack, respond, command):
+    """/mission-status — Show status of a specific mission.
+
+    Usage: /mission-status MSN-0040A
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    log.info("[app] /mission-status: user=%s id=%r", user_id, text)
+    respond(handle_mission_status(text, user_id, channel_id))
+
+
+@app.command("/mission-close")
+def handle_mission_close_slash(ack, respond, command):
+    """/mission-close — Mark a mission as closed and log the closure.
+
+    Usage: /mission-close MSN-0040A [optional closing note]
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    log.info("[app] /mission-close: user=%s text=%r", user_id, text[:80])
+    respond(handle_mission_close(text, user_id, channel_id))
+
+
+@app.command("/decision-log")
+def handle_decision_log_slash(ack, respond, command):
+    """/decision-log — Log a decision as a structured record.
+
+    Usage: /decision-log <decision statement>
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /decision-log: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if not text:
+        respond(handle_decision_log("", user_id, channel_id))
+        return
+
+    respond(
+        ":ledger: *Decision Log*\n\n"
+        ":hourglass_flowing_sand: Generating decision record… please wait."
+    )
+
+    def _run():
+        try:
+            result = handle_decision_log(text, user_id, channel_id)
+            result = _append_commander_memory_note(result, text=text, intent="decision")
+            respond(result)
+        except Exception as exc:
+            log.error("[app] /decision-log failed: %s", exc)
+            respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+@app.command("/build")
+def handle_build_slash(ack, respond, command, client):
+    """/build — Generate a coding-agent implementation brief from the requested work.
+
+    Usage: /build <description>
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /build: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if _should_skip_duplicate_command("/build", command, text):
+        log.warning("[app] /build duplicate suppressed: user=%s channel=%s", user_id, channel_id)
+        return
+
+    if not text:
+        respond(handle_build_brief("", user_id, channel_id))
+        return
+
+    respond(
+        ":hourglass_flowing_sand: `/build` accepted. Follow the channel thread for the result."
+    )
+
+    def _run() -> None:
+        try:
             try:
-                raw = run_supabase_commander(text)
-                log.info("[app] /commander synthesis received (%d chars)", len(raw))
-                # MSN-0011B: classify and format the response
-                parsed = parse_commander_response(raw)
-                log.info("[app] /commander response type: %s", parsed["type"])
-                formatted = format_commander_response(parsed)
-                respond(formatted)
-            except Exception as exc:
-                log.error("[app] /commander background thread failed: %s", exc)
-                # Safe error response — no stack trace or secrets in Slack
-                error_response = format_commander_response({
-                    "type": "ERROR",
-                    "body": (
-                        "Commander could not process the request.\n"
-                        f"Reason: `{type(exc).__name__}` (check runtime logs)\n\n"
-                        "Next step: Check local Commander runtime logs and retry."
-                    ),
-                    "lifecycle_state": None,
-                    "confidence": None,
-                    "metadata": {"source": "Commander"},
-                })
-                respond(error_response)
-
-        threading.Thread(target=_run_and_reply, daemon=True).start()
-
-    # ------------------------------------------------------------------
-    # MSN-0012: Slack Discovery & Backlog Command Layer
-    # ------------------------------------------------------------------
-
-    @app.command("/mission-brief")
-    def handle_mission_brief_slash(ack, respond, command):
-        """/mission-brief — Convert a description into an implementation-ready brief.
-
-        Usage: /mission-brief <description>
-        """
-        _handle_implementation_brief_command(
-            command_name="/mission-brief",
-            empty_result_fn=handle_mission_brief,
-            result_fn=handle_mission_brief,
-            ack=ack,
-            respond=respond,
-            command=command,
-        )
-
-    @app.command("/mission-capture")
-    def handle_mission_capture_slash(ack, respond, command):
-        """/mission-capture — Turn a Slack idea into a structured backlog capture.
-
-        Usage: /mission-capture <description>
-        """
-        ack()
-        text = (command.get("text") or "").strip()
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-
-        log.info("[app] /mission-capture: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
-
-        if not text:
-            respond(handle_mission_capture("", user_id, channel_id))
-            return
-
-        respond(
-            ":clipboard: *Mission Capture*\n\n"
-            ":hourglass_flowing_sand: Generating backlog capture… please wait."
-        )
-
-        def _run():
-            try:
-                result = handle_mission_capture(text, user_id, channel_id)
-                result = _append_commander_memory_note(result, text=text, intent="mission")
-                respond(result)
-            except Exception as exc:
-                log.error("[app] /mission-capture failed: %s", exc)
-                respond(f"*MISSION CAPTURE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    @app.command("/decision-log")
-    def handle_decision_log_slash(ack, respond, command):
-        """/decision-log — Log a decision as a structured record.
-
-        Usage: /decision-log <decision statement>
-        """
-        ack()
-        text = (command.get("text") or "").strip()
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-
-        log.info("[app] /decision-log: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
-
-        if not text:
-            respond(handle_decision_log("", user_id, channel_id))
-            return
-
-        respond(
-            ":ledger: *Decision Log*\n\n"
-            ":hourglass_flowing_sand: Generating decision record… please wait."
-        )
-
-        def _run():
-            try:
-                result = handle_decision_log(text, user_id, channel_id)
-                result = _append_commander_memory_note(result, text=text, intent="decision")
-                respond(result)
-            except Exception as exc:
-                log.error("[app] /decision-log failed: %s", exc)
-                respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    @app.command("/build")
-    def handle_build_slash(ack, respond, command, client):
-        """/build — Generate a coding-agent implementation brief from the requested work.
-
-        Usage: /build <description>
-        """
-        ack()
-        text = (command.get("text") or "").strip()
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-
-        log.info("[app] /build: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
-
-        if _should_skip_duplicate_command("/build", command, text):
-            log.warning("[app] /build duplicate suppressed: user=%s channel=%s", user_id, channel_id)
-            return
-
-        if not text:
-            respond(handle_build_brief("", user_id, channel_id))
-            return
-
-        respond(
-            ":hourglass_flowing_sand: `/build` accepted. Follow the channel thread for the result."
-        )
-
-        def _run() -> None:
-            try:
-                try:
-                    anchor = client.chat_postMessage(
-                        channel=channel_id,
-                        text=(
-                            f":hammer_and_wrench: *Build request from <@{user_id}>*\n"
-                            f":hourglass_flowing_sand: Processing\n"
-                            f"*Request:* {text[:250]}"
-                        )
+                anchor = client.chat_postMessage(
+                    channel=channel_id,
+                    text=(
+                        f":hammer_and_wrench: *Build request from <@{user_id}>*\n"
+                        f":hourglass_flowing_sand: Processing\n"
+                        f"*Request:* {text[:250]}"
                     )
-                    thread_ts = anchor.get("ts")
-                    with _build_thread_lock:
-                        _active_build_threads[thread_ts] = {
-                            "channel_id": channel_id,
-                            "user_id": user_id,
-                            "request_text": text,
-                        }
+                )
+                thread_ts = anchor.get("ts")
+                with _build_thread_lock:
+                    _active_build_threads[thread_ts] = {
+                        "channel_id": channel_id,
+                        "user_id": user_id,
+                        "request_text": text,
+                    }
 
+                result = handle_build_brief(
+                    text,
+                    user_id,
+                    channel_id,
+                    thread_ts=thread_ts,
+                )
+                client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=thread_ts,
+                    text=result,
+                    unfurl_links=False,
+                    unfurl_media=False,
+                )
+                client.chat_update(
+                    channel=channel_id,
+                    ts=thread_ts,
+                    text=(
+                        f":white_check_mark: *Build ready for <@{user_id}>*\n"
+                        f"*Request:* {text[:250]}\n"
+                        "Final brief posted in thread."
+                    ),
+                )
+            except SlackApiError as slack_exc:
+                error_code = slack_exc.response.get("error")
+                if error_code == "not_in_channel":
                     result = handle_build_brief(
                         text,
                         user_id,
                         channel_id,
-                        thread_ts=thread_ts,
                     )
-                    client.chat_postMessage(
-                        channel=channel_id,
-                        thread_ts=thread_ts,
-                        text=result,
-                        unfurl_links=False,
-                        unfurl_media=False,
+                    log.warning(
+                        "[app] /build fallback to slash response: bot not in channel=%s",
+                        channel_id,
                     )
+                    respond(
+                        {
+                            "response_type": "in_channel",
+                            "text": (
+                                f":hammer_and_wrench: *Build request from <@{user_id}>*\n"
+                                f"*Request:* {text[:250]}\n\n"
+                                f"{result}"
+                            ),
+                        }
+                    )
+                else:
+                    raise
+        except Exception as exc:
+            log.error("[app] /build failed: %s", exc)
+            try:
+                if "thread_ts" in locals() and thread_ts:
                     client.chat_update(
                         channel=channel_id,
                         ts=thread_ts,
                         text=(
-                            f":white_check_mark: *Build ready for <@{user_id}>*\n"
+                            f":warning: *Build failed for <@{user_id}>*\n"
                             f"*Request:* {text[:250]}\n"
-                            "Final brief posted in thread."
+                            f"Reason: `{type(exc).__name__}`"
                         ),
                     )
-                except SlackApiError as slack_exc:
-                    error_code = slack_exc.response.get("error")
-                    if error_code == "not_in_channel":
-                        result = handle_build_brief(
-                            text,
-                            user_id,
-                            channel_id,
-                        )
-                        log.warning(
-                            "[app] /build fallback to slash response: bot not in channel=%s",
-                            channel_id,
-                        )
-                        respond(
-                            {
-                                "response_type": "in_channel",
-                                "text": (
-                                    f":hammer_and_wrench: *Build request from <@{user_id}>*\n"
-                                    f"*Request:* {text[:250]}\n\n"
-                                    f"{result}"
-                                ),
-                            }
-                        )
-                    else:
-                        raise
-            except Exception as exc:
-                log.error("[app] /build failed: %s", exc)
-                try:
-                    if "thread_ts" in locals() and thread_ts:
-                        client.chat_update(
-                            channel=channel_id,
-                            ts=thread_ts,
-                            text=(
-                                f":warning: *Build failed for <@{user_id}>*\n"
-                                f"*Request:* {text[:250]}\n"
-                                f"Reason: `{type(exc).__name__}`"
-                            ),
-                        )
-                except Exception as update_exc:
-                    log.warning("[app] /build failed to update anchor after error: %s", update_exc)
-                respond(f"*BUILD ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+            except Exception as update_exc:
+                log.warning("[app] /build failed to update anchor after error: %s", update_exc)
+            respond(f"*BUILD ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-        threading.Thread(target=_run, daemon=True).start()
+    threading.Thread(target=_run, daemon=True).start()
 
-    @app.command("/batch-scan")
-    def handle_batch_scan_slash(ack, respond, command):
-        """/batch-scan — List engineering handoffs pending batch assignment.
+@app.command("/batch-scan")
+def handle_batch_scan_slash(ack, respond, command):
+    """/batch-scan — List engineering handoffs pending batch assignment.
 
-        Usage: /batch-scan [--detailed]
-        """
-        ack()
+    Usage: /batch-scan [--detailed]
+    """
+    ack()
 
-        text = (command.get("text") or "").strip()
-        if text and text not in {"--detailed", "-d"}:
-            respond(
-                ":package: *Batch Scanner*\n\n"
-                "Usage: `/batch-scan [--detailed]`\n"
-                "This command scans `Missions/Engineering-Handoffs` for items where "
-                "`Status: APPROVED_FOR_ENGINEERING` and `Batch Status: PENDING`."
-            )
-            return
+    text = (command.get("text") or "").strip()
+    if text and text not in {"--detailed", "-d"}:
+        respond(
+            ":package: *Batch Scanner*\n\n"
+            "Usage: `/batch-scan [--detailed]`\n"
+            "This command scans `Missions/Engineering-Handoffs` for items where "
+            "`Status: APPROVED_FOR_ENGINEERING` and `Batch Status: PENDING`."
+        )
+        return
 
-        respond(format_pending_engineering_handoffs_report(detailed=text in {"--detailed", "-d"}))
+    respond(format_pending_engineering_handoffs_report(detailed=text in {"--detailed", "-d"}))
 
-    @app.command("/batch-claim")
-    def handle_batch_claim_slash(ack, respond, command):
-        """/batch-claim — Claim the first pending engineering handoff.
+@app.command("/batch-claim")
+def handle_batch_claim_slash(ack, respond, command):
+    """/batch-claim — Claim the first pending engineering handoff.
 
-        Usage: /batch-claim BATCH-001
-        """
-        ack()
+    Usage: /batch-claim BATCH-001
+    """
+    ack()
 
-        batch_group = (command.get("text") or "").strip()
-        if not batch_group:
-            respond(
-                ":package: *Batch Claim*\n\n"
-                "Usage: `/batch-claim BATCH-001`\n"
-                "This command claims the oldest pending handoff and sets `Batch Status: SUBMITTED`."
-            )
-            return
-
-        claimed = claim_oldest_pending_engineering_handoff(batch_group)
-        if not claimed:
-            respond(
-                ":package: *Batch Claim*\n\n"
-                "No pending handoffs were available to claim."
-            )
-            return
-
+    batch_group = (command.get("text") or "").strip()
+    if not batch_group:
         respond(
             ":package: *Batch Claim*\n\n"
-            f"Claimed `{claimed['path']}`\n"
-            f"- Mission: {claimed['mission_title']}\n"
-            f"- Batch Group: {batch_group}\n"
-            f"- Batch Status: SUBMITTED"
+            "Usage: `/batch-claim BATCH-001`\n"
+            "This command claims the oldest pending handoff and sets `Batch Status: SUBMITTED`."
         )
+        return
 
-    @app.command("/batch-status")
-    def handle_batch_status_slash(ack, respond, command):
-        """/batch-status — Show the decision/outcome chain for a handoff.
+    claimed = claim_oldest_pending_engineering_handoff(batch_group)
+    if not claimed:
+        respond(
+            ":package: *Batch Claim*\n\n"
+            "No pending handoffs were available to claim."
+        )
+        return
 
-        Usage: /batch-status <hand-off path>
-        """
-        ack()
-        respond(handle_batch_status_request(command.get("text") or ""))
+    respond(
+        ":package: *Batch Claim*\n\n"
+        f"Claimed `{claimed['path']}`\n"
+        f"- Mission: {claimed['mission_title']}\n"
+        f"- Batch Group: {batch_group}\n"
+        f"- Batch Status: SUBMITTED"
+    )
 
-    @app.command("/memory-metrics")
-    def handle_memory_metrics_slash(ack, respond, command):
-        """/memory-metrics — Show read-only memory effectiveness metrics.
+@app.command("/batch-status")
+def handle_batch_status_slash(ack, respond, command):
+    """/batch-status — Show the decision/outcome chain for a handoff.
 
-        Usage: /memory-metrics [--7d|--30d]
-        """
-        handle_memory_metrics_summary(ack, respond, command)
+    Usage: /batch-status <hand-off path>
+    """
+    ack()
+    respond(handle_batch_status_request(command.get("text") or ""))
 
-    # ------------------------------------------------------------------
-    # WP-C: Context Assembly — Captain's Brief
-    # ------------------------------------------------------------------
+@app.command("/memory-metrics")
+def handle_memory_metrics_slash(ack, respond, command):
+    """/memory-metrics — Show read-only memory effectiveness metrics.
 
-    @app.command("/captain-brief")
-    def handle_captain_brief_slash(ack, respond, command):
-        """/captain-brief — Fetch the current Captain's Brief from Context Assembly.
+    Usage: /memory-metrics [--7d|--30d]
+    """
+    handle_memory_metrics_summary(ack, respond, command)
 
-        Returns top priorities, blockers, decisions awaiting input, and
-        workload capacity from the Context Assembly service (port 5001).
+# ------------------------------------------------------------------
+# WP-C: Context Assembly — Captain's Brief
+# ------------------------------------------------------------------
 
-        Falls back to a degraded-state message if the service is unavailable.
-        No persistent state is created.
+@app.command("/captain-brief")
+def handle_captain_brief_slash(ack, respond, command):
+    """/captain-brief — Fetch the current Captain's Brief from Context Assembly.
 
-        Rollback: remove commands/captain_brief.py and this registration.
-        """
-        ack()
+    Returns top priorities, blockers, decisions awaiting input, and
+    workload capacity from the Context Assembly service (port 5001).
 
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-        log.info("[app] /captain-brief: user=%s channel=%s", user_id, channel_id)
+    Falls back to a degraded-state message if the service is unavailable.
+    No persistent state is created.
 
-        def _run():
-            try:
-                blocks = fetch_and_format_captain_brief()
-                respond(blocks=blocks)
-            except Exception as exc:
-                log.error("[app] /captain-brief failed: %s — %s", type(exc).__name__, exc)
-                respond(
-                    ":warning: *Captain's Brief — Error*\n\n"
-                    f"`{type(exc).__name__}` — check runtime logs.\n\n"
-                    "Verify context service: "
-                    "`python3 core/context-assembly/context_service.py serve`"
-                )
+    Rollback: remove commands/captain_brief.py and this registration.
+    """
+    ack()
 
-        threading.Thread(target=_run, daemon=True).start()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    log.info("[app] /captain-brief: user=%s channel=%s", user_id, channel_id)
 
-    @app.command("/operating-picture")
-    def handle_operating_picture_slash(ack, respond, command):
-        """/operating-picture — 5-minute Captain Operating Picture.
-
-        Returns health snapshot, top 3 priorities, blockers summary, and
-        Number One advisory from the Context Assembly service (WP6).
-        No LLM synthesis — retrieval only.
-        """
-        ack()
-
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-        log.info("[app] /operating-picture: user=%s channel=%s", user_id, channel_id)
-
-        def _run():
-            try:
-                blocks = fetch_and_format_operating_picture()
-                respond(blocks=blocks)
-            except Exception as exc:
-                log.error("[app] /operating-picture failed: %s — %s", type(exc).__name__, exc)
-                respond(
-                    ":warning: *Operating Picture — Error*\n\n"
-                    f"`{type(exc).__name__}` — check runtime logs."
-                )
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    @app.command("/resilience-brief")
-    def handle_resilience_brief_slash(ack, respond, command):
-        """/resilience-brief — Operational Resilience Intelligence Brief.
-
-        Subcommands:
-          /resilience-brief           — show latest brief
-          /resilience-brief sources   — show source health
-          /resilience-brief generate  — trigger on-demand generation
-        """
-        ack()
-
-        user_id = command.get("user_id", "")
-        channel_id = command.get("channel_id", "")
-        text = command.get("text", "")
-        log.info("[app] /resilience-brief: user=%s channel=%s sub=%r", user_id, channel_id, text)
-
-        def _run():
-            handle_resilience_brief(text, respond)
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    # ── Health Check ──────────────────────────────────────────────────────────
-
-    @app.command("/health-check")
-    def handle_health_check_slash(ack, command, client):
-        """/health-check — open daily health check-in modal.
-
-        Immediately acks and opens the guided Block Kit modal.
-        The submission is handled by the view handler below.
-        """
-        ack()
-        trigger_id = command.get("trigger_id")
-        user_id = command.get("user_id", "")
-        log.info("[app] /health-check: user=%s trigger_id=%s", user_id, trigger_id)
-
-        if not trigger_id:
-            log.error("[health-check] No trigger_id — cannot open modal")
-            return
-
+    def _run():
         try:
-            client.views_open(trigger_id=trigger_id, view=build_health_check_modal())
+            blocks = fetch_and_format_captain_brief()
+            respond(blocks=blocks)
         except Exception as exc:
-            log.error("[health-check] views_open failed: %s — %s", type(exc).__name__, exc)
-
-    @app.view(HEALTH_CHECK_MODAL_CALLBACK_ID)
-    def handle_health_check_view_submission(ack, body, client):
-        """Process health check modal submission (view_submission event)."""
-        ack()
-        user_id = body.get("user", {}).get("id", "")
-        values = body.get("view", {}).get("state", {}).get("values", {})
-        log.info("[health-check] Modal submitted by user=%s", user_id)
-
-        def _run():
-            handle_health_check_submit(values, user_id, client)
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    # ── Health Event ──────────────────────────────────────────────────────────
-
-    @app.command("/health-event")
-    def handle_health_event_slash(ack, command, client):
-        """/health-event — log a significant health timeline event via modal."""
-        ack()
-        trigger_id = command.get("trigger_id")
-        user_id = command.get("user_id", "")
-        log.info("[app] /health-event: user=%s trigger_id=%s", user_id, trigger_id)
-
-        if not trigger_id:
-            log.error("[health-event] No trigger_id — cannot open modal")
-            return
-
-        try:
-            client.views_open(trigger_id=trigger_id, view=build_health_event_modal())
-        except Exception as exc:
-            log.error("[health-event] views_open failed: %s — %s", type(exc).__name__, exc)
-
-    @app.view(HEALTH_EVENT_MODAL_CALLBACK_ID)
-    def handle_health_event_view_submission(ack, body, client):
-        """Process health event modal submission (view_submission event)."""
-        ack()
-        user_id = body.get("user", {}).get("id", "")
-        values = body.get("view", {}).get("state", {}).get("values", {})
-        log.info("[health-event] Modal submitted by user=%s", user_id)
-
-        def _run():
-            handle_health_event_submit(values, user_id, client)
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    # ── Health Brief ──────────────────────────────────────────────────────────
-
-    @app.command("/health-brief")
-    def handle_health_brief_slash(ack, command, client):
-        """/health-brief — run weekly health synthesis and receive the brief as a DM."""
-        ack()
-        user_id = command.get("user_id", "")
-        log.info("[app] /health-brief: user=%s", user_id)
-
-        try:
-            client.chat_postMessage(
-                channel=user_id,
-                text=":hourglass_flowing_sand: Generating health brief… this may take up to 30 seconds.",
+            log.error("[app] /captain-brief failed: %s — %s", type(exc).__name__, exc)
+            respond(
+                ":warning: *Captain's Brief — Error*\n\n"
+                f"`{type(exc).__name__}` — check runtime logs.\n\n"
+                "Verify context service: "
+                "`python3 core/context-assembly/context_service.py serve`"
             )
-        except Exception:
-            pass
 
-        def _run():
-            handle_health_brief(user_id, client)
+    threading.Thread(target=_run, daemon=True).start()
 
-        threading.Thread(target=_run, daemon=True).start()
+@app.command("/operating-picture")
+def handle_operating_picture_slash(ack, respond, command):
+    """/operating-picture — 5-minute Captain Operating Picture.
+
+    Returns health snapshot, top 3 priorities, blockers summary, and
+    Number One advisory from the Context Assembly service (WP6).
+    No LLM synthesis — retrieval only.
+    """
+    ack()
+
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    log.info("[app] /operating-picture: user=%s channel=%s", user_id, channel_id)
+
+    def _run():
+        try:
+            blocks = fetch_and_format_operating_picture()
+            respond(blocks=blocks)
+        except Exception as exc:
+            log.error("[app] /operating-picture failed: %s — %s", type(exc).__name__, exc)
+            respond(
+                ":warning: *Operating Picture — Error*\n\n"
+                f"`{type(exc).__name__}` — check runtime logs."
+            )
+
+    threading.Thread(target=_run, daemon=True).start()
+
+@app.command("/resilience-brief")
+def handle_resilience_brief_slash(ack, respond, command):
+    """/resilience-brief — Operational Resilience Intelligence Brief.
+
+    Subcommands:
+      /resilience-brief           — show latest brief
+      /resilience-brief sources   — show source health
+      /resilience-brief generate  — trigger on-demand generation
+    """
+    ack()
+
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+    text = command.get("text", "")
+    log.info("[app] /resilience-brief: user=%s channel=%s sub=%r", user_id, channel_id, text)
+
+    def _run():
+        handle_resilience_brief(text, respond)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+# ── Health Check ──────────────────────────────────────────────────────────
+
+@app.command("/health-check")
+def handle_health_check_slash(ack, command, client):
+    """/health-check — open daily health check-in modal.
+
+    Immediately acks and opens the guided Block Kit modal.
+    The submission is handled by the view handler below.
+    """
+    ack()
+    trigger_id = command.get("trigger_id")
+    user_id = command.get("user_id", "")
+    log.info("[app] /health-check: user=%s trigger_id=%s", user_id, trigger_id)
+
+    if not trigger_id:
+        log.error("[health-check] No trigger_id — cannot open modal")
+        return
+
+    try:
+        client.views_open(trigger_id=trigger_id, view=build_health_check_modal())
+    except Exception as exc:
+        log.error("[health-check] views_open failed: %s — %s", type(exc).__name__, exc)
+
+@app.view(HEALTH_CHECK_MODAL_CALLBACK_ID)
+def handle_health_check_view_submission(ack, body, client):
+    """Process health check modal submission (view_submission event)."""
+    ack()
+    user_id = body.get("user", {}).get("id", "")
+    values = body.get("view", {}).get("state", {}).get("values", {})
+    log.info("[health-check] Modal submitted by user=%s", user_id)
+
+    def _run():
+        handle_health_check_submit(values, user_id, client)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+# ── Health Event ──────────────────────────────────────────────────────────
+
+@app.command("/health-event")
+def handle_health_event_slash(ack, command, client):
+    """/health-event — log a significant health timeline event via modal."""
+    ack()
+    trigger_id = command.get("trigger_id")
+    user_id = command.get("user_id", "")
+    log.info("[app] /health-event: user=%s trigger_id=%s", user_id, trigger_id)
+
+    if not trigger_id:
+        log.error("[health-event] No trigger_id — cannot open modal")
+        return
+
+    try:
+        client.views_open(trigger_id=trigger_id, view=build_health_event_modal())
+    except Exception as exc:
+        log.error("[health-event] views_open failed: %s — %s", type(exc).__name__, exc)
+
+@app.view(HEALTH_EVENT_MODAL_CALLBACK_ID)
+def handle_health_event_view_submission(ack, body, client):
+    """Process health event modal submission (view_submission event)."""
+    ack()
+    user_id = body.get("user", {}).get("id", "")
+    values = body.get("view", {}).get("state", {}).get("values", {})
+    log.info("[health-event] Modal submitted by user=%s", user_id)
+
+    def _run():
+        handle_health_event_submit(values, user_id, client)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+# ── Health Brief ──────────────────────────────────────────────────────────
+
+@app.command("/health-brief")
+def handle_health_brief_slash(ack, command, client):
+    """/health-brief — run weekly health synthesis and receive the brief as a DM."""
+    ack()
+    user_id = command.get("user_id", "")
+    log.info("[app] /health-brief: user=%s", user_id)
+
+    try:
+        client.chat_postMessage(
+            channel=user_id,
+            text=":hourglass_flowing_sand: Generating health brief… this may take up to 30 seconds.",
+        )
+    except Exception:
+        pass
+
+    def _run():
+        handle_health_brief(user_id, client)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+# ── Appointment Preparation  [M-20260614 WP4] ─────────────────────────────
+
+@app.command("/health-prep")
+def handle_health_prep_slash(ack, command, client):
+    """/health-prep — generate appointment preparation brief for next upcoming appointment."""
+    ack()
+    user_id = command.get("user_id", "")
+    log.info("[app] /health-prep: user=%s", user_id)
+    try:
+        client.chat_postMessage(
+            channel=user_id,
+            text=":stethoscope: Generating appointment preparation brief…",
+        )
+    except Exception:
+        pass
+    threading.Thread(target=handle_health_prep, args=(ack, command, client), daemon=True).start()
+
+
+@app.command("/research")
+def handle_research_slash(ack, respond, command, client):
+    """/research — Run a structured research mission via the Research Officer.
+
+    Usage: /research <query>
+    Example: /research operational resilience trends in Australian banking 2026
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /research: user=%s query=%r", user_id, text[:80])
+
+    if not text:
+        respond(
+            ":telescope: *Research Officer*\n\n"
+            "Usage: `/research <query>`\n"
+            "Example: `/research operational resilience trends in Australian banking 2026`"
+        )
+        return
+
+    respond(
+        f":telescope: *Research Officer* — initiating research mission\n"
+        f"Query: _{text}_\n"
+        ":hourglass_flowing_sand: This may take 30–60 seconds…"
+    )
+
+    def _run():
+        try:
+            result = _handle_research_slash(
+                text, user_id=user_id, channel_id=channel_id, say=None
+            )
+            if result:
+                try:
+                    client.chat_postMessage(channel=channel_id, text=result)
+                except Exception:
+                    respond(result)
+        except Exception as exc:
+            log.error("[app] /research failed: %s", exc)
+            respond(f"*Research Officer — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.command("/brief-now")
+def handle_brief_now_slash(ack, respond, command, client):
+    """/brief-now — Trigger a Captain's Brief push to #xo-daily-brief immediately.
+
+    Useful to verify delivery or get a brief on demand without waiting for 07:00.
+    Usage: /brief-now
+    """
+    ack()
+    user_id = command.get("user_id", "")
+    log.info("[app] /brief-now: user=%s", user_id)
+    respond(":star: Generating brief and pushing to #xo-daily-brief…")
+
+    def _run():
+        try:
+            from proactive_scheduler import _job_morning_brief
+            _job_morning_brief(client)
+        except Exception as exc:
+            log.error("[app] /brief-now failed: %s", exc)
+            respond(f"*Brief push failed:* `{type(exc).__name__}: {exc}`")
+
+    threading.Thread(target=_run, daemon=True).start()
+
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
@@ -1299,9 +1440,15 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     def _socket_mode_watchdog() -> None:
-        """Log once after 5s to confirm Socket Mode is running, then stay silent."""
+        """Log once after 5s to confirm Socket Mode is running, then start the proactive scheduler."""
         time.sleep(5)
         log.info("[startup] Socket Mode running")
+        # Start proactive scheduler (Number One heartbeat) after bot is confirmed connected
+        try:
+            from proactive_scheduler import start_scheduler
+            start_scheduler(app.client)
+        except Exception as _sched_exc:
+            log.warning("[startup] Proactive scheduler failed to start: %s", _sched_exc)
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
 

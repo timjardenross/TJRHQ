@@ -312,6 +312,98 @@ class NumberOne:
         # Sort queue
         return self._sort_work_queue(queue_items)
 
+    def get_health_adjusted_queue(
+        self,
+        missions: list[dict[str, Any]],
+        capacity_status: str,
+        routing_results: dict[str, "RoutingDecision"] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Return the work queue with an advisory health-capacity overlay.
+
+        The base priority ordering from get_work_queue() is never overridden —
+        P0 missions always surface first.  The overlay adds a capacity_note to
+        each item and produces a recommended_focus list appropriate to the
+        Captain's current health state.
+
+        capacity_status:
+          "Green"   — full capacity; normal queue ordering applies
+          "Amber"   — reduced capacity; adds advisory note per item
+          "Red"     — critical-only; P0 missions recommended; all others deferred
+
+        Returns a dict (not a list) so the health context travels with the queue:
+          {
+            "capacity_status": str,
+            "queue": list[dict],          # WorkQueueItems serialised + capacity_note
+            "recommended_focus": list[str],
+            "advisory": str,              # plain-English capacity statement
+          }
+
+        Mission records are NEVER altered. This is a read-only advisory overlay.
+        """
+        base_queue = self.get_work_queue(missions, routing_results)
+
+        annotated = []
+        for item in base_queue:
+            d = {
+                "mission_id": item.mission_id,
+                "priority": item.priority.value if hasattr(item.priority, "value") else item.priority,
+                "status": item.status.value if hasattr(item.status, "value") else str(item.status),
+                "title": item.title,
+                "assigned_specialist": item.assigned_specialist,
+                "next_action": item.next_action,
+                "blockers": item.blockers,
+                "capacity_note": "",
+            }
+            pri = d["priority"]
+            if capacity_status == "Red":
+                if pri == "P0":
+                    d["capacity_note"] = "CRITICAL — proceed regardless of capacity"
+                else:
+                    d["capacity_note"] = "DEFERRED — Red capacity: P0 only today"
+            elif capacity_status == "Amber":
+                if pri in ("P0", "P1"):
+                    d["capacity_note"] = "Proceed — priority justifies reduced capacity"
+                else:
+                    d["capacity_note"] = "Advisory: consider deferring on reduced capacity days"
+            else:
+                d["capacity_note"] = ""  # Green: no overlay needed
+            annotated.append(d)
+
+        # Advisory statement
+        if capacity_status == "Red":
+            advisory = (
+                "Captain is at RED capacity today. "
+                "Number One recommends P0 missions only. "
+                "All other work is deferred until capacity recovers."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated if m["priority"] == "P0" and "BLOCKED" not in m["status"].upper()
+            ][:3] or ["No active P0 missions — prioritise rest and recovery"]
+        elif capacity_status == "Amber":
+            advisory = (
+                "Captain is at AMBER capacity today. "
+                "P0 and P1 missions are recommended. "
+                "P2/P3 work should be deferred unless low-cognitive-load."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated
+                if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
+            ][:3]
+        else:
+            advisory = "Captain is at GREEN capacity. Normal prioritisation applies."
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+
+        return {
+            "capacity_status": capacity_status,
+            "queue": annotated,
+            "recommended_focus": recommended_focus,
+            "advisory": advisory,
+        }
+
     def get_follow_ups(self, missions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Detect missions needing follow-up.
