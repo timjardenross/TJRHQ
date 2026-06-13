@@ -33,9 +33,22 @@ MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
 
-# Mistral Agents — Endeavour Research Scout
+# Mistral Agents — 4-stage OR Intelligence pipeline
+# Stage 1: Endeavour Research Scout  → synthesise raw events into research package
+# Stage 2: Risk/Challenge Officer    → stress-test findings, surface risks
+# Stage 3: Summary Officer           → compress research + challenge into clean package
+# Stage 4: Briefing Officer          → produce final executive brief JSON
 MISTRAL_RESEARCH_AGENT_ID      = os.getenv("MISTRAL_RESEARCH_AGENT_ID", "")
 MISTRAL_RESEARCH_AGENT_VERSION = os.getenv("MISTRAL_RESEARCH_AGENT_VERSION", "1")
+
+MISTRAL_CHALLENGE_AGENT_ID      = os.getenv("MISTRAL_CHALLENGE_AGENT_ID", "")
+MISTRAL_CHALLENGE_AGENT_VERSION = os.getenv("MISTRAL_CHALLENGE_AGENT_VERSION", "0")
+
+MISTRAL_SUMMARY_AGENT_ID      = os.getenv("MISTRAL_SUMMARY_AGENT_ID", "")
+MISTRAL_SUMMARY_AGENT_VERSION = os.getenv("MISTRAL_SUMMARY_AGENT_VERSION", "0")
+
+MISTRAL_BRIEFING_AGENT_ID      = os.getenv("MISTRAL_BRIEFING_AGENT_ID", "")
+MISTRAL_BRIEFING_AGENT_VERSION = os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "2")
 
 # ─── Scheduling ───────────────────────────────────────────────────────────────
 # Cron expression for scheduled brief generation (default: fortnightly, Monday 06:00 AEST)
