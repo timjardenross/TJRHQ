@@ -99,7 +99,7 @@ class LLMProvider:
         body = json.dumps({
             "system_instruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 1200, "temperature": 0.3},
+            "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.3},
         }).encode()
 
         req = urllib.request.Request(
@@ -127,7 +127,7 @@ class LLMProvider:
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user",   "content": prompt},
             ],
-            "max_tokens": 1200,
+            "max_tokens": 2048,
             "temperature": 0.3,
         }).encode()
 

@@ -108,19 +108,33 @@ router.get('/themes', async (req, res) => {
 router.post('/generate', async (req, res) => {
   try {
     const { days } = req.body || {};
-    // Async: start generation and return accepted immediately
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const REPO_ROOT = path.resolve(__dirname, '../../../../');
+    const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
+    const SCHEDULER_PY = path.join(REPO_ROOT, 'intelligence', 'scheduler.py');
+
+    const args = ['--once'];
+    if (days) args.push('--days', String(days));
+
+    const child = spawn(PYTHON_BIN, [SCHEDULER_PY, ...args], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, PYTHONPATH: REPO_ROOT },
+      detached: false,
+    });
+
+    child.stdout.on('data', d => process.stdout.write(`[INTELLIGENCE] ${d}`));
+    child.stderr.on('data', d => process.stderr.write(`[INTELLIGENCE] ${d}`));
+    child.on('close', code => {
+      if (code !== 0) console.error(`[INTELLIGENCE] Generator exited with code ${code}`);
+      else console.log('[INTELLIGENCE] Brief generation complete');
+    });
+    child.on('error', err => console.error('[INTELLIGENCE] Spawn error:', err.message));
+
     res.status(202).json({
       status: 'ACCEPTED',
       message: 'Brief generation started',
       trigger_type: 'on_demand',
-    });
-    // Fire generation in background (non-blocking for the HTTP response)
-    setImmediate(() => {
-      try {
-        adapter.generateNow({ days });
-      } catch (err) {
-        console.error('[INTELLIGENCE] On-demand generation failed:', err.message);
-      }
     });
   } catch (err) {
     fail(res, 500, 'Failed to start generation', err.message);

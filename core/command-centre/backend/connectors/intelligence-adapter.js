@@ -220,10 +220,11 @@ class IntelligenceAdapter {
       cwd: REPO_ROOT,
       timeout: 300000,   // 5 minutes
       encoding: 'utf8',
+      env: { ...process.env, PYTHONPATH: REPO_ROOT },
     });
 
     if (result.status !== 0 || result.error) {
-      throw new Error(`Brief generation failed: ${result.stderr || result.error}`);
+      throw new Error(`Brief generation failed: ${result.stderr?.slice(0, 500) || result.error}`);
     }
 
     try {
