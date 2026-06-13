@@ -199,6 +199,18 @@ class CommandCentreAPIClient {
   }
 
   // ============================================================================
+  // PERSONAL HEALTH API  (Step 2 — Health Data Foundation)
+  // ============================================================================
+
+  async getPersonalHealthStatus() {
+    return this.request('/api/v1/personal-health/status');
+  }
+
+  async getPersonalHealthToday() {
+    return this.request('/api/v1/personal-health/today');
+  }
+
+  // ============================================================================
   // AGENTS API
   // ============================================================================
 

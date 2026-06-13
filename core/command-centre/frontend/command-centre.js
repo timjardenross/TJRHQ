@@ -95,6 +95,12 @@ class CommandCentre {
       debug: this.debugMode
     });
 
+    // Personal Health Status Widget
+    this.widgets.health = new PersonalHealthWidget('health-status-widget', this.apiClient, {
+      pollingInterval: 90000, // 90s — short enough to reflect a fresh check-in
+      debug: this.debugMode
+    });
+
     this.log('All widgets initialized');
   }
 
@@ -142,7 +148,8 @@ class CommandCentre {
         this.widgets.brief?.refresh(),
         this.widgets.queue?.refresh(),
         this.widgets.escalations?.refresh(),
-        this.widgets.systems?.refresh()
+        this.widgets.systems?.refresh(),
+        this.widgets.health?.refresh(),
       ]);
 
       this.updateSystemStatus('operational');

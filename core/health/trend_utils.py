@@ -105,3 +105,77 @@ def encode_energy(value: str) -> float:
 def encode_mood(value: str) -> float:
     """Map mood string to ordinal float for trend computation."""
     return {"low": 1.0, "stable": 2.0, "positive": 3.0}.get(value.lower(), 2.0)
+
+
+# ── Day-of-week pattern analysis ──────────────────────────────────────────────
+
+_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+MIN_SAMPLES_PER_DAY = 2
+
+
+def day_of_week_pattern(
+    dated_values: List[tuple],  # List of (date_iso: str, value: float)
+    higher_is_better: bool = True,
+    min_samples: int = MIN_SAMPLES_PER_DAY,
+) -> dict:
+    """
+    Compute per-weekday averages and identify the best/worst day.
+
+    Args:
+        dated_values:      List of (date_iso, numeric_value) pairs, oldest first.
+        higher_is_better:  Direction for 'best' classification.
+        min_samples:       Minimum entries per day to report a day's average.
+
+    Returns dict with:
+        pattern:            {weekday_int: {'day': 'Mon', 'avg': float, 'n': int}}
+        best_day:           'Mon' or None
+        worst_day:          'Mon' or None
+        finding:            Human-readable string or None
+        status:             'ok' or 'insufficient_data'
+    """
+    from datetime import date as _date
+    from collections import defaultdict
+
+    buckets: dict = defaultdict(list)
+    for date_iso, value in dated_values:
+        try:
+            d = _date.fromisoformat(str(date_iso))
+            buckets[d.weekday()].append(float(value))
+        except (ValueError, TypeError):
+            continue
+
+    pattern = {}
+    for weekday, vals in sorted(buckets.items()):
+        if len(vals) >= min_samples:
+            pattern[weekday] = {
+                "day": _DAY_NAMES[weekday],
+                "avg": round(sum(vals) / len(vals), 2),
+                "n": len(vals),
+            }
+
+    if len(pattern) < 3:
+        return {"pattern": pattern, "best_day": None, "worst_day": None,
+                "finding": None, "status": "insufficient_data"}
+
+    avgs = {wd: info["avg"] for wd, info in pattern.items()}
+    best_wd  = max(avgs, key=lambda wd: avgs[wd]) if higher_is_better else min(avgs, key=lambda wd: avgs[wd])
+    worst_wd = min(avgs, key=lambda wd: avgs[wd]) if higher_is_better else max(avgs, key=lambda wd: avgs[wd])
+
+    best_day  = pattern[best_wd]["day"]
+    worst_day = pattern[worst_wd]["day"]
+    delta     = abs(pattern[best_wd]["avg"] - pattern[worst_wd]["avg"])
+
+    finding = None
+    if delta >= 0.5:
+        finding = (
+            f"Day-of-week pattern detected: best={best_day} (avg {pattern[best_wd]['avg']}), "
+            f"worst={worst_day} (avg {pattern[worst_wd]['avg']})."
+        )
+
+    return {
+        "pattern": pattern,
+        "best_day": best_day,
+        "worst_day": worst_day,
+        "finding": finding,
+        "status": "ok",
+    }

@@ -459,6 +459,219 @@ class ShipSystemsWidget extends CoordinationWidget {
 }
 
 // ============================================================================
+// WIDGET 5: Personal Health Status
+// ============================================================================
+
+class PersonalHealthWidget extends CoordinationWidget {
+  async refresh() {
+    this.log('Refreshing Personal Health Status...');
+
+    try {
+      const response = await this.apiClient.getPersonalHealthStatus();
+
+      if (!response.success) {
+        this.renderError('Unable to fetch health status');
+        return;
+      }
+
+      this.dataSource = response.data.metadata?.dataSource || 'unknown';
+      this.lastUpdate = new Date();
+      this.log(`container: ${this.container ? 'ok' : 'NULL'}, data keys: ${Object.keys(response.data.data || {}).join(',')}`);
+      this.render(response.data.data);
+      this.log('render complete');
+
+    } catch (error) {
+      this.log(`Error: ${error.message} — ${error.stack}`);
+      this.renderError(error.message);
+    }
+  }
+
+  _renderSourceBlock(data, label, sourceKey) {
+    if (!data) return '';
+
+    const status = data.status || 'UNKNOWN';
+    const statusEmoji = status === 'GREEN' ? '🟢' : status === 'AMBER' ? '🟡' : status === 'RED' ? '🔴' : '⚪';
+
+    const indicators = [
+      { label: 'Pain',     value: data.pain_score != null ? `${data.pain_score}/10` : '—' },
+      { label: 'Energy',   value: data.energy ? _capitalize(data.energy) : '—' },
+      { label: 'Mood',     value: data.mood ? _capitalize(data.mood) : '—' },
+      { label: 'Sleep',    value: data.sleep_hours ? `${data.sleep_hours}h (${data.sleep_quality || '—'})` : '—' },
+      { label: 'CPAP',     value: data.cpap_hours != null ? `${data.cpap_hours}h` : '—' },
+      { label: 'Movement', value: data.movement_notes ? _capitalize(data.movement_notes) : '—' },
+      { label: 'Work',     value: data.work_location ? _capitalize(data.work_location) : '—' },
+      { label: 'Sitting',  value: data.sitting_tolerance_minutes != null ? `${data.sitting_tolerance_minutes} min` : '—' },
+    ];
+
+    const indicatorsHtml = indicators.map(i => `
+      <div class="health-indicator">
+        <span class="health-indicator-label">${i.label}</span>
+        <span class="health-indicator-value">${i.value}</span>
+      </div>
+    `).join('');
+
+    const notesHtml = data.notes ? `
+      <div class="health-notes">
+        <span class="health-notes-label">Notes:</span>
+        <span class="health-notes-text">${data.notes.substring(0, 200)}</span>
+      </div>
+    ` : '';
+
+    return `
+      <div class="health-source-block">
+        <div class="health-source-header">
+          <span class="health-source-label">${label}</span>
+          <span class="health-source-status">${statusEmoji} ${status}</span>
+        </div>
+        <div class="health-indicators">
+          ${indicatorsHtml}
+        </div>
+        ${notesHtml}
+      </div>
+    `;
+  }
+
+  _renderEventsBlock(events) {
+    if (!events || events.length === 0) return '';
+
+    const EVENT_ICONS = {
+      appointment: '🏥', procedure: '🔬', surgery: '⚕️',
+      imaging_ordered: '📷', medication_change: '💊',
+      symptom_onset: '⚠️', symptom_change: '📈', pharmacy: '💊',
+    };
+
+    const rows = events.map(e => {
+      const icon = EVENT_ICONS[e.event_type] || '📋';
+      const label = (e.event_type || '').replace(/_/g, ' ');
+      const followUp = e.follow_up_required
+        ? `<span class="event-followup">Follow-up: ${e.follow_up_date || 'TBD'}</span>`
+        : '';
+      return `
+        <div class="health-event-row">
+          <span class="health-event-icon">${icon}</span>
+          <div class="health-event-body">
+            <span class="health-event-title">${e.title || label}</span>
+            <span class="health-event-type">${label}</span>
+            ${e.provider ? `<span class="health-event-meta">Provider: ${e.provider}</span>` : ''}
+            ${e.outcome ? `<span class="health-event-meta">Outcome: ${e.outcome}</span>` : ''}
+            ${followUp}
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="health-events-block">
+        <div class="health-source-header">
+          <span class="health-source-label">📅 Today's Health Events</span>
+          <span class="health-source-status">${events.length} event${events.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  render(health) {
+    if (!this.container) return;
+
+    const today = health.today_date || '';
+    const todayLogged = health.today_logged === true;
+    const slack = health.slack_checkin || null;
+    const slackLogged = slack && slack.logged === true;
+
+    // Overall status: worst of the two sources
+    const captainStatus = health.status || 'UNKNOWN';
+    const slackStatus = slackLogged ? (slack.status || 'UNKNOWN') : null;
+    const statusOrder = { RED: 3, AMBER: 2, GREEN: 1, UNKNOWN: 0 };
+    const overallStatus = (slackStatus && statusOrder[slackStatus] > statusOrder[captainStatus])
+      ? slackStatus : captainStatus;
+
+    const statusEmoji = overallStatus === 'GREEN' ? '🟢' : overallStatus === 'AMBER' ? '🟡' : overallStatus === 'RED' ? '🔴' : '⚪';
+    const statusLabel = overallStatus === 'GREEN'  ? 'All clear'
+                      : overallStatus === 'AMBER'  ? 'Monitor — one indicator flagged'
+                      : overallStatus === 'RED'    ? 'Reduced capacity — multiple indicators'
+                      :                              'Not yet logged today';
+
+    const notLoggedBanner = !todayLogged && !slackLogged
+      ? `<div class="health-not-logged">⚪ Today's check-in not yet submitted — use <code>/health-check</code> in Slack</div>`
+      : '';
+
+    // Captain's Log block data
+    const captainData = todayLogged ? {
+      status: captainStatus,
+      pain_score: health.pain_score,
+      energy: health.energy,
+      mood: health.mood,
+      sleep_hours: health.sleep_hours,
+      sleep_quality: health.sleep_quality,
+      cpap_hours: health.cpap_hours,
+      movement_notes: health.movement_notes,
+      work_location: health.work_location,
+      sitting_tolerance_minutes: health.sitting_tolerance_minutes,
+      notes: health.notes,
+    } : null;
+
+    const captainBlockHtml = captainData
+      ? this._renderSourceBlock(captainData, '📋 Captain\'s Log', 'captain')
+      : `<div class="health-source-block health-source-empty"><span class="health-source-label">📋 Captain\'s Log</span> <span class="health-source-none">Not logged today</span></div>`;
+
+    const slackBlockHtml = slackLogged
+      ? this._renderSourceBlock(slack, '💬 Slack Check-in', 'slack')
+      : `<div class="health-source-block health-source-empty"><span class="health-source-label">💬 Slack Check-in</span> <span class="health-source-none">Not logged today</span></div>`;
+
+    const html = `
+      <div class="widget widget-health">
+        <div class="widget-header">
+          <h2>❤️ Captain Health Status</h2>
+          ${this.getStatusBadge(this.dataSource)}
+          <span class="last-updated">Updated ${this.formatTime(this.lastUpdate)}</span>
+        </div>
+
+        <div class="widget-content">
+          <div class="health-status-banner health-status-${overallStatus.toLowerCase()}">
+            <span class="health-status-icon">${statusEmoji}</span>
+            <span class="health-status-text">
+              <strong>${overallStatus}</strong> — ${statusLabel}
+            </span>
+          </div>
+
+          ${notLoggedBanner}
+
+          <div class="health-sources">
+            ${captainBlockHtml}
+            ${slackBlockHtml}
+          </div>
+
+          ${this._renderEventsBlock(health.health_events)}
+        </div>
+      </div>
+    `;
+
+    this.container.innerHTML = html;
+  }
+
+  renderError(message) {
+    if (!this.container) return;
+
+    this.container.innerHTML = `
+      <div class="widget widget-health error">
+        <div class="widget-header">
+          <h2>❤️ Captain Health Status</h2>
+          <span class="data-badge badge-fallback">🟡 UNAVAILABLE</span>
+        </div>
+        <div class="widget-content">
+          <p class="error-message">Health status unavailable: ${message}</p>
+          <p class="error-note">Use <code>/health-check</code> in Slack to log today's check-in.</p>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function _capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ============================================================================
 // Export for use in HTML/other modules
 // ============================================================================
 
@@ -467,6 +680,7 @@ if (typeof module !== 'undefined' && module.exports) {
     XODailyBriefWidget,
     WorkQueueWidget,
     EscalationsWidget,
-    ShipSystemsWidget
+    ShipSystemsWidget,
+    PersonalHealthWidget,
   };
 }

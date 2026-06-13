@@ -42,6 +42,8 @@
 
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { cacheManager } = require('../cache/cache-manager');
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
 const { NumberOneAdapter } = require('../connectors/number-one-adapter');
@@ -49,6 +51,19 @@ const { getEscalations, getDecisionRecords } = require('../connectors/supabase-c
 
 // Initialize adapter
 const numberOneAdapter = new NumberOneAdapter();
+
+// Path to Number One exporter outputs
+const OUTPUTS_DIR = path.resolve(__dirname, '../../../../core/coordination/outputs');
+
+/** Read a JSON export file; return null if missing or invalid. */
+function readExport(filename) {
+  try {
+    const raw = fs.readFileSync(path.join(OUTPUTS_DIR, filename), 'utf8');
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
 
 /**
  * GET /api/v1/coordination/brief
@@ -224,6 +239,100 @@ router.get('/status', asyncHandler(async (req, res) => {
     timestamp: new Date().toISOString()
   });
   res.json(response);
+}));
+
+/**
+ * GET /api/v1/coordination/blockers
+ * Blocker management report — all severities (critical / high / normal)
+ */
+router.get('/blockers', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:blockers';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  const data = readExport('blockers.json') || {
+    timestamp: new Date().toISOString(),
+    total_blockers: 0,
+    critical: [], high: [], normal: []
+  };
+  cacheManager.set(cacheKey, data, 30);
+  return res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+/**
+ * GET /api/v1/coordination/health-queue
+ * Work queue with health-capacity advisory overlay
+ */
+router.get('/health-queue', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:health-queue';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  const data = readExport('health_queue.json') || {
+    exported_at: new Date().toISOString(),
+    capacity_status: 'Unknown',
+    queue: [], recommended_focus: [],
+    advisory: 'Health queue data unavailable'
+  };
+  cacheManager.set(cacheKey, data, 30);
+  return res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+/**
+ * GET /api/v1/coordination/recommendations
+ * Full RecommendationPackage — top 3 ranked missions
+ */
+router.get('/recommendations', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:recommendations';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  const data = readExport('recommendations.json') || {
+    assembled_at: new Date().toISOString(),
+    recommendations: [],
+    health_constraints_applied: false,
+    total_active_missions: 0
+  };
+  cacheManager.set(cacheKey, data, 30);
+  return res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+/**
+ * GET /api/v1/coordination/readiness
+ * Captain readiness score (0–100) with status and contributors
+ */
+router.get('/readiness', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:readiness';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  const data = readExport('readiness.json') || {
+    exported_at: new Date().toISOString(),
+    score: null,
+    status: 'Unknown',
+    contributors: [],
+    recommended_focus: []
+  };
+  cacheManager.set(cacheKey, data, 60);
+  return res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+/**
+ * GET /api/v1/coordination/lessons
+ * Applicable lessons from Lessons-Learned.md / Supabase
+ */
+router.get('/lessons', asyncHandler(async (req, res) => {
+  const cacheKey = 'coordination:lessons';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+
+  const data = readExport('lessons.json') || {
+    exported_at: new Date().toISOString(),
+    total: 0,
+    lessons: []
+  };
+  cacheManager.set(cacheKey, data, 120);
+  return res.json(successResponse(data, 200, { source: 'fresh' }));
 }));
 
 module.exports = router;

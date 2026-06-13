@@ -83,6 +83,13 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Flat convenience aliases for Intelligence tab widgets
+// These forward to /api/v1/coordination/* — no logic duplication
+app.use('/api/recommendations', (req, res, next) => { req.url = '/recommendations'; coordinationRoutes(req, res, next); });
+app.use('/api/readiness',       (req, res, next) => { req.url = '/readiness';       coordinationRoutes(req, res, next); });
+app.use('/api/blockers',        (req, res, next) => { req.url = '/blockers';        coordinationRoutes(req, res, next); });
+app.use('/api/lessons',         (req, res, next) => { req.url = '/lessons';         coordinationRoutes(req, res, next); });
+
 // API routes (v1)
 app.use('/api/v1/missions', missionRoutes);
 app.use('/api/v1/coordination', coordinationRoutes);

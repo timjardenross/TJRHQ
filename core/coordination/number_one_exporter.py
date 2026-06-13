@@ -10,6 +10,11 @@ Generated Files:
   - daily_brief.json        → Coordination brief
   - work_queue.json         → Prioritized work queue
   - escalations.json        → XO escalations
+  - blockers.json           → Blocker management report (all severities)
+  - health_queue.json       → Health-capacity-adjusted work queue
+  - recommendations.json    → Full RecommendationPackage (top 3)
+  - readiness.json          → Captain readiness score (0–100)
+  - lessons.json            → Applicable lessons for active missions
 
 Usage:
   # Export sample coordination data
@@ -30,9 +35,35 @@ Integration:
 
 import json
 import sys
+import time
 from pathlib import Path
 from datetime import datetime
 from number_one import NumberOne, CoordinationConfig
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
+sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
+
+try:
+    from recommendation_engine import generate_recommendation_package
+    from models import RecommendationPackage
+    _RECOMMENDATIONS_AVAILABLE = True
+except ImportError:
+    _RECOMMENDATIONS_AVAILABLE = False
+
+try:
+    from readiness_score import compute_readiness_score
+    _READINESS_AVAILABLE = True
+except ImportError:
+    _READINESS_AVAILABLE = False
+
+try:
+    from lesson_capture import backfill_lessons_to_supabase
+    from supabase_client import is_configured as _supabase_configured
+    _LESSONS_AVAILABLE = True
+except ImportError:
+    _LESSONS_AVAILABLE = False
 
 
 class NumberOneExporter:
@@ -187,6 +218,186 @@ class NumberOneExporter:
             print(f"❌ Failed to export escalations: {e}")
             return False
 
+    def export_blockers(self, missions: list[dict]) -> bool:
+        """Export blocker management report to JSON."""
+        try:
+            blockers = self.engine.get_blockers(missions)
+            output_file = self.output_dir / "blockers.json"
+            with open(output_file, "w") as f:
+                json.dump(blockers, f, indent=2)
+            print(f"✅ Exported blockers to {output_file}")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to export blockers: {e}")
+            # Write empty valid JSON so consumers don't fail
+            try:
+                with open(self.output_dir / "blockers.json", "w") as f:
+                    json.dump({"timestamp": datetime.utcnow().isoformat(), "total_blockers": 0,
+                               "critical": [], "high": [], "normal": [], "error": str(e)}, f, indent=2)
+            except Exception:
+                pass
+            return False
+
+    def export_health_queue(
+        self, missions: list[dict], capacity_status: str = "Green"
+    ) -> bool:
+        """Export health-capacity-adjusted work queue to JSON."""
+        try:
+            health_queue = self.engine.get_health_adjusted_queue(missions, capacity_status)
+            health_queue["exported_at"] = datetime.utcnow().isoformat()
+            output_file = self.output_dir / "health_queue.json"
+            with open(output_file, "w") as f:
+                json.dump(health_queue, f, indent=2)
+            print(f"✅ Exported health queue to {output_file}")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to export health queue: {e}")
+            try:
+                with open(self.output_dir / "health_queue.json", "w") as f:
+                    json.dump({"exported_at": datetime.utcnow().isoformat(), "capacity_status": "Unknown",
+                               "queue": [], "recommended_focus": [], "advisory": "Unavailable", "error": str(e)}, f, indent=2)
+            except Exception:
+                pass
+            return False
+
+    def export_recommendations(
+        self, missions: list[dict], health_context=None
+    ) -> bool:
+        """Export full RecommendationPackage to JSON."""
+        if not _RECOMMENDATIONS_AVAILABLE:
+            print("⚠️  recommendation_engine not available — skipping recommendations export")
+            try:
+                with open(self.output_dir / "recommendations.json", "w") as f:
+                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                               "recommendations": [], "health_constraints_applied": False,
+                               "total_active_missions": 0, "unavailable": True}, f, indent=2)
+            except Exception:
+                pass
+            return True
+        try:
+            pkg = generate_recommendation_package(missions, health_context, top_n=3)
+            pkg_dict = {
+                "assembled_at": pkg.assembled_at,
+                "health_constraints_applied": pkg.health_constraints_applied,
+                "total_active_missions": pkg.total_active_missions,
+                "recommendations": [
+                    {
+                        "priority_rank": r.priority_rank,
+                        "mission_id": r.mission_id,
+                        "title": r.title,
+                        "reason": r.reason,
+                        "blockers": r.blockers,
+                        "deadline_urgency": r.deadline_urgency,
+                        "health_constraint_note": r.health_constraint_note,
+                        "confidence": r.confidence,
+                        "next_action": r.next_action,
+                        "due_date": r.due_date,
+                    }
+                    for r in pkg.recommendations
+                ],
+            }
+            output_file = self.output_dir / "recommendations.json"
+            with open(output_file, "w") as f:
+                json.dump(pkg_dict, f, indent=2)
+            print(f"✅ Exported recommendations to {output_file}")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to export recommendations: {e}")
+            try:
+                with open(self.output_dir / "recommendations.json", "w") as f:
+                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                               "recommendations": [], "health_constraints_applied": False,
+                               "total_active_missions": 0, "error": str(e)}, f, indent=2)
+            except Exception:
+                pass
+            return False
+
+    def export_readiness(
+        self,
+        missions: list[dict],
+        capacity_score: int = 75,
+        escalations=None,
+    ) -> bool:
+        """Export Captain readiness score to JSON."""
+        if not _READINESS_AVAILABLE:
+            print("⚠️  readiness_score not available — skipping readiness export")
+            try:
+                with open(self.output_dir / "readiness.json", "w") as f:
+                    json.dump({"exported_at": datetime.utcnow().isoformat(), "unavailable": True}, f, indent=2)
+            except Exception:
+                pass
+            return True
+        try:
+            result = compute_readiness_score(capacity_score, "Green", missions, escalations or [])
+            readiness_dict = {
+                "exported_at": datetime.utcnow().isoformat(),
+                "score": result.score,
+                "status": result.status,
+                "health_component": result.health_component,
+                "ops_component": result.ops_component,
+                "contributors": result.contributors,
+                "recommended_focus": result.recommended_focus,
+                "capacity_status": result.capacity_status,
+                "methodology": result.methodology,
+            }
+            output_file = self.output_dir / "readiness.json"
+            with open(output_file, "w") as f:
+                json.dump(readiness_dict, f, indent=2)
+            print(f"✅ Exported readiness to {output_file}")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to export readiness: {e}")
+            try:
+                with open(self.output_dir / "readiness.json", "w") as f:
+                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                               "score": 0, "status": "Unknown", "error": str(e)}, f, indent=2)
+            except Exception:
+                pass
+            return False
+
+    def export_lessons(self) -> bool:
+        """Export applicable lessons from Supabase / Lessons-Learned.md to JSON."""
+        lessons_md = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
+        output_file = self.output_dir / "lessons.json"
+        try:
+            lessons = []
+            if lessons_md.exists():
+                import re
+                text = lessons_md.read_text()
+                # Parse table rows: | LL-NNN | Title | Date | Context | Lesson | Guidance | Mission |
+                for line in text.splitlines():
+                    line = line.strip()
+                    if not line.startswith("| LL-"):
+                        continue
+                    cols = [c.strip() for c in line.split("|")[1:-1]]
+                    if len(cols) >= 2:
+                        lesson_id = cols[0]
+                        title = cols[1]
+                        mission_id = cols[6].strip() if len(cols) > 6 else ""
+                        lessons.append({
+                            "lesson_id": lesson_id,
+                            "title": title,
+                            "mission_id": mission_id if mission_id not in ("—", "", "N/A") else None,
+                        })
+            payload = {
+                "exported_at": datetime.utcnow().isoformat(),
+                "total": len(lessons),
+                "lessons": lessons,
+            }
+            with open(output_file, "w") as f:
+                json.dump(payload, f, indent=2)
+            print(f"✅ Exported lessons to {output_file} ({len(lessons)} entries)")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to export lessons: {e}")
+            try:
+                with open(output_file, "w") as f:
+                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                               "total": 0, "lessons": [], "error": str(e)}, f, indent=2)
+            except Exception:
+                pass
+            return False
+
     def export_sample(self) -> bool:
         """Export sample data for testing."""
         print("📋 Exporting sample coordination data...")
@@ -245,12 +456,18 @@ class NumberOneExporter:
         success &= self.export_brief(sample_missions)
         success &= self.export_queue(sample_missions)
         success &= self.export_escalations(sample_missions)
+        success &= self.export_blockers(sample_missions)
+        success &= self.export_health_queue(sample_missions, "Green")
+        success &= self.export_recommendations(sample_missions)
+        success &= self.export_readiness(sample_missions)
+        success &= self.export_lessons()
 
         if success:
             print(f"\n✅ Sample data exported to {self.output_dir}/")
-            print(f"   - daily_brief.json")
-            print(f"   - work_queue.json")
-            print(f"   - escalations.json")
+            for name in ["daily_brief.json", "work_queue.json", "escalations.json",
+                         "blockers.json", "health_queue.json", "recommendations.json",
+                         "readiness.json", "lessons.json"]:
+                print(f"   - {name}")
             print(f"\nThe Phase 2 API can now read these files via NumberOneAdapter.")
             print(f"(Falls back to mock data if files are unavailable.)")
         else:
@@ -265,11 +482,7 @@ class NumberOneExporter:
                 missions = json.load(f)
 
             print(f"📋 Exporting from {missions_file}...")
-            success = True
-            success &= self.export_brief(missions)
-            success &= self.export_queue(missions)
-            success &= self.export_escalations(missions)
-
+            success = self._export_all(missions)
             if success:
                 print(f"✅ Exports complete to {self.output_dir}/")
             return success
@@ -280,6 +493,110 @@ class NumberOneExporter:
         except json.JSONDecodeError as e:
             print(f"❌ Invalid JSON: {e}")
             return False
+
+    def export_from_registry(self, registry_file: str) -> bool:
+        """Parse mission-index.txt markdown table and export live missions."""
+        # Statuses that represent active/open work
+        ACTIVE_STATUSES = {
+            "in_progress", "active", "planned", "design", "assessment",
+            "in progress", "design complete", "deployed", "analysis",
+            "validation in progress", "assessment complete",
+        }
+        SKIP_STATUSES = {"completed", "complete", "closed", "archived", "cancelled"}
+
+        try:
+            with open(registry_file, "r") as f:
+                lines = f.readlines()
+        except FileNotFoundError:
+            print(f"❌ Registry file not found: {registry_file}")
+            return False
+
+        missions = []
+        for line in lines:
+            line = line.strip()
+            if not line.startswith("|") or line.startswith("| Mission ID") or line.startswith("|---"):
+                continue
+            cols = [c.strip() for c in line.split("|")[1:-1]]
+            if len(cols) < 4:
+                continue
+
+            mission_id = cols[0]
+            title = cols[1]
+            priority_raw = cols[2]  # e.g. "P1 High" or "—"
+            status_raw = cols[3]
+            mission_owner = cols[4] if len(cols) > 4 else ""
+            assigned_specialist = cols[5] if len(cols) > 5 else ""
+
+            # Skip empty or separator rows
+            if not mission_id or mission_id == "---":
+                continue
+
+            # Normalise status
+            status_norm = status_raw.lower().strip().lstrip("-").strip()
+            if not status_norm or any(s in status_norm for s in SKIP_STATUSES):
+                continue
+            if not any(s in status_norm for s in ACTIVE_STATUSES):
+                continue
+
+            # Map status string → engine-recognised value
+            if "in_progress" in status_norm or "in progress" in status_norm:
+                status = "ACTIVE"
+            elif "planned" in status_norm:
+                status = "PROPOSED"
+            else:
+                status = "ACTIVE"
+
+            # Extract priority
+            priority = "P1"
+            for p in ("P0", "P1", "P2", "P3"):
+                if p in priority_raw:
+                    priority = p
+                    break
+
+            specialists = []
+            if assigned_specialist and assigned_specialist != "—":
+                specialists.append(assigned_specialist)
+            if mission_owner and mission_owner != "—" and mission_owner not in specialists:
+                specialists.append(mission_owner)
+
+            missions.append({
+                "mission_id": mission_id,
+                "title": title,
+                "status": status,
+                "priority": priority,
+                "domain": "operations",
+                "assigned_role": mission_owner if mission_owner and mission_owner != "—" else "Chief Engineer",
+                "assigned_specialists": specialists or ["Chief Engineer"],
+                "dependencies": [],
+                "blockers": [],
+                "created_at": "2026-01-01T00:00:00Z",
+                "last_updated": datetime.utcnow().isoformat() + "Z",
+                "next_action": "",
+                "metadata": {},
+            })
+
+        if not missions:
+            print(f"⚠️  No active missions found in {registry_file} — falling back to sample")
+            return self.export_sample()
+
+        print(f"📋 Exporting {len(missions)} active missions from registry...")
+        success = self._export_all(missions)
+        if success:
+            print(f"✅ Exports complete to {self.output_dir}/ ({len(missions)} missions)")
+        return success
+
+    def _export_all(self, missions: list[dict]) -> bool:
+        """Run all exports. Returns True only if every export succeeded."""
+        ok = True
+        ok &= self.export_brief(missions)
+        ok &= self.export_queue(missions)
+        ok &= self.export_escalations(missions)
+        ok &= self.export_blockers(missions)
+        ok &= self.export_health_queue(missions, "Green")
+        ok &= self.export_recommendations(missions)
+        ok &= self.export_readiness(missions)
+        ok &= self.export_lessons()
+        return ok
 
 
 def main():
@@ -300,25 +617,56 @@ def main():
         help="Export from missions JSON file"
     )
     parser.add_argument(
+        "--registry",
+        type=str,
+        nargs="?",
+        const="../../core/mission-control/registry/mission-index.txt",
+        help="Parse live missions from mission-index.txt (default path used if no value given)"
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="./outputs",
         help="Output directory (default: ./outputs)"
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch mode: regenerate all exports every 60 seconds"
+    )
+    parser.add_argument(
+        "--interval",
+        type=int,
+        default=60,
+        help="Watch mode interval in seconds (default: 60)"
     )
 
     args = parser.parse_args()
 
     exporter = NumberOneExporter(args.output_dir)
 
-    if args.export_sample:
-        success = exporter.export_sample()
-        return 0 if success else 1
-    elif args.missions:
-        success = exporter.export_from_file(args.missions)
-        return 0 if success else 1
+    def _run_once() -> bool:
+        if args.export_sample:
+            return exporter.export_sample()
+        elif args.missions:
+            return exporter.export_from_file(args.missions)
+        elif args.registry:
+            return exporter.export_from_registry(args.registry)
+        else:
+            default_registry = Path(__file__).parent.parent / "mission-control/registry/mission-index.txt"
+            if default_registry.exists():
+                return exporter.export_from_registry(str(default_registry))
+            else:
+                return exporter.export_sample()
+
+    if args.watch:
+        print(f"👁  Watch mode active — regenerating every {args.interval}s (Ctrl+C to stop)")
+        while True:
+            print(f"\n[{datetime.utcnow().strftime('%H:%M:%S')}] Running export cycle...")
+            _run_once()
+            time.sleep(args.interval)
     else:
-        # Default: export sample
-        success = exporter.export_sample()
+        success = _run_once()
         return 0 if success else 1
 
 
