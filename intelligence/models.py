@@ -44,6 +44,7 @@ class IntelligenceItem:
     source_name: str
     source_priority: int
     source_confidence_weight: float
+    source_category: str
     raw_title: str
     collected_at: datetime
     raw_summary: Optional[str] = None
@@ -59,6 +60,7 @@ class ClassifiedEvent:
     source_name: str
     source_priority: int
     source_confidence_weight: float
+    source_category: str
     raw_title: str
     raw_summary: Optional[str]
     canonical_url: Optional[str]

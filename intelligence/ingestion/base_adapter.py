@@ -73,6 +73,7 @@ class BaseSourceAdapter(ABC):
             source_name=self.source.source_name,
             source_priority=self.source.priority_rank,
             source_confidence_weight=self.source.confidence_weight,
+            source_category=self.source.category,
             raw_title=raw_title.strip(),
             raw_summary=raw_summary.strip() if raw_summary else None,
             canonical_url=canonical_url,

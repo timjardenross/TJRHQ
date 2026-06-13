@@ -30,6 +30,11 @@ from intelligence.models import ClassifiedEvent, RankedEvent
 # Source priority → normalised score (5 = lowest priority = lowest score)
 _PRIORITY_SCORES = {1: 1.0, 2: 0.80, 3: 0.55, 4: 0.30, 5: 0.10}
 
+# Categories that publish general news — cap their final score so they don't
+# outrank primary regulatory/cyber/infrastructure sources on keyword coincidences
+_MEDIA_CATEGORIES = {"media"}
+_MEDIA_SCORE_CAP = 55.0  # out of 100 — below any genuine regulatory/cyber event
+
 
 def _recency_decay(collected_at: Optional[datetime]) -> float:
     if not collected_at:
@@ -110,6 +115,11 @@ def rank(
 
         decay = _recency_decay(event.collected_at)
         final_score = round(raw_score * decay * 100, 4)
+
+        # Cap media/general news sources so keyword coincidences don't outrank
+        # primary regulatory, cyber, or infrastructure events
+        if event.source_category in _MEDIA_CATEGORIES:
+            final_score = min(final_score, _MEDIA_SCORE_CAP)
 
         ranked.append(RankedEvent(**event.__dict__, rank_score=final_score))
 

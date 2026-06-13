@@ -203,6 +203,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         source_name=item.source_name,
         source_priority=item.source_priority,
         source_confidence_weight=item.source_confidence_weight,
+        source_category=item.source_category,
         raw_title=item.raw_title,
         raw_summary=item.raw_summary,
         canonical_url=item.canonical_url,

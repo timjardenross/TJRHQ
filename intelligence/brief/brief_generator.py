@@ -69,14 +69,21 @@ class BriefGenerator:
         # ── 2. Classify ───────────────────────────────────────────────────────
         classified: list[ClassifiedEvent] = []
         dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
 
         for item in items:
             event = classify(item)
 
-            # Skip duplicates already in this collection run
+            # Skip duplicates already in this collection run (by hash)
             if event.dedup_hash in dedup_hashes_seen:
                 continue
             dedup_hashes_seen.add(event.dedup_hash)
+
+            # Skip if same canonical URL already seen this run (cross-source dedup)
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
 
             # Skip if already persisted (previous run)
             if store.event_hash_exists(event.dedup_hash):
