@@ -238,19 +238,27 @@ class LLMProvider:
 
     @staticmethod
     def _extract_text(response) -> str:
-        """Extract assistant text from a Mistral ConversationResponse."""
+        """
+        Extract assistant text from a Mistral ConversationResponse.
+
+        Agents with web_search tools return multiple ToolExecutionEntry outputs
+        before the final MessageOutputEntry. Skip tool entries (they have no
+        'role' attribute) and return the first assistant message.
+        """
         if hasattr(response, "outputs") and response.outputs:
             for entry in response.outputs:
-                if getattr(entry, "role", None) == "assistant":
-                    content = getattr(entry, "content", None)
-                    if not content:
-                        continue
-                    if isinstance(content, list):
-                        return "".join(
-                            c.text if hasattr(c, "text") else str(c)
-                            for c in content
-                        ).strip()
-                    return str(content).strip()
+                # ToolExecutionEntry and similar non-message types lack 'role'
+                if getattr(entry, "role", None) != "assistant":
+                    continue
+                content = getattr(entry, "content", None)
+                if not content:
+                    continue
+                if isinstance(content, list):
+                    return "".join(
+                        c.text if hasattr(c, "text") else str(c)
+                        for c in content
+                    ).strip()
+                return str(content).strip()
         return ""
 
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
