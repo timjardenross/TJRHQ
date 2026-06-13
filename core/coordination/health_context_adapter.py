@@ -1,7 +1,8 @@
 """
-Health Context Adapter — WP3
+Health Context Adapter — WP3 + WP1 (Health Intelligence Uplift)
 
-Transforms memory/Health-Summary.md into a HealthContextPackage.
+Primary path: reads live data from captains_log_entries (Supabase).
+Legacy fallback: reads Health-Summary.md if Supabase unavailable.
 
 Design principles:
   - Summary level only (no raw clinical data)
@@ -23,6 +24,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 
 from models import HealthContextPackage, HealthStatusSnapshot, HealthTrendSummary
+
+# Lazy import to avoid circular deps and missing-dep errors at import time
+def _get_captains_log_live():
+    """Try to import the live Supabase path. Returns None if unavailable."""
+    try:
+        _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
+        if str(_HEALTH_ROOT) not in sys.path:
+            sys.path.insert(0, str(_HEALTH_ROOT))
+        from supabase_client import supabase_get, is_configured
+        from capacity_score import compute_capacity_score
+        return supabase_get, is_configured, compute_capacity_score
+    except Exception:
+        return None, None, None
 
 
 # ---------------------------------------------------------------------------
@@ -362,3 +376,195 @@ def _derive_workload_constraint(status: HealthStatusSnapshot) -> str:
     if status.pain_level is None and status.energy is None:
         return "unknown"
     return "normal"
+
+
+# ---------------------------------------------------------------------------
+# Live Supabase path (WP1 — primary source)
+# ---------------------------------------------------------------------------
+
+def _normalise_energy(val: Optional[str]) -> Optional[str]:
+    """Captain's Log uses Title Case; models expect lowercase."""
+    if not val:
+        return None
+    return val.lower()  # Low→low, Moderate→moderate, High→high
+
+
+def _normalise_mood(val: Optional[str]) -> Optional[str]:
+    """Captain's Log: Low/Stable/Positive → low/stable/positive."""
+    if not val:
+        return None
+    return val.lower()
+
+
+def _normalise_sleep_quality(val: Optional[str]) -> Optional[str]:
+    """Captain's Log: Poor/Fair/Good → poor/fair/good."""
+    if not val:
+        return None
+    return val.lower()
+
+
+def _pain_score_to_level(score: Optional[int]) -> Optional[str]:
+    if score is None:
+        return None
+    if score <= 3:
+        return "low"
+    if score <= 6:
+        return "moderate"
+    return "high"
+
+
+def build_health_context_from_captains_log(
+    entry: Optional[Dict[str, Any]],
+    trend_direction: Optional[str] = None,
+    capacity_score: Optional[int] = None,
+    assembled_at: Optional[str] = None,
+    energy_trend: Optional[str] = None,
+) -> HealthContextPackage:
+    """
+    Build a HealthContextPackage from a captains_log_entries row.
+
+    entry           — today's or latest Captain's Log row (may be None)
+    trend_direction — pre-computed pain trend (improving/stable/worsening)
+    capacity_score  — pre-computed capacity score (0–100)
+    """
+    assembled = assembled_at or (datetime.utcnow().isoformat() + "Z")
+
+    if not entry:
+        return HealthContextPackage(
+            assembled_at=assembled,
+            source_file="supabase:captains_log_entries",
+            data_quality="missing",
+        )
+
+    pain_level = _pain_score_to_level(entry.get("pain_score"))
+    energy = _normalise_energy(entry.get("energy"))
+    mood = _normalise_mood(entry.get("mood"))
+    sleep_quality = _normalise_sleep_quality(entry.get("sleep_quality"))
+
+    status = HealthStatusSnapshot(
+        pain_level=pain_level,
+        mood=mood,
+        energy=energy,
+        sleep_quality=sleep_quality,
+        stress=None,  # not captured in Captain's Log
+    )
+
+    _resolved_energy = energy_trend or trend_direction or "unknown"
+    trend = HealthTrendSummary(
+        pain_trend=trend_direction or "unknown",
+        energy_trend=_resolved_energy,
+        overall_direction=trend_direction or "unknown",
+    )
+
+    workload = _derive_workload_constraint(status)
+
+    # Build themes from what_changed and blockers (non-null, non-empty)
+    themes: List[str] = []
+    if entry.get("what_changed"):
+        themes.append(entry["what_changed"][:120])
+    if entry.get("blockers"):
+        themes.append(f"Blockers: {entry['blockers'][:80]}")
+
+    # Recovery priorities from wins (positive signal)
+    priorities: List[str] = []
+    if entry.get("tomorrows_priority"):
+        priorities.append(f"Tomorrow: {entry['tomorrows_priority']}")
+    if entry.get("wins"):
+        priorities.append(f"Recent win: {entry['wins'][:80]}")
+
+    cap_status: Optional[str] = None
+    mo_note_parts = []
+    if capacity_score is not None:
+        from capacity_score import capacity_status_only
+        cap_status = capacity_status_only(capacity_score)
+        mo_note_parts.append(f"Capacity {capacity_score}% ({cap_status})")
+    if entry.get("overall_note"):
+        mo_note_parts.append(entry["overall_note"][:100])
+    mo_note = " | ".join(mo_note_parts) if mo_note_parts else None
+
+    data_quality = "complete" if all([
+        entry.get("pain_score") is not None,
+        entry.get("energy"),
+        entry.get("mood"),
+    ]) else "partial"
+
+    return HealthContextPackage(
+        assembled_at=assembled,
+        source_file="supabase:captains_log_entries",
+        status_summary=status,
+        trend_summary=trend,
+        recovery_priorities=priorities,
+        health_themes=themes,
+        medical_officer_note=mo_note,
+        safety_flags=[],
+        workload_constraint=workload,
+        capacity_score=capacity_score,
+        capacity_status=cap_status,
+        data_quality=data_quality,
+    )
+
+
+def build_health_context_live(assembled_at: Optional[str] = None) -> HealthContextPackage:
+    """
+    Primary entry point (WP1).
+
+    Tries to read live data from captains_log_entries.
+    Falls back to legacy Health-Summary.md path if Supabase unavailable.
+    """
+    supabase_get, is_configured, compute_cap = _get_captains_log_live()
+
+    if supabase_get and is_configured and is_configured():
+        try:
+            from datetime import date
+            today = date.today().isoformat()
+            rows = supabase_get(
+                f"captains_log_entries?log_date=eq.{today}&limit=1"
+            )
+            entry = rows[0] if rows else None
+
+            # If no today entry, try latest
+            if not entry:
+                rows = supabase_get(
+                    "captains_log_entries?order=log_date.desc&limit=1"
+                )
+                entry = rows[0] if rows else None
+
+            # Get 7-day trends for pain and energy using canonical trend_utils (WP-4)
+            trend_direction: Optional[str] = None
+            energy_trend_direction: Optional[str] = None
+            try:
+                from datetime import timedelta
+                _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
+                if str(_HEALTH_ROOT) not in sys.path:
+                    sys.path.insert(0, str(_HEALTH_ROOT))
+                from trend_utils import compute_pain_trend, compute_energy_trend, encode_energy
+                since = (date.today() - timedelta(days=6)).isoformat()
+                recent = supabase_get(
+                    f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit=7"
+                )
+                pain_vals = [float(r["pain_score"]) for r in recent if r.get("pain_score") is not None]
+                result = compute_pain_trend(pain_vals)
+                trend_direction = None if result == "insufficient_data" else result
+                energy_vals = [encode_energy(r["energy"]) for r in recent if r.get("energy")]
+                result_e = compute_energy_trend(energy_vals)
+                energy_trend_direction = None if result_e == "insufficient_data" else result_e
+            except Exception:
+                pass
+
+            # Compute capacity score
+            cap_score: Optional[int] = None
+            if entry and compute_cap:
+                cap_score, _ = compute_cap(entry)
+
+            return build_health_context_from_captains_log(
+                entry, trend_direction, cap_score, assembled_at,
+                energy_trend=energy_trend_direction,
+            )
+        except Exception:
+            pass  # fall through to legacy path
+
+    # Legacy fallback: read Health-Summary.md
+    _REPO_ROOT = Path(__file__).resolve().parents[2]
+    health_path = _REPO_ROOT / "memory" / "Health-Summary.md"
+    summary = parse_health_summary(health_path)
+    return build_health_context(summary, assembled_at)
