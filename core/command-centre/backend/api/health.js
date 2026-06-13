@@ -44,6 +44,25 @@ function portCheck(host, port, timeoutMs = 2000) {
   });
 }
 
+// Slack Commander uses Socket Mode (no port) — detect via working directory
+function slackBotCheck(botDir) {
+  return new Promise((resolve) => {
+    // lsof shows cwd for Python processes; match any Python process running from slack-bot dir
+    exec(`lsof +d "${botDir}" 2>/dev/null | grep -q cwd && echo found`, { timeout: 4000 }, (err, stdout) => {
+      resolve(stdout && stdout.trim() === 'found' ? 'operational' : 'failed');
+    });
+  });
+}
+
+// Slack Commander uses Socket Mode (no port) — detect via working directory
+function slackBotCheck(botDir) {
+  return new Promise((resolve) => {
+    exec(`lsof +d "${botDir}" 2>/dev/null | grep -q cwd && echo found`, { timeout: 4000 }, (err, stdout) => {
+      resolve(stdout && stdout.trim() === 'found' ? 'operational' : 'failed');
+    });
+  });
+}
+
 function dockerCheck() {
   return new Promise((resolve) => {
     exec('docker info --format "{{.ServerVersion}}"', { timeout: 4000 }, (err) => {
@@ -77,7 +96,7 @@ router.get('/services', asyncHandler(async (req, res) => {
     SUPABASE_URL ? httpCheck(`${SUPABASE_URL}/rest/v1/`) : Promise.resolve('unknown'),
     dockerCheck(),
     httpCheck('http://localhost:11434/api/tags'),
-    portCheck('localhost', 3001),
+    slackBotCheck(path.resolve(__dirname, '../../../../slack-bot')),
     Promise.resolve(fileAgeCheck(numberOneOutputPath, 86400)) // stale if >24h
   ]);
 
@@ -103,7 +122,7 @@ router.get('/services', asyncHandler(async (req, res) => {
     {
       name: 'Slack Commander',
       status: slackBotStatus,
-      description: 'Slack bot — port 3001',
+      description: 'Slack bot — Socket Mode (process check)',
       criticalService: true
     },
     {

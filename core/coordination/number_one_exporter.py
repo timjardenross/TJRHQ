@@ -65,6 +65,14 @@ try:
 except ImportError:
     _LESSONS_AVAILABLE = False
 
+try:
+    sys.path.insert(0, str(_REPO_ROOT / "core" / "intelligence"))
+    from intelligence_reporter import run_all_reports as _run_intelligence_reports
+    from readiness_history import persist_readiness_snapshot as _persist_readiness
+    _INTELLIGENCE_AVAILABLE = True
+except ImportError:
+    _INTELLIGENCE_AVAILABLE = False
+
 
 class NumberOneExporter:
     """Export Number One outputs to JSON files."""
@@ -364,21 +372,48 @@ class NumberOneExporter:
             if lessons_md.exists():
                 import re
                 text = lessons_md.read_text()
-                # Parse table rows: | LL-NNN | Title | Date | Context | Lesson | Guidance | Mission |
+                seen_ids = set()
+
+                # Format 1: ### LL-NNN — Title  (inline title, dominant format in file)
                 for line in text.splitlines():
-                    line = line.strip()
-                    if not line.startswith("| LL-"):
+                    m = re.match(r'^### (LL-[\w-]+)\s+[—–-]\s+(.+)', line)
+                    if m:
+                        lid, title = m.group(1).strip(), m.group(2).strip()
+                        if lid not in seen_ids:
+                            seen_ids.add(lid)
+                            lessons.append({"lesson_id": lid, "title": title, "mission_id": None})
+
+                # Format 2: ## LL-NNN block with ### Title / ### Mission sub-headings
+                for block in re.split(r'\n(?=## LL-)', text):
+                    id_match = re.match(r'## (LL-[\w-]+)', block)
+                    if not id_match:
                         continue
-                    cols = [c.strip() for c in line.split("|")[1:-1]]
-                    if len(cols) >= 2:
-                        lesson_id = cols[0]
-                        title = cols[1]
-                        mission_id = cols[6].strip() if len(cols) > 6 else ""
-                        lessons.append({
-                            "lesson_id": lesson_id,
-                            "title": title,
-                            "mission_id": mission_id if mission_id not in ("—", "", "N/A") else None,
-                        })
+                    lesson_id = id_match.group(1)
+                    if lesson_id in seen_ids:
+                        continue
+                    seen_ids.add(lesson_id)
+                    title_match = re.search(r'### Title\s*\n+(.+)', block)
+                    title = title_match.group(1).strip() if title_match else lesson_id
+                    mission_match = re.search(r'### Mission\s*\n+(.+)', block)
+                    mission_id = mission_match.group(1).strip() if mission_match else None
+                    if mission_id in ("—", "", "N/A", None):
+                        mission_id = None
+                    lessons.append({"lesson_id": lesson_id, "title": title, "mission_id": mission_id})
+
+                # Fallback: table rows | LL-NNN | Title |...
+                if not lessons:
+                    for line in text.splitlines():
+                        line = line.strip()
+                        if not line.startswith("| LL-"):
+                            continue
+                        cols = [c.strip() for c in line.split("|")[1:-1]]
+                        if len(cols) >= 2:
+                            mission_id = cols[6].strip() if len(cols) > 6 else ""
+                            lessons.append({
+                                "lesson_id": cols[0],
+                                "title": cols[1],
+                                "mission_id": mission_id if mission_id not in ("—", "", "N/A") else None,
+                            })
             payload = {
                 "exported_at": datetime.utcnow().isoformat(),
                 "total": len(lessons),
@@ -585,6 +620,17 @@ class NumberOneExporter:
             print(f"✅ Exports complete to {self.output_dir}/ ({len(missions)} missions)")
         return success
 
+    def export_intelligence(self) -> bool:
+        """Run all intelligence reports (WP10) and persist readiness history (WP5)."""
+        if not _INTELLIGENCE_AVAILABLE:
+            return True  # non-blocking
+        try:
+            _run_intelligence_reports(dry_run=False, persist_readiness=True)
+            return True
+        except Exception as e:
+            print(f"⚠️  Intelligence reporting failed (non-fatal): {e}")
+            return True  # never block the main export
+
     def _export_all(self, missions: list[dict]) -> bool:
         """Run all exports. Returns True only if every export succeeded."""
         ok = True
@@ -596,6 +642,7 @@ class NumberOneExporter:
         ok &= self.export_recommendations(missions)
         ok &= self.export_readiness(missions)
         ok &= self.export_lessons()
+        self.export_intelligence()  # non-blocking intelligence layer
         return ok
 
 
@@ -620,14 +667,14 @@ def main():
         "--registry",
         type=str,
         nargs="?",
-        const="../../core/mission-control/registry/mission-index.txt",
-        help="Parse live missions from mission-index.txt (default path used if no value given)"
+        const="__default__",
+        help="Parse live missions from Mission-Index.md (default path used if no value given)"
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="./outputs",
-        help="Output directory (default: ./outputs)"
+        default=str(Path(__file__).parent / "outputs"),
+        help="Output directory (default: script-relative ./outputs)"
     )
     parser.add_argument(
         "--watch",
@@ -651,9 +698,11 @@ def main():
         elif args.missions:
             return exporter.export_from_file(args.missions)
         elif args.registry:
-            return exporter.export_from_registry(args.registry)
+            default_registry = Path(__file__).parent.parent.parent / "core/mission-control/registry/mission-index.txt"
+            registry_path = default_registry if args.registry == "__default__" else Path(args.registry)
+            return exporter.export_from_registry(str(registry_path))
         else:
-            default_registry = Path(__file__).parent.parent / "mission-control/registry/mission-index.txt"
+            default_registry = Path(__file__).parent.parent.parent / "core/mission-control/registry/mission-index.txt"
             if default_registry.exists():
                 return exporter.export_from_registry(str(default_registry))
             else:

@@ -31,6 +31,7 @@ const personalHealthRoutes = require('./api/personal-health');
 const intelligenceRoutes = require('./api/intelligence');
 const calibrationRoutes = require('./api/calibration');
 const notificationRoutes = require('./api/notifications');
+const governanceRoutes = require('./api/governance');
 const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
@@ -101,6 +102,7 @@ app.use('/api/v1/intelligence', intelligenceRoutes);
 app.use('/api/v1/personal-health', personalHealthRoutes);
 app.use('/api/v1/calibration', calibrationRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/governance', governanceRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

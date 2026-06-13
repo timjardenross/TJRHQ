@@ -446,12 +446,6 @@
           <div id="recommendations-widget"><p class="intel-loading">Loading recommendations…</p></div>
         </div>
 
-        <!-- Lessons Learned -->
-        <div class="intel-card">
-          <div class="intel-card-title">📚 Lessons Learned</div>
-          <div id="lessons-widget"><p class="intel-loading">Loading lessons…</p></div>
-        </div>
-
       </div>
       <div class="dept-links">
         <a class="dept-link dept-link-primary" href="or-intelligence.html">📡 Full OR Intelligence Cockpit →</a>
@@ -463,16 +457,26 @@
     <!-- TAB: STARFLEET RECORDS (Governance, accountability, audit)     -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-records">
-      <div class="dashboard-grid">
-        <div class="widget-container">
-          <div id="lessons-governance-widget"></div>
+      <div class="intel-grid">
+        <div class="intel-card">
+          <div class="intel-card-title">🏛️ Governance Decisions</div>
+          <div id="records-decisions">Loading...</div>
         </div>
-        <div class="widget-container">
-          <div id="decisions-governance-widget"></div>
+        <div class="intel-card">
+          <div class="intel-card-title">📚 Lessons Learned</div>
+          <div id="records-lessons">Loading...</div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-card-title">📐 Architectural Decisions</div>
+          <div id="records-adrs">Loading...</div>
+        </div>
+        <div class="intel-card">
+          <div class="intel-card-title">📋 Captain's Directives</div>
+          <div id="records-directives">Loading...</div>
         </div>
       </div>
       <div class="dept-links">
-        <a class="dept-link dept-link-primary" href="decisions-registry.html">⚖️ Decision Registry →</a>
+        <a class="dept-link dept-link-primary" href="decisions-registry.html">⚖️ Full Decision Registry →</a>
         <a class="dept-link dept-link-secondary" href="captains-log.html">📋 Captain's Log →</a>
       </div>
     </div>
@@ -483,10 +487,24 @@
     <div class="tab-panel" id="tab-engineering">
       <div class="dashboard-grid">
         <div class="widget-container">
-          <div id="systems-widget"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">🛰️ Ship Services</div>
+            <div id="eng-services">Loading...</div>
+          </div>
+          <div class="intel-card">
+            <div class="intel-card-title">🧠 LLM Engines</div>
+            <div id="eng-llm">Loading...</div>
+          </div>
         </div>
         <div class="widget-container">
-          <div id="systems-status-detail"></div>
+          <div class="intel-card">
+            <div class="intel-card-title">🌐 External APIs</div>
+            <div id="eng-apis">Loading...</div>
+          </div>
+          <div class="intel-card">
+            <div class="intel-card-title">📊 API Activity</div>
+            <div id="eng-activity">Loading...</div>
+          </div>
         </div>
       </div>
       <div class="dept-links">
@@ -562,6 +580,7 @@
         if (name === 'command')      loadCommandBlockers();
         if (name === 'operations')   loadOperationsTab();
         if (name === 'sickbay')      loadSickbayTab();
+        if (name === 'engineering')  loadEngineeringTab();
       }
 
       // Drill links in Captain's Chair panels
@@ -764,15 +783,13 @@
       if (astrometricsLoaded) return;
       astrometricsLoaded = true;
       try {
-        const [intel, recs, lessons] = await Promise.all([
+        const [intel, recs] = await Promise.all([
           fetchJSON('/api/v1/intelligence/latest').catch(() => null),
           fetchJSON('/api/recommendations').catch(() => null),
-          fetchJSON('/api/lessons').catch(() => null),
         ]);
         renderORBrief(intel);
         renderStrategicWatchlist(intel);
         renderRecsIntel(recs);
-        renderLessons(lessons);
       } catch (e) {
         console.warn('Astrometrics load error:', e);
       }
@@ -882,22 +899,109 @@
     async function loadRecordsTab() {
       if (recordsLoaded) return;
       recordsLoaded = true;
-      try {
-        const lessons = await fetchJSON('/api/lessons').catch(() => null);
-        const el = document.getElementById('lessons-governance-widget');
-        if (el && lessons) {
-          el.innerHTML = `<div class="intel-card">
-            <div class="intel-card-title">📚 Lessons Learned (${lessons.total || 0})</div>
-            ${(lessons.lessons || []).slice(0, 6).map(l => `
-              <div class="lesson-item">
-                <span class="lesson-id">${l.lesson_id}</span>
-                <div class="lesson-title">${l.title}</div>
-                ${l.mission_id ? `<div class="lesson-mission">↳ ${l.mission_id}</div>` : ''}
+
+      const statusBadge = (status = '') => {
+        const s = status.toLowerCase();
+        const colour = s.startsWith('approved') || s === 'confirmed' || s === 'operational' ? '#2ecc71'
+          : s.startsWith('deferred') ? '#f39c12'
+          : s.startsWith('rejected') ? '#e74c3c'
+          : s.startsWith('p0') ? '#e74c3c'
+          : '#8e9eab';
+        const label = status.split('—')[0].split('(')[0].trim().slice(0, 20);
+        return `<span style="font-size:0.72em;padding:2px 6px;border-radius:3px;background:${colour}22;color:${colour};border:1px solid ${colour}44;white-space:nowrap">${label}</span>`;
+      };
+
+      const [govData, lessonsData, adrData, directivesData] = await Promise.allSettled([
+        fetchJSON('/api/v1/governance/decisions').catch(() => null),
+        fetchJSON('/api/lessons').catch(() => null),
+        fetchJSON('/api/v1/governance/adrs').catch(() => null),
+        fetchJSON('/api/v1/governance/directives').catch(() => null),
+      ]);
+
+      // ── Governance Decisions ─────────────────────────────────────────────
+      const decisionsEl = document.getElementById('records-decisions');
+      const gov = govData.value;
+      if (decisionsEl && gov) {
+        const list = gov.canonical || [];
+        decisionsEl.innerHTML = `
+          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} canonical decisions (D-001 – D-${list.length})</div>
+          <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+            ${list.slice(0, 15).map(d => `
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+                <div>
+                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${d.id}</span>
+                  <div style="font-size:0.9em">${d.title}</div>
+                  ${d.date ? `<div style="font-size:0.75em;color:var(--text-muted)">${d.date}</div>` : ''}
+                </div>
+                ${statusBadge(d.status)}
+              </div>`).join('')}
+            ${list.length > 15 ? `<div class="muted" style="font-size:0.8em;text-align:center;padding:4px">+ ${list.length - 15} more</div>` : ''}
+          </div>`;
+      } else if (decisionsEl) {
+        decisionsEl.innerHTML = '<p class="muted">Decisions unavailable.</p>';
+      }
+
+      // ── Lessons Learned ──────────────────────────────────────────────────
+      const lessonsEl = document.getElementById('records-lessons');
+      const lessons = lessonsData.value;
+      if (lessonsEl && lessons) {
+        const list = lessons.lessons || [];
+        lessonsEl.innerHTML = `
+          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${lessons.total || list.length} lessons captured</div>
+          <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+            ${list.map(l => `
+              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${l.lesson_id || ''}</span>
+                </div>
+                <div style="font-size:0.9em">${l.title}</div>
+                ${l.mission_id ? `<div style="font-size:0.75em;color:var(--text-muted)">↳ ${l.mission_id}</div>` : ''}
               </div>`).join('')}
           </div>`;
-        }
-      } catch (e) {
-        console.warn('Records tab load error:', e);
+      } else if (lessonsEl) {
+        lessonsEl.innerHTML = '<p class="muted">Lessons unavailable.</p>';
+      }
+
+      // ── Architectural Decisions ──────────────────────────────────────────
+      const adrsEl = document.getElementById('records-adrs');
+      const adrs = adrData.value;
+      if (adrsEl && adrs) {
+        const list = adrs.adrs || [];
+        adrsEl.innerHTML = `
+          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} architectural decisions recorded</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${list.map(a => `
+              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${a.id}</span>
+                  <span style="font-size:0.9em;font-weight:500">${a.title}</span>
+                </div>
+                ${a.decision ? `<div style="font-size:0.82em;color:var(--text-muted);margin-top:2px">${a.decision.slice(0, 120)}${a.decision.length > 120 ? '…' : ''}</div>` : ''}
+              </div>`).join('')}
+          </div>`;
+      } else if (adrsEl) {
+        adrsEl.innerHTML = '<p class="muted">ADRs unavailable.</p>';
+      }
+
+      // ── Captain's Directives ─────────────────────────────────────────────
+      const directivesEl = document.getElementById('records-directives');
+      const directives = directivesData.value;
+      if (directivesEl && directives) {
+        const list = directives.directives || [];
+        directivesEl.innerHTML = `
+          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} standing directives</div>
+          <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+            ${list.map(d => `
+              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${d.id}</span>
+                  <span style="font-size:0.9em;font-weight:500">${d.title}</span>
+                </div>
+                ${d.body ? `<div style="font-size:0.82em;color:var(--text-muted);margin-top:2px">${d.body.split('\n')[0].slice(0, 100)}</div>` : ''}
+              </div>`).join('')}
+          </div>`;
+      } else if (directivesEl) {
+        directivesEl.innerHTML = '<p class="muted">Directives unavailable.</p>';
       }
     }
 
@@ -1092,6 +1196,137 @@
               ${m.capacity_note ? `<div style="font-size:10px;color:#ffaa00;margin-top:3px;">⚠ ${m.capacity_note}</div>` : ''}
             </div>`).join('')
         }`;
+    }
+
+    // ── Engineering Tab ──────────────────────────────────────────────────
+    let engLoaded = false;
+    async function loadEngineeringTab() {
+      if (engLoaded) return;
+      engLoaded = true;
+
+      // Ship Services — from backend health endpoint
+      const renderServices = async () => {
+        const el = document.getElementById('eng-services');
+        try {
+          const data = await fetchJSON('/api/v1/health/services');
+          const services = Array.isArray(data) ? data : (data.services || []);
+          if (!services.length) { el.innerHTML = '<p class="muted">No services data available.</p>'; return; }
+          el.innerHTML = services.map(s => {
+            const ok = (s.status || '').toLowerCase() === 'operational';
+            const dot = ok ? '🟢' : '🔴';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+              <span>${dot} ${s.name || s.service}</span>
+              <span class="muted" style="font-size:0.8em">${s.status || 'unknown'}</span>
+            </div>`;
+          }).join('');
+        } catch(e) {
+          el.innerHTML = '<p class="muted">Services unavailable.</p>';
+        }
+      };
+
+      // LLM Engines — Ollama direct + OpenClaw
+      const renderLLM = async () => {
+        const el = document.getElementById('eng-llm');
+        let html = '';
+
+        // Ollama
+        try {
+          const r = await fetch('http://localhost:11434/api/tags');
+          if (r.ok) {
+            const d = await r.json();
+            const models = (d.models || []);
+            html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between">
+                <span>🟢 Ollama</span>
+                <span class="muted" style="font-size:0.8em">${models.length} model${models.length !== 1 ? 's' : ''} loaded</span>
+              </div>
+              ${models.map(m => `<div class="muted" style="font-size:0.8em;padding-left:12px">• ${m.name}</div>`).join('')}
+            </div>`;
+          } else {
+            html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">HTTP ${r.status}</span></div>`;
+          }
+        } catch(e) {
+          html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">Unreachable</span></div>`;
+        }
+
+        // OpenClaw
+        try {
+          const r = await fetch('http://localhost:18789/', { signal: AbortSignal.timeout(3000) });
+          html += `<div style="padding:6px 0"><span>${r.ok ? '🟢' : '🟡'} OpenClaw</span> <span class="muted" style="font-size:0.8em">HTTP ${r.status}</span></div>`;
+        } catch(e) {
+          html += `<div style="padding:6px 0"><span>🔴 OpenClaw</span> <span class="muted" style="font-size:0.8em">Offline (port 18789)</span></div>`;
+        }
+
+        el.innerHTML = html || '<p class="muted">No LLM engines detected.</p>';
+      };
+
+      // External APIs — Gemini/Google
+      const renderAPIs = async () => {
+        const el = document.getElementById('eng-apis');
+        try {
+          const intel = await fetchJSON('/api/v1/intelligence/latest').catch(() => null);
+          const brief = intel?.brief || intel;
+          if (!brief) { el.innerHTML = '<p class="muted">No API data available yet.</p>'; return; }
+
+          const provider = brief.provider_used || 'unknown';
+          const isGemini = provider.toLowerCase().includes('gemini') || provider.toLowerCase().includes('google');
+          const isOllama = provider.toLowerCase().includes('mistral') || provider.toLowerCase().includes('llama') || provider.toLowerCase().includes('qwen');
+          const lastCall = brief.generated_at ? new Date(brief.generated_at).toLocaleString('en-AU', {dateStyle:'short', timeStyle:'short'}) : 'unknown';
+
+          el.innerHTML = `
+            <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between">
+                <span>🌐 Google / Gemini API</span>
+                <span class="muted" style="font-size:0.8em">${isGemini ? '🟢 active' : '⚪ not last used'}</span>
+              </div>
+              <div class="muted" style="font-size:0.8em;padding-top:2px">Key configured via GEMINI_API_KEY</div>
+            </div>
+            <div style="padding:6px 0">
+              <div style="display:flex;justify-content:space-between">
+                <span>⚙️ Last OR Intel provider</span>
+              </div>
+              <div style="font-size:0.85em;margin-top:2px"><code>${provider}</code></div>
+              <div class="muted" style="font-size:0.8em">${lastCall}</div>
+            </div>`;
+        } catch(e) {
+          el.innerHTML = '<p class="muted">API status unavailable.</p>';
+        }
+      };
+
+      // API Activity — recent OR Intel brief calls from /api/v1/intelligence/latest
+      const renderActivity = async () => {
+        const el = document.getElementById('eng-activity');
+        try {
+          const intel = await fetchJSON('/api/v1/intelligence/latest').catch(() => null);
+          const brief = intel?.brief || intel;
+          if (!brief) { el.innerHTML = '<p class="muted">No activity data available yet.</p>'; return; }
+
+          const confidence = brief.confidence != null ? Math.round(brief.confidence * 100) + '%' : 'N/A';
+          const sources = brief.sources_available ?? '?';
+          const risk = brief.overall_risk || 'N/A';
+          const generated = brief.generated_at ? new Date(brief.generated_at).toLocaleString('en-AU', {dateStyle:'short', timeStyle:'short'}) : 'unknown';
+
+          el.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+                <span class="muted">Last OR Intel run</span><span>${generated}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span class="muted">Sources used</span><span>${sources}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span class="muted">Confidence</span><span>${confidence}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span class="muted">Risk level</span><span>${risk}</span>
+              </div>
+            </div>`;
+        } catch(e) {
+          el.innerHTML = '<p class="muted">Activity data unavailable.</p>';
+        }
+      };
+
+      await Promise.allSettled([renderServices(), renderLLM(), renderAPIs(), renderActivity()]);
     }
 
     // ── Boot ─────────────────────────────────────────────────────────────
