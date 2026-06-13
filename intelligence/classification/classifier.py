@@ -86,13 +86,22 @@ _BANKING_KEYWORDS = [
     "payment system", "clearing", "settlement", "npp", "osko",
 ]
 
-_CPS230_KEYWORDS = [
-    "cps 230", "cps230", "operational risk", "operational resilience",
-    "material service provider", "msp", "third party risk", "service continuity",
-    "business continuity", "bcp", "drp", "disaster recovery",
-    "critical operations", "critical functions", "prudential standard",
-    "apra", "regulated entity", "incident management",
+# CPS 230 keywords by confidence tier
+# Tier 3 (High) — explicitly references CPS 230 or direct operational obligations
+_CPS230_HIGH = [
+    "cps 230", "cps230", "operational resilience", "material service provider",
+    "critical operations", "critical functions", "service continuity",
+    "business continuity obligation", "bcp requirement", "drp",
 ]
+# Tier 2 (Medium) — operational risk / third-party risk signals
+_CPS230_MEDIUM = [
+    "operational risk", "third party risk", "outsourcing risk",
+    "business continuity", "disaster recovery", "incident management",
+    "service disruption", "technology risk", "concentration risk",
+    "outsourced", "managed service", "cloud provider",
+]
+# Legacy combined list for backward compat in other modules
+_CPS230_KEYWORDS = _CPS230_HIGH + _CPS230_MEDIUM
 
 _DEPENDENCY_KEYWORDS = [
     "cloud", "aws", "azure", "google cloud", "microsoft", "salesforce",
@@ -181,9 +190,32 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
     else:
         banking_relevance = "low"
 
-    # ── CPS 230 relevance ─────────────────────────────────────────────────────
-    cps230_hits = sum(1 for kw in _CPS230_KEYWORDS if kw in text)
-    cps230_relevance = cps230_hits >= 1 or event_type == "regulatory"
+    # ── CPS 230 relevance — confidence-gated (0=none, 1=low, 2=medium, 3=high) ─
+    # Only set cps230_relevance=True at confidence >= 2.
+    # Routine APRA statistics and speeches never qualify without explicit CPS230 language.
+    _routine_publication = any(re.search(pat, text) for pat in [
+        r"statistics for (january|february|march|april|may|june|july|august|september|october|november|december)",
+        r"quarterly (statistics|data)",
+        r"monthly (statistics|authorised deposit)",
+        r"(remarks|speech|address|keynote) (to|at) the",
+    ])
+    high_hits   = sum(1 for kw in _CPS230_HIGH   if kw in text)
+    medium_hits = sum(1 for kw in _CPS230_MEDIUM if kw in text)
+
+    if high_hits >= 1:
+        cps230_confidence = 3
+    elif medium_hits >= 2:
+        cps230_confidence = 2
+    elif medium_hits >= 1 and event_type in ("technology_outage", "cyber", "telecom_outage", "third_party_disruption"):
+        cps230_confidence = 2
+    elif event_type == "regulatory" and not _routine_publication and banking_hits >= 2:
+        cps230_confidence = 2
+    elif medium_hits >= 1 or (event_type == "regulatory" and not _routine_publication):
+        cps230_confidence = 1
+    else:
+        cps230_confidence = 0
+
+    cps230_relevance = cps230_confidence >= 2
 
     # ── Dependency risk ───────────────────────────────────────────────────────
     dep_hits = sum(1 for kw in _DEPENDENCY_KEYWORDS if kw in text)
