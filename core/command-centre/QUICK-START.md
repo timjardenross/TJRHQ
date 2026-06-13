@@ -14,7 +14,7 @@ The **Control Engine** is a lightweight API that gives your Control Deck dashboa
 - **Phase 2 (Done):** JavaScript integration for live dashboard updates
 - **Phase 3 (Done):** Background monitor that auto-restarts failed services
 
-**Start here:** `python3 control_engine.py`
+**Start here:** `USS-TJR-Control/scripts/start-control-engine.sh`
 
 ---
 
@@ -22,8 +22,8 @@ The **Control Engine** is a lightweight API that gives your Control Deck dashboa
 
 ### 1. Start Control Engine
 ```bash
-cd ~/Documents/GitHub/USSTJROS/core/command-centre
-python3 control_engine.py
+cd ~/Documents/GitHub/USSTJROS
+./USS-TJR-Control/scripts/start-control-engine.sh
 ```
 
 **Expected output:**
@@ -71,8 +71,8 @@ Want services to automatically recover when they fail?
 
 ### 1. Start Monitor in Another Terminal
 ```bash
-cd ~/Documents/GitHub/USSTJROS/core/command-centre
-python3 control_engine_monitor.py --poll-interval 30
+cd ~/Documents/GitHub/USSTJROS
+./USS-TJR-Control/scripts/start-health-monitor.sh
 ```
 
 **Expected output:**
@@ -85,7 +85,7 @@ python3 control_engine_monitor.py --poll-interval 30
 Stop a service manually:
 ```bash
 cd ~/Documents/GitHub/USSTJROS/USS-TJR-Control
-./scripts/stop-slack-bot.sh
+./scripts/start-slack-bot.sh
 ```
 
 Monitor will detect and auto-restart it within 2 minutes.
@@ -145,8 +145,8 @@ curl http://localhost:8888/api/dashboard/summary
 ### Core Files
 ```
 core/command-centre/
-├── control_engine.py              ← Run this
-├── control_engine_monitor.py      ← Run this too (optional)
+├── control_engine.py              ← Canonical engine implementation
+├── control_engine_monitor.py      ← Canonical monitor implementation
 └── frontend/
     ├── control-engine-client.js   ← Already in dashboard
     └── dashboard-integration.js   ← Already in dashboard
@@ -190,7 +190,7 @@ cat core/command-centre/.monitor_state.json
 ```bash
 # Monitor prints to stdout while running
 # Control+C to stop
-python3 control_engine_monitor.py
+./USS-TJR-Control/scripts/start-health-monitor.sh
 ```
 
 ---
@@ -204,7 +204,7 @@ ps aux | grep control_engine
 
 # Kill and restart
 pkill -f control_engine.py
-python3 control_engine.py
+./USS-TJR-Control/scripts/start-control-engine.sh
 ```
 
 ### Dashboard Not Updating
@@ -327,7 +327,7 @@ python3 control_engine_monitor.py --poll-interval 60  # Poll every minute
 ## Next Steps
 
 1. **Try Phase 1** (2 minutes)
-   - Start control_engine.py
+   - Start USS-TJR-Control/scripts/start-control-engine.sh
    - Curl /api/health
    - See it working
 
@@ -359,10 +359,10 @@ python3 control_engine_monitor.py --poll-interval 60  # Poll every minute
 
 ```bash
 # Phase 1: Start API
-python3 control_engine.py
+./USS-TJR-Control/scripts/start-control-engine.sh
 
 # Phase 3: Start Monitor (optional)
-python3 control_engine_monitor.py --poll-interval 30
+./USS-TJR-Control/scripts/start-health-monitor.sh
 
 # Phase 2: Use Dashboard (already integrated)
 Open http://localhost:8081

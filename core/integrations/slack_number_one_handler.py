@@ -3,6 +3,10 @@ Slack Integration for Number One Review Gate (Phase 1.2)
 Handles Slack message parsing, interactive actions, and workflow triggers.
 Uses non-blocking error handling (failures don't block mission state changes).
 Includes canonical ID resolution for consistent mission identification (P2b).
+
+DEPRECATED DUPLICATE / TRANSITIONAL:
+Retain only while Slack review flows still depend on this adapter. New work
+should prefer the canonical Number One integration path.
 """
 
 import json

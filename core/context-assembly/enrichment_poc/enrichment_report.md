@@ -72,3 +72,5 @@ YES — for now. Adding a lightweight metadata block to the mission template cos
 PROCEED WITH CORPUS ENRICHMENT FIRST.
 Enrichment produced 26% average completeness uplift, exceeding the 25pp threshold.
 Recommendation: Adopt explicit relationship metadata as a mandatory field in the mission template before designing a relationship storage schema. Template enrichment delivers the same analytical value at zero infrastructure cost.
+# ARCHIVED EXPERIMENT OUTPUT
+# This report documents a historical enrichment POC and is not a live runtime artifact.

@@ -318,3 +318,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+#!/usr/bin/env python3
+# DEPRECATED EXPERIMENT:
+# Retained for reference only. The canonical context-assembly runtime lives
+# outside the enrichment_poc experiment tree.

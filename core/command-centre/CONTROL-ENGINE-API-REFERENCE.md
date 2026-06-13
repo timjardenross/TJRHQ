@@ -22,6 +22,8 @@ The Control Engine is a lightweight HTTP API that wraps USS-TJR-Control shell sc
 - No authentication Phase 1 (localhost-only)
 - No new databases (state from existing sources)
 
+**Canonical launch path:** `USS-TJR-Control/scripts/start-control-engine.sh`
+
 ---
 
 ## API Endpoints

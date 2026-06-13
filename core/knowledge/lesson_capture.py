@@ -1,19 +1,8 @@
 """
 Lesson Capture — Sprint D / Learning Loop
 
-Automates the lesson-capture step of the mission closure workflow.
-Called when a mission closes with a Learning Gate (full or partial).
-
-Public API:
-    next_lesson_id()                          -> str  (e.g. "LL-095")
-    capture_lesson(LessonInput)               -> LessonResult
-    backfill_lessons_to_supabase()            -> dict  (sync existing MD lessons)
-
-Side effects:
-    - Upserts to Supabase lessons_learned table (PRIMARY persistence)
-    - Optionally generates knowledge/missions/<ID>-knowledge-record.md
-    - Does NOT auto-append to Lessons-Learned.md (v2.0 register requires
-      Knowledge Officer integration; use tools/integrate_lessons.py pattern)
+Canonical lesson-capture implementation for repository use.
+The slack-bot duplicate exists only for compatibility during migration.
 """
 
 from __future__ import annotations
