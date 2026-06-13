@@ -497,6 +497,8 @@ def _job_pain_escalation(client) -> None:
     """Post pain escalation alert if threshold exceeded for consecutive days."""
     escalation = _check_pain_escalation()
     if not escalation:
+        _shakedown_log("pain_escalation", "skipped",
+                       f"Pain below threshold (threshold={_PAIN_THRESHOLD}, days={_PAIN_DAYS})")
         return
 
     scores_str = ", ".join(str(s) for s in escalation["scores"])
@@ -514,11 +516,14 @@ def _job_pain_escalation(client) -> None:
         f"",
         f"_This is an advisory alert. Consult your healthcare provider for clinical guidance._",
     ]
-    _post(client, "\n".join(lines))
+    posted = _post(client, "\n".join(lines))
     log.warning(
         "[scheduler] Pain escalation alert posted: %d consecutive days >= %d (avg %.1f)",
         escalation["consecutive_days"], escalation["threshold"], escalation["avg_pain"]
     )
+    _shakedown_log("pain_escalation", "success" if posted else "failure",
+                   f"Pain ≥{escalation['threshold']} for {escalation['consecutive_days']} days (avg {escalation['avg_pain']})",
+                   _BRIEF_CHANNEL)
 
 
 # ---------------------------------------------------------------------------
@@ -530,21 +535,25 @@ def _job_weekly_health_synthesis(client) -> None:
     log.info("[scheduler] Running weekly health synthesis")
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
-        from commands.health_synthesis import run_weekly_synthesis, handle_health_brief
+        from commands.health_synthesis import run_weekly_synthesis
         result = run_weekly_synthesis(period_days=7)
         if result and result.summary:
             channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
             if channel:
-                # Build a clean header then the synthesis text
                 header = ":medical_symbol: *Medical Officer — Weekly Health Brief*\n"
-                _post(client, header + result.summary)
+                posted = _post(client, header + result.summary)
                 log.info("[scheduler] Weekly health synthesis posted (period: 7 days)")
+                _shakedown_log("weekly_health_synthesis", "success" if posted else "failure",
+                               f"period={result.period_start}→{result.period_end}", _BRIEF_CHANNEL)
             else:
                 log.warning("[scheduler] Weekly synthesis generated but no channel configured")
+                _shakedown_log("weekly_health_synthesis", "failure", "No channel configured")
         else:
             log.warning("[scheduler] Weekly synthesis returned no summary")
+            _shakedown_log("weekly_health_synthesis", "skipped", "No summary returned — insufficient health data")
     except Exception as exc:
         log.error("[scheduler] Weekly health synthesis failed: %s", exc)
+        _shakedown_log("weekly_health_synthesis", "failure", str(exc))
         channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
         if channel:
             _post(client, f":warning: *Medical Officer:* Weekly health synthesis failed — {exc}\nUse `/health-brief` to trigger manually.")
@@ -562,15 +571,57 @@ def _job_appointment_prep(client) -> None:
         count = check_upcoming_appointments(client, lead_days=_APPT_LEAD_DAYS)
         if count:
             log.info("[scheduler] Appointment prep: %d brief(s) posted", count)
+            _shakedown_log("appointment_prep", "success",
+                           f"{count} preparation brief(s) posted", _BRIEF_CHANNEL)
         else:
             log.debug("[scheduler] Appointment prep: no upcoming appointments within %d days", _APPT_LEAD_DAYS)
+            _shakedown_log("appointment_prep", "skipped",
+                           f"No appointments within {_APPT_LEAD_DAYS} days")
     except Exception as exc:
         log.error("[scheduler] Appointment prep check failed: %s", exc)
+        _shakedown_log("appointment_prep", "failure", str(exc))
 
 
 # ---------------------------------------------------------------------------
 # Scheduled jobs
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Shakedown Logger import helper  [M-20260615]
+# ---------------------------------------------------------------------------
+
+def _shakedown_log(job_id: str, status: str, detail: str = "", delivered_to: str = "") -> None:
+    """Write one shakedown event. Fails silently — never disrupts job execution."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+        from shakedown_logger import log_event
+        log_event(job_id, status, detail, delivered_to)
+    except Exception as exc:
+        log.debug("[shakedown] log_event failed (non-critical): %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Daily shakedown digest  [M-20260615]
+# ---------------------------------------------------------------------------
+
+def _job_shakedown_digest(client) -> None:
+    """Evening: compile today's shakedown observations and post summary to channel."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
+        from shakedown_logger import get_day_summary, format_day_summary_for_slack
+        from datetime import date as _date
+        summary = get_day_summary(_date.today())
+        msg = format_day_summary_for_slack(summary)
+        if _post(client, msg):
+            log.info("[shakedown] Day %d digest posted (events=%d, failures=%d)",
+                     summary["day_n"], summary["total_events"], summary["failure_count"])
+        _shakedown_log("shakedown_digest", "success",
+                       f"Day {summary['day_n']}: {summary['total_events']} events, {summary['failure_count']} failures",
+                       _BRIEF_CHANNEL)
+    except Exception as exc:
+        log.error("[shakedown] Digest job failed: %s", exc)
+        _shakedown_log("shakedown_digest", "failure", str(exc))
+
 
 def _job_morning_brief(client) -> None:
     log.info("[scheduler] Generating morning brief")
@@ -584,8 +635,14 @@ def _job_morning_brief(client) -> None:
     health_logged = _check_health_logged_today()
     if not health_logged:
         brief_text += "\n\n:bell: *Health check-in not yet logged today.* Use `/health-check` to log your daily entry."
-    _post(client, brief_text)
+    posted = _post(client, brief_text)
     log.info("[scheduler] Morning brief pushed")
+    _shakedown_log(
+        "morning_brief",
+        "success" if posted else "failure",
+        f"readiness_block={'yes' if readiness_block else 'no'}, health_logged={health_logged}",
+        _BRIEF_CHANNEL,
+    )
 
     # Post-brief async jobs
     threading.Thread(target=_job_stale_missions,  args=(client,), daemon=True).start()
@@ -595,13 +652,16 @@ def _job_morning_brief(client) -> None:
 def _job_stale_missions(client) -> None:
     stale = _get_stale_missions()
     if not stale:
+        _shakedown_log("stale_missions", "skipped", "No stale missions found")
         return
     lines = [f":hourglass: *Stale missions — no update in {_STALE_DAYS}+ days:*"]
     for m in stale:
         lines.append(f"  • `{m['id']}` — {m['title']}")
     lines.append("\nUse `/mission-status <id>` to review or `/mission-close <id>` to close.")
-    _post(client, "\n".join(lines))
+    posted = _post(client, "\n".join(lines))
     log.info("[scheduler] Stale mission alert pushed (%d missions)", len(stale))
+    _shakedown_log("stale_missions", "success" if posted else "failure",
+                   f"{len(stale)} stale missions alerted", _BRIEF_CHANNEL)
 
 
 def _job_decision_review(client) -> None:
@@ -609,13 +669,16 @@ def _job_decision_review(client) -> None:
     pending = _get_pending_decisions()
     if not pending:
         log.info("[scheduler] No pending decisions for review")
+        _shakedown_log("decision_review", "skipped", "No pending decisions")
         return
     lines = [f":ballot_box_with_ballot: *{len(pending)} decision(s) awaiting your review:*", ""]
     for d in pending[:8]:
         lines.append(f"  • `{d['id']}` ({d['date']}) — {d['question'][:80]}")
     lines.append("\nReview via `/decision-log` to record outcomes.")
-    _post(client, "\n".join(lines))
+    posted = _post(client, "\n".join(lines))
     log.info("[scheduler] Decision review push sent (%d items)", len(pending))
+    _shakedown_log("decision_review", "success" if posted else "failure",
+                   f"{len(pending)} decisions surfaced", _BRIEF_CHANNEL)
 
 
 def _job_knowledge_freshness(client) -> None:
@@ -623,6 +686,7 @@ def _job_knowledge_freshness(client) -> None:
     stale = _get_stale_knowledge_files()
     if not stale:
         log.info("[scheduler] Knowledge freshness check: all files current")
+        _shakedown_log("knowledge_freshness", "skipped", "All knowledge files current")
         return
     lines = [
         f":file_cabinet: *Knowledge Freshness Alert — {len(stale)} file(s) not updated in {_KNOWLEDGE_STALENESS_DAYS}+ days:*",
@@ -631,8 +695,10 @@ def _job_knowledge_freshness(client) -> None:
     for f in stale[:8]:
         lines.append(f"  • `{f['path']}` — {f['age_days']} days")
     lines.append("\nReview and update these files to keep the knowledge base current.")
-    _post(client, "\n".join(lines))
+    posted = _post(client, "\n".join(lines))
     log.info("[scheduler] Knowledge freshness alert pushed (%d stale files)", len(stale))
+    _shakedown_log("knowledge_freshness", "success" if posted else "failure",
+                   f"{len(stale)} stale files alerted", _BRIEF_CHANNEL)
 
 
 def _job_decision_outcome_reminder(client) -> None:
@@ -812,6 +878,16 @@ def start_scheduler(client) -> None:
         args=[client],
         id="appointment_prep",
         name="Medical Officer Appointment Preparation Check",
+        replace_existing=True,
+    )
+
+    # Shakedown digest — daily 20:00  [M-20260615]
+    scheduler.add_job(
+        _job_shakedown_digest,
+        CronTrigger(hour=20, minute=0),
+        args=[client],
+        id="shakedown_digest",
+        name="Operational Shakedown Daily Digest",
         replace_existing=True,
     )
 
