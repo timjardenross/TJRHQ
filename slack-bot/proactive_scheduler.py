@@ -46,6 +46,50 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# Import notification framework (graceful fallback if unavailable)
+try:
+    from captain_notifications import (
+        get_config as _get_notif_config,
+        get_mission_escalations,
+        format_mission_escalation_batch,
+        get_forgotten_decisions,
+        format_forgotten_decisions,
+        build_work_queue,
+        should_send_health_nudge,
+        health_nudge_text,
+        mission_close_lesson_warning,
+        SEVERITY_WARNING,
+        SEVERITY_ALERT,
+        SEVERITY_CRITICAL,
+    )
+    _NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    _NOTIFICATIONS_AVAILABLE = False
+    log.warning("[scheduler] captain_notifications not available — enhanced escalations disabled")
+
+# Import WP1 escalation manager (graceful fallback)
+try:
+    from escalation_manager import process_escalations as _process_escalations
+    _ESCALATION_MANAGER_AVAILABLE = True
+except ImportError:
+    _ESCALATION_MANAGER_AVAILABLE = False
+    log.warning("[scheduler] escalation_manager not available — cadence control disabled")
+
+# Import WP2 alert metrics (graceful fallback)
+try:
+    from alert_metrics import get_metrics_block_for_brief as _metrics_block
+    _METRICS_AVAILABLE = True
+except ImportError:
+    _METRICS_AVAILABLE = False
+
+# Import WP3 risk scoring (graceful fallback)
+try:
+    from mission_risk import format_risk_brief_block as _risk_brief_block
+    _RISK_AVAILABLE = True
+except ImportError:
+    _RISK_AVAILABLE = False
+
 _BRIEF_TIME      = os.environ.get("BRIEF_TIME", "07:30")
 _BRIEF_CHANNEL   = os.environ.get("BRIEF_CHANNEL", "")
 _BRIEF_USER_ID   = os.environ.get("BRIEF_USER_ID", "")
@@ -635,6 +679,25 @@ def _job_morning_brief(client) -> None:
     health_logged = _check_health_logged_today()
     if not health_logged:
         brief_text += "\n\n:bell: *Health check-in not yet logged today.* Use `/health-check` to log your daily entry."
+
+    # WP3: Append top high-risk missions block  [M-20260615 WP3]
+    if _RISK_AVAILABLE:
+        try:
+            risk_block = _risk_brief_block(limit=3)
+            if risk_block:
+                brief_text += "\n\n" + risk_block
+        except Exception as _re:
+            log.debug("[scheduler] Risk brief block failed: %s", _re)
+
+    # WP2: Append alert metrics block  [M-20260615 WP2]
+    if _METRICS_AVAILABLE:
+        try:
+            metrics_block = _metrics_block()
+            if metrics_block:
+                brief_text += "\n\n" + metrics_block
+        except Exception as _me:
+            log.debug("[scheduler] Metrics brief block failed: %s", _me)
+
     posted = _post(client, brief_text)
     log.info("[scheduler] Morning brief pushed")
     _shakedown_log(
@@ -774,6 +837,89 @@ def _parse_time(time_str: str) -> tuple[int, int]:
         return 7, 30
 
 
+# ---------------------------------------------------------------------------
+# Mission escalation job  [M-20260615 Proactive Notifications]
+# ---------------------------------------------------------------------------
+
+def _job_mission_escalation(client) -> None:
+    """Daily: detect and push mission escalations to Captain, respecting cadence rules."""
+    if not _NOTIFICATIONS_AVAILABLE:
+        log.debug("[escalation] captain_notifications not available — skipping")
+        return
+    cfg = _get_notif_config()
+    if not cfg.mission_escalations:
+        log.debug("[escalation] Mission escalations disabled by config")
+        return
+    try:
+        escalations = get_mission_escalations()
+        if not escalations:
+            log.info("[escalation] No mission escalations detected")
+            return
+
+        # WP1: apply cadence control — only push what's due today
+        if _ESCALATION_MANAGER_AVAILABLE:
+            escalations = _process_escalations(escalations)
+            if not escalations:
+                log.info("[escalation] All escalations suppressed by cadence control")
+                return
+
+        msg = format_mission_escalation_batch(escalations)
+        if _post(client, msg):
+            log.info("[escalation] Mission escalation report posted (%d items)", len(escalations))
+        else:
+            log.warning("[escalation] Mission escalation report failed to post")
+    except Exception as exc:
+        log.error("[escalation] Mission escalation job failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Health nudge job  [M-20260615 Proactive Notifications]
+# ---------------------------------------------------------------------------
+
+def _job_health_nudge(client) -> None:
+    """Evening: push a health log reminder if no entry recorded today."""
+    if not _NOTIFICATIONS_AVAILABLE:
+        return
+    cfg = _get_notif_config()
+    if not cfg.health_reminders:
+        return
+    try:
+        if _check_health_logged_today():
+            log.info("[health_nudge] Health already logged today — no reminder needed")
+            return
+        if not cfg.should_send(SEVERITY_INFO, is_routine=True):
+            log.info("[health_nudge] Suppressed by notification controls")
+            return
+        msg = health_nudge_text()
+        if _post(client, msg):
+            log.info("[health_nudge] Health nudge posted")
+    except Exception as exc:
+        log.error("[health_nudge] Health nudge job failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Forgotten decisions job  [M-20260615 Proactive Notifications]
+# ---------------------------------------------------------------------------
+
+def _job_forgotten_decisions(client) -> None:
+    """Bi-weekly: surface governance decisions/ADRs that have been left unresolved."""
+    if not _NOTIFICATIONS_AVAILABLE:
+        return
+    cfg = _get_notif_config()
+    if not cfg.forgotten_decisions:
+        return
+    try:
+        items = get_forgotten_decisions()
+        if not items:
+            log.info("[forgotten_decisions] No forgotten decisions found")
+            return
+        msg = format_forgotten_decisions(items)
+        if _post(client, msg):
+            log.info("[forgotten_decisions] Forgotten decisions alert posted (%d items)", len(items))
+    except Exception as exc:
+        log.error("[forgotten_decisions] Forgotten decisions job failed: %s", exc)
+
+
 def start_scheduler(client) -> None:
     """Start the APScheduler background scheduler. Call once after bot initialises."""
     if not _ENABLED:
@@ -891,10 +1037,43 @@ def start_scheduler(client) -> None:
         replace_existing=True,
     )
 
+    # Mission escalation check — daily 09:00 (post-brief)  [M-20260615 Proactive Notifications]
+    scheduler.add_job(
+        _job_mission_escalation,
+        CronTrigger(hour=9, minute=0),
+        args=[client],
+        id="mission_escalation",
+        name="Mission Escalation Detector",
+        replace_existing=True,
+    )
+
+    # Health nudge — daily 20:30 (after shakedown, before quiet hours)  [M-20260615]
+    scheduler.add_job(
+        _job_health_nudge,
+        CronTrigger(hour=20, minute=30),
+        args=[client],
+        id="health_nudge",
+        name="Health Log Nudge",
+        replace_existing=True,
+    )
+
+    # Forgotten decisions alert — Monday + Thursday 09:30  [M-20260615]
+    scheduler.add_job(
+        _job_forgotten_decisions,
+        CronTrigger(day_of_week="mon,thu", hour=9, minute=30),
+        args=[client],
+        id="forgotten_decisions",
+        name="Forgotten Decisions & ADR Alert",
+        replace_existing=True,
+    )
+
     scheduler.start()
     log.info(
         "[scheduler] Proactive scheduler started — brief at %02d:%02d AEST, "
+        "mission escalation 09:00 daily, "
         "stale mission + pain escalation checks post-brief daily, "
+        "health nudge 20:30 daily, "
+        "forgotten decisions Mon+Thu 09:30, "
         "appointment prep daily 08:45, "
         "weekly health synthesis Saturdays 08:00, "
         "decision review Fridays 16:00, weekly review Fridays 16:30, "
@@ -903,6 +1082,15 @@ def start_scheduler(client) -> None:
         "monthly digest 1st of month 08:00",
         brief_hour, brief_minute,
     )
+    if _NOTIFICATIONS_AVAILABLE:
+        from captain_notifications import get_config as _nc
+        _cfg = _nc()
+        log.info(
+            "[scheduler] Notification controls: level=%s, quiet=%02d:00–%02d:00, "
+            "weekend=%s, mission_escalations=%s, health_reminders=%s, forgotten_decisions=%s",
+            _cfg.level, _cfg.quiet_start, _cfg.quiet_end,
+            _cfg.weekend, _cfg.mission_escalations, _cfg.health_reminders, _cfg.forgotten_decisions,
+        )
     log.info("[scheduler] Target channel: %s", _BRIEF_CHANNEL or _BRIEF_USER_ID or "(not configured — set BRIEF_CHANNEL or BRIEF_USER_ID)")
     log.info(
         "[scheduler] Pain alert: threshold=%d/10 for %d consecutive days | "

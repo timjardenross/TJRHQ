@@ -29,6 +29,8 @@ const contextRoutes = require('./api/context');
 const captainsLogRoutes = require('./api/captains-log');
 const personalHealthRoutes = require('./api/personal-health');
 const intelligenceRoutes = require('./api/intelligence');
+const calibrationRoutes = require('./api/calibration');
+const notificationRoutes = require('./api/notifications');
 const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
@@ -36,13 +38,30 @@ const app = express();
 const PORT = process.env.PORT || 5050;
 
 // Middleware
+const _corsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081', 'http://localhost:5050'];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081', 'null'],
+  origin: _corsOrigins,
   credentials: true,
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Optional API key authentication (D-007 security baseline).
+// Set BACKEND_API_KEY in .env to enforce. If unset, auth is skipped (dev mode).
+const _apiKey = process.env.BACKEND_API_KEY;
+app.use((req, res, next) => {
+  if (!_apiKey) return next(); // dev mode: no key configured
+  if (req.path === '/health') return next(); // health check is always public
+  const provided = req.headers['x-api-key'] || req.query.api_key;
+  if (provided !== _apiKey) {
+    return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
+  }
+  next();
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -73,6 +92,8 @@ app.use('/api/v1/context', contextRoutes);
 app.use('/api/v1/captains-log', captainsLogRoutes);
 app.use('/api/v1/intelligence', intelligenceRoutes);
 app.use('/api/v1/personal-health', personalHealthRoutes);
+app.use('/api/v1/calibration', calibrationRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
