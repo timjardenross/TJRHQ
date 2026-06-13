@@ -388,31 +388,39 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str
     )
 
     # ── Build insight row ────────────────────────────────────────────────────
+    period_end = (date.fromisoformat(week_start) + timedelta(days=6)).isoformat()
     insight = {
-        "week_start": week_start,
-        "source_table": "analytics_health_daily",
-        "days_logged": n,
-        "pain_scores": pain_values,
-        "pain_avg": pain_avg,
-        "pain_trend": pain_trend,
-        "sleep_avg": sleep_avg,
-        "sleep_trend": sleep_trend,
-        "energy_modal": energy_modal,
-        "mood_modal": mood_modal,
-        "capacity_avg": capacity_avg,
+        # Required NOT NULL columns (health_insights schema)
+        "period_start":  week_start,
+        "period_end":    period_end,
+        "insight_type":  "weekly_summary",
+        "summary":       (narrative or "")[:500],
+        # Optional analytics columns
+        "week_start":    week_start,
+        "source_table":  "analytics_health_daily",
+        "days_logged":   n,
+        "pain_scores":   pain_values,
+        "pain_avg":      pain_avg,
+        "pain_trend":    pain_trend,
+        "sleep_avg":     sleep_avg,
+        "sleep_trend":   sleep_trend,
+        "energy_modal":  energy_modal,
+        "mood_modal":    mood_modal,
+        "capacity_avg":  capacity_avg,
         "capacity_trend": capacity_trend,
-        "risk_flags": risk_flags,
+        "risk_flags":    risk_flags,
         "positive_flags": positive_flags,
         "auto_health_status": auto_status,
         "decisions_extracted": decisions,
         "narrative_summary": narrative,
         "synthesis_version": "1.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by":  "weekly_synthesis",
+        "generated_at":  datetime.now(timezone.utc).isoformat(),
     }
 
     # ── Persist to Supabase ──────────────────────────────────────────────────
     try:
-        supabase_upsert("health_insights", insight, on_conflict="week_start")
+        supabase_upsert("health_insights", insight, on_conflict="period_start,period_end,insight_type")
     except Exception as exc:
         insight["_persist_error"] = str(exc)
 

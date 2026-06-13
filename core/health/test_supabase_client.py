@@ -123,20 +123,22 @@ class TestSupabaseUpsert(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.sc.supabase_upsert("health_daily_logs", {}, on_conflict="log_date")
 
-    def test_upsert_includes_on_conflict_in_prefer_header(self):
-        """Verify the correct Prefer header is sent."""
+    def test_upsert_includes_on_conflict_in_url(self):
+        """Verify on_conflict is sent as a URL query parameter (PostgREST v10+)."""
         saved = {"id": "row-1"}
         captured = {}
 
         def fake_urlopen(req, timeout=10):
+            captured["url"] = req.full_url
             captured["prefer"] = req.get_header("Prefer")
             return _mock_response([saved])
 
         with patch("urllib.request.urlopen", side_effect=fake_urlopen):
             self.sc.supabase_upsert("health_daily_logs", {"log_date": "2026-06-13"}, on_conflict="log_date")
 
-        self.assertIn("on_conflict=log_date", captured["prefer"])
+        self.assertIn("on_conflict=log_date", captured["url"])
         self.assertIn("merge-duplicates", captured["prefer"])
+        self.assertNotIn("on_conflict", captured["prefer"])  # not in Prefer header
 
 
 class TestSupabaseInsert(unittest.TestCase):

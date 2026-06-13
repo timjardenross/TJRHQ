@@ -92,7 +92,7 @@ def supabase_upsert(
     if not url or not key:
         raise RuntimeError("Supabase credentials not configured")
 
-    full_url = f"{url.rstrip('/')}/rest/v1/{table}"
+    full_url = f"{url.rstrip('/')}/rest/v1/{table}?on_conflict={urllib.parse.quote(on_conflict)}"
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         full_url,
@@ -103,7 +103,7 @@ def supabase_upsert(
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Prefer": f"resolution=merge-duplicates,return=representation,on_conflict={on_conflict}",
+            "Prefer": "resolution=merge-duplicates,return=representation",
             "Content-Length": str(len(body)),
         },
     )
