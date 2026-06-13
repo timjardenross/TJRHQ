@@ -37,6 +37,16 @@ const { errorHandler } = require('./middleware/error-handling');
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5050;
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+
+function failFast(message) {
+  console.error(`FATAL: ${message}`);
+  process.exit(1);
+}
+
+if (!BACKEND_API_KEY) {
+  failFast('BACKEND_API_KEY is required. Set it in .env before starting the backend.');
+}
 
 // Middleware
 const _corsOrigins = process.env.CORS_ORIGIN
@@ -51,14 +61,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Optional API key authentication (D-007 security baseline).
-// Set BACKEND_API_KEY in .env to enforce. If unset, auth is skipped (dev mode).
-const _apiKey = process.env.BACKEND_API_KEY;
 app.use((req, res, next) => {
-  if (!_apiKey) return next(); // dev mode: no key configured
   if (req.path === '/health') return next(); // health check is always public
   const provided = req.headers['x-api-key'] || req.query.api_key;
-  if (provided !== _apiKey) {
+  if (provided !== BACKEND_API_KEY) {
     return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
   }
   next();
