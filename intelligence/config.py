@@ -50,6 +50,10 @@ MISTRAL_SUMMARY_AGENT_VERSION = os.getenv("MISTRAL_SUMMARY_AGENT_VERSION", "0")
 MISTRAL_BRIEFING_AGENT_ID      = os.getenv("MISTRAL_BRIEFING_AGENT_ID", "")
 MISTRAL_BRIEFING_AGENT_VERSION = os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "2")
 
+# Endeavour Tactical Analysis Officer (TAO) — combined challenge + summary, web search OFF
+MISTRAL_TAO_AGENT_ID      = os.getenv("MISTRAL_TAO_AGENT_ID", "")
+MISTRAL_TAO_AGENT_VERSION = os.getenv("MISTRAL_TAO_AGENT_VERSION", "0")
+
 # ─── Scheduling ───────────────────────────────────────────────────────────────
 # Cron expression for scheduled brief generation (default: fortnightly, Monday 06:00 AEST)
 SCHEDULE_CRON = os.getenv("OR_INTEL_SCHEDULE_CRON", "0 6 1,15 * *")

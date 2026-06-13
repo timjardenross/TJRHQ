@@ -28,8 +28,7 @@ from typing import Optional
 from intelligence.config import (
     GEMINI_API_KEY, MISTRAL_API_KEY,
     MISTRAL_RESEARCH_AGENT_ID, MISTRAL_RESEARCH_AGENT_VERSION,
-    MISTRAL_CHALLENGE_AGENT_ID, MISTRAL_CHALLENGE_AGENT_VERSION,
-    MISTRAL_SUMMARY_AGENT_ID, MISTRAL_SUMMARY_AGENT_VERSION,
+    MISTRAL_TAO_AGENT_ID, MISTRAL_TAO_AGENT_VERSION,
     MISTRAL_BRIEFING_AGENT_ID, MISTRAL_BRIEFING_AGENT_VERSION,
     OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
@@ -109,79 +108,35 @@ class LLMProvider:
             raise RuntimeError("Stage 1 (Research Scout) returned no output")
         log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
 
-        # ── Stage 2: Risk/Challenge Officer ──────────────────────────────────
-        challenge_output = None
-        if MISTRAL_CHALLENGE_AGENT_ID:
+        # ── Stage 2: Tactical Analysis Officer (TAO) ─────────────────────────
+        # Single agent combining challenge review + summary compression (web search OFF)
+        tao_output = None
+        if MISTRAL_TAO_AGENT_ID:
             stage2_prompt = (
                 f"{_SYSTEM_PROMPT}\n\n"
-                "STAGE 2 — RISK & CHALLENGE REVIEW\n"
-                "IMPORTANT: All intelligence data is already provided below. "
-                "Do NOT search the web or use any tools — respond directly using only the research package provided.\n\n"
-                "You have received a research package from the Research Scout. "
-                "Your role is to stress-test these findings as Risk & Challenge Officer. "
-                "Identify any weak signals being over-weighted, under-weighted risks, "
-                "gaps in coverage, or events that may escalate. "
-                "Be a constructive devil's advocate — push back where the analysis may be incomplete.\n\n"
+                "You have received a research package from the Endeavour Research Scout. "
+                "Apply your full tactical analysis protocol — challenge the findings, then compress.\n\n"
                 f"RESEARCH PACKAGE:\n{research_package}"
             )
-            challenge_output = self._call_agent(
-                stage="stage2-challenge",
-                agent_id=MISTRAL_CHALLENGE_AGENT_ID,
-                agent_version=int(MISTRAL_CHALLENGE_AGENT_VERSION),
+            tao_output = self._call_agent(
+                stage="stage2-tao",
+                agent_id=MISTRAL_TAO_AGENT_ID,
+                agent_version=int(MISTRAL_TAO_AGENT_VERSION),
                 prompt=stage2_prompt,
             )
-            if challenge_output:
-                log.info("[pipeline] Stage 2 complete (%d chars)", len(challenge_output))
+            if tao_output:
+                log.info("[pipeline] Stage 2 (TAO) complete (%d chars)", len(tao_output))
             else:
-                log.warning("[pipeline] Stage 2 (Risk/Challenge) failed — continuing without challenge layer")
-        else:
-            log.warning("[pipeline] Stage 2 skipped — MISTRAL_CHALLENGE_AGENT_ID not configured")
+                log.warning("[pipeline] Stage 2 (TAO) failed — continuing with raw research package")
 
-        # ── Stage 3: Summary Officer ──────────────────────────────────────────
-        summary_output = None
-        if MISTRAL_SUMMARY_AGENT_ID:
-            stage3_content = f"RESEARCH PACKAGE:\n{research_package}"
-            if challenge_output:
-                stage3_content += f"\n\nCHALLENGE REVIEW:\n{challenge_output}"
-
-            stage3_prompt = (
-                f"{_SYSTEM_PROMPT}\n\n"
-                "STAGE 3 — SUMMARY & COMPRESSION\n"
-                "IMPORTANT: All intelligence data is already provided below. "
-                "Do NOT search the web or use any tools — respond directly using only the material provided.\n\n"
-                "You have received a research package and risk challenge review. "
-                "Your role as Summary Officer is to compress and prioritise this material "
-                "into a clean, actionable intelligence package for the Captain's briefing. "
-                "Resolve any tensions between the research and challenge layers. "
-                "Retain only what matters for operational resilience decision-making.\n\n"
-                f"{stage3_content}"
-            )
-            summary_output = self._call_agent(
-                stage="stage3-summary",
-                agent_id=MISTRAL_SUMMARY_AGENT_ID,
-                agent_version=int(MISTRAL_SUMMARY_AGENT_VERSION),
-                prompt=stage3_prompt,
-            )
-            if summary_output:
-                log.info("[pipeline] Stage 3 complete (%d chars)", len(summary_output))
-            else:
-                log.warning("[pipeline] Stage 3 (Summary) failed — continuing without summary compression")
-        else:
-            log.warning("[pipeline] Stage 3 skipped — MISTRAL_SUMMARY_AGENT_ID not configured")
-
-        # ── Stage 4: Briefing Officer ─────────────────────────────────────────
-        # Build the richest available input — use summary if available, else research + challenge
-        if summary_output:
-            briefing_input = summary_output
-        elif challenge_output:
-            briefing_input = f"RESEARCH:\n{research_package}\n\nCHALLENGE:\n{challenge_output}"
-        else:
-            briefing_input = research_package
+        # ── Stage 3: Briefing Officer ─────────────────────────────────────────
+        # Use TAO output if available, otherwise fall back to raw research package
+        briefing_input = tao_output if tao_output else research_package
 
         stage4_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
-            "STAGE 4 — EXECUTIVE BRIEF GENERATION\n"
-            "You have received a compressed intelligence package from the Summary Officer. "
+            "STAGE 3 — EXECUTIVE BRIEF GENERATION\n"
+            "You have received a compressed intelligence package from the Tactical Analysis Officer. "
             "Generate the final executive brief for Captain TJR.\n\n"
             f"INTELLIGENCE PACKAGE:\n{briefing_input}\n\n"
             "Respond with a JSON object containing exactly these keys:\n"
@@ -203,7 +158,7 @@ class LLMProvider:
         if not briefing_output:
             raise RuntimeError("Stage 4 (Briefing Officer) returned no output")
 
-        log.info("[pipeline] Stage 4 complete (%d chars) — pipeline finished", len(briefing_output))
+        log.info("[pipeline] Stage 3 (Briefing) complete (%d chars) — pipeline finished", len(briefing_output))
         return briefing_output
 
     def _call_agent(
