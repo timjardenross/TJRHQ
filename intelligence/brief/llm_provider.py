@@ -76,7 +76,7 @@ class LLMProvider:
         response = client.beta.conversations.start(
             agent_id=MISTRAL_RESEARCH_AGENT_ID,
             agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
-            inputs={"messages": [{"role": "user", "content": f"{_SYSTEM_PROMPT}\n\n{prompt}"}]},
+            inputs=[{"role": "user", "content": f"{_SYSTEM_PROMPT}\n\n{prompt}"}],
         )
         for entry in (response.outputs or []):
             if entry.role == "assistant":
