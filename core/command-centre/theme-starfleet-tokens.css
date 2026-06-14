@@ -1,0 +1,256 @@
+/* ============================================================================
+ * STARFLEET DESIGN TOKENS — Single Source of Truth
+ * USS Endeavour Visual Identity Standard v1.0
+ * M-20260614-STARFLEET-VISUAL-IDENTITY-ALIGNMENT
+ *
+ * All UI files import this file. Never hardcode hex values elsewhere.
+ * ============================================================================ */
+
+:root {
+
+  /* ==========================================================================
+     BACKGROUNDS & SURFACES
+     ========================================================================== */
+
+  --sf-bg-space:        #080B14;              /* Deep space — page background */
+  --sf-bg-panel:        #0F1628;              /* Panel, sidebar backgrounds */
+  --sf-bg-card:         #182236;              /* Card, widget surfaces */
+  --sf-bg-card-raised:  #1E2B42;              /* Hover / elevated cards */
+  --sf-bg-overlay:      rgba(8,11,20,0.85);   /* Modals, drawers */
+
+  /* ==========================================================================
+     TEXT
+     ========================================================================== */
+
+  --sf-text-primary:   #E8EAF0;   /* Body text, widget content */
+  --sf-text-secondary: #9098B0;   /* Labels, metadata, timestamps */
+  --sf-text-muted:     #525C72;   /* Disabled / placeholder */
+  --sf-text-inverse:   #080B14;   /* Text on bright buttons */
+
+  /* ==========================================================================
+     BORDERS & SHADOWS
+     ========================================================================== */
+
+  --sf-border-subtle:  #1E2B42;
+  --sf-shadow-sm:      0 2px 8px rgba(0,0,0,0.4);
+  --sf-shadow-md:      0 4px 16px rgba(0,0,0,0.5);
+
+  /* ==========================================================================
+     OPERATIONAL STATUS  (universal — never overridden by department colour)
+     ========================================================================== */
+
+  --sf-status-ok:          #2E9E4F;
+  --sf-status-ok-bg:       rgba(46,158,79,0.12);
+  --sf-status-ok-text:     #5DD17A;
+
+  --sf-status-warn:        #C87A20;
+  --sf-status-warn-bg:     rgba(200,122,32,0.12);
+  --sf-status-warn-text:   #F0A040;
+
+  --sf-status-crit:        #C43030;
+  --sf-status-crit-bg:     rgba(196,48,48,0.12);
+  --sf-status-crit-text:   #E85555;
+
+  --sf-status-unknown:     #6070A0;
+  --sf-status-unknown-bg:  rgba(96,112,160,0.12);
+  --sf-status-unknown-text:#8090B8;
+
+  /* ==========================================================================
+     DEPARTMENT COLOURS
+     ========================================================================== */
+
+  /* --- COMMAND — Gold/Amber
+       Leadership, priorities, executive actions, command decisions ---------- */
+  --sf-dept-command:         #C8922A;    /* section borders, badges */
+  --sf-dept-command-light:   #F0B840;    /* headings, active text */
+  --sf-dept-command-bg:      rgba(200,146,42,0.10);
+  --sf-dept-command-rgb:     200,146,42;
+
+  /* --- OPERATIONS / ENGINEERING / SECURITY — Red
+       Active missions, incidents, escalations, engineering alerts ----------- */
+  --sf-dept-ops:             #B33030;    /* section borders, badges */
+  --sf-dept-ops-light:       #D94444;    /* headings, active text */
+  --sf-dept-ops-bg:          rgba(179,48,48,0.10);
+  --sf-dept-ops-rgb:         179,48,48;
+
+  /* --- SCIENCE / INTELLIGENCE / KNOWLEDGE — Blue
+       Research, analytics, intelligence, architecture, knowledge ------------ */
+  --sf-dept-science:         #2D5FA8;    /* section borders, badges */
+  --sf-dept-science-light:   #4E84D4;    /* headings, active text */
+  --sf-dept-science-bg:      rgba(45,95,168,0.10);
+  --sf-dept-science-rgb:     45,95,168;
+
+  /* --- MEDICAL / HEALTH — Blue-White
+       Health monitoring, readiness, wellbeing, medical intelligence --------- */
+  --sf-dept-medical:         #3A7BC8;    /* section borders, badges */
+  --sf-dept-medical-light:   #72B0F0;    /* headings, active text */
+  --sf-dept-medical-white:   #D8EAF8;    /* section backgrounds */
+  --sf-dept-medical-bg:      rgba(58,123,200,0.10);
+  --sf-dept-medical-rgb:     58,123,200;
+
+  /* --- COMMUNICATIONS — Teal/Cyan
+       Messaging, notifications, collaboration, Slack outputs ---------------- */
+  --sf-dept-comms:           #1A8A8A;    /* section borders, badges */
+  --sf-dept-comms-light:     #2DC8C8;    /* headings, active text */
+  --sf-dept-comms-bg:        rgba(26,138,138,0.10);
+  --sf-dept-comms-rgb:       26,138,138;
+
+  /* --- NAVIGATION / ASTROMETRICS — Purple
+       Strategic planning, forecasting, roadmaps, future state --------------- */
+  --sf-dept-nav:             #6A3FAF;    /* section borders, badges */
+  --sf-dept-nav-light:       #9B6AE0;    /* headings, active text */
+  --sf-dept-nav-bg:          rgba(106,63,175,0.10);
+  --sf-dept-nav-rgb:         106,63,175;
+
+  /* ==========================================================================
+     TYPOGRAPHY
+     ========================================================================== */
+
+  --sf-font-display: 'Orbitron', 'Arial Black', sans-serif;
+  --sf-font-sans:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --sf-font-mono:    'Courier New', Courier, monospace;
+
+  /* ==========================================================================
+     LEGACY ALIASES  (keep existing code working during migration)
+     Maps old tokens to new standard values.
+     Remove after all widgets are migrated.
+     ========================================================================== */
+
+  /* Old theme-starfleet.css names */
+  --color-bg-primary:     var(--sf-bg-space);
+  --color-bg-secondary:   var(--sf-bg-panel);
+  --color-bg-tertiary:    var(--sf-bg-card);
+  --color-text-primary:   var(--sf-text-primary);
+  --color-text-secondary: var(--sf-text-secondary);
+  --color-text-tertiary:  var(--sf-text-muted);
+  --color-primary:        var(--sf-dept-science);
+  --color-primary-light:  var(--sf-dept-science-light);
+  --color-secondary:      var(--sf-dept-medical-light);
+  --color-success:        var(--sf-status-ok);
+  --color-warning:        var(--sf-status-warn);
+  --color-critical:       var(--sf-status-crit);
+  --color-info:           var(--sf-dept-science);
+  --color-border:         var(--sf-border-subtle);
+
+  /* Old theme-starfleet-advanced.css names */
+  --primary-color:        var(--sf-dept-command-light);
+  --accent-color:         var(--sf-dept-command-light);
+  --bg-dark:              var(--sf-bg-space);
+  --bg-container:         var(--sf-bg-panel);
+  --bg-card:              var(--sf-bg-card);
+  --text-primary:         var(--sf-text-primary);
+  --text-secondary:       var(--sf-text-secondary);
+  --text-tertiary:        var(--sf-text-muted);
+  --border-color:         var(--sf-border-subtle);
+
+  /* Dashy native overrides */
+  --primary:              var(--sf-dept-command-light);
+  --foreground:           var(--sf-dept-command-light);
+  --background:           var(--sf-bg-space);
+  --background-darker:    #040610;
+  --heading-text-color:   var(--sf-dept-command-light);
+  --nav-link-text-color:  var(--sf-text-secondary);
+  --item-text-color:      var(--sf-text-primary);
+  --item-background:      var(--sf-bg-panel);
+  --scroll-bar-color:     var(--sf-dept-command-light);
+  --side-bar-color:       var(--sf-dept-command-light);
+  --item-group-outer-background: var(--sf-bg-panel);
+  --item-group-background:       rgba(15,22,40,0.8);
+
+  /* Old widgets.css names */
+  --starfleet-primary:    var(--sf-dept-science);
+  --starfleet-accent:     var(--sf-dept-comms-light);
+  --starfleet-danger:     var(--sf-status-crit-text);
+  --starfleet-warning:    var(--sf-status-warn-text);
+  --starfleet-success:    var(--sf-status-ok-text);
+  --status-operational:   var(--sf-status-ok-text);
+  --status-degraded:      var(--sf-status-warn-text);
+  --status-critical:      var(--sf-status-crit-text);
+  --widget-bg:            var(--sf-bg-space);
+  --widget-border:        var(--sf-border-subtle);
+  --widget-text:          var(--sf-text-primary);
+  --widget-subtitle:      var(--sf-text-secondary);
+}
+
+/* ==========================================================================
+   COLOUR-BLIND MODE  (toggled via data-colorblind="true" on <body>)
+   ========================================================================== */
+
+[data-colorblind="true"] {
+  --sf-dept-command-light:   #E6A800;   /* high-contrast amber */
+  --sf-dept-ops-light:       #FF6F00;   /* distinct orange-red */
+  --sf-dept-science-light:   #0099FF;   /* bright cyan-blue */
+  --sf-dept-medical-light:   #0066CC;   /* deep blue */
+  --sf-dept-comms-light:     #00BFA5;   /* teal-green */
+  --sf-dept-nav-light:       #AA00FF;   /* vivid violet */
+}
+
+/* ==========================================================================
+   DEPARTMENT UTILITY CLASSES
+   Apply to any container to scope department accent colours.
+   ========================================================================== */
+
+.dept-command    { --dept-rgb: var(--sf-dept-command-rgb);   --dept-light: var(--sf-dept-command-light);   --dept-bg: var(--sf-dept-command-bg); }
+.dept-ops        { --dept-rgb: var(--sf-dept-ops-rgb);       --dept-light: var(--sf-dept-ops-light);       --dept-bg: var(--sf-dept-ops-bg); }
+.dept-science    { --dept-rgb: var(--sf-dept-science-rgb);   --dept-light: var(--sf-dept-science-light);   --dept-bg: var(--sf-dept-science-bg); }
+.dept-medical    { --dept-rgb: var(--sf-dept-medical-rgb);   --dept-light: var(--sf-dept-medical-light);   --dept-bg: var(--sf-dept-medical-bg); }
+.dept-comms      { --dept-rgb: var(--sf-dept-comms-rgb);     --dept-light: var(--sf-dept-comms-light);     --dept-bg: var(--sf-dept-comms-bg); }
+.dept-nav        { --dept-rgb: var(--sf-dept-nav-rgb);       --dept-light: var(--sf-dept-nav-light);       --dept-bg: var(--sf-dept-nav-bg); }
+
+/* Department section headers (apply .dept-* to the section, .dept-header to the h2/h3) */
+.dept-header {
+  color: var(--dept-light);
+  border-left: 3px solid var(--dept-light);
+  padding-left: 10px;
+  font-family: var(--sf-font-display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+/* Department card border accent */
+.dept-card {
+  border-top: 2px solid var(--dept-light);
+  background: var(--sf-bg-card);
+}
+
+.dept-card:hover {
+  box-shadow: 0 0 12px rgba(var(--dept-rgb), 0.3);
+}
+
+/* Department badge */
+.dept-badge {
+  display: inline-block;
+  background: var(--dept-bg);
+  color: var(--dept-light);
+  border: 1px solid rgba(var(--dept-rgb), 0.4);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   STATUS UTILITY CLASSES
+   ========================================================================== */
+
+.status-ok      { color: var(--sf-status-ok-text);      background: var(--sf-status-ok-bg); }
+.status-warn    { color: var(--sf-status-warn-text);    background: var(--sf-status-warn-bg); }
+.status-crit    { color: var(--sf-status-crit-text);    background: var(--sf-status-crit-bg); }
+.status-unknown { color: var(--sf-status-unknown-text); background: var(--sf-status-unknown-bg); }
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.status-dot.ok      { background: var(--sf-status-ok); }
+.status-dot.warn    { background: var(--sf-status-warn); }
+.status-dot.crit    { background: var(--sf-status-crit); }
+.status-dot.unknown { background: var(--sf-status-unknown); }

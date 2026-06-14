@@ -34,11 +34,30 @@ Integration:
 """
 
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
 from datetime import datetime
 from number_one import NumberOne, CoordinationConfig
+
+
+def _git_last_modified(file_ref: str, repo_root: Path) -> str:
+    """Return ISO timestamp of last git commit touching file_ref, or None."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "--follow", "--format=%ai", "--", file_ref],
+            cwd=str(repo_root),
+            capture_output=True, text=True, timeout=5
+        )
+        first_line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else None
+        if first_line:
+            # git outputs "2026-06-05 23:15:47 +1000" — convert to ISO
+            dt = datetime.strptime(first_line[:19], "%Y-%m-%d %H:%M:%S")
+            return dt.isoformat() + "Z"
+    except Exception:
+        pass
+    return None
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
@@ -73,6 +92,59 @@ try:
 except ImportError:
     _INTELLIGENCE_AVAILABLE = False
 
+# Phase 1 (D-054): read-only engineering-handoff ingestion. Lives in this same
+# directory; guard the import so a missing/broken module never blocks export.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from engineering_handoff_reader import (
+        load_engineering_handoffs,
+        summarise_engineering_handoffs,
+    )
+    _HANDOFF_INGESTION_AVAILABLE = True
+except ImportError:
+    _HANDOFF_INGESTION_AVAILABLE = False
+
+
+def _fetch_command_memory_mission_ids() -> set[str]:
+    """Return the set of mission IDs already in Command Memory (non-blocking)."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from command_memory_integration import get_active_missions
+        missions = get_active_missions()
+        return {m["id"] for m in missions if m.get("id")}
+    except Exception:
+        return set()
+
+
+def _load_engineering_handoffs_safe() -> list[dict]:
+    """Load approved engineering handoffs; never raise (export must not break).
+
+    WP5 (M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE): fetches Command Memory
+    mission IDs and passes them as the dedup set so handoffs already registered
+    in Command Memory are excluded from the advisory queue — avoiding duplicate
+    entries when both systems are live.
+    """
+    if not _HANDOFF_INGESTION_AVAILABLE:
+        return []
+    try:
+        cm_ids = _fetch_command_memory_mission_ids()
+        return load_engineering_handoffs(command_memory_mission_ids=cm_ids)
+    except Exception as e:  # pragma: no cover - defensive; ingestion is advisory
+        print(f"⚠️  Engineering handoff ingestion skipped (non-fatal): {e}")
+        return []
+
+
+def _summarise_engineering_handoffs_safe(missions: list[dict]) -> dict:
+    """Project the engineering-handoff lifecycle summary; never raise."""
+    empty = {"total": 0, "by_status": {}, "items": []}
+    if not _HANDOFF_INGESTION_AVAILABLE:
+        return empty
+    try:
+        return summarise_engineering_handoffs(missions)
+    except Exception as e:  # pragma: no cover - defensive; reporting is advisory
+        print(f"⚠️  Engineering handoff summary skipped (non-fatal): {e}")
+        return empty
+
 
 class NumberOneExporter:
     """Export Number One outputs to JSON files."""
@@ -106,6 +178,7 @@ class NumberOneExporter:
                         "title": item.title,
                         "priority": item.priority.value,
                         "status": item.status.value,
+                        "engineering_status": item.engineering_status,
                         "assigned_specialist": item.assigned_specialist,
                         "blockers": item.blockers,
                     }
@@ -135,6 +208,10 @@ class NumberOneExporter:
                 ],
                 "specialist_workload": brief.specialist_workload,
                 "recommended_actions": brief.recommended_actions,
+                # M-20260614-ENGINEERING-HANDOFF-LIFECYCLE: read-only engineering
+                # visibility — handoffs grouped by lifecycle status. Additive;
+                # safe-empty when there are no handoffs.
+                "engineering_handoffs": _summarise_engineering_handoffs_safe(missions),
             }
 
             output_file = self.output_dir / "daily_brief.json"
@@ -166,6 +243,7 @@ class NumberOneExporter:
                         "title": item.title,
                         "priority": item.priority.value,
                         "status": item.status.value,
+                        "engineering_status": item.engineering_status,
                         "assigned_specialist": item.assigned_specialist,
                         "next_action": item.next_action,
                         "blockers": item.blockers,
@@ -531,6 +609,7 @@ class NumberOneExporter:
 
     def export_from_registry(self, registry_file: str) -> bool:
         """Parse mission-index.txt markdown table and export live missions."""
+        repo_root = _REPO_ROOT
         # Statuses that represent active/open work
         ACTIVE_STATUSES = {
             "in_progress", "active", "planned", "design", "assessment",
@@ -561,6 +640,9 @@ class NumberOneExporter:
             status_raw = cols[3]
             mission_owner = cols[4] if len(cols) > 4 else ""
             assigned_specialist = cols[5] if len(cols) > 5 else ""
+            reference_raw = cols[6] if len(cols) > 6 else ""
+            # Extract the primary file path from the reference column
+            reference_file = reference_raw.split("(")[0].strip().split(";")[0].strip()
 
             # Skip empty or separator rows
             if not mission_id or mission_id == "---":
@@ -605,16 +687,24 @@ class NumberOneExporter:
                 "dependencies": [],
                 "blockers": [],
                 "created_at": "2026-01-01T00:00:00Z",
-                "last_updated": datetime.utcnow().isoformat() + "Z",
+                "last_updated": _git_last_modified(reference_file, repo_root) or "2026-01-01T00:00:00Z",
                 "next_action": "",
                 "metadata": {},
             })
 
+        # Phase 1 (D-054): surface approved engineering handoffs read-only into
+        # the advisory work queue / brief / prioritisation, without the manual
+        # batch_worker. Non-blocking: any failure here must never break export.
+        handoffs = _load_engineering_handoffs_safe()
+        if handoffs:
+            print(f"🛠  Ingesting {len(handoffs)} approved engineering handoff(s) into the work queue...")
+            missions.extend(handoffs)
+
         if not missions:
-            print(f"⚠️  No active missions found in {registry_file} — falling back to sample")
+            print(f"⚠️  No active missions or handoffs found in {registry_file} — falling back to sample")
             return self.export_sample()
 
-        print(f"📋 Exporting {len(missions)} active missions from registry...")
+        print(f"📋 Exporting {len(missions)} active work items from registry + handoffs...")
         success = self._export_all(missions)
         if success:
             print(f"✅ Exports complete to {self.output_dir}/ ({len(missions)} missions)")

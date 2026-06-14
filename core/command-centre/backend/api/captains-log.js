@@ -58,7 +58,8 @@ router.post('/', asyncHandler(async (req, res) => {
     'sleep_hours', 'sleep_quality', 'cpap_status', 'physical_capacity',
     'what_happened', 'what_changed', 'wins', 'blockers', 'decisions_made',
     'tomorrows_priority', 'health_status', 'work_status', 'personal_status',
-    'overall_note', 'source', 'captain_capacity_rating'
+    'overall_note', 'source', 'captain_capacity_rating',
+    'pain_triggers', 'pain_relievers', 'coping_strategies', 'activity_impact'
   ];
 
   const payload = {};

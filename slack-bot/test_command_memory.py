@@ -109,7 +109,7 @@ class TestWriteFunctions(unittest.TestCase):
         self.assertEqual(table, "missions")
         self.assertEqual(record["id"], "M-X")
         self.assertEqual(record["title"], "Test Mission")
-        self.assertEqual(record["status"], "Designed")  # MSN-0051/D-008 canonical entry state (was Draft)
+        self.assertEqual(record["status"], "Idea")  # M-20260614: /mission-capture persists as Idea (Gap 1 closure)
         self.assertEqual(record["owner"], "U001")  # defaults to creator
         self.assertEqual(record["created_by"], "U001")
 

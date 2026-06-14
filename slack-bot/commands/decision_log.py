@@ -98,6 +98,37 @@ _SAVE_SIGNALS = (
 # Preview handler (/decision-log)
 # ---------------------------------------------------------------------------
 
+def find_similar_decisions(text: str, limit: int = 3) -> list[dict]:
+    """Search existing decision records for keyword overlap with new decision text.
+
+    Returns up to `limit` matches as [{"id": str, "title": str, "path": str}].
+    """
+    query_words = set(re.sub(r"[^a-z0-9 ]", " ", text.lower()).split()) - {
+        "the", "a", "an", "to", "for", "and", "or", "of", "in", "is", "we", "our",
+        "this", "that", "use", "with", "as", "be", "by", "on", "at", "it",
+    }
+    if not query_words or not _DECISIONS_DIR.exists():
+        return []
+
+    matches = []
+    for path in sorted(_DECISIONS_DIR.glob("*.md")):
+        try:
+            content = path.read_text(encoding="utf-8", errors="replace").lower()
+        except OSError:
+            continue
+        overlap = sum(1 for w in query_words if w in content)
+        if overlap >= 2:
+            # Extract decision ID and title
+            id_match = re.search(r"decision id:\s*(DEC-\S+)", content, re.IGNORECASE)
+            title_match = re.search(r"^##?\s+decision record:\s*(.+)$", content, re.IGNORECASE | re.MULTILINE)
+            dec_id = id_match.group(1).upper() if id_match else path.stem
+            title = title_match.group(1).strip() if title_match else path.stem
+            matches.append({"id": dec_id, "title": title, "overlap": overlap, "path": str(path.name)})
+
+    matches.sort(key=lambda m: m["overlap"], reverse=True)
+    return matches[:limit]
+
+
 def handle_decision_log(
     text: str,
     user_id: str | None = None,
@@ -133,10 +164,17 @@ def handle_decision_log(
             system_prompt=_SYSTEM_PROMPT,
         )
         log.info("[decision-log] Entry generated (%d chars)", len(output))
-        return (
-            f"*DECISION LOG ENTRY*\n\n```{output}```\n\n"
-            ":memo: *Preview only.* To save as a file, use `/decision-log-save`."
-        )
+        result = f"*DECISION LOG ENTRY*\n\n```{output}```\n\n:memo: *Preview only.* To save as a file, use `/decision-log-save`."
+
+        prior = find_similar_decisions(text)
+        if prior:
+            lines = ["\n\n:mag: *Prior decisions on similar topics:*"]
+            for d in prior:
+                lines.append(f"  • `{d['id']}` — {d['title']}")
+            lines.append("_Review these before finalising to avoid duplication or conflict._")
+            result += "\n".join(lines)
+
+        return result
     except Exception as exc:
         log.error("[decision-log] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_entry(text)

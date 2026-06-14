@@ -211,11 +211,16 @@ class NumberOneMemoryAdapter:
     def _retrieve_from_supabase(self, query_type: str, query_text: str) -> list[dict[str, Any]]:
         if self.supabase is None:
             return self._retrieve_from_files(query_type, query_text)
+        # CommanderSupabaseClient wraps the supabase-py client; SELECT queries
+        # require the underlying client's .table() builder, exposed via raw_client.
+        sb = getattr(self.supabase, "raw_client", None)
+        if sb is None:
+            return self._retrieve_from_files(query_type, query_text)
         try:
             query_hash = _compute_query_hash(query_text)
             if query_type == "research_memory":
                 response = (
-                    self.supabase.table("research_memory")
+                    sb.table("research_memory")
                     .select("*")
                     .gt("created_at", (datetime.utcnow() - timedelta(days=180)).isoformat())
                     .limit(5)
@@ -224,19 +229,19 @@ class NumberOneMemoryAdapter:
                 return [self._normalize_row(row, "research_memory") for row in (response.data or [])]
 
             if query_type == "missions":
-                response = self.supabase.table("missions").select("*").limit(10).execute()
+                response = sb.table("missions").select("*").limit(10).execute()
                 return [self._normalize_row(row, "mission") for row in (response.data or [])]
 
             if query_type == "decisions":
-                response = self.supabase.table("decision_records").select("*").limit(10).execute()
+                response = sb.table("decision_records").select("*").limit(10).execute()
                 return [self._normalize_row(row, "decision") for row in (response.data or [])]
 
             if query_type == "capabilities":
-                response = self.supabase.table("capabilities").select("*").limit(10).execute()
+                response = sb.table("capabilities").select("*").limit(10).execute()
                 return [self._normalize_row(row, "capability") for row in (response.data or [])]
 
             if query_type == "adr":
-                response = self.supabase.table("architecture_records").select("*").limit(10).execute()
+                response = sb.table("architecture_records").select("*").limit(10).execute()
                 return [self._normalize_row(row, "adr") for row in (response.data or [])]
 
             return []

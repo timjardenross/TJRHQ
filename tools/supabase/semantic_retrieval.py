@@ -4,14 +4,22 @@ MSN-0013B: Semantic Retrieval Engine
 Owner: Chief Engineer / Coder Agent
 Date: 2026-06-08
 Purpose: Retrieve documents using semantic similarity (pgvector cosine distance)
+Updated: 2026-06-13 — Mistral-primary embedding with Ollama fallback via EmbeddingClient
 """
 
+import os
+import sys
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional
 import time
 from datetime import datetime
-import requests
-import json
+
+# Allow running from the supabase tools directory directly
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+from embedding_client import EmbeddingClient, EmbeddingError
 
 
 @dataclass
@@ -25,46 +33,85 @@ class RetrievalResult:
     timestamp: datetime = None
 
 
+_FALLBACK_ORDER = {
+    # Primary → fallback. Mistral is the preferred cloud provider; Ollama is local backup.
+    "mistral": "ollama",
+    "ollama": "mistral",
+    "openai": "ollama",
+}
+
+_PROVIDER_KEY_CHECK = {
+    "mistral": "MISTRAL_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "ollama": None,  # no API key required
+}
+
+
+def _make_fallback_client(primary_provider: str) -> Optional[EmbeddingClient]:
+    """Return an EmbeddingClient for the fallback provider, or None if unavailable."""
+    other = _FALLBACK_ORDER.get(primary_provider)
+    if other is None:
+        return None
+    required_key = _PROVIDER_KEY_CHECK.get(other)
+    if required_key and not os.environ.get(required_key):
+        return None
+    try:
+        env_backup = os.environ.get("EMBEDDING_PROVIDER")
+        os.environ["EMBEDDING_PROVIDER"] = other
+        client = EmbeddingClient()
+        if env_backup is None:
+            os.environ.pop("EMBEDDING_PROVIDER", None)
+        else:
+            os.environ["EMBEDDING_PROVIDER"] = env_backup
+        return client
+    except EmbeddingError:
+        return None
+
+
 class SemanticRetriever:
     """Retrieve documents using semantic similarity search."""
 
-    OLLAMA_URL = "http://localhost:11434/api/embed"
-    MODEL = "nomic-embed-text"
     SIMILARITY_THRESHOLD = 0.5  # Cosine similarity 0-1 scale
 
     def __init__(self):
-        """Initialize retriever."""
-        self.ollama_available = self._check_ollama()
-
-    def _check_ollama(self) -> bool:
-        """Check Ollama availability."""
+        """Initialise retriever with primary EmbeddingClient and optional fallback."""
         try:
-            response = requests.post(
-                self.OLLAMA_URL,
-                json={"model": self.MODEL, "prompt": "test"},
-                timeout=5
-            )
-            return response.status_code == 200
-        except:
-            return False
+            self._primary = EmbeddingClient()
+        except EmbeddingError as exc:
+            print(f"⚠️  Primary embedding provider unavailable: {exc}")
+            self._primary = None
+
+        self._fallback: Optional[EmbeddingClient] = None
+        if self._primary is not None:
+            self._fallback = _make_fallback_client(self._primary.provider)
+            if self._fallback:
+                print(f"ℹ️  Embedding fallback configured: {self._fallback.label}")
+
+        # Legacy attribute — kept for callers that check it; True if any provider is ready
+        self.ollama_available = self._primary is not None or self._fallback is not None
 
     def embed_query(self, query: str) -> Optional[List[float]]:
-        """Generate embedding for query text."""
-        if not self.ollama_available:
-            print("⚠️  Ollama not available. Cannot generate query embedding.")
+        """Generate embedding using primary provider, falling back to cloud if needed."""
+        if self._primary is None and self._fallback is None:
+            print("⚠️  No embedding provider available. Cannot generate query embedding.")
             return None
 
-        try:
-            response = requests.post(
-                self.OLLAMA_URL,
-                json={"model": self.MODEL, "prompt": query},
-                timeout=30
-            )
-            response.raise_for_status()
-            return response.json().get("embedding", [])
-        except Exception as e:
-            print(f"❌ Error embedding query: {e}")
-            return None
+        for client, label in [
+            (self._primary, "primary"),
+            (self._fallback, "fallback"),
+        ]:
+            if client is None:
+                continue
+            try:
+                embedding = client.create_one(query)
+                if label == "fallback":
+                    print(f"ℹ️  Using {client.label} (fallback) for embedding.")
+                return embedding
+            except EmbeddingError as exc:
+                print(f"⚠️  {label} embedding provider ({client.label}) failed: {exc}")
+
+        print("❌ All embedding providers exhausted. Cannot generate query embedding.")
+        return None
 
     def cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
         """Compute cosine similarity between two vectors."""

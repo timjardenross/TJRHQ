@@ -45,6 +45,25 @@ _MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 _OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 _OLLAMA_MODEL    = os.getenv("OLLAMA_COMMANDER_MODEL") or os.getenv("OLLAMA_MODEL", "qwen3:8b")
 
+_CAPTAIN_PROFILE_PATH = Path(__file__).resolve().parents[2] / "knowledge" / "memory" / "captain_profile.txt"
+
+
+def _load_captain_profile_excerpt() -> str:
+    """Return the HEALTH PROFILE and EXECUTIVE FUNCTION SUPPORT sections from the captain profile."""
+    try:
+        text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
+        # Extract from HEALTH PROFILE through end of EXECUTIVE FUNCTION SUPPORT
+        m = re.search(
+            r"(={10,}\s*\nHEALTH PROFILE\s*\n={10,}.+?)(={10,}\s*\nPROFESSIONAL EXPERTISE)",
+            text, re.DOTALL,
+        )
+        return m.group(1).strip() if m else ""
+    except Exception:
+        return ""
+
+
+_CAPTAIN_PROFILE_EXCERPT = _load_captain_profile_excerpt()
+
 _SYSTEM_PROMPT = (
     "You are the Medical Intelligence Officer for USS Starship Endeavour. "
     "You generate structured personal health intelligence briefs for Captain TJR. "
@@ -54,6 +73,7 @@ _SYSTEM_PROMPT = (
     "If data is insufficient to identify a pattern, say so rather than speculate. "
     "Write in clear plain English. "
     "Focus on what is actionable for someone managing chronic pain and recovery."
+    + (f"\n\nCAPTAIN PROFILE CONTEXT (source: captain_profile_knowledge_base v1.0):\n{_CAPTAIN_PROFILE_EXCERPT}" if _CAPTAIN_PROFILE_EXCERPT else "")
 )
 
 _EXPECTED_KEYS = {"situation", "patterns_noticed", "what_it_means",

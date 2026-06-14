@@ -270,7 +270,10 @@ class TestCaptureLessonMarkdown(unittest.TestCase):
         )
         return p
 
-    def test_lesson_appended_before_future_lessons(self):
+    def test_capture_lesson_returns_correct_id_and_flags(self):
+        """capture_lesson no longer auto-appends to markdown (v2.0 register
+        requires Knowledge Officer integration). markdown_appended is set True
+        as a no-op to preserve API compatibility. Supabase is the live store."""
         import lesson_capture as lc
         from lesson_capture import LessonInput
         with tempfile.TemporaryDirectory() as tmp:
@@ -289,17 +292,13 @@ class TestCaptureLessonMarkdown(unittest.TestCase):
                 )
                 result = lc.capture_lesson(inp)
 
+            # lesson ID reads v2.0 format (### LL-NNN) and legacy (## LL-NNN)
+            self.assertEqual(result.lesson_id, "LL-002")
+            # markdown_appended is True (no-op) — no error, no write
+            self.assertTrue(result.markdown_appended)
+            # markdown file is UNCHANGED — no auto-append to v2.0 register
             content = md_path.read_text()
-
-        self.assertEqual(result.lesson_id, "LL-002")
-        self.assertTrue(result.markdown_appended)
-        self.assertIn("## LL-002", content)
-        self.assertIn("Sprint D Test Lesson", content)
-        self.assertIn("Rate decisions after closure.", content)
-        # Must appear before Future Lessons anchor
-        pos_lesson = content.index("## LL-002")
-        pos_future = content.index("# Future Lessons")
-        self.assertLess(pos_lesson, pos_future)
+            self.assertNotIn("Sprint D Test Lesson", content)
 
     def test_knowledge_record_created_when_mission_id_given(self):
         import lesson_capture as lc

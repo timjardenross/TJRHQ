@@ -79,9 +79,9 @@ router.get('/brief', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:brief';
   const { value, isStale } = cacheManager.get(cacheKey);
 
-  if (value) {
+  if (value && !isStale) {
     const response = successResponse(value, 200, {
-      source: isStale ? 'stale_cache' : 'cache',
+      source: 'cache',
       cacheKey: cacheKey,
       dataSource: 'from-cache'
     });
@@ -110,9 +110,9 @@ router.get('/queue', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:queue';
   const { value, isStale } = cacheManager.get(cacheKey);
 
-  if (value) {
+  if (value && !isStale) {
     const response = successResponse(value, 200, {
-      source: isStale ? 'stale_cache' : 'cache',
+      source: 'cache',
       cacheKey: cacheKey,
       dataSource: 'from-cache'
     });
@@ -145,44 +145,45 @@ router.get('/escalations', asyncHandler(async (req, res) => {
     return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
   }
 
-  // 1. Try Supabase escalations (commander_events with escalate_to_xo)
-  let escalationData = null;
-  let dataSource = 'mock-fallback';
+  // 1. Primary: Number One JSON file (mission-based escalations — blocked P0, stale P0, etc.)
+  const numberOneEscalations = numberOneAdapter.getEscalations();
+  const missionEscalations = (numberOneEscalations.escalations || []).map(e => ({
+    ...e,
+    source: 'number-one'
+  }));
+  let dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
 
+  // 2. Secondary: Supabase Slack escalations (commander requests needing XO attention)
+  //    Deduplicated and filtered in supabase-connector; merged additively here.
+  let slackEscalations = [];
   try {
-    const rows = await getEscalations({ limit: 20 });
-    if (rows.length > 0) {
-      const mapped = rows.map(row => {
-        const pri = row.metadata?.priority || '';
-        const level = pri.includes('P0') ? 'CRITICAL' : pri.includes('P1') ? 'HIGH' : 'MEDIUM';
-        return {
-          id: row.id,
-          escalation_type: row.event_type || 'XO_ESCALATION',
-          mission: row.metadata?.mission_id || null,
-          title: row.message_text || 'XO escalation from Slack',
-          level,
-          recommendation: row.metadata?.semantic_rationale || '',
-          timestamp: row.created_at,
-          source: 'slack'
-        };
-      });
-      const levelSummary = {
-        CRITICAL: mapped.filter(e => e.level === 'CRITICAL').length,
-        HIGH: mapped.filter(e => e.level === 'HIGH').length,
-        MEDIUM: mapped.filter(e => e.level === 'MEDIUM').length
+    const rows = await getEscalations({ limit: 10 });
+    slackEscalations = rows.map(row => {
+      const pri = row.metadata?.priority || '';
+      const level = pri.includes('P0') ? 'CRITICAL' : pri.includes('P1') ? 'HIGH' : 'MEDIUM';
+      return {
+        id: row.id,
+        escalation_type: row.event_type || 'SLACK_REQUEST',
+        mission: row.metadata?.mission_id || null,
+        title: row.message_text || 'XO request from Slack',
+        level,
+        recommendation: row.metadata?.semantic_rationale || '',
+        timestamp: row.created_at,
+        source: 'slack'
       };
-      escalationData = { escalations: mapped, levelSummary, timestamp: new Date().toISOString() };
-      dataSource = 'supabase';
-    }
-  } catch (err) {
-    // fall through to Number One file data
+    });
+    if (slackEscalations.length > 0) dataSource += '+supabase';
+  } catch (_) {
+    // Supabase unavailable — mission escalations still show
   }
 
-  // 2. Fall back to Number One JSON file
-  if (!escalationData) {
-    escalationData = numberOneAdapter.getEscalations();
-    dataSource = numberOneAdapter.isDataAvailable() ? 'number-one-file' : 'mock-fallback';
-  }
+  const allEscalations = [...missionEscalations, ...slackEscalations];
+  const levelSummary = {
+    CRITICAL: allEscalations.filter(e => e.level === 'CRITICAL').length,
+    HIGH: allEscalations.filter(e => e.level === 'HIGH').length,
+    MEDIUM: allEscalations.filter(e => e.level === 'MEDIUM').length
+  };
+  const escalationData = { escalations: allEscalations, levelSummary, timestamp: new Date().toISOString() };
 
   cacheManager.set(cacheKey, escalationData, 120);
   res.json(successResponse(escalationData, 200, {
@@ -199,7 +200,7 @@ router.get('/escalations', asyncHandler(async (req, res) => {
 router.get('/decisions', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:decisions';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   try {
     const rows = await getDecisionRecords({ limit: 20 });
@@ -248,7 +249,7 @@ router.get('/status', asyncHandler(async (req, res) => {
 router.get('/blockers', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:blockers';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   const data = readExport('blockers.json') || {
     timestamp: new Date().toISOString(),
@@ -266,7 +267,7 @@ router.get('/blockers', asyncHandler(async (req, res) => {
 router.get('/health-queue', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:health-queue';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   const data = readExport('health_queue.json') || {
     exported_at: new Date().toISOString(),
@@ -285,7 +286,7 @@ router.get('/health-queue', asyncHandler(async (req, res) => {
 router.get('/recommendations', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:recommendations';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   const data = readExport('recommendations.json') || {
     assembled_at: new Date().toISOString(),
@@ -304,7 +305,7 @@ router.get('/recommendations', asyncHandler(async (req, res) => {
 router.get('/readiness', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:readiness';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   const data = readExport('readiness.json') || {
     exported_at: new Date().toISOString(),
@@ -324,7 +325,7 @@ router.get('/readiness', asyncHandler(async (req, res) => {
 router.get('/lessons', asyncHandler(async (req, res) => {
   const cacheKey = 'coordination:lessons';
   const { value, isStale } = cacheManager.get(cacheKey);
-  if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
+  if (value && !isStale) return res.json(successResponse(value, 200, { source: 'cache' }));
 
   const data = readExport('lessons.json') || {
     exported_at: new Date().toISOString(),

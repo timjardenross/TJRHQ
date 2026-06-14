@@ -8,6 +8,8 @@
  * - Ship Systems Status
  */
 
+@import url('./theme-starfleet-tokens.css');
+
 :root {
   /* STARFLEET Colors */
   --starfleet-primary: #003366;

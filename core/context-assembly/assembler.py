@@ -27,6 +27,13 @@ def _health_fns():
     from health_context_adapter import parse_health_summary, build_health_context
     return parse_health_summary, build_health_context
 
+def _health_live_fn():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "coordination"))
+    from health_context_adapter import build_health_context_live
+    return build_health_context_live
+
 def _decision_fns():
     from decision_extractor import get_decisions_awaiting_input, get_recent_decisions
     return get_decisions_awaiting_input, get_recent_decisions
@@ -208,9 +215,21 @@ def _generate_recommendations(pkg: ContextPackage, mission: Dict) -> List[str]:
 
 def assemble_health_context(health_summary_path=None) -> HealthContextPackage:
     """
-    Assemble HealthContextPackage from Health Summary markdown.
-    Uses config.HEALTH_SUMMARY_PATH by default.
+    Assemble HealthContextPackage.
+
+    Primary path (WP1): reads live data from captains_log_entries via Supabase.
+    Legacy fallback: reads Health-Summary.md if Supabase unavailable.
+
+    health_summary_path is accepted for backward compatibility but is only used
+    if the live Supabase path fails.
     """
+    try:
+        live_fn = _health_live_fn()
+        return live_fn()
+    except Exception:
+        pass
+
+    # Legacy fallback
     import config
     path = health_summary_path or config.HEALTH_SUMMARY_PATH
     parse_fn, build_fn = _health_fns()

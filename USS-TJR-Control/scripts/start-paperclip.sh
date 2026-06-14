@@ -25,6 +25,13 @@ else
   exit 1
 fi
 
+if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
+  REPO_ROOT="$PROJECT_ROOT"
+fi
+if [ -z "${PAPERCLIP_DIR:-}" ]; then
+  PAPERCLIP_DIR="$HOME/.paperclip"
+fi
+
 # Load .env for PAPERCLIP_ENABLED flag (best-effort — don't fail if missing)
 ENV_FILE="$PROJECT_ROOT/slack-bot/.env"
 if [ -f "$ENV_FILE" ]; then

@@ -52,6 +52,8 @@ class MissionStatus(Enum):
     pre-D-008 states (retained so existing logic/tests keep working).
     Parsing is via _to_status() and never raises.
     """
+    # --- Pre-triage capture state (assigned by /mission-capture) ---
+    IDEA = "Idea"
     # --- Canonical D-008 backbone (live missions table) ---
     DESIGNED = "Designed"
     IMPLEMENTED = "Implemented"
@@ -168,6 +170,10 @@ class WorkQueueItem:
     confidence: Optional[float] = None
     confidence_band: Optional[ConfidenceBand] = None
     rationale: Optional[str] = None
+    # Engineering-handoff lifecycle projection (read-only; None for missions).
+    # M-20260614-ENGINEERING-HANDOFF-LIFECYCLE: surfaces the handoff's
+    # Pending Triage / Assigned / In Progress / Awaiting Review stage.
+    engineering_status: Optional[str] = None
 
 
 @dataclass
@@ -282,10 +288,10 @@ class NumberOne:
         mission_objs = [Mission.from_registry(m) for m in missions]
         routing_results = routing_results or {}
 
-        # Filter out completed/cancelled missions
+        # Filter out completed/cancelled and dormant (Idea) missions
         active_missions = [
             m for m in mission_objs
-            if m.status not in TERMINAL_STATUSES
+            if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES
         ]
 
         # Build queue items
@@ -306,6 +312,7 @@ class NumberOne:
                 confidence=routing.confidence if routing else None,
                 confidence_band=routing.confidence_band if routing else None,
                 rationale=routing.rationale if routing else None,
+                engineering_status=mission.metadata.get("engineering_status"),
             )
             queue_items.append(item)
 
@@ -418,7 +425,7 @@ class NumberOne:
         follow_ups = []
 
         for mission in mission_objs:
-            if mission.status in TERMINAL_STATUSES:
+            if mission.status in TERMINAL_STATUSES or mission.status in DORMANT_STATUSES:
                 continue
 
             # Rule: Stale mission
@@ -528,7 +535,7 @@ class NumberOne:
         escalations = []
 
         for mission in mission_objs:
-            if mission.status in TERMINAL_STATUSES:
+            if mission.status in TERMINAL_STATUSES or mission.status in DORMANT_STATUSES:
                 continue
 
             routing = routing_results.get(mission.mission_id)
@@ -626,8 +633,8 @@ class NumberOne:
         escalations = self.get_xo_escalations(missions, routing_results)
         memory_context = self._get_memory_context(missions, routing_results)
 
-        # Calculate metrics (exclude cancelled/completed)
-        active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES]
+        # Calculate metrics (exclude cancelled/completed/dormant)
+        active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES]
         total = len(active_missions)
         active = len([m for m in active_missions if m.status == MissionStatus.ACTIVE])
         blocked = len([m for m in active_missions if m.status == MissionStatus.BLOCKED])
@@ -703,6 +710,7 @@ class NumberOne:
     def _recommend_next_action(self, mission: Mission) -> str:
         """Recommend next action based on mission status."""
         next_actions = {
+            MissionStatus.IDEA: "Triage: promote to Designed or close",
             MissionStatus.DESIGNED: "Begin implementation",
             MissionStatus.IMPLEMENTED: "Run tests",
             MissionStatus.TESTED: "Submit for Number One review",
@@ -853,6 +861,12 @@ class NumberOne:
 TERMINAL_STATUSES = {
     MissionStatus.CLOSED, MissionStatus.ARCHIVED,        # D-008 terminal
     MissionStatus.COMPLETED, MissionStatus.CANCELLED,    # legacy terminal
+}
+
+# Dormant states: captured but not yet triaged — excluded from active work queue
+# without permanently closing the record. Promoted to Designed when actioned.
+DORMANT_STATUSES = {
+    MissionStatus.IDEA,
 }
 
 

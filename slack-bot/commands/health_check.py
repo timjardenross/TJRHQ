@@ -475,6 +475,10 @@ def handle_health_check_submit(
         log.error("[health-check] Supabase write failed: %s", exc)
         _send_error_dm(client, user_id, str(exc))
 
+    except TimeoutError as exc:
+        log.error("[health-check] Supabase timeout: %s", exc)
+        _send_error_dm(client, user_id, "Database write timed out — please try again in a moment.")
+
     except Exception as exc:
         log.error("[health-check] Unexpected error: %s — %s", type(exc).__name__, exc)
         _send_error_dm(client, user_id, f"{type(exc).__name__}: {exc}")

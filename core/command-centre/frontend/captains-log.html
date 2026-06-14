@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captain's Log — STARFLEET COMMAND CENTRE</title>
+  <link rel="stylesheet" href="widgets.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(to bottom, #0a0e27 0%, #1a1f3a 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e0e6ff;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 60px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 50px 50px, #fff, rgba(0,0,0,0));
+      background-size: 500px 500px;
+      pointer-events: none; opacity: 0.08; z-index: 0;
+    }
+
+    .container {
+      position: relative; z-index: 1;
+      max-width: 860px; margin: 0 auto; padding: 20px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header {
+      text-align: center; margin-bottom: 28px; padding: 20px;
+      border-bottom: 2px solid rgba(0,204,255,0.3);
+    }
+    .back-link {
+      display: inline-block; margin-bottom: 12px;
+      font-size: 12px; color: #00ccff; text-decoration: none;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .back-link:hover { text-shadow: 0 0 8px rgba(0,204,255,0.6); }
+    .header-title {
+      font-size: 28px; font-weight: 700; color: #00ccff;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .header-subtitle { font-size: 13px; color: #a0a6c0; letter-spacing: 1px; }
+
+    /* ── Save bar ───────────────────────────────────────────── */
+    .save-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(0,50,102,0.4); border: 1px solid rgba(0,204,255,0.2);
+      border-radius: 6px; padding: 10px 16px; margin-bottom: 24px;
+      font-size: 12px; gap: 12px;
+    }
+    .save-status { color: #a0a6c0; flex: 1; }
+    .save-status.saved { color: #00dd00; }
+    .save-status.error { color: #ff4444; }
+    .save-status.saving { color: #ffaa00; }
+    #log-date-display { font-size: 13px; font-weight: 700; color: #e0e6ff; }
+
+    /* ── Section cards ──────────────────────────────────────── */
+    .log-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(0,204,255,0.15);
+      border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #00ccff; margin-bottom: 14px;
+    }
+
+    /* ── Form grid ──────────────────────────────────────────── */
+    .field-grid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .field-grid-wide { grid-template-columns: 1fr 1fr; }
+    .field-full { grid-column: 1 / -1; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #a0a6c0;
+    }
+
+    input[type="number"], select, textarea {
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(0,204,255,0.25);
+      color: #e0e6ff; border-radius: 5px; padding: 8px 10px;
+      font-size: 13px; font-family: inherit; transition: border-color 0.15s;
+      width: 100%;
+    }
+    input[type="number"]:focus, select:focus, textarea:focus {
+      outline: none; border-color: #00ccff;
+      box-shadow: 0 0 0 2px rgba(0,204,255,0.12);
+    }
+    select option { background: #1a1f3a; }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    textarea.compact { min-height: 60px; }
+
+    /* ── Assessment row ─────────────────────────────────────── */
+    .assessment-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 14px;
+    }
+    .rag-group { display: flex; flex-direction: column; gap: 6px; }
+    .rag-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #a0a6c0; }
+    .rag-buttons { display: flex; gap: 6px; }
+    .rag-btn {
+      flex: 1; padding: 7px 4px; border-radius: 4px; border: 1px solid;
+      cursor: pointer; font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+      text-transform: uppercase; transition: all 0.15s; background: transparent;
+    }
+    .rag-btn[data-val="Green"]  { border-color: rgba(0,221,0,0.4); color: #00dd00; }
+    .rag-btn[data-val="Amber"]  { border-color: rgba(255,170,0,0.4); color: #ffaa00; }
+    .rag-btn[data-val="Red"]    { border-color: rgba(255,68,68,0.4); color: #ff4444; }
+    .rag-btn[data-val="Green"].active  { background: rgba(0,221,0,0.18); }
+    .rag-btn[data-val="Amber"].active  { background: rgba(255,170,0,0.18); }
+    .rag-btn[data-val="Red"].active    { background: rgba(255,68,68,0.18); }
+
+    /* ── Pain score slider ──────────────────────────────────── */
+    .pain-row { display: flex; align-items: center; gap: 12px; }
+    input[type="range"] {
+      flex: 1; accent-color: #00ccff; cursor: pointer;
+    }
+    .pain-value {
+      font-size: 22px; font-weight: 700; min-width: 30px; text-align: right;
+      color: #e0e6ff;
+    }
+    .pain-value.low  { color: #00dd00; }
+    .pain-value.mid  { color: #ffaa00; }
+    .pain-value.high { color: #ff4444; }
+
+    /* ── Submit button ──────────────────────────────────────── */
+    .btn-save {
+      display: block; width: 100%; padding: 13px;
+      background: linear-gradient(135deg, rgba(0,204,255,0.25), rgba(0,102,204,0.25));
+      border: 1px solid rgba(0,204,255,0.5); color: #00ccff;
+      border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      transition: all 0.2s; margin-top: 8px;
+    }
+    .btn-save:hover {
+      background: linear-gradient(135deg, rgba(0,204,255,0.35), rgba(0,102,204,0.35));
+      box-shadow: 0 0 14px rgba(0,204,255,0.3);
+    }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <a class="back-link" href="index.html">← Back to Command Centre</a>
+    <div class="header-title">📋 Captain's Log</div>
+    <div class="header-subtitle">Daily structured capture — Starship Endeavour NCC-170230</div>
+  </div>
+
+  <!-- SAVE BAR -->
+  <div class="save-bar">
+    <span id="log-date-display">—</span>
+    <span class="save-status" id="save-status">Loading today's entry…</span>
+    <button class="btn-save" id="save-btn" style="width:auto;padding:8px 24px;" disabled>Save Log</button>
+  </div>
+
+  <!-- ── A. SITUATION REPORT ──────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">A — Situation Report</div>
+
+    <!-- Pain score -->
+    <div class="field" style="margin-bottom:14px;">
+      <label>Pain Score (0 = none · 10 = severe)</label>
+      <div class="pain-row">
+        <input type="range" id="pain_score" min="0" max="10" step="1" value="0">
+        <span class="pain-value" id="pain_score_display">0</span>
+      </div>
+    </div>
+
+    <div class="field-grid">
+      <div class="field">
+        <label>Pain Location</label>
+        <input type="text" id="pain_location" placeholder="e.g. lower back, neck" style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,204,255,0.25);color:#e0e6ff;border-radius:5px;padding:8px 10px;font-size:13px;width:100%;">
+      </div>
+      <div class="field">
+        <label>Energy</label>
+        <select id="energy">
+          <option value="">— select —</option>
+          <option value="Low">Low</option>
+          <option value="Moderate">Moderate</option>
+          <option value="High">High</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Mood</label>
+        <select id="mood">
+          <option value="">— select —</option>
+          <option value="Low">Low</option>
+          <option value="Stable">Stable</option>
+          <option value="Positive">Positive</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sleep Hours</label>
+        <input type="number" id="sleep_hours" min="0" max="24" step="0.5" placeholder="e.g. 6.5">
+      </div>
+      <div class="field">
+        <label>Sleep Quality</label>
+        <select id="sleep_quality">
+          <option value="">— select —</option>
+          <option value="Poor">Poor</option>
+          <option value="Fair">Fair</option>
+          <option value="Good">Good</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>CPAP Used</label>
+        <select id="cpap_status">
+          <option value="">— select —</option>
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+          <option value="Partial">Partial</option>
+          <option value="Not applicable">Not applicable</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Physical Capacity</label>
+        <select id="physical_capacity">
+          <option value="">— select —</option>
+          <option value="Better">Better</option>
+          <option value="Same">Same</option>
+          <option value="Worse">Worse</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── B. WHAT HAPPENED TODAY ───────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">B — What Happened Today?</div>
+    <div class="field">
+      <label>Key events (brief — not a diary)</label>
+      <textarea id="what_happened" placeholder="e.g. Morning call with team, worked on MSN-0041, pain flare at 14:00…" rows="4"></textarea>
+    </div>
+  </div>
+
+  <!-- ── B2. PAIN INTELLIGENCE (CBT) ─────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">B2 — Pain Intelligence</div>
+    <div class="field">
+      <label>What worsened your pain today? <span style="color:#6070a0;font-weight:400;">(triggers)</span></label>
+      <textarea id="pain_triggers" class="compact" placeholder="e.g. Sitting for 2+ hours, carrying bags, cold weather, stress…" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>What helped your pain today? <span style="color:#6070a0;font-weight:400;">(relievers)</span></label>
+      <textarea id="pain_relievers" class="compact" placeholder="e.g. Short walk, heat pad, lying flat for 30 min, pacing tasks…" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>Coping strategies used <span style="color:#6070a0;font-weight:400;">(what you tried)</span></label>
+      <textarea id="coping_strategies" class="compact" placeholder="e.g. Pacing, distraction, rest breaks, mindfulness, movement…" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>Activity impact <span style="color:#6070a0;font-weight:400;">(activities tried → effect on pain/capacity)</span></label>
+      <textarea id="activity_impact" class="compact" placeholder="e.g. Light walk — pain unchanged. Desk work 90 min — pain worsened. Stretching — minor relief…" rows="2"></textarea>
+    </div>
+  </div>
+
+  <!-- ── C. WHAT CHANGED ──────────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">C — What Changed?</div>
+    <div class="field">
+      <label>Highest-value section — capture any changes in symptoms, capacity, or context</label>
+      <textarea id="what_changed" placeholder="e.g. Pain moved from lower back to neck. Energy improved after rest. Office day worsened symptoms." rows="4"></textarea>
+    </div>
+  </div>
+
+  <!-- ── D. WINS ───────────────────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">D — Wins</div>
+    <div class="field">
+      <label>What went well or was completed</label>
+      <textarea id="wins" class="compact" placeholder="e.g. Completed MSN-0038 review. Rested instead of pushing through. Walked dog." rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- ── E. FRICTION / BLOCKERS ────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">E — Friction / Blockers</div>
+    <div class="field">
+      <label>What slowed progress or caused friction</label>
+      <textarea id="blockers" class="compact" placeholder="e.g. Pain. Fatigue. Medical admin backlog. Technical blocker on MSN-0041." rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- ── F. DECISIONS MADE ─────────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">F — Decisions Made</div>
+    <div class="field">
+      <label>Capture decisions for future traceability</label>
+      <textarea id="decisions_made" class="compact" placeholder="e.g. Decided to defer MSN-0040 by 1 week. Agreed approach for X with Number One." rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- ── G. TOMORROW'S PRIORITY ────────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">G — Tomorrow's Priority</div>
+    <div class="field">
+      <label>One priority only</label>
+      <input type="text" id="tomorrows_priority" placeholder="e.g. Complete MSN-0041 Phase 1 review" style="background:rgba(0,0,0,0.35);border:1px solid rgba(0,204,255,0.25);color:#e0e6ff;border-radius:5px;padding:8px 10px;font-size:13px;width:100%;">
+    </div>
+  </div>
+
+  <!-- ── H. NUMBER ONE ASSESSMENT ──────────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">H — Number One Assessment</div>
+    <div class="assessment-grid" style="margin-bottom:14px;">
+      <div class="rag-group">
+        <div class="rag-label">Health Status</div>
+        <div class="rag-buttons" id="health_status_btns">
+          <button class="rag-btn" data-field="health_status" data-val="Green">Green</button>
+          <button class="rag-btn" data-field="health_status" data-val="Amber">Amber</button>
+          <button class="rag-btn" data-field="health_status" data-val="Red">Red</button>
+        </div>
+      </div>
+      <div class="rag-group">
+        <div class="rag-label">Work Status</div>
+        <div class="rag-buttons" id="work_status_btns">
+          <button class="rag-btn" data-field="work_status" data-val="Green">Green</button>
+          <button class="rag-btn" data-field="work_status" data-val="Amber">Amber</button>
+          <button class="rag-btn" data-field="work_status" data-val="Red">Red</button>
+        </div>
+      </div>
+      <div class="rag-group">
+        <div class="rag-label">Personal Status</div>
+        <div class="rag-buttons" id="personal_status_btns">
+          <button class="rag-btn" data-field="personal_status" data-val="Green">Green</button>
+          <button class="rag-btn" data-field="personal_status" data-val="Amber">Amber</button>
+          <button class="rag-btn" data-field="personal_status" data-val="Red">Red</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Overall Note</label>
+      <textarea id="overall_note" class="compact" placeholder="Anything the Captain or Number One should note…" rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- ── I. CAPACITY SELF-ASSESSMENT ─────────────────────────────────────── -->
+  <div class="log-section">
+    <div class="section-title">I — Capacity Self-Assessment</div>
+    <div class="field">
+      <label style="font-size:12px;color:#a0a6c0;line-height:1.5;">
+        Based on how capable you felt today, independent of the system score, how would you rate your operational capacity?
+      </label>
+      <div class="rag-group" style="margin-top:10px;">
+        <div class="rag-label">Captain Capacity Rating</div>
+        <div class="rag-buttons" id="captain_capacity_rating_btns">
+          <button class="rag-btn" data-field="captain_capacity_rating" data-val="Green">Green</button>
+          <button class="rag-btn" data-field="captain_capacity_rating" data-val="Amber">Amber</button>
+          <button class="rag-btn" data-field="captain_capacity_rating" data-val="Red">Red</button>
+        </div>
+      </div>
+      <div id="calibration-hint" style="margin-top:10px;font-size:11px;color:#6070a0;display:none;">
+        System score: <span id="cal-system-score">—</span>
+        &nbsp;|&nbsp; System status: <span id="cal-system-status">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVE BUTTON -->
+  <button class="btn-save" id="save-btn-bottom">💾 Save Captain's Log</button>
+
+</div>
+
+<script>
+const API_BASE = 'http://localhost:5050/api/v1/captains-log';
+
+// ── State ──────────────────────────────────────────────────────────────────
+const ragState = { health_status: null, work_status: null, personal_status: null, captain_capacity_rating: null };
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function today() {
+  return new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+function todayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+function setStatus(msg, type = '') {
+  const el = document.getElementById('save-status');
+  el.textContent = msg; el.className = 'save-status ' + type;
+}
+function setPainColour(val) {
+  const el = document.getElementById('pain_score_display');
+  el.textContent = val;
+  el.className = 'pain-value ' + (val <= 3 ? 'low' : val <= 6 ? 'mid' : 'high');
+}
+
+// ── RAG buttons ────────────────────────────────────────────────────────────
+document.querySelectorAll('.rag-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const field = btn.dataset.field;
+    const val = btn.dataset.val;
+    ragState[field] = val;
+    // Update active state within the group
+    const group = btn.closest('.rag-buttons');
+    group.querySelectorAll('.rag-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+function setRag(field, val) {
+  if (!val) return;
+  ragState[field] = val;
+  document.querySelectorAll(`.rag-btn[data-field="${field}"]`).forEach(b => {
+    b.classList.toggle('active', b.dataset.val === val);
+  });
+}
+
+// ── Pain slider ────────────────────────────────────────────────────────────
+document.getElementById('pain_score').addEventListener('input', e => {
+  setPainColour(parseInt(e.target.value, 10));
+});
+
+// ── Populate form from entry ───────────────────────────────────────────────
+function populate(entry) {
+  if (!entry) return;
+  const fields = [
+    'pain_location','energy','mood','sleep_hours','sleep_quality',
+    'cpap_status','physical_capacity','what_happened','what_changed',
+    'wins','blockers','decisions_made','tomorrows_priority','overall_note',
+    'pain_triggers','pain_relievers','coping_strategies','activity_impact'
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById(f);
+    if (el && entry[f] != null) el.value = entry[f];
+  });
+  if (entry.pain_score != null) {
+    document.getElementById('pain_score').value = entry.pain_score;
+    setPainColour(entry.pain_score);
+  }
+  setRag('health_status', entry.health_status);
+  setRag('work_status', entry.work_status);
+  setRag('personal_status', entry.personal_status);
+  setRag('captain_capacity_rating', entry.captain_capacity_rating);
+}
+
+// ── Collect form payload ───────────────────────────────────────────────────
+function collect() {
+  return {
+    log_date: todayISO(),
+    pain_score: parseInt(document.getElementById('pain_score').value, 10),
+    pain_location: document.getElementById('pain_location').value.trim() || null,
+    energy: document.getElementById('energy').value || null,
+    mood: document.getElementById('mood').value || null,
+    sleep_hours: document.getElementById('sleep_hours').value !== ''
+      ? parseFloat(document.getElementById('sleep_hours').value) : null,
+    sleep_quality: document.getElementById('sleep_quality').value || null,
+    cpap_status: document.getElementById('cpap_status').value || null,
+    physical_capacity: document.getElementById('physical_capacity').value || null,
+    what_happened: document.getElementById('what_happened').value.trim() || null,
+    what_changed: document.getElementById('what_changed').value.trim() || null,
+    wins: document.getElementById('wins').value.trim() || null,
+    blockers: document.getElementById('blockers').value.trim() || null,
+    decisions_made: document.getElementById('decisions_made').value.trim() || null,
+    tomorrows_priority: document.getElementById('tomorrows_priority').value.trim() || null,
+    health_status: ragState.health_status,
+    work_status: ragState.work_status,
+    personal_status: ragState.personal_status,
+    captain_capacity_rating: ragState.captain_capacity_rating,
+    overall_note: document.getElementById('overall_note').value.trim() || null,
+    pain_triggers: document.getElementById('pain_triggers').value.trim() || null,
+    pain_relievers: document.getElementById('pain_relievers').value.trim() || null,
+    coping_strategies: document.getElementById('coping_strategies').value.trim() || null,
+    activity_impact: document.getElementById('activity_impact').value.trim() || null,
+    source: 'ui'
+  };
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────
+async function save() {
+  document.querySelectorAll('#save-btn,#save-btn-bottom').forEach(b => b.disabled = true);
+  setStatus('Saving…', 'saving');
+  try {
+    const resp = await fetch(API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(collect())
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const now = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    setStatus(`Saved at ${now}`, 'saved');
+  } catch (err) {
+    setStatus(`Save failed: ${err.message}`, 'error');
+  } finally {
+    document.querySelectorAll('#save-btn,#save-btn-bottom').forEach(b => b.disabled = false);
+  }
+}
+
+document.getElementById('save-btn').addEventListener('click', save);
+document.getElementById('save-btn-bottom').addEventListener('click', save);
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('log-date-display').textContent = today();
+  setPainColour(0);
+
+  try {
+    const resp = await fetch(`${API_BASE}/today`);
+    const json = await resp.json();
+    if (json.data?.entry) {
+      populate(json.data.entry);
+      const ts = json.data.entry.updated_at
+        ? new Date(json.data.entry.updated_at).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })
+        : '—';
+      setStatus(`Entry loaded — last saved ${ts}`, 'saved');
+    } else {
+      setStatus('No entry yet today — start logging', '');
+    }
+  } catch (err) {
+    setStatus('Could not load today’s entry — API may be offline', 'error');
+  }
+
+  // Show system capacity score alongside Section I so Captain can compare
+  try {
+    const sr = await fetch(`${API_BASE}/summary`);
+    const sj = await sr.json();
+    if (sj.data?.capacity_score != null) {
+      document.getElementById('cal-system-score').textContent = sj.data.capacity_score;
+      const statusEl = document.getElementById('cal-system-status');
+      statusEl.textContent = sj.data.capacity_status || '—';
+      const colMap = { Green: '#00dd00', Amber: '#ffaa00', Red: '#ff4444' };
+      statusEl.style.color = colMap[sj.data.capacity_status] || '#a0a6c0';
+      document.getElementById('calibration-hint').style.display = 'block';
+    }
+  } catch (_) { /* non-critical */ }
+
+  document.querySelectorAll('#save-btn,#save-btn-bottom').forEach(b => b.disabled = false);
+}
+
+init();
+</script>
+</body>
+</html>

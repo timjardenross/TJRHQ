@@ -1,6 +1,7 @@
 #!/bin/bash
 
-CONTROL_DIR="$HOME/Documents/GitHub/USSTJROS/USS-TJR-Control"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONTROL_DIR="$(cd "$SCRIPT_DIR" && pwd)"
 
 echo "Starting USS TJR Control Deck..."
 echo "Control directory: $CONTROL_DIR"

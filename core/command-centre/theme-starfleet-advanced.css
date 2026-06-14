@@ -4,8 +4,10 @@
  * MSN-0042 Track 2
  */
 
+@import url('./theme-starfleet-tokens.css');
+
 :root {
-  /* Internal theme aliases */
+  /* Internal theme aliases — sourced from tokens */
   --primary-color: #FFD700;
   --accent-color: #FFD700;
   --bg-dark: #0a0e27;

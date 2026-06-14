@@ -42,18 +42,12 @@ from commander_response_formatter import format_commander_response, parse_comman
 from core.coordination.commander_memory_adapter import CommanderMemoryAdapter
 from supabase_commander_intake import run_supabase_commander
 from commands.mission_brief import (
-    claim_engineering_handoff_batch,
-    claim_oldest_pending_engineering_handoff,
-    find_existing_engineering_handoff,
-    format_engineering_handoff_chain_summary,
     find_build_record_by_thread,
     handle_build_brief,
     handle_mission_brief,
     handle_mission_register_draft,
     handle_save_mission_file,
-    format_pending_engineering_handoffs_report,
     xo_can_approve,
-    mark_build_record_approved,
     save_engineering_handoff_from_build_record,
 )
 from lib.xo_policy import xo_can_approve as xo_policy_can_approve
@@ -73,6 +67,12 @@ from commands.health_synthesis import handle_health_brief
 from commands.health_appointment_prep import handle_health_prep
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
+# M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE WP1
+from commands.lesson_log import handle_lesson_log
+
+# M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE WP1/WP2
+from command_memory_integration import save_mission_to_command_memory
+from paperclip_issue_creator import create_slack_paperclip_issue
 
 # MSN-DISCOVERY-001: Captain's Inbox intake (WP2)
 from lib.captains_inbox_events import register_captains_inbox_handlers
@@ -206,6 +206,12 @@ def validate_environment() -> bool:
     validate_research_runtime()
 
     # M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW: Mistral agent startup health check
+    # Import mistral_agents first so Engineering Officer + QA Validation Officer
+    # register into _ENV_MAP before check_startup_health() runs.
+    try:
+        import lib.mistral_agents  # noqa: F401 — side-effect: registers specialist agents
+    except Exception as _ma_exc:
+        log.warning("[startup] mistral_agents import failed (non-blocking): %s", _ma_exc)
     try:
         from lib.mistral_agent_client import check_startup_health
         check_startup_health()
@@ -252,29 +258,6 @@ def _should_skip_duplicate_command(command_name: str, command: dict, text: str) 
         _recent_command_fingerprints[fingerprint] = now
         return False
 
-
-def handle_batch_status_request(text: str) -> str:
-    """Render the read-only batch status summary for a handoff path."""
-    handoff_path = text.strip()
-    if handoff_path == "--latest":
-        from commands.mission_brief import find_latest_claimed_engineering_handoff
-
-        latest = find_latest_claimed_engineering_handoff()
-        if not latest:
-            return (
-                ":package: *Batch Status*\n\n"
-                "No claimed handoffs were available to inspect."
-            )
-        handoff_path = latest["path"]
-
-    if not handoff_path:
-        return (
-            ":package: *Batch Status*\n\n"
-            "Usage: `/batch-status Missions/Engineering-Handoffs/ENG-HANDOFF-001.md`\n"
-            "Or: `/batch-status --latest`"
-        )
-
-    return format_engineering_handoff_chain_summary(handoff_path)
 
 
 def _append_commander_memory_note(response_text: str, *, text: str, intent: str) -> str:
@@ -483,34 +466,45 @@ def handle_message_events(body, say, client):
         )
         return
 
-    # Idempotency check — prevent duplicate handoffs for the same build record
-    source_record = build_context.get("record_path", "")
-    existing_handoff = find_existing_engineering_handoff(source_record)
-    if existing_handoff:
-        say(
-            f":white_check_mark: *Already Approved (Idempotent)*\n\n"
-            f"Handoff: `{existing_handoff}`\n"
-            "Status: PENDING (awaiting batch assignment)",
-            thread_ts=thread_ts,
-        )
-        return
+    handoff_result = save_engineering_handoff_from_build_record(
+        build_record=build_context,
+        approver_user_id=user_id,
+    )
+    handoff_path = handoff_result["handoff_path"]
+    decision_id = handoff_result["decision_id"]
 
-    handoff_path = save_engineering_handoff_from_build_record(
-        build_record=build_context,
-        approver_user_id=user_id,
+    # WP1 — Command Memory: register as Planned mission (non-blocking)
+    save_mission_to_command_memory(
+        mission_id=decision_id,
+        title=build_context.get("mission_title", "Engineering Handoff"),
+        created_by=user_id,
+        description=build_context.get("request_text"),
+        status="Planned",
     )
-    updated_record_path = mark_build_record_approved(
-        build_record=build_context,
-        approver_user_id=user_id,
-        handoff_path=handoff_path,
+
+    # WP2 — Paperclip: create tracking issue (non-blocking)
+    channel_id = event.get("channel", "")
+    paperclip_result = create_slack_paperclip_issue(
+        message_text=build_context.get("request_text", ""),
+        channel_id=channel_id or None,
+        thread_ts=thread_ts,
+        user_id=user_id,
+        commander_summary=build_context.get("mission_title"),
     )
+    paperclip_line = ""
+    if paperclip_result.get("ok") and paperclip_result.get("identifier"):
+        paperclip_line = f"\nPaperclip: `{paperclip_result['identifier']}`"
+    elif not paperclip_result.get("ok"):
+        log.warning(
+            "[app] Paperclip issue creation failed (non-blocking): %s",
+            paperclip_result.get("error"),
+        )
+
     say(
         ":white_check_mark: *Approved for Engineering*\n\n"
         f"Handoff: `{handoff_path}`\n"
-        "Status: APPROVED_FOR_ENGINEERING\n"
-        "Batch Status: PENDING\n\n"
-        ":point_right: *Next step:* Number One or the assignment authority moves the handoff to `SUBMITTED`.\n"
-        "Engineering agents only act after that explicit assignment step.\n"
+        f"Mission ID: `{decision_id}`"
+        f"{paperclip_line}\n"
         f"XO policy trace: {', '.join(policy_decision.policy_trace)}",
         thread_ts=thread_ts,
     )
@@ -863,17 +857,130 @@ def handle_mission_status_slash(ack, respond, command):
 
 
 @app.command("/mission-close")
-def handle_mission_close_slash(ack, respond, command):
+def handle_mission_close_slash(ack, respond, command, client):
     """/mission-close — Mark a mission as closed and log the closure.
 
     Usage: /mission-close MSN-0040A [optional closing note]
+
+    Delivery: posts a public anchor, then replies with the closure result and
+    QA Validation Officer advisory in the same thread so the review becomes
+    part of the mission conversation record (not ephemeral).
     """
     ack()
     text = (command.get("text") or "").strip()
     user_id = command.get("user_id", "")
     channel_id = command.get("channel_id", "")
-    log.info("[app] /mission-close: user=%s text=%r", user_id, text[:80])
-    respond(handle_mission_close(text, user_id, channel_id))
+
+    log.info("[app] /mission-close: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if not text:
+        respond(handle_mission_close("", user_id, channel_id))
+        return
+
+    respond(":hourglass_flowing_sand: `/mission-close` accepted. Closing mission…")
+
+    def _run() -> None:
+        thread_ts = None
+        try:
+            # Extract mission ID for the anchor label (first token)
+            mission_label = text.strip().split()[0].upper()
+            if not mission_label.startswith("USS-TJR-"):
+                mission_label = f"USS-TJR-{mission_label}"
+
+            try:
+                anchor = client.chat_postMessage(
+                    channel=channel_id,
+                    text=(
+                        f":package: *Mission closure initiated by <@{user_id}>*\n"
+                        f":hourglass_flowing_sand: Processing closure for `{mission_label}`…"
+                    ),
+                )
+                thread_ts = anchor.get("ts")
+            except SlackApiError as slack_exc:
+                if slack_exc.response.get("error") == "not_in_channel":
+                    # Fallback: bot not in channel — embed QA advisory inline since threading unavailable
+                    log.warning("[app] /mission-close fallback: bot not in channel=%s", channel_id)
+                    respond({
+                        "response_type": "in_channel",
+                        "text": handle_mission_close(text, user_id, channel_id, include_qa_advisory=True),
+                    })
+                    return
+                raise
+
+            # Run closure (writes Supabase + local log file)
+            # Strip QA advisory from the closure result — we post it separately below
+            from commands.mission_lifecycle import (
+                _load_mission_dossier, _format_qa_dossier,
+            )
+            from lib.mistral_agents import qa_validation_officer_slack_block
+
+            closure_result = handle_mission_close(text, user_id, channel_id)
+
+            # Post closure confirmation in thread
+            client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=thread_ts,
+                text=closure_result,
+                unfurl_links=False,
+                unfurl_media=False,
+            )
+
+            # Post QA Validation Officer advisory as a separate thread reply
+            try:
+                parts = text.strip().split(None, 1)
+                mid = parts[0].upper()
+                note = parts[1] if len(parts) > 1 else ""
+                mid_full = mid if mid.startswith("USS-TJR-") else f"USS-TJR-{mid}"
+                dossier = _load_mission_dossier(mid_full)
+                dossier_text = _format_qa_dossier(dossier, closing_note=note)
+                qa_block = qa_validation_officer_slack_block(
+                    mission_id=mid_full,
+                    mission_dossier=dossier_text,
+                    closing_note=note,
+                )
+            except Exception as qa_exc:
+                log.warning("[app] /mission-close QA advisory failed: %s", qa_exc)
+                qa_block = (
+                    ":white_check_mark: *QA Validation Officer Pre-Closure Review*\n"
+                    "_:robot_face: Agent advisory unavailable._"
+                )
+
+            client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=thread_ts,
+                text=qa_block,
+                unfurl_links=False,
+                unfurl_media=False,
+            )
+
+            # Update anchor to show completion
+            client.chat_update(
+                channel=channel_id,
+                ts=thread_ts,
+                text=(
+                    f":white_check_mark: *Mission closure complete — <@{user_id}>*\n"
+                    f"Mission: `{mission_label}` | Closure result and QA review in thread."
+                ),
+            )
+
+        except Exception as exc:
+            log.error("[app] /mission-close failed: %s", exc)
+            try:
+                if thread_ts:
+                    client.chat_update(
+                        channel=channel_id,
+                        ts=thread_ts,
+                        text=(
+                            f":warning: *Mission closure failed for <@{user_id}>*\n"
+                            f"Mission: `{text.strip().split()[0].upper()}`\n"
+                            f"Reason: `{type(exc).__name__}`"
+                        ),
+                    )
+            except Exception as update_exc:
+                log.warning("[app] /mission-close failed to update anchor: %s", update_exc)
+            respond(f"*MISSION CLOSE ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 @app.command("/decision-log")
@@ -1017,68 +1124,6 @@ def handle_build_slash(ack, respond, command, client):
             respond(f"*BUILD ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
     threading.Thread(target=_run, daemon=True).start()
-
-@app.command("/batch-scan")
-def handle_batch_scan_slash(ack, respond, command):
-    """/batch-scan — List engineering handoffs pending batch assignment.
-
-    Usage: /batch-scan [--detailed]
-    """
-    ack()
-
-    text = (command.get("text") or "").strip()
-    if text and text not in {"--detailed", "-d"}:
-        respond(
-            ":package: *Batch Scanner*\n\n"
-            "Usage: `/batch-scan [--detailed]`\n"
-            "This command scans `Missions/Engineering-Handoffs` for items where "
-            "`Status: APPROVED_FOR_ENGINEERING` and `Batch Status: PENDING`."
-        )
-        return
-
-    respond(format_pending_engineering_handoffs_report(detailed=text in {"--detailed", "-d"}))
-
-@app.command("/batch-claim")
-def handle_batch_claim_slash(ack, respond, command):
-    """/batch-claim — Claim the first pending engineering handoff.
-
-    Usage: /batch-claim BATCH-001
-    """
-    ack()
-
-    batch_group = (command.get("text") or "").strip()
-    if not batch_group:
-        respond(
-            ":package: *Batch Claim*\n\n"
-            "Usage: `/batch-claim BATCH-001`\n"
-            "This command claims the oldest pending handoff and sets `Batch Status: SUBMITTED`."
-        )
-        return
-
-    claimed = claim_oldest_pending_engineering_handoff(batch_group)
-    if not claimed:
-        respond(
-            ":package: *Batch Claim*\n\n"
-            "No pending handoffs were available to claim."
-        )
-        return
-
-    respond(
-        ":package: *Batch Claim*\n\n"
-        f"Claimed `{claimed['path']}`\n"
-        f"- Mission: {claimed['mission_title']}\n"
-        f"- Batch Group: {batch_group}\n"
-        f"- Batch Status: SUBMITTED"
-    )
-
-@app.command("/batch-status")
-def handle_batch_status_slash(ack, respond, command):
-    """/batch-status — Show the decision/outcome chain for a handoff.
-
-    Usage: /batch-status <hand-off path>
-    """
-    ack()
-    respond(handle_batch_status_request(command.get("text") or ""))
 
 @app.command("/memory-metrics")
 def handle_memory_metrics_slash(ack, respond, command):
@@ -1323,6 +1368,40 @@ def handle_research_slash(ack, respond, command, client):
         except Exception as exc:
             log.error("[app] /research failed: %s", exc)
             respond(f"*Research Officer — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.command("/lesson-log")
+def handle_lesson_log_slash(ack, respond, command):
+    """/lesson-log — Capture a lesson learned from a mission or experience.
+
+    Usage: /lesson-log <description>
+    Example: /lesson-log MSN-0054 worked: pipeline reliable failed: rate limits hit recommend: add backoff
+
+    Appends to knowledge/Lessons-Learned.md and upserts to Supabase lessons_learned.
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /lesson-log: user=%s channel=%s len=%d", user_id, channel_id, len(text))
+
+    if not text:
+        from commands.lesson_log import _USAGE
+        respond(_USAGE)
+        return
+
+    respond(":mortar_board: *Lesson Log*\n\n:hourglass_flowing_sand: Capturing lesson… please wait.")
+
+    def _run():
+        try:
+            result = handle_lesson_log(text, user_id, channel_id)
+            respond(result)
+        except Exception as exc:
+            log.error("[app] /lesson-log failed: %s", exc)
+            respond(f"*LESSON LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
     threading.Thread(target=_run, daemon=True).start()
 

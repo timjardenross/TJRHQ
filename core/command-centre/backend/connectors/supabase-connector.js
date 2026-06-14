@@ -82,10 +82,31 @@ async function getDecisionRecords({ limit = 20, pendingOnly = false } = {}) {
  */
 async function getEscalations({ limit = 20 } = {}) {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const path = `commander_events?order=created_at.desc&limit=${limit}&created_at=gte.${encodeURIComponent(since)}`;
+  const path = `commander_events?order=created_at.desc&limit=${limit * 5}&created_at=gte.${encodeURIComponent(since)}`;
   const rows = await supabaseGet(path);
-  // Filter client-side for escalate_to_xo flag (stored in metadata JSON)
-  return rows.filter(row => row.metadata?.escalate_to_xo === true);
+
+  // Only rows explicitly flagged for XO attention
+  const flagged = rows.filter(row => row.metadata?.escalate_to_xo === true);
+
+  // Filter out trivially empty commands (bare "commander:" with nothing useful after)
+  const meaningful = flagged.filter(row => {
+    const text = (row.message_text || '').trim();
+    const stripped = text.replace(/^(commander|decision|general)\s*:\s*/i, '').trim();
+    return stripped.length > 3;
+  });
+
+  // Deduplicate: keep only the most recent row per unique (message_text, event_type) pair
+  const seen = new Set();
+  const deduped = [];
+  for (const row of meaningful) {
+    const key = `${(row.event_type || '').toLowerCase()}::${(row.message_text || '').trim()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(row);
+    }
+  }
+
+  return deduped.slice(0, limit);
 }
 
 /**

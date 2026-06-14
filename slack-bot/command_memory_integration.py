@@ -187,14 +187,20 @@ def save_mission_to_command_memory(
     title: str,
     created_by: str,
     owner: str | None = None,
+    description: str | None = None,
+    status: str = "Idea",
 ) -> bool:
     """Save a mission to Command Memory (non-blocking).
 
     Args:
-        mission_id: Unique mission identifier (M-YYYYMMDD-HHMMSS)
+        mission_id: Unique mission identifier (M-YYYYMMDD-HHMMSS or DEC-REC-…)
         title: Mission title
         created_by: Slack user ID of mission creator
         owner: Mission owner (defaults to creator)
+        description: LLM-generated structured capture body (optional)
+        status: D-008 lifecycle status (Draft|Planned|Active|Blocked|Review|Completed).
+                Defaults to "Idea" (dormant capture state) to preserve existing
+                callers.  Engineering handoffs should pass "Planned".
 
     Returns:
         True if write succeeded, False otherwise (non-blocking failure).
@@ -208,17 +214,17 @@ def save_mission_to_command_memory(
         "title": title,
         "created_by": created_by,
         "created_at": datetime.utcnow().isoformat() + "Z",
-        # MSN-0051/D-008: canonical lifecycle entry state. Was "Draft" (MSN-0040A),
-        # which the live missions CHECK (ADR-0001/MSN-ENFORCE-001 7-state) rejects.
-        "status": "Designed",
+        "status": status,
         "owner": owner,
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "updated_by": created_by,
     }
+    if description is not None:
+        record["description"] = description
 
     success = client.insert("missions", record)
     if success:
-        log.info(f"[command-memory] Mission {mission_id} saved to Command Memory")
+        log.info(f"[command-memory] Mission {mission_id} saved to Command Memory (status={status})")
     else:
         log.warning(f"[command-memory] Failed to save mission {mission_id} (non-blocking)")
     return success

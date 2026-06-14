@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XO Health Model Oversight — STARFLEET COMMAND CENTRE</title>
+  <link rel="stylesheet" href="widgets.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(to bottom, #0a0e27 0%, #1a1f3a 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e0e6ff; min-height: 100vh;
+    }
+    body::before {
+      content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-image: radial-gradient(2px 2px at 20px 30px,#eee,rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 60px 70px,#fff,rgba(0,0,0,0));
+      background-size: 500px 500px; pointer-events: none; opacity: 0.06; z-index: 0;
+    }
+    .container { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 28px; padding: 20px; border-bottom: 2px solid rgba(0,204,255,0.3); }
+    .back-link { display: inline-block; margin-bottom: 12px; font-size: 12px; color: #00ccff; text-decoration: none; letter-spacing: 0.5px; text-transform: uppercase; }
+    .back-link:hover { text-shadow: 0 0 8px rgba(0,204,255,0.6); }
+    .header-title { font-size: 26px; font-weight: 700; color: #00ccff; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+    .header-subtitle { font-size: 12px; color: #a0a6c0; letter-spacing: 1px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(0,204,255,0.15);
+      border-radius: 10px; padding: 18px;
+    }
+    .card-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6080c0; margin-bottom: 12px; }
+    .metric-big { font-size: 40px; font-weight: 700; color: #00ccff; line-height: 1; }
+    .metric-label { font-size: 11px; color: #a0a6c0; margin-top: 4px; }
+
+    .status-pill {
+      display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .status-Green  { background: rgba(0,221,0,0.15); color: #00dd00; border: 1px solid rgba(0,221,0,0.3); }
+    .status-Amber  { background: rgba(255,170,0,0.15); color: #ffaa00; border: 1px solid rgba(255,170,0,0.3); }
+    .status-Red    { background: rgba(255,68,68,0.15); color: #ff4444; border: 1px solid rgba(255,68,68,0.3); }
+    .status-Unknown{ background: rgba(160,166,192,0.1); color: #a0a6c0; border: 1px solid rgba(160,166,192,0.2); }
+
+    .alert-banner {
+      background: rgba(255,68,68,0.12); border: 1px solid rgba(255,68,68,0.4);
+      border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; display: none;
+    }
+    .alert-banner.visible { display: block; }
+    .alert-title { font-size: 13px; font-weight: 700; color: #ff4444; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .alert-body { font-size: 12px; color: #e0a0a0; line-height: 1.6; }
+
+    .mismatch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .mismatch-row:last-child { border-bottom: none; }
+    .mismatch-label { font-size: 12px; color: #a0a6c0; }
+    .mismatch-count { font-size: 18px; font-weight: 700; }
+    .false-green { color: #00dd00; }
+    .false-amber { color: #ffaa00; }
+    .false-red   { color: #ff4444; }
+
+    .trend-bar-wrap { margin-top: 12px; }
+    .trend-entry { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .trend-date { font-size: 10px; color: #6080c0; width: 70px; flex-shrink: 0; }
+    .trend-bar-bg { flex: 1; background: rgba(255,255,255,0.05); border-radius: 3px; height: 8px; overflow: hidden; }
+    .trend-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .trend-pct { font-size: 10px; color: #a0a6c0; width: 36px; text-align: right; flex-shrink: 0; }
+
+    .rec-item { background: rgba(0,204,255,0.05); border: 1px solid rgba(0,204,255,0.15); border-radius: 7px; padding: 12px 14px; margin-bottom: 10px; }
+    .rec-header { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; }
+    .rec-var { font-size: 12px; font-weight: 700; color: #00ccff; }
+    .rec-direction { font-size: 11px; color: #ffaa00; }
+    .rec-weights { font-size: 11px; color: #a0a6c0; }
+    .rec-reason { font-size: 11px; color: #8090b0; line-height: 1.5; }
+    .rec-note { font-size: 10px; color: #ff8844; margin-top: 4px; font-style: italic; }
+
+    .section-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #4060a0; margin: 24px 0 10px; border-bottom: 1px solid rgba(0,204,255,0.1); padding-bottom: 6px; }
+
+    .run-btn { background: rgba(0,204,255,0.1); border: 1px solid rgba(0,204,255,0.3); color: #00ccff; padding: 8px 18px; border-radius: 6px; font-size: 12px; cursor: pointer; letter-spacing: 0.5px; margin-right: 8px; }
+    .run-btn:hover { background: rgba(0,204,255,0.2); }
+    .run-btn:disabled { opacity: 0.4; cursor: default; }
+
+    #last-updated { font-size: 10px; color: #6080c0; margin-top: 16px; text-align: right; }
+    .loading { color: #6080c0; font-size: 12px; font-style: italic; }
+    .insufficient { color: #6080c0; font-size: 12px; font-style: italic; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <a href="index.html" class="back-link">← Command Centre</a>
+    <div class="header-title">XO Health Model Oversight</div>
+    <div class="header-subtitle">CAPACITY CALIBRATION GOVERNANCE — NCC-170230</div>
+  </div>
+
+  <!-- Governance alert banner (shown when weighting_review_flag = true) -->
+  <div class="alert-banner" id="governance-alert">
+    <div class="alert-title">⚠ Health Capacity Model Review Required</div>
+    <div class="alert-body" id="governance-alert-body">Agreement rate below 70% for 14+ consecutive days. XO review of weighting model recommended.</div>
+  </div>
+
+  <!-- Top metrics -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Model Accuracy</div>
+      <div class="metric-big" id="accuracy-pct">—</div>
+      <div class="metric-label">30-day agreement rate</div>
+      <div style="margin-top:10px;" id="cal-status-pill"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Calibration Confidence</div>
+      <div class="metric-big" id="confidence-val" style="font-size:24px;padding-top:6px;">—</div>
+      <div class="metric-label" id="confidence-days">Based on — paired entries</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Consecutive Low Days</div>
+      <div class="metric-big" id="consecutive-low">—</div>
+      <div class="metric-label">Days agreement &lt; 70% (trigger: 14)</div>
+    </div>
+  </div>
+
+  <!-- Misclassification counts -->
+  <div class="section-heading">Misclassification Breakdown</div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Mismatch Types (30-day window)</div>
+      <div class="mismatch-row">
+        <span class="mismatch-label">False Greens — system over-optimistic</span>
+        <span class="mismatch-count false-green" id="false-green-count">—</span>
+      </div>
+      <div class="mismatch-row">
+        <span class="mismatch-label">False Ambers — severity understated</span>
+        <span class="mismatch-count false-amber" id="false-amber-count">—</span>
+      </div>
+      <div class="mismatch-row">
+        <span class="mismatch-label">False Reds — system over-conservative</span>
+        <span class="mismatch-count false-red" id="false-red-count">—</span>
+      </div>
+    </div>
+
+    <!-- 30-day trend -->
+    <div class="card">
+      <div class="card-title">Agreement Rate Trend (last 14 days)</div>
+      <div class="trend-bar-wrap" id="trend-bars">
+        <div class="loading">Loading trend…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weighting recommendations (WP4) -->
+  <div class="section-heading">Weighting Analysis — Evidence-Based Recommendations</div>
+  <div id="weighting-recs">
+    <div class="loading">Loading analysis…</div>
+  </div>
+
+  <!-- Actions -->
+  <div class="section-heading">Actions</div>
+  <div>
+    <button class="run-btn" id="run-cal-btn" onclick="runCalibration()">▶ Run Calibration Now</button>
+    <button class="run-btn" id="run-analysis-btn" onclick="loadWeighting(true)">▶ Refresh Weighting Analysis</button>
+  </div>
+
+  <div id="last-updated"></div>
+
+</div>
+
+<script>
+const API = 'http://localhost:5050/api/v1/calibration';
+
+function statusClass(s) {
+  return ['Green','Amber','Red'].includes(s) ? s : 'Unknown';
+}
+function barColour(rate) {
+  if (rate === null || rate === undefined) return '#6080c0';
+  if (rate >= 85) return '#00dd00';
+  if (rate >= 70) return '#ffaa00';
+  return '#ff4444';
+}
+
+async function loadSummary() {
+  try {
+    const r = await fetch(`${API}/summary`);
+    const j = await r.json();
+    const d = j.data;
+    if (!d) return;
+
+    const pct = d.agreement_rate != null ? `${d.agreement_rate}%` : '—';
+    document.getElementById('accuracy-pct').textContent = pct;
+    document.getElementById('accuracy-pct').style.color = barColour(d.agreement_rate);
+
+    const sc = statusClass(d.calibration_status);
+    document.getElementById('cal-status-pill').innerHTML =
+      `<span class="status-pill status-${sc}">${sc}</span>`;
+
+    document.getElementById('confidence-val').textContent =
+      (d.calibration_confidence || '—').toUpperCase();
+    document.getElementById('confidence-days').textContent =
+      `Based on ${d.total_days_compared ?? '—'} paired entries`;
+
+    document.getElementById('consecutive-low').textContent = d.consecutive_low_days ?? '—';
+    document.getElementById('consecutive-low').style.color =
+      (d.consecutive_low_days >= 14) ? '#ff4444' : (d.consecutive_low_days >= 7 ? '#ffaa00' : '#e0e6ff');
+
+    document.getElementById('false-green-count').textContent = d.false_green_count ?? '—';
+    document.getElementById('false-amber-count').textContent = d.false_amber_count ?? '—';
+    document.getElementById('false-red-count').textContent = d.false_red_count ?? '—';
+
+    if (d.weighting_review_flag) {
+      document.getElementById('governance-alert').classList.add('visible');
+    }
+
+    document.getElementById('last-updated').textContent =
+      `Last updated: ${new Date().toLocaleTimeString('en-GB')}`;
+  } catch (e) {
+    console.error('Summary load failed', e);
+  }
+}
+
+async function loadTrend() {
+  try {
+    const r = await fetch(`${API}/xo-oversight`);
+    const j = await r.json();
+    const trend = j.data?.trend_30d?.slice(0, 14).reverse() || [];
+    const wrap = document.getElementById('trend-bars');
+    if (!trend.length) {
+      wrap.innerHTML = '<div class="insufficient">No trend data yet</div>';
+      return;
+    }
+    wrap.innerHTML = trend.map(t => {
+      const pct = t.agreement_rate ?? 0;
+      const col = barColour(pct);
+      return `<div class="trend-entry">
+        <span class="trend-date">${t.date || '—'}</span>
+        <div class="trend-bar-bg"><div class="trend-bar-fill" style="width:${pct}%;background:${col};"></div></div>
+        <span class="trend-pct" style="color:${col}">${pct != null ? pct+'%' : '—'}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('trend-bars').innerHTML = '<div class="loading">Trend unavailable</div>';
+  }
+}
+
+async function loadWeighting(force = false) {
+  const wrap = document.getElementById('weighting-recs');
+  wrap.innerHTML = '<div class="loading">Running analysis…</div>';
+  try {
+    const r = await fetch(`${API}/weighting-analysis`);
+    const j = await r.json();
+    const d = j.data;
+    if (!d || !d.success) {
+      wrap.innerHTML = '<div class="loading">Analysis unavailable</div>';
+      return;
+    }
+    if (d.status === 'insufficient_data') {
+      wrap.innerHTML = `<div class="insufficient">${d.message}</div>`;
+      return;
+    }
+    const recs = d.recommendations || [];
+    if (!recs.length) {
+      wrap.innerHTML = '<div class="insufficient">No weighting adjustments recommended at this time. Current model is well-calibrated.</div>';
+      return;
+    }
+    wrap.innerHTML = recs.map(rec => `
+      <div class="rec-item">
+        <div class="rec-header">
+          <span class="rec-var">${rec.variable.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</span>
+          <span class="rec-direction">${rec.direction === 'increase' ? '↑ Increase' : '↓ Decrease'}</span>
+          <span class="rec-weights">Current: ${rec.current_weight}% → Recommended: ${rec.recommended_weight}%</span>
+        </div>
+        <div class="rec-reason">${rec.reason}</div>
+        <div class="rec-note">${rec.note}</div>
+      </div>`).join('');
+  } catch (e) {
+    wrap.innerHTML = '<div class="loading">Analysis failed — check API</div>';
+  }
+}
+
+async function runCalibration() {
+  const btn = document.getElementById('run-cal-btn');
+  btn.disabled = true; btn.textContent = 'Running…';
+  try {
+    const r = await fetch(`${API}/run`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+    const j = await r.json();
+    await loadSummary();
+    await loadTrend();
+    btn.textContent = j.data?.success ? '✓ Done' : '✗ Failed';
+  } catch (e) {
+    btn.textContent = '✗ Error';
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = '▶ Run Calibration Now'; }, 3000);
+  }
+}
+
+// Load everything
+Promise.all([loadSummary(), loadTrend(), loadWeighting()]);
+</script>
+</body>
+</html>

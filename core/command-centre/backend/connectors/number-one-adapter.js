@@ -170,33 +170,44 @@ class NumberOneAdapter {
    * Transform Number One brief to API format
    */
   transformBriefFromNumberOne(numberOneBrief) {
+    const priorities = numberOneBrief.top_priorities || [];
+
+    // Build recommendations from recommended_actions if populated, else from top priorities
+    let recommendations = numberOneBrief.recommended_actions || [];
+    if (recommendations.length === 0 && priorities.length > 0) {
+      recommendations = priorities.map(p =>
+        `${p.mission_id}: ${p.title} — ${p.status || 'In progress'}`
+      );
+    }
+
     return {
       status: 'operational',
       timestamp: new Date().toISOString(),
       dayStarted: new Date().toISOString().split('T')[0],
       systemHealth: numberOneBrief.system_health || 'operational',
-      topPriorities: (numberOneBrief.top_priorities || []).length,
+      topPriorities: priorities.length,
+      totalMissions: numberOneBrief.active_count || numberOneBrief.total_missions || 0,
       escalations: {
         CRITICAL: (numberOneBrief.escalations || []).filter(e => e.level === 'critical').length,
         HIGH: (numberOneBrief.escalations || []).filter(e => e.level === 'high').length,
         MEDIUM: (numberOneBrief.escalations || []).filter(e => e.level === 'medium').length,
         total: (numberOneBrief.escalations || []).length
       },
-      briefItems: (numberOneBrief.top_priorities || []).map(item => ({
-        rank: (numberOneBrief.top_priorities || []).indexOf(item) + 1,
+      briefItems: priorities.map((item, index) => ({
+        rank: index + 1,
         priority: item.priority || 'P1',
         mission: item.mission_id || 'UNKNOWN',
         title: item.title || 'Untitled',
         status: item.status || 'IN_PROGRESS',
-        progress: 50, // Placeholder (would need source data)
+        progress: 50,
         blocker: (item.blockers || []).length > 0,
         owner: item.assigned_specialist || 'Unassigned',
         recommendation: `Continue work on ${item.mission_id}`
       })),
       workQueueItems: numberOneBrief.total_missions || 0,
       blockedMissions: numberOneBrief.blocked_count || 0,
-      overdueMissions: 0, // Not in Number One, would need source
-      recommendations: numberOneBrief.recommended_actions || [],
+      overdueMissions: 0,
+      recommendations,
       generatedBy: 'Number One v1.0.0 (MSN-0034)',
       nextUpdate: new Date(Date.now() + 30000).toISOString()
     };

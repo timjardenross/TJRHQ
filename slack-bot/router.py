@@ -125,6 +125,24 @@ _SIGNALS: dict[str, list[tuple[str, int]]] = {
         ("information architecture", 15),
         ("structure", 10),
         ("folder", 10),
+        # WP6 — learning and organisational memory signals
+        ("have we done this", 25),
+        ("done this before", 25),
+        ("similar mission", 22),
+        ("prior mission", 22),
+        ("previous mission", 22),
+        ("what did we learn", 22),
+        ("what was learned", 22),
+        ("lessons from", 20),
+        ("what failed", 20),
+        ("what worked", 18),
+        ("reusable pattern", 20),
+        ("knowledge record", 20),
+        ("mission outcome", 18),
+        ("prior work on", 20),
+        ("have we investigated", 22),
+        ("recommendations from", 18),
+        ("show lessons", 20),
     ],
     "QA & Test Officer": [
         ("test", 15),
@@ -294,13 +312,16 @@ def route_request(user_text: str) -> dict[str, Any]:
     if is_repository_awareness_request(user_text):
         return _build("Knowledge / Engineering", ["Knowledge Officer", "Chief Engineer"], user_text)
 
-    # 6. Knowledge retrieval
+    # 6. Knowledge retrieval (includes WP6 learning queries)
     if is_knowledge_retrieval_request(user_text):
         kd = identify_knowledge_domain(user_text)
         specs = ["Knowledge Officer"]
-        if kd in ("architecture", "runtime", "capabilities"):
+        if kd == "learning":
+            # Learning queries: KO leads, Chief of Staff for mission context
+            specs = ["Knowledge Officer", "Chief of Staff"]
+        elif kd in ("architecture", "runtime", "capabilities"):
             specs.append("Chief Engineer")
-        if kd in ("missions", "procedures", "governance", "directives"):
+        elif kd in ("missions", "procedures", "governance", "directives"):
             specs.append("Chief of Staff")
         return _build(f"Knowledge / {kd.title()}", specs, user_text)
 

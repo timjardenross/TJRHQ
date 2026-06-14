@@ -4,8 +4,11 @@
  * Original implementation (not copying Star Trek assets)
  * ============================================================================ */
 
+@import url('./theme-starfleet-tokens.css');
+
 /* ============================================================================
  * ROOT VARIABLES - Color Palette
+ * (Tokens are defined in theme-starfleet-tokens.css)
  * ============================================================================ */
 
 :root {

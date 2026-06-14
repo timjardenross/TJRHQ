@@ -42,6 +42,31 @@ import importlib.util
 
 log = logging.getLogger(__name__)
 
+_CAPTAIN_PROFILE_PATH = Path(__file__).resolve().parents[2] / "knowledge" / "memory" / "captain_profile.txt"
+
+
+def _load_decision_profile_excerpt() -> str:
+    """Return Decision-Making Profile + Communication Preferences sections from the captain profile."""
+    try:
+        text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
+        m = re.search(
+            r"(={10,}\s*\nCOMMUNICATION PREFERENCES\s*\n={10,}.+?)(={10,}\s*\nHEALTH PROFILE)",
+            text, re.DOTALL,
+        )
+        comm = m.group(1).strip() if m else ""
+        m2 = re.search(
+            r"(={10,}\s*\nDECISION-MAKING PROFILE\s*\n={10,}.+?)(={10,}\s*\nHEALTH PROFILE)",
+            text, re.DOTALL,
+        )
+        dec = m2.group(1).strip() if m2 else ""
+        combined = "\n\n".join(filter(None, [comm, dec]))
+        return combined
+    except Exception:
+        return ""
+
+
+_CAPTAIN_DECISION_PROFILE = _load_decision_profile_excerpt()
+
 
 def _extract_mistral_text(response) -> str:
     """Extract assistant text from a Mistral ConversationResponse (v1.x SDK).
@@ -1517,12 +1542,17 @@ CONFIDENCE: [0.0-1.0]"""
             return None, 0.0
 
         # Build prompt with decision framework (MSN-RECOMMENDATION-FIX #2)
+        _profile_block = (
+            f"\nCAPTAIN PROFILE CONTEXT (source: captain_profile_knowledge_base v1.0):\n"
+            f"{_CAPTAIN_DECISION_PROFILE}\n"
+            if _CAPTAIN_DECISION_PROFILE else ""
+        )
         decision_framework_prompt = f"""You are a Chief of Staff advisor. Your role is to recommend ACTION, not to summarise.
 
 You have completed research with findings. You have identified options with trade-offs and risks.
 
 Your job is to STATE WHICH OPTION IS PREFERRED and explain why.
-
+{_profile_block}
 Research Findings:
 {consolidated_findings}
 

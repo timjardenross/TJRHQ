@@ -103,8 +103,8 @@ def handle_mission_capture(
 
         # MSN-0040A: Persist to Command Memory (non-blocking)
         mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-        title = text.strip()[:100] or "Untitled Mission"
-        saved = _persist_mission_capture(mission_id, title, user_id or "slack-bot")
+        title = _extract_title(output) or text.strip()[:100] or "Untitled Mission"
+        saved = _persist_mission_capture(mission_id, title, user_id or "slack-bot", description=output)
 
         result = f"*MISSION CAPTURE* — `{mission_id}`\n\n```{output}```"
         if saved:
@@ -117,10 +117,21 @@ def handle_mission_capture(
         return _fallback_capture(text)
 
 
+def _extract_title(llm_output: str) -> str | None:
+    """Pull the Title: line from LLM output, strip markdown, return None if absent."""
+    for line in llm_output.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("title:"):
+            title = stripped[6:].strip().lstrip("*_").rstrip("*_")
+            return title[:255] if title else None
+    return None
+
+
 def _persist_mission_capture(
     mission_id: str,
     title: str,
     user_id: str,
+    description: str | None = None,
 ) -> bool:
     """Persist mission capture to Command Memory (non-blocking).
 
@@ -133,6 +144,7 @@ def _persist_mission_capture(
             mission_id=mission_id,
             title=title,
             user_id=user_id,
+            description=description,
         )
         return saved
     except Exception as e:

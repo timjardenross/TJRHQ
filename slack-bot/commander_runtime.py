@@ -9,12 +9,13 @@ from github_awareness import answer_github_awareness_request, is_github_awarenes
 from github_issue_formatter import build_github_issue_prompt, is_github_issue_request
 from knowledge_retrieval import (
     build_knowledge_retrieval_response,
+    identify_knowledge_domain,
     is_knowledge_retrieval_request,
 )
 from mission_logger import generate_mission_id, redact_secrets, save_mission_log
 from mission_executor import execute_mission_request, is_mission_execution_request
 from mission_registry import answer_mission_registry_request, is_mission_registry_request
-from prompt_loader import load_commander_context
+from prompt_loader import load_commander_context, load_commander_with_specialist_context
 from repository_awareness import (
     answer_repository_awareness_request,
     is_repository_awareness_request,
@@ -87,6 +88,71 @@ def classify_intent(user_text: str) -> IntentResult:
     )
 
 
+_ID_PATTERNS = {
+    "mission": re.compile(r"\bM-\d{8}-\d{6}\b"),
+    "decision": re.compile(r"\bDEC-\d{8}-\d{4}\b|\bDEC-\d+\b"),
+    "adr": re.compile(r"\bADR-\d{3}\b", re.IGNORECASE),
+}
+
+
+def extract_referenced_ids(text: str) -> dict[str, list[str]]:
+    """Return any M-*/DEC-*/ADR-* IDs found in text."""
+    return {
+        kind: list(dict.fromkeys(pat.findall(text)))
+        for kind, pat in _ID_PATTERNS.items()
+    }
+
+
+def append_id_context(response_text: str, user_text: str) -> str:
+    """If user_text references known IDs, append a short context summary."""
+    ids = extract_referenced_ids(user_text)
+    snippets: list[str] = []
+
+    for mission_id in ids.get("mission", []):
+        try:
+            from mission_registry import get_mission
+            content = get_mission(mission_id)
+            if content:
+                import re as _re
+                status_m = _re.search(r"^Status:\s*(.+)$", content, _re.MULTILINE)
+                type_m = _re.search(r"^Mission Type:\s*(.+)$", content, _re.MULTILINE)
+                status = status_m.group(1).strip() if status_m else "unknown"
+                mtype = type_m.group(1).strip() if type_m else "unknown"
+                snippets.append(f"*{mission_id}* — Status: {status} | Type: {mtype}")
+        except Exception:
+            pass
+
+    for dec_id in ids.get("decision", []):
+        try:
+            from pathlib import Path as _Path
+            dec_dir = _Path(__file__).resolve().parents[1] / "knowledge" / "decisions"
+            matches = list(dec_dir.glob(f"*{dec_id}*.md")) if dec_dir.exists() else []
+            if matches:
+                import re as _re
+                content = matches[0].read_text(encoding="utf-8", errors="replace")
+                status_m = _re.search(r"^Status:\s*(.+)$", content, _re.MULTILINE)
+                status = status_m.group(1).strip() if status_m else "unknown"
+                snippets.append(f"*{dec_id}* — Status: {status}")
+        except Exception:
+            pass
+
+    for adr_id in ids.get("adr", []):
+        try:
+            from adr_conflict_detector import scan_adrs
+            result = scan_adrs()
+            rec = result.adrs.get(adr_id.upper())
+            if rec:
+                snippets.append(f"*{adr_id}* — {rec.title} (Status: {rec.status})")
+        except Exception:
+            pass
+
+    if not snippets:
+        return response_text
+
+    context_block = "\n\n---\n*Referenced entities:*\n" + "\n".join(f"  • {s}" for s in snippets)
+    return response_text + context_block
+
+
 def select_runtime_path(user_text: str, routing: dict) -> str:
     if is_github_issue_request(user_text):
         return "GITHUB_ISSUE"
@@ -101,6 +167,8 @@ def select_runtime_path(user_text: str, routing: dict) -> str:
     if is_github_awareness_request(user_text):
         return "REPOSITORY_AWARENESS"
     if is_knowledge_retrieval_request(user_text):
+        if identify_knowledge_domain(user_text) == "learning":
+            return "KNOWLEDGE_OFFICER_LEARNING"
         return "KNOWLEDGE_RETRIEVAL"
     if should_use_collaboration(user_text, routing["assigned_specialists"]):
         return "COLLABORATION"
@@ -118,6 +186,9 @@ def load_runtime_context(user_text: str, intent: IntentResult, mission_id: str) 
     if intent.intent_type in ["GITHUB_ISSUE", "COLLABORATION", "GENERAL_COMMAND"]:
         system_prompt = load_commander_context()
         sources.append("prompt_loader.load_commander_context")
+    elif intent.intent_type == "KNOWLEDGE_OFFICER_LEARNING":
+        system_prompt = load_commander_with_specialist_context("knowledge_officer")
+        sources.append("prompt_loader.load_commander_with_specialist_context:knowledge_officer")
 
     return RuntimeContext(
         mission_id=mission_id,
@@ -138,6 +209,7 @@ def execute_bot_path(request: BotRequest) -> BotResponse:
         "SPECIALIST_REGISTRY": handle_specialist_registry,
         "REPOSITORY_AWARENESS": handle_repository_awareness,
         "KNOWLEDGE_RETRIEVAL": handle_knowledge_retrieval,
+        "KNOWLEDGE_OFFICER_LEARNING": handle_knowledge_officer_learning,
         "COLLABORATION": handle_collaboration,
         "GENERAL_COMMAND": handle_general_command,
     }
@@ -215,12 +287,92 @@ def handle_knowledge_retrieval(request: BotRequest) -> BotResponse:
     return BotResponse(True, response, "BOT-011")
 
 
+def handle_knowledge_officer_learning(request: BotRequest) -> BotResponse:
+    """
+    Knowledge Officer runtime path for organisational learning queries.
+
+    Retrieves relevant lessons, knowledge records, and patterns from the
+    knowledge base, then synthesises a KO-voiced response through the LLM.
+    Falls back to the deterministic retrieval response if the LLM is unavailable.
+    """
+    from llm import ask_commander_for_specialists
+
+    # Step 1: retrieve relevant knowledge (deterministic)
+    retrieved_content = build_knowledge_retrieval_response(request.user_text)
+
+    # Also surface prior collaboration context
+    try:
+        from collaboration_log_consumer import surface_collaboration_context
+        collab_context = surface_collaboration_context(request.user_text)
+    except Exception:
+        collab_context = ""
+
+    # Step 2: build a KO-specific synthesis prompt
+    user_prompt = f"""You are the Knowledge Officer for Starship Endeavour.
+
+The Captain has asked a question about prior missions, lessons learned, or organisational knowledge:
+
+"{request.user_text}"
+
+The following content was retrieved from the knowledge base:
+
+{retrieved_content}
+{f"{chr(10)}Prior coordination context:{chr(10)}{collab_context}" if collab_context else ""}
+
+Respond as the Knowledge Officer. Your role is to:
+- Surface relevant prior missions, lessons, and patterns from the retrieved content
+- Connect what was found to the Captain's current question
+- Identify gaps where no prior knowledge exists
+- Recommend next steps based on what the organisation has learned
+
+If the retrieved content contains relevant lessons or knowledge records, cite them specifically.
+If no relevant prior knowledge exists, say so clearly and advise on how to build it.
+
+Use the Starship Endeavour response format. Be concise and actionable.
+"""
+
+    success, response = ask_commander_for_specialists(
+        system_prompt=request.context.system_prompt,
+        user_prompt=user_prompt,
+        specialists=request.context.intent.assigned_specialists,
+        priority=request.context.intent.priority,
+    )
+
+    if not success:
+        # Fall back to the deterministic retrieval response — no loss of data
+        return BotResponse(
+            True,
+            retrieved_content,
+            "BOT-011-KO-FALLBACK",
+            metadata={"llm_fallback": True, "ko_synthesis_attempted": True},
+        )
+
+    return BotResponse(
+        True,
+        response,
+        "BOT-011-KO",
+        metadata={"ko_synthesis": True},
+        sources_used=request.context.context_sources,
+    )
+
+
 def handle_collaboration(request: BotRequest) -> BotResponse:
     response = run_collaboration(
         user_text=request.user_text,
         routing=routing_from_intent(request.context.intent),
         commander_context=request.context.system_prompt,
     )
+    # Log for KO consumption — non-blocking
+    try:
+        from collaboration_log_consumer import log_collaboration_output
+        log_collaboration_output(
+            user_text=request.user_text,
+            response=response,
+            specialists=request.context.intent.assigned_specialists,
+            mission_id=request.context.mission_id,
+        )
+    except Exception:
+        pass
     return BotResponse(True, response, "BOT-012", sources_used=request.context.context_sources)
 
 
@@ -473,6 +625,17 @@ def execute_commander_runtime(user_text: str, source: str = "slack") -> str:
                 message="BOT handler failed",
                 metadata={"intent_type": intent.intent_type, "error": error_message},
             ))
+
+    # Append referenced entity context if IDs appear in the original message
+    if bot_response.success and extract_referenced_ids(user_text):
+        bot_response = BotResponse(
+            success=bot_response.success,
+            content=append_id_context(bot_response.content, user_text),
+            bot_id=bot_response.bot_id,
+            metadata=bot_response.metadata,
+            sources_used=bot_response.sources_used,
+            error=bot_response.error,
+        )
 
     status = "Completed" if bot_response.success else "Failed"
     if should_write_runtime_mission_log(bot_response):

@@ -82,7 +82,7 @@ def supabase_upsert(
     table: str,
     payload: Dict[str, Any],
     on_conflict: str,
-    timeout: int = 10,
+    timeout: int = 20,
 ) -> Dict[str, Any]:
     """
     POST with Prefer: resolution=merge-duplicates to upsert a row.

@@ -14,7 +14,12 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def save_mission_after_creation(mission_id: str, title: str, user_id: str) -> None:
+def save_mission_after_creation(
+    mission_id: str,
+    title: str,
+    user_id: str,
+    description: str | None = None,
+) -> None:
     """Save mission to Command Memory after creation (non-blocking).
 
     This is called immediately after a mission is created via /mission-capture
@@ -25,6 +30,7 @@ def save_mission_after_creation(mission_id: str, title: str, user_id: str) -> No
         mission_id: Mission ID (M-YYYYMMDD-HHMMSS)
         title: Mission title
         user_id: Slack user ID of mission creator
+        description: LLM-generated structured capture body (optional)
     """
     try:
         from command_memory_integration import save_mission_to_command_memory
@@ -34,6 +40,7 @@ def save_mission_after_creation(mission_id: str, title: str, user_id: str) -> No
             title=title,
             created_by=user_id,
             owner=user_id,
+            description=description,
         )
 
         if success:

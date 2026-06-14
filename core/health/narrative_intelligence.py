@@ -33,13 +33,42 @@ log = logging.getLogger(__name__)
 
 MIN_ENTRIES_FOR_NLP = 3
 
-_SYSTEM_PROMPT = """You are the Medical Intelligence Officer for USS Starship Endeavour.
-You analyse the Captain's personal log entries to extract patterns and intelligence.
-You respond ONLY with valid JSON — no markdown fences, no preamble.
-You surface evidence-backed findings only. You do not speculate about health conditions.
-You do not include any clinical diagnoses, medication names, or medical advice."""
+_CAPTAIN_PROFILE_PATH = _REPO_ROOT / "knowledge" / "memory" / "captain_profile.txt"
 
-_NLP_JSON_KEYS = {"recurring_themes", "constraints", "concerns", "positive_improvements", "summary"}
+
+def _load_health_exec_excerpt() -> str:
+    """Return HEALTH PROFILE + EXECUTIVE FUNCTION SUPPORT sections from the captain profile."""
+    try:
+        text = _CAPTAIN_PROFILE_PATH.read_text(encoding="utf-8", errors="replace")
+        m = re.search(
+            r"(={10,}\s*\nHEALTH PROFILE\s*\n={10,}.+?)(={10,}\s*\nPROFESSIONAL EXPERTISE)",
+            text, re.DOTALL,
+        )
+        return m.group(1).strip() if m else ""
+    except Exception:
+        return ""
+
+
+_CAPTAIN_PROFILE_EXCERPT = _load_health_exec_excerpt()
+
+_PROFILE_CONTEXT = (
+    f"\n\nCAPTAIN PROFILE CONTEXT (source: captain_profile_knowledge_base v1.0):\n{_CAPTAIN_PROFILE_EXCERPT}"
+    if _CAPTAIN_PROFILE_EXCERPT else ""
+)
+
+_SYSTEM_PROMPT = (
+    "You are the Medical Intelligence Officer for USS Starship Endeavour.\n"
+    "You analyse the Captain's personal log entries to extract patterns and intelligence.\n"
+    "You respond ONLY with valid JSON — no markdown fences, no preamble.\n"
+    "You surface evidence-backed findings only. You do not speculate about health conditions.\n"
+    "You do not include any clinical diagnoses, medication names, or medical advice."
+    + _PROFILE_CONTEXT
+)
+
+_NLP_JSON_KEYS = {
+    "recurring_themes", "constraints", "concerns", "positive_improvements", "summary",
+    "pain_trigger_patterns", "pain_reliever_patterns", "effective_coping_strategies",
+}
 
 _STOPWORDS = {
     "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
@@ -59,8 +88,19 @@ def _build_nlp_prompt(entries: List[Dict[str, Any]]) -> str:
         dt = e.get("log_date", "unknown")
         note = (e.get("overall_note") or "").strip()
         happened = (e.get("what_happened") or "").strip()
-        if note or happened:
-            notes.append(f"[{dt}] note: {note} | happened: {happened}")
+        triggers = (e.get("pain_triggers") or "").strip()
+        relievers = (e.get("pain_relievers") or "").strip()
+        coping = (e.get("coping_strategies") or "").strip()
+        activity = (e.get("activity_impact") or "").strip()
+        if note or happened or triggers or relievers or coping or activity:
+            parts = [f"[{dt}]"]
+            if note:      parts.append(f"note: {note}")
+            if happened:  parts.append(f"happened: {happened}")
+            if triggers:  parts.append(f"pain_triggers: {triggers}")
+            if relievers: parts.append(f"pain_relievers: {relievers}")
+            if coping:    parts.append(f"coping: {coping}")
+            if activity:  parts.append(f"activity_impact: {activity}")
+            notes.append(" | ".join(parts))
 
     if not notes:
         return ""
@@ -78,6 +118,9 @@ Return a JSON object with exactly these keys:
   "constraints": ["constraint1", "constraint2"],
   "concerns": ["concern1", "concern2"],
   "positive_improvements": ["improvement1", "improvement2"],
+  "pain_trigger_patterns": ["trigger1", "trigger2"],
+  "pain_reliever_patterns": ["reliever1", "reliever2"],
+  "effective_coping_strategies": ["strategy1", "strategy2"],
   "summary": "2-3 sentence intelligence summary"
 }}
 
@@ -86,7 +129,11 @@ Rules:
 - constraints: things that limited the Captain (physical, logistical, situational)
 - concerns: negative patterns worth monitoring
 - positive_improvements: signs of improvement or positive momentum
+- pain_trigger_patterns: activities, postures, or conditions that consistently worsened pain
+- pain_reliever_patterns: actions or conditions that consistently helped manage pain
+- effective_coping_strategies: coping methods that appear repeatedly or are noted as helpful
 - Only include items with evidence from 2+ entries. Return empty arrays if nothing qualifies.
+- If pain_triggers/relievers/coping fields are absent from all entries, return empty arrays for those keys.
 - summary: factual, evidence-based, no speculation"""
 
 
@@ -114,9 +161,13 @@ def _keyword_fallback(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     Deterministic fallback: extract top keywords from narrative fields.
     Returns a simplified structure matching the LLM schema.
     """
+    _ALL_TEXT_FIELDS = (
+        "overall_note", "what_happened",
+        "pain_triggers", "pain_relievers", "coping_strategies", "activity_impact",
+    )
     words: List[str] = []
     for e in entries:
-        for field in ("overall_note", "what_happened"):
+        for field in _ALL_TEXT_FIELDS:
             text = (e.get(field) or "").lower()
             tokens = re.findall(r"\b[a-z]{4,}\b", text)
             words.extend(t for t in tokens if t not in _STOPWORDS)
@@ -128,6 +179,9 @@ def _keyword_fallback(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         "constraints": [],
         "concerns": [],
         "positive_improvements": [],
+        "pain_trigger_patterns": [],
+        "pain_reliever_patterns": [],
+        "effective_coping_strategies": [],
         "summary": (
             f"Keyword analysis of {len(entries)} entries. "
             f"Most frequent terms: {', '.join(top_words[:5]) if top_words else 'none'}. "
@@ -157,11 +211,21 @@ def extract_narrative_intelligence(
         entries_analysed:      int
         status:                'ok' | 'insufficient_data' | 'no_text'
     """
+    _TEXT_FIELDS = (
+        "overall_note", "what_happened",
+        "pain_triggers", "pain_relievers", "coping_strategies", "activity_impact",
+    )
     # Filter to entries with at least one narrative field
     text_entries = [
         e for e in entries
-        if (e.get("overall_note") or "").strip() or (e.get("what_happened") or "").strip()
+        if any((e.get(f) or "").strip() for f in _TEXT_FIELDS)
     ]
+
+    _EMPTY_CBT: Dict[str, Any] = {
+        "pain_trigger_patterns": [],
+        "pain_reliever_patterns": [],
+        "effective_coping_strategies": [],
+    }
 
     if len(text_entries) < MIN_ENTRIES_FOR_NLP:
         return {
@@ -169,6 +233,7 @@ def extract_narrative_intelligence(
             "constraints": [],
             "concerns": [],
             "positive_improvements": [],
+            **_EMPTY_CBT,
             "summary": (
                 f"Insufficient narrative data: {len(text_entries)} entries with text "
                 f"(minimum {MIN_ENTRIES_FOR_NLP} required)."
@@ -183,7 +248,8 @@ def extract_narrative_intelligence(
     if not prompt:
         return {
             "recurring_themes": [], "constraints": [], "concerns": [],
-            "positive_improvements": [], "summary": "No narrative text found.",
+            "positive_improvements": [], **_EMPTY_CBT,
+            "summary": "No narrative text found.",
             "source": None, "provider": None, "entries_analysed": 0, "status": "no_text",
         }
 

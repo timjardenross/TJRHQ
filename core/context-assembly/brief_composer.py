@@ -50,10 +50,11 @@ def compose_captain_brief(
     blocked_count = len(blockers)
     has_critical = any(b.escalation_level == "critical" for b in blockers)
     has_high = any(b.escalation_level == "high" for b in blockers)
+    cap_status = health.capacity_status if health else None
 
     if has_critical or alert_count > 0:
         sys_status = "red"
-    elif has_high:
+    elif has_high or cap_status == "Red":
         sys_status = "yellow"
     else:
         sys_status = "green"
@@ -84,15 +85,41 @@ def compose_operating_picture(brief: CaptainBriefContext) -> CaptainOperatingPic
     Distil the Captain's Brief into the 5-minute Operating Picture.
     This is the home-screen view — minimal, scannable.
     """
-    # Health snapshot (minimal — no clinical detail)
+    # Health snapshot — includes capacity model status and calibration context
     health_snapshot = {}
     if brief.health and brief.health.data_quality != "missing":
         hs = brief.health.status_summary
         tt = brief.health.trend_summary
+
+        # Pull latest calibration summary (best-effort; non-blocking)
+        cal_accuracy = None
+        cal_status = None
+        captain_rating = None
+        governance_flag = False
+        try:
+            import sys
+            from pathlib import Path
+            _h_root = Path(__file__).resolve().parents[2]
+            sys.path.insert(0, str(_h_root / "core" / "health"))
+            from calibration_engine import get_calibration_summary, get_calibration_status
+            cal_summary = get_calibration_summary()
+            if cal_summary:
+                cal_accuracy = cal_summary.get("agreement_rate")
+                cal_status = get_calibration_status(cal_summary)
+                governance_flag = bool(cal_summary.get("weighting_review_flag"))
+        except Exception:
+            pass
+
         health_snapshot = {
             "pain_level": hs.pain_level,
             "energy": hs.energy,
             "trend": tt.overall_direction,
+            "capacity_score": brief.health.capacity_score,
+            "capacity_status": brief.health.capacity_status,
+            "captain_self_rating": captain_rating,
+            "model_accuracy_pct": cal_accuracy,
+            "calibration_status": cal_status,
+            "weighting_review_flag": governance_flag,
             "recovery_focus": (brief.health.recovery_priorities[0]
                                if brief.health.recovery_priorities else None),
         }
@@ -129,7 +156,8 @@ def compose_operating_picture(brief: CaptainBriefContext) -> CaptainOperatingPic
         top_blocker=(brief.blockers[0].mission_title if brief.blockers else None),
     )
 
-    # Quick actions
+    # Quick actions — capacity-aware
+    cap_status = brief.health.capacity_status if brief.health else None
     quick_actions = [
         {"label": "View Mission Details", "action": "open_missions"},
         {"label": "Open Slack", "action": "open_slack"},
@@ -137,6 +165,18 @@ def compose_operating_picture(brief: CaptainBriefContext) -> CaptainOperatingPic
         {"label": "Weekly Review", "action": "open_weekly_review"},
         {"label": "Request XO Brief", "action": "request_xo_brief"},
     ]
+    if cap_status == "Red":
+        quick_actions.insert(0, {
+            "label": "Capacity Red — Defer Non-Essential",
+            "action": "review_capacity",
+            "urgent": True,
+        })
+    if health_snapshot.get("weighting_review_flag"):
+        quick_actions.insert(0, {
+            "label": "Health Model Review Required — Notify XO",
+            "action": "xo_model_review",
+            "urgent": True,
+        })
 
     return CaptainOperatingPictureContext(
         assembled_at=brief.assembled_at,

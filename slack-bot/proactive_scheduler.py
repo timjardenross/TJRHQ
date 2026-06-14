@@ -920,6 +920,87 @@ def _job_forgotten_decisions(client) -> None:
         log.error("[forgotten_decisions] Forgotten decisions job failed: %s", exc)
 
 
+def _get_idea_missions() -> list[dict]:
+    """Return Idea-status missions from Supabase, sorted oldest first."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from tools.supabase.client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if not client.is_enabled():
+            return []
+        rows = client._get("missions?select=*&status=ilike.Idea&order=created_at.asc&limit=30")
+        return rows or []
+    except Exception as exc:
+        log.debug("[idea_review] Supabase unavailable: %s", exc)
+        return []
+
+
+def _format_idea_review(missions: list[dict]) -> str:
+    """Format Number One fortnightly Idea review for posting."""
+    if not missions:
+        return ""
+    now = datetime.utcnow()
+    lines = [
+        ":bulb: *Number One — Fortnightly Idea Review*",
+        f"_Cycle: {date.today().strftime('%Y-%m-%d')}_",
+        "",
+        f"{len(missions)} idea{'s' if len(missions) != 1 else ''} awaiting triage:",
+        "",
+    ]
+    for m in missions:
+        mid = m.get("id") or m.get("mission_id", "?")
+        title = m.get("title", "Untitled")
+        created_raw = m.get("created_at", "")
+        age_str = ""
+        if created_raw:
+            try:
+                from datetime import timezone
+                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00").replace("+00:00", ""))
+                age_days = (now - created).days
+                age_str = f" · {age_days}d old"
+                if age_days >= 28:
+                    age_str += " :hourglass:"
+            except (ValueError, TypeError):
+                pass
+        lines.append(f"  • `{mid}` — {title}{age_str}")
+
+    lines += [
+        "",
+        "*Number One recommends Captain triage each idea:*",
+        "  :arrow_up: *Promote* — `/mission-status <id> planned`",
+        "  :pause_button: *Hold* — `/mission-status <id> idea` (retain, no action)",
+        "  :twisted_rightwards_arrows: *Merge* — note in mission description, then `/mission-status <id> closed`",
+        "  :wastebasket: *Archive* — `/mission-status <id> closed` (no further action required)",
+        "",
+        "_No autonomous promotion. Captain decides._",
+        "_Full list: `/mission-list idea`_",
+    ]
+    return "\n".join(lines)
+
+
+def _is_fortnightly_monday() -> bool:
+    """Return True on the first Monday of the fortnightly cycle (week numbers 1, 3, 5, ...)."""
+    today = date.today()
+    # Odd ISO week numbers fall on fortnightly Mondays (week 1, 3, 5 ...)
+    return today.weekday() == 0 and today.isocalendar()[1] % 2 == 1
+
+
+def _job_fortnightly_idea_review(client) -> None:
+    """Fortnightly Monday 08:45: review Idea-status missions and post triage recommendations."""
+    if not _is_fortnightly_monday():
+        return
+    try:
+        missions = _get_idea_missions()
+        if not missions:
+            log.info("[idea_review] No Idea-status missions — skipping fortnightly review")
+            return
+        msg = _format_idea_review(missions)
+        if msg and _post(client, msg):
+            log.info("[idea_review] Fortnightly idea review posted (%d ideas)", len(missions))
+    except Exception as exc:
+        log.error("[idea_review] Fortnightly idea review job failed: %s", exc)
+
+
 def start_scheduler(client) -> None:
     """Start the APScheduler background scheduler. Call once after bot initialises."""
     if not _ENABLED:
@@ -1067,6 +1148,17 @@ def start_scheduler(client) -> None:
         replace_existing=True,
     )
 
+    # Fortnightly Idea Review — every Monday 08:45, fires only on odd ISO weeks
+    # [M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE WP4]
+    scheduler.add_job(
+        _job_fortnightly_idea_review,
+        CronTrigger(day_of_week="mon", hour=8, minute=45),
+        args=[client],
+        id="fortnightly_idea_review",
+        name="Number One Fortnightly Idea Review",
+        replace_existing=True,
+    )
+
     scheduler.start()
     log.info(
         "[scheduler] Proactive scheduler started — brief at %02d:%02d AEST, "
@@ -1079,7 +1171,8 @@ def start_scheduler(client) -> None:
         "decision review Fridays 16:00, weekly review Fridays 16:30, "
         "knowledge freshness Wednesdays 09:00, "
         "decision outcome reminder Wednesdays 09:15, "
-        "monthly digest 1st of month 08:00",
+        "monthly digest 1st of month 08:00, "
+        "fortnightly idea review Mondays 08:45 (odd ISO weeks)",
         brief_hour, brief_minute,
     )
     if _NOTIFICATIONS_AVAILABLE:
