@@ -1,0 +1,12 @@
+[Unit]
+# READ-ONLY reconciliation: cross-references missions + build_request_inbox +
+# handoff/BREQ files against live GitHub PR state and writes the truthful delivery
+# ledger to outputs/delivery_ledger.txt. Does NOT write to the database (report mode).
+Description=Starship delivery lifecycle reconciler (read-only ledger report)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/bin/sh -c '/opt/starship-endeavour/slack-bot/.venv/bin/python -m core.coordination.delivery_reconciler report > /opt/starship-endeavour/outputs/delivery_ledger.txt 2>/opt/starship-endeavour/outputs/delivery_reconciler.err'
