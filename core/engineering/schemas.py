@@ -25,6 +25,8 @@ class Backend(str, Enum):
     VM_OLLAMA = "vm-ollama"
     GEMINI = "gemini"
     GLM = "glm"
+    KIMI = "kimi"   # Kimi K2 (Code) via Ollama Cloud — engineering planning
+    QWEN = "qwen"   # Qwen3-Coder via Ollama Cloud — patch / code generation
 
 
 @dataclass
