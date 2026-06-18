@@ -47,7 +47,8 @@ except Exception:  # pragma: no cover - advisory-only fallback
 class MissionStatus(Enum):
     """Mission lifecycle states.
 
-    MSN-0053: superset = canonical D-008 lifecycle (ADR-0001/MSN-ENFORCE-001
+    MSN-0053: superset = canonical D-008 lifecycle (ADR-0001/MSN-ENFORCE-001,
+    now USS-TJR-MSN-0063 per D-076; legacy id is a permanent alias)
     7-state backbone + operational Blocked/Archived) PLUS the legacy
     pre-D-008 states (retained so existing logic/tests keep working).
     Parsing is via _to_status() and never raises.
