@@ -1,3 +1,9 @@
+# MSN-0048B (2026-06-18): DISTINCT module, not a duplicate. This is the Slack Commander's
+# natural-language mission-registry query/answer layer over the markdown index (functions:
+# answer_mission_registry_request, format_dashboard_list, build_*_report, ...). The same-named
+# core/missions/mission-registry/mission_registry.py is a different module (SQLite `MissionRegistry`
+# class / ADR-0001 closure store). Filename collision only — see
+# Missions/Completed/USS-TJR-MSN-0048-Classification-Register.md.
 import re
 from collections import Counter
 from datetime import datetime

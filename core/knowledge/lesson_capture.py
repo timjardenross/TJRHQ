@@ -1,3 +1,7 @@
+# MSN-0048B (2026-06-18): DISTINCT module, not a duplicate. This is the Supabase-backed
+# Learning-Loop capture (LessonInput/LessonResult, capture_lesson, backfill_lessons_to_supabase).
+# The same-named slack-bot/lesson_capture.py is a different module (markdown lessons register).
+# Filename collision only — see Missions/Completed/USS-TJR-MSN-0048-Classification-Register.md.
 """
 Lesson Capture — Sprint D / Learning Loop
 

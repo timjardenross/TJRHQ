@@ -1,3 +1,8 @@
+# MSN-0048B (2026-06-18): DISTINCT module, not a duplicate. This is the Slack closure→lesson
+# capture over the markdown lessons register (LessonRecord, save_lesson_to_register,
+# format_closure_prompt). The same-named core/knowledge/lesson_capture.py is a different module
+# (Supabase-backed: LessonInput/LessonResult, capture_lesson, backfill_lessons_to_supabase).
+# Filename collision only — see Missions/Completed/USS-TJR-MSN-0048-Classification-Register.md.
 """
 Lesson Capture — M-20260613-KNOWLEDGE-INTELLIGENCE-PHASE1 / WP2
 
