@@ -958,6 +958,79 @@ def handle_github_issue_save_slash(ack, respond, command):
     threading.Thread(target=_run, daemon=True).start()
 
 # ------------------------------------------------------------------
+# MSN-0061 Workstream A: wire imported-but-unregistered handlers
+# (decision-log-save, mission-register-draft, mission-register-save)
+# Same 3s-ack + background-thread pattern as the handlers above.
+# NOTE: these also require registration in the Slack app manifest at
+# api.slack.com before they are invokable by operators (MSN-0061 AC).
+# ------------------------------------------------------------------
+
+@app.command("/decision-log-save")
+def handle_decision_log_save_slash(ack, respond, command):
+    """/decision-log-save — Generate and persist a decision record. Usage: /decision-log-save <text>"""
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /decision-log-save: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    respond(":memo: *Decision Log — Save*\n\n:hourglass_flowing_sand: Recording decision… please wait.")
+
+    def _run():
+        try:
+            respond(handle_save_decision(text, user_id, channel_id))
+        except Exception as exc:
+            log.error("[app] /decision-log-save failed: %s", exc)
+            respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.command("/mission-register-draft")
+def handle_mission_register_draft_slash(ack, respond, command):
+    """/mission-register-draft — Draft a mission file + propose next Mission Control ID (preview only)."""
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /mission-register-draft: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    respond(":clipboard: *Mission Register — Draft*\n\n:hourglass_flowing_sand: Drafting mission… please wait.")
+
+    def _run():
+        try:
+            respond(handle_mission_register_draft(text, user_id, channel_id))
+        except Exception as exc:
+            log.error("[app] /mission-register-draft failed: %s", exc)
+            respond(f"*MISSION REGISTER DRAFT — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.command("/mission-register-save")
+def handle_mission_register_save_slash(ack, respond, command):
+    """/mission-register-save — Generate and persist a mission file draft (never updates the index)."""
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /mission-register-save: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    respond(":card_index_dividers: *Mission Register — Save*\n\n:hourglass_flowing_sand: Saving mission file… please wait.")
+
+    def _run():
+        try:
+            respond(handle_save_mission_file(text, user_id, channel_id))
+        except Exception as exc:
+            log.error("[app] /mission-register-save failed: %s", exc)
+            respond(f"*MISSION REGISTER SAVE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+# ------------------------------------------------------------------
 # MSN-0012: Slack Discovery & Backlog Command Layer
 # ------------------------------------------------------------------
 
