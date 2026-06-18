@@ -396,6 +396,24 @@ if not validate_environment():
 
 app = App(token=SLACK_BOT_TOKEN) if SLACK_BOT_TOKEN else None
 
+# MSN-0048C (Captain decision 2026-06-18): attach the Number One mission-closure
+# review-gate handler to the live Bolt app. It registers the approve/reject/checklist/
+# modal actions on THIS app — no second Socket Mode connection. Inert until a closure
+# submission posts an approval message. NOTE: going fully live also requires the Slack
+# app's Interactivity toggle to be ON, or modal submits silently fail.
+number_one_review_handler = None
+if app is not None:
+    try:
+        from core.integrations.slack_number_one_handler import SlackNumberOneHandler
+        number_one_review_handler = SlackNumberOneHandler(
+            app=app,
+            supabase_url=SUPABASE_URL,
+            supabase_key=SUPABASE_ANON_KEY,
+        )
+        log.info("[startup] Number One review-gate handler attached to Bolt app")
+    except Exception as exc:
+        log.warning("[app] Number One review-gate handler not attached: %s", exc)
+
 # Track startup time for health checks
 STARTUP_TIME = datetime.utcnow().isoformat()
 COMMAND_COUNT = 0

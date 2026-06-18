@@ -4,9 +4,10 @@ Handles Slack message parsing, interactive actions, and workflow triggers.
 Uses non-blocking error handling (failures don't block mission state changes).
 Includes canonical ID resolution for consistent mission identification (P2b).
 
-DEPRECATED DUPLICATE / TRANSITIONAL:
-Retain only while Slack review flows still depend on this adapter. New work
-should prefer the canonical Number One integration path.
+WIRED (Captain decision 2026-06-18, MSN-0048C): this is now the live Number One
+mission-closure review-gate adapter. Pass an existing Bolt `app` to attach its
+action/view handlers to the running bot (no second Socket Mode connection). The
+standalone-`App` path is retained only for legacy/standalone use.
 """
 
 import json
@@ -31,11 +32,12 @@ class SlackNumberOneHandler:
 
     def __init__(
         self,
-        slack_token: str,
-        slack_signing_secret: str,
-        app_token: str,
+        slack_token: Optional[str] = None,
+        slack_signing_secret: Optional[str] = None,
+        app_token: Optional[str] = None,
         supabase_url: Optional[str] = None,
-        supabase_key: Optional[str] = None
+        supabase_key: Optional[str] = None,
+        app: Optional[Any] = None,
     ):
         """
         Initialize Slack handler.
@@ -47,7 +49,15 @@ class SlackNumberOneHandler:
             supabase_url: Supabase project URL (for canonical ID resolution)
             supabase_key: Supabase API key (for canonical ID resolution)
         """
-        self.app = App(token=slack_token, signing_secret=slack_signing_secret)
+        # MSN-0048C wiring (Captain decision 2026-06-18): when an existing Bolt app is
+        # supplied, attach to it — register handlers on the live app and NEVER open a
+        # second Socket Mode connection. Otherwise fall back to the legacy standalone app.
+        if app is not None:
+            self.app = app
+            self._owns_app = False
+        else:
+            self.app = App(token=slack_token, signing_secret=slack_signing_secret)
+            self._owns_app = True
         self.app_token = app_token
         self.handler = None
 
@@ -445,7 +455,13 @@ class SlackNumberOneHandler:
             return False
 
     def start(self) -> None:
-        """Start Slack Socket Mode handler (blocking)."""
+        """Start Slack Socket Mode handler (blocking).
+
+        No-op when attached to an externally-managed Bolt app (the live bot owns the
+        Socket Mode connection); the action/view handlers are already registered.
+        """
+        if not getattr(self, "_owns_app", True):
+            return
         if not self.handler:
             self.handler = SocketModeHandler(self.app, self.app_token)
         self.handler.start()
