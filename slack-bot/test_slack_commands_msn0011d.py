@@ -703,5 +703,86 @@ class TestNoSecretsInOutput(unittest.TestCase):
                 dl_module._DECISIONS_DIR = original
 
 
+# ===========================================================================
+# Part 1 (extension) — /github-issue-save (real GitHub creation)
+# ===========================================================================
+
+class TestGithubIssueSave(unittest.TestCase):
+
+    def _module(self):
+        import commands.github_issue_draft as mod
+        return mod
+
+    def test_empty_input_returns_usage(self):
+        from commands.github_issue_draft import handle_github_issue_save
+        result = handle_github_issue_save("")
+        self.assertIn("github-issue-save", result)
+
+    def test_no_creation_when_github_unconfigured(self):
+        from commands.github_issue_draft import handle_github_issue_save
+        mod = self._module()
+        with patch.object(mod, "_GITHUB_AVAILABLE", False), \
+                patch("requests.post") as mock_post, _mock_llm("DRAFT"):
+            result = handle_github_issue_save("add dark mode")
+        mock_post.assert_not_called()
+        self.assertIn("not configured", result.lower())
+
+    def test_creates_issue_when_configured(self):
+        from commands.github_issue_draft import handle_github_issue_save
+        mod = self._module()
+        fake = MagicMock(status_code=201)
+        fake.json.return_value = {"html_url": "https://github.com/o/r/issues/99"}
+        with patch.object(mod, "_GITHUB_AVAILABLE", True), \
+                patch.object(mod, "_GITHUB_REPO", "o/r"), \
+                patch.object(mod, "_GITHUB_TOKEN", "tok"), \
+                patch("requests.post", return_value=fake) as mock_post, \
+                _mock_llm("GITHUB ISSUE DRAFT\nTitle: Add dark mode"):
+            result = handle_github_issue_save("create issue: add dark mode")
+        mock_post.assert_called_once()
+        self.assertIn("CREATED", result)
+        self.assertIn("issues/99", result)
+
+    def test_api_failure_reports_not_created(self):
+        from commands.github_issue_draft import handle_github_issue_save
+        mod = self._module()
+        fake = MagicMock(status_code=422)
+        with patch.object(mod, "_GITHUB_AVAILABLE", True), \
+                patch.object(mod, "_GITHUB_REPO", "o/r"), \
+                patch.object(mod, "_GITHUB_TOKEN", "tok"), \
+                patch("requests.post", return_value=fake), \
+                _mock_llm("GITHUB ISSUE DRAFT\nTitle: Add dark mode"):
+            result = handle_github_issue_save("create issue: add dark mode")
+        self.assertIn("NOT CREATED", result)
+        self.assertIn("422", result)
+
+    def test_network_error_fails_safe(self):
+        from commands.github_issue_draft import create_github_issue
+        mod = self._module()
+        with patch.object(mod, "_GITHUB_AVAILABLE", True), \
+                patch.object(mod, "_GITHUB_REPO", "o/r"), \
+                patch.object(mod, "_GITHUB_TOKEN", "tok"), \
+                patch("requests.post", side_effect=OSError("boom")):
+            ok, detail = create_github_issue("Title: x")
+        self.assertFalse(ok)
+        self.assertIn("request failed", detail)
+
+    def test_create_github_issue_blocked_when_unconfigured(self):
+        from commands.github_issue_draft import create_github_issue
+        mod = self._module()
+        with patch.object(mod, "_GITHUB_AVAILABLE", False):
+            ok, detail = create_github_issue("Title: x")
+        self.assertFalse(ok)
+
+    def test_parse_draft_title_prefers_title_line(self):
+        from commands.github_issue_draft import _parse_draft_title
+        title = _parse_draft_title("GITHUB ISSUE DRAFT\nTitle: Build the thing\n", "fallback")
+        self.assertEqual(title, "Build the thing")
+
+    def test_parse_draft_title_falls_back(self):
+        from commands.github_issue_draft import _parse_draft_title
+        title = _parse_draft_title("no title line here", "my fallback text")
+        self.assertEqual(title, "my fallback text")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

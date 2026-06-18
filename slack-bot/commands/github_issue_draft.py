@@ -143,14 +143,6 @@ def handle_github_issue_draft(
         Formatted Slack mrkdwn string with the draft or error message.
         Never creates a GitHub issue automatically.
     """
-    import sys
-    from pathlib import Path
-    _bot_dir = Path(__file__).resolve().parent.parent
-    if str(_bot_dir) not in sys.path:
-        sys.path.insert(0, str(_bot_dir))
-
-    from llm import generate_response
-
     log.info(
         "[github-issue-draft] Request from user=%s channel=%s text=%r",
         user_id, channel_id, (text or "")[:80],
@@ -161,23 +153,16 @@ def handle_github_issue_draft(
             "*GITHUB ISSUE DRAFT*\n\n"
             "Usage: `/github-issue-draft <description>`\n"
             "Example: `/github-issue-draft Add /mission-capture save-to-github feature`\n\n"
-            "The draft will be generated for review only. No issue is created automatically.\n\n"
+            "The draft will be generated for review only. No issue is created automatically.\n"
+            "To create the issue on GitHub, use `/github-issue-save <description>`.\n\n"
             + _capability_notice()
         )
 
-    # Detect explicit creation intent — never act; always flag to user
+    # Detect explicit creation intent — /github-issue-draft never acts; always flag.
     lowered = text.lower()
     wants_creation = any(sig in lowered for sig in _CREATE_SIGNALS)
 
-    try:
-        output = generate_response(
-            prompt=text,
-            system_prompt=_SYSTEM_PROMPT,
-        )
-        log.info("[github-issue-draft] Draft generated (%d chars)", len(output))
-    except Exception as exc:
-        log.error("[github-issue-draft] Generation failed: %s — %s", type(exc).__name__, exc)
-        output = _fallback_draft_text(text)
+    output = _generate_draft(text)
 
     result = f"*GITHUB ISSUE DRAFT*\n\n```{output}```"
 
@@ -187,6 +172,127 @@ def handle_github_issue_draft(
         result += _draft_footer()
 
     return result
+
+
+def _generate_draft(text: str) -> str:
+    """Generate the raw issue-draft body (LLM, with deterministic fallback)."""
+    import sys
+    from pathlib import Path
+    _bot_dir = Path(__file__).resolve().parent.parent
+    if str(_bot_dir) not in sys.path:
+        sys.path.insert(0, str(_bot_dir))
+
+    from llm import generate_response
+
+    try:
+        output = generate_response(prompt=text, system_prompt=_SYSTEM_PROMPT)
+        log.info("[github-issue-draft] Draft generated (%d chars)", len(output))
+        return output
+    except Exception as exc:
+        log.error("[github-issue-draft] Generation failed: %s — %s", type(exc).__name__, exc)
+        return _fallback_draft_text(text)
+
+
+def handle_github_issue_save(
+    text: str,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+) -> str:
+    """Generate a draft and create the issue on GitHub.
+
+    Unlike `/github-issue-draft`, this command performs a real GitHub API write
+    when `GITHUB_TOKEN` and `GITHUB_REPO` are configured. It fails safe (never
+    raises) and reports a clear status back to Slack.
+    """
+    log.info(
+        "[github-issue-save] Request from user=%s channel=%s text=%r",
+        user_id, channel_id, (text or "")[:80],
+    )
+
+    if not (text or "").strip():
+        return (
+            "*GITHUB ISSUE — CREATE*\n\n"
+            "Usage: `/github-issue-save <description>`\n"
+            "This generates an issue draft and creates it on GitHub.\n\n"
+            + _capability_notice()
+        )
+
+    if not _GITHUB_AVAILABLE:
+        return (
+            "*GITHUB ISSUE — CREATE*\n\n"
+            ":warning: GitHub is not configured, so no issue was created.\n"
+            "Set `GITHUB_TOKEN` and `GITHUB_REPO` to enable creation.\n"
+            "Use `/github-issue-draft` to preview the draft instead."
+        )
+
+    output = _generate_draft(text)
+    ok, detail = create_github_issue(output, source_text=text)
+
+    if ok:
+        return (
+            "*GITHUB ISSUE — CREATED*\n\n"
+            f"```{output}```\n"
+            f":white_check_mark: Created on `{_GITHUB_REPO}`: {detail}"
+        )
+    return (
+        "*GITHUB ISSUE — NOT CREATED*\n\n"
+        f"```{output}```\n"
+        f":x: Creation failed: {detail}\n"
+        "The draft above is preserved — copy it into GitHub manually if needed."
+    )
+
+
+def create_github_issue(draft_text: str, source_text: str = ""):
+    """Create a GitHub issue from a generated draft.
+
+    Returns ``(ok: bool, detail: str)``. ``detail`` is the issue URL on success
+    or a human-readable reason on failure. Never raises.
+    """
+    if not _GITHUB_AVAILABLE:
+        return False, "GitHub not configured (set GITHUB_TOKEN and GITHUB_REPO)."
+
+    import requests
+
+    title = _parse_draft_title(draft_text, source_text)
+    body = draft_text.strip() + "\n\n---\n_Created from Slack via `/github-issue-save`._"
+    url = f"https://api.github.com/repos/{_GITHUB_REPO}/issues"
+
+    try:
+        resp = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {_GITHUB_TOKEN}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "Commander-TJR",
+            },
+            json={"title": title, "body": body},
+            timeout=15,
+        )
+    except Exception as exc:  # network / requests errors — fail safe
+        log.error("[github-issue-save] Request failed: %s — %s", type(exc).__name__, exc)
+        return False, f"request failed ({type(exc).__name__})"
+
+    if resp.status_code == 201:
+        try:
+            html_url = resp.json().get("html_url", "(created)")
+        except Exception:
+            html_url = "(created)"
+        log.info("[github-issue-save] Created issue: %s", html_url)
+        return True, html_url
+
+    log.error("[github-issue-save] GitHub API returned HTTP %s", resp.status_code)
+    return False, f"GitHub API returned HTTP {resp.status_code}"
+
+
+def _parse_draft_title(draft_text: str, fallback: str) -> str:
+    """Extract the ``Title:`` line from a draft; fall back to the source text."""
+    for line in (draft_text or "").splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("title:"):
+            candidate = stripped.split(":", 1)[1].strip()
+            if candidate:
+                return candidate[:120]
+    return ((fallback or "").strip()[:120] or "Untitled Issue").split("\n")[0]
 
 
 def build_draft_preview(text: str) -> str:
@@ -240,9 +346,8 @@ def _creation_notice() -> str:
     repo = _GITHUB_REPO
     return (
         f"\n\n:warning: *Creation requested.*\n"
-        f"This is a Phase 1 draft implementation — GitHub API creation is not yet wired.\n"
-        f"Target repo: `{repo}`\n"
-        "Copy the draft above and create the issue manually, or implement MSN-0013 to enable API creation."
+        f"`/github-issue-draft` is preview-only and never writes.\n"
+        f"To create this issue on `{repo}`, re-run it as `/github-issue-save`."
     )
 
 
