@@ -1001,6 +1001,44 @@ def _job_fortnightly_idea_review(client) -> None:
         log.error("[idea_review] Fortnightly idea review job failed: %s", exc)
 
 
+def _job_lifecycle_recommendations(client) -> None:
+    """[MSN-0066] Read-only digest of lifecycle items awaiting a human.
+
+    DOUBLE-GATED so it ships inert: even when the scheduler is on, this job does
+    nothing unless LIFECYCLE_RECS_ENABLED is truthy (default off). It only POSTS
+    an advisory summary (Review draft PRs, Capture triage, ready-for-engineering);
+    it writes nothing, approves nothing, runs no code. Aggregation reuses the
+    core.coordination pending-actions module.
+    """
+    if os.environ.get("LIFECYCLE_RECS_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+    try:
+        repo_root = str(Path(__file__).resolve().parents[1])
+        if repo_root not in sys.path:
+            sys.path.insert(0, repo_root)
+        from core.coordination.pending_actions import build_pending_actions
+
+        payload = build_pending_actions()
+        totals = payload.get("totals", {})
+        if not totals.get("needs_human"):
+            return  # nothing pending — stay quiet, no nagging
+        lines = [
+            f":clipboard: *Lifecycle pending actions* — {totals['needs_human']} awaiting a human",
+            f"Review (sign-off): {totals.get('review', 0)} · "
+            f"Triage (Gate 1): {totals.get('triage', 0)} · "
+            f"Ready-for-eng: {totals.get('ready_for_engineering', 0)}",
+        ]
+        for r in payload.get("review", [])[:5]:
+            lines.append(f"• [review] {r.get('id')} — {r.get('next_actor', '')}")
+        for t in payload.get("triage", [])[:5]:
+            lines.append(f"• [triage] {t.get('id')}")
+        if _post(client, "\n".join(lines)):
+            log.info("[lifecycle_recs] Posted pending-actions digest (%d items)",
+                     totals["needs_human"])
+    except Exception as exc:  # noqa: BLE001 - advisory job must never crash the scheduler
+        log.error("[lifecycle_recs] Lifecycle recommendations job failed: %s", exc)
+
+
 def start_scheduler(client) -> None:
     """Start the APScheduler background scheduler. Call once after bot initialises."""
     if not _ENABLED:
@@ -1156,6 +1194,18 @@ def start_scheduler(client) -> None:
         args=[client],
         id="fortnightly_idea_review",
         name="Number One Fortnightly Idea Review",
+        replace_existing=True,
+    )
+
+    # Lifecycle pending-actions digest — daily 08:15 (between morning brief and
+    # mission escalation). [MSN-0066] Self-gated by LIFECYCLE_RECS_ENABLED, so
+    # registering it is inert until the Captain enables it.
+    scheduler.add_job(
+        _job_lifecycle_recommendations,
+        CronTrigger(hour=8, minute=15),
+        args=[client],
+        id="lifecycle_recommendations",
+        name="Lifecycle Pending Actions (MSN-0066)",
         replace_existing=True,
     )
 

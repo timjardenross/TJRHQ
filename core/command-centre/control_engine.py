@@ -1528,6 +1528,22 @@ def healthz():
     return jsonify({'status': 'ok'}), 200
 
 # ============================================================================
+# MSN-0066 — Lifecycle "Pending Actions" endpoint (additive, READ-ONLY)
+# ============================================================================
+# Mounts GET /api/dashboard/pending-actions, aggregating the lifecycle
+# generators into one panel payload. Defensive: any failure here logs a warning
+# and leaves every existing route untouched — it can never break the dashboard.
+try:
+    _repo_root = str(Path(__file__).resolve().parents[2])
+    if _repo_root not in sys.path:
+        sys.path.insert(0, _repo_root)
+    from core.coordination.pending_actions import register as _register_pending_actions
+    _register_pending_actions(app)
+    logger.info("[control_engine] mounted /api/dashboard/pending-actions (MSN-0066)")
+except Exception as _exc:  # noqa: BLE001
+    logger.warning("[control_engine] pending-actions endpoint unavailable: %s", _exc)
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
