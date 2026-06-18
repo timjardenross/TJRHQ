@@ -41,8 +41,8 @@ def test_apply_records_triage_ready():
         assert "BREQ-1" in ledger
         assert ledger["BREQ-1"]["stage"] == la.TRIAGE_READY
         assert ledger["BREQ-1"]["suggested_priority"] == "P2"
-        # an audit record was written alongside (transitions sibling dir)
-        audits = list((Path(d).parent / "transitions").glob("TRIAGE-READY-ADVANCE-*.json"))
+        # an audit record was written alongside the ledger (isolated in the dir)
+        audits = list(Path(d).glob("TRIAGE-READY-ADVANCE-*.json"))
         assert len(audits) == 1
 
 

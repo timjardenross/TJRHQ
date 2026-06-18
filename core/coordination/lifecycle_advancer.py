@@ -38,7 +38,6 @@ from core.coordination import triage_package as tp
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _LEDGER_DIR = REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "triage-ready"
-_AUDIT_DIR = REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "transitions"
 
 # The ONLY stage this module may assign. Pinned + guarded so the write-side can
 # never be widened into crossing the approval gate.
@@ -77,9 +76,14 @@ def list_triage_ready(ledger_dir: Optional[Path] = None) -> list[dict[str, Any]]
 
 
 def _audit(advanced: list[dict[str, Any]], ledger_dir: Optional[Path] = None) -> None:
-    """Append a transition audit record (reuses the mission-transition log tree)."""
+    """Append a transition audit record alongside the overlay ledger.
+
+    Kept inside the overlay dir (not a shared sibling) so it stays isolated per
+    caller — both the ledger and its audit trail live together under the
+    gitignored triage-ready tree.
+    """
     try:
-        audit_dir = (ledger_dir.parent / "transitions") if ledger_dir else _AUDIT_DIR
+        audit_dir = ledger_dir or _LEDGER_DIR
         audit_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
         rec = {

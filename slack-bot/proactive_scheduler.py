@@ -1002,13 +1002,16 @@ def _job_fortnightly_idea_review(client) -> None:
 
 
 def _job_lifecycle_recommendations(client) -> None:
-    """[MSN-0066] Read-only digest of lifecycle items awaiting a human.
+    """[MSN-0066] XO-to-Captain Slack notification of items needing review/approval.
+
+    Posts the requests waiting on the Captain's decision — items the advancer has
+    moved to *Triage Ready* (awaiting your APPROVAL, Gate 1) and delivered work at
+    *Review* (awaiting your REVIEW, Gate 2). It is purely a notification: it
+    writes nothing, approves nothing, runs no code — nothing proceeds without the
+    Captain's own sign-off (ADR-013).
 
     DOUBLE-GATED so it ships inert: even when the scheduler is on, this job does
-    nothing unless LIFECYCLE_RECS_ENABLED is truthy (default off). It only POSTS
-    an advisory summary (Review draft PRs, Capture triage, ready-for-engineering);
-    it writes nothing, approves nothing, runs no code. Aggregation reuses the
-    core.coordination pending-actions module.
+    nothing unless LIFECYCLE_RECS_ENABLED is truthy (default off).
     """
     if os.environ.get("LIFECYCLE_RECS_ENABLED", "false").lower() not in ("true", "1", "yes"):
         return
@@ -1020,23 +1023,29 @@ def _job_lifecycle_recommendations(client) -> None:
 
         payload = build_pending_actions()
         totals = payload.get("totals", {})
-        if not totals.get("needs_human"):
-            return  # nothing pending — stay quiet, no nagging
-        lines = [
-            f":clipboard: *Lifecycle pending actions* — {totals['needs_human']} awaiting a human",
-            f"Review (sign-off): {totals.get('review', 0)} · "
-            f"Triage (Gate 1): {totals.get('triage', 0)} · "
-            f"Ready-for-eng: {totals.get('ready_for_engineering', 0)}",
-        ]
-        for r in payload.get("review", [])[:5]:
-            lines.append(f"• [review] {r.get('id')} — {r.get('next_actor', '')}")
-        for t in payload.get("triage", [])[:5]:
-            lines.append(f"• [triage] {t.get('id')}")
+        awaiting = totals.get("awaiting_approval", 0)
+        review = totals.get("review", 0)
+        needing = awaiting + review
+        if not needing:
+            return  # nothing needs the Captain's review/approval — stay quiet
+
+        lines = [f":star2: *XO to Captain* — {needing} request(s) need your review/approval:"]
+        if awaiting:
+            lines.append(f"\n*Awaiting your approval* — triaged, Gate 1 ({awaiting}):")
+            for a in payload.get("awaiting_approval", [])[:8]:
+                prio = a.get("suggested_priority", "")
+                tag = f" [{prio}]" if prio else ""
+                lines.append(f"  • {a.get('id')}{tag} — approve / defer / request clarification")
+        if review:
+            lines.append(f"\n*Awaiting your review* — delivered, Gate 2 ({review}):")
+            for r in payload.get("review", [])[:8]:
+                lines.append(f"  • {r.get('id')} — {r.get('next_actor', '')}")
+        lines.append("\n_Advisory only — nothing is approved or merged without your sign-off._")
+
         if _post(client, "\n".join(lines)):
-            log.info("[lifecycle_recs] Posted pending-actions digest (%d items)",
-                     totals["needs_human"])
+            log.info("[lifecycle_recs] Posted XO review/approval notification (%d items)", needing)
     except Exception as exc:  # noqa: BLE001 - advisory job must never crash the scheduler
-        log.error("[lifecycle_recs] Lifecycle recommendations job failed: %s", exc)
+        log.error("[lifecycle_recs] Lifecycle review/approval notification failed: %s", exc)
 
 
 def start_scheduler(client) -> None:
