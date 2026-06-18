@@ -519,9 +519,19 @@
 
 </div>
 
+<script src="cc-api-key.js"></script>
 <script>
-const API = 'http://localhost:5050/api/v1/intelligence';
+const API = ((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin))+'/api/v1/intelligence';
 const REFRESH_MS = 5 * 60 * 1000;  // 5 minutes
+
+// Backend API key for the authenticated /api/v1 endpoints (Mission 8 fix).
+function ccApiKey() {
+    return (window.CC_CONFIG && window.CC_CONFIG.apiKey) || window.CC_API_KEY
+        || (window.localStorage && localStorage.getItem('cc_api_key')) || '';
+}
+function ccHeaders(extra) {
+    return Object.assign({ 'X-Api-Key': ccApiKey() }, extra || {});
+}
 
 let _briefData = null;
 
@@ -561,7 +571,7 @@ function eventTypeBadge(type) {
 }
 
 async function apiFetch(path) {
-    const resp = await fetch(`${API}${path}`);
+    const resp = await fetch(`${API}${path}`, { headers: ccHeaders() });
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     return resp.json();
 }
@@ -922,7 +932,7 @@ async function generateBrief() {
     btn.disabled = true;
     btn.textContent = 'Generating...';
     try {
-        const resp = await fetch(`${API}/generate`, { method: 'POST' });
+        const resp = await fetch(`${API}/generate`, { method: 'POST', headers: ccHeaders() });
         const data = await resp.json();
         if (data.status === 'ACCEPTED') {
             showStale('Brief generation started — refresh in a few minutes to see results');

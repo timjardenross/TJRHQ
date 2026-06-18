@@ -5,7 +5,9 @@
  */
 
 (function () {
-  const API_BASE = 'http://localhost:5050/api/v1/captains-log';
+  const API_ROOT = (window.CC_CONFIG && window.CC_CONFIG.apiBase)
+    || (location.port ? location.protocol + '//' + location.hostname + ':5000' : location.origin);
+  const API_BASE = API_ROOT + '/api/v1/captains-log';
   const POLL_INTERVAL = 120_000;
 
   const RAG_COLOUR = { Green: '#00dd00', Amber: '#ffaa00', Red: '#ff4444' };
@@ -135,7 +137,7 @@
 
       // Augment with calibration accuracy (best-effort, non-blocking)
       try {
-        const cr = await fetch('http://localhost:5050/api/v1/calibration/summary');
+        const cr = await fetch(`${API_ROOT}/api/v1/calibration/summary`);
         const cj = await cr.json();
         if (cj.data?.agreement_rate != null) {
           s.model_accuracy_pct = cj.data.agreement_rate;

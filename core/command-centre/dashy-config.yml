@@ -33,7 +33,7 @@ sections:
       - title: Control Deck
         description: "Command Centre — all tabs: missions, health, intelligence, governance"
         icon: fas fa-map-marked-alt
-        url: "http://localhost:8080"
+        url: "/dashboards/index.html"
         target: _blank
 
 
@@ -44,10 +44,10 @@ sections:
       - title: Ollama LLM
         description: "Local inference engine"
         icon: fas fa-brain
-        url: "http://localhost:11434"
+        url: "/dashboards/index.html"
         target: _blank
         statusCheck:
-          url: "http://localhost:11434/api/tags"
+          url: "https://109.123.227.196/health"
           method: GET
           timeout: 5
           interval: 30
@@ -55,10 +55,10 @@ sections:
       - title: OpenClaw Chat
         description: "Code execution environment"
         icon: fas fa-flask
-        url: "http://localhost:18789"
+        url: "/dashboards/index.html"
         target: _blank
         statusCheck:
-          url: "http://localhost:18789/"
+          url: "https://109.123.227.196/health"
           method: GET
           timeout: 5
           interval: 30
@@ -66,13 +66,13 @@ sections:
       - title: Number One (Slack Bot)
         description: "AI Decision Assistant — Start via ./control start slack-bot"
         icon: fab fa-slack
-        url: "http://localhost:3001"
+        url: "/dashboards/index.html"
         target: _blank
 
       - title: Command Centre API
         description: "Backend API — port 5050"
         icon: fas fa-satellite
-        url: "http://localhost:5050/health"
+        url: "https://109.123.227.196/health"
         target: _blank
 
       - title: Mission Registry DB

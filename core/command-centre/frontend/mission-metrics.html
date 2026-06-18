@@ -450,7 +450,7 @@
             }
         }
 
-        let client = new ControlEngineClient('http://localhost:8888');
+        let client = new ControlEngineClient(((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin)));
         let lastMetricsData = null;
 
         // Initialize on page load

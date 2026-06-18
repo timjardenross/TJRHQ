@@ -15,6 +15,7 @@ const path = require('path');
 const router = express.Router();
 const { cacheManager } = require('../cache/cache-manager');
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
+const { getRestBaseUrl, getConfig: getSupabaseConfig, getMetrics: getSupabaseMetrics } = require('../connectors/supabase-client');
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -88,14 +89,17 @@ router.get('/services', asyncHandler(async (req, res) => {
   const { value, isStale } = cacheManager.get(cacheKey);
   if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
 
-  const SUPABASE_URL = process.env.SUPABASE_URL || '';
+  // Resolved + validated REST base URL (null if SUPABASE_URL is unset/invalid/dashboard URL)
+  const supabaseRestUrl = getRestBaseUrl();
+  // Internal service endpoints — env-driven, default to localhost for local dev.
+  const ollamaUrl = (process.env.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
   const numberOneOutputPath = path.resolve(__dirname, '../../../../core/coordination/outputs/daily_brief.json');
 
   // Run all checks in parallel
   const [supabaseStatus, dockerStatus, ollamaStatus, slackBotStatus, numberOneStatus] = await Promise.all([
-    SUPABASE_URL ? httpCheck(`${SUPABASE_URL}/rest/v1/`) : Promise.resolve('unknown'),
+    supabaseRestUrl ? httpCheck(supabaseRestUrl) : Promise.resolve('unknown'),
     dockerCheck(),
-    httpCheck('http://localhost:11434/api/tags'),
+    httpCheck(`${ollamaUrl}/api/tags`),
     slackBotCheck(path.resolve(__dirname, '../../../../slack-bot')),
     Promise.resolve(fileAgeCheck(numberOneOutputPath, 86400)) // stale if >24h
   ]);
@@ -172,6 +176,21 @@ router.get('/summary', asyncHandler(async (req, res) => {
   };
   cacheManager.set(cacheKey, data, 60);
   res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+// Supabase observability — config validity (no secrets) + live request metrics.
+router.get('/supabase', asyncHandler(async (req, res) => {
+  const cfg = getSupabaseConfig();
+  let host = null;
+  try { host = cfg.url ? new URL(cfg.url).host : null; } catch (_) { /* invalid url */ }
+  return res.json(successResponse({
+    configured: cfg.valid,
+    urlValid: cfg.urlValid,
+    host,
+    auth: cfg.key ? 'service_role' : null,
+    reason: cfg.reason,
+    metrics: getSupabaseMetrics(),
+  }, 200, { source: 'fresh' }));
 }));
 
 router.get('/alerts', asyncHandler(async (req, res) => {

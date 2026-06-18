@@ -22,6 +22,7 @@ const {
   computeHealthStatus,
   getHealthEventsToday,
 } = require('../connectors/supabase-connector');
+const { isConfigured } = require('../connectors/supabase-client');
 
 const CACHE_TTL = 90; // seconds — short enough to reflect a fresh check-in promptly
 
@@ -37,7 +38,7 @@ router.get('/status', asyncHandler(async (req, res) => {
     }));
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!isConfigured()) {
     const fallback = {
       today_logged: false,
       status: 'UNKNOWN',
@@ -123,7 +124,7 @@ router.get('/today', asyncHandler(async (req, res) => {
     return res.json(successResponse(value, 200, { source: 'cache' }));
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!isConfigured()) {
     return res.json(successResponse({ entry: null, exists: false, error: 'Supabase not configured' }, 200, {
       source: 'error-fallback',
     }));

@@ -9,10 +9,13 @@
  *   2. Spawn Python context_service.py inline for dynamic requests (mission/:id)
  *      or when file-based data is missing
  *
- * Fallback chain:
- *   Fresh file → Stale file with age metadata → Mock placeholder
+ * Resolution chain (real data only — never synthesised):
+ *   Coordination export file → fresh context file → stale context file →
+ *   live context_service.py output → explicit "no data available" state
  *
- * No breaking changes to existing routes.
+ * There is NO mock/placeholder output. When no real filesystem/service data
+ * exists, callers receive an explicit no-data state (data: null) so the UI can
+ * say "no data available" rather than display fabricated values.
  */
 
 const fs = require('fs');
@@ -22,6 +25,7 @@ const { spawnSync } = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '../../../../');
 const CONTEXT_OUTPUT_DIR = path.join(REPO_ROOT, 'core', 'context-assembly', 'output', 'context');
 const CONTEXT_SERVICE_PY = path.join(REPO_ROOT, 'core', 'context-assembly', 'context_service.py');
+const COORDINATION_OUTPUT_DIR = path.join(REPO_ROOT, 'core', 'coordination', 'outputs');
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
 
 // Max age for file-based data before it's considered stale (seconds)
@@ -127,11 +131,60 @@ class ContextAssemblyAdapter {
   // Private helpers
   // --------------------------------------------------------------------------
 
+
   /**
-   * Read a pre-generated context file, spawn Python if missing/stale.
-   * Returns { data, source: 'file'|'python'|'mock', isStale, ageSeconds }
+   * Read Number One / coordination exports as the live context source.
+   */
+  _getCoordinationExport(contextName) {
+    const mapping = {
+      'captain-brief': 'daily_brief.json',
+      'operating-picture': 'daily_brief.json',
+      'recommendations': 'recommendations.json',
+      'blockers': 'blockers.json',
+      'health': 'readiness.json',
+    };
+
+    const file = mapping[contextName];
+    if (!file) return null;
+
+    const filePath = path.join(COORDINATION_OUTPUT_DIR, file);
+    if (!fs.existsSync(filePath)) return null;
+
+    try {
+      const stat = fs.statSync(filePath);
+      const ageSeconds = Math.round((Date.now() - stat.mtimeMs) / 1000);
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return {
+        data: {
+          ...data,
+          assembled_at: data.assembled_at || data.timestamp || new Date(stat.mtimeMs).toISOString(),
+          source: 'coordination_export',
+          source_file: filePath,
+        },
+        source: 'coordination_export',
+        isStale: false,
+        ageSeconds,
+      };
+    } catch (e) {
+      this._log(`${contextName}: coordination export read error — ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve a context package from real sources only.
+   * Returns { data, source, isStale, ageSeconds, available } where source is one of:
+   *   'coordination_export' | 'file' | 'stale_file' | 'python' | 'no_data'
+   * When nothing real is available, returns { data: null, source: 'no_data',
+   * available: false } — never a synthesised placeholder.
    */
   _getContext(contextName) {
+    const exportResult = this._getCoordinationExport(contextName);
+    if (exportResult) {
+      this._log(`${contextName}: coordination export`);
+      return exportResult;
+    }
+
     const filePath = path.join(CONTEXT_OUTPUT_DIR, `${contextName}.json`);
     const staleThreshold = STALE_THRESHOLD_SECONDS[contextName] || 120;
 
@@ -150,18 +203,25 @@ class ContextAssemblyAdapter {
       }
     }
 
-    // Try spawning Python inline
+    // Try generating real data via the live context service
     this._log(`${contextName}: no file — spawning Python`);
     const pythonResult = this._spawnPython(contextName);
     if (pythonResult && !pythonResult.error) {
       // Cache to file for future reads
       this._writeFile(contextName, pythonResult);
-      return { data: pythonResult, source: 'python', isStale: false, ageSeconds: 0 };
+      return { data: pythonResult, source: 'python', isStale: false, ageSeconds: 0, available: true };
     }
 
-    // Final fallback: mock placeholder
-    this._log(`${contextName}: falling back to mock placeholder`);
-    return { data: this._mockPlaceholder(contextName), source: 'mock', isStale: true, ageSeconds: null };
+    // No real data anywhere — return an explicit no-data state. Never synthesise.
+    this._log(`${contextName}: no data available (no export, no file, service produced nothing)`);
+    return {
+      data: null,
+      source: 'no_data',
+      available: false,
+      isStale: false,
+      ageSeconds: null,
+      message: `No context data available for "${contextName}". Awaiting Context Assembly Service output.`,
+    };
   }
 
   /**
@@ -205,41 +265,6 @@ class ContextAssemblyAdapter {
     } catch (e) {
       this._log(`Could not write ${contextName}.json: ${e.message}`);
     }
-  }
-
-  _mockPlaceholder(contextName) {
-    const base = {
-      assembled_at: new Date().toISOString(),
-      source: 'mock',
-      _note: 'Context Assembly Service unavailable — placeholder data',
-    };
-    const placeholders = {
-      'captain-brief': {
-        ...base, date: new Date().toISOString().split('T')[0],
-        top_priorities: [], blockers: [], decisions_awaiting_input: [],
-        system_health: { status: 'green', alert_count: 0 },
-        key_dates_this_week: [], number_one_summary: null,
-      },
-      'operating-picture': {
-        ...base,
-        health_snapshot: {}, top_3_priorities: [],
-        operational_status: { overall: 'green', alert_count: 0 },
-        blockers_summary: { count: 0, top_blocker: null },
-        number_one_says: null, quick_actions: [],
-      },
-      health: {
-        ...base, source_file: '',
-        status_summary: {}, trend_summary: {},
-        recovery_priorities: [], health_themes: [],
-        data_quality: 'missing',
-      },
-      blockers: [],
-      recommendations: {
-        ...base, recommendations: [],
-        health_constraints_applied: false, total_active_missions: 0,
-      },
-    };
-    return placeholders[contextName] || { ...base };
   }
 
   _log(message) {

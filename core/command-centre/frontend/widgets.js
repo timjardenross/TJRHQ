@@ -306,17 +306,22 @@ class EscalationsWidget extends CoordinationWidget {
     const { levelSummary = {} } = escalations;
     const items = (escalations.escalations || []).slice(0, 3); // Top 3 only
 
-    const itemsHtml = items.map((esc) => `
+    const itemsHtml = items.map((esc) => {
+      const intelTag = esc.source === 'or-intelligence'
+        ? ' <span title="Surfaced by OR Intelligence" style="display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(106,63,175,0.22);color:#b39ddb;vertical-align:middle;">OR-INTEL</span>'
+        : '';
+      return `
       <div class="escalation-item level-${(esc.level || 'LOW').toLowerCase()}">
         <div class="escalation-level">
           <span class="level-badge">${esc.level || 'UNKNOWN'}</span>
         </div>
         <div class="escalation-info">
-          <div class="escalation-mission">${esc.mission || '—'}</div>
+          <div class="escalation-mission">${esc.mission || '—'}${intelTag}</div>
           <div class="escalation-title">${esc.title || 'Escalation'}</div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     const html = `
       <div class="widget widget-escalations">
@@ -467,7 +472,15 @@ class PersonalHealthWidget extends CoordinationWidget {
     this.log('Refreshing Personal Health Status...');
 
     try {
-      const response = await this.apiClient.getPersonalHealthStatus();
+      const apiRoot = (window.CC_CONFIG && window.CC_CONFIG.apiBase)
+        || (location.port ? location.protocol + '//' + location.hostname + ':5000' : location.origin);
+      const apiKey = (window.CC_CONFIG && window.CC_CONFIG.apiKey) || (window.localStorage && localStorage.getItem('cc_api_key')) || '';
+      const response = await fetch(`${apiRoot}/api/v1/personal-health/status`, {
+        headers: { 'X-Api-Key': apiKey }
+      }).then(r => r.json()).then(data => ({
+        success: data?.status === 'success',
+        data
+      }));
 
       if (!response.success) {
         this.renderError('Unable to fetch health status');

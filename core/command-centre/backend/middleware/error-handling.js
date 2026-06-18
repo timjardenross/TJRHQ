@@ -10,6 +10,7 @@
  */
 
 const { cacheManager } = require('../cache/cache-manager');
+const { logSecurityEvent } = require('./observability');
 
 /**
  * Structured error response builder
@@ -28,6 +29,25 @@ class ApiError extends Error {
  */
 const errorHandler = (err, req, res, next) => {
   console.error(`[ERROR] ${err.message}`, err.stack);
+
+  // ── Request-validation failures (Mission 7 Phase 3) ──────────────────────────
+  // body-parser surfaces malformed JSON and oversized bodies here. Reject early
+  // with a machine reason code + correlation id and log a security event — these
+  // must NOT fall through to the cache fallback (it would mask the bad input).
+  const isParseError = err.type === 'entity.parse.failed'
+    || (err instanceof SyntaxError && err.status === 400 && 'body' in err);
+  const isTooLarge = err.type === 'entity.too.large' || err.status === 413;
+  if (isParseError || isTooLarge) {
+    const reason = isTooLarge ? 'PAYLOAD_TOO_LARGE' : 'MALFORMED_JSON';
+    const status = isTooLarge ? 413 : 400;
+    logSecurityEvent({ event: 'payload', reason, req, details: { limit: err.limit, length: err.length } });
+    return res.status(status).json({
+      error: 'invalid_request',
+      reason,
+      message: isTooLarge ? 'Request payload exceeds the allowed size.' : 'Request body is not valid JSON.',
+      requestId: req && req.id,
+    });
+  }
 
   const statusCode = err.statusCode || 500;
   const cacheKey = err.cacheKey;

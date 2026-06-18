@@ -310,7 +310,7 @@
     <script>
         // Data source: /api/dashboard/blocked-missions (Supabase missions filtered by status=blocked)
         // No hardcoded mock data. No Supabase credentials in this file.
-        const CONTROL_ENGINE = 'http://localhost:8888';
+        const CONTROL_ENGINE = ((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin));
 
         let blockedMissions = [];
 

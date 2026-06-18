@@ -15,10 +15,11 @@
 class DashboardIntegration {
   /**
    * Initialize dashboard integration
-   * @param {string} controlEngineUrl - Control Engine base URL (default: http://localhost:8888)
+   * @param {string} controlEngineUrl - Control Engine base URL (default: <resolved from host / shared config>)
    * @param {Object} options - Configuration options
    */
-  constructor(controlEngineUrl = 'http://localhost:8888', options = {}) {
+  constructor(controlEngineUrl, options = {}) {
+    // VM-agnostic: undefined lets ControlEngineClient resolve via the shared config.
     this.client = new ControlEngineClient(controlEngineUrl);
     this.refreshIntervals = {};
     this.lastHealthData = null;
@@ -498,8 +499,8 @@ class DashboardIntegration {
   }
 }
 
-// Global initialization function
-window.initDashboard = function(controlEngineUrl = 'http://localhost:8888') {
+// Global initialization function (undefined url → resolved via shared config)
+window.initDashboard = function(controlEngineUrl) {
   const dashboard = new DashboardIntegration(controlEngineUrl);
   dashboard.initialize();
   return dashboard;
@@ -509,7 +510,8 @@ window.initDashboard = function(controlEngineUrl = 'http://localhost:8888') {
 document.addEventListener('DOMContentLoaded', () => {
   const autoInit = document.querySelector('[data-dashboard-auto-init]');
   if (autoInit) {
-    const url = autoInit.getAttribute('data-control-engine-url') || 'http://localhost:8888';
+    // Explicit attribute overrides; otherwise resolve via shared config.
+    const url = autoInit.getAttribute('data-control-engine-url') || undefined;
     window.initDashboard(url);
   }
 });

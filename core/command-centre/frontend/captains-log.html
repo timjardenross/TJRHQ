@@ -373,8 +373,13 @@
 
 </div>
 
+<script src="cc-api-key.js"></script>
 <script>
-const API_BASE = 'http://localhost:5050/api/v1/captains-log';
+const API_BASE = ((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin))+'/api/v1/captains-log';
+// Backend API key for authenticated /api/v1 calls (Mission 8 follow-up — this
+// page previously sent no X-Api-Key, so saves/loads 401'd).
+function ccApiKey(){ return (window.CC_CONFIG&&window.CC_CONFIG.apiKey)||window.CC_API_KEY||(window.localStorage&&localStorage.getItem('cc_api_key'))||''; }
+function ccHeaders(extra){ return Object.assign({'X-Api-Key': ccApiKey()}, extra||{}); }
 
 // ── State ──────────────────────────────────────────────────────────────────
 const ragState = { health_status: null, work_status: null, personal_status: null, captain_capacity_rating: null };
@@ -484,7 +489,7 @@ async function save() {
   try {
     const resp = await fetch(API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: ccHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(collect())
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -506,7 +511,7 @@ async function init() {
   setPainColour(0);
 
   try {
-    const resp = await fetch(`${API_BASE}/today`);
+    const resp = await fetch(`${API_BASE}/today`, { headers: ccHeaders() });
     const json = await resp.json();
     if (json.data?.entry) {
       populate(json.data.entry);
@@ -523,7 +528,7 @@ async function init() {
 
   // Show system capacity score alongside Section I so Captain can compare
   try {
-    const sr = await fetch(`${API_BASE}/summary`);
+    const sr = await fetch(`${API_BASE}/summary`, { headers: ccHeaders() });
     const sj = await sr.json();
     if (sj.data?.capacity_score != null) {
       document.getElementById('cal-system-score').textContent = sj.data.capacity_score;

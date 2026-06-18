@@ -502,7 +502,7 @@
     <script src="/dashboards/audio-manager.js"></script>
     <script src="/dashboards/animation-controller.js"></script>
     <script>
-        let client = new ControlEngineClient('http://localhost:8888');
+        let client = new ControlEngineClient(((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin)));
         let labData = null;
 
         // AI Lab configuration

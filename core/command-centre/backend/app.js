@@ -33,19 +33,41 @@ const calibrationRoutes = require('./api/calibration');
 const notificationRoutes = require('./api/notifications');
 const governanceRoutes = require('./api/governance');
 const { errorHandler } = require('./middleware/error-handling');
+const { createApiKeyAuth } = require('./middleware/auth');
+const { logConfigStatus: logSupabaseConfig } = require('./connectors/supabase-client');
+// Mission 7 hardening middleware
+const { requestId } = require('./middleware/observability');
+const {
+  burstLimiter, generalLimiter, mutationLimiterIfWrite, syncLimiter,
+} = require('./middleware/rate-limit');
+const {
+  mutationContentTypeGuard, objectBodyGuard,
+  validateIntelligenceSync, validateIntelligenceGenerate,
+  validateCaptainsLog, validateSynthesiseWeek,
+} = require('./middleware/validation');
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 5050;
-const BACKEND_API_KEY = process.env.BACKEND_API_KEY;
+// Behind Caddy on loopback only — trust the loopback proxy so req.ip reflects
+// the real client IP from X-Forwarded-For (used for accurate per-IP rate limits).
+// 'loopback' means we trust ONLY 127.0.0.1/::1, so external clients cannot spoof it.
+app.set('trust proxy', 'loopback');
+const PORT = process.env.PORT || 5000;
+// Bind to loopback only — the backend is reachable exclusively via the Caddy
+// reverse proxy. Override with HOST=0.0.0.0 only if direct exposure is needed.
+const HOST = process.env.HOST || '127.0.0.1';
 
 function failFast(message) {
   console.error(`FATAL: ${message}`);
   process.exit(1);
 }
 
-if (!BACKEND_API_KEY) {
-  failFast('BACKEND_API_KEY is required. Set it in .env before starting the backend.');
+// Shared API-key auth — single source of truth (fails fast if key is unset).
+let apiKeyAuth;
+try {
+  apiKeyAuth = createApiKeyAuth({ publicPaths: ['/health'] });
+} catch (e) {
+  failFast(e.message);
 }
 
 // Middleware
@@ -53,29 +75,43 @@ const _corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
   : ['http://localhost:8080', 'http://localhost:3000', 'http://localhost:8081', 'http://localhost:5050'];
 
+// Correlation ID first — every downstream log line and security event carries it.
+app.use(requestId);
+
 app.use(cors({
   origin: _corsOrigins,
   credentials: true,
   optionsSuccessStatus: 200
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  if (req.path === '/health') return next(); // health check is always public
-  const provided = req.headers['x-api-key'] || req.query.api_key;
-  if (provided !== BACKEND_API_KEY) {
-    return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
-  }
-  next();
-});
+// ── Rate limiting (Mission 7 Phase 2) ──────────────────────────────────────────
+// Per-IP burst + sustained ceilings on ALL /api traffic. Placed before body
+// parsing/auth so floods are rejected cheaply. /health and the dashboard are
+// served by Caddy/other paths and are unaffected.
+app.use('/api', burstLimiter, generalLimiter);
 
-// Request logging middleware
+// ── Request validation (Mission 7 Phase 3) ─────────────────────────────────────
+// Strict JSON parsing + hard body-size cap. Malformed or oversized payloads are
+// rejected by express.json() and surfaced with reason codes in the error handler.
+const MAX_JSON_BODY = process.env.MAX_JSON_BODY || '256kb';
+app.use(express.json({ limit: MAX_JSON_BODY, strict: true }));
+app.use(express.urlencoded({ extended: true, limit: MAX_JSON_BODY }));
+
+// Content-type + body-shape guards for write methods.
+app.use('/api', mutationContentTypeGuard, objectBodyGuard);
+
+// All requests validate via the shared API-key middleware (/health is public).
+app.use(apiKeyAuth);
+
+// Stricter per-IP ceiling on write methods across the API.
+app.use('/api', mutationLimiterIfWrite);
+
+// Request logging middleware (correlation id included)
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
+    console.log(`[${new Date().toISOString()}] [${req.id}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
   next();
 });
@@ -96,6 +132,15 @@ app.use('/api/recommendations', (req, res, next) => { req.url = '/recommendation
 app.use('/api/readiness',       (req, res, next) => { req.url = '/readiness';       coordinationRoutes(req, res, next); });
 app.use('/api/blockers',        (req, res, next) => { req.url = '/blockers';        coordinationRoutes(req, res, next); });
 app.use('/api/lessons',         (req, res, next) => { req.url = '/lessons';         coordinationRoutes(req, res, next); });
+
+// ── Sync/expensive endpoints (Mission 7 Phase 2/3) ─────────────────────────────
+// Long cooldown window + strict body validation, mounted before the routers so
+// they run first. Guards against accidental recursive/loop triggering and bad input.
+app.use('/api/v1/coordination/intelligence-sync', syncLimiter, validateIntelligenceSync);
+app.use('/api/v1/intelligence/generate', syncLimiter, validateIntelligenceGenerate);
+app.use('/api/v1/captains-log/synthesise-week', syncLimiter, validateSynthesiseWeek);
+// Captain's log write validation (no-op for GETs — fields are optional).
+app.use('/api/v1/captains-log', validateCaptainsLog);
 
 // API routes (v1)
 app.use('/api/v1/missions', missionRoutes);
@@ -126,11 +171,14 @@ app.get('/api', (req, res) => {
       coordination: {
         brief: 'GET /api/v1/coordination/brief',
         queue: 'GET /api/v1/coordination/queue',
-        escalations: 'GET /api/v1/coordination/escalations'
+        escalations: 'GET /api/v1/coordination/escalations',
+        decisions: 'GET /api/v1/coordination/decisions',
+        intelligenceSync: 'POST /api/v1/coordination/intelligence-sync'
       },
       health: {
         summary: 'GET /api/v1/health/summary',
         services: 'GET /api/v1/health/services',
+        supabase: 'GET /api/v1/health/supabase',
         alerts: 'GET /api/v1/health/alerts'
       },
       agents: {
@@ -184,8 +232,11 @@ app.use((req, res) => {
 // Global error handler (must be last)
 app.use(errorHandler);
 
+// Log Supabase configuration status at boot (observable, no secrets)
+logSupabaseConfig();
+
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║         STARFLEET COMMAND CENTRE — API SERVER              ║

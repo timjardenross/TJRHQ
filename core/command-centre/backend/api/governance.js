@@ -11,6 +11,7 @@ const https = require('https');
 const path = require('path');
 const router = express.Router();
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
+const { supabaseGet } = require('../connectors/supabase-client');
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../');
 
@@ -165,34 +166,13 @@ async function callMistral(prompt) {
 
 async function getLessons() {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-    if (!supabaseUrl || !supabaseKey) return [];
-    return await new Promise((resolve) => {
-      // Fetch up to 200 rows so the count reflects reality (125 lessons as of 2026-06-14)
-      const urlObj = new URL(`${supabaseUrl}/rest/v1/lessons_learned?select=lesson_id,title,lesson_text,future_guidance,mission_id&order=lesson_id.asc&limit=200`);
-      const options = {
-        hostname: urlObj.hostname,
-        path: urlObj.pathname + urlObj.search,
-        method: 'GET',
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          Accept: 'application/json',
-        },
-      };
-      const req = https.request(options, res => {
-        let data = '';
-        res.on('data', c => { data += c; });
-        res.on('end', () => {
-          try { resolve(JSON.parse(data) || []); }
-          catch (_) { resolve([]); }
-        });
-      });
-      req.on('error', () => resolve([]));
-      req.end();
-    });
+    // Fetch up to 200 rows so the count reflects reality (125 lessons as of 2026-06-14)
+    const rows = await supabaseGet(
+      'lessons_learned?select=lesson_id,title,lesson_text,future_guidance,mission_id&order=lesson_id.asc&limit=200'
+    );
+    return Array.isArray(rows) ? rows : [];
   } catch (_) {
+    // Supabase unavailable / misconfigured — degrade gracefully to no lessons.
     return [];
   }
 }

@@ -85,7 +85,7 @@
   <script src="api-client.js"></script>
   <script src="widgets.js"></script>
   <script>
-    const healthApiClient = new CommandCentreAPIClient('http://localhost:5050');
+    const healthApiClient = new CommandCentreAPIClient(((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin)));
 
     const healthWidget = new PersonalHealthWidget('health-widget', healthApiClient, {
       pollingInterval: 90000,

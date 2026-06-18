@@ -647,6 +647,11 @@
   </div>
 
   <!-- SCRIPTS -->
+  <!-- Backend API key is injected per-deployment, NEVER hardcoded here. Provide it via any of:
+       window.CC_API_KEY, <meta name="cc-api-key" content="..."> (server-templated),
+       or localStorage 'cc_api_key'. Resolved by api-config.js into window.CC_CONFIG.apiKey. -->
+  <script src="cc-api-key.js"></script>
+  <script src="api-config.js"></script>
   <script src="api-client.js"></script>
   <script src="widgets.js"></script>
   <script src="captain-operating-picture-widget.js"></script>
@@ -655,7 +660,9 @@
 
   <script>
     // ── Shared helpers ──────────────────────────────────────────────────
-    const API_BASE = 'http://localhost:5050';
+    // VM-agnostic API base (resolved by api-config.js; same-origin in prod, localhost in dev).
+    const API_BASE = (window.CC_CONFIG && window.CC_CONFIG.apiBase)
+      || (location.port ? location.protocol + '//' + location.hostname + ':5000' : location.origin);
 
     function statusColour(status) {
       if (!status) return '#a0a6c0';
@@ -667,7 +674,7 @@
     }
 
     async function fetchJSON(path) {
-      const r = await fetch(API_BASE + path);
+      const r = await fetch(API_BASE + path, { headers: { 'X-Api-Key': (window.CC_CONFIG && window.CC_CONFIG.apiKey) || (window.localStorage && localStorage.getItem('cc_api_key')) || '' } });
       if (!r.ok) throw new Error(r.status);
       const json = await r.json();
       return (json && json.data !== undefined) ? json.data : json;
@@ -750,7 +757,7 @@
     function renderRecommendedAction(data) {
       const el = document.getElementById('chair-rec');
       if (!el) return;
-      const recs = (data && data.recommendations) || [];
+      const recs = (data && (data.recommendations || data.items || data.briefItems)) || [];
       if (!recs.length) {
         el.innerHTML = '<p class="chair-empty">No recommendations available.<br>Run number_one_exporter.py to generate.</p>';
         return;
@@ -768,7 +775,7 @@
     function renderMissionStatus(data) {
       const el = document.getElementById('chair-missions');
       if (!el) return;
-      const queue = (data && data.queue) || [];
+      const queue = (data && (data.queue || data.items || data.briefItems)) || [];
       const capacity = (data && data.capacity_status) || 'Unknown';
       const capClass = capacity.toLowerCase() === 'green' ? 'capacity-green'
                      : capacity.toLowerCase() === 'amber' ? 'capacity-amber'
@@ -1064,7 +1071,7 @@
     function renderRecsIntel(data) {
       const el = document.getElementById('recommendations-widget');
       if (!el) return;
-      const recs = (data && data.recommendations) || [];
+      const recs = (data && (data.recommendations || data.items || data.briefItems)) || [];
       if (!recs.length) { el.innerHTML = '<p class="intel-loading">No recommendations available.</p>'; return; }
       el.innerHTML = recs.map(r => `
         <div class="rec-item">
@@ -1274,7 +1281,7 @@
     function renderOpsQueue(data) {
       const el = document.getElementById('ops-queue');
       if (!el) return;
-      const queue = (data && data.queue) || [];
+      const queue = (data && (data.queue || data.items || data.briefItems)) || [];
       const capacity = (data && data.capacity_status) || 'Unknown';
       if (!queue.length) {
         el.innerHTML = '<p class="chair-empty">No active missions in queue.<br>System operating normally.</p>';
@@ -1302,7 +1309,7 @@
     function renderOpsBlockers(data) {
       const el = document.getElementById('ops-blockers');
       if (!el) return;
-      const total = (data && data.total_blockers) || 0;
+      const total = (data && (data.total_blockers || data.total || 0)) || 0;
       if (total === 0) {
         el.innerHTML = '<p class="chair-clear">✅ No active blockers — all missions clear to proceed</p>';
         return;
@@ -1419,7 +1426,7 @@
       if (!el) return;
       const capacity = (data && data.capacity_status) || null;
       const advisory = (data && data.advisory) || null;
-      const queue = (data && data.queue) || [];
+      const queue = (data && (data.queue || data.items || data.briefItems)) || [];
       if (!capacity) {
         el.innerHTML = '<p class="chair-empty">Medical watchlist unavailable.<br>Health queue data not yet generated.</p>';
         return;
@@ -1478,7 +1485,7 @@
 
         // Ollama
         try {
-          const r = await fetch('http://localhost:11434/api/tags');
+          const r = await fetch(`${(window.CC_CONFIG && window.CC_CONFIG.ollamaBase) || ('http://' + location.hostname + ':11434')}/api/tags`);
           if (r.ok) {
             const d = await r.json();
             const models = (d.models || []);
@@ -1498,7 +1505,7 @@
 
         // OpenClaw
         try {
-          const r = await fetch('http://localhost:18789/', { signal: AbortSignal.timeout(3000) });
+          const r = await fetch(`${(window.CC_CONFIG && window.CC_CONFIG.openClawBase) || ('http://' + location.hostname + ':18789')}/`, { signal: AbortSignal.timeout(3000) });
           html += `<div style="padding:6px 0"><span>${r.ok ? '🟢' : '🟡'} OpenClaw</span> <span class="muted" style="font-size:0.8em">HTTP ${r.status}</span></div>`;
         } catch(e) {
           html += `<div style="padding:6px 0"><span>🔴 OpenClaw</span> <span class="muted" style="font-size:0.8em">Offline (port 18789)</span></div>`;

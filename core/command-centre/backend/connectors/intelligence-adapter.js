@@ -20,13 +20,10 @@
  *   - Returns explicit status field on every response
  */
 
-const https = require('https');
-const http = require('http');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { supabaseGet } = require('./supabase-client');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const REPO_ROOT = path.resolve(__dirname, '../../../../');
 const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
 const SCHEDULER_PY = path.join(REPO_ROOT, 'intelligence', 'scheduler.py');
@@ -35,45 +32,9 @@ const SCHEDULER_PY = path.join(REPO_ROOT, 'intelligence', 'scheduler.py');
 const LIVE_THRESHOLD_MS   = 2  * 60 * 60 * 1000;  //  2 hours
 const CACHED_THRESHOLD_MS = 24 * 60 * 60 * 1000;  // 24 hours
 
+// Thin wrapper over the shared client so existing (table, query) call sites are unchanged.
 function _supabaseGet(table, query = '') {
-  return new Promise((resolve, reject) => {
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-      return reject(new Error('Supabase not configured'));
-    }
-    const url = new URL(`${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`);
-    const transport = url.protocol === 'https:' ? https : http;
-    const options = {
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-    };
-    const req = transport.request(options, (res) => {
-      let data = '';
-      res.on('data', (c) => { data += c; });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (res.statusCode >= 400) {
-            reject(new Error(`Supabase ${res.statusCode}: ${parsed.message || data}`));
-          } else {
-            resolve(parsed);
-          }
-        } catch (e) {
-          reject(new Error(`JSON parse: ${e.message}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(8000, () => req.destroy(new Error('Timeout')));
-    req.end();
-  });
+  return supabaseGet(`${table}${query ? '?' + query : ''}`);
 }
 
 function _dataStatus(generatedAt) {

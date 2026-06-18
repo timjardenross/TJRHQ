@@ -15,41 +15,14 @@ const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
 const path = require('path');
-const https = require('https');
-const http = require('http');
 
 const { cacheManager } = require('../cache/cache-manager');
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
+const { supabaseGet } = require('../connectors/supabase-client');
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../');
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function supabaseGet(pathStr) {
-  return new Promise((resolve, reject) => {
-    if (!SUPABASE_URL || !SUPABASE_KEY) return reject(new Error('Supabase not configured'));
-    const url = new URL(`${SUPABASE_URL}/rest/v1/${pathStr}`);
-    const transport = url.protocol === 'https:' ? https : http;
-    const req = transport.request({
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'GET',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Accept: 'application/json' },
-    }, (res) => {
-      let data = '';
-      res.on('data', c => { data += c; });
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(8000, () => req.destroy(new Error('timeout')));
-    req.end();
-  });
-}
 
 function calibrationStatus(rate) {
   if (rate === null || rate === undefined) return 'Unknown';

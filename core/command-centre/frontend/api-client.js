@@ -12,8 +12,11 @@
  */
 
 class CommandCentreAPIClient {
-  constructor(baseURL = 'http://localhost:5000') {
-    this.baseURL = baseURL;
+  constructor(baseURL) {
+    // VM-agnostic: prefer the shared env-driven resolver, fall back to same-origin host.
+    this.baseURL = baseURL
+      || (window.CC_CONFIG && window.CC_CONFIG.apiBase)
+      || (location.port ? location.protocol + '//' + location.hostname + ':5000' : location.origin);
     this.timeout = 5000; // 5 second timeout
     this.retries = 2;
     this.debug = true;
@@ -33,6 +36,7 @@ class CommandCentreAPIClient {
       method,
       headers: {
         'Content-Type': 'application/json',
+        'X-Api-Key': (window.CC_CONFIG && window.CC_CONFIG.apiKey) || (window.localStorage && localStorage.getItem('cc_api_key')) || '',
         ...headers
       },
       signal: AbortSignal.timeout(this.timeout)
@@ -64,8 +68,8 @@ class CommandCentreAPIClient {
       }
 
       return {
-        success: response.ok,
-        status: response.statusCode,
+        success: response.ok || data?.status === 'success',
+        status: response.status,
         data: data,
         isStale: data.metadata?.source === 'stale_cache',
         isCached: data.metadata?.source?.includes('cache')
@@ -149,7 +153,7 @@ class CommandCentreAPIClient {
    * Get overall system health
    */
   async getHealthSummary() {
-    return this.request('/api/v1/health/summary');
+    return this.request('/api/v1/personal-health/status');
   }
 
   /**

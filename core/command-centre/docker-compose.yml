@@ -7,7 +7,10 @@ services:
     image: lissy93/dashy:latest
     restart: unless-stopped
     ports:
-      - "8081:80"
+      # Bind to loopback only — Dashy is reachable exclusively via the Caddy
+      # reverse proxy. Docker bypasses ufw, so this loopback bind (not the
+      # firewall) is what actually keeps the dashboard off the public interface.
+      - "127.0.0.1:8081:80"
     volumes:
       - ./dashy-config.yml:/app/user-data/conf.yml
       - ./theme-starfleet.css:/app/public/theme-starfleet.css

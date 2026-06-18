@@ -315,7 +315,7 @@
 
     <script>
         // Data source: /api/dashboard/service-health (Control Engine health — interim source)
-        const CONTROL_ENGINE = 'http://localhost:8888';
+        const CONTROL_ENGINE = ((window.CC_CONFIG&&window.CC_CONFIG.apiBase)||localStorage.getItem('cc_api_base')||(location.port?location.protocol+'//'+location.hostname+':5000':location.origin));
 
         let lastHealthData = null;
         let autoRefreshInterval = null;

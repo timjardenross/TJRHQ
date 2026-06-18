@@ -5,7 +5,7 @@
  * Used by Control Deck dashboard to fetch service status and mission data
  *
  * Usage:
- *   const client = new ControlEngineClient('http://localhost:8888');
+ *   const client = new ControlEngineClient();
  *   const health = await client.getHealth();
  *   const missions = await client.getMissionsActive();
  */
@@ -13,11 +13,15 @@
 class ControlEngineClient {
   /**
    * Initialize Control Engine API client
-   * @param {string} baseUrl - Base URL (default: http://localhost:8888)
+   * @param {string} baseUrl - Base URL (default: <resolved from host / shared config>)
    * @param {number} timeout - Request timeout in ms (default: 5000)
    */
-  constructor(baseUrl = 'http://localhost:8888', timeout = 5000) {
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+  constructor(baseUrl, timeout = 5000) {
+    // VM-agnostic: prefer the shared env-driven resolver, fall back to same-origin host.
+    const resolved = baseUrl
+      || (window.CC_CONFIG && window.CC_CONFIG.apiBase)
+      || (location.port ? location.protocol + '//' + location.hostname + ':5000' : location.origin);
+    this.baseUrl = resolved.replace(/\/$/, ''); // Remove trailing slash
     this.timeout = timeout;
     this.apiUrl = `${this.baseUrl}/api`;
   }

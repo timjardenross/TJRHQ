@@ -24,6 +24,7 @@ const {
   getCaptainsLogSummary,
   computeCapacityScore,
 } = require('../connectors/supabase-connector');
+const { supabaseGet } = require('../connectors/supabase-client');
 
 // ─── GET /today ──────────────────────────────────────────────────────────────
 
@@ -202,42 +203,10 @@ router.get('/latest-synthesis', asyncHandler(async (req, res) => {
   const { value } = cacheManager.get(cacheKey);
   if (value) return res.json(successResponse(value, 200, { source: 'cache' }));
 
-  // Try to read latest from Supabase health_insights
+  // Try to read latest from Supabase health_insights via the shared client.
   try {
-    const { getCaptainsLogRecent: _, ...connector } = require('../connectors/supabase-connector');
-    // Use raw supabase connector to query health_insights
-    const https = require('https');
-    const http = require('http');
-    const SUPABASE_URL = process.env.SUPABASE_URL || '';
-    const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-    if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('Supabase not configured');
-
-    const url = new URL(`${SUPABASE_URL}/rest/v1/health_insights?order=period_start.desc&limit=1`);
-    const transport = url.protocol === 'https:' ? https : http;
-
-    const insight = await new Promise((resolve, reject) => {
-      const options = {
-        hostname: url.hostname,
-        port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname + url.search,
-        method: 'GET',
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, Accept: 'application/json' },
-      };
-      const req2 = transport.request(options, (r) => {
-        let data = '';
-        r.on('data', c => { data += c; });
-        r.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            resolve(Array.isArray(parsed) ? parsed[0] : parsed);
-          } catch (e) { reject(e); }
-        });
-      });
-      req2.on('error', reject);
-      req2.setTimeout(8000, () => req2.destroy(new Error('timeout')));
-      req2.end();
-    });
+    const rows = await supabaseGet('health_insights?order=period_start.desc&limit=1');
+    const insight = Array.isArray(rows) ? rows[0] : rows;
 
     if (insight) {
       cacheManager.set(cacheKey, insight, 300);

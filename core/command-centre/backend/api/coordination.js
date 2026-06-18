@@ -48,6 +48,7 @@ const { cacheManager } = require('../cache/cache-manager');
 const { asyncHandler, successResponse } = require('../middleware/error-handling');
 const { NumberOneAdapter } = require('../connectors/number-one-adapter');
 const { getEscalations, getDecisionRecords } = require('../connectors/supabase-connector');
+const { getHighRiskEvents, syncProposedDecisions } = require('../connectors/intelligence-decision-bridge');
 
 // Initialize adapter
 const numberOneAdapter = new NumberOneAdapter();
@@ -177,7 +178,17 @@ router.get('/escalations', asyncHandler(async (req, res) => {
     // Supabase unavailable — mission escalations still show
   }
 
-  const allEscalations = [...missionEscalations, ...slackEscalations];
+  // 3. Tertiary: OR Intelligence high-signal events (advisory, read-only).
+  //    Surfaces the intelligence pipeline into the decision surface.
+  let intelEscalations = [];
+  try {
+    intelEscalations = await getHighRiskEvents();
+    if (intelEscalations.length > 0) dataSource += '+or-intelligence';
+  } catch (_) {
+    // Intelligence unavailable — other escalations still show
+  }
+
+  const allEscalations = [...missionEscalations, ...slackEscalations, ...intelEscalations];
   const levelSummary = {
     CRITICAL: allEscalations.filter(e => e.level === 'CRITICAL').length,
     HIGH: allEscalations.filter(e => e.level === 'HIGH').length,
@@ -213,7 +224,17 @@ router.get('/decisions', asyncHandler(async (req, res) => {
         decision_maker: row.decision_maker,
         reason: row.decision_reason,
         timestamp: row.decision_timestamp,
-        status: row.human_decision ? 'decided' : 'pending'
+        // 'proposed' = surfaced by the OR Intelligence bridge, awaiting Captain review
+        status: row.human_decision ? 'decided'
+          : (row.metadata?.status === 'proposed' ? 'proposed' : 'pending'),
+        source: row.metadata?.source || 'manual',
+        intel: row.metadata?.source === 'or-intelligence' ? {
+          event_id: row.metadata?.event_id || null,
+          brief_id: row.metadata?.brief_id || null,
+          rank_score: row.metadata?.rank_score ?? null,
+          event_type: row.metadata?.event_type || null,
+          url: row.metadata?.url || null,
+        } : undefined,
       })),
       total: rows.length,
       timestamp: new Date().toISOString()
@@ -334,6 +355,44 @@ router.get('/lessons', asyncHandler(async (req, res) => {
   };
   cacheManager.set(cacheKey, data, 120);
   return res.json(successResponse(data, 200, { source: 'fresh' }));
+}));
+
+/**
+ * POST /api/v1/coordination/intelligence-sync
+ * Bridge OR Intelligence → decision registry: create PROPOSED decision_records
+ * from high-signal events and link the events back (actioned flag).
+ *
+ * Body (all optional): { minRank, days, limit, dryRun }
+ *   dryRun=true previews what would be created without writing.
+ * Safe to run on a schedule — idempotent and bounded.
+ */
+router.post('/intelligence-sync', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const opts = {
+    dryRun: body.dryRun === true || body.dryRun === 'true',
+  };
+  if (body.minRank !== undefined) opts.minRank = Number(body.minRank);
+  if (body.days !== undefined) opts.days = Number(body.days);
+  if (body.limit !== undefined) opts.limit = Number(body.limit);
+
+  try {
+    const summary = await syncProposedDecisions(opts);
+    if (!opts.dryRun && summary.created > 0) {
+      // New proposed decisions/escalations exist — refresh the surfaces.
+      cacheManager.clear('coordination:decisions');
+      cacheManager.clear('coordination:escalations');
+    }
+    return res.json(successResponse(summary, 200, {
+      source: 'fresh',
+      dataSource: 'or-intelligence-bridge',
+    }));
+  } catch (err) {
+    return res.json(successResponse(
+      { dryRun: !!opts.dryRun, created: 0, error: err.message },
+      200,
+      { source: 'error-fallback' }
+    ));
+  }
 }));
 
 module.exports = router;

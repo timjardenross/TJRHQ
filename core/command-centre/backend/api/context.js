@@ -20,14 +20,14 @@
  *   mission/:id:        30s  (per-mission detail)
  *
  * All responses include:
- *   metadata.source:    fresh | file | stale_file | python | mock | cache | stale_cache
+ *   metadata.source:    file | stale_file | coordination_export | python | cache | stale_cache | no_data
  *   metadata.dataAge:   age in seconds (if from file)
  *   metadata.timestamp: response timestamp
  *
- * Error handling follows existing 3-tier pattern:
+ * Data resolution (real data only — no mock/synthetic output):
  *   1. Fresh/stale cache
- *   2. Adapter fallback (file → python → mock)
- *   3. Placeholder with data_unavailable note
+ *   2. Adapter real sources (coordination export → context file → live service)
+ *   3. Explicit "no data available" state (status: 'no_data', data: null)
  */
 
 const express = require('express');
@@ -62,7 +62,24 @@ function contextEndpoint(cacheKey, ttlSeconds, getFn) {
       }));
     }
 
-    const { data, source, isStale: dataIsStale, ageSeconds } = getFn();
+    const { data, source, isStale: dataIsStale, ageSeconds, message } = getFn();
+
+    // Explicit no-data state — never cache it, never synthesise. The next request
+    // re-checks the filesystem/service so genuine data appears as soon as it exists.
+    if (data === null || source === 'no_data') {
+      return res.status(200).json({
+        status: 'no_data',
+        statusCode: 200,
+        data: null,
+        metadata: {
+          source: 'no_data',
+          available: false,
+          cacheKey,
+          message: message || 'No data available',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
 
     cacheManager.set(cacheKey, data, ttlSeconds);
 
