@@ -271,8 +271,8 @@ def handle_mission_brief(
         return (
             "*MISSION BRIEF*\n\n"
             "Usage: `/mission-brief <description>`\n"
-            "   or: `/mission-brief USS-TJR-MSN-XXXX [--backend mistral|gemini|vm-ollama] [--mode plan|review|patch]`\n"
-            "Example: `/mission-brief USS-TJR-MSN-0056 --backend gemini --mode plan`\n\n"
+            "   or: `/mission-brief MSN-NNNN [--backend mistral|gemini|vm-ollama] [--mode plan|review|patch]`\n"
+            "Example: `/mission-brief MSN-0056 --backend gemini --mode plan`\n\n"
             "To draft a mission file and assign a Mission Control ID, use `/mission-register-draft`."
         )
 
@@ -288,7 +288,7 @@ def handle_mission_brief(
         except ValueError as exc:
             return (
                 f":x: *Mission not found*\n`{exc}`\n\n"
-                "_Tip: use the full ID format `USS-TJR-MSN-XXXX` or bare `MSN-XXXX`._"
+                "_Tip: use the short ID format `MSN-NNNN`, e.g. `MSN-0066`._"
             )
         except RuntimeError as exc:
             err = str(exc)
@@ -633,28 +633,16 @@ existing functionality unless clearly obsolete.
 # next_mission_id / _read_next_mission_id
 # ---------------------------------------------------------------------------
 
-def next_mission_id(index_path: Path | None = None) -> str:
-    """Read the next available mission ID from mission-index.txt.
+def next_mission_id(index_path: Path | None = None) -> str:  # noqa: ARG001 — index_path kept for callers
+    """Return the next available mission ID from the central registry.
 
-    Returns the ID string, e.g. 'USS-TJR-MSN-0015'.
-    Raises ValueError if the index cannot be parsed.
+    Returns the ID string, e.g. 'MSN-0066'.
     """
-    target = index_path or _MISSION_INDEX
-    if not target.exists():
-        raise FileNotFoundError(f"Mission index not found: {target}")
-
-    content = target.read_text(encoding="utf-8")
-    match = re.search(r"NEXT AVAILABLE MISSION ID\s*\n\s*(USS-TJR-MSN-\d+)", content)
-    if match:
-        return match.group(1).strip()
-
-    # Fallback: scan the table for the highest existing ID and increment
-    ids = re.findall(r"USS-TJR-MSN-(\d+)", content)
-    if ids:
-        max_num = max(int(n) for n in ids)
-        return f"USS-TJR-MSN-{max_num + 1:04d}"
-
-    raise ValueError("Cannot determine next mission ID from index")
+    import sys
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    import id_registry
+    return id_registry.next_id("MSN")
 
 
 def _read_next_mission_id() -> tuple[str, str | None]:
@@ -666,12 +654,8 @@ def _read_next_mission_id() -> tuple[str, str | None]:
     """
     try:
         return next_mission_id(), None
-    except FileNotFoundError as exc:
-        return "USS-TJR-MSN-XXXX", f"Mission index file not found: {exc}"
-    except ValueError as exc:
-        return "USS-TJR-MSN-XXXX", f"Could not parse next ID: {exc}"
-    except Exception as exc:
-        return "USS-TJR-MSN-XXXX", f"Unexpected error reading index: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        return "MSN-XXXX", f"Could not allocate mission ID: {exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -1235,9 +1219,9 @@ def _parse_router_args(text: str) -> tuple[str | None, str, str]:
 
     parts = text.split()
     raw_id = parts[0].upper()
-    # Normalise: MSN-0056 → USS-TJR-MSN-0056
-    if not raw_id.startswith("USS-TJR-"):
-        raw_id = f"USS-TJR-{raw_id}"
+    # Normalise: strip legacy USS-TJR- prefix so IDs are always short (MSN-NNNN)
+    if raw_id.startswith("USS-TJR-MSN-"):
+        raw_id = raw_id[len("USS-TJR-"):]
 
     remaining = parts[1:]
     backend = "mistral"

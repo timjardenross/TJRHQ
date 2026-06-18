@@ -19,8 +19,15 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+import id_registry
 
 log = logging.getLogger(__name__)
 
@@ -250,7 +257,7 @@ def log_decision_to_command_memory(
     client = get_client()
 
     # Generate decision ID
-    decision_id = f"DEC-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    decision_id = id_registry.next_id("DEC")
 
     record = {
         "id": decision_id,

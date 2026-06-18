@@ -1,0 +1,63 @@
+"""Central sequential ID registry for Starship Endeavour.
+
+Generates short, human-typeable IDs: MSN-0066, BREQ-0011, DEC-0001.
+Thread-safe via an exclusive file lock. Falls back to a timestamp suffix on
+I/O error so generation never blocks the caller.
+
+Counter file: <repo-root>/.id-counters.json  (created on first use)
+Seeds: counters start above the highest known existing IDs so new IDs
+       never collide with legacy records.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import json
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent
+_COUNTER_FILE = _REPO_ROOT / ".id-counters.json"
+_LOCK_FILE = _REPO_ROOT / ".id-counters.lock"
+
+# Start above the highest known existing IDs so we never collide with legacy records.
+#   MSN: highest USS-TJR-MSN-0065 on record → first new ID is MSN-0066
+#   BREQ: 10 legacy timestamp-format BREQ files → first new ID is BREQ-0011
+#   DEC: all legacy DECs are timestamp-format → first new ID is DEC-0001
+_SEEDS: dict[str, int] = {
+    "MSN": 65,
+    "BREQ": 10,
+    "DEC": 0,
+}
+
+
+def _load() -> dict[str, int]:
+    try:
+        data = json.loads(_COUNTER_FILE.read_text(encoding="utf-8"))
+        return {k: int(v) for k, v in data.items() if isinstance(v, (int, float, str))}
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return {}
+
+
+def _save(data: dict[str, int]) -> None:
+    _COUNTER_FILE.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def next_id(prefix: str) -> str:
+    """Return the next sequential ID for prefix, e.g. next_id('MSN') → 'MSN-0066'.
+
+    Increments atomically under an exclusive file lock. On any I/O failure
+    falls back to a microsecond timestamp suffix so callers never error out.
+    """
+    prefix = prefix.upper()
+    try:
+        _LOCK_FILE.touch(exist_ok=True)
+        with open(_LOCK_FILE, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)  # blocks until acquired; auto-released on close
+            data = _load()
+            n = data.get(prefix, _SEEDS.get(prefix, 0)) + 1
+            data[prefix] = n
+            _save(data)
+            return f"{prefix}-{n:04d}"
+    except Exception:  # noqa: BLE001 — never let ID generation crash the caller
+        from datetime import datetime
+        return f"{prefix}-{datetime.now().strftime('%H%M%S%f')[:10]}"

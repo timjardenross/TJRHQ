@@ -59,6 +59,12 @@ def is_mission_registry_request(user_text: str) -> bool:
 
 
 def extract_mission_id(user_text: str) -> Optional[str]:
+    # New short format: MSN-NNNN (with or without legacy USS-TJR- prefix)
+    match = re.search(r"\b(?:USS-TJR-)?MSN-\d{4}[A-Za-z]?\b", user_text, flags=re.IGNORECASE)
+    if match:
+        mid = match.group(0).upper()
+        return mid[len("USS-TJR-"):] if mid.startswith("USS-TJR-") else mid
+    # Legacy timestamp format: M-YYYYMMDD-HHMMSS
     match = re.search(r"\bM-\d{8}-\d{6}\b", user_text, flags=re.IGNORECASE)
     return match.group(0).upper() if match else None
 
