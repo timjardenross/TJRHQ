@@ -1044,9 +1044,11 @@ def _job_lifecycle_recommendations(client) -> None:
 
         # Own destination, independent of BRIEF_CHANNEL — so enabling this one
         # notification does NOT switch on the whole proactive-brief suite.
+        # Prefer the channel the bot already posts briefs to; the captain's-inbox
+        # channel is a last resort (the bot may not be a member there).
         channel = (os.environ.get("LIFECYCLE_RECS_CHANNEL")
-                   or os.environ.get("CAPTAINS_INBOX_CHANNEL_ID")
-                   or _BRIEF_CHANNEL or _BRIEF_USER_ID)
+                   or _BRIEF_CHANNEL or _BRIEF_USER_ID
+                   or os.environ.get("CAPTAINS_INBOX_CHANNEL_ID"))
         if not channel:
             log.warning("[lifecycle_recs] no channel configured (set LIFECYCLE_RECS_CHANNEL "
                         "or CAPTAINS_INBOX_CHANNEL_ID) — skipping")
