@@ -24,6 +24,7 @@ class Backend(str, Enum):
     MISTRAL = "mistral"
     VM_OLLAMA = "vm-ollama"
     GEMINI = "gemini"
+    GLM = "glm"
 
 
 @dataclass

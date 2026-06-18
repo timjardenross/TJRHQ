@@ -59,7 +59,7 @@ from core.engineering.schemas import (
     RouterResponse,
 )
 from core.engineering import output_writer, prompt_builder
-from core.engineering.providers import gemini, mistral_batch, vm_ollama
+from core.engineering.providers import gemini, glm, mistral_batch, vm_ollama
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +122,9 @@ def route(req: RouterRequest) -> RouterResponse:
         elif req.backend == Backend.GEMINI:
             text, model_used = gemini.call(prompt, model=req.model)
             provider_label = f"Gemini ({model_used})"
+        elif req.backend == Backend.GLM:
+            text, model_used = glm.call(prompt, model=req.model)
+            provider_label = f"GLM ({model_used})"
         else:
             raise ValueError(f"Unknown backend: {req.backend}")
 
@@ -229,7 +232,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--mission-id", required=False, help="Mission ID from work_queue.json")
     parser.add_argument(
-        "--backend", choices=["mistral", "vm-ollama", "gemini"], default="mistral",
+        "--backend", choices=["mistral", "vm-ollama", "gemini", "glm"], default="mistral",
         help="Execution backend (default: mistral)"
     )
     parser.add_argument(
@@ -280,6 +283,8 @@ def main(argv: list[str] | None = None) -> int:
         backend = args.backend
         if backend == "gemini":
             ok, msg = gemini.check_connectivity()
+        elif backend == "glm":
+            ok, msg = glm.check_connectivity()
         else:
             ok, msg = vm_ollama.check_connectivity()
         print(f"{'OK' if ok else 'FAIL'} [{backend}]: {msg}")
