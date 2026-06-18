@@ -30,15 +30,20 @@ from datetime import datetime
 from typing import Any, Optional
 
 from core.coordination import delivery_reconciler as dr
+from core.coordination.lifecycle_advancer import list_triage_ready
 from core.coordination.lifecycle_reconciler import build_recommendations, items_at_stage
 from core.coordination.lifecycle_status_map import LIFECYCLE_SPINE, LifecycleStage
 
 
-def build_pending_actions(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def build_pending_actions(
+    ledger: Optional[dict[str, Any]] = None,
+    triage_ready: Optional[list] = None,
+) -> dict[str, Any]:
     """Aggregate every pending action into one read-only payload.
 
-    Cheap: a single ledger feeds the three views. `ledger` is injectable (tests);
-    otherwise the live reconciler runs once in report mode (apply=False).
+    Cheap: a single ledger feeds the views. `ledger` and `triage_ready` are
+    injectable (tests); otherwise the live reconciler runs once (apply=False) and
+    the triage-ready overlay is read from disk.
     """
     if ledger is None:
         ledger = dr.reconcile(apply=False)
@@ -49,9 +54,15 @@ def build_pending_actions(ledger: Optional[dict[str, Any]] = None) -> dict[str, 
     review = [r for r in recs["recommendations"]
               if r["stage"] == LifecycleStage.REVIEW.value]
 
+    # Items the advancer has moved to Triage Ready — enriched, awaiting Gate 1.
+    awaiting_approval = list_triage_ready() if triage_ready is None else triage_ready
+    advanced_ids = {str(e.get("id")) for e in awaiting_approval}
+
+    # Capture items still needing triage = those NOT yet advanced to the gate.
     triage = [{"id": it.get("id"), "title": it.get("title", ""),
                "kind": it.get("kind", ""), "next_actor": it.get("next_actor", "")}
-              for it in items_at_stage(LifecycleStage.CAPTURE, ledger)]
+              for it in items_at_stage(LifecycleStage.CAPTURE, ledger)
+              if str(it.get("id")) not in advanced_ids]
 
     ready_for_engineering = [
         {"id": it.get("id"), "title": it.get("title", "")}
@@ -59,7 +70,8 @@ def build_pending_actions(ledger: Optional[dict[str, Any]] = None) -> dict[str, 
         if it.get("kind") == "handoff"
     ]
 
-    needs_human = len(review) + len(triage) + len(ready_for_engineering)
+    needs_human = (len(review) + len(triage) + len(awaiting_approval)
+                   + len(ready_for_engineering))
 
     return {
         "generated_at": datetime.utcnow().isoformat() + "Z",
@@ -68,10 +80,12 @@ def build_pending_actions(ledger: Optional[dict[str, Any]] = None) -> dict[str, 
             "needs_human": needs_human,
             "review": len(review),
             "triage": len(triage),
+            "awaiting_approval": len(awaiting_approval),
             "ready_for_engineering": len(ready_for_engineering),
         },
         "review": review,
         "triage": triage,
+        "awaiting_approval": awaiting_approval,
         "ready_for_engineering": ready_for_engineering,
         "source": recs.get("source", {}),
     }

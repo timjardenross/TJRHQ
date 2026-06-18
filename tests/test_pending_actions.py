@@ -36,14 +36,14 @@ def _mixed_ledger():
 
 
 def test_payload_partitions_items_by_view():
-    p = build_pending_actions(_mixed_ledger())
+    p = build_pending_actions(_mixed_ledger(), triage_ready=[])
     assert [r["id"] for r in p["review"]] == ["ENG-REV"]
     assert [t["id"] for t in p["triage"]] == ["BREQ-CAP"]
     assert [b["id"] for b in p["ready_for_engineering"]] == ["ENG-BUILD"]
 
 
 def test_totals_and_spine_counts():
-    p = build_pending_actions(_mixed_ledger())
+    p = build_pending_actions(_mixed_ledger(), triage_ready=[])
     assert p["totals"]["needs_human"] == 3        # review + triage + ready
     assert p["totals"]["review"] == 1
     assert p["totals"]["triage"] == 1
@@ -57,14 +57,29 @@ def test_totals_and_spine_counts():
 
 
 def test_empty_ledger_is_clean():
-    p = build_pending_actions(_ledger())
+    p = build_pending_actions(_ledger(), triage_ready=[])
     assert p["totals"]["needs_human"] == 0
     assert p["review"] == [] and p["triage"] == [] and p["ready_for_engineering"] == []
     assert all(v == 0 for v in p["spine"].values())
 
 
+def test_advanced_item_moves_from_triage_to_awaiting_approval():
+    # The same Capture item, before vs after the advancer recorded it Triage Ready.
+    led = _ledger(_item("build_request", "BREQ-CAP", "pending_triage",
+                        "AWAITING_APPROVAL", evidence="no marker"))
+    before = build_pending_actions(led, triage_ready=[])
+    assert [t["id"] for t in before["triage"]] == ["BREQ-CAP"]
+    assert before["totals"]["awaiting_approval"] == 0
+
+    after = build_pending_actions(led, triage_ready=[{"id": "BREQ-CAP", "stage": "Triage Ready"}])
+    assert after["triage"] == []                       # moved off the triage list
+    assert [a["id"] for a in after["awaiting_approval"]] == ["BREQ-CAP"]
+    assert after["totals"]["awaiting_approval"] == 1
+    assert after["totals"]["needs_human"] == 1         # still one item, now at the gate
+
+
 def test_review_items_carry_next_actor():
-    p = build_pending_actions(_mixed_ledger())
+    p = build_pending_actions(_mixed_ledger(), triage_ready=[])
     assert "review" in p["review"][0]["next_actor"].lower()
 
 

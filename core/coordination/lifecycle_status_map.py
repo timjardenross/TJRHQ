@@ -129,6 +129,7 @@ _ENGINEERING_MAP = {
 # the engineering handoff's already-approved "Pending Triage" (→ BUILD above).
 _INBOX_MAP = {
     _norm("pending_triage"): LifecycleStage.CAPTURE,
+    _norm("triage_ready"): LifecycleStage.APPROVAL,   # enriched, at Gate 1 (lifecycle_advancer)
     _norm("approved"): LifecycleStage.APPROVAL,
     _norm("engineering_running"): LifecycleStage.BUILD,
     _norm("engineering_delivered"): LifecycleStage.REVIEW,
