@@ -22,47 +22,17 @@ log = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 120  # seconds for generation
 
 
-def chat(
-    base_url: str,
-    api_key: str,
-    model: str,
-    prompt: str,
-    system: Optional[str] = None,
-    *,
-    label: str = "oai",
-    timeout: int = DEFAULT_TIMEOUT,
-    temperature: float = 0.2,
-    max_tokens: int = 4096,
-) -> tuple[str, str]:
-    """POST a chat completion to an OpenAI-compatible endpoint. Key never logged."""
-    if not api_key:
-        raise RuntimeError(f"[{label}] API key is not set. Add it to .env and restart.")
-
-    url = f"{base_url.rstrip('/')}/chat/completions"
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
-    payload = json.dumps({
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "stream": False,
-    }).encode("utf-8")
-
-    log.info("[%s] url=%s model=%s prompt_len=%d", label, url, model, len(prompt))
-
+def _request_once(url: str, api_key: str, payload: dict, *, label: str, timeout: int) -> dict:
+    """One POST to the endpoint; returns parsed JSON. Key never logged."""
     req = urllib.request.Request(
         url,
-        data=payload,
+        data=json.dumps(payload).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",  # never logged
         },
         method="POST",
     )
-
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")
@@ -77,22 +47,84 @@ def chat(
         raise RuntimeError(f"[{label}] request failed (endpoint unreachable): {exc}") from exc
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"[{label}] unexpected error: {exc}") from exc
-
     try:
-        data = json.loads(raw)
+        return json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"[{label}] returned non-JSON: {raw[:200]}") from exc
 
-    try:
-        text = (data["choices"][0]["message"]["content"] or "").strip()
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError(f"[{label}] response missing choices/message: {raw[:300]}") from exc
 
+def chat(
+    base_url: str,
+    api_key: str,
+    model: str,
+    prompt: str,
+    system: Optional[str] = None,
+    *,
+    label: str = "oai",
+    timeout: int = DEFAULT_TIMEOUT,
+    temperature: float = 0.2,
+    max_tokens: int = 4096,
+    max_continuations: int = 3,
+) -> tuple[str, str]:
+    """POST a chat completion to an OpenAI-compatible endpoint. Key never logged.
+
+    Handles TRUNCATION automatically: if the model stops because it hit the token
+    limit (`finish_reason == "length"`), the partial answer is fed back and the
+    model is asked to continue, up to `max_continuations` times, and the pieces
+    are concatenated. This keeps long engineering plans / patches from being cut
+    off mid-output. If it is still truncated after the cap, a clear marker is
+    appended (rather than silently returning a partial) and a warning is logged.
+    """
+    if not api_key:
+        raise RuntimeError(f"[{label}] API key is not set. Add it to .env and restart.")
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    log.info("[%s] url=%s model=%s prompt_len=%d", label, url, model, len(prompt))
+
+    parts: list[str] = []
+    used = model
+    truncated = False
+    for attempt in range(max_continuations + 1):
+        data = _request_once(url, api_key, {
+            "model": model, "messages": messages,
+            "temperature": temperature, "max_tokens": max_tokens, "stream": False,
+        }, label=label, timeout=timeout)
+        try:
+            choice = data["choices"][0]
+            piece = (choice["message"]["content"] or "")
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"[{label}] response missing choices/message: {str(data)[:300]}") from exc
+        used = data.get("model", model)
+        if piece:
+            parts.append(piece)
+        if choice.get("finish_reason") != "length":
+            truncated = False
+            break
+        truncated = True
+        if attempt < max_continuations:
+            # Feed the partial back and ask for a seamless continuation.
+            messages.append({"role": "assistant", "content": piece})
+            messages.append({"role": "user", "content":
+                             "Continue exactly where you left off. Do not repeat any "
+                             "previous content; resume mid-token if necessary."})
+            log.info("[%s] response truncated (finish_reason=length) — continuing (%d/%d)",
+                     label, attempt + 1, max_continuations)
+
+    text = "".join(parts).strip()
     if not text:
-        raise RuntimeError(f"[{label}] returned an empty response. Raw: {raw[:300]}")
+        raise RuntimeError(f"[{label}] returned an empty response.")
+    if truncated:
+        log.warning("[%s] response still truncated after %d continuations (len=%d)",
+                    label, max_continuations, len(text))
+        text += (f"\n\n[…response truncated after {max_continuations} continuations — "
+                 "ask me to continue for the rest.]")
 
-    used = data.get("model", model)
-    log.info("[%s] response_len=%d model=%s", label, len(text), used)
+    log.info("[%s] response_len=%d model=%s parts=%d", label, len(text), used, len(parts))
     return text, used
 
 
