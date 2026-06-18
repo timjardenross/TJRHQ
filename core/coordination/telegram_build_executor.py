@@ -231,6 +231,13 @@ def build_handoff_from_breq(marker: dict[str, Any], breq_path: Path) -> Path:
         f"{_sec('rationale')}\n\n"
         "## Suggested Next Step\n\n"
         f"{_sec('suggested next step')}\n\n"
+        "## Target Files\n\n"
+        f"{_sec('target files')}\n\n"
+        "## Engineering Instruction\n\n"
+        "Modify ONLY the files listed under Target Files above. Do not create new files "
+        "or new modules unless Target Files is empty, in which case identify the minimal "
+        "set of existing files that must change and modify those. "
+        "Write targeted patches — do not rewrite files that do not need to change.\n\n"
         "## Risks\n\n"
         f"{_sec('risks')}\n"
     )
