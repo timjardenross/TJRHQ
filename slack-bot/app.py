@@ -114,6 +114,43 @@ from commands.captain_brief import (
 
 log = logging.getLogger(__name__)
 
+# ============================================================================
+# MSN-0061 Workstream B — Tier-1 hardening primitives (stdlib-only, import-safe)
+# ============================================================================
+# Graceful shutdown, in-flight worker tracking, structured logging, and an
+# optional Prometheus metrics endpoint. Singletons live here so every handler
+# below can reach them; lifecycle wiring (signals, auth check, metrics server)
+# happens in the __main__ block.
+from lib.hardening import (  # noqa: E402 — after logger is configured
+    AuthError,
+    GracefulShutdown,
+    Metrics,
+    WorkerRegistry,
+    slog_error,
+    slog_info,
+    slog_warning,
+    start_metrics_server,
+    verify_slack_auth,
+)
+
+WORKERS = WorkerRegistry()
+METRICS = Metrics()
+SHUTDOWN = GracefulShutdown(log)
+METRICS.describe("commander_commands_total", "Slash command invocations by command and status")
+METRICS.describe("commander_workers_spawned_total", "Background worker threads spawned")
+METRICS.describe("commander_workers_inflight", "Background worker threads currently running")
+
+
+def spawn_worker(target, *args, name=None, **kwargs):
+    """Spawn a tracked background worker (drop-in for daemon Thread().start()).
+
+    Counting in-flight work lets graceful shutdown drain outstanding handlers
+    instead of killing them mid-write. Threads stay daemon, so a hung worker
+    can never block process exit past the shutdown grace period.
+    """
+    METRICS.inc("commander_workers_spawned_total")
+    return WORKERS.spawn(target, *args, name=name, **kwargs)
+
 
 def _auto_engineer_enabled() -> bool:
     """Whether to auto-run Mistral batch-coding when a handoff is approved.
@@ -138,6 +175,7 @@ def _auto_engineer_handoff(handoff_path: str, channel: str, thread_ts: str) -> N
         result = _run_sync_one(handoff_path)
     except Exception as exc:  # defensive — the worker must never crash silently
         log.warning("[app] auto-engineer worker crashed for %s: %s", handoff_path, exc)
+        slog_error(log, "auto_engineer_crashed", handoff=Path(handoff_path).stem, error=type(exc).__name__, detail=str(exc))
         result = {"status": "failed", "error": str(exc)[:200]}
 
     status = result.get("status")
@@ -376,11 +414,21 @@ def _handle_implementation_brief_command(
         try:
             result = result_fn(text, user_id, channel_id)
             respond(result)
+            METRICS.inc("commander_commands_total", command=command_name, status="ok")
         except Exception as exc:
-            log.error("[app] %s failed: %s", command_name, exc)
+            METRICS.inc("commander_commands_total", command=command_name, status="error")
+            slog_error(
+                log,
+                "command_failed",
+                command=command_name,
+                user=user_id,
+                channel=channel_id,
+                error=type(exc).__name__,
+                detail=str(exc),
+            )
             respond(f"*{command_name.upper()} — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
@@ -624,12 +672,13 @@ def handle_message_events(body, say, client):
     auto_engineer_started = False
     if _auto_engineer_enabled() and handoff_path:
         channel_for_followup = event.get("channel", "")
-        threading.Thread(
-            target=_auto_engineer_handoff,
-            args=(handoff_path, channel_for_followup, thread_ts),
+        spawn_worker(
+            _auto_engineer_handoff,
+            handoff_path,
+            channel_for_followup,
+            thread_ts,
             name=f"auto-engineer-{decision_id}",
-            daemon=True,
-        ).start()
+        )
         auto_engineer_started = True
 
     engineering_line = (
@@ -909,7 +958,7 @@ def handle_commander_slash(ack, respond, command):
             })
             respond(error_response)
 
-    threading.Thread(target=_run_and_reply, daemon=True).start()
+    spawn_worker(_run_and_reply)
 
 # ------------------------------------------------------------------
 # MSN-0011D Part 1: GitHub issue draft / create
@@ -942,7 +991,7 @@ def handle_github_issue_draft_slash(ack, respond, command):
             log.error("[app] /github-issue-draft failed: %s", exc)
             respond(f"*GITHUB ISSUE DRAFT — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/github-issue-save")
@@ -973,7 +1022,7 @@ def handle_github_issue_save_slash(ack, respond, command):
             log.error("[app] /github-issue-save failed: %s", exc)
             respond(f"*GITHUB ISSUE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 # ------------------------------------------------------------------
 # MSN-0061 Workstream A: wire imported-but-unregistered handlers
@@ -1002,7 +1051,7 @@ def handle_decision_log_save_slash(ack, respond, command):
             log.error("[app] /decision-log-save failed: %s", exc)
             respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/mission-register-draft")
@@ -1024,7 +1073,7 @@ def handle_mission_register_draft_slash(ack, respond, command):
             log.error("[app] /mission-register-draft failed: %s", exc)
             respond(f"*MISSION REGISTER DRAFT — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/mission-register-save")
@@ -1046,7 +1095,7 @@ def handle_mission_register_save_slash(ack, respond, command):
             log.error("[app] /mission-register-save failed: %s", exc)
             respond(f"*MISSION REGISTER SAVE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 # ------------------------------------------------------------------
 # MSN-0012: Slack Discovery & Backlog Command Layer
@@ -1098,7 +1147,7 @@ def handle_mission_capture_slash(ack, respond, command):
             log.error("[app] /mission-capture failed: %s", exc)
             respond(f"*MISSION CAPTURE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 @app.command("/mission-list")
 def handle_mission_list_slash(ack, respond, command):
@@ -1256,7 +1305,7 @@ def handle_mission_close_slash(ack, respond, command, client):
                 log.warning("[app] /mission-close failed to update anchor: %s", update_exc)
             respond(f"*MISSION CLOSE ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/decision-log")
@@ -1290,7 +1339,7 @@ def handle_decision_log_slash(ack, respond, command):
             log.error("[app] /decision-log failed: %s", exc)
             respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 @app.command("/build")
 def handle_build_slash(ack, respond, command, client):
@@ -1399,7 +1448,7 @@ def handle_build_slash(ack, respond, command, client):
                 log.warning("[app] /build failed to update anchor after error: %s", update_exc)
             respond(f"*BUILD ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 @app.command("/memory-metrics")
 def handle_memory_metrics_slash(ack, respond, command):
@@ -1444,7 +1493,7 @@ def handle_captain_brief_slash(ack, respond, command):
                 "`python3 core/context-assembly/context_service.py serve`"
             )
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 @app.command("/operating-picture")
 def handle_operating_picture_slash(ack, respond, command):
@@ -1471,7 +1520,7 @@ def handle_operating_picture_slash(ack, respond, command):
                 f"`{type(exc).__name__}` — check runtime logs."
             )
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 @app.command("/resilience-brief")
 def handle_resilience_brief_slash(ack, respond, command):
@@ -1492,7 +1541,7 @@ def handle_resilience_brief_slash(ack, respond, command):
     def _run():
         handle_resilience_brief(text, respond)
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 # ── Health Check ──────────────────────────────────────────────────────────
 
@@ -1528,7 +1577,7 @@ def handle_health_check_view_submission(ack, body, client):
     def _run():
         handle_health_check_submit(values, user_id, client)
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 # ── Health Event ──────────────────────────────────────────────────────────
 
@@ -1560,7 +1609,7 @@ def handle_health_event_view_submission(ack, body, client):
     def _run():
         handle_health_event_submit(values, user_id, client)
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 # ── Health Brief ──────────────────────────────────────────────────────────
 
@@ -1582,7 +1631,7 @@ def handle_health_brief_slash(ack, command, client):
     def _run():
         handle_health_brief(user_id, client)
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 # ── Appointment Preparation  [M-20260614 WP4] ─────────────────────────────
@@ -1600,7 +1649,7 @@ def handle_health_prep_slash(ack, command, client):
         )
     except Exception:
         pass
-    threading.Thread(target=handle_health_prep, args=(ack, command, client), daemon=True).start()
+    spawn_worker(handle_health_prep, ack, command, client)
 
 
 @app.command("/research")
@@ -1645,7 +1694,7 @@ def handle_research_slash(ack, respond, command, client):
             log.error("[app] /research failed: %s", exc)
             respond(f"*Research Officer — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/lesson-log")
@@ -1679,7 +1728,7 @@ def handle_lesson_log_slash(ack, respond, command):
             log.error("[app] /lesson-log failed: %s", exc)
             respond(f"*LESSON LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 @app.command("/brief-now")
@@ -1702,7 +1751,7 @@ def handle_brief_now_slash(ack, respond, command, client):
             log.error("[app] /brief-now failed: %s", exc)
             respond(f"*Brief push failed:* `{type(exc).__name__}: {exc}`")
 
-    threading.Thread(target=_run, daemon=True).start()
+    spawn_worker(_run)
 
 
 if SUPABASE_ANON_KEY:
@@ -1734,6 +1783,7 @@ try:
         supabase_client = None
 except Exception as e:
     log.error(f"[msp-0060b] Failed to initialize Supabase client: {e}")
+    slog_error(log, "supabase_init_failed", error=type(e).__name__, detail=str(e))
     supabase_client = None
 
 # Initialize learning loop services (graceful degradation if Supabase unavailable)
@@ -1794,6 +1844,33 @@ if __name__ == "__main__":
         print("Commander TJR startup halted: Slack app could not be initialised.")
         raise SystemExit(1)
 
+    # MSN-0061B — fail loudly on a bad/expired bot token instead of degrading
+    # silently once live. Web API auth (xoxb) is checked here; the Socket Mode
+    # app-level token (xapp) is validated by handler.start() below.
+    try:
+        verify_slack_auth(app.client, logger=log)
+    except AuthError as auth_exc:
+        print(
+            "Commander TJR startup halted: Slack auth_test failed "
+            f"({auth_exc}). Check SLACK_BOT_TOKEN (xoxb-...) and re-install the app if needed."
+        )
+        raise SystemExit(1)
+
+    # MSN-0061B — optional Prometheus metrics endpoint (off unless a port is set).
+    # Bound to localhost; scrape via the host reverse proxy, not a public port.
+    _metrics_port = os.getenv("COMMANDER_METRICS_PORT", "").strip()
+    if _metrics_port:
+        METRICS.register_gauge_fn("commander_workers_inflight", lambda: WORKERS.active)
+        try:
+            start_metrics_server(
+                METRICS,
+                int(_metrics_port),
+                addr=os.getenv("COMMANDER_METRICS_ADDR", "127.0.0.1"),
+                logger=log,
+            )
+        except ValueError:
+            slog_warning(log, "metrics_port_invalid", value=_metrics_port)
+
     def _socket_mode_watchdog() -> None:
         """Log once after 5s to confirm Socket Mode is running, then start the proactive scheduler."""
         time.sleep(5)
@@ -1808,6 +1885,21 @@ if __name__ == "__main__":
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
 
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
+
+    # MSN-0061B — graceful shutdown: on SIGTERM/SIGINT close the Socket Mode
+    # session cleanly, then give in-flight Commander workers a bounded grace
+    # period to finish so writes aren't killed mid-flight. Workers stay daemon,
+    # so a hung one can never block exit past the grace window.
+    def _close_socket_mode() -> None:
+        closer = getattr(handler, "close", None) or getattr(handler, "disconnect", None)
+        if closer is not None:
+            closer()
+
+    _grace = float(os.getenv("COMMANDER_SHUTDOWN_GRACE", "8"))
+    SHUTDOWN.register("close-socket-mode", _close_socket_mode)
+    SHUTDOWN.register("drain-workers", lambda: WORKERS.drain(timeout=_grace, logger=log))
+    SHUTDOWN.install()
+
     try:
         log.info("[startup] SocketModeHandler created; starting connection now")
         handler.start()
