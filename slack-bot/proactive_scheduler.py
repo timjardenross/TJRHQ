@@ -1042,8 +1042,20 @@ def _job_lifecycle_recommendations(client) -> None:
                 lines.append(f"  • {r.get('id')} — {r.get('next_actor', '')}")
         lines.append("\n_Advisory only — nothing is approved or merged without your sign-off._")
 
-        if _post(client, "\n".join(lines)):
+        # Own destination, independent of BRIEF_CHANNEL — so enabling this one
+        # notification does NOT switch on the whole proactive-brief suite.
+        channel = (os.environ.get("LIFECYCLE_RECS_CHANNEL")
+                   or os.environ.get("CAPTAINS_INBOX_CHANNEL_ID")
+                   or _BRIEF_CHANNEL or _BRIEF_USER_ID)
+        if not channel:
+            log.warning("[lifecycle_recs] no channel configured (set LIFECYCLE_RECS_CHANNEL "
+                        "or CAPTAINS_INBOX_CHANNEL_ID) — skipping")
+            return
+        try:
+            client.chat_postMessage(channel=channel, text="\n".join(lines))
             log.info("[lifecycle_recs] Posted XO review/approval notification (%d items)", needing)
+        except Exception as exc:  # noqa: BLE001
+            log.error("[lifecycle_recs] Slack post failed: %s", exc)
     except Exception as exc:  # noqa: BLE001 - advisory job must never crash the scheduler
         log.error("[lifecycle_recs] Lifecycle review/approval notification failed: %s", exc)
 
