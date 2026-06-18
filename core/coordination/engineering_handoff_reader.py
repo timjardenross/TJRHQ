@@ -218,6 +218,23 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
     approved_at = _coerce_approved_at(fields.get("approved_at"), path)
 
     batch_status_label = batch_status or "PENDING"
+
+    # Pointer to the review-only code artifact, once batch_coding has delivered it.
+    # The writer stamps `- Batch Artifact: <path>`; accept the synonyms a manual
+    # or alternate pipeline might use too. Keys are normalised lower_snake_case
+    # by _parse_handoff_file, so match the normalised forms.
+    artifact_ref = ""
+    for _artifact_key in ("batch_artifact", "output_artifact", "review_artifact"):
+        candidate = (fields.get(_artifact_key) or "").strip()
+        if candidate:
+            artifact_ref = candidate
+            break
+
+    # Pointer to the draft GitHub PR, once batch_coding has opened one (the diff
+    # applied cleanly). Stamped as `- PR URL: <url>`. Preferred over the raw patch
+    # pointer below — a PR is the higher-fidelity review surface.
+    pr_url = (fields.get("pr_url") or "").strip()
+
     # Advisory next-action keyed to the lifecycle stage (read-only guidance).
     _next_action_by_stage = {
         EngineeringStatus.PENDING_TRIAGE: "Triage and assign this approved engineering handoff",
@@ -225,10 +242,23 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
         EngineeringStatus.IN_PROGRESS: "Engineering handoff in progress — track to delivery",
         EngineeringStatus.AWAITING_REVIEW: "Engineering handoff delivered — review and sign off",
     }
-    next_action = (
-        f"{_next_action_by_stage.get(eng_status, 'Review engineering handoff')} "
-        f"(lifecycle: {eng_status.value}; batch status: {batch_status_label})"
-    )
+    # When a draft PR exists, point straight at it. Else, if the code artifact has
+    # landed, point at the patch. Else fall back to the generic stage guidance.
+    if eng_status is EngineeringStatus.AWAITING_REVIEW and pr_url:
+        next_action = (
+            f"Engineering handoff delivered — review the draft PR at {pr_url} "
+            f"and approve/merge (lifecycle: {eng_status.value}; batch status: {batch_status_label})"
+        )
+    elif eng_status is EngineeringStatus.AWAITING_REVIEW and artifact_ref:
+        next_action = (
+            f"Engineering handoff delivered — review the generated patch at {artifact_ref} "
+            f"and sign off (lifecycle: {eng_status.value}; batch status: {batch_status_label})"
+        )
+    else:
+        next_action = (
+            f"{_next_action_by_stage.get(eng_status, 'Review engineering handoff')} "
+            f"(lifecycle: {eng_status.value}; batch status: {batch_status_label})"
+        )
 
     try:
         rel_path = str(path.relative_to(_REPO_ROOT))
@@ -254,6 +284,8 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
             "handoff_file": rel_path,
             "decision_id": fields.get("decision_id", ""),
             "batch_status": batch_status_label,
+            "batch_artifact": artifact_ref,
+            "pr_url": pr_url,
             "batch_group": fields.get("batch_group", ""),
             "approved_by": fields.get("approved_by", ""),
             "approved_at": fields.get("approved_at", ""),

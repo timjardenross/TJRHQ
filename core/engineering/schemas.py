@@ -17,6 +17,7 @@ class ExecutionMode(str, Enum):
     PLAN = "plan"
     PATCH = "patch"
     REVIEW = "review"
+    FULL_FILE = "full_file"  # return complete file contents (mechanically diffed/committed)
 
 
 class Backend(str, Enum):

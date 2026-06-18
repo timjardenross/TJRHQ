@@ -55,6 +55,14 @@ _MAX_FILE_RESULTS = 8       # cap on keyword-matched files shown to provider
 _MAX_MISSION_BODY = 3000    # characters of mission file content to include
 _MAX_GIT_LINES = 60         # lines of git status to include
 
+# Verbatim file-content injection — the grounding that lets PATCH-mode produce
+# apply-clean diffs (the model copies exact context lines from here instead of
+# hallucinating them). Kept tightly bounded so the prompt stays a sane size.
+_MAX_CONTENT_FILES = 3        # number of matched files to include full content for
+_MAX_CONTENT_CHARS = 6000     # per-file character cap
+_MAX_CONTENT_TOTAL = 14000    # total character budget across all included files
+_MAX_GREP_BYTES = 60000       # skip content-grep for files larger than this
+
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -81,6 +89,17 @@ def enrich(ctx: MissionContext) -> str:
     if relevant_files:
         file_list = "\n".join(f"  {f}" for f in relevant_files)
         sections.append(_section("RELEVANT REPOSITORY FILES", file_list))
+
+        # Inject the actual contents of the top matches so PATCH-mode can copy
+        # exact context lines (apply-clean diffs) instead of inventing them.
+        contents = _load_file_contents(relevant_files[:_MAX_CONTENT_FILES])
+        if contents:
+            sections.append(
+                _section(
+                    "CURRENT FILE CONTENTS (verbatim — copy context from here)",
+                    contents,
+                )
+            )
     else:
         sections.append(
             _section(
@@ -142,15 +161,23 @@ def _load_mission_file(mission_id: str, title: str) -> Optional[str]:
 
 def _find_relevant_files(title: str) -> list[str]:
     """
-    Extract keywords from the mission title and search for matching source files.
-    Returns a list of repo-relative paths (capped at _MAX_FILE_RESULTS).
+    Extract keywords from the mission title and rank matching source files by
+    relevance. Returns repo-relative paths, most-relevant first (capped at
+    _MAX_FILE_RESULTS).
+
+    Scoring (higher = more relevant) so content injection grounds on the RIGHT
+    files instead of arbitrary directory order:
+      * +4 per distinct keyword in the file *name* (a strong signal)
+      * +1 per distinct keyword in the file *contents* (bounded grep)
+      * +1 if it's actual code (.py/.js/.ts) rather than docs/templates
+    Common-but-shared keywords no longer flatten the ranking: a file matching
+    two distinct keywords always outranks one matching a single common word.
     """
     keywords = _extract_keywords(title)
     if not keywords:
         return []
 
-    matches: list[Path] = []
-    seen: set[str] = set()
+    scored: list[tuple[int, int, str]] = []  # (-score, path_len, rel) for sort
 
     for root_rel in _CODE_SEARCH_ROOTS:
         root = _REPO_ROOT / root_rel
@@ -167,15 +194,57 @@ def _find_relevant_files(title: str) -> list[str]:
                 continue
 
             name_lower = path.stem.lower().replace("_", " ").replace("-", " ")
-            if any(kw in name_lower for kw in keywords):
-                rel = str(path.relative_to(_REPO_ROOT))
-                if rel not in seen:
-                    seen.add(rel)
-                    matches.append(path)
-                    if len(matches) >= _MAX_FILE_RESULTS:
-                        return [str(p.relative_to(_REPO_ROOT)) for p in matches]
+            score = sum(4 for kw in keywords if kw in name_lower)
 
-    return [str(p.relative_to(_REPO_ROOT)) for p in matches]
+            # Bounded content grep — distinct keyword hits in the body. Skipped
+            # for large files to keep enrichment fast.
+            try:
+                if path.stat().st_size <= _MAX_GREP_BYTES:
+                    body = path.read_text(encoding="utf-8", errors="replace").lower()
+                    score += sum(1 for kw in keywords if kw in body)
+            except Exception:
+                pass
+
+            if score <= 0:
+                continue
+            if path.suffix in {".py", ".js", ".ts"}:
+                score += 1
+
+            rel = str(path.relative_to(_REPO_ROOT))
+            scored.append((-score, len(rel), rel))
+
+    scored.sort()
+    return [rel for _, _, rel in scored[:_MAX_FILE_RESULTS]]
+
+
+def _load_file_contents(rel_paths: list[str]) -> str:
+    """Return the verbatim contents of the given repo-relative files, bounded.
+
+    Each file is labelled with its path and line count so the model can write
+    accurate `@@` headers and copy exact context. Honours per-file and total
+    character budgets; notes any truncation. Read-only. Returns "" if nothing
+    readable (caller then omits the section)."""
+    out: list[str] = []
+    budget = _MAX_CONTENT_TOTAL
+    for rel in rel_paths:
+        if budget <= 0:
+            break
+        path = _REPO_ROOT / rel
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:  # unreadable → skip, never raise
+            log.warning("[enricher] could not read %s: %s", path, exc)
+            continue
+        total_lines = text.count("\n") + 1
+        per_file_cap = min(_MAX_CONTENT_CHARS, budget)
+        snippet = text[:per_file_cap]
+        truncated = len(text) > per_file_cap
+        budget -= len(snippet)
+        header = f"### FILE: {rel} ({total_lines} lines)"
+        if truncated:
+            header += " — TRUNCATED, partial content; do not edit lines beyond what is shown"
+        out.append(f"{header}\n{snippet.rstrip()}\n")
+    return "\n".join(out).strip()
 
 
 def _extract_keywords(title: str) -> list[str]:

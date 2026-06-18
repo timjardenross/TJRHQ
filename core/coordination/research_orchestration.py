@@ -795,31 +795,25 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         return self._fallback_decomposition_tasks(research_topic)
 
     def _decompose_with_mistral(self, prompt: str) -> list[str]:
-        """Decompose using Mistral Decomposition Agent (primary)."""
+        """Decompose using the Mistral Decomposition Agent (primary).
+
+        Routes through the shared mistral_agent_client.call_agent so the request
+        is built and retried exactly like every other (working) Mistral stage.
+        The previous inline client call passed `inputs` as a dict and
+        `agent_version` as an int, which failed the SDK's request validation on
+        every call (2 validation errors: string_type/list_type — the inputs
+        union expects str|list) and silently forced the Gemini fallback.
+        """
+        if _mac is None:
+            log.warning("[decompose] Mistral: mistral_agent_client unavailable")
+            return []
         try:
-            api_key = os.getenv("MISTRAL_API_KEY")
-            if not api_key:
-                log.warning("[decompose] Mistral: MISTRAL_API_KEY not set")
-                return []
-
-            agent_id = os.getenv("MISTRAL_DECOMPOSITION_AGENT_ID", "").strip()
-            if not agent_id:
-                log.warning("[decompose] Mistral: MISTRAL_DECOMPOSITION_AGENT_ID not set")
-                return []
-
-            agent_version = int(os.getenv("MISTRAL_DECOMPOSITION_AGENT_VERSION", "2"))
-
-            log.info(f"[decompose] Mistral: Calling agent {agent_id} v{agent_version}...")
-            from mistralai import Mistral
-
-            client = Mistral(api_key=api_key)
-            response = client.beta.conversations.start(
-                agent_id=agent_id,
-                agent_version=agent_version,
-                inputs={"messages": [{"role": "user", "content": prompt}]},
+            text = _mac.call_agent(
+                stage="decompose",
+                agent_name=_mac.AGENT_DECOMPOSITION,
+                prompt=prompt,
+                mission_id=getattr(self, "mission_id", None),
             )
-
-            text = _extract_mistral_text(response)
             if not text:
                 log.warning("[decompose] Mistral: Empty response")
                 return []

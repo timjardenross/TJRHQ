@@ -49,6 +49,7 @@ from commands.mission_brief import (
     handle_save_mission_file,
     xo_can_approve,
     save_engineering_handoff_from_build_record,
+    reject_build_record,
 )
 from lib.xo_policy import xo_can_approve as xo_policy_can_approve
 from commands.mission_capture import handle_mission_capture
@@ -73,6 +74,16 @@ from commands.lesson_log import handle_lesson_log
 # M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE WP1/WP2
 from command_memory_integration import save_mission_to_command_memory
 from paperclip_issue_creator import create_slack_paperclip_issue
+
+# Loop closure: auto-hand an approved engineering handoff straight to Mistral
+# batch-coding (review-only patch artifact + draft PR) instead of a manual run.
+# Guarded so a missing mistralai/provider never blocks bot startup or approvals.
+try:
+    from core.engineering.batch_coding import run_sync_one as _run_sync_one
+    _AUTO_ENGINEER_AVAILABLE = True
+except Exception as _auto_eng_exc:  # mistralai absent / import error → manual fallback
+    _AUTO_ENGINEER_AVAILABLE = False
+    _run_sync_one = None
 
 # MSN-DISCOVERY-001: Captain's Inbox intake (WP2)
 from lib.captains_inbox_events import register_captains_inbox_handlers
@@ -102,6 +113,63 @@ from commands.captain_brief import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _auto_engineer_enabled() -> bool:
+    """Whether to auto-run Mistral batch-coding when a handoff is approved.
+
+    On by default (the Captain asked for approval → Mistral to be automatic);
+    set AUTO_ENGINEER_ON_APPROVAL=false to revert to the manual batch-coding run.
+    """
+    if not _AUTO_ENGINEER_AVAILABLE:
+        return False
+    return os.environ.get("AUTO_ENGINEER_ON_APPROVAL", "true").strip().lower() not in {
+        "false", "0", "no", "off",
+    }
+
+
+def _auto_engineer_handoff(handoff_path: str, channel: str, thread_ts: str) -> None:
+    """Background worker: code an approved handoff via Mistral, post result to thread.
+
+    Closes the approval → engineering loop. Review-only and best-effort: the patch
+    is written as an artifact and any PR is a draft; failures are reported back to
+    the thread and never raised (this runs in its own thread)."""
+    try:
+        result = _run_sync_one(handoff_path)
+    except Exception as exc:  # defensive — the worker must never crash silently
+        log.warning("[app] auto-engineer worker crashed for %s: %s", handoff_path, exc)
+        result = {"status": "failed", "error": str(exc)[:200]}
+
+    status = result.get("status")
+    if status == "skipped":
+        log.info("[app] auto-engineer skipped %s: %s", handoff_path, result.get("error"))
+        return  # nothing actionable to report (not PENDING / env not ready)
+
+    if status == "delivered":
+        lines = [":robot_face: *Engineering auto-run complete* — review-only, no code merged."]
+        if result.get("artifact"):
+            lines.append(f"Patch artifact: `{result['artifact']}`")
+        if result.get("pr_url"):
+            lines.append(f"Draft PR: {result['pr_url']}")
+        else:
+            lines.append(
+                "_No draft PR opened (diff didn't apply cleanly or GitHub not "
+                "configured) — review the patch artifact directly._"
+            )
+        msg = "\n".join(lines)
+    else:  # failed
+        msg = (
+            f":warning: *Engineering auto-run failed* for `{Path(handoff_path).stem}`.\n"
+            f"Reason: {result.get('error', 'unknown')}\n"
+            "The handoff is marked FAILED — retry with the batch-coding CLI when ready."
+        )
+
+    if app is None:
+        return
+    try:
+        app.client.chat_postMessage(channel=channel, thread_ts=thread_ts, text=msg)
+    except Exception as exc:  # best-effort notification
+        log.warning("[app] failed to post auto-engineer result: %s", exc)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 _commander_memory_adapter = CommanderMemoryAdapter()
 
@@ -421,7 +489,12 @@ def handle_message_events(body, say, client):
         return
 
     normalized = " ".join(text.lower().split())
-    if normalized != "approved for engineering":
+    _APPROVE_PHRASE = "approved for engineering"
+    _REJECT_PHRASES = {
+        "reject", "rejected", "reject build", "build rejected",
+        "reject for engineering", "rejected for engineering", "changes requested",
+    }
+    if normalized != _APPROVE_PHRASE and normalized not in _REJECT_PHRASES:
         return
 
     with _build_thread_lock:
@@ -434,6 +507,33 @@ def handle_message_events(body, say, client):
         build_context = recovered_context
         with _build_thread_lock:
             _active_build_threads[thread_ts] = build_context
+
+    # --- Rejection path: counterpart to approval; no handoff, mark record REJECTED ---
+    if normalized in _REJECT_PHRASES:
+        log.info(
+            "[app] /build rejection detected: thread_ts=%s user=%s channel=%s",
+            thread_ts,
+            user_id,
+            event.get("channel"),
+        )
+        try:
+            reject_result = reject_build_record(
+                build_record=build_context,
+                rejector_user_id=user_id,
+            )
+        except Exception as exc:  # non-blocking — always acknowledge the rejection
+            log.warning("[app] reject_build_record failed (non-blocking): %s", exc)
+            reject_result = {"record_path": build_context.get("record_path", "unknown")}
+        with _build_thread_lock:
+            _active_build_threads.pop(thread_ts, None)
+        say(
+            ":x: *Build Rejected*\n\n"
+            f"*{build_context.get('mission_title', 'Build request')}* will not proceed to engineering.\n"
+            "No engineering handoff was created.\n"
+            f"Build record marked REJECTED: `{reject_result.get('record_path', 'unknown')}`",
+            thread_ts=thread_ts,
+        )
+        return
 
     log.info(
         "[app] /build approval detected: thread_ts=%s user=%s channel=%s",
@@ -500,12 +600,33 @@ def handle_message_events(body, say, client):
             paperclip_result.get("error"),
         )
 
+    # Loop closure: kick the approved handoff straight to Mistral batch-coding in
+    # the background (review-only). A follow-up message lands in this thread when
+    # the patch artifact / draft PR is ready. Off → AUTO_ENGINEER_ON_APPROVAL=false.
+    auto_engineer_started = False
+    if _auto_engineer_enabled() and handoff_path:
+        channel_for_followup = event.get("channel", "")
+        threading.Thread(
+            target=_auto_engineer_handoff,
+            args=(handoff_path, channel_for_followup, thread_ts),
+            name=f"auto-engineer-{decision_id}",
+            daemon=True,
+        ).start()
+        auto_engineer_started = True
+
+    engineering_line = (
+        "\n:gear: Engineering auto-run started — a review-only patch (and draft PR if "
+        "the diff applies) will be posted to this thread shortly."
+        if auto_engineer_started else ""
+    )
+
     say(
         ":white_check_mark: *Approved for Engineering*\n\n"
         f"Handoff: `{handoff_path}`\n"
         f"Mission ID: `{decision_id}`"
         f"{paperclip_line}\n"
-        f"XO policy trace: {', '.join(policy_decision.policy_trace)}",
+        f"XO policy trace: {', '.join(policy_decision.policy_trace)}"
+        f"{engineering_line}",
         thread_ts=thread_ts,
     )
 
