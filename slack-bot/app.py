@@ -66,7 +66,7 @@ from commands.health_event import (
 from commands.health_synthesis import handle_health_brief
 from commands.health_appointment_prep import handle_health_prep
 from commands.ask_specialist import handle_ask_specialist
-from commands.github_issue_draft import handle_github_issue_draft
+from commands.github_issue_draft import handle_github_issue_draft, handle_github_issue_save
 # M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE WP1
 from commands.lesson_log import handle_lesson_log
 
@@ -771,6 +771,70 @@ def handle_commander_slash(ack, respond, command):
             respond(error_response)
 
     threading.Thread(target=_run_and_reply, daemon=True).start()
+
+# ------------------------------------------------------------------
+# MSN-0011D Part 1: GitHub issue draft / create
+# ------------------------------------------------------------------
+
+@app.command("/github-issue-draft")
+def handle_github_issue_draft_slash(ack, respond, command):
+    """/github-issue-draft — Generate a GitHub-ready issue draft (preview only).
+
+    Never creates an issue. Use /github-issue-save to create on GitHub.
+    Usage: /github-issue-draft <description>
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /github-issue-draft: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if not text:
+        respond(handle_github_issue_draft("", user_id, channel_id))
+        return
+
+    respond(":memo: *GitHub Issue Draft*\n\n:hourglass_flowing_sand: Generating draft… please wait.")
+
+    def _run():
+        try:
+            respond(handle_github_issue_draft(text, user_id, channel_id))
+        except Exception as exc:
+            log.error("[app] /github-issue-draft failed: %s", exc)
+            respond(f"*GITHUB ISSUE DRAFT — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.command("/github-issue-save")
+def handle_github_issue_save_slash(ack, respond, command):
+    """/github-issue-save — Generate a draft and create the issue on GitHub.
+
+    Performs a real GitHub API write when GITHUB_TOKEN and GITHUB_REPO are set;
+    fails safe otherwise.
+    Usage: /github-issue-save <description>
+    """
+    ack()
+    text = (command.get("text") or "").strip()
+    user_id = command.get("user_id", "")
+    channel_id = command.get("channel_id", "")
+
+    log.info("[app] /github-issue-save: user=%s channel=%s text=%r", user_id, channel_id, text[:80])
+
+    if not text:
+        respond(handle_github_issue_save("", user_id, channel_id))
+        return
+
+    respond(":rocket: *GitHub Issue — Create*\n\n:hourglass_flowing_sand: Generating draft and creating issue… please wait.")
+
+    def _run():
+        try:
+            respond(handle_github_issue_save(text, user_id, channel_id))
+        except Exception as exc:
+            log.error("[app] /github-issue-save failed: %s", exc)
+            respond(f"*GITHUB ISSUE — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 # ------------------------------------------------------------------
 # MSN-0012: Slack Discovery & Backlog Command Layer
