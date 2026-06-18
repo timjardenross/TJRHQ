@@ -813,6 +813,46 @@ def find_build_record_by_thread(thread_ts: str) -> dict[str, str] | None:
     return None
 
 
+def reject_build_record(
+    build_record: dict[str, str],
+    rejector_user_id: str,
+    reason: str = "",
+) -> dict[str, str]:
+    """Mark a saved /build record as REJECTED — the counterpart to approval.
+
+    Non-destructive: appends a Rejection section to the existing Build-Records file
+    (audit trail) and creates NO engineering handoff. Idempotent (won't duplicate
+    the section). Returns {record_path, mission_title, status, rejected_at}.
+    """
+    record_path_rel = build_record.get("record_path", "") or "unknown"
+    mission_title = build_record.get("mission_title", "").strip() or "Build request"
+    rejected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    abs_path = _REPO_ROOT / record_path_rel if record_path_rel != "unknown" else None
+    if abs_path and abs_path.exists():
+        try:
+            existing = abs_path.read_text(encoding="utf-8")
+            if "## Rejection" not in existing:
+                existing += (
+                    "\n## Rejection\n\n"
+                    "- Status: REJECTED\n"
+                    f"- Rejected by: {rejector_user_id}\n"
+                    f"- Rejected at: {rejected_at}\n"
+                    + (f"- Reason: {reason.strip()}\n" if reason.strip() else "")
+                )
+                abs_path.write_text(existing, encoding="utf-8")
+            log.info("[mission-brief] Build record marked REJECTED: %s", record_path_rel)
+        except OSError as exc:  # pragma: no cover - filesystem edge
+            log.warning("[mission-brief] Could not mark build record rejected: %s", exc)
+
+    return {
+        "record_path": record_path_rel,
+        "mission_title": mission_title,
+        "status": "REJECTED",
+        "rejected_at": rejected_at,
+    }
+
+
 def save_engineering_handoff_from_build_record(
     build_record: dict[str, str],
     approver_user_id: str,

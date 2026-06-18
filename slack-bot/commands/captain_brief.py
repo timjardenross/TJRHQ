@@ -40,7 +40,7 @@ _CONTEXT_SERVICE_PY = _REPO_ROOT / "core" / "context-assembly" / "context_servic
 _PYTHON = sys.executable
 
 # WP6 Express backend — configurable for staging
-_API_BASE = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5050")
+_API_BASE = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5000")
 _TIMEOUT = int(os.environ.get("CONTEXT_SERVICE_TIMEOUT", "8"))
 
 _ENDPOINT = {
@@ -60,7 +60,11 @@ def _fetch(context_name: str) -> dict[str, Any] | None:
     url = _ENDPOINT.get(context_name)
     if url:
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            headers = {"Accept": "application/json"}
+            _key = os.environ.get("BACKEND_API_KEY")
+            if _key:
+                headers["X-Api-Key"] = _key  # backend requires API key (Mission 7)
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
                 envelope = json.loads(resp.read())
                 data = envelope.get("data") or envelope

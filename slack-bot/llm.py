@@ -13,6 +13,7 @@ DEFAULT_ENGINEER_MODEL = "deepseek-coder:6.7b"
 DEFAULT_REASONING_MODEL = "deepseek-r1:14b"
 DEFAULT_FAST_MODEL = "gemma3"
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_TIMEOUT_SECONDS = 20
 EMBEDDING_MODEL_ENV = "OLLAMA_EMBEDDING_MODEL"
 
@@ -23,9 +24,13 @@ class LLMUnavailableError(RuntimeError):
 
 def get_llm_provider() -> str:
     provider = os.getenv("LLM_PROVIDER", DEFAULT_PROVIDER).lower().strip()
-    if provider not in {"auto", "ollama", "openai"}:
+    if provider not in {"auto", "ollama", "openai", "gemini"}:
         return DEFAULT_PROVIDER
     return provider
+
+
+def get_gemini_model() -> str:
+    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
 
 
 def get_ollama_base_url() -> str:
@@ -80,6 +85,10 @@ def is_openai_available() -> bool:
     return bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_ADMIN_KEY"))
 
 
+def is_gemini_available() -> bool:
+    return bool(os.getenv("GEMINI_API_KEY"))
+
+
 def is_llm_configured() -> bool:
     return is_llm_available()
 
@@ -90,7 +99,9 @@ def is_llm_available() -> bool:
         return is_ollama_available()
     if provider == "openai":
         return is_openai_available()
-    return is_ollama_available() or is_openai_available()
+    if provider == "gemini":
+        return is_gemini_available()
+    return is_ollama_available() or is_openai_available() or is_gemini_available()
 
 
 def select_ollama_model(
@@ -191,6 +202,29 @@ def generate_with_openai(prompt: str, system_prompt: str | None = None) -> str:
     return content.strip()
 
 
+def generate_with_gemini(prompt: str, system_prompt: str | None = None) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise LLMUnavailableError("Gemini credentials are not configured.")
+
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            get_gemini_model(),
+            system_instruction=system_prompt or None,
+        )
+        response = model.generate_content(prompt)
+        content = (getattr(response, "text", "") or "")
+    except Exception as error:
+        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
+
+    if not content.strip():
+        raise LLMUnavailableError("Gemini returned an empty response.")
+    return content.strip()
+
+
 def generate_response(
     prompt: str,
     system_prompt: str | None = None,
@@ -218,6 +252,18 @@ def try_generate_response(
 ) -> tuple[bool, str]:
     provider = get_llm_provider()
     attempted: list[str] = []
+    gemini_reason = ""
+
+    # Gemini — preferred cloud provider when configured (Ollama is local/optional,
+    # OpenAI often unset). In "auto" it's tried first; "gemini" forces it.
+    if provider in {"auto", "gemini"}:
+        attempted.append("gemini")
+        try:
+            return True, generate_with_gemini(prompt=prompt, system_prompt=system_prompt)
+        except LLMUnavailableError as error:
+            if provider == "gemini":
+                return False, str(error)
+            gemini_reason = str(error)
 
     if provider in {"auto", "ollama"}:
         selected_model = select_ollama_model(specialists=specialists, user_text=prompt, priority=priority)
@@ -245,7 +291,7 @@ def try_generate_response(
     else:
         openai_reason = ""
 
-    reasons = "; ".join(reason for reason in [ollama_reason, openai_reason] if reason)
+    reasons = "; ".join(reason for reason in [gemini_reason, ollama_reason, openai_reason] if reason)
     attempted_text = ", ".join(attempted) or "none"
     return False, reasons or f"No configured provider succeeded. Attempted: {attempted_text}."
 
