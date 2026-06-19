@@ -199,3 +199,41 @@ export interface LatestDiscovery {
   distance: string;
   detail: string;
 }
+
+// ── ROS-001 v1.1 — Recovery Operating System types ────────────────────────────
+
+export type RecoveryPostureBand = 'STRONG' | 'STABLE' | 'FRAGILE' | 'REST' | 'UNKNOWN';
+export type CapacityBand = 'GOOD' | 'MODERATE' | 'LIMITED' | 'REST' | 'UNKNOWN';
+export type NervousSystemState = 'calm' | 'activated' | 'dysregulated';
+
+/** Operational recovery posture — from get_recovery_posture(). */
+export interface RecoveryPosture {
+  posture: RecoveryPostureBand;
+  posture_message: string;
+  capacity_band: CapacityBand;
+  capacity_message: string;
+  best_window: string;
+  mission_guidance: string;
+  data_available: boolean;
+}
+
+/** Today's body context signals — from analytics_health_daily. */
+export interface BodyContext {
+  sleep_hours: number;
+  sleep_quality: 'Good' | 'Fair' | 'Poor';
+  cpap_compliant: boolean;
+  nervous_system_state: NervousSystemState;
+  energy: 'High' | 'Moderate' | 'Low';
+  body_signals: 'Low' | 'Moderate' | 'High';
+  sitting_window_minutes: number;
+}
+
+/** Mission load guidance derived from recovery posture. */
+export interface MissionLoadGuidanceData {
+  posture: RecoveryPostureBand;
+  active_mission_id: string;
+  active_mission_safe: boolean;
+  new_starts_recommended: boolean;
+  decisions_pending: number;
+  defer_decisions: boolean;
+}

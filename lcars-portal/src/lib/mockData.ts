@@ -25,6 +25,7 @@
 
 import type {
   Alert,
+  BodyContext,
   BriefingItem,
   CaptainBrief,
   CrewMember,
@@ -36,9 +37,11 @@ import type {
   LatestDiscovery,
   Mission,
   MissionBoardColumn,
+  MissionLoadGuidanceData,
   MissionSummary,
   OperatingPicture,
   QueueItem,
+  RecoveryPosture,
   ResearchQueueItem,
   ServiceStatus,
   ShipSystemStatus,
@@ -631,3 +634,46 @@ export const researchQueue: ResearchQueueItem[] = [
   { id: '02', title: 'Subspace Distortion Mapping',    location: 'Data Collection', status: 'queued',   tone: 'neutral' },
   { id: '03', title: 'Xenobiological Sample Analysis', location: 'Laboratory',   status: 'queued',      tone: 'neutral' }
 ];
+
+// ── ROS-001 v1.1 — Recovery Operating System ─────────────────────────────────
+// Phase 2: replace with live Supabase calls to get_recovery_posture() and
+// analytics_health_daily for the current date.
+
+/** Current recovery posture — from get_recovery_posture(current_date). */
+export const recoveryPosture: RecoveryPosture = {
+  posture: 'STABLE',
+  posture_message: 'The system is settled. Continue present pattern.',
+  capacity_band: 'MODERATE',
+  capacity_message: 'Moderate capacity available. Estimated window: 3–4 hours.',
+  best_window: '09:00–12:30',
+  mission_guidance: '1 active mission appropriate today. New starts not recommended.',
+  data_available: true
+};
+
+/** Today's body context signals — from analytics_health_daily (today). */
+export const bodyContext: BodyContext = {
+  sleep_hours: 7.0,
+  sleep_quality: 'Good',
+  cpap_compliant: true,
+  nervous_system_state: 'calm',
+  energy: 'Moderate',
+  body_signals: 'Moderate',
+  sitting_window_minutes: 90
+};
+
+/** Medical Officer recovery guidance — from health_insights latest medical_orders. */
+export const recoveryGuidance: string[] = [
+  'Morning movement before 11:00 — the nervous system responds well to early movement.',
+  'Protected rest block 13:00–14:30.',
+  'No high-cognitive work after 14:00 based on your pattern.'
+];
+
+/** Mission load guidance derived from recovery posture and active missions. */
+export const missionLoadGuidance: MissionLoadGuidanceData = {
+  posture: 'STABLE',
+  active_mission_id: 'MSN-0062',
+  active_mission_safe: true,
+  new_starts_recommended: false,
+  decisions_pending: 2,
+  defer_decisions: true
+};
