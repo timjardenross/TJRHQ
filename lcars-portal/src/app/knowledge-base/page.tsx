@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { LCARSPanel } from '@/components/LCARSPanel';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { knowledgeArticles } from '@/lib/mockData';
 
@@ -38,6 +39,59 @@ function getCategoryMap() {
 const recentlySorted = [...knowledgeArticles].sort(
   (a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime()
 );
+
+// ── Quick Access — pinned docs ────────────────────────────────────────────────
+
+const PINNED_DOCS = [
+  {
+    id: 'CD-055',
+    title: 'Directive 055 — Captain Capacity First',
+    category: 'Governance',
+    description: 'Core operating doctrine. Starship Endeavour exists to increase Captain Capacity.',
+    tone: 'text-medical border-medical/40 bg-medical/5',
+    path: 'knowledge/Captains-Directives.md',
+  },
+  {
+    id: 'ROS-001',
+    title: 'Recovery Operating System v1.1',
+    category: 'Medical',
+    description: 'Four-stage recovery model. Transitions are recognised, not achieved.',
+    tone: 'text-command border-command/40 bg-command/5',
+    path: 'knowledge/ROS-001-Recovery-Operating-System.md',
+  },
+  {
+    id: 'CD-001',
+    title: 'Captain\'s Directives Registry',
+    category: 'Governance',
+    description: 'Enduring instructions governing behaviour, priorities, and evolution of USS TJR.',
+    tone: 'text-science border-science/40 bg-science/5',
+    path: 'knowledge/Captains-Directives.md',
+  },
+];
+
+function QuickAccess() {
+  return (
+    <LCARSPanel
+      title="Quick Access"
+      accent="science"
+      eyebrow="Pinned — key doctrine documents"
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
+        {PINNED_DOCS.map((doc) => (
+          <div
+            key={doc.id}
+            className={`rounded-lcars border p-4 ${doc.tone}`}
+          >
+            <p className="font-mono text-[10px] text-lcars-muted mb-1">{doc.id}</p>
+            <p className="text-sm font-semibold text-lcars-text leading-snug">{doc.title}</p>
+            <p className="text-xs text-lcars-muted/80 mt-1.5 leading-relaxed">{doc.description}</p>
+            <p className="text-[10px] font-mono text-lcars-muted/50 mt-2 truncate">{doc.path}</p>
+          </div>
+        ))}
+      </div>
+    </LCARSPanel>
+  );
+}
 
 // ── KB Stats header ───────────────────────────────────────────────────────────
 
@@ -179,6 +233,7 @@ function ArticleGrid() {
 export default function KnowledgeBasePage() {
   return (
     <div className="flex flex-col gap-4">
+      <QuickAccess />
       <KBStats />
 
       <div className="grid gap-4 xl:grid-cols-[220px_1fr]">

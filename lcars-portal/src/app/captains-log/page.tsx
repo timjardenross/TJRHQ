@@ -139,22 +139,46 @@ export default function CaptainsLogPage() {
         eyebrow={today}
       >
         <p className="text-xs text-lcars-muted">
-          End-of-day structured reflection. Upserts on date — re-submitting today updates the record.
+          End-of-day structured reflection. Close the recovery loop — log what was, what changed,
+          and what tomorrow needs. Upserts on date — re-submitting today updates the record.
         </p>
       </LCARSPanel>
 
-      {/* RAG status */}
-      <LCARSPanel title="Status" accent="command" eyebrow="Today's RAG ratings">
+      {/* D-055 — Recovery reflection first */}
+      <LCARSPanel
+        title="Recovery Reflection"
+        accent="medical"
+        eyebrow="D-055 · Capacity loop — complete before mission log"
+      >
+        <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
+          Before logging missions, close the recovery loop. How did the day land in the body?
+          This is the primary record — mission detail is context.
+        </p>
         <div className="flex flex-col gap-4">
-          <RAGField label="Health" value={healthStatus} onChange={setHealthStatus} />
+          <TextArea
+            label="Recovery note — how did the day land?"
+            value={overallNote}
+            onChange={setOverallNote}
+            placeholder="How did the nervous system land today? What restored or depleted capacity? What does the body need tonight?"
+            rows={3}
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <RAGField label="Health" value={healthStatus} onChange={setHealthStatus} />
+            <RAGField label="Captain capacity" value={capacityRating} onChange={setCapacityRating} />
+          </div>
+        </div>
+      </LCARSPanel>
+
+      {/* RAG status */}
+      <LCARSPanel title="Status" accent="command" eyebrow="Work and personal RAG">
+        <div className="flex flex-col gap-4">
           <RAGField label="Work" value={workStatus} onChange={setWorkStatus} />
           <RAGField label="Personal" value={personalStatus} onChange={setPersonalStatus} />
-          <RAGField label="Captain capacity" value={capacityRating} onChange={setCapacityRating} />
         </div>
       </LCARSPanel>
 
       {/* Narrative */}
-      <LCARSPanel title="Log Entry" accent="command" eyebrow="Narrative fields — all optional">
+      <LCARSPanel title="Mission Log" accent="command" eyebrow="Narrative fields — all optional">
         <div className="flex flex-col gap-4">
           <TextArea
             label="What happened today"
@@ -191,13 +215,7 @@ export default function CaptainsLogPage() {
             label="Tomorrow's priority"
             value={tomorrowPriority}
             onChange={setTomorrowPriority}
-            placeholder="The one thing that matters most tomorrow."
-          />
-          <TextArea
-            label="Overall note"
-            value={overallNote}
-            onChange={setOverallNote}
-            placeholder="Anything else for the record."
+            placeholder="The one thing that matters most tomorrow — through a capacity lens."
           />
         </div>
       </LCARSPanel>
