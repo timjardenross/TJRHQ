@@ -12,8 +12,7 @@ import { DEPARTMENTS } from '@/lib/departments';
 export function LCARSNav() {
   const pathname = usePathname();
 
-  const isActive = (href: string) =>
-    pathname === href || (href === '/captains-chair' && pathname === '/');
+  const isActive = (href: string) => pathname === href;
 
   return (
     <nav

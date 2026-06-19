@@ -23,7 +23,8 @@ export function MissionCard({ mission }: MissionCardProps) {
   const dept = DEPARTMENTS[mission.department];
   return (
     <article
-      className={`flex flex-col gap-2 rounded-lcars border-l-4 border-edge bg-panel-2/60 p-3 ${dept.border}`}
+      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3"
+      style={{ borderLeftColor: dept.hex }}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="font-mono text-xs text-lcars-muted">
