@@ -288,14 +288,14 @@ export const departments: Department[] = [
   },
   {
     key: 'science',
-    name: 'Science / Intelligence',
+    name: 'Astrometrics',
     lead: 'Science Officer',
     status: 'Analysing',
     tone: 'science',
     summary: 'Latest OR intelligence brief generated. Three emerging themes flagged.',
     metrics: [
-      { label: 'Sources', value: '12' },
-      { label: 'Briefs', value: 'Daily' }
+      { label: 'Active Research', value: '5' },
+      { label: 'Reports Ready', value: '3' }
     ]
   },
   {

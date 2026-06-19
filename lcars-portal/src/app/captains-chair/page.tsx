@@ -248,7 +248,10 @@ function DecisionsPanel() {
 function DepartmentRow() {
   const depts = departments.filter((d) => d.key !== 'status');
   return (
-    <div className={`grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-${depts.length}`}>
+    <div
+      className="grid gap-3 grid-cols-2 md:grid-cols-3"
+      style={{ gridTemplateColumns: `repeat(${depts.length}, minmax(0, 1fr))` }}
+    >
       {depts.map((dept) => {
         const theme = DEPARTMENTS[dept.key];
         return (
@@ -269,7 +272,7 @@ function DepartmentRow() {
                 </div>
               ))}
             </dl>
-            <div className="mt-2 flex items-center justify-between">
+            <div className="mt-2">
               <StatusBadge label={dept.status} tone={dept.tone} />
             </div>
           </Panel>

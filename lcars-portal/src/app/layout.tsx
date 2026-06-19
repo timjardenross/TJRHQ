@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { LCARSHeader } from '@/components/LCARSHeader';
 import { LCARSNav } from '@/components/LCARSNav';
+import { LCARSBottomNav } from '@/components/LCARSBottomNav';
 import { SHIP } from '@/lib/mockData';
 
 export const metadata: Metadata = {
@@ -29,7 +30,8 @@ export default function RootLayout({
             <LCARSNav />
             <main className="flex-1">{children}</main>
           </div>
-          <footer className="mt-6 flex flex-col items-start justify-between gap-2 border-t border-edge pt-4 text-xs text-lcars-muted md:flex-row md:items-center">
+          <LCARSBottomNav />
+          <footer className="mt-4 flex flex-col items-start justify-between gap-2 border-t border-edge pt-4 text-xs text-lcars-muted md:flex-row md:items-center">
             <span>
               {SHIP.name} · {SHIP.registry}
             </span>

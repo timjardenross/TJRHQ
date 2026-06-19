@@ -12,6 +12,7 @@ const config: Config = {
   // Dot/accent classes that are composed at runtime (e.g. StatusBadge) — keep
   // them generated even though they don't appear verbatim in source.
   safelist: [
+    // Department bg fills (StatusBadge dot, DepartmentRow icon, BottomNav)
     'bg-command',
     'bg-engineering',
     'bg-operations',
@@ -19,10 +20,10 @@ const config: Config = {
     'bg-science',
     'bg-status',
     'bg-lcars-muted',
+    'bg-lcars-lilac',
+    // Department text / border (dynamic composition in departments.ts)
     'text-engineering',
     'border-engineering',
-    'xl:grid-cols-5',
-    'xl:flex'
   ],
   theme: {
     extend: {
