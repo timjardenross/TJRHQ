@@ -76,12 +76,18 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
     )
 
 
-def run(days: int, dry_run: bool, backfill: bool) -> dict:
+def run(days: int, dry_run: bool, backfill: bool,
+        emit_sql: bool = False, source_id: str = None) -> dict:
     lookback = max(days, 3650) if backfill else days
-    source = _resolve_source(dry_run)
+    source = _resolve_source(dry_run or emit_sql)
+    if source_id:
+        source.source_id = source_id
+    # emit_sql does no DB I/O itself — it prints SQL to stdout for MCP/psql apply.
+    no_db = dry_run or emit_sql
     store = None
-    if not dry_run:
+    if not no_db:
         from intelligence.persistence import intelligence_store as store  # noqa
+    sql: list[str] = []
 
     briefs = discover_parsed_briefs(lookback_days=lookback)
     log.info("Discovered %d briefs (lookback=%d days, dry_run=%s)",
@@ -105,26 +111,31 @@ def run(days: int, dry_run: bool, backfill: bool) -> dict:
             stats["no_events"] += 1
 
         # Dedup Gate 1 — file version already imported?
-        if not dry_run and store.document_version_exists(parsed.file_path, sha):
+        if not no_db and store.document_version_exists(parsed.file_path, sha):
             stats["briefs_skipped"] += 1
             continue
 
         document_id = None
-        if not dry_run:
-            document_id = store.save_source_document({
-                "source_id": source.source_id,
-                "file_name": parsed.file_name,
-                "file_path": parsed.file_path,
-                "blob_url": blob_url,
-                "brief_date": parsed.brief_date,
-                "content_sha": sha,
-                "format_version": parsed.version,
-                "region": parsed.region,
-                "classification": parsed.classification,
-                "raw_front_matter": parsed.front_matter or {},
-                "raw_markdown": parsed.raw_markdown,
-                "parse_warnings": parsed.warnings,
-            })
+        doc = {
+            "source_id": source.source_id,
+            "file_name": parsed.file_name,
+            "file_path": parsed.file_path,
+            "blob_url": blob_url,
+            "brief_date": parsed.brief_date,
+            "content_sha": sha,
+            "format_version": parsed.version,
+            "region": parsed.region,
+            "classification": parsed.classification,
+            "raw_front_matter": parsed.front_matter or {},
+            "raw_markdown": parsed.raw_markdown,
+            "parse_warnings": parsed.warnings,
+        }
+        if emit_sql:
+            document_id = str(uuid.uuid4())
+            doc["document_id"] = document_id
+            sql.append(_doc_insert_sql(doc))
+        elif not dry_run:
+            document_id = store.save_source_document(doc)
         stats["briefs_imported"] += 1
 
         published = None
@@ -155,7 +166,7 @@ def run(days: int, dry_run: bool, backfill: bool) -> dict:
                 "source_ref": parsed.file_path,
                 "brief_date": parsed.brief_date,
             })
-            if not dry_run and (document_id is None or not blob_url):
+            if not no_db and (document_id is None or not blob_url):
                 event.suppressed = True
                 event.suppression_reason = "missing_attribution"
                 stats["events_suppressed"] += 1
@@ -168,43 +179,120 @@ def run(days: int, dry_run: bool, backfill: bool) -> dict:
     rank_by_id = {r.event_id: r for r in ranked}
 
     saved = 0
-    if not dry_run:
-        for event, ori in pending_events:
-            r = rank_by_id.get(event.event_id, event)
+    for event, ori in pending_events:
+        r = rank_by_id.get(event.event_id, event)
+        if emit_sql:
+            sql.append(_event_insert_sql(r, ori))
+            saved += 1
+        elif not dry_run:
             if store.event_hash_exists(r.dedup_hash):   # Gate 2
                 continue
             if store.save_event(r, ori=ori):
                 saved += 1
     stats["events_saved"] = saved
 
-    _print_report(stats, dry_run, pending_events if dry_run else None)
+    if emit_sql:
+        print("-- ORI GitHub backfill (USS-TJR-MSN-0074) — generated SQL")
+        print("begin;")
+        for stmt in sql:
+            print(stmt)
+        print("commit;")
+        _print_report(stats, True, None, file=sys.stderr)
+    else:
+        _print_report(stats, dry_run, pending_events if dry_run else None)
     return stats
 
 
-def _print_report(stats: dict, dry_run: bool, sample) -> None:
-    print("\n" + "=" * 64)
-    print(f"ORI GitHub Brief Sync — {'DRY RUN (no DB writes)' if dry_run else 'LIVE'}")
-    print("=" * 64)
-    print(f"  Briefs found:      {stats['briefs_found']}")
-    print(f"  Briefs imported:   {stats['briefs_imported']}   skipped: {stats['briefs_skipped']}")
-    print(f"  Events extracted:  {stats['events_extracted']}   suppressed: {stats['events_suppressed']}")
+# ─── SQL emitters (for --emit-sql; idempotent, parameter-free) ─────────────────
+
+def _lit(v) -> str:
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if hasattr(v, "isoformat"):
+        return "'" + v.isoformat() + "'"
+    return "'" + str(v).replace("'", "''") + "'"
+
+
+def _json_lit(obj) -> str:
+    import json as _json
+    if obj is None:
+        return "NULL"
+    return "'" + _json.dumps(obj).replace("'", "''") + "'::jsonb"
+
+
+def _doc_insert_sql(doc: dict) -> str:
+    cols = ["document_id", "source_id", "file_name", "file_path", "blob_url",
+            "brief_date", "content_sha", "format_version", "region",
+            "classification", "raw_front_matter", "raw_markdown", "parse_warnings"]
+    vals = [
+        _lit(doc["document_id"]), _lit(doc["source_id"]), _lit(doc["file_name"]),
+        _lit(doc["file_path"]), _lit(doc["blob_url"]), _lit(doc["brief_date"]),
+        _lit(doc["content_sha"]), _lit(doc["format_version"]), _lit(doc["region"]),
+        _lit(doc["classification"]), _json_lit(doc["raw_front_matter"]),
+        _lit(doc["raw_markdown"]), _json_lit(doc["parse_warnings"]),
+    ]
+    return (f"insert into ori_source_documents ({', '.join(cols)})\n"
+            f"values ({', '.join(vals)})\n"
+            f"on conflict (file_path, content_sha) do nothing;")
+
+
+def _event_insert_sql(e, ori: dict) -> str:
+    cols = ["event_id", "source_id", "raw_title", "raw_summary", "canonical_url",
+            "published_at", "collected_at", "event_type", "geography", "sector",
+            "operational_relevance", "customer_impact", "banking_relevance",
+            "cps230_relevance", "dependency_risk", "confidence", "rank_score",
+            "dedup_hash", "suppressed", "suppression_reason",
+            "source_document_id", "source_ref", "brief_date", "organisation",
+            "regulatory_topic", "resilience_themes", "watch_item_status",
+            "executive_relevance"]
+    vals = [
+        _lit(e.event_id), _lit(e.source_id), _lit(e.raw_title), _lit(e.raw_summary),
+        _lit(e.canonical_url), _lit(e.published_at), _lit(e.collected_at),
+        _lit(e.event_type), _lit(e.geography), _lit(e.sector),
+        _lit(float(e.operational_relevance)), _lit(e.customer_impact),
+        _lit(e.banking_relevance), _lit(e.cps230_relevance), _lit(e.dependency_risk),
+        _lit(float(e.confidence)), _lit(float(e.rank_score)), _lit(e.dedup_hash),
+        _lit(e.suppressed), _lit(e.suppression_reason),
+        _lit(ori.get("source_document_id")), _lit(ori.get("source_ref")),
+        _lit(ori.get("brief_date")), _lit(ori.get("organisation")),
+        _lit(ori.get("regulatory_topic")), _json_lit(ori.get("resilience_themes")),
+        _lit(ori.get("watch_item_status")), _lit(ori.get("executive_relevance")),
+    ]
+    return (f"insert into intelligence_events ({', '.join(cols)})\n"
+            f"values ({', '.join(vals)})\n"
+            f"on conflict (dedup_hash) do nothing;")
+
+
+def _print_report(stats: dict, dry_run: bool, sample, file=sys.stdout) -> None:
+    def p(*a):
+        print(*a, file=file)
+    p("\n" + "=" * 64)
+    p(f"ORI GitHub Brief Sync — {'DRY RUN (no DB writes)' if dry_run else 'LIVE'}")
+    p("=" * 64)
+    p(f"  Briefs found:      {stats['briefs_found']}")
+    p(f"  Briefs imported:   {stats['briefs_imported']}   skipped: {stats['briefs_skipped']}")
+    p(f"  Events extracted:  {stats['events_extracted']}   suppressed: {stats['events_suppressed']}")
     if not dry_run:
-        print(f"  Events saved:      {stats.get('events_saved', 0)}")
-    print(f"  Date mismatches:   {stats['date_mismatches']} (filename authoritative)")
-    print(f"  Briefs w/o events: {stats['no_events']}")
+        p(f"  Events saved:      {stats.get('events_saved', 0)}")
+    p(f"  Date mismatches:   {stats['date_mismatches']} (filename authoritative)")
+    p(f"  Briefs w/o events: {stats['no_events']}")
     fmt = ", ".join(f"v{k}×{v}" for k, v in sorted(stats["formats"].items()))
-    print(f"  Format mix:        {fmt or '—'}")
+    p(f"  Format mix:        {fmt or '—'}")
     if dry_run and sample:
-        print("\n  Sample extracted intelligence records:")
+        p("\n  Sample extracted intelligence records:")
         for event, ori in sample[:8]:
             themes = ",".join(ori.get("resilience_themes") or []) or "—"
-            print(f"   • [{ori['brief_date']}] {event.event_type:<18} "
-                  f"{(event.raw_title[:54]):<54}")
-            print(f"       sector={event.sector} geo={event.geography} "
-                  f"reg={ori.get('regulatory_topic') or '—'} "
-                  f"watch={ori['watch_item_status']} exec={ori['executive_relevance']}")
-            print(f"       themes={themes}")
-    print("=" * 64 + "\n")
+            p(f"   • [{ori['brief_date']}] {event.event_type:<18} "
+              f"{(event.raw_title[:54]):<54}")
+            p(f"       sector={event.sector} geo={event.geography} "
+              f"reg={ori.get('regulatory_topic') or '—'} "
+              f"watch={ori['watch_item_status']} exec={ori['executive_relevance']}")
+            p(f"       themes={themes}")
+    p("=" * 64 + "\n")
 
 
 def main() -> int:
@@ -216,9 +304,14 @@ def main() -> int:
                    help="Lookback window for incremental sync")
     p.add_argument("--dry-run", action="store_true",
                    help="Parse + extract + classify, print report, no DB writes")
+    p.add_argument("--emit-sql", action="store_true",
+                   help="Emit idempotent backfill SQL to stdout (report to stderr); no DB writes")
+    p.add_argument("--source-id", default=None,
+                   help="Registry source_id for FK references (required with --emit-sql)")
     args = p.parse_args()
     try:
-        run(days=args.days, dry_run=args.dry_run, backfill=args.backfill)
+        run(days=args.days, dry_run=args.dry_run, backfill=args.backfill,
+            emit_sql=args.emit_sql, source_id=args.source_id)
         return 0
     except Exception as exc:
         log.error("Sync failed: %s", exc, exc_info=True)

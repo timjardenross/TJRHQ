@@ -78,7 +78,15 @@ _KNOWN_ORGS = [
     "AWS", "Azure", "Microsoft", "Google Cloud", "Salesforce", "Oracle", "Cloudflare",
     "Ochre Health", "Mackay Sugar", "SWIFT", "Medibank", "Latitude",
 ]
-_ORG_CAP_RE = re.compile(r"\b([A-Z][A-Za-z0-9&]+(?:\s+[A-Z][A-Za-z0-9&]+){0,2})\b")
+# Conservative fallback: a proper-noun phrase immediately followed by a known
+# organisation suffix (e.g. "Ochre Health", "Acme Bank"). Avoids grabbing
+# sentence-noise like "July" or "Ongoing".
+_ORG_SUFFIX_RE = re.compile(
+    r"\b([A-Z][A-Za-z0-9&]+(?:\s+[A-Z][A-Za-z0-9&]+){0,2}\s+"
+    r"(?:Bank|Health|Group|Telecom|Telecommunications|Airlines|Airways|"
+    r"Limited|Ltd|Corporation|Corp|Holdings|Insurance|Energy|Mutual|"
+    r"Super|Superannuation|Cloud|Systems|Technologies))\b"
+)
 
 # Genuine in-progress indicators only — the nouns "outage"/"incident" describe
 # the event, not its current status, so they are deliberately excluded.
@@ -128,12 +136,11 @@ def extract_organisation(text: str) -> Optional[str]:
     for org in _KNOWN_ORGS:
         if org.lower() in text.lower():
             return org
-    # Fallback: first capitalised multi-word phrase that isn't a sentence start noise.
-    for m in _ORG_CAP_RE.finditer(text):
-        cand = m.group(1)
-        if cand.lower() not in ("major", "the", "australia", "australian", "key", "cps"):
-            return cand
-    return None
+    # Conservative fallback: only a proper noun + org suffix (e.g. "Acme Bank").
+    # Returns None rather than risk a false positive — novel orgs are better
+    # caught by the optional LLM enrichment stage than by a greedy regex.
+    m = _ORG_SUFFIX_RE.search(text)
+    return m.group(1) if m else None
 
 
 def derive_watch_status(text: str, event_type: str, recurrence: int = 0) -> str:

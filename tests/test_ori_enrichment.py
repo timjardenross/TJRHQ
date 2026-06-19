@@ -72,6 +72,15 @@ class TestOrganisation(unittest.TestCase):
     def test_regulator(self):
         self.assertEqual(extract_organisation("APRA reinforces CPS 230 expectations"), "APRA")
 
+    def test_no_false_positive(self):
+        # Sentence-noise must not be mistaken for an organisation.
+        self.assertIsNone(extract_organisation("CPS 230 amendments effective July 2026."))
+        self.assertIsNone(extract_organisation("Key Events: Monitoring ongoing cyber threats."))
+        self.assertIsNone(extract_organisation("Ongoing implementation."))
+
+    def test_org_suffix_fallback(self):
+        self.assertEqual(extract_organisation("Acme Bank reports an outage"), "Acme Bank")
+
 
 class TestWatchStatus(unittest.TestCase):
     def test_active_incident(self):
