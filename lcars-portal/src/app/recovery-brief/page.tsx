@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { recoveryBrief as mockBrief } from '@/lib/mockData';
@@ -164,11 +165,29 @@ export default function RecoveryBriefPage() {
         <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3">
           <p className="text-sm text-lcars-text/80">{brief.fleet_summary}</p>
         </div>
-        <p className="mt-2 text-xs text-lcars-muted">
-          Full mission detail, department status, and crew readiness are on the Captain&apos;s Chair.
-          Fleet is context here — not the opening frame.
-        </p>
+        <Link
+          href="/captains-chair"
+          className="mt-2 block text-xs text-command hover:opacity-70"
+        >
+          Full mission detail and fleet status → Captain&apos;s Chair
+        </Link>
       </LCARSPanel>
+
+      {/* ── D-055: Complete the loop — log today's entry ── */}
+      <div className="rounded-lcars border border-edge bg-panel/40 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-1">End of day</p>
+          <p className="text-sm text-lcars-text/90">
+            Complete today&apos;s Captain&apos;s Log entry to close the recovery loop.
+          </p>
+        </div>
+        <Link
+          href="/captains-log"
+          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
+        >
+          Log Today →
+        </Link>
+      </div>
 
     </div>
   );
