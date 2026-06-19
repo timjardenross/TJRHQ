@@ -25,15 +25,21 @@
 
 import type {
   Alert,
+  BriefingItem,
   CaptainBrief,
   CrewMember,
+  DecisionItem,
   Department,
   IntelligenceBrief,
   KnowledgeArticle,
   Mission,
+  MissionBoardColumn,
   MissionSummary,
   OperatingPicture,
+  QueueItem,
   ServiceStatus,
+  ShipSystemStatus,
+  TimelineEvent,
   WellnessMetric
 } from './types';
 
@@ -68,6 +74,92 @@ export const operatingPicture: OperatingPicture = {
   blockers: 1,
   crewOnDuty: 6
 };
+
+// ── Ship Status bars ─────────────────────────────────────────────────────────
+export const shipSystemStatus: ShipSystemStatus[] = [
+  { label: 'Hull Integrity', value: 100 },
+  { label: 'Shield Strength', value: 98 },
+  { label: 'Power Level', value: 97 },
+  { label: 'Systems Nominal', value: 96 },
+  { label: 'Crew Readiness', value: 93 },
+  { label: 'Sensor Capacity', value: 95 }
+];
+
+// ── Captain's Timeline ───────────────────────────────────────────────────────
+export const captainTimeline: TimelineEvent[] = [
+  { time: '07:00', title: 'Daily Briefing', status: 'completed' },
+  { time: '09:00', title: 'ANZ Priority Review', status: 'completed' },
+  { time: '11:30', title: 'Engineering Review', status: 'in_progress' },
+  { time: '13:00', title: 'Research Sync', status: 'scheduled' },
+  { time: '15:00', title: 'Medical Council', status: 'scheduled' },
+  { time: '16:30', title: 'Operations Update', status: 'scheduled' }
+];
+
+// ── Decisions Awaiting Approval ──────────────────────────────────────────────
+export const decisionsAwaitingApproval: DecisionItem[] = [
+  { id: '01', title: 'Security Remediation Plan', detail: 'XO Review Required', from: 'Security Chief' },
+  { id: '02', title: 'Engineering Handoff Policy', detail: 'Approval Required', from: 'Chief Engineer' },
+  { id: '03', title: 'Travel Readiness Assessment', detail: 'Review & Approve', from: 'Operations' }
+];
+
+// ── Mission Board (Kanban) ───────────────────────────────────────────────────
+export const missionBoard: MissionBoardColumn[] = [
+  {
+    label: 'Pending Triage', count: 3, tone: 'command',
+    items: [
+      { title: 'Security Audit', meta: 'Submitted 2h ago' },
+      { title: 'Medical Supplies', meta: 'Submitted 3h ago' },
+      { title: 'Research Request', meta: 'Submitted 5h ago' }
+    ]
+  },
+  {
+    label: 'Assigned', count: 2, tone: 'medical',
+    items: [
+      { title: 'VPS Hardening', meta: 'Assigned to Eng' },
+      { title: 'Travel Plan Review', meta: 'Assigned to XO' }
+    ]
+  },
+  {
+    label: 'In Progress', count: 4, tone: 'science',
+    items: [
+      { title: 'Engine Diagnostics', meta: '72% Complete' },
+      { title: 'Bot Refactor', meta: '55% Complete' },
+      { title: 'Data Pipeline', meta: 'In Progress' }
+    ]
+  },
+  {
+    label: 'Awaiting Review', count: 2, tone: 'engineering',
+    items: [
+      { title: 'Handoff Process', meta: 'Eng Review' },
+      { title: 'Research Report', meta: 'Ready for Review' }
+    ]
+  },
+  {
+    label: 'Completed', count: 8, tone: 'status',
+    items: [
+      { title: 'Daily Brief 0619', meta: 'Completed' },
+      { title: 'Medical Report 0619', meta: 'Completed' },
+      { title: 'Backup Verification', meta: 'Completed' }
+    ]
+  }
+];
+
+// ── Today's Briefing ─────────────────────────────────────────────────────────
+export const todaysBriefing: BriefingItem[] = [
+  { label: 'Operational Readiness', value: '94%', tone: 'status' },
+  { label: 'Risk Posture', value: 'LOW', tone: 'status' },
+  { label: 'Threat Status', value: 'NOMINAL', tone: 'status' },
+  { label: 'Weather / Space', value: 'CLEAR', tone: 'status' },
+  { label: 'Travel Schedule', value: '2 EVENTS', tone: 'command' }
+];
+
+// ── Engineering Queue Summary ────────────────────────────────────────────────
+export const engineeringQueueSummary: QueueItem[] = [
+  { label: 'Awaiting Triage', count: 3, tone: 'command' },
+  { label: 'In Progress', count: 4, tone: 'medical' },
+  { label: 'Awaiting Review', count: 2, tone: 'science' },
+  { label: 'Completed (24h)', count: 5, tone: 'status' }
+];
 
 // ── Missions ────────────────────────────────────────────────────────────────
 // Shape mirrors mission-registry-reader.js rows.

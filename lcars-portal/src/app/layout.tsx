@@ -23,6 +23,7 @@ export default function RootLayout({
             ship={SHIP.name}
             registry={SHIP.registry}
             stardate={SHIP.stardate}
+            pageTitle="USS TJR — Starship Endeavour"
           />
           <div className="mt-4 flex flex-1 flex-col gap-4 lg:flex-row">
             <LCARSNav />

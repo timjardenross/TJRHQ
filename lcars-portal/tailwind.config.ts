@@ -18,7 +18,11 @@ const config: Config = {
     'bg-medical',
     'bg-science',
     'bg-status',
-    'bg-lcars-muted'
+    'bg-lcars-muted',
+    'text-engineering',
+    'border-engineering',
+    'xl:grid-cols-5',
+    'xl:flex'
   ],
   theme: {
     extend: {

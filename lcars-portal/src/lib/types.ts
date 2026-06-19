@@ -132,3 +132,46 @@ export interface KnowledgeArticle {
   excerpt: string;
   department: DepartmentKey;
 }
+
+/** Ship system health bar (0–100). */
+export interface ShipSystemStatus {
+  label: string;
+  value: number;
+}
+
+/** Captain's daily schedule entry. */
+export interface TimelineEvent {
+  time: string;
+  title: string;
+  status: 'completed' | 'in_progress' | 'scheduled';
+}
+
+/** Decision item awaiting captain approval. */
+export interface DecisionItem {
+  id: string;
+  title: string;
+  detail: string;
+  from: string;
+}
+
+/** Single column in the mission Kanban board. */
+export interface MissionBoardColumn {
+  label: string;
+  count: number;
+  tone: DepartmentKey;
+  items: { title: string; meta: string }[];
+}
+
+/** Single row in Today's Briefing / summary panels. */
+export interface BriefingItem {
+  label: string;
+  value: string;
+  tone: StatusTone;
+}
+
+/** Engineering / ops queue summary row. */
+export interface QueueItem {
+  label: string;
+  count: number;
+  tone: StatusTone;
+}
