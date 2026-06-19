@@ -42,6 +42,7 @@ def _make_event(
         source_name=f"Source {source_id}",
         source_priority=source_priority,
         source_confidence_weight=0.8,
+        source_category="media",
         raw_title=title,
         raw_summary="",
         canonical_url="https://example.com/item",
