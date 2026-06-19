@@ -7,10 +7,10 @@ import Link from 'next/link';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
-  recoveryGuidance as mockGuidance,
   stageProgressionRecord,
   stageStatus
 } from '@/lib/mockData';
+import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
 import { toneClasses } from '@/lib/departments';
 import type {
   EmotionalLoadFlag,
@@ -607,8 +607,6 @@ export default function MedicalPage() {
     load();
   }, []);
 
-  const guidance = mockGuidance; // Phase 2+: replace with health_insights fetch
-
   return (
     <div className="flex flex-col gap-4">
 
@@ -642,11 +640,11 @@ export default function MedicalPage() {
         <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
       </div>
 
-      {/* Two-column: body context + guidance */}
-      <div className="grid gap-4 xl:grid-cols-2">
-        <BodySignalsContextLive ctx={bodyContext} />
-        <MedicalGuidance guidance={guidance} />
-      </div>
+      {/* Wellness Intelligence — live from health_insights + health_daily_logs */}
+      <WellnessInsightPanel />
+
+      {/* Body context */}
+      <BodySignalsContextLive ctx={bodyContext} />
 
       {/* Stage Progression card — full record on /stage-progression */}
       <StageProgressionCard record={stageProgressionRecord} />

@@ -51,6 +51,8 @@ from telegram_bots.recovery_officer.engagement_dispatcher import (
     run_dispatch_check,
 )
 from telegram_bots.llm import generate_async
+from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
+from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
 
@@ -99,12 +101,25 @@ def _bar(pct: int) -> str:
 
 # ── XO system prompt ──────────────────────────────────────────────────────────
 
-def _xo_system_prompt(status: RecoveryStatus) -> str:
+def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
     signals = ", ".join(filter(None, [
         f"energy={status.latest_energy}"    if status.latest_energy    else None,
         f"mood={status.latest_mood}"        if status.latest_mood      else None,
         f"stress={status.latest_stress}"    if status.latest_stress    else None,
     ])) or "no signals yet today"
+
+    wellness_ctx = ""
+    if snap is not None:
+        parts = []
+        if snap.sleep_hours is not None:
+            cpap = " (CPAP ✓)" if snap.cpap_compliant else (" (CPAP ✗)" if snap.cpap_compliant is False else "")
+            parts.append(f"sleep={snap.sleep_hours}h{cpap}")
+        if snap.nervous_system_state:
+            parts.append(f"nervous_system={snap.nervous_system_state}")
+        if snap.has_insights and snap.risk_flags:
+            parts.append(f"risk_flags={'; '.join(snap.risk_flags[:2])}")
+        if parts:
+            wellness_ctx = f"\nWellness context: {', '.join(parts)}"
 
     return (
         "You are the Executive Officer (XO) of USS TJR, a personal command vessel.\n"
@@ -115,7 +130,8 @@ def _xo_system_prompt(status: RecoveryStatus) -> str:
         f"- Confidence: {status.recovery_confidence}% [{_bar(status.recovery_confidence)}]\n"
         f"- Pulses: {status.pulses_completed}/4 complete\n"
         f"- Signals: {signals}\n"
-        f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)\n\n"
+        f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
+        f"{wellness_ctx}\n\n"
         "Your role:\n"
         "- Primary daily companion. The Captain talks to you first.\n"
         "- Help make decisions through a capacity lens — can we do this given recovery state?\n"
@@ -263,9 +279,11 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     text = (update.message.text or "").strip()
     if not text:
         return
-    status = get_recovery_status(_get_supabase())
+    db     = _get_supabase()
+    status = get_recovery_status(db)
+    snap   = get_wellness_snapshot(db)
     await update.message.chat.send_action("typing")
-    reply = await generate_async(text, _xo_system_prompt(status))
+    reply = await generate_async(text, _xo_system_prompt(status, snap))
     if reply:
         await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
     else:
@@ -357,6 +375,33 @@ class _BotAdapter:
 
 # ── Scheduled dispatch (XO only) ──────────────────────────────────────────────
 
+async def _scheduled_morning_brief(bot) -> None:
+    """07:00 — Wellness & Recovery Officer Daily Brief (insight-over-metrics)."""
+    log.info("[scheduler] morning wellness brief")
+    try:
+        db   = _get_supabase()
+        snap = get_wellness_snapshot(db)
+        brief = await generate_wellness_brief_async(snap, generate_async)
+
+        today = date.today().strftime("%a %d %b")
+        msg = (
+            f"🌅 *Daily Wellness Brief — {_escape(today)}*\n\n"
+            f"{_escape(brief)}\n\n"
+            f"Recovery: `{_escape(_bar(snap.recovery_confidence))}` {snap.recovery_confidence}% · "
+            f"{snap.pulses_completed}/4 pulses"
+        )
+        await bot.send_message(
+            chat_id=TELEGRAM_CHAT_ID,
+            text=msg,
+            parse_mode="MarkdownV2",
+        )
+        log.info("[scheduler] morning brief sent, conf=%s%%", snap.recovery_confidence)
+    except Exception as exc:
+        log.error("[scheduler] morning brief failed: %s", exc)
+        # fall back to standard dispatch on error
+        await _scheduled_dispatch(bot)
+
+
 async def _scheduled_dispatch(bot) -> None:
     log.info("[scheduler] xo dispatch tick")
     try:
@@ -384,10 +429,10 @@ def main() -> None:
 
     scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")
     bot = app.bot
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=7,  minute=0),  id="morning")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=12, minute=30), id="midday")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=16, minute=0),  id="eod")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=20, minute=0),  id="evening")
+    scheduler.add_job(lambda: _scheduled_morning_brief(bot), CronTrigger(hour=7,  minute=0),  id="morning")
+    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=12, minute=30), id="midday")
+    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=16, minute=0),  id="eod")
+    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=20, minute=0),  id="evening")
     scheduler.start()
 
     log.info("XO Bot polling…")

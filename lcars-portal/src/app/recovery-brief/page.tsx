@@ -7,6 +7,7 @@ import { recoveryBrief as mockBrief } from '@/lib/mockData';
 import { useROSData } from '@/lib/useROSData';
 import { toneClasses } from '@/lib/departments';
 import { RecoveryConfidencePanel } from '@/components/RecoveryConfidencePanel';
+import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
 import type { RecoveryPostureBand, StatusTone } from '@/lib/types';
 
 // ── Tone helpers ──────────────────────────────────────────────────────────────
@@ -124,6 +125,9 @@ export default function RecoveryBriefPage() {
           </div>
         </div>
       </LCARSPanel>
+
+      {/* ── Wellness Intelligence — live from health_insights ── */}
+      <WellnessInsightPanel />
 
       {/* ── Recovery Guidance ── */}
       <LCARSPanel
