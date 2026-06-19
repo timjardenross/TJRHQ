@@ -67,6 +67,112 @@ function fmtDuration(s: number | null | undefined): string {
   return `${Math.round(s / 60)}m`;
 }
 
+// ── Cognitive Load Reduction (D-055) ─────────────────────────────────────────
+
+function cogLoadScore(perfs: AgentPerf[], jobs: BatchJob[], requests: BuildRequest[]): {
+  score: number;
+  label: string;
+  tone: StatusTone;
+  signals: { label: string; value: string; contribution: string }[];
+} {
+  // Automation success rate (0-40 pts)
+  const successRate = perfs.length
+    ? perfs.filter(p => p.success).length / perfs.length
+    : 0;
+  const automationPts = Math.round(successRate * 40);
+
+  // Batch throughput (0-30 pts)
+  const totalBatchReqs = jobs.reduce((s, j) => s + (j.total_requests ?? 0), 0);
+  const succeededBatch = jobs.reduce((s, j) => s + (j.succeeded_requests ?? 0), 0);
+  const batchRate = totalBatchReqs > 0 ? succeededBatch / totalBatchReqs : 0;
+  const batchPts = Math.round(batchRate * 30);
+
+  // Build pipeline activity (0-30 pts) — delivered or approved = friction removed
+  const delivered = requests.filter(r => ['engineering_delivered', 'approved'].includes(r.status)).length;
+  const pipelinePts = requests.length > 0 ? Math.round(Math.min(delivered / requests.length, 1) * 30) : 0;
+
+  const score = automationPts + batchPts + pipelinePts;
+  const label = score >= 80 ? 'High reduction' : score >= 50 ? 'Moderate reduction' : score >= 25 ? 'Low reduction' : 'Insufficient data';
+  const tone: StatusTone = score >= 80 ? 'status' : score >= 50 ? 'command' : score >= 25 ? 'operations' : 'neutral';
+
+  return {
+    score,
+    label,
+    tone,
+    signals: [
+      {
+        label: 'Automation success',
+        value: perfs.length ? `${Math.round(successRate * 100)}%` : '—',
+        contribution: `${automationPts} / 40 pts`,
+      },
+      {
+        label: 'Batch throughput',
+        value: totalBatchReqs > 0 ? `${Math.round(batchRate * 100)}%` : '—',
+        contribution: `${batchPts} / 30 pts`,
+      },
+      {
+        label: 'Pipeline delivery',
+        value: requests.length > 0 ? `${delivered} / ${requests.length}` : '—',
+        contribution: `${pipelinePts} / 30 pts`,
+      },
+    ],
+  };
+}
+
+function CognitiveLoadPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; jobs: BatchJob[]; requests: BuildRequest[] }) {
+  const { score, label, tone, signals } = cogLoadScore(perfs, jobs, requests);
+  const hasData = perfs.length > 0 || jobs.length > 0 || requests.length > 0;
+
+  return (
+    <LCARSPanel
+      title="Cognitive Load Reduction"
+      accent="engineering"
+      eyebrow="D-055 · Chief Engineer mandate — reduce friction, return time to Captain"
+      actions={hasData ? <StatusBadge label={label} tone={tone} /> : undefined}
+    >
+      <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
+        Chief Engineer mandate: reduce cognitive load through automation and simplification.
+        This score measures how effectively the engineering system is removing decision overhead
+        and returning time and energy to Captain TJR.
+      </p>
+
+      {!hasData ? (
+        <p className="text-sm text-lcars-muted italic">No engineering data available yet.</p>
+      ) : (
+        <>
+          {/* Score hero */}
+          <div className="mb-4 flex items-center gap-4 rounded-lcars border border-engineering/40 bg-engineering/5 px-5 py-4">
+            <span className="font-lcars text-5xl font-bold text-engineering">{score}</span>
+            <div>
+              <p className="font-lcars text-sm font-semibold uppercase tracking-wider text-engineering">{label}</p>
+              <p className="text-xs text-lcars-muted mt-0.5">out of 100</p>
+            </div>
+            <div className="flex-1 ml-4">
+              <div className="h-3 rounded-full bg-edge/30 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-engineering transition-all"
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Signal breakdown */}
+          <div className="grid gap-2 sm:grid-cols-3">
+            {signals.map((s) => (
+              <div key={s.label} className="rounded-lcars border border-edge bg-space/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
+                <p className="font-lcars text-lg font-bold text-engineering mt-0.5">{s.value}</p>
+                <p className="text-[10px] text-lcars-muted mt-0.5">{s.contribution}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </LCARSPanel>
+  );
+}
+
 // ── Build Request Inbox ───────────────────────────────────────────────────────
 
 function BuildInbox({ requests }: { requests: BuildRequest[] }) {
@@ -258,6 +364,8 @@ export default function EngineeringPage() {
           {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}
         </p>
       </LCARSPanel>
+
+      <CognitiveLoadPanel perfs={perfs} jobs={jobs} requests={requests} />
 
       <LCARSPanel
         title="Build Request Inbox"
