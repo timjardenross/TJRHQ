@@ -47,23 +47,58 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: '/medical',
-    label: 'Medical / Wellness',
+    label: 'Medical Bay',
     glyph: '06',
     department: 'medical',
-    description: 'Captain wellness and recovery'
+    description: 'Recovery indexes and life participation'
+  },
+  {
+    href: '/recovery-brief',
+    label: 'Recovery Brief',
+    glyph: '07',
+    department: 'medical',
+    description: 'Daily recovery-first morning brief'
+  },
+  {
+    href: '/stage-progression',
+    label: 'Stage Progression',
+    glyph: '08',
+    department: 'medical',
+    description: 'Stage record — Knowledge Officer'
   },
   {
     href: '/operations',
     label: 'Operations',
-    glyph: '07',
+    glyph: '09',
     department: 'operations',
     description: 'Service and integration status'
   },
   {
     href: '/knowledge-base',
     label: 'Knowledge Base',
-    glyph: '08',
+    glyph: '10',
     department: 'science',
     description: 'Knowledge, ADRs and playbooks'
+  },
+  {
+    href: '/medical/check-in',
+    label: 'Health Check-In',
+    glyph: '11',
+    department: 'medical',
+    description: 'Log today\'s daily health check-in'
+  },
+  {
+    href: '/captains-log',
+    label: "Captain's Log",
+    glyph: '12',
+    department: 'command',
+    description: 'End-of-day structured log entry'
+  },
+  {
+    href: '/ai-console',
+    label: 'AI Console',
+    glyph: '13',
+    department: 'science',
+    description: 'Direct access to Ollama Cloud GLM 5.2'
   }
 ];

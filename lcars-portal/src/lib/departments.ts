@@ -85,11 +85,11 @@ export const DEPARTMENTS: Record<DepartmentKey, DepartmentTheme> = {
   }
 };
 
-/** Map a status tone (incl. neutral) to text/border classes. */
-export function toneClasses(tone: StatusTone): { text: string; border: string; bg: string } {
+/** Map a status tone (incl. neutral) to text/border/dot classes. */
+export function toneClasses(tone: StatusTone): { text: string; border: string; bg: string; dot: string } {
   if (tone === 'neutral') {
-    return { text: 'text-lcars-muted', border: 'border-edge', bg: 'bg-edge/30' };
+    return { text: 'text-lcars-muted', border: 'border-edge', bg: 'bg-edge/30', dot: 'bg-lcars-muted' };
   }
   const d = DEPARTMENTS[tone];
-  return { text: d.text, border: d.border, bg: d.bgSoft };
+  return { text: d.text, border: d.border, bg: d.bgSoft, dot: d.bg };
 }
