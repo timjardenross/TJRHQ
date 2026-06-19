@@ -1,0 +1,31 @@
+{
+  "name": "starship-endeavour-lcars-portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Starship Endeavour LCARS Web Portal (Phase 1) — reusable LCARS-style command dashboard for USS TJR.",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.0",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "8.4.47",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.4.5"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

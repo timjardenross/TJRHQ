@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-space text-lcars-text font-lcars antialiased;
+    background-image:
+      radial-gradient(circle at 12% -10%, rgba(255, 184, 28, 0.08), transparent 40%),
+      radial-gradient(circle at 90% 0%, rgba(0, 153, 255, 0.08), transparent 45%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-lcars uppercase tracking-[0.18em];
+  }
+}
+
+@layer components {
+  /* LCARS elbow / pill chrome used by header + nav */
+  .lcars-pill {
+    @apply rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em];
+  }
+
+  .lcars-bar {
+    @apply h-3 rounded-full;
+  }
+
+  /* Subtle scanline / readout treatment for mono data */
+  .lcars-readout {
+    @apply font-mono text-sm text-lcars-ice;
+  }
+}
+
+/* Custom scrollbar to match the chrome */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0e1f;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2f52;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FF9966;
+}
