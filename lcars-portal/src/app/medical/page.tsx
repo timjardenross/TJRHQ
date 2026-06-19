@@ -2,21 +2,25 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   bodyContext,
+  emotionalLoadFlag,
   lifeParticipationScore,
   postureHistory,
   recoveryGuidance,
   recoveryIndexes,
   recoveryPosture,
-  stageStatus
+  stageStatus,
+  weeklyPatternSummary
 } from '@/lib/mockData';
 import { toneClasses } from '@/lib/departments';
 import type {
+  EmotionalLoadFlag,
   LifeParticipationScore,
   PostureHistory,
   RecoveryIndex,
   RecoveryPostureBand,
   StageStatus,
-  StatusTone
+  StatusTone,
+  WeeklyPatternSummary
 } from '@/lib/types';
 
 export const metadata = { title: 'Medical Bay · LCARS Portal' };
@@ -240,6 +244,104 @@ function PosturePatternChart({ history }: { history: PostureHistory }) {
   );
 }
 
+// ── Emotional Load Flag ──────────────────────────────────────────────────────
+
+function EmotionalLoadFlagPanel({ flag }: { flag: EmotionalLoadFlag }) {
+  const tone: StatusTone = flag.raised ? 'operations' : 'status';
+  const c = toneClasses(tone);
+  return (
+    <LCARSPanel
+      title="Emotional Load Flag"
+      accent="medical"
+      eyebrow="Nervous system activation pattern"
+      actions={<StatusBadge label={flag.raised ? 'Raised' : 'Clear'} tone={tone} />}
+    >
+      <div className={`flex items-start gap-3 rounded-lcars border ${c.border} ${c.bg} p-4`}>
+        <span className={`text-xl ${c.text}`}>{flag.raised ? '⚑' : '●'}</span>
+        <div>
+          <p className="text-sm text-lcars-text/90 leading-relaxed">{flag.message}</p>
+          <p className="mt-2 text-xs text-lcars-muted">
+            {flag.period} — Activated: {flag.activated_days} day{flag.activated_days !== 1 ? 's' : ''} ·{' '}
+            Dysregulated: {flag.dysregulated_days} day{flag.dysregulated_days !== 1 ? 's' : ''}
+          </p>
+          <p className="mt-1 text-[10px] text-lcars-muted italic">
+            Flag raises when activated or dysregulated on 3+ of any 7 days.
+          </p>
+        </div>
+      </div>
+    </LCARSPanel>
+  );
+}
+
+// ── Weekly Pattern Summary ───────────────────────────────────────────────────
+
+function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary }) {
+  const { period_7d, period_30d, direction_label } = summary;
+  const recorded7d = period_7d.strong + period_7d.stable + period_7d.fragile + period_7d.rest;
+
+  const bands: { label: string; count: number; tone: StatusTone }[] = [
+    { label: 'Strong',  count: period_7d.strong,  tone: 'status' },
+    { label: 'Stable',  count: period_7d.stable,  tone: 'command' },
+    { label: 'Fragile', count: period_7d.fragile, tone: 'operations' },
+    { label: 'Rest',    count: period_7d.rest,    tone: 'medical' }
+  ];
+
+  return (
+    <LCARSPanel title="Pattern Summary" accent="medical" eyebrow="7-day and 30-day">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {/* 7-day breakdown */}
+        <div className="rounded-lcars border border-edge bg-space/40 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-3">Last 7 days</p>
+          <div className="flex flex-col gap-1.5">
+            {bands.map((b) => {
+              const c = toneClasses(b.tone);
+              return (
+                <div key={b.label} className="flex items-center gap-2">
+                  <span className={`w-14 shrink-0 text-[10px] uppercase tracking-wide ${c.text}`}>
+                    {b.label}
+                  </span>
+                  <div className="flex-1 h-2 rounded-full bg-edge/40 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${c.dot}`}
+                      style={{ width: `${(b.count / 7) * 100}%` }}
+                    />
+                  </div>
+                  <span className={`w-4 text-right font-mono text-xs font-bold ${c.text}`}>
+                    {b.count}
+                  </span>
+                </div>
+              );
+            })}
+            {period_7d.unknown > 0 && (
+              <p className="text-[10px] text-lcars-muted mt-1">
+                {period_7d.unknown} day{period_7d.unknown !== 1 ? 's' : ''} without check-in
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 30-day and direction */}
+        <div className="flex flex-col gap-3">
+          <div className="rounded-lcars border border-edge bg-space/40 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Last 30 days</p>
+            <p className="font-lcars text-lg font-semibold text-command">
+              {period_30d.stable_or_strong} / {period_30d.total_recorded}
+            </p>
+            <p className="text-xs text-lcars-muted">days stable or strong (of recorded)</p>
+            <p className="text-[10px] text-lcars-muted/70 mt-1 italic">
+              Stage 2 signal: 14 of any 21 consecutive days stable or strong
+            </p>
+          </div>
+          <div className="rounded-lcars border border-edge bg-space/40 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Direction</p>
+            <p className="text-sm text-lcars-text/90 leading-relaxed">{direction_label}</p>
+          </div>
+        </div>
+      </div>
+    </LCARSPanel>
+  );
+}
+
 // ── Body Signals (pain as context — no numeric display) ──────────────────────
 
 function BodySignalsContext() {
@@ -345,6 +447,12 @@ export default function MedicalPage() {
 
       {/* Posture pattern — Medical Bay only */}
       <PosturePatternChart history={postureHistory} />
+
+      {/* Two-column: pattern summary + emotional load flag */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <WeeklyPatternSummaryPanel summary={weeklyPatternSummary} />
+        <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
+      </div>
 
       {/* Two-column: body context + guidance */}
       <div className="grid gap-4 xl:grid-cols-2">

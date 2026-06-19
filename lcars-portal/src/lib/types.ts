@@ -279,3 +279,52 @@ export interface PostureHistory {
   days: PostureDataPoint[];
   period_label: string; // e.g. "Last 7 days"
 }
+
+/**
+ * Emotional Load Flag — raised when nervous system state is activated or
+ * dysregulated for 3+ of the last 7 days (WP2 Stage 1 guardrail).
+ */
+export interface EmotionalLoadFlag {
+  raised: boolean;
+  activated_days: number;
+  dysregulated_days: number;
+  period: string; // e.g. "Last 7 days"
+  message: string;
+}
+
+/** 7-day and 30-day pattern summary for Medical Bay. */
+export interface WeeklyPatternSummary {
+  period_7d: {
+    strong: number;
+    stable: number;
+    fragile: number;
+    rest: number;
+    unknown: number;
+  };
+  period_30d: {
+    stable_or_strong: number;
+    total_recorded: number;
+  };
+  direction: 'settling' | 'steady' | 'variable' | 'insufficient_data';
+  direction_label: string;
+}
+
+/** Full Recovery Brief — WP7 morning brief format. */
+export interface RecoveryBrief {
+  stardate: string;
+  generated: string; // ISO timestamp
+  posture: RecoveryPostureBand;
+  posture_message: string;
+  sleep_summary: string;
+  nervous_system: NervousSystemState;
+  energy: string;
+  capacity_message: string;
+  best_window: string;
+  afternoon_note: string;
+  guidance: string[];
+  load_summary: string;
+  active_mission_note: string;
+  new_starts_note: string;
+  decisions_note: string;
+  fleet_summary: string;
+}

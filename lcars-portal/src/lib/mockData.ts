@@ -32,6 +32,7 @@ import type {
   DecisionItem,
   Department,
   DeptCrewCount,
+  EmotionalLoadFlag,
   IntelligenceBrief,
   KnowledgeArticle,
   LatestDiscovery,
@@ -43,6 +44,7 @@ import type {
   OperatingPicture,
   PostureHistory,
   QueueItem,
+  RecoveryBrief,
   RecoveryIndex,
   RecoveryPosture,
   ResearchQueueItem,
@@ -50,6 +52,7 @@ import type {
   ShipSystemStatus,
   StageStatus,
   TimelineEvent,
+  WeeklyPatternSummary,
   WellnessMetric
 } from './types';
 
@@ -744,4 +747,51 @@ export const postureHistory: PostureHistory = {
     { date: '2026-06-18', posture: 'UNKNOWN', score: null  },
     { date: '2026-06-19', posture: 'STABLE',  score: null  }
   ]
+};
+
+export const emotionalLoadFlag: EmotionalLoadFlag = {
+  raised: false,
+  activated_days: 1,
+  dysregulated_days: 0,
+  period: 'Last 7 days',
+  message: 'Nervous system activation within expected range. No flag raised.'
+};
+
+export const weeklyPatternSummary: WeeklyPatternSummary = {
+  period_7d: {
+    strong:  0,
+    stable:  1,
+    fragile: 1,
+    rest:    1,
+    unknown: 4
+  },
+  period_30d: {
+    stable_or_strong: 3,
+    total_recorded: 7
+  },
+  direction: 'insufficient_data',
+  direction_label: 'Insufficient data — pattern will clarify as check-ins are recorded'
+};
+
+export const recoveryBrief: RecoveryBrief = {
+  stardate: SHIP.stardate,
+  generated: '2026-06-19T07:45:00',
+  posture: 'STABLE',
+  posture_message: 'The system is settled. Continue present pattern.',
+  sleep_summary: '7 hours · Good quality · CPAP compliant',
+  nervous_system: 'calm',
+  energy: 'Moderate',
+  capacity_message: 'Moderate capacity available. Estimated window: 3–4 hours.',
+  best_window: '09:00–12:30',
+  afternoon_note: 'Protect afternoon for rest — 13:00 onwards.',
+  guidance: [
+    'Morning movement before 11:00 — the nervous system responds well to early movement.',
+    'Protected rest block 13:00–14:30.',
+    'No high-cognitive work after 14:00 based on your pattern.'
+  ],
+  load_summary: 'STABLE posture supports 1 active mission today.',
+  active_mission_note: 'MSN-0062 is within this — safe and appropriate to continue.',
+  new_starts_note: 'New starts not recommended today. Hold for a STRONG day.',
+  decisions_note: '2 decisions pending — defer to tomorrow if capacity allows.',
+  fleet_summary: 'No blockers. Crew nominal. Full detail on Captain\'s Chair.'
 };

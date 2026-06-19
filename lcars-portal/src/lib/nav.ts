@@ -47,22 +47,29 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: '/medical',
-    label: 'Medical / Wellness',
+    label: 'Medical Bay',
     glyph: '06',
     department: 'medical',
-    description: 'Captain wellness and recovery'
+    description: 'Recovery indexes and life participation'
+  },
+  {
+    href: '/recovery-brief',
+    label: 'Recovery Brief',
+    glyph: '07',
+    department: 'medical',
+    description: 'Daily recovery-first morning brief'
   },
   {
     href: '/operations',
     label: 'Operations',
-    glyph: '07',
+    glyph: '08',
     department: 'operations',
     description: 'Service and integration status'
   },
   {
     href: '/knowledge-base',
     label: 'Knowledge Base',
-    glyph: '08',
+    glyph: '09',
     department: 'science',
     description: 'Knowledge, ADRs and playbooks'
   }
