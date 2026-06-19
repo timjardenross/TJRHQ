@@ -353,7 +353,30 @@ export default function StageProgressionPage() {
         <p className="text-xs text-lcars-muted">
           Recovery stage tracking per ROS-001 v1.1. Transitions are recognised by the Medical Officer, never self-declared.
         </p>
-        <p className="mt-2 text-[10px] uppercase tracking-wider text-lcars-muted">
+
+        {/* Stability signal hero */}
+        <div className="mt-4 rounded-lcars border border-medical/40 bg-medical/5 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-2">
+            Stability signal — {record.stability_signal.period}
+          </p>
+          <div className="flex items-center gap-4 mb-2">
+            <div className="flex-1 h-4 rounded-full bg-edge/30 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-medical transition-all"
+                style={{ width: `${Math.min((record.stability_signal.stable_or_strong / record.stability_signal.threshold) * 100, 100)}%` }}
+              />
+            </div>
+            <span className="font-lcars text-xl font-bold text-medical shrink-0">
+              {record.stability_signal.stable_or_strong} / {record.stability_signal.threshold}
+            </span>
+          </div>
+          <p className="text-xs text-lcars-muted">
+            {record.stability_signal.stable_or_strong} day{record.stability_signal.stable_or_strong !== 1 ? 's' : ''} STABLE or STRONG of {record.stability_signal.threshold} needed
+            <span className="ml-2 opacity-60">({record.stability_signal.total_recorded} days recorded)</span>
+          </p>
+        </div>
+
+        <p className="mt-3 text-[10px] uppercase tracking-wider text-lcars-muted">
           {isLive ? '● Live readiness data · Supabase' : '○ Readiness history not yet available'}
         </p>
       </LCARSPanel>

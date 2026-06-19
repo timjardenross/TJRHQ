@@ -174,6 +174,73 @@ function DecisionsPanel({ decisions }: { decisions: Decision[] }) {
   );
 }
 
+// ── Friction Sources (D-055) ──────────────────────────────────────────────────
+
+function FrictionPanel({ items, events }: { items: CapturedItem[]; events: CommanderEvent[] }) {
+  // Identify friction signals: failed items, high-importance unreviewed, failed events
+  const failedItems   = items.filter(i => i.processing_status === 'failed');
+  const unreviewedHigh = items.filter(i => i.review_status === 'unreviewed' && i.importance === 'high');
+  const failedEvents  = events.filter(e => e.status === 'failed' || e.status === 'error');
+  const resolvedItems = items.filter(i => i.processing_status === 'completed' && i.review_status === 'reviewed');
+
+  const frictionCount = failedItems.length + unreviewedHigh.length + failedEvents.length;
+
+  return (
+    <LCARSPanel
+      title="Friction Sources"
+      accent="operations"
+      eyebrow="D-055 · Identify and remove recurring energy drains"
+      actions={
+        frictionCount > 0
+          ? <StatusBadge label={`${frictionCount} signals`} tone="operations" />
+          : <StatusBadge label="Clear" tone="status" />
+      }
+    >
+      <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
+        Operations Officer mandate: identify and remove recurring sources of friction, inefficiency,
+        and energy drain. Below are active signals requiring attention.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <div className={`rounded-lcars border p-3 text-center ${failedItems.length > 0 ? 'border-operations/40 bg-operations/5' : 'border-edge bg-space/40'}`}>
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Failed processing</p>
+          <p className={`font-lcars text-2xl font-bold mt-0.5 ${failedItems.length > 0 ? 'text-operations' : 'text-status'}`}>
+            {failedItems.length}
+          </p>
+        </div>
+        <div className={`rounded-lcars border p-3 text-center ${unreviewedHigh.length > 0 ? 'border-command/40 bg-command/5' : 'border-edge bg-space/40'}`}>
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Unreviewed (high)</p>
+          <p className={`font-lcars text-2xl font-bold mt-0.5 ${unreviewedHigh.length > 0 ? 'text-command' : 'text-status'}`}>
+            {unreviewedHigh.length}
+          </p>
+        </div>
+        <div className="rounded-lcars border border-status/40 bg-status/5 p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Friction removed</p>
+          <p className="font-lcars text-2xl font-bold text-status mt-0.5">{resolvedItems.length}</p>
+        </div>
+      </div>
+
+      {failedItems.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] uppercase tracking-wider text-operations mb-1.5">Failed items — require attention</p>
+          <div className="flex flex-col gap-1.5">
+            {failedItems.slice(0, 3).map(item => (
+              <div key={item.id} className="flex items-center gap-2 rounded-lcars border border-operations/30 bg-operations/5 px-3 py-2">
+                <span className="text-operations text-xs shrink-0">▲</span>
+                <span className="text-xs text-lcars-text/80 truncate">{item.title ?? 'Untitled'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {frictionCount === 0 && (
+        <p className="text-sm text-status">No active friction signals. Operations are flowing.</p>
+      )}
+    </LCARSPanel>
+  );
+}
+
 // ── Commander Events ──────────────────────────────────────────────────────────
 
 function EventsPanel({ events }: { events: CommanderEvent[] }) {
@@ -271,6 +338,8 @@ export default function OperationsPage() {
       >
         <CapturedItemsPanel items={items} />
       </LCARSPanel>
+
+      <FrictionPanel items={items} events={events} />
 
       <DecisionsPanel decisions={decisions} />
 
