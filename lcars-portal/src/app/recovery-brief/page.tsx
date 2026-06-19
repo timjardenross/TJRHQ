@@ -1,10 +1,11 @@
+'use client';
+
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
-import { recoveryBrief } from '@/lib/mockData';
+import { recoveryBrief as mockBrief } from '@/lib/mockData';
+import { useROSData } from '@/lib/useROSData';
 import { toneClasses } from '@/lib/departments';
 import type { RecoveryPostureBand, StatusTone } from '@/lib/types';
-
-export const metadata = { title: 'Recovery Brief · LCARS Portal' };
 
 // ── Tone helpers ──────────────────────────────────────────────────────────────
 
@@ -33,7 +34,23 @@ function SectionRule({ label }: { label: string }) {
 // ── Recovery Brief ────────────────────────────────────────────────────────────
 
 export default function RecoveryBriefPage() {
-  const brief = recoveryBrief;
+  const { posture: livePosture, bodyContext, guidance, isLive, isLoading } = useROSData();
+
+  // Merge live posture data over the mock brief template
+  const brief = {
+    ...mockBrief,
+    posture:         livePosture.posture,
+    posture_message: livePosture.posture_message,
+    capacity_message: livePosture.capacity_message,
+    best_window:     livePosture.best_window,
+    sleep_summary:   bodyContext.sleep_hours
+      ? `${bodyContext.sleep_hours}h · ${bodyContext.sleep_quality}${bodyContext.cpap_compliant ? ' · CPAP compliant' : ''}`
+      : mockBrief.sleep_summary,
+    nervous_system: bodyContext.nervous_system_state,
+    energy:         bodyContext.energy,
+    guidance
+  };
+
   const postureTone = POSTURE_TONE[brief.posture];
   const pc = toneClasses(postureTone);
 
@@ -54,9 +71,12 @@ export default function RecoveryBriefPage() {
         eyebrow={`Stardate ${brief.stardate} · Generated ${generated}`}
         actions={<StatusBadge label={brief.posture} tone={postureTone} />}
       >
-        <p className="text-xs text-lcars-muted">
+        <p className="text-xs text-lcars-muted mb-2">
           The Recovery Brief leads with what the nervous system needs today.
           Mission detail follows when capacity supports it.
+        </p>
+        <p className="text-[10px] uppercase tracking-wider text-lcars-muted">
+          {isLoading ? 'Loading live data…' : isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}
         </p>
       </LCARSPanel>
 

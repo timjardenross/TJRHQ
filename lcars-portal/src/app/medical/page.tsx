@@ -1,17 +1,13 @@
+'use client';
+
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import Link from 'next/link';
+import { useROSData } from '@/lib/useROSData';
 import {
-  bodyContext,
-  emotionalLoadFlag,
-  lifeParticipationScore,
-  postureHistory,
-  recoveryGuidance,
-  recoveryIndexes,
-  recoveryPosture,
+  recoveryGuidance as mockGuidance,
   stageProgressionRecord,
-  stageStatus,
-  weeklyPatternSummary
+  stageStatus
 } from '@/lib/mockData';
 import { toneClasses } from '@/lib/departments';
 import type {
@@ -26,7 +22,7 @@ import type {
   WeeklyPatternSummary
 } from '@/lib/types';
 
-export const metadata = { title: 'Medical Bay · LCARS Portal' };
+// metadata must be in a server component — moved to layout or a wrapper.
 
 // ── Posture band helpers ─────────────────────────────────────────────────────
 
@@ -347,8 +343,8 @@ function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary 
 
 // ── Body Signals (pain as context — no numeric display) ──────────────────────
 
-function BodySignalsContext() {
-  const ns = bodyContext.nervous_system_state;
+function BodySignalsContextLive({ ctx }: { ctx: import('@/lib/types').BodyContext }) {
+  const ns = ctx.nervous_system_state;
   const NS_LABEL: Record<string, string> = {
     calm: 'Calm',
     activated: 'Activated',
@@ -361,10 +357,10 @@ function BodySignalsContext() {
   };
 
   const signals = [
-    { label: 'Body Signals',    value: bodyContext.body_signals,   note: 'Contextual — not a recovery target' },
-    { label: 'Nervous System',  value: NS_LABEL[ns],               note: NS_DETAIL[ns] },
-    { label: 'Energy',          value: bodyContext.energy,         note: 'Subjective daily report' },
-    { label: 'Sitting window',  value: `${bodyContext.sitting_window_minutes} min`, note: "Today's tolerance" }
+    { label: 'Body Signals',    value: ctx.body_signals,   note: 'Contextual — not a recovery target' },
+    { label: 'Nervous System',  value: NS_LABEL[ns],       note: NS_DETAIL[ns] },
+    { label: 'Energy',          value: ctx.energy,         note: 'Subjective daily report' },
+    { label: 'Sitting window',  value: `${ctx.sitting_window_minutes} min`, note: "Today's tolerance" }
   ];
 
   return (
@@ -464,18 +460,18 @@ function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
 
 // ── Recovery Posture summary (compact — full detail on Captain's Chair) ──────
 
-function PostureSummary() {
-  const tone = POSTURE_TONE[recoveryPosture.posture];
+function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPosture }) {
+  const tone = POSTURE_TONE[posture.posture];
   const c = toneClasses(tone);
   return (
     <LCARSPanel title="Today's Posture" accent="medical" eyebrow="From Captain's Chair">
       <div className={`flex items-start gap-3 rounded-lcars border ${c.border} ${c.bg} p-4`}>
         <div>
           <p className={`font-lcars text-sm font-semibold uppercase tracking-wider ${c.text}`}>
-            {recoveryPosture.posture}
+            {posture.posture}
           </p>
           <p className="text-sm text-lcars-text/80 mt-1 leading-relaxed">
-            {recoveryPosture.posture_message}
+            {posture.posture_message}
           </p>
         </div>
       </div>
@@ -489,14 +485,37 @@ function PostureSummary() {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MedicalPage() {
+  const {
+    posture,
+    lifeParticipation,
+    recoveryIndexes,
+    postureHistory,
+    weeklySummary,
+    emotionalLoadFlag,
+    bodyContext,
+    isLive,
+    isLoading
+  } = useROSData();
+
+  const guidance = mockGuidance; // Phase 2+: replace with health_insights fetch
+
   return (
     <div className="flex flex-col gap-4">
+
+      {/* Live data indicator */}
+      <div className="flex justify-end text-[10px] uppercase tracking-wider text-lcars-muted">
+        {isLoading ? (
+          <span className="animate-pulse">Loading live data…</span>
+        ) : (
+          <span>{isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}</span>
+        )}
+      </div>
 
       {/* Stage — no countdown, no progress bar */}
       <StageDisplay stage={stageStatus} />
 
       {/* Life Participation — primary Stage 1 outcome measure */}
-      <LifeParticipationHero lp={lifeParticipationScore} />
+      <LifeParticipationHero lp={lifeParticipation} />
 
       {/* Four recovery indexes */}
       <RecoveryIndexes indexes={recoveryIndexes} />
@@ -506,21 +525,21 @@ export default function MedicalPage() {
 
       {/* Two-column: pattern summary + emotional load flag */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <WeeklyPatternSummaryPanel summary={weeklyPatternSummary} />
+        <WeeklyPatternSummaryPanel summary={weeklySummary} />
         <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
       </div>
 
       {/* Two-column: body context + guidance */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <BodySignalsContext />
-        <MedicalGuidance guidance={recoveryGuidance} />
+        <BodySignalsContextLive ctx={bodyContext} />
+        <MedicalGuidance guidance={guidance} />
       </div>
 
       {/* Stage Progression card — full record on /stage-progression */}
       <StageProgressionCard record={stageProgressionRecord} />
 
       {/* Today's posture summary — links back to Captain's Chair for detail */}
-      <PostureSummary />
+      <PostureSummary posture={posture} />
 
     </div>
   );

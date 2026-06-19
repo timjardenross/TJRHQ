@@ -1,16 +1,14 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { ROSPanels } from '@/components/ROSPanels';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import {
   alerts,
-  bodyContext,
   captainTimeline,
   decisionsAwaitingApproval,
   departments,
   engineeringQueueSummary,
   missionBoard,
-  missionLoadGuidance,
   operatingPicture,
-  recoveryGuidance,
   recoveryPosture,
   shipSystemStatus,
   todaysBriefing,
@@ -56,200 +54,9 @@ const POSTURE_TONE: Record<RecoveryPostureBand, { text: string; border: string; 
   UNKNOWN: { text: 'text-lcars-muted', border: 'border-edge',     bg: 'bg-edge',       dot: 'bg-edge' }
 };
 
-// ── Recovery Posture Block ────────────────────────────────────────────────────
-
-function RecoveryPostureBlock() {
-  const p = recoveryPosture;
-  const tone = POSTURE_TONE[p.posture];
-  return (
-    <Panel>
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Left: posture */}
-        <div>
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-lcars-muted">
-            Recovery Posture
-          </p>
-          <p className={`font-lcars text-2xl font-bold leading-none ${tone.text}`}>
-            {p.posture}
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-lcars-text/80">
-            {p.posture_message}
-          </p>
-        </div>
-        {/* Divider */}
-        <div className="border-l border-edge pl-4">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.25em] text-lcars-muted">
-            Capacity Today
-          </p>
-          <p className={`font-lcars text-2xl font-bold leading-none ${tone.text}`}>
-            {p.capacity_band}
-          </p>
-          <p className="mt-1 text-xs text-lcars-text/80">{p.capacity_message}</p>
-          <p className="mt-1 text-[10px] text-lcars-muted">
-            Best window: {p.best_window}
-          </p>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-// ── Body Context Block ────────────────────────────────────────────────────────
-
-const NS_LABEL: Record<string, string> = {
-  calm: 'CALM',
-  activated: 'ACTIVATED',
-  dysregulated: 'DYSREGULATED'
-};
-const NS_TONE: Record<string, string> = {
-  calm: 'text-status',
-  activated: 'text-command',
-  dysregulated: 'text-operations'
-};
-const SIGNAL_TONE: Record<string, string> = {
-  Low: 'text-status',
-  Moderate: 'text-command',
-  High: 'text-operations'
-};
-const ENERGY_TONE: Record<string, string> = {
-  High: 'text-status',
-  Moderate: 'text-command',
-  Low: 'text-operations'
-};
-
-function BodyContextBlock() {
-  const b = bodyContext;
-  const nsTone = NS_TONE[b.nervous_system_state] ?? 'text-lcars-muted';
-  const nsLabel = NS_LABEL[b.nervous_system_state] ?? b.nervous_system_state.toUpperCase();
-  const sigTone = SIGNAL_TONE[b.body_signals] ?? 'text-lcars-muted';
-  const energyTone = ENERGY_TONE[b.energy] ?? 'text-lcars-muted';
-
-  const signals = [
-    {
-      label: 'Sleep',
-      value: `${b.sleep_hours}h`,
-      sub: b.sleep_quality,
-      accent: b.sleep_quality === 'Good' ? 'text-status' : b.sleep_quality === 'Fair' ? 'text-command' : 'text-operations'
-    },
-    {
-      label: 'Nervous System',
-      value: nsLabel,
-      sub: 'Activation state',
-      accent: nsTone
-    },
-    {
-      label: 'Energy',
-      value: b.energy.toUpperCase(),
-      sub: 'Self-assessed',
-      accent: energyTone
-    },
-    {
-      label: 'CPAP',
-      value: b.cpap_compliant ? 'COMPLIANT' : 'MISSED',
-      sub: 'Last night',
-      accent: b.cpap_compliant ? 'text-status' : 'text-operations'
-    },
-    {
-      label: 'Sitting Window',
-      value: `~${b.sitting_window_minutes} min`,
-      sub: 'Before break',
-      accent: 'text-lcars-muted'
-    },
-    {
-      label: 'Body Signals',
-      value: b.body_signals.toUpperCase(),
-      sub: 'Movement likely to help',
-      accent: sigTone
-    }
-  ];
-
-  return (
-    <Panel>
-      <SectionHeader title="Body Context Today" />
-      <div className="grid grid-cols-3 gap-3 md:grid-cols-6">
-        {signals.map((s) => (
-          <div key={s.label} className="flex flex-col gap-0.5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-lcars-muted">
-              {s.label}
-            </p>
-            <p className={`font-mono text-xs font-bold ${s.accent}`}>{s.value}</p>
-            <p className="text-[9px] text-lcars-muted">{s.sub}</p>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-// ── Recovery Guidance Block (Medical Officer) ─────────────────────────────────
-
-function RecoveryGuidanceBlock() {
-  return (
-    <Panel>
-      <SectionHeader
-        title="Medical Officer — Recovery Guidance"
-        action={
-          <span className="text-[10px] uppercase tracking-[0.1em] text-medical">
-            Always present
-          </span>
-        }
-      />
-      <ol className="flex flex-col gap-2">
-        {recoveryGuidance.map((item, i) => (
-          <li key={i} className="flex gap-3 rounded-md border border-edge bg-panel-2/60 p-2.5">
-            <span className="shrink-0 font-mono text-xs font-bold text-medical">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <p className="text-[11px] leading-relaxed text-lcars-text/90">{item}</p>
-          </li>
-        ))}
-      </ol>
-    </Panel>
-  );
-}
-
-// ── Mission Load Guidance ─────────────────────────────────────────────────────
-
-function MissionLoadGuidance() {
-  const g = missionLoadGuidance;
-  const tone = POSTURE_TONE[g.posture];
-  return (
-    <Panel>
-      <SectionHeader title="Today's Sustainable Load" />
-      <ul className="flex flex-col gap-2">
-        <li className="flex items-start gap-2.5 rounded-md border border-edge bg-panel-2/60 p-2.5">
-          <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${tone.dot}`} />
-          <p className="text-[11px] text-lcars-text/90">
-            Posture{' '}
-            <span className={`font-semibold ${tone.text}`}>{g.posture}</span>
-            {' '}— 1 active mission is appropriate today.
-          </p>
-        </li>
-        <li className="flex items-start gap-2.5 rounded-md border border-edge bg-panel-2/60 p-2.5">
-          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-status" />
-          <p className="text-[11px] text-lcars-text/90">
-            <span className="font-mono font-bold text-status">{g.active_mission_id}</span>
-            {' '}is within this — safe and appropriate to continue.
-          </p>
-        </li>
-        <li className="flex items-start gap-2.5 rounded-md border border-edge bg-panel-2/60 p-2.5">
-          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-lcars-muted" />
-          <p className="text-[11px] text-lcars-text/90">
-            New starts: not recommended today. Hold for a STRONG day.
-          </p>
-        </li>
-        {g.defer_decisions && (
-          <li className="flex items-start gap-2.5 rounded-md border border-edge bg-panel-2/60 p-2.5">
-            <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-lcars-muted" />
-            <p className="text-[11px] text-lcars-text/90">
-              {g.decisions_pending} decisions pending — defer to tomorrow if capacity allows.
-            </p>
-          </li>
-        )}
-      </ul>
-    </Panel>
-  );
-}
+// ── ROS panels replaced by ROSPanels client component (Phase 2 live data) ────
+// RecoveryPostureBlock, BodyContextBlock, RecoveryGuidanceBlock,
+// and MissionLoadGuidance are now in src/components/ROSPanels.tsx.
 
 // ── Fleet Status Conditional ──────────────────────────────────────────────────
 // Full fleet display on STABLE / STRONG posture.
@@ -643,13 +450,8 @@ export default function CaptainsChairPage() {
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
 
-        {/* ── Recovery section (ROS-001 v1.1) ─────────────── */}
-        <RecoveryPostureBlock />
-        <BodyContextBlock />
-        <div className="grid gap-4 xl:grid-cols-2">
-          <RecoveryGuidanceBlock />
-          <MissionLoadGuidance />
-        </div>
+        {/* ── Recovery section (ROS-001 v1.1 Phase 2 — live Supabase data) ── */}
+        <ROSPanels />
 
         {/* ── Fleet section (conditional on posture) ───────── */}
         <FleetStatusConditional>
