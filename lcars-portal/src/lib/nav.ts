@@ -93,5 +93,12 @@ export const NAV_ITEMS: NavItem[] = [
     glyph: '12',
     department: 'command',
     description: 'End-of-day structured log entry'
+  },
+  {
+    href: '/ai-console',
+    label: 'AI Console',
+    glyph: '13',
+    department: 'science',
+    description: 'Direct access to Ollama Cloud GLM 5.2'
   }
 ];
