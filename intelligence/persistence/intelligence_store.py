@@ -129,8 +129,14 @@ def event_hash_exists(dedup_hash: str) -> bool:
     return len(rows) > 0
 
 
-def save_event(event: RankedEvent) -> Optional[str]:
-    """Persist a ranked event. Returns event_id or None on failure."""
+def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
+    """Persist a ranked event. Returns event_id or None on failure.
+
+    `ori` optionally supplies the WP4 enrichment columns for digest-sourced
+    events (source_document_id, source_ref, brief_date, organisation,
+    regulatory_topic, resilience_themes, watch_item_status, executive_relevance).
+    Existing callers pass no `ori` and behaviour is unchanged.
+    """
     row = {
         "source_id": event.source_id,
         "raw_title": event.raw_title,
@@ -152,9 +158,51 @@ def save_event(event: RankedEvent) -> Optional[str]:
         "suppressed": event.suppressed,
         "suppression_reason": event.suppression_reason,
     }
+    if ori:
+        bd = ori.get("brief_date")
+        row.update({
+            "source_document_id":  ori.get("source_document_id"),
+            "source_ref":          ori.get("source_ref"),
+            "brief_date":          bd.isoformat() if hasattr(bd, "isoformat") else bd,
+            "organisation":        ori.get("organisation"),
+            "regulatory_topic":    ori.get("regulatory_topic"),
+            "resilience_themes":   ori.get("resilience_themes"),
+            "watch_item_status":   ori.get("watch_item_status"),
+            "executive_relevance": ori.get("executive_relevance"),
+        })
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         return result.get("event_id")
+    return None
+
+
+# ─── ORI Source Documents (WP3/WP5 — preserve raw briefs) ──────────────────────
+
+def document_version_exists(file_path: str, content_sha: str) -> bool:
+    """Dedup Gate 1: has this exact file version already been imported?"""
+    if not content_sha:
+        return False
+    rows = _get(
+        f"ori_source_documents?file_path=eq.{file_path}"
+        f"&content_sha=eq.{content_sha}&limit=1"
+    )
+    return len(rows) > 0
+
+
+def save_source_document(doc: dict) -> Optional[str]:
+    """Persist a raw brief document. Returns document_id or None on failure.
+
+    Expects keys: source_id, file_name, file_path, blob_url, brief_date,
+    content_sha, format_version, region, classification, raw_front_matter,
+    raw_markdown, parse_warnings.
+    """
+    bd = doc.get("brief_date")
+    row = dict(doc)
+    if hasattr(bd, "isoformat"):
+        row["brief_date"] = bd.isoformat()
+    result = _post("ori_source_documents", row, on_conflict="file_path,content_sha")
+    if result:
+        return result.get("document_id")
     return None
 
 

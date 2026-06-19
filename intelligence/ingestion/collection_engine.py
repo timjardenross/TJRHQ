@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
+from intelligence.ingestion.github_markdown_adapter import GitHubMarkdownAdapter
 from intelligence.ingestion.rss_adapter import RSSAdapter
 from intelligence.ingestion.scrape_adapter import ScrapeAdapter
 from intelligence.models import IntelligenceItem, SourceHealth, SourceRecord
@@ -17,9 +18,10 @@ from intelligence.persistence import intelligence_store as store
 log = logging.getLogger(__name__)
 
 _ADAPTER_MAP = {
-    "rss":    RSSAdapter,
-    "api":    APIAdapter,
-    "scrape": ScrapeAdapter,
+    "rss":             RSSAdapter,
+    "api":             APIAdapter,
+    "scrape":          ScrapeAdapter,
+    "github_markdown": GitHubMarkdownAdapter,
 }
 
 
