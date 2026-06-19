@@ -111,6 +111,64 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
+// ── Quick prompts ─────────────────────────────────────────────────────────────
+
+const QUICK_PROMPTS: { label: string; prompt: string; role?: string }[] = [
+  {
+    label: 'Capacity check',
+    prompt: 'Based on a FRAGILE recovery posture today, what mission load is appropriate and what should I defer?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Rest vs push?',
+    prompt: 'I have tasks I want to get done but my energy is low. How do I decide whether to push through or rest?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Sleep impact',
+    prompt: 'I slept fewer than 6 hours last night. What does that mean for my capacity today and how should I adjust?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Stage 2 readiness',
+    prompt: 'What does consistent Stage 2-ready behaviour look like day to day? What am I trying to create conditions for?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Nervous system',
+    prompt: 'My nervous system feels activated today. What are the most effective ways to support settling without withdrawing entirely?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'XO: mission review',
+    prompt: 'Review my current active missions for overcommitment risk. What should I protect, pause, or defer this week?',
+    role: 'xo',
+  },
+];
+
+function QuickPrompts({
+  onSelect,
+}: {
+  onSelect: (prompt: string, role?: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted mb-2">Quick prompts</p>
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_PROMPTS.map((qp) => (
+          <button
+            key={qp.label}
+            onClick={() => onSelect(qp.prompt, qp.role)}
+            className="rounded-lcars border border-medical/40 bg-medical/5 px-2.5 py-1 text-[11px] text-medical hover:bg-medical/15 transition-colors"
+          >
+            {qp.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Loading indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator() {
@@ -279,6 +337,12 @@ export default function AIConsolePage() {
     setStreamBuffer('');
   }
 
+  function handleQuickPrompt(prompt: string, role?: string) {
+    if (role) handleRoleChange(role);
+    setInput(prompt);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-12rem)]">
 
@@ -315,6 +379,11 @@ export default function AIConsolePage() {
             <ModelSelector selected={selectedModel} onChange={setSelectedModel} />
           </div>
         </div>
+
+        {/* Quick prompts */}
+        {messages.length === 0 && (
+          <QuickPrompts onSelect={handleQuickPrompt} />
+        )}
 
         {/* System prompt — editable */}
         <div>
