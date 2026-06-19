@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import Link from 'next/link';
 import { useROSData } from '@/lib/useROSData';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   recoveryGuidance as mockGuidance,
   stageProgressionRecord,
@@ -341,6 +343,98 @@ function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary 
   );
 }
 
+// ── Capacity Restoration Progress (live) ─────────────────────────────────────
+
+interface ReadinessTrendRow {
+  assessment_date: string;
+  readiness_score: number | null;
+  sleep_hours: number | null;
+  energy: string | null;
+  readiness_status: string | null;
+}
+
+const STATUS_DOT: Record<string, string> = {
+  green: 'bg-status',
+  amber: 'bg-command',
+  red:   'bg-operations',
+};
+
+function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
+  if (!rows.length) return null;
+  const latest = rows[0];
+  const older  = rows.slice(1);
+
+  const avgScore = rows.reduce((s, r) => s + (r.readiness_score ?? 0), 0) / rows.filter(r => r.readiness_score != null).length;
+
+  return (
+    <LCARSPanel
+      title="Capacity Restoration Progress"
+      accent="medical"
+      eyebrow={`D-055 · ${rows.length} readiness assessments · trend`}
+      actions={<StatusBadge label="Live" tone="medical" />}
+    >
+      <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
+        Tracks movement from Stabilisation toward Capacity Restoration. Rising readiness over time
+        signals the nervous system is settling — the primary D-055 objective.
+      </p>
+
+      {/* Latest + average */}
+      <div className="grid gap-3 sm:grid-cols-3 mb-4">
+        <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Latest score</p>
+          <p className="font-lcars text-3xl font-bold text-medical mt-0.5">
+            {latest.readiness_score ?? '—'}
+          </p>
+          {latest.readiness_status && (
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <div className={`h-2 w-2 rounded-full ${STATUS_DOT[latest.readiness_status.toLowerCase()] ?? 'bg-edge'}`} />
+              <span className="text-[10px] text-lcars-muted capitalize">{latest.readiness_status}</span>
+            </div>
+          )}
+        </div>
+        <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Avg ({rows.length})</p>
+          <p className="font-lcars text-3xl font-bold text-command mt-0.5">
+            {isNaN(avgScore) ? '—' : Math.round(avgScore)}
+          </p>
+        </div>
+        <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Sleep latest</p>
+          <p className="font-lcars text-3xl font-bold text-science mt-0.5">
+            {latest.sleep_hours != null ? `${latest.sleep_hours}h` : '—'}
+          </p>
+        </div>
+      </div>
+
+      {/* Mini trend — most recent 7 */}
+      {older.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-2">Recent history</p>
+          <div className="flex flex-col gap-1.5">
+            {rows.slice(0, 7).map((r) => {
+              const pct = r.readiness_score != null ? Math.min(r.readiness_score, 100) : 0;
+              const dot = r.readiness_status ? (STATUS_DOT[r.readiness_status.toLowerCase()] ?? 'bg-edge') : 'bg-edge';
+              return (
+                <div key={r.assessment_date} className="flex items-center gap-3">
+                  <span className="w-16 shrink-0 text-[10px] text-lcars-muted font-mono">
+                    {r.assessment_date.slice(5)}
+                  </span>
+                  <div className="flex-1 h-2.5 rounded-full bg-edge/30 overflow-hidden">
+                    <div className={`h-full rounded-full ${dot} transition-all`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="w-8 text-right font-mono text-[10px] text-lcars-muted">
+                    {r.readiness_score ?? '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </LCARSPanel>
+  );
+}
+
 // ── Body Signals (pain as context — no numeric display) ──────────────────────
 
 function BodySignalsContextLive({ ctx }: { ctx: import('@/lib/types').BodyContext }) {
@@ -497,6 +591,22 @@ export default function MedicalPage() {
     isLoading
   } = useROSData();
 
+  const [readinessTrend, setReadinessTrend] = useState<ReadinessTrendRow[]>([]);
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase
+          .from('captain_readiness_history')
+          .select('assessment_date, readiness_score, sleep_hours, energy, readiness_status')
+          .order('assessment_date', { ascending: false })
+          .limit(14);
+        if (data?.length) setReadinessTrend(data as ReadinessTrendRow[]);
+      } catch { /* fall through */ }
+    }
+    load();
+  }, []);
+
   const guidance = mockGuidance; // Phase 2+: replace with health_insights fetch
 
   return (
@@ -513,6 +623,9 @@ export default function MedicalPage() {
 
       {/* Stage — no countdown, no progress bar */}
       <StageDisplay stage={stageStatus} />
+
+      {/* D-055 Capacity Restoration Progress — live trend */}
+      <CapacityRestorationPanel rows={readinessTrend} />
 
       {/* Life Participation — primary Stage 1 outcome measure */}
       <LifeParticipationHero lp={lifeParticipation} />
