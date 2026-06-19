@@ -1335,6 +1335,21 @@ log.info(
 # ========================================================================
 # END MSN-0060B INITIALIZATION
 # ========================================================================
+
+# ── D-055 Recovery Scheduler ──────────────────────────────────────────────────
+# L2/L3 proactive dispatch via Slack DM. L0/L1 reminders are Telegram's domain.
+
+try:
+    from recovery_scheduler import start_recovery_scheduler
+    if app is not None:
+        _recovery_scheduler = start_recovery_scheduler(app.client)
+    else:
+        log.warning("[recovery-scheduler] Slack app unavailable — scheduler not started")
+except Exception as _rec_exc:
+    log.warning("[recovery-scheduler] Could not start: %s", _rec_exc)
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     if not SLACK_BOT_TOKEN or not SLACK_APP_TOKEN:
         print("Commander TJR startup halted: Slack tokens are not configured.")

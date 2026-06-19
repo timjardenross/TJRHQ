@@ -5,6 +5,20 @@ import { useRecoveryConfidence } from '@/lib/useRecoveryConfidence';
 import { StatusBadge } from './StatusBadge';
 import type { StatusTone } from '@/lib/types';
 
+// ── Escalation level (mirrors Telegram dispatcher logic) ──────────────────────
+
+function escalationLevel(confidence: number, pulses: number): 0 | 1 | 2 | 3 {
+  const hour = new Date().getHours();
+  if (confidence === 0 && pulses === 0) {
+    if (hour >= 14) return 3;
+    if (hour >= 9)  return 2;
+    return 1;
+  }
+  if (confidence <= 25) return 2;
+  if (confidence <= 50) return 1;
+  return 0;
+}
+
 // ── Confidence tone ───────────────────────────────────────────────────────────
 
 function confidenceTone(score: number): StatusTone {
@@ -21,6 +35,14 @@ function confidenceBarColour(score: number): string {
   return 'bg-lcars-muted';
 }
 
+// ── Escalation border / banner classes ───────────────────────────────────────
+
+function escalationBorder(level: 0 | 1 | 2 | 3): string {
+  if (level === 3) return 'border-medical';
+  if (level === 2) return 'border-operations';
+  return 'border-edge';
+}
+
 // ── Pulse dot ─────────────────────────────────────────────────────────────────
 
 function PulseDot({ done, label }: { done: boolean; label: string }) {
@@ -32,6 +54,25 @@ function PulseDot({ done, label }: { done: boolean; label: string }) {
   );
 }
 
+// ── Escalation alert banner ───────────────────────────────────────────────────
+
+function EscalationBanner({ level }: { level: 2 | 3 }) {
+  if (level === 3) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-medical bg-medical/10 px-3 py-2">
+        <span className="animate-pulse text-medical text-xs font-bold uppercase tracking-widest">⚠ Critical</span>
+        <span className="text-xs text-lcars-text/80">No telemetry today — log a pulse to restore baseline.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-operations bg-operations/10 px-3 py-2">
+      <span className="text-operations text-xs font-bold uppercase tracking-widest">Low</span>
+      <span className="text-xs text-lcars-text/80">Recovery confidence below threshold — pulses needed.</span>
+    </div>
+  );
+}
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
 export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean }) {
@@ -39,12 +80,14 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
 
   if (isLoading) return null;
 
+  const level  = escalationLevel(confidence.recovery_confidence, confidence.pulses_completed);
   const tone   = confidenceTone(confidence.recovery_confidence);
   const barCls = confidenceBarColour(confidence.recovery_confidence);
+  const border = escalationBorder(level);
 
   if (compact) {
     return (
-      <div className="rounded-lcars border border-edge bg-panel/40 px-4 py-3 flex items-center gap-4">
+      <div className={`rounded-lcars border ${border} bg-panel/40 px-4 py-3 flex items-center gap-4`}>
         <div className="flex-1">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Recovery confidence</p>
           <div className="flex items-center gap-3">
@@ -73,7 +116,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
   }
 
   return (
-    <div className="rounded-lcars border border-edge bg-panel/40 p-4 flex flex-col gap-4">
+    <div className={`rounded-lcars border ${border} bg-panel/40 p-4 flex flex-col gap-4`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-0.5">Recovery Confidence</p>
@@ -81,6 +124,9 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
         </div>
         <StatusBadge label={`${confidence.recovery_confidence}%`} tone={tone} />
       </div>
+
+      {/* Escalation alert — L2/L3 only */}
+      {level >= 2 && <EscalationBanner level={level as 2 | 3} />}
 
       {/* Progress bar */}
       <div className="h-3 rounded-full bg-edge/30 overflow-hidden">
@@ -95,7 +141,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
         <PulseDot done={confidence.evening_done}    label="Evening" />
       </div>
 
-      {/* Latest signals (if any) */}
+      {/* Latest signals */}
       {confidence.pulses_completed > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {confidence.latest_energy && (
