@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { recoveryBrief as mockBrief } from '@/lib/mockData';
@@ -164,10 +165,12 @@ export default function RecoveryBriefPage() {
         <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3">
           <p className="text-sm text-lcars-text/80">{brief.fleet_summary}</p>
         </div>
-        <p className="mt-2 text-xs text-lcars-muted">
-          Full mission detail, department status, and crew readiness are on the Captain&apos;s Chair.
-          Fleet is context here — not the opening frame.
-        </p>
+        <Link
+          href="/captains-chair"
+          className="mt-2 block text-xs text-command hover:opacity-70"
+        >
+          Full mission detail and fleet status → Captain&apos;s Chair
+        </Link>
       </LCARSPanel>
 
     </div>

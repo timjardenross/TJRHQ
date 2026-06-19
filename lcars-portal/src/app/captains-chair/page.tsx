@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
@@ -36,11 +37,11 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
   );
 }
 
-function ActionLink({ children }: { children: React.ReactNode }) {
+function ActionLink({ children, href }: { children: React.ReactNode; href: string }) {
   return (
-    <button className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
+    <Link href={href} className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
       {children}
-    </button>
+    </Link>
   );
 }
 
@@ -144,9 +145,6 @@ function PriorityOverview() {
           );
         })}
       </ul>
-      <div className="mt-3 text-right">
-        <ActionLink>View All Priorities →</ActionLink>
-      </div>
     </Panel>
   );
 }
@@ -202,10 +200,7 @@ function CaptainTimeline() {
   };
   return (
     <Panel>
-      <SectionHeader
-        title="Captain's Timeline"
-        action={<ActionLink>View Full Schedule</ActionLink>}
-      />
+      <SectionHeader title="Captain's Timeline" />
       <ul className="flex flex-col gap-2">
         {captainTimeline.map((event) => {
           const s = STATUS[event.status];
@@ -261,9 +256,12 @@ function AlertsSidebar() {
           );
         })}
       </ul>
-      <button className="mt-3 w-full rounded border border-edge bg-panel-2/60 py-1.5 text-[10px] uppercase tracking-[0.2em] text-command hover:border-command/50">
-        View All Alerts
-      </button>
+      <Link
+        href="/medical"
+        className="mt-3 block w-full rounded border border-edge bg-panel-2/60 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-command hover:border-command/50"
+      >
+        View Medical Bay →
+      </Link>
     </Panel>
   );
 }
@@ -273,10 +271,7 @@ function AlertsSidebar() {
 function DecisionsPanel() {
   return (
     <Panel className="mt-3">
-      <SectionHeader
-        title="Decisions Awaiting Approval"
-        action={<ActionLink>View All</ActionLink>}
-      />
+      <SectionHeader title="Decisions Awaiting Approval" />
       <ol className="flex flex-col gap-2">
         {decisionsAwaitingApproval.map((d) => (
           <li key={d.id} className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-2">
@@ -297,36 +292,41 @@ function DecisionsPanel() {
 function DepartmentRow() {
   const depts = departments.filter((d) => d.key !== 'status');
   return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: `repeat(${depts.length}, minmax(0, 1fr))` }}
-    >
-      {depts.map((dept) => {
-        const theme = DEPARTMENTS[dept.key];
-        return (
-          <Panel key={dept.key}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className={`h-6 w-6 shrink-0 rounded-md ${theme.bg}`} />
-              <h3 className={`text-[11px] font-bold uppercase tracking-wider ${theme.text}`}>
-                {dept.name}
-              </h3>
-            </div>
-            <dl className="flex flex-col gap-1">
-              {dept.metrics.map((m) => (
-                <div key={m.label} className="flex items-center justify-between">
-                  <dt className="text-[10px] uppercase tracking-wide text-lcars-muted">
-                    {m.label}
-                  </dt>
-                  <dd className={`font-mono text-xs font-bold ${theme.text}`}>{m.value}</dd>
+    <div className="-mx-1 overflow-x-auto pb-1 sm:mx-0">
+      <div className="flex gap-3 px-1 sm:grid sm:grid-cols-3 xl:flex">
+        {depts.map((dept) => {
+          const theme = DEPARTMENTS[dept.key];
+          return (
+            <Link
+              key={dept.key}
+              href={`/${dept.key}`}
+              className="block min-w-[160px] flex-shrink-0 sm:min-w-0"
+            >
+              <Panel className="h-full hover:border-command/40 transition-colors">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className={`h-6 w-6 shrink-0 rounded-md ${theme.bg}`} />
+                  <h3 className={`text-[11px] font-bold uppercase tracking-wider ${theme.text}`}>
+                    {dept.name}
+                  </h3>
                 </div>
-              ))}
-            </dl>
-            <div className="mt-2">
-              <StatusBadge label={dept.status} tone={dept.tone} />
-            </div>
-          </Panel>
-        );
-      })}
+                <dl className="flex flex-col gap-1">
+                  {dept.metrics.map((m) => (
+                    <div key={m.label} className="flex items-center justify-between">
+                      <dt className="text-[10px] uppercase tracking-wide text-lcars-muted">
+                        {m.label}
+                      </dt>
+                      <dd className={`font-mono text-xs font-bold ${theme.text}`}>{m.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="mt-2">
+                  <StatusBadge label={dept.status} tone={dept.tone} />
+                </div>
+              </Panel>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -336,33 +336,32 @@ function DepartmentRow() {
 function MissionBoard() {
   return (
     <Panel>
-      <SectionHeader title="Mission Board" />
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${missionBoard.length}, minmax(0, 1fr))` }}
-      >
-        {missionBoard.map((col) => {
-          const dept = DEPARTMENTS[col.tone];
-          return (
-            <div key={col.label} className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between rounded-md border border-edge bg-panel-2/80 px-2 py-1">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-lcars-muted">
-                  {col.label}
-                </span>
-                <span className={`font-mono text-xs font-bold ${dept.text}`}>{col.count}</span>
-              </div>
-              {col.items.map((item) => (
-                <div key={item.title} className="rounded border border-edge bg-space/50 p-1.5">
-                  <p className="text-[11px] font-medium text-lcars-text">{item.title}</p>
-                  <p className="text-[10px] text-lcars-muted">{item.meta}</p>
+      <SectionHeader
+        title="Mission Board"
+        action={<ActionLink href="/missions">View All →</ActionLink>}
+      />
+      <div className="-mx-1 overflow-x-auto pb-1">
+        <div className="flex gap-2 px-1" style={{ minWidth: `${missionBoard.length * 160}px` }}>
+          {missionBoard.map((col) => {
+            const dept = DEPARTMENTS[col.tone];
+            return (
+              <div key={col.label} className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                <div className="flex items-center justify-between rounded-md border border-edge bg-panel-2/80 px-2 py-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-lcars-muted">
+                    {col.label}
+                  </span>
+                  <span className={`font-mono text-xs font-bold ${dept.text}`}>{col.count}</span>
                 </div>
-              ))}
-              <button className="mt-auto text-center text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text">
-                View All
-              </button>
-            </div>
-          );
-        })}
+                {col.items.map((item) => (
+                  <div key={item.title} className="rounded border border-edge bg-space/50 p-1.5">
+                    <p className="text-[11px] font-medium text-lcars-text">{item.title}</p>
+                    <p className="text-[10px] text-lcars-muted">{item.meta}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </Panel>
   );
@@ -387,9 +386,12 @@ function TodaysBriefing() {
           );
         })}
       </ul>
-      <button className="mt-3 w-full rounded border border-edge bg-panel-2/60 py-1.5 text-[10px] uppercase tracking-[0.2em] text-command hover:border-command/50">
-        View Full Brief
-      </button>
+      <Link
+        href="/recovery-brief"
+        className="mt-3 block w-full rounded border border-edge bg-panel-2/60 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-command hover:border-command/50"
+      >
+        View Recovery Brief →
+      </Link>
     </Panel>
   );
 }
@@ -416,9 +418,12 @@ function EngineeringQueue() {
           );
         })}
       </ul>
-      <button className="mt-3 w-full rounded border border-edge bg-panel-2/60 py-1.5 text-[10px] uppercase tracking-[0.2em] text-engineering hover:border-engineering/50">
-        View Full Queue
-      </button>
+      <Link
+        href="/engineering"
+        className="mt-3 block w-full rounded border border-edge bg-panel-2/60 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-engineering hover:border-engineering/50"
+      >
+        Engineering Bay →
+      </Link>
     </Panel>
   );
 }
@@ -435,9 +440,12 @@ function MedicalBayLink() {
         Full recovery indexes, Life Participation Score, body context trend,
         and Medical Officer assessment are in the Medical Bay.
       </p>
-      <button className="w-full rounded border border-medical/40 bg-medical/5 py-2 text-[10px] uppercase tracking-[0.2em] text-medical hover:border-medical/70">
+      <Link
+        href="/medical"
+        className="block w-full rounded border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.2em] text-medical hover:border-medical/70"
+      >
         View Medical Bay →
-      </button>
+      </Link>
     </Panel>
   );
 }

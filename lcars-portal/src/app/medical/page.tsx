@@ -475,9 +475,12 @@ function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPo
           </p>
         </div>
       </div>
-      <p className="mt-2 text-xs text-lcars-muted">
-        Full posture detail and mission load guidance is on the Captain&apos;s Chair.
-      </p>
+      <Link
+        href="/captains-chair"
+        className="mt-2 block text-xs text-command hover:opacity-70"
+      >
+        Full posture detail and mission load guidance → Captain&apos;s Chair
+      </Link>
     </LCARSPanel>
   );
 }

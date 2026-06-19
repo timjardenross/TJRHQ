@@ -21,7 +21,7 @@ const PRIORITY_TONE: Record<string, string> = {
 };
 
 export function MissionCard({ mission }: MissionCardProps) {
-  const dept = DEPARTMENTS[mission.department];
+  const dept = mission.department ? DEPARTMENTS[mission.department] : DEPARTMENTS.command;
   return (
     <Link href={`/missions/${mission.mission_id}`} className="block">
     <article
@@ -45,7 +45,7 @@ export function MissionCard({ mission }: MissionCardProps) {
       </h3>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-lcars-muted">
         <StatusBadge label={mission.status} status={mission.status} />
-        <span>· {mission.owner}</span>
+        {mission.owner && <span>· {mission.owner}</span>}
         {mission.specialist && <span>· {mission.specialist}</span>}
       </div>
     </article>

@@ -23,16 +23,31 @@ export type StatusTone =
   | 'status'
   | 'neutral';
 
-/** Mirrors mission-registry-reader.js mission rows. */
+/** Mirrors mission-registry-reader.js mission rows and Supabase missions table. */
 export interface Mission {
   mission_id: string;
   title: string;
   priority: 'P0' | 'P1' | 'P2' | 'P3' | '—';
   status: string;
-  owner: string;
-  specialist: string;
-  reference: string;
-  department: DepartmentKey;
+  // Mock-only fields (not in DB)
+  owner?: string;
+  specialist?: string;
+  reference?: string;
+  department?: DepartmentKey;
+  // DB fields
+  id?: string;
+  description?: string;
+  task_type?: string;
+  mission_type?: string;
+  repo?: string;
+  branch_name?: string;
+  pr_url?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  outcome_rating?: number | null;
+  closed_at?: string | null;
+  rework_of?: string | null;
 }
 
 /** Mirrors GET /api/v1/missions/summary. */
