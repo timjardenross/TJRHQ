@@ -347,7 +347,7 @@ else:
     log.warning("⚠️  SUPABASE_URL not configured — Command Memory queries will be unavailable")
 
 if app:
-@app.event("app_mention")
+    @app.event("app_mention")
     def handle_app_mention_events(body, say):
         """Handle all @Bot mentions.
 
