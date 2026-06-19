@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { recoveryBrief as mockBrief } from '@/lib/mockData';
 import { useROSData } from '@/lib/useROSData';
 import { toneClasses } from '@/lib/departments';
+import { RecoveryConfidencePanel } from '@/components/RecoveryConfidencePanel';
 import type { RecoveryPostureBand, StatusTone } from '@/lib/types';
 
 // ── Tone helpers ──────────────────────────────────────────────────────────────
@@ -80,6 +81,9 @@ export default function RecoveryBriefPage() {
           {isLoading ? 'Loading live data…' : isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}
         </p>
       </LCARSPanel>
+
+      {/* ── Recovery Confidence ── */}
+      <RecoveryConfidencePanel />
 
       {/* ── Recovery Posture ── */}
       <LCARSPanel title="Recovery Posture" accent="medical" eyebrow="What does my system need today?">

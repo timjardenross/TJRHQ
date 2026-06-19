@@ -81,9 +81,16 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Work intelligence brief — OR pipeline'
   },
   {
+    href: '/medical/pulse',
+    label: 'Recovery Pulse',
+    glyph: '11',
+    department: 'medical',
+    description: 'Log a recovery pulse — four per day'
+  },
+  {
     href: '/medical/check-in',
     label: 'Health Check-In',
-    glyph: '11',
+    glyph: '11b',
     department: 'medical',
     description: 'Log today\'s daily health check-in'
   },

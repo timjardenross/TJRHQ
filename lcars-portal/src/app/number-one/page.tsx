@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { MissionCard } from '@/components/MissionCard';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useROSData } from '@/lib/useROSData';
+import { RecoveryConfidencePanel } from '@/components/RecoveryConfidencePanel';
 import type { Mission, StatusTone, RecoveryPostureBand } from '@/lib/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -274,6 +275,8 @@ export default function NumberOnePage() {
           {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}
         </p>
       </LCARSPanel>
+
+      <RecoveryConfidencePanel compact />
 
       <MissionLoadPanel posture={currentPosture} missions={missions} />
 
