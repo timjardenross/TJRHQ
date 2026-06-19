@@ -58,6 +58,16 @@ MISTRAL_TAO_AGENT_VERSION = os.getenv("MISTRAL_TAO_AGENT_VERSION", "0")
 # Cron expression for scheduled brief generation (default: fortnightly, Monday 06:00 AEST)
 SCHEDULE_CRON = os.getenv("OR_INTEL_SCHEDULE_CRON", "0 6 1,15 * *")
 
+# Daily incremental sync of the GitHub OR Briefs source (USS-TJR-MSN-0074).
+# Upstream briefs publish ~10:00 Melbourne daily; sync 30 min later for headroom.
+# Time is interpreted in OR_INTEL_SCHEDULE_TZ (DST-aware, auto AEST/AEDT).
+GITHUB_SYNC_CRON = os.getenv("OR_INTEL_GITHUB_SYNC_CRON", "30 10 * * *")
+SCHEDULE_TZ      = os.getenv("OR_INTEL_SCHEDULE_TZ", "Australia/Melbourne")
+# Optionally regenerate the OR brief right after the daily sync (off by default;
+# the full brief pipeline hits all sources + LLM, so leave to the fortnightly job
+# unless a daily brief is explicitly wanted).
+DAILY_BRIEF_AFTER_SYNC = os.getenv("OR_INTEL_DAILY_BRIEF_AFTER_SYNC", "0") == "1"
+
 # ─── Collection ───────────────────────────────────────────────────────────────
 
 HTTP_TIMEOUT_SECONDS   = int(os.getenv("OR_INTEL_HTTP_TIMEOUT", "15"))
