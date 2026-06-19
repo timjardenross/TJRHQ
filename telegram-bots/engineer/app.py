@@ -1,7 +1,8 @@
 """Chief Engineer Bot — @Starship_ChiefEngineer_bot
 
-Technical authority: engineering intake, repository awareness, build records.
-Phase 1 capability: recovery pulse dispatch + engineering status commands.
+Technical authority. Conversational via Ollama Cloud with CE persona.
+No recovery dispatch — that belongs to XO only.
+Surfaces engineering decisions and blockers to the Captain.
 
 Run:  python -m telegram_bots.engineer.app
 Env:  telegram-bots/engineer/.env
@@ -16,7 +17,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# ── Load env ──────────────────────────────────────────────────────────────────
+# ── Env ───────────────────────────────────────────────────────────────────────
 
 _BOT_DIR   = Path(__file__).parent
 _REPO_ROOT = _BOT_DIR.parents[1]
@@ -42,18 +43,21 @@ log = logging.getLogger("engineer-bot")
 sys.path.insert(0, str(_REPO_ROOT))
 
 from telegram_bots.recovery_officer.engagement_dispatcher import (
-    get_recovery_status,
     build_daily_summary,
-    build_pulse_reminder,
-    run_dispatch_check,
+    get_recovery_status,
 )
+from telegram_bots.llm import generate_async
 
-# ── Telegram + scheduler ──────────────────────────────────────────────────────
+# ── Telegram ──────────────────────────────────────────────────────────────────
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -70,10 +74,6 @@ def _get_supabase():
     return _supabase
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-_ESCAPE_CHARS = r"\_*[]()~`>#+=|{}.!-"
-
 def _escape(text: str) -> str:
     result = []
     for ch in text:
@@ -84,53 +84,43 @@ def _escape(text: str) -> str:
     return "".join(result)
 
 
-class _BotAdapter:
-    def __init__(self, bot):
-        self._bot = bot
+# ── CE system prompt ──────────────────────────────────────────────────────────
 
-    def send_message(self, chat_id, text, parse_mode="Markdown"):
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            loop.create_task(
-                self._bot.send_message(
-                    chat_id=chat_id,
-                    text=_escape(text),
-                    parse_mode="MarkdownV2",
-                )
-            )
-        except Exception as exc:
-            log.error("send_message failed: %s", exc)
+_CE_SYSTEM_PROMPT = (
+    "You are the Chief Engineer of USS TJR. You report directly to Captain TJR.\n\n"
+    "Your domain:\n"
+    "- All technical and engineering decisions\n"
+    "- Build status, repository health, deployment blockers\n"
+    "- Engineering mission progress and technical debt\n"
+    "- Code architecture, infrastructure, integrations\n\n"
+    "Your role:\n"
+    "- Surface engineering concerns and blockers clearly and concisely\n"
+    "- Answer technical questions with precision\n"
+    "- Flag when a technical decision needs the Captain's attention\n"
+    "- Recovery is not your domain — defer those questions to XO\n\n"
+    "Keep responses SHORT and technical. This is Telegram on mobile.\n"
+    "Respond as Chief Engineer, not as an AI. No disclaimers."
+)
 
 
 # ── Command handlers ──────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.effective_chat.id
     await update.message.reply_text(
-        f"*Chief Engineer — @Starship\\_ChiefEngineer\\_bot*\n\n"
-        f"Technical authority online\\.\n\n"
-        f"Your chat ID: `{chat_id}`\n\n"
-        f"Available commands:\n"
-        f"/recovery\\_status — today's recovery confidence\n"
-        f"/recovery\\_pulse — log a recovery pulse\n"
-        f"/engineering\\_status — active engineering missions\n"
-        f"/dispatch — manual dispatch check\n"
-        f"/help — this message",
+        f"*Chief Engineer online* — @Starship\\_ChiefEngineer\\_bot\n\n"
+        f"Chat ID: `{update.effective_chat.id}`\n\n"
+        "/engineering\\_status · /recovery\\_status · /help\n\n"
+        "_Or ask me a technical question\\._",
         parse_mode="MarkdownV2",
     )
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "*Chief Engineer Bot — Commands*\n\n"
-        "*Recovery*\n"
-        "/recovery\\_status — today's confidence and pulse status\n"
-        "/recovery\\_pulse — log a recovery pulse\n"
-        "/dispatch — manual dispatch check\n\n"
-        "*Engineering \\(Phase 1\\)*\n"
-        "/engineering\\_status — active engineering missions\n\n"
-        "_/build, /repo\\-scan, /github\\-status coming in MSN\\-0057\\._",
+        "*Chief Engineer — Commands*\n\n"
+        "/engineering\\_status — active engineering missions\n"
+        "/recovery\\_status — today's recovery confidence \\(read\\-only\\)\n\n"
+        "_Or just talk to me about engineering matters\\._",
         parse_mode="MarkdownV2",
     )
 
@@ -140,27 +130,10 @@ async def cmd_recovery_status(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(_escape(build_daily_summary(status)), parse_mode="MarkdownV2")
 
 
-async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    status = get_recovery_status(_get_supabase())
-    next_pulse = status.next_suggested_pulse
-    if next_pulse:
-        text = build_pulse_reminder(status, next_pulse)
-        await update.message.reply_text(
-            _escape(text) + "\n\n_Log via LCARS portal → Medical Bay → Recovery Pulse_",
-            parse_mode="MarkdownV2",
-        )
-    else:
-        await update.message.reply_text(
-            "✅ All 4 pulses logged today\\. Recovery telemetry complete\\.",
-            parse_mode="MarkdownV2",
-        )
-
-
 async def cmd_engineering_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Fetch active engineering missions from Supabase."""
     db = _get_supabase()
     if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable — cannot fetch engineering status\\.", parse_mode="MarkdownV2")
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
         return
     try:
         result = db.table("missions").select(
@@ -176,65 +149,45 @@ async def cmd_engineering_status(update: Update, context: ContextTypes.DEFAULT_T
             )
             return
 
-        lines = ["*Engineering Status — Active Missions*\n"]
+        lines = ["*Engineering — Active Missions*\n"]
         for m in missions:
-            status_icon = "🔴" if m.get("status") == "BLOCKED" else "🟢"
-            lines.append(
-                f"{status_icon} `{_escape(m.get('mission_id','?'))}` — {_escape(m.get('title','?'))}"
-            )
+            icon = "🔴" if m.get("status") == "BLOCKED" else "🟢"
+            lines.append(f"{icon} `{_escape(m.get('mission_id','?'))}` — {_escape(m.get('title','?'))}")
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
     except Exception as exc:
         log.error("engineering_status query failed: %s", exc)
         await update.message.reply_text("⚠️ Failed to fetch engineering missions\\.", parse_mode="MarkdownV2")
 
 
-async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Running dispatch check…")
-    result = run_dispatch_check(
-        _BotAdapter(context.bot),
-        TELEGRAM_CHAT_ID,
-        supabase_client=_get_supabase(),
-    )
-    conf  = result.get("confidence", 0)
-    action = result.get("action", "none")
-    sent  = result.get("message_sent", False)
-    await update.message.reply_text(
-        f"Dispatch complete\\.\nConfidence: {conf}%\nAction: {_escape(action)}\nSent: {'yes' if sent else 'no'}",
-        parse_mode="MarkdownV2",
-    )
+# ── Free-text conversation ────────────────────────────────────────────────────
 
-
-# ── Scheduled dispatch ────────────────────────────────────────────────────────
-
-async def _scheduled_dispatch(bot) -> None:
-    log.info("[scheduler] engineer-bot dispatch tick")
-    try:
-        run_dispatch_check(_BotAdapter(bot), TELEGRAM_CHAT_ID, supabase_client=_get_supabase())
-    except Exception as exc:
-        log.error("[scheduler] dispatch failed: %s", exc)
+async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text = (update.message.text or "").strip()
+    if not text:
+        return
+    await update.message.chat.send_action("typing")
+    reply = await generate_async(text, _CE_SYSTEM_PROMPT)
+    if reply:
+        await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
+    else:
+        await update.message.reply_text(
+            "CE here\\. LLM unreachable — use /engineering\\_status for current state\\.",
+            parse_mode="MarkdownV2",
+        )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    log.info("Chief Engineer Bot starting — token ...%s", TELEGRAM_BOT_TOKEN[-6:])
+    log.info("Chief Engineer Bot starting")
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start",               cmd_start))
-    app.add_handler(CommandHandler("help",                cmd_help))
-    app.add_handler(CommandHandler("recovery_status",     cmd_recovery_status))
-    app.add_handler(CommandHandler("recovery_pulse",      cmd_recovery_pulse))
-    app.add_handler(CommandHandler("engineering_status",  cmd_engineering_status))
-    app.add_handler(CommandHandler("dispatch",            cmd_dispatch))
-
-    scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")
-    bot = app.bot
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=7,  minute=0),  id="morning")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=12, minute=30), id="midday")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=16, minute=0),  id="eod")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot), CronTrigger(hour=20, minute=0),  id="evening")
-    scheduler.start()
+    app.add_handler(CommandHandler("start",              cmd_start))
+    app.add_handler(CommandHandler("help",               cmd_help))
+    app.add_handler(CommandHandler("recovery_status",    cmd_recovery_status))
+    app.add_handler(CommandHandler("engineering_status", cmd_engineering_status))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     log.info("Chief Engineer Bot polling…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
