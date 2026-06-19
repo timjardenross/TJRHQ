@@ -45,6 +45,17 @@ class WellnessSnapshot:
     energy_log:               str | None   = None
     has_daily_log:            bool         = False
 
+    # ── Activity logs (from activity_logs — today's entries) ─────────────────
+    activities_today:     list[dict]       = field(default_factory=list)
+    activity_minutes_today: int            = 0
+    has_activity_today:   bool             = False
+
+    # ── Weight (from weight_logs — latest + 7-day trend) ──────────────────────
+    weight_today_kg:      float | None     = None
+    weight_7d_avg_kg:     float | None     = None
+    weight_30d_change_kg: float | None     = None
+    has_weight_data:      bool             = False
+
     # ── Health insights (from health_insights — latest row) ───────────────────
     llm_narrative:        str | None       = None
     risk_flags:           list[str]        = field(default_factory=list)
@@ -138,7 +149,50 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     except Exception as exc:
         log.error("[wellness] health_daily_logs query failed: %s", exc)
 
-    # ── 3. Latest health insights ─────────────────────────────────────────────
+    # ── 3. Today's activity logs ─────────────────────────────────────────────
+    try:
+        res = (
+            supabase_client.table("activity_logs")
+            .select("activity_type,duration_minutes,intensity,notes")
+            .eq("log_date", today)
+            .eq("completed", True)
+            .execute()
+        )
+        if res.data:
+            snap.activities_today       = res.data
+            snap.activity_minutes_today = sum(r.get("duration_minutes") or 0 for r in res.data)
+            snap.has_activity_today     = True
+    except Exception as exc:
+        log.error("[wellness] activity_logs query failed: %s", exc)
+
+    # ── 4. Weight logs ────────────────────────────────────────────────────────
+    try:
+        res = (
+            supabase_client.table("weight_logs")
+            .select("log_date,weight_kg")
+            .order("log_date", desc=True)
+            .limit(31)
+            .execute()
+        )
+        if res.data:
+            snap.has_weight_data = True
+            rows = res.data
+            # Today
+            if rows[0]["log_date"] == today:
+                snap.weight_today_kg = float(rows[0]["weight_kg"])
+            # 7-day avg
+            recent = [float(r["weight_kg"]) for r in rows[:7]]
+            if recent:
+                snap.weight_7d_avg_kg = round(sum(recent) / len(recent), 2)
+            # 30-day change (most recent vs oldest in window)
+            if len(rows) >= 2:
+                snap.weight_30d_change_kg = round(
+                    float(rows[0]["weight_kg"]) - float(rows[-1]["weight_kg"]), 2
+                )
+    except Exception as exc:
+        log.error("[wellness] weight_logs query failed: %s", exc)
+
+    # ── 5. Latest health insights ─────────────────────────────────────────────
     try:
         res = (
             supabase_client.table("health_insights")

@@ -646,6 +646,31 @@ export default function MedicalPage() {
       {/* Body context */}
       <BodySignalsContextLive ctx={bodyContext} />
 
+      {/* Quick log actions */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link
+          href="/medical/check-in"
+          className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
+        >
+          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical">Daily Check-In</p>
+          <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy · Mood</p>
+        </Link>
+        <Link
+          href="/medical/log-activity"
+          className="rounded-lcars border border-status/40 bg-status/5 px-4 py-3 text-center hover:bg-status/10 transition-colors"
+        >
+          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status">Log Activity</p>
+          <p className="text-[10px] text-lcars-muted mt-0.5">Walk · Physio · Stretch · more</p>
+        </Link>
+        <Link
+          href="/medical/log-weight"
+          className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
+        >
+          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command">Log Weight</p>
+          <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
+        </Link>
+      </div>
+
       {/* Stage Progression card — full record on /stage-progression */}
       <StageProgressionCard record={stageProgressionRecord} />
 

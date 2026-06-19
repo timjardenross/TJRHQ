@@ -71,6 +71,27 @@ def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
     else:
         lines.append("\nNo health daily log recorded today yet.")
 
+    # Activity today
+    if snap.has_activity_today:
+        acts = ", ".join(
+            f"{a['activity_type']}" + (f" {a['duration_minutes']}min" if a.get('duration_minutes') else "")
+            for a in snap.activities_today
+        )
+        lines.append(f"Activity today: {acts} (total {snap.activity_minutes_today} min)")
+    else:
+        lines.append("Activity today: none logged")
+
+    # Weight
+    if snap.has_weight_data:
+        lines.append("")
+        if snap.weight_today_kg:
+            lines.append(f"Weight today: {snap.weight_today_kg} kg")
+        if snap.weight_7d_avg_kg:
+            lines.append(f"7-day avg: {snap.weight_7d_avg_kg} kg")
+        if snap.weight_30d_change_kg is not None:
+            direction = "down" if snap.weight_30d_change_kg < 0 else "up"
+            lines.append(f"30-day trend: {direction} {abs(snap.weight_30d_change_kg)} kg")
+
     # Health insights (LLM narrative from Supabase engine)
     if snap.has_insights:
         lines.append("")

@@ -74,12 +74,18 @@ _supabase = None
 
 def _get_supabase():
     global _supabase
-    if _supabase is None and SUPABASE_URL and SUPABASE_KEY:
-        try:
-            from supabase import create_client
-            _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except Exception as exc:
-            log.warning("Supabase client failed: %s", exc)
+    if _supabase is None:
+        if not SUPABASE_URL:
+            log.warning("SUPABASE_URL not set — Supabase disabled")
+        elif not SUPABASE_KEY:
+            log.warning("SUPABASE_KEY not set — Supabase disabled")
+        else:
+            try:
+                from supabase import create_client
+                _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+                log.info("Supabase client initialised")
+            except Exception as exc:
+                log.warning("Supabase client failed: %s", exc)
     return _supabase
 
 
@@ -232,6 +238,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*XO — Commands*\n\n"
         "/recovery\\_status — today's confidence and pulse status\n"
         "/recovery\\_pulse — log a pulse inline \\(tap buttons, no portal\\)\n"
+        "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
+        "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n"
         "/dispatch — manual dispatch check\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
@@ -255,6 +263,91 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode="MarkdownV2",
         reply_markup=_kb_energy(pt),
     )
+
+
+async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quick activity log: /log_activity walk 30 light"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Log Activity*\n\nUsage: `/log_activity <type> [minutes] [intensity]`\n\n"
+            "Types: walk · swim · physio · stretch · strength · cycle · yoga · other\n"
+            "Intensity: light · moderate · vigorous\n\n"
+            "_Example: `/log_activity walk 30 light`_",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    valid_types = {"walk","swim","physio","stretch","strength","cycle","yoga","other"}
+    activity_type = args[0].lower() if args[0].lower() in valid_types else "other"
+    duration = None
+    intensity = None
+    for arg in args[1:]:
+        if arg.isdigit():
+            duration = int(arg)
+        elif arg.lower() in ("light","moderate","vigorous"):
+            intensity = arg.lower()
+
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
+        return
+
+    payload = {
+        "log_date":      date.today().isoformat(),
+        "activity_type": activity_type,
+        "source":        "telegram",
+        "completed":     True,
+    }
+    if duration:  payload["duration_minutes"] = duration
+    if intensity: payload["intensity"]        = intensity
+
+    try:
+        db.table("activity_logs").insert(payload).execute()
+        parts = [activity_type]
+        if duration:  parts.append(f"{duration} min")
+        if intensity: parts.append(intensity)
+        await update.message.reply_text(
+            f"✅ *Activity logged:* {_escape(' · '.join(parts))}",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+
+
+async def cmd_log_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quick weight log: /log_weight 82.5"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Log Weight*\n\nUsage: `/log_weight <kg>`\n\n_Example: `/log_weight 82\\.5`_",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    try:
+        kg = float(args[0])
+        assert 30 < kg < 500
+    except (ValueError, AssertionError):
+        await update.message.reply_text("⚠️ Enter a valid weight in kg \\(e\\.g\\. `/log_weight 82\\.5`\\)", parse_mode="MarkdownV2")
+        return
+
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
+        return
+
+    try:
+        db.table("weight_logs").upsert(
+            {"log_date": date.today().isoformat(), "weight_kg": kg, "source": "telegram"},
+            on_conflict="log_date",
+        ).execute()
+        await update.message.reply_text(
+            f"✅ *Weight logged:* {_escape(str(kg))} kg",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
 
 
 async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -423,6 +516,8 @@ def main() -> None:
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
+    app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
+    app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
