@@ -5,7 +5,8 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { MissionCard } from '@/components/MissionCard';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import type { Mission, StatusTone } from '@/lib/types';
+import { useROSData } from '@/lib/useROSData';
+import type { Mission, StatusTone, RecoveryPostureBand } from '@/lib/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,79 @@ function decisionTypeTone(type: string | null): StatusTone {
     case 'architectural':   return 'science';
     default:                return 'neutral';
   }
+}
+
+// ── Mission Load vs Capacity ──────────────────────────────────────────────────
+
+const LOAD_GUIDANCE: Record<RecoveryPostureBand, { label: string; tone: StatusTone; guidance: string; defer: boolean }> = {
+  STRONG:  { label: 'Full load permitted',     tone: 'status',     guidance: 'Capacity is high. Active missions may proceed. New starts permitted with review.', defer: false },
+  STABLE:  { label: 'Moderate load — monitor', tone: 'command',    guidance: 'Capacity is moderate. Prioritise active missions. Hold new starts unless critical.', defer: false },
+  FRAGILE: { label: 'Reduced load — protect',  tone: 'operations', guidance: 'Capacity is low. Pause non-essential missions. Defer new starts and complex decisions.', defer: true },
+  REST:    { label: 'Minimal load — rest day', tone: 'medical',    guidance: 'Rest posture. Only essential, low-effort tasks. Defer all active missions where possible.', defer: true },
+  UNKNOWN: { label: 'Load unknown',            tone: 'neutral',    guidance: 'Check in to establish today\'s recovery posture before assigning mission load.', defer: false },
+};
+
+function MissionLoadPanel({ posture, missions }: { posture: RecoveryPostureBand; missions: Mission[] }) {
+  const cfg = LOAD_GUIDANCE[posture];
+  const blocked   = missions.filter(m => m.status === 'BLOCKED');
+  const deferrable = cfg.defer ? missions.filter(m => m.status !== 'BLOCKED') : [];
+
+  return (
+    <LCARSPanel
+      title="Mission Load vs Capacity"
+      accent="command"
+      eyebrow="D-055 · Number One capacity check"
+      actions={<StatusBadge label={cfg.label} tone={cfg.tone} />}
+    >
+      <p className="text-sm text-lcars-text/90 leading-relaxed mb-4">{cfg.guidance}</p>
+
+      <div className="grid gap-3 sm:grid-cols-3 text-center mb-4">
+        <div className="rounded-lcars border border-edge bg-space/40 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Active</p>
+          <p className="font-lcars text-2xl font-bold text-command mt-0.5">
+            {missions.filter(m => ['ACTIVE','IN_PROGRESS','ASSIGNED'].includes(m.status)).length}
+          </p>
+        </div>
+        <div className="rounded-lcars border border-operations/40 bg-operations/5 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Blocked</p>
+          <p className="font-lcars text-2xl font-bold text-operations mt-0.5">{blocked.length}</p>
+        </div>
+        <div className="rounded-lcars border border-edge bg-space/40 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Today&apos;s posture</p>
+          <p className="font-lcars text-lg font-bold text-medical mt-0.5">{posture}</p>
+        </div>
+      </div>
+
+      {blocked.length > 0 && (
+        <div className="mb-4">
+          <p className="text-[10px] uppercase tracking-wider text-operations mb-2">Blocked — require action</p>
+          <div className="flex flex-col gap-2">
+            {blocked.map(m => (
+              <div key={m.mission_id} className="flex items-center gap-3 rounded-lcars border border-operations/40 bg-operations/5 px-4 py-2">
+                <span className="text-operations text-xs">▲</span>
+                <span className="font-mono text-[10px] text-lcars-muted shrink-0">{m.mission_id}</span>
+                <span className="text-sm text-lcars-text/90 min-w-0 truncate">{m.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {deferrable.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-2">Consider deferring today</p>
+          <div className="flex flex-col gap-1.5">
+            {deferrable.slice(0, 5).map(m => (
+              <div key={m.mission_id} className="flex items-center gap-3 rounded-lcars border border-edge bg-space/30 px-4 py-2">
+                <span className="font-mono text-[10px] text-lcars-muted shrink-0">{m.mission_id}</span>
+                <span className="text-sm text-lcars-text/70 min-w-0 truncate">{m.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </LCARSPanel>
+  );
 }
 
 // ── Specialist Roster ─────────────────────────────────────────────────────────
@@ -144,6 +218,9 @@ function CommandOverview({ decisions }: { decisions: Decision[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function NumberOnePage() {
+  const { posture: livePosture } = useROSData();
+  const currentPosture = livePosture.posture ?? 'UNKNOWN';
+
   const [specialists, setSpecialists] = useState<Specialist[]>([]);
   const [decisions,   setDecisions]   = useState<Decision[]>([]);
   const [missions,    setMissions]    = useState<Mission[]>([]);
@@ -197,6 +274,8 @@ export default function NumberOnePage() {
           {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}
         </p>
       </LCARSPanel>
+
+      <MissionLoadPanel posture={currentPosture} missions={missions} />
 
       <LCARSPanel
         title="Specialist Roster"
