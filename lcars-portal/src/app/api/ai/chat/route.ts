@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
+import { buildShipContext } from '@/lib/ai-context';
 
 // Ollama Cloud base URL — configurable without code changes
 const OLLAMA_BASE_URL =
@@ -157,8 +158,14 @@ export async function POST(request: NextRequest) {
   const resolvedModel = model ?? DEFAULT_MODEL;
   const resolvedSystemPrompt = systemPrompt?.trim() || resolvedRole.systemPrompt;
 
+  // Fetch live ship context from Supabase and inject into system prompt
+  const shipContext = await buildShipContext();
+  const fullSystemPrompt = shipContext.sources.length > 0
+    ? `${resolvedSystemPrompt}\n\n${shipContext.text}`
+    : resolvedSystemPrompt;
+
   const fullMessages: ChatMessage[] = [
-    { role: 'system', content: resolvedSystemPrompt },
+    { role: 'system', content: fullSystemPrompt },
     ...messages.filter((m) => m.role !== 'system'),
   ];
 
@@ -174,14 +181,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (stream) {
-      return streamOllamaResponse(upstream);
+      const streamRes = streamOllamaResponse(upstream);
+      // Pass context sources to the client via response header
+      streamRes.headers.set('x-context-sources', JSON.stringify(shipContext.sources));
+      return streamRes;
     }
 
     // Non-streaming response
     const data = await upstream.json();
     const content = data?.message?.content ?? '';
 
-    return NextResponse.json({ content, model: resolvedModel, role: resolvedRole.id });
+    return NextResponse.json({
+      content,
+      model: resolvedModel,
+      role: resolvedRole.id,
+      contextSources: shipContext.sources,
+    });
   } catch (err: unknown) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     return NextResponse.json(

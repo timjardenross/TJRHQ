@@ -4,6 +4,33 @@ import { useEffect, useRef, useState } from 'react';
 import { AI_ROLES, DEFAULT_ROLE_ID, getRoleById, type AIRole } from '@/lib/ai-roles';
 import { AI_MODELS, type AIModel } from '@/lib/ai-models';
 
+// ── Context indicator ─────────────────────────────────────────────────────────
+
+function ContextBadge({ sources }: { sources: string[] }) {
+  if (sources.length === 0) return null;
+  const labels: Record<string, string> = {
+    'missions':             'Missions',
+    'decisions':            'Decisions',
+    'architecture_records': 'Architecture',
+    'knowledge_documents':  'Knowledge',
+    'command_memory':       'Memory',
+    'health_daily_logs (today)':      'Health ●',
+    'health_daily_logs (last known)': 'Health ○',
+  };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {sources.map((s) => (
+        <span
+          key={s}
+          className="rounded-md border border-status/40 bg-status/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-status"
+        >
+          {labels[s] ?? s}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Message {
@@ -134,14 +161,15 @@ function TypingIndicator() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AIConsolePage() {
-  const [messages, setMessages]         = useState<Message[]>([]);
-  const [input, setInput]               = useState('');
-  const [selectedRole, setSelectedRole] = useState(DEFAULT_ROLE_ID);
+  const [messages, setMessages]           = useState<Message[]>([]);
+  const [input, setInput]                 = useState('');
+  const [selectedRole, setSelectedRole]   = useState(DEFAULT_ROLE_ID);
   const [selectedModel, setSelectedModel] = useState('glm-5.2');
-  const [systemPrompt, setSystemPrompt] = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
+  const [systemPrompt, setSystemPrompt]   = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
   const [editingPrompt, setEditingPrompt] = useState(false);
-  const [loading, setLoading]           = useState(false);
-  const [streamBuffer, setStreamBuffer] = useState('');
+  const [loading, setLoading]             = useState(false);
+  const [streamBuffer, setStreamBuffer]   = useState('');
+  const [contextSources, setContextSources] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -201,6 +229,12 @@ export default function AIConsolePage() {
           },
         ]);
         return;
+      }
+
+      // Capture context sources from response header if present
+      const sourcesHeader = res.headers.get('x-context-sources');
+      if (sourcesHeader) {
+        try { setContextSources(JSON.parse(sourcesHeader)); } catch {}
       }
 
       // Handle SSE stream
@@ -301,6 +335,14 @@ export default function AIConsolePage() {
         </div>
       </div>
 
+      {/* ── Context strip ── */}
+      {contextSources.length > 0 && (
+        <div className="flex-shrink-0 rounded-lcars border border-status/30 bg-status/5 px-3 py-2 flex items-center gap-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-status shrink-0">Live context</p>
+          <ContextBadge sources={contextSources} />
+        </div>
+      )}
+
       {/* ── Config strip ── */}
       <div className="flex-shrink-0 rounded-lcars border border-edge bg-panel/40 p-3 flex flex-col gap-3">
 
@@ -349,9 +391,12 @@ export default function AIConsolePage() {
         {messages.length === 0 && !loading && (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-xs text-lcars-muted text-center">
-              Select a role, adjust the system prompt if needed, then send a message.
+              GLM 5.2 has live access to your missions, decisions, health status,
+              knowledge base, and command memory.
+              <br className="mb-1" />
+              Ask about the current ship state directly — no pasting required.
               <br />
-              <span className="text-[10px] opacity-60">Shift+Enter for new line · Enter to send</span>
+              <span className="text-[10px] opacity-60 mt-1 block">Shift+Enter for new line · Enter to send</span>
             </p>
           </div>
         )}
