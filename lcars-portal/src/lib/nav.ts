@@ -60,16 +60,23 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Daily recovery-first morning brief'
   },
   {
+    href: '/stage-progression',
+    label: 'Stage Progression',
+    glyph: '08',
+    department: 'medical',
+    description: 'Stage record — Knowledge Officer'
+  },
+  {
     href: '/operations',
     label: 'Operations',
-    glyph: '08',
+    glyph: '09',
     department: 'operations',
     description: 'Service and integration status'
   },
   {
     href: '/knowledge-base',
     label: 'Knowledge Base',
-    glyph: '09',
+    glyph: '10',
     department: 'science',
     description: 'Knowledge, ADRs and playbooks'
   }

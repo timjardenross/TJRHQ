@@ -309,6 +309,40 @@ export interface WeeklyPatternSummary {
   direction_label: string;
 }
 
+/** A single Knowledge Officer stage assessment entry. */
+export interface StageAssessment {
+  date: string; // ISO YYYY-MM-DD
+  stage: 1 | 2 | 3 | 4;
+  author: string; // officer name
+  signal: string; // what triggered the assessment
+  outcome: 'monitoring' | 'not_yet' | 'transition_recognised';
+  notes: string;
+}
+
+/**
+ * Full stage progression record — owned by Knowledge Officer.
+ * Transitions are recognised, not achieved. No countdown. No target date.
+ */
+export interface StageProgressionRecord {
+  current_stage: 1 | 2 | 3 | 4;
+  current_stage_label: string;
+  current_stage_since: string; // ISO date
+  // Stage 2 recognition criteria (qualitative checklist)
+  stage2_criteria: {
+    label: string;
+    met: boolean | 'partial' | 'unknown';
+    detail: string;
+  }[];
+  // Stability signal: STABLE or STRONG days in last 21
+  stability_signal: {
+    stable_or_strong: number;
+    total_recorded: number;
+    period: string; // "Last 21 days"
+    threshold: number; // 14
+  };
+  assessments: StageAssessment[];
+}
+
 /** Full Recovery Brief — WP7 morning brief format. */
 export interface RecoveryBrief {
   stardate: string;

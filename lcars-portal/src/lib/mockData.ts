@@ -50,6 +50,8 @@ import type {
   ResearchQueueItem,
   ServiceStatus,
   ShipSystemStatus,
+  StageAssessment,
+  StageProgressionRecord,
   StageStatus,
   TimelineEvent,
   WeeklyPatternSummary,
@@ -794,4 +796,65 @@ export const recoveryBrief: RecoveryBrief = {
   new_starts_note: 'New starts not recommended today. Hold for a STRONG day.',
   decisions_note: '2 decisions pending — defer to tomorrow if capacity allows.',
   fleet_summary: 'No blockers. Crew nominal. Full detail on Captain\'s Chair.'
+};
+
+// ── Stage Progression — Sprint 4 ─────────────────────────────────────────────
+
+const stageAssessments: StageAssessment[] = [
+  {
+    date: '2026-06-19',
+    stage: 1,
+    author: 'Knowledge Officer',
+    signal: 'ROS-001 v1.1 implementation — initial stage designation on platform launch',
+    outcome: 'monitoring',
+    notes: 'Stage 1 Stabilisation designated as current operating stage. Recovery Operating System activated. Check-in data collection begins. Assessment cadence: ongoing. No transition criteria assessable until 21 days of data available.'
+  },
+  {
+    date: '2026-06-14',
+    stage: 1,
+    author: 'Medical Officer',
+    signal: 'REST posture recorded — score 35.38. Two consecutive days below threshold.',
+    outcome: 'not_yet',
+    notes: 'REST posture on 2026-06-14 (score 35.38) following FRAGILE on 2026-06-13 (64.25). Nervous system load elevated. No transition assessment appropriate. Guidance: maintain Stage 1 protective posture. No mission load changes recommended beyond existing FRAGILE guidance.'
+  }
+];
+
+export const stageProgressionRecord: StageProgressionRecord = {
+  current_stage: 1,
+  current_stage_label: 'Stage 1 — Stabilisation',
+  current_stage_since: '2026-06-19',
+  stage2_criteria: [
+    {
+      label: 'Posture stability signal',
+      met: 'unknown',
+      detail: 'STABLE or STRONG on 14 of any 21 consecutive days. Requires 21 days of recorded check-ins to assess. Data collection began 2026-06-13 — signal assessable from approximately 2026-07-04.'
+    },
+    {
+      label: 'Life Participation trend',
+      met: 'unknown',
+      detail: 'Life Participation Score trending upward over 30 days. Insufficient data — assessable once 30-day baseline is established.'
+    },
+    {
+      label: 'Nervous system pattern',
+      met: 'unknown',
+      detail: 'No pattern of sustained dysregulation across recent days. Insufficient check-in data to assess. Emotional Load Flag is currently clear.'
+    },
+    {
+      label: 'Medical Officer assessment',
+      met: false,
+      detail: 'Medical Officer formal assessment not yet initiated. Required alongside data signals — quantitative criteria alone do not trigger transition. Medical Officer will initiate when data patterns support it.'
+    },
+    {
+      label: 'Captain\'s own readiness signal',
+      met: 'unknown',
+      detail: 'Captain\'s subjective readiness assessment. Not a threshold to reach — a reflection to offer when the system is ready. Has not been offered yet.'
+    }
+  ],
+  stability_signal: {
+    stable_or_strong: 1,
+    total_recorded: 3,
+    period: 'Last 21 days (partial — data collection recent)',
+    threshold: 14
+  },
+  assessments: stageAssessments
 };

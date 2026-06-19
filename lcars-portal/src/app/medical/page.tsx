@@ -1,5 +1,6 @@
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
+import Link from 'next/link';
 import {
   bodyContext,
   emotionalLoadFlag,
@@ -8,6 +9,7 @@ import {
   recoveryGuidance,
   recoveryIndexes,
   recoveryPosture,
+  stageProgressionRecord,
   stageStatus,
   weeklyPatternSummary
 } from '@/lib/mockData';
@@ -18,6 +20,7 @@ import type {
   PostureHistory,
   RecoveryIndex,
   RecoveryPostureBand,
+  StageProgressionRecord,
   StageStatus,
   StatusTone,
   WeeklyPatternSummary
@@ -406,6 +409,59 @@ function MedicalGuidance({ guidance }: { guidance: string[] }) {
   );
 }
 
+// ── Stage Progression card (compact — full record on /stage-progression) ─────
+
+function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
+  const metCount = record.stage2_criteria.filter((c) => c.met === true).length;
+  const total = record.stage2_criteria.length;
+  const { stable_or_strong, total_recorded, threshold } = record.stability_signal;
+
+  return (
+    <LCARSPanel
+      title="Stage Progression"
+      accent="medical"
+      eyebrow="Knowledge Officer record"
+      actions={
+        <Link
+          href="/stage-progression"
+          className="text-[10px] uppercase tracking-[0.15em] text-medical hover:text-medical/70"
+        >
+          Full Record →
+        </Link>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3">
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Current stage</p>
+          <p className="font-lcars text-lg font-semibold text-medical mt-0.5">
+            {record.current_stage_label}
+          </p>
+          <p className="text-xs text-lcars-muted mt-1">
+            Transitions are recognised, not achieved. Consistent behaviour creates the conditions.
+          </p>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-lcars border border-edge bg-space/40 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stage 2 criteria</p>
+            <p className="font-lcars text-lg font-semibold text-command mt-0.5">
+              {metCount} / {total}
+            </p>
+            <p className="text-xs text-lcars-muted">criteria met or partial</p>
+          </div>
+          <div className="rounded-lcars border border-edge bg-space/40 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stability signal</p>
+            <p className="font-lcars text-lg font-semibold text-command mt-0.5">
+              {stable_or_strong} / {threshold}
+            </p>
+            <p className="text-xs text-lcars-muted">of {threshold} days needed ({total_recorded} recorded)</p>
+          </div>
+        </div>
+      </div>
+    </LCARSPanel>
+  );
+}
+
 // ── Recovery Posture summary (compact — full detail on Captain's Chair) ──────
 
 function PostureSummary() {
@@ -459,6 +515,9 @@ export default function MedicalPage() {
         <BodySignalsContext />
         <MedicalGuidance guidance={recoveryGuidance} />
       </div>
+
+      {/* Stage Progression card — full record on /stage-progression */}
+      <StageProgressionCard record={stageProgressionRecord} />
 
       {/* Today's posture summary — links back to Captain's Chair for detail */}
       <PostureSummary />
