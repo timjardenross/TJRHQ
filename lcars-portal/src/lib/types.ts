@@ -237,3 +237,45 @@ export interface MissionLoadGuidanceData {
   decisions_pending: number;
   defer_decisions: boolean;
 }
+
+/** One of the four recovery indexes displayed in Medical Bay. */
+export interface RecoveryIndex {
+  key: 'sleep' | 'nervous_system' | 'energy' | 'capacity';
+  label: string;
+  band: 'good' | 'moderate' | 'limited' | 'rest' | 'unknown';
+  detail: string;
+  tone: StatusTone;
+}
+
+/** Life Participation score and its five component signals. */
+export interface LifeParticipationScore {
+  score: number; // 0–100
+  band: 'good' | 'moderate' | 'limited' | 'rest';
+  movement_done: boolean;
+  pleasure_marker: string | null;
+  social_noted: boolean;
+  sitting_minutes: number;
+  sitting_baseline_minutes: number;
+  workload_constraint: 'none' | 'light' | 'moderate' | 'severe' | 'unknown';
+}
+
+/** Stage 1 / Stage 2 display — no countdown, no progress bar. */
+export interface StageStatus {
+  stage: 1 | 2;
+  label: string;
+  description: string;
+  tone: StatusTone;
+}
+
+/** A single data point for the PosturePatternChart (last N days). */
+export interface PostureDataPoint {
+  date: string; // ISO YYYY-MM-DD
+  posture: RecoveryPostureBand;
+  score: number | null; // Medical Officer only — not displayed to Captain
+}
+
+/** Recent posture history for the Medical Bay pattern chart. */
+export interface PostureHistory {
+  days: PostureDataPoint[];
+  period_label: string; // e.g. "Last 7 days"
+}

@@ -35,16 +35,20 @@ import type {
   IntelligenceBrief,
   KnowledgeArticle,
   LatestDiscovery,
+  LifeParticipationScore,
   Mission,
   MissionBoardColumn,
   MissionLoadGuidanceData,
   MissionSummary,
   OperatingPicture,
+  PostureHistory,
   QueueItem,
+  RecoveryIndex,
   RecoveryPosture,
   ResearchQueueItem,
   ServiceStatus,
   ShipSystemStatus,
+  StageStatus,
   TimelineEvent,
   WellnessMetric
 } from './types';
@@ -676,4 +680,68 @@ export const missionLoadGuidance: MissionLoadGuidanceData = {
   new_starts_recommended: false,
   decisions_pending: 2,
   defer_decisions: true
+};
+
+// ── Medical Bay — Sprint 2 ───────────────────────────────────────────────────
+
+export const stageStatus: StageStatus = {
+  stage: 1,
+  label: 'Stage 1 — Stabilisation',
+  description: 'Building a stable foundation. The priority is consistency of rest, movement, and nervous system regulation — not output.',
+  tone: 'medical'
+};
+
+export const lifeParticipationScore: LifeParticipationScore = {
+  score: 68,
+  band: 'moderate',
+  movement_done: true,
+  pleasure_marker: 'dog walk',
+  social_noted: true,
+  sitting_minutes: 90,
+  sitting_baseline_minutes: 120,
+  workload_constraint: 'moderate'
+};
+
+export const recoveryIndexes: RecoveryIndex[] = [
+  {
+    key: 'sleep',
+    label: 'Sleep',
+    band: 'good',
+    detail: '7.0 h · Good quality · CPAP compliant',
+    tone: 'status'
+  },
+  {
+    key: 'nervous_system',
+    label: 'Nervous System',
+    band: 'good',
+    detail: 'Calm — settled baseline',
+    tone: 'status'
+  },
+  {
+    key: 'energy',
+    label: 'Energy',
+    band: 'moderate',
+    detail: 'Moderate — within expected range',
+    tone: 'command'
+  },
+  {
+    key: 'capacity',
+    label: 'Capacity',
+    band: 'moderate',
+    detail: 'Amber rating — moderate operational window',
+    tone: 'command'
+  }
+];
+
+export const postureHistory: PostureHistory = {
+  period_label: 'Last 7 days',
+  days: [
+    { date: '2026-06-13', posture: 'FRAGILE', score: 64.25 },
+    { date: '2026-06-14', posture: 'REST',    score: 35.38 },
+    { date: '2026-06-15', posture: 'UNKNOWN', score: null  },
+    { date: '2026-06-16', posture: 'UNKNOWN', score: null  },
+    { date: '2026-06-17', posture: 'UNKNOWN', score: null  },
+    { date: '2026-06-18', posture: 'UNKNOWN', score: null  },
+    { date: '2026-06-19', posture: 'STABLE',  score: null  }
+  ]
 };
