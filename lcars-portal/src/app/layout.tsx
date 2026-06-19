@@ -3,6 +3,7 @@ import './globals.css';
 import { LCARSHeader } from '@/components/LCARSHeader';
 import { LCARSNav } from '@/components/LCARSNav';
 import { LCARSBottomNav } from '@/components/LCARSBottomNav';
+import { SignOutButton } from '@/components/SignOutButton';
 import { SHIP } from '@/lib/mockData';
 
 export const metadata: Metadata = {
@@ -35,9 +36,12 @@ export default function RootLayout({
             <span>
               {SHIP.name} · {SHIP.registry}
             </span>
-            <span className="uppercase tracking-[0.2em]">
-              LCARS Portal · Phase 1 · Placeholder Data
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="uppercase tracking-[0.2em]">
+                LCARS Portal · ROS-001 v1.1
+              </span>
+              <SignOutButton />
+            </div>
           </footer>
         </div>
       </body>

@@ -79,5 +79,19 @@ export const NAV_ITEMS: NavItem[] = [
     glyph: '10',
     department: 'science',
     description: 'Knowledge, ADRs and playbooks'
+  },
+  {
+    href: '/medical/check-in',
+    label: 'Health Check-In',
+    glyph: '11',
+    department: 'medical',
+    description: 'Log today\'s daily health check-in'
+  },
+  {
+    href: '/captains-log',
+    label: "Captain's Log",
+    glyph: '12',
+    department: 'command',
+    description: 'End-of-day structured log entry'
   }
 ];

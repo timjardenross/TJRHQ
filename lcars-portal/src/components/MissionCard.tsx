@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Mission } from '@/lib/types';
 import { DEPARTMENTS } from '@/lib/departments';
 import { StatusBadge } from './StatusBadge';
@@ -22,8 +23,9 @@ const PRIORITY_TONE: Record<string, string> = {
 export function MissionCard({ mission }: MissionCardProps) {
   const dept = DEPARTMENTS[mission.department];
   return (
+    <Link href={`/missions/${mission.mission_id}`} className="block">
     <article
-      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3"
+      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3 hover:border-command/60 transition-colors cursor-pointer"
       style={{ borderLeftColor: dept.hex }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -47,5 +49,6 @@ export function MissionCard({ mission }: MissionCardProps) {
         {mission.specialist && <span>· {mission.specialist}</span>}
       </div>
     </article>
+    </Link>
   );
 }
