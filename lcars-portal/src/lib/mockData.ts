@@ -30,13 +30,16 @@ import type {
   CrewMember,
   DecisionItem,
   Department,
+  DeptCrewCount,
   IntelligenceBrief,
   KnowledgeArticle,
+  LatestDiscovery,
   Mission,
   MissionBoardColumn,
   MissionSummary,
   OperatingPicture,
   QueueItem,
+  ResearchQueueItem,
   ServiceStatus,
   ShipSystemStatus,
   TimelineEvent,
@@ -523,5 +526,108 @@ export const knowledgeArticles: KnowledgeArticle[] = [
     updated: '2026-06-12',
     excerpt: 'Four-stage brief pipeline with Tactical Analysis Officer stage.',
     department: 'science'
+  },
+  {
+    id: 'KB-SECURITY-001',
+    title: 'Security Remediation Protocol',
+    category: 'Operations',
+    owner: 'Operations Officer',
+    updated: '2026-06-17',
+    excerpt: 'VPS hardening, patch management and incident response runbook.',
+    department: 'operations'
+  },
+  {
+    id: 'ADR-0002',
+    title: 'LCARS Portal Architecture',
+    category: 'Architecture Decision Record',
+    owner: 'UX Design Officer',
+    updated: '2026-06-18',
+    excerpt: 'Next.js 14 app router, Tailwind CSS, Phase 1 mock data, Phase 2 live API.',
+    department: 'command'
+  },
+  {
+    id: 'KB-WELLNESS-001',
+    title: 'Captain Wellness Protocol',
+    category: 'Medical',
+    owner: 'Medical Officer',
+    updated: '2026-06-16',
+    excerpt: 'Recovery tracking, focus block management and health data governance.',
+    department: 'medical'
+  },
+  {
+    id: 'KB-CREW-COORD',
+    title: 'Crew Coordination Framework',
+    category: 'Governance',
+    owner: 'Chief of Staff',
+    updated: '2026-06-11',
+    excerpt: 'Agent assignment, escalation paths and XO command handoff protocol.',
+    department: 'operations'
   }
+];
+
+// ── Number One / XO Command ──────────────────────────────────────────────────
+export const commandReadiness = {
+  readiness: 94,
+  decisionsPending: decisionsAwaitingApproval.length,
+  crewStatus: 'NOMINAL' as const
+};
+
+/** XO Command calendar — mirrors captain's timeline but scoped to XO duties. */
+export const commandCalendar: TimelineEvent[] = [
+  { time: '07:00', title: 'Daily Briefing', status: 'completed' },
+  { time: '09:00', title: 'Department Head Sync', status: 'completed' },
+  { time: '11:00', title: 'Policy Review', status: 'in_progress' },
+  { time: '13:00', title: 'Crew Check-In', status: 'scheduled' },
+  { time: '16:00', title: 'Strategic Planning', status: 'scheduled' }
+];
+
+/** Per-department crew headcount for the XO status board. */
+export const deptCrewCounts: DeptCrewCount[] = [
+  { key: 'command',     count: 18, status: 'status'     },
+  { key: 'engineering', count: 24, status: 'status'     },
+  { key: 'medical',     count: 17, status: 'status'     },
+  { key: 'science',     count: 12, status: 'status'     },
+  { key: 'operations',  count: 15, status: 'status'     }
+];
+
+export const communications = {
+  unreadMessages: 5,
+  activeThreads: 7
+};
+
+// ── Astrometrics / XO Brief ──────────────────────────────────────────────────
+export const astrometricsStats = {
+  readiness: 88,
+  activeProjects: 5,
+  reportsReady: 3
+};
+
+/** Research categories with active project counts. */
+export const researchCategories: QueueItem[] = [
+  { label: 'Stellar Analysis',    count: 2, tone: 'science'   },
+  { label: 'Quantum Research',    count: 1, tone: 'medical'   },
+  { label: 'Planetary Science',   count: 1, tone: 'command'   },
+  { label: 'Xenobiology',         count: 1, tone: 'status'    }
+];
+
+/** Data stream health (sensor feeds). */
+export const dataStreams: BriefingItem[] = [
+  { label: 'Deep Space Array',     value: 'NOMINAL',  tone: 'status'  },
+  { label: 'Subspace Sensors',     value: 'NOMINAL',  tone: 'status'  },
+  { label: 'Gravimetric Sensors',  value: 'NOMINAL',  tone: 'status'  },
+  { label: 'Quantum Telescope',    value: 'NOMINAL',  tone: 'status'  }
+];
+
+export const latestDiscovery: LatestDiscovery = {
+  designation: 'Exoplanet Candidate ESO-4521',
+  classification: 'Class M Super-Earth',
+  distance: '212 Light Years',
+  detail: 'Atmospheric spectroscopy suggests nitrogen-oxygen composition. Recommend priority follow-up survey.'
+};
+
+/** Active research queue (Astrometrics lab). */
+export const researchQueue: ResearchQueueItem[] = [
+  { id: '01', title: 'Quantum Field Anomaly Analysis', location: 'Laboratory',   status: 'in_progress', tone: 'medical'  },
+  { id: '02', title: 'Subspace Distortion Mapping',    location: 'Data Collection', status: 'queued',   tone: 'neutral' },
+  { id: '03', title: 'Xenobiological Sample Analysis', location: 'Laboratory',   status: 'queued',      tone: 'neutral' }
 ];

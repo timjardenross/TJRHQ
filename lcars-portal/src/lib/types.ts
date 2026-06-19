@@ -175,3 +175,27 @@ export interface QueueItem {
   count: number;
   tone: StatusTone;
 }
+
+/** Research queue item (Astrometrics / XO Brief). */
+export interface ResearchQueueItem {
+  id: string;
+  title: string;
+  location: string;
+  status: 'in_progress' | 'queued' | 'completed';
+  tone: StatusTone;
+}
+
+/** Crew headcount per department (Number One / XO Command). */
+export interface DeptCrewCount {
+  key: DepartmentKey;
+  count: number;
+  status: StatusTone;
+}
+
+/** Latest discovery highlight (Astrometrics). */
+export interface LatestDiscovery {
+  designation: string;
+  classification: string;
+  distance: string;
+  detail: string;
+}
