@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
 from datetime import date, datetime, timedelta, timezone
@@ -37,7 +38,11 @@ log = logging.getLogger(__name__)
 
 REPO_OWNER = "timjardenross"
 REPO_NAME = "daily-operational-resilience-briefs"
-BRIEF_DIR = "USSTJROS"
+# Canonical briefs root (partitioned briefs/YYYY/MM/ since the 2026-06 move).
+# Discovery is layout-agnostic: any *-daily-operational-resilience-brief.md under
+# BRIEF_ROOT is ingested, so new months (briefs/2026/07/...) need no code change.
+BRIEF_ROOT = os.getenv("ORI_BRIEF_ROOT", "briefs")
+LEGACY_DIR = "USSTJROS"   # pre-move location; ignored unless BRIEF_ROOT is empty
 BRIEF_SUFFIX = "-daily-operational-resilience-brief.md"
 DEFAULT_LOOKBACK_DAYS = 21
 _UA = {"User-Agent": "USS-TJR-Intelligence-Agent/1.0", "Accept": "application/json"}
@@ -57,36 +62,48 @@ def _http_get(url: str, headers: dict, timeout: int) -> tuple[int, bytes]:
         return resp.status, resp.read()
 
 
+def _date_partition_path(d: date) -> str:
+    """Canonical partitioned path: briefs/YYYY/MM/YYYY-MM-DD-...md"""
+    name = f"{d.isoformat()}{BRIEF_SUFFIX}"
+    if BRIEF_ROOT:
+        return f"{BRIEF_ROOT}/{d.year:04d}/{d.month:02d}/{name}"
+    return f"{LEGACY_DIR}/{name}"
+
+
 def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
                      timeout: int = HTTP_TIMEOUT_SECONDS) -> list[dict]:
     """
-    Return [{path, name, sha?}] for briefs, newest first.
-    Tries the GitHub contents API, then falls back to deterministic filenames.
+    Return [{path, name, sha?}] for briefs, newest first. Layout-agnostic:
+    discovers any *-daily-operational-resilience-brief.md under BRIEF_ROOT via the
+    recursive git-tree API, then falls back to deterministic partitioned paths.
     """
-    api = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{BRIEF_DIR}"
+    api = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/main?recursive=1"
     try:
         status, body = _http_get(api, _UA, timeout)
-        entries = json.loads(body)
+        tree = json.loads(body).get("tree", [])
+        prefix = (BRIEF_ROOT + "/") if BRIEF_ROOT else ""
         files = [
-            {"path": e["path"], "name": e["name"], "sha": e.get("sha")}
-            for e in entries
-            if e.get("type") == "file" and e.get("name", "").endswith(BRIEF_SUFFIX)
+            {"path": e["path"], "name": e["path"].rsplit("/", 1)[-1], "sha": e.get("sha")}
+            for e in tree
+            if e.get("type") == "blob"
+            and e.get("path", "").endswith(BRIEF_SUFFIX)
+            and (not prefix or e["path"].startswith(prefix))
         ]
         if files:
             files.sort(key=lambda f: f["name"], reverse=True)
-            log.info("[ORI-GitHub] listed %d briefs via contents API", len(files))
+            log.info("[ORI-GitHub] listed %d briefs under '%s/' via git-tree API",
+                     len(files), BRIEF_ROOT)
             return files
     except Exception as exc:
-        log.warning("[ORI-GitHub] contents API unavailable (%s) — using date fallback", exc)
+        log.warning("[ORI-GitHub] git-tree API unavailable (%s) — using date fallback", exc)
 
-    # Deterministic-date fallback: probe the last N days.
+    # Deterministic-date fallback: probe the last N days at the canonical path.
     files = []
     today = datetime.now(timezone.utc).date()
     for i in range(lookback_days):
         d = today - timedelta(days=i)
-        name = f"{d.isoformat()}{BRIEF_SUFFIX}"
-        path = f"{BRIEF_DIR}/{name}"
-        files.append({"path": path, "name": name, "sha": None})
+        path = _date_partition_path(d)
+        files.append({"path": path, "name": path.rsplit("/", 1)[-1], "sha": None})
     return files
 
 

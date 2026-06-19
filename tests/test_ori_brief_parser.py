@@ -74,6 +74,68 @@ classification: public
 """
 
 
+# v2 = the reconstructed Grok layout under briefs/YYYY/MM/ (2026-06 move)
+V2_FILE = "briefs/2026/06/2026-06-19-daily-operational-resilience-brief.md"
+V2_RAW = """# Daily Operational Resilience Intelligence Brief
+
+**Date:** 2026-06-19
+
+**Audience:** Banking & Critical Infrastructure Executives
+
+**Focus:**
+Australia (Primary)
+APAC (Secondary)
+Global Flow-On Risks
+
+---
+
+Archive Status: Reconstructed
+
+## Executive Summary
+Major Vodafone Australia network outage due to hub failure significantly impacted services, alongside ongoing CPS 230 implementation.
+
+## Key Developments
+- Vodafone outage affecting millions.
+- CPS 230 regulatory updates.
+
+## Risk Assessment
+Telco dependencies pose systemic risks to banking and critical infrastructure.
+
+## Executive Actions
+- Assess third-party telco exposures.
+- Test failover and communication plans.
+
+## Watchlist (24-72 Hours)
+- Full service restoration and lessons learned.
+
+## Source Notes
+Reconstructed from task title "Vodafone outage, CPS 230 updates".
+"""
+
+
+class TestParseV2Reconstructed(unittest.TestCase):
+    def setUp(self):
+        self.b = parse_brief(V2_FILE, V2_RAW)
+
+    def test_date_from_partitioned_path(self):
+        self.assertEqual(self.b.brief_date, date(2026, 6, 19))
+
+    def test_key_developments_become_events(self):
+        joined = " ".join(i["text"] for i in self.b.candidate_items())
+        self.assertIn("Vodafone", joined)
+        self.assertIn("CPS 230", joined)
+
+    def test_executive_summary_not_an_event(self):
+        for i in self.b.candidate_items():
+            self.assertNotIn("significantly impacted", i["text"])
+
+    def test_executive_actions_in_implications(self):
+        self.assertIn("third-party telco", self.b.implications_text())
+
+    def test_region_au(self):
+        self.assertEqual(self.b.geography, "AU")
+
+
 class TestFrontMatter(unittest.TestCase):
     def test_no_front_matter(self):
         fm, body = split_front_matter(V0_RAW)

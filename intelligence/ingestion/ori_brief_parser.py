@@ -26,7 +26,9 @@ from typing import Optional
 _SECTION_SYNONYMS = {
     "key incidents": "key_incidents",
     "key events": "key_incidents",
+    "key developments": "key_incidents",
     "incidents": "key_incidents",
+    "developments": "key_incidents",
     "regulatory context": "regulatory",
     "regulatory": "regulatory",
     "cps 230": "regulatory",
@@ -34,9 +36,16 @@ _SECTION_SYNONYMS = {
     "implications and recommendations": "implications",
     "implications": "implications",
     "recommendations": "implications",
+    "executive actions": "implications",
+    "recommended actions": "implications",
+    "actions": "implications",
+    "watchlist": "implications",
     "resilience focus": "implications",
     "sources": "sources",
+    "source notes": "sources",
     "summary": "summary",
+    "executive summary": "summary",
+    "risk assessment": "summary",
 }
 
 # Sections whose bullets become candidate intelligence events.

@@ -214,14 +214,20 @@ def _lit(v) -> str:
         return repr(v)
     if hasattr(v, "isoformat"):
         return "'" + v.isoformat() + "'"
-    return "'" + str(v).replace("'", "''") + "'"
+    # E'' escape string so multi-line text becomes a single-line literal
+    # (safe to apply via MCP execute_sql without embedded newlines).
+    s = (str(v).replace("\\", "\\\\").replace("'", "''")
+         .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"))
+    return "E'" + s + "'"
 
 
 def _json_lit(obj) -> str:
     import json as _json
     if obj is None:
         return "NULL"
-    return "'" + _json.dumps(obj).replace("'", "''") + "'::jsonb"
+    s = (_json.dumps(obj).replace("\\", "\\\\").replace("'", "''")
+         .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"))
+    return "E'" + s + "'::jsonb"
 
 
 def _doc_insert_sql(doc: dict) -> str:
@@ -235,8 +241,8 @@ def _doc_insert_sql(doc: dict) -> str:
         _lit(doc["classification"]), _json_lit(doc["raw_front_matter"]),
         _lit(doc["raw_markdown"]), _json_lit(doc["parse_warnings"]),
     ]
-    return (f"insert into ori_source_documents ({', '.join(cols)})\n"
-            f"values ({', '.join(vals)})\n"
+    return (f"insert into ori_source_documents ({', '.join(cols)}) "
+            f"values ({', '.join(vals)}) "
             f"on conflict (file_path, content_sha) do nothing;")
 
 
@@ -262,8 +268,8 @@ def _event_insert_sql(e, ori: dict) -> str:
         _lit(ori.get("regulatory_topic")), _json_lit(ori.get("resilience_themes")),
         _lit(ori.get("watch_item_status")), _lit(ori.get("executive_relevance")),
     ]
-    return (f"insert into intelligence_events ({', '.join(cols)})\n"
-            f"values ({', '.join(vals)})\n"
+    return (f"insert into intelligence_events ({', '.join(cols)}) "
+            f"values ({', '.join(vals)}) "
             f"on conflict (dedup_hash) do nothing;")
 
 
