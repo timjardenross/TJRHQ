@@ -1,11 +1,12 @@
-"""Wellness & Recovery Officer — Intelligence layer (Phase 1).
+"""Wellness & Recovery Officer — Intelligence layer.
 
-Aggregates data from three Supabase sources into a WellnessSnapshot:
+Aggregates data from Supabase into a WellnessSnapshot:
 - recovery_confidence_today  (view — today's pulse telemetry)
 - health_daily_logs          (table — sleep, pain, nervous system, energy)
 - health_insights            (table — LLM narrative, risk/positive flags, wins)
-
-No new tables required. Phase 1 is connection, not construction.
+- activity_logs              (table — movement, intensity, duration)
+- weight_logs                (table — weight trend)
+- recovery_pulses            (table — 7-day pattern for Antifragility/EPM analysis)
 """
 
 from __future__ import annotations
@@ -65,6 +66,15 @@ class WellnessSnapshot:
     dow_pain_pattern:     str | None       = None
     insight_date:         str | None       = None
     has_insights:         bool             = False
+
+    # ── 7-day pulse pattern (Antifragility / Energy Portfolio analysis) ───────
+    pulse_history_7d:        list[dict]  = field(default_factory=list)
+    ns_dysregulated_days_7d: int         = 0
+    ns_activated_days_7d:    int         = 0
+    ns_calm_days_7d:         int         = 0
+    body_significant_days_7d: int        = 0
+    avg_confidence_7d:       float | None = None
+    confidence_trend:        str | None  = None  # improving / stable / declining
 
     @property
     def has_any_data(self) -> bool:
@@ -192,7 +202,62 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     except Exception as exc:
         log.error("[wellness] weight_logs query failed: %s", exc)
 
-    # ── 5. Latest health insights ─────────────────────────────────────────────
+    # ── 5. 7-day pulse history (pattern analysis) ────────────────────────────
+    try:
+        from datetime import timedelta
+        seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
+        res = (
+            supabase_client.table("recovery_pulses")
+            .select("log_date,pulse_type,energy,nervous_system,body_signals")
+            .gte("log_date", seven_days_ago)
+            .order("log_date", desc=True)
+            .execute()
+        )
+        if res.data:
+            snap.pulse_history_7d = res.data
+            ns_vals = [r.get("nervous_system") for r in res.data if r.get("nervous_system")]
+            snap.ns_dysregulated_days_7d = len(set(
+                r["log_date"] for r in res.data if r.get("nervous_system") == "dysregulated"
+            ))
+            snap.ns_activated_days_7d = len(set(
+                r["log_date"] for r in res.data if r.get("nervous_system") == "activated"
+            ))
+            snap.ns_calm_days_7d = len(set(
+                r["log_date"] for r in res.data if r.get("nervous_system") == "calm"
+            ))
+            snap.body_significant_days_7d = len(set(
+                r["log_date"] for r in res.data if r.get("body_signals") == "significant"
+            ))
+    except Exception as exc:
+        log.error("[wellness] pulse_history_7d query failed: %s", exc)
+
+    # ── 6. 7-day confidence trend (from health_daily_logs) ───────────────────
+    try:
+        from datetime import timedelta
+        seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
+        res = (
+            supabase_client.table("health_daily_logs")
+            .select("log_date,energy")
+            .gte("log_date", seven_days_ago)
+            .order("log_date", desc=True)
+            .execute()
+        )
+        if res.data and len(res.data) >= 3:
+            energy_map = {"high": 3, "moderate": 2, "medium": 2, "low": 1}
+            scores = [energy_map.get((r.get("energy") or "").lower(), 0) for r in res.data if r.get("energy")]
+            if len(scores) >= 3:
+                recent_avg = sum(scores[:3]) / 3
+                older_avg  = sum(scores[3:]) / max(len(scores[3:]), 1)
+                if recent_avg > older_avg + 0.3:
+                    snap.confidence_trend = "improving"
+                elif recent_avg < older_avg - 0.3:
+                    snap.confidence_trend = "declining"
+                else:
+                    snap.confidence_trend = "stable"
+    except Exception as exc:
+        log.error("[wellness] confidence_trend query failed: %s", exc)
+
+    # ── 7. Latest health insights ─────────────────────────────────────────────
     try:
         res = (
             supabase_client.table("health_insights")
