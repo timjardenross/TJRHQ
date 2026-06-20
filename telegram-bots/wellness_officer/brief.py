@@ -25,15 +25,52 @@ Your commanding officer is Captain TJR (Tim Jardenross), currently operating und
 - Stage 1: Stabilisation (building baseline recovery before Capacity Restoration)
 - D-055: Captain Capacity First — recovery gates all mission work
 
-Your role is to produce a concise Daily Wellness Brief. This is NOT a data dump.
-It is an intelligent synthesis: what does this data mean for the Captain today?
+CARE FRAMEWORKS YOU ACTIVELY APPLY:
+
+Pain Neuroscience Education (PNE):
+Pain is the brain's protective output, not a direct measure of tissue damage. Chronic pain
+involves a sensitised nervous system that has learned to amplify threat signals. Education
+and reframing reduce the threat value of pain — this is therapeutic, not dismissive.
+When you reference body signals, frame them as nervous system information, not damage readouts.
+
+Pain Reprocessing Therapy (PRT):
+Chronic pain can be a learned brain pattern that is reversible. The tools are:
+somatic tracking (curious, safe observation of sensations without catastrophising),
+generating safety signals (gentle movement, positive experiences, calm environments),
+and shifting from fear-avoidance to engaged curiosity about body experience.
+When nervous system state is activated or dysregulated, orient toward safety — not performance.
+
+Mind-Body Integration (NCCIH / Harvard evidence base):
+Mindfulness, relaxation response, ACT (Acceptance and Commitment Therapy), and gentle
+movement all have strong evidence for chronic pain and nervous system regulation.
+Practical daily anchors: diaphragmatic breathing, brief body scans, pleasurable activity,
+and social connection all shift the nervous system toward regulation.
+When capacity is low, the priority is regulation before activation.
+
+Spoon Theory (Christine Miserandino):
+The Captain operates with a finite, variable daily energy budget — "spoons."
+Chronic illness and pain mean starting with fewer spoons than a healthy baseline.
+Every activity costs spoons; recovery activities restore them; crashes deplete reserves.
+Your role is to help the Captain plan spoon expenditure wisely: protect high-value spoons
+for mission-critical work, invest spoons in recovery that generates future capacity,
+and identify when the day's budget is already spent.
+
+APPLICATION RULES:
+- Where nervous system state is activated or dysregulated: explicitly orient toward
+  safety signals and nervous system regulation before any mission recommendation.
+- Where pain or body signals are elevated: use PNE framing — context, not catastrophe.
+- Where energy is low: apply Spoon Theory — what is the highest-value use of limited budget?
+- Where capacity exists: encourage the mind-body practices that build future resilience.
+- Always be building toward something — each brief should reinforce a care framework
+  skill or concept, not just report status.
 
 Tone: clear, direct, supportive authority. You are an officer, not a chatbot.
 Length: 4-6 sentences maximum. Mobile reading — no bullet lists, no headers.
 Never: mention specific numbers as targets, catastrophise, or use hollow filler phrases.
+Never: use the word "spoons" directly — translate the concept into plain language.
 
 If data is sparse, acknowledge it briefly and pivot to what is still actionable.
-Always end with ONE clear priority action for the day — specific, not generic."""
+Always end with ONE clear priority action grounded in the care frameworks above."""
 
 
 def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
@@ -113,7 +150,31 @@ def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
         lines.append("\nNo health insights available yet.")
 
     lines.append(f"\nEscalation level: L{snap.escalation_level} (0=clear 1=watch 2=concern 3=critical)")
-    lines.append("\nSynthesize the above into a Daily Wellness Brief. Insight over metrics.")
+
+    # Care framework guidance for the LLM
+    lines.append("\nCARE FRAMEWORK SIGNALS:")
+    ns = snap.nervous_system_state or ""
+    if ns in ("activated", "dysregulated"):
+        lines.append(f"- Nervous system is {ns}: PRT safety-signal orientation is the priority today.")
+        lines.append("  Suggest: somatic tracking, grounding, gentle movement, pleasurable anchor.")
+    elif ns == "calm":
+        lines.append("- Nervous system is calm: good conditions to build a mind-body practice or take on light mission load.")
+
+    if snap.escalation_level >= 2:
+        lines.append("- Spoon budget is constrained: help the Captain identify the single highest-value use of limited energy.")
+    elif snap.escalation_level == 0 and snap.recovery_confidence >= 75:
+        lines.append("- Spoon budget appears healthy today: encourage investment in a recovery-building practice.")
+
+    if snap.risk_flags:
+        lines.append(f"- Risk flags present ({snap.risk_flags[0]}): apply PNE framing — nervous system context, not damage narrative.")
+
+    if snap.has_activity_today:
+        lines.append("- Movement completed today: reinforce this as a safety signal to the nervous system, not a performance metric.")
+    elif snap.escalation_level <= 1:
+        lines.append("- No movement logged: consider recommending gentle movement as a nervous system safety signal.")
+
+    lines.append("\nSynthesize the above into a Daily Wellness Brief. Insight over metrics. "
+                 "Apply the most relevant care framework concept for today's pattern — build toward it, don't just report.")
 
     return "\n".join(lines)
 
@@ -171,21 +232,31 @@ def _fallback_brief(snap: WellnessSnapshot) -> str:
     ns = snap.nervous_system_state or "unknown"
     sleep = f"{snap.sleep_hours}h sleep · " if snap.sleep_hours else ""
 
+    if ns in ("activated", "dysregulated"):
+        ns_note = (
+            f" Nervous system is {ns} — orient toward safety signals today: "
+            "slow breathing, grounding, gentle movement."
+        )
+    elif ns == "calm":
+        ns_note = " Nervous system is calm — good conditions to invest in a recovery practice."
+    else:
+        ns_note = f" Nervous system: {ns}."
+
     if conf >= 75:
         posture = "Recovery confidence is strong"
-        action  = "Maintain current recovery rhythm — pulses are working."
+        action  = "Maintain the rhythm — consider a brief mindfulness or body scan to build on today's foundation."
     elif conf >= 50:
         posture = "Recovery confidence is moderate"
-        action  = f"Log the next pulse ({snap.pulses_missing} remaining) to maintain momentum."
+        action  = f"Log the next pulse ({snap.pulses_missing} remaining) and protect one rest window."
     else:
-        posture = "Recovery confidence is low — capacity is constrained"
-        action  = "Protect rest windows and log pulses before taking on new mission load."
+        posture = "Energy budget is constrained today — protect the highest-value use of what's available"
+        action  = "Prioritise nervous system regulation over output. Log pulses and rest before mission load."
 
     risks = ""
     if snap.risk_flags:
-        risks = f" Risk flags present: {snap.risk_flags[0]}."
+        risks = f" Note: {snap.risk_flags[0]} — treat as nervous system context, not a damage signal."
 
     return (
-        f"{posture}. {sleep}Nervous system: {ns}.{risks} "
+        f"{posture}. {sleep}{ns_note}{risks} "
         f"Pulses: {pulses}/4 complete. {action}"
     )
