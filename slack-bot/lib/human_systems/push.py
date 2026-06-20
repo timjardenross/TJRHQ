@@ -24,11 +24,14 @@ class PushMessage:
     title: str
     body: str
     severity: str = "info"   # info | notice | warning | urgent
+    raw: bool = False        # composed briefs render their own header — skip the class-label head
 
     def render(self) -> str:
         """Render to a single Captain-facing string with class label + footer."""
-        head = f"{safety.label_output_class(self.output_class)}  *{self.title}*"
         with_footer = self.kind != "escalation"
+        if self.raw:
+            return safety.frame(self.body, with_footer=with_footer)
+        head = f"{safety.label_output_class(self.output_class)}  *{self.title}*"
         return safety.frame(f"{head}\n\n{self.body}", with_footer=with_footer)
 
 

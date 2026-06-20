@@ -133,11 +133,13 @@ class TestRunner(unittest.TestCase):
     def test_unknown_job_handled(self):
         self.assertIn("error", hss.run_job("bogus", dry_run=True))
 
-    def test_morning_includes_highest_leverage(self):
-        # HSF-002: the morning pulse now carries the single highest-leverage action.
+    def test_morning_is_daily_operating_picture(self):
+        # MSN-XO-002: the morning push is now the unified Daily Operating Picture,
+        # which carries the highest-leverage action under "Decision".
         with patch.object(hss, "_fetch_rows", return_value=[HARD]):
             report = hss.run_job("morning", dry_run=True)
-        self.assertIn("Highest-leverage today", report["text"])
+        self.assertIn("Daily Operating Picture", report["text"])
+        self.assertIn("Decision", report["text"])
 
     def test_run_all_covers_every_job(self):
         with patch.object(hss, "_fetch_rows", return_value=[GOOD, HARD]):
@@ -151,7 +153,8 @@ class TestPushPreview(unittest.TestCase):
     def test_push_preview_renders(self):
         with patch.object(hs, "_fetch_rows", return_value=[HARD]):
             out = hs.handle_human_systems("push morning")
-        self.assertIn("Morning Readiness", out)
+        # MSN-XO-002: morning preview is now the Daily Operating Picture.
+        self.assertIn("Daily Operating Picture", out)
         self.assertEqual(safety.check_language(out), [])
 
     def test_push_preview_skip_message(self):

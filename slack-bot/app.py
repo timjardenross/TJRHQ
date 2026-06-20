@@ -72,6 +72,7 @@ from commands.health_event import (
 from commands.health_synthesis import handle_health_brief
 from commands.human_systems import handle_human_systems
 from commands.delivery import handle_delivery
+from commands.brief import handle_brief
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1237,6 +1238,18 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /hs: user=%s sub=%r", user_id, text)
         respond(handle_human_systems(text, user_id, channel_id))
+
+    # ── Captain's Daily Operating Picture (MSN-XO-002) ────────────────────────
+
+    @app.command("/brief")
+    def handle_brief_slash(ack, respond, command):
+        """/brief — the single daily operating picture (capacity + delivery + one action)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /brief: user=%s sub=%r", user_id, text)
+        respond(handle_brief(text, user_id, channel_id))
 
     # ── Engineering & Delivery Officer (MSN-EDO-001) ──────────────────────────
 

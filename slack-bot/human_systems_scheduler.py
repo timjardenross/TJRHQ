@@ -66,29 +66,13 @@ _JOB_DOMAIN = {
 def _build_message(job: str):
     """Generate the PushMessage for a job (or None if nothing to surface)."""
     if job == "morning":
-        rows = _fetch_rows(days=7)
-        snap = framework.interpret_capacity(_today_row(rows))
-        load = mission_load.get_mission_load()
-        frictions = decision.detect_friction(rows)
-        delivery, _ = _delivery_context()
-        try:
-            from lib.human_systems import learning as _learning
-            learned = _learning.learned_adjustments()
-        except Exception:
-            learned = None
-        rec = decision.highest_leverage(snap, load, frictions, notes=None,
-                                        delivery=delivery, learned=learned)
-        # EDO-003 WP1: concise delivery-intelligence line when worth flagging.
-        note = None
-        if delivery and (delivery.blocked or delivery.open_missions):
-            bits = [f"{delivery.open_missions} open"]
-            if delivery.blocked:
-                bits.append(f"{delivery.blocked} blocked")
-            if delivery.top_bottleneck:
-                bits.append(f"constraint: {delivery.top_bottleneck}")
-            note = " · ".join(bits)
-        return push.morning_readiness_pulse(_today_row(rows), recommendation=rec.primary,
-                                            delivery_note=note)
+        # MSN-XO-002: the morning brief is now the unified Daily Operating Picture.
+        from commands.brief import build_brief
+        body = build_brief()
+        return push.PushMessage(
+            kind="readiness", output_class="action",
+            title="Captain's Daily Operating Picture", body=body, severity="info", raw=True,
+        )
     if job == "evening":
         return push.evening_recovery_reflection(_today_row(_fetch_rows(days=2)))
     if job == "weekly":
