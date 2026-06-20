@@ -76,6 +76,10 @@ from commands.health_event import (
     handle_health_event_submit,
 )
 from commands.health_synthesis import handle_health_brief
+from commands.human_systems import handle_human_systems
+from commands.delivery import handle_delivery
+from commands.brief import handle_brief
+from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1259,6 +1263,64 @@ if app:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    # ── Human Systems (HSF-001) ───────────────────────────────────────────────
+
+    @app.command("/human-systems")
+    def handle_human_systems_slash(ack, respond, command):
+        """/human-systems — Human Systems Framework: Captain-pulled support."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /human-systems: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
+
+    @app.command("/hs")
+    def handle_hs_slash(ack, respond, command):
+        """/hs — alias for /human-systems."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /hs: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
+
+    # ── Daily Operating Picture (MSN-XO-002) ─────────────────────────────────
+
+    @app.command("/brief")
+    def handle_brief_slash(ack, respond, command):
+        """/brief — the single daily operating picture."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /brief: user=%s sub=%r", user_id, text)
+        respond(handle_brief(text, user_id, channel_id))
+
+    # ── EDO Delivery Officer (MSN-EDO-001) ────────────────────────────────────
+
+    @app.command("/delivery")
+    def handle_delivery_slash(ack, respond, command):
+        """/delivery — EDO delivery visibility."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /delivery: user=%s sub=%r", user_id, text)
+        respond(handle_delivery(text, user_id, channel_id))
+
+    # ── Communications & Presence Officer (MSN-COMMS-001) ────────────────────
+
+    @app.command("/comms")
+    def handle_comms_slash(ack, respond, command):
+        """/comms — weekly influence brief · opportunities · draft scaffolds · portfolio."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /comms: user=%s sub=%r", user_id, text)
+        respond(handle_comms(text, user_id, channel_id))
+
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
 else:
@@ -1369,6 +1431,15 @@ if __name__ == "__main__":
         log.info("[startup] Socket Mode running")
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
+
+    # ── Human Systems proactive scheduler (WP7, opt-in) ───────────────────────
+    if os.getenv("HUMAN_SYSTEMS_SCHEDULER", "").lower() in ("on", "1", "true", "yes"):
+        try:
+            from human_systems_scheduler import start_in_process
+            start_in_process(app.client)
+            log.info("[startup] Human Systems proactive scheduler enabled")
+        except Exception as _hs_exc:
+            log.warning("[startup] Human Systems scheduler not started: %s", _hs_exc)
 
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     try:

@@ -123,10 +123,8 @@ async def cmd_operations_status(update: Update, context: ContextTypes.DEFAULT_TY
         return
     try:
         result = db.table("missions").select(
-            "mission_id,title,status,department"
-        ).in_("status", ["ACTIVE", "IN_PROGRESS", "ASSIGNED", "BLOCKED"]).order(
-            "department"
-        ).limit(15).execute()
+            "mission_id,title,status,priority"
+        ).not_.in_("status", ["Closed", "Archived"]).order("status").limit(15).execute()
 
         missions = result.data or []
         if not missions:
@@ -135,11 +133,11 @@ async def cmd_operations_status(update: Update, context: ContextTypes.DEFAULT_TY
 
         lines = ["*Operations — All Active Missions*\n"]
         for m in missions:
-            icon  = "🔴" if m.get("status") == "BLOCKED" else "🟢"
-            dept  = _escape(m.get("department") or "?")
+            icon  = "🔴" if m.get("status") == "Blocked" else "🟢"
+            pri   = _escape(m.get("priority") or "—")
             mid   = _escape(m.get("mission_id") or "?")
             title = _escape(m.get("title") or "?")
-            lines.append(f"{icon} `{mid}` \\[{dept}\\] {title}")
+            lines.append(f"{icon} `{mid}` \\[{pri}\\] {title}")
 
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
     except Exception as exc:

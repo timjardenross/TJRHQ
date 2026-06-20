@@ -127,8 +127,8 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         res = (
             supabase_client.table("health_daily_logs")
             .select(
-                "log_date,sleep_hours,sleep_quality,cpap_compliant,"
-                "pain_level,nervous_system_state,sitting_tolerance_minutes,"
+                "log_date,sleep_hours,sleep_quality,cpap_used,"
+                "pain_score,pain_notes,nervous_system_state,sitting_tolerance_minutes,"
                 "mood,energy"
             )
             .eq("log_date", today)
@@ -139,8 +139,8 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             r = res.data[0]
             snap.sleep_hours               = r.get("sleep_hours")
             snap.sleep_quality             = r.get("sleep_quality")
-            snap.cpap_compliant            = r.get("cpap_compliant")
-            snap.pain_level                = r.get("pain_level")
+            snap.cpap_compliant            = r.get("cpap_used")
+            snap.pain_level                = r.get("pain_notes")
             snap.nervous_system_state      = r.get("nervous_system_state")
             snap.sitting_tolerance_minutes = r.get("sitting_tolerance_minutes")
             snap.mood_log                  = r.get("mood")
@@ -197,22 +197,23 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         res = (
             supabase_client.table("health_insights")
             .select(
-                "insight_date,llm_narrative,risk_flags,positive_flags,"
+                "week_start,llm_narrative,narrative_summary,risk_flags,positive_flags,"
                 "wins_this_week,cpap_compliance_rate,dow_pain_pattern"
             )
-            .order("insight_date", desc=True)
+            .order("week_start", desc=True)
             .limit(1)
             .execute()
         )
         if res.data:
             r = res.data[0]
-            snap.llm_narrative        = r.get("llm_narrative")
+            raw_narrative = r.get("llm_narrative") or r.get("narrative_summary")
+            snap.llm_narrative        = raw_narrative if isinstance(raw_narrative, str) else str(raw_narrative) if raw_narrative else None
             snap.risk_flags           = _parse_array(r.get("risk_flags"))
             snap.positive_flags       = _parse_array(r.get("positive_flags"))
             snap.wins_this_week       = _parse_array(r.get("wins_this_week"))
             snap.cpap_compliance_rate = r.get("cpap_compliance_rate")
-            snap.dow_pain_pattern     = r.get("dow_pain_pattern")
-            snap.insight_date         = r.get("insight_date")
+            snap.dow_pain_pattern     = str(r.get("dow_pain_pattern")) if r.get("dow_pain_pattern") else None
+            snap.insight_date         = r.get("week_start")
             snap.has_insights         = True
     except Exception as exc:
         log.error("[wellness] health_insights query failed: %s", exc)

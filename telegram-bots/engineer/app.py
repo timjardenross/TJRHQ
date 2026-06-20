@@ -177,9 +177,7 @@ async def cmd_engineering_status(update: Update, context: ContextTypes.DEFAULT_T
     try:
         result = db.table("missions").select(
             "mission_id,title,status,priority"
-        ).in_("status", ["ACTIVE", "IN_PROGRESS", "ASSIGNED", "BLOCKED"]).eq(
-            "department", "engineering"
-        ).order("priority").limit(10).execute()
+        ).not_.in_("status", ["Closed", "Archived"]).order("priority").limit(10).execute()
 
         missions = result.data or []
         if not missions:
@@ -190,7 +188,7 @@ async def cmd_engineering_status(update: Update, context: ContextTypes.DEFAULT_T
 
         lines = ["*Engineering — Active Missions*\n"]
         for m in missions:
-            icon = "🔴" if m.get("status") == "BLOCKED" else "🟢"
+            icon = "🔴" if m.get("status") == "Blocked" else "🟢"
             lines.append(f"{icon} `{_escape(m.get('mission_id','?'))}` — {_escape(m.get('title','?'))}")
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
     except Exception as exc:

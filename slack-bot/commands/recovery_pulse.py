@@ -271,10 +271,10 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
         "pulse_type": pulse_type,
         "source":     "slack",
     }
-    if energy:                    payload["energy"]     = energy
-    if mood:                      payload["mood"]       = mood
-    if stress:                    payload["stress"]     = stress
-    if readiness:                 payload["readiness"]  = readiness
+    if energy:                    payload["energy"]          = energy
+    if mood:                      payload["nervous_system"]  = mood
+    if stress:                    payload["body_signals"]    = stress
+    if readiness:                 payload["readiness"]       = readiness
     if pain_score is not None:    payload["pain_score"] = pain_score
     if notes:                     payload["notes"]      = notes
 

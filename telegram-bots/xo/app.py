@@ -101,6 +101,17 @@ def _escape(text: str) -> str:
     return "".join(result)
 
 
+def _escape_strict(text: str) -> str:
+    """Escape ALL MarkdownV2 specials including _ and * (use for content embedded inside _…_ or *…* spans)."""
+    result = []
+    for ch in str(text):
+        if ch in r"\_*`[]()~>#+=|{}.!-":
+            result.append("\\" + ch)
+        else:
+            result.append(ch)
+    return "".join(result)
+
+
 def _bar(pct: int) -> str:
     return "█" * int(pct / 10) + "░" * (10 - int(pct / 10))
 
@@ -210,9 +221,9 @@ async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bo
                 {
                     "log_date":   date.today().isoformat(),
                     "pulse_type": pt,
-                    "energy":     energy,
-                    "mood":       mood,
-                    "stress":     stress,
+                    "energy":          energy,
+                    "nervous_system":  mood,
+                    "body_signals":    stress,
                     "source":     "telegram",
                 },
                 on_conflict="log_date,pulse_type",
@@ -233,7 +244,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"*XO online* — @Starship\\_endeavour\\_xO\\_bot\n\n"
         f"Chat ID: `{update.effective_chat.id}`\n\n"
-        "/recovery\\_status · /recovery\\_pulse · /dispatch · /help\n\n"
+        "*Recovery*\n"
+        "/recovery\\_status · /recovery\\_pulse\n\n"
+        "*Logging*\n"
+        "/log\\_activity · /log\\_weight\n\n"
+        "*Ops*\n"
+        "/dispatch · /db\\_status\n\n"
+        "_Proactive Daily Operating Picture arrives at 07:00 AEST\\._\n"
         "_Or just talk to me\\._",
         parse_mode="MarkdownV2",
     )
@@ -242,11 +259,21 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "*XO — Commands*\n\n"
-        "/recovery\\_status — today's confidence and pulse status\n"
-        "/recovery\\_pulse — log a pulse inline \\(tap buttons, no portal\\)\n"
+        "*Recovery*\n"
+        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
+        "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
+        "*Logging*\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
-        "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n"
-        "/dispatch — manual dispatch check\n\n"
+        "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
+        "*Ops*\n"
+        "/dispatch — manual dispatch check\n"
+        "/db\\_status — Supabase connectivity test\n\n"
+        "*Proactive pushes \\(auto, no command needed\\)*\n"
+        "07:00 — Daily Operating Picture \\(capacity · decision · missions · delivery · resilience\\)\n"
+        "20:00 — Evening Recovery Reflection\n"
+        "Mon 08:00 — Weekly Human Systems Review\n"
+        "Mon 08:30 — Weekly Thought Leadership Brief \\(when opportunities exist\\)\n"
+        "15:00 — Capacity Degradation Alert \\(only when threshold crossed\\)\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -449,7 +476,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         e_cap = _escape(e.capitalize())
         m_cap = _escape(m.capitalize())
         s_cap = _escape(s.capitalize())
-        error_line = f"\n\n_Error: {_escape(err_msg)}_" if err_msg else ""
+        error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
             f"Energy: {e_cap} · Mood: {m_cap} · Stress: {s_cap}\n\n"
@@ -543,10 +570,28 @@ async def _scheduled_dispatch(bot) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+_BOT_COMMANDS = [
+    ("recovery_status", "Today's confidence bar + pulse ledger"),
+    ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
+    ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
+    ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
+    ("dispatch",        "Manual XO dispatch check"),
+    ("db_status",       "Supabase connectivity test"),
+    ("help",            "Full command reference + proactive schedule"),
+]
+
+
+async def _post_init(app) -> None:
+    """Register the command menu with Telegram so it appears in the UI."""
+    from telegram import BotCommand
+    await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
+    log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
+
+
 def main() -> None:
     log.info("XO Bot starting")
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(_post_init).build()
 
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
