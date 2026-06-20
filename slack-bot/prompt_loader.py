@@ -110,10 +110,11 @@ SPECIALISTS = {
         ],
     },
     "medical_officer": {
-        "title": "Medical Officer",
+        "title": "Medical Officer / Human Systems Officer",
         "charter": "specialists/core-crew/Medical-Officer.md",
         "knowledge": [
             "specialists/knowledge-packs/Medical-Officer-Knowledge.md",
+            "specialists/knowledge-packs/Human-Systems-Framework.md",
             "specialists/knowledge-packs/Chronic-Pain-Framework.md",
             "specialists/knowledge-packs/Recovery-Support-Framework.md",
             "specialists/knowledge-packs/Health-Escalation-Guidelines.md",

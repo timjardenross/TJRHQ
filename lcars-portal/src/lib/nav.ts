@@ -67,6 +67,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Stage record — Knowledge Officer'
   },
   {
+    href: '/human-systems',
+    label: 'Human Systems',
+    glyph: '14',
+    department: 'medical',
+    description: 'Capacity, energy domains and resilience (HSF-001)'
+  },
+  {
     href: '/operations',
     label: 'Operations',
     glyph: '09',

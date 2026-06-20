@@ -70,6 +70,7 @@ from commands.health_event import (
     handle_health_event_submit,
 )
 from commands.health_synthesis import handle_health_brief
+from commands.human_systems import handle_human_systems
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1208,6 +1209,33 @@ if app:
             handle_health_brief(user_id, client)
 
         threading.Thread(target=_run, daemon=True).start()
+
+    # ── Human Systems (HSF-001) ───────────────────────────────────────────────
+
+    @app.command("/human-systems")
+    def handle_human_systems_slash(ack, respond, command):
+        """/human-systems — Human Systems Framework: Captain-pulled support.
+
+        Subcommands: today · plan <type> · explain · review · log · feedback.
+        Plan types: low-capacity · recovery · movement · nutrition · mind.
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /human-systems: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
+
+    # Convenience alias.
+    @app.command("/hs")
+    def handle_hs_slash(ack, respond, command):
+        """/hs — alias for /human-systems."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /hs: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
