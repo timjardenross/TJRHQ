@@ -84,8 +84,10 @@ def _context(days: int = 7):
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 _HELP = (
-    "*Human Systems* — your operating-system support across movement, nutrition, "
-    "sleep, mind, performance, and resilience.\n\n"
+    "*Human Systems — Capacity & Decision Support Officer.*\n"
+    "I assess your available capacity, flag friction and overload, and give you "
+    "the single highest-leverage action — so scarce capacity goes where it has the "
+    "greatest operational impact, sustainably.\n\n"
     "*Decision support — what should I do about it?*\n"
     "• `/hs decide` — the single highest-leverage action right now\n"
     "• `/hs focus` — recommended focus + what to defer (capacity allocation)\n"

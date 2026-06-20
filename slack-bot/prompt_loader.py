@@ -110,7 +110,7 @@ SPECIALISTS = {
         ],
     },
     "medical_officer": {
-        "title": "Medical Officer / Human Systems Officer",
+        "title": "Human Systems Officer — Capacity & Decision Support Officer (Medical Officer)",
         "charter": "specialists/core-crew/Medical-Officer.md",
         "knowledge": [
             "specialists/knowledge-packs/Medical-Officer-Knowledge.md",

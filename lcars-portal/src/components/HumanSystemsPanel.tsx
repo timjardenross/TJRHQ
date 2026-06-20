@@ -59,7 +59,7 @@ export function HumanSystemsPanel() {
     <LCARSPanel
       title="Human Systems"
       accent="medical"
-      eyebrow="HSF-001 · Capacity & Resilience"
+      eyebrow="Capacity & Decision Support Officer"
       actions={
         <StatusBadge
           label={isLive ? 'Live' : 'No data'}
