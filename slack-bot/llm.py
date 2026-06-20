@@ -13,6 +13,7 @@ DEFAULT_ENGINEER_MODEL = "deepseek-coder:6.7b"
 DEFAULT_REASONING_MODEL = "deepseek-r1:14b"
 DEFAULT_FAST_MODEL = "gemma3"
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_TIMEOUT_SECONDS = 20
 EMBEDDING_MODEL_ENV = "OLLAMA_EMBEDDING_MODEL"
 
@@ -23,7 +24,7 @@ class LLMUnavailableError(RuntimeError):
 
 def get_llm_provider() -> str:
     provider = os.getenv("LLM_PROVIDER", DEFAULT_PROVIDER).lower().strip()
-    if provider not in {"auto", "ollama", "openai"}:
+    if provider not in {"auto", "ollama", "openai", "gemini"}:
         return DEFAULT_PROVIDER
     return provider
 
@@ -56,6 +57,10 @@ def get_openai_model() -> str:
     return os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
 
+def get_gemini_model() -> str:
+    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+
+
 def get_timeout_seconds() -> int:
     raw_value = os.getenv("LLM_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))
     try:
@@ -80,6 +85,10 @@ def is_openai_available() -> bool:
     return bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_ADMIN_KEY"))
 
 
+def is_gemini_available() -> bool:
+    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+
+
 def is_llm_configured() -> bool:
     return is_llm_available()
 
@@ -90,7 +99,9 @@ def is_llm_available() -> bool:
         return is_ollama_available()
     if provider == "openai":
         return is_openai_available()
-    return is_ollama_available() or is_openai_available()
+    if provider == "gemini":
+        return is_gemini_available()
+    return is_gemini_available() or is_ollama_available() or is_openai_available()
 
 
 def select_ollama_model(
@@ -191,6 +202,66 @@ def generate_with_openai(prompt: str, system_prompt: str | None = None) -> str:
     return content.strip()
 
 
+def generate_with_gemini(prompt: str, system_prompt: str | None = None, model: str | None = None) -> str:
+    """Generate via Google AI (Gemini) using the generativeLanguage REST API.
+
+    Dependency-free (urllib), matching this module's Ollama path. Reads
+    GEMINI_API_KEY (or GOOGLE_API_KEY). Raises LLMUnavailableError on any failure.
+    """
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise LLMUnavailableError("Google AI (Gemini) credentials are not configured.")
+
+    model = model or get_gemini_model()
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={api_key}"
+    )
+    payload: dict = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.3},
+    }
+    if system_prompt:
+        payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
+
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as error:
+        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
+    except Exception as error:
+        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
+
+    candidates = body.get("candidates") or []
+    if not candidates:
+        # A blocked prompt or empty result surfaces here.
+        raise LLMUnavailableError("Gemini returned no candidates.")
+    try:
+        parts = candidates[0]["content"]["parts"]
+        content = "".join(p.get("text", "") for p in parts).strip()
+    except (KeyError, IndexError, TypeError) as error:
+        raise LLMUnavailableError("Gemini returned an unexpected response shape.") from error
+    if not content:
+        raise LLMUnavailableError("Gemini returned an empty response.")
+    return content
+
+
+def ask_gemini_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]:
+    """Google AI generation as a graceful (ok, text) tuple — never raises."""
+    try:
+        return True, generate_with_gemini(prompt=user_prompt, system_prompt=system_prompt)
+    except LLMUnavailableError as error:
+        return False, str(error)
+    except Exception as error:  # pragma: no cover - defensive
+        return False, f"{type(error).__name__}"
+
+
 def generate_response(
     prompt: str,
     system_prompt: str | None = None,
@@ -219,6 +290,19 @@ def try_generate_response(
     provider = get_llm_provider()
     attempted: list[str] = []
 
+    # Google AI (Gemini) first: it's the Captain's connected cloud provider.
+    gemini_reason = ""
+    if provider in {"auto", "gemini"} and is_gemini_available():
+        attempted.append("gemini")
+        try:
+            return True, generate_with_gemini(prompt=prompt, system_prompt=system_prompt)
+        except LLMUnavailableError as error:
+            if provider == "gemini":
+                return False, str(error)
+            gemini_reason = str(error)
+    elif provider == "gemini":
+        return False, "Google AI (Gemini) credentials are not configured."
+
     if provider in {"auto", "ollama"}:
         selected_model = select_ollama_model(specialists=specialists, user_text=prompt, priority=priority)
         ollama_errors = []
@@ -245,7 +329,7 @@ def try_generate_response(
     else:
         openai_reason = ""
 
-    reasons = "; ".join(reason for reason in [ollama_reason, openai_reason] if reason)
+    reasons = "; ".join(reason for reason in [gemini_reason, ollama_reason, openai_reason] if reason)
     attempted_text = ", ".join(attempted) or "none"
     return False, reasons or f"No configured provider succeeded. Attempted: {attempted_text}."
 

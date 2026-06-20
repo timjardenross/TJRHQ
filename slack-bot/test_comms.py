@@ -211,6 +211,42 @@ class TestDrafting(unittest.TestCase):
         self.assertEqual(mode, "scaffold")
 
 
+# ── Google AI (Gemini) provider wiring (reused llm.py client) ─────────────────
+
+class TestGeminiProvider(unittest.TestCase):
+    def test_drafting_routes_to_gemini(self):
+        import llm
+        with patch.object(llm, "ask_gemini_safe", return_value=(True, "Gemini draft.")) as m:
+            mode, text = drafting.generate_draft(_opp(), "linkedin_post")
+        self.assertTrue(m.called)
+        self.assertEqual(mode, "llm")
+        self.assertIn("Gemini draft.", text)
+
+    def test_generate_with_gemini_parses_rest(self):
+        import io
+        import json as _json
+        import llm
+        payload = {"candidates": [{"content": {"parts": [{"text": "Hello from Gemini"}]}}]}
+
+        class _Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}), \
+             patch("urllib.request.urlopen", return_value=_Resp(_json.dumps(payload).encode())):
+            out = llm.generate_with_gemini("write something", system_prompt="be helpful")
+        self.assertEqual(out, "Hello from Gemini")
+
+    def test_gemini_unconfigured_is_graceful(self):
+        import llm
+        with patch.dict("os.environ", {}, clear=True):
+            ok, reason = llm.ask_gemini_safe("s", "u")
+        self.assertFalse(ok)
+        self.assertIn("not configured", reason)
+
+
 # ── WP7 portfolio store graceful ──────────────────────────────────────────────
 
 class TestPortfolioStore(unittest.TestCase):

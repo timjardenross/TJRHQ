@@ -1,9 +1,9 @@
 """AI-assisted draft generation (COMMS-001 WP8).
 
 Turns a content opportunity into a first-draft *prose* piece by reusing the bot's
-existing LLM client (``slack-bot/llm.py`` → ``ask_commander_safe``, which already
-handles provider selection, fallback, and graceful unavailability). When no LLM is
-configured it falls back to the deterministic scaffold from ``formats`` — so the
+existing LLM client (``slack-bot/llm.py``). Generation uses **Google AI (Gemini)**
+via ``ask_gemini_safe`` — the Captain's connected provider. When Gemini is
+unavailable it falls back to the deterministic scaffold from ``formats`` — so the
 command never breaks and behaviour degrades cleanly.
 
 Captain-as-publisher is preserved: every output is explicitly an *unpublished first
@@ -73,9 +73,10 @@ def build_prompts(opp, fmt_key: str) -> tuple[str, str]:
 
 
 def _default_llm(system: str, user: str) -> tuple[bool, str]:
+    """Generate via Google AI (Gemini), reusing the bot's shared llm.py client."""
     try:
         import llm  # reuse the bot's existing client (slack-bot/llm.py)
-        return llm.ask_commander_safe(system_prompt=system, user_prompt=user)
+        return llm.ask_gemini_safe(system_prompt=system, user_prompt=user)
     except Exception as exc:  # pragma: no cover
         return False, f"{type(exc).__name__}"
 
