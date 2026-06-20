@@ -246,7 +246,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/recovery\\_pulse — log a pulse inline \\(tap buttons, no portal\\)\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n"
-        "/dispatch — manual dispatch check\n\n"
+        "/dispatch — manual dispatch check\n"
+        "/brief — generate OR intelligence brief on demand\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -398,6 +399,44 @@ async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Dispatch: {_escape(action)} \\| conf={conf}% \\| sent={'yes' if sent else 'no'}",
         parse_mode="MarkdownV2",
     )
+
+
+# ── OR Intelligence brief ─────────────────────────────────────────────────────
+
+async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate an OR intelligence brief on demand and write it to Supabase."""
+    await update.message.reply_text(
+        "⚙️ Generating OR intelligence brief\\.\\.\\. this may take 30\\-60 seconds\\.",
+        parse_mode="MarkdownV2",
+    )
+    try:
+        from intelligence.scheduler import run_once
+        import asyncio
+        brief = await asyncio.get_event_loop().run_in_executor(None, run_once)
+        risk_icon = {"GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}.get(brief.overall_risk, "⚪")
+        lines = [
+            f"*OR Intelligence Brief — {_escape(brief.brief_id[:8])}*\n",
+            f"{risk_icon} Risk: *{_escape(brief.overall_risk)}*",
+        ]
+        if brief.bottom_line:
+            lines.append(f"\n*Bottom Line*\n{_escape(brief.bottom_line)}")
+        if brief.executive_snapshot:
+            lines.append(f"\n*Snapshot*\n{_escape(brief.executive_snapshot)}")
+        lines.append(f"\n_Events: {brief.events_included} included · {brief.events_suppressed} suppressed_")
+        lines.append("_LCARS Astrometrics updated\\._")
+        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+        log.info("[brief] generated brief_id=%s risk=%s", brief.brief_id, brief.overall_risk)
+    except ImportError:
+        await update.message.reply_text(
+            "⚠️ Intelligence module not available in this environment\\.",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        log.error("[brief] generation failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Brief generation failed: `{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
 
 
 # ── Free-text conversation ────────────────────────────────────────────────────
@@ -556,6 +595,7 @@ def main() -> None:
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
+    app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
