@@ -45,7 +45,7 @@ if str(_BOT_DIR) not in sys.path:
 from lib.human_systems import push, delivery, memory, decision, mission_load, framework  # noqa: E402
 from commands.human_systems import _fetch_rows, _today_row, _delivery_context  # noqa: E402
 
-JOBS = ("morning", "evening", "weekly", "degradation")
+JOBS = ("morning", "evening", "weekly", "degradation", "comms_weekly")
 
 # Cron defaults (interpreted in HS_SCHEDULE_TZ, default the Captain's local tz).
 _CRON_DEFAULTS = {
@@ -53,6 +53,8 @@ _CRON_DEFAULTS = {
     "evening": ("HS_EVENING_CRON", "0 20 * * *"),
     "weekly": ("HS_WEEKLY_CRON", "0 8 * * 1"),
     "degradation": ("HS_DEGRADATION_CRON", "0 15 * * *"),
+    # COMMS-001 WP6: the weekly influence brief, Monday morning after the review.
+    "comms_weekly": ("HS_COMMS_WEEKLY_CRON", "30 8 * * 1"),
 }
 
 _JOB_DOMAIN = {
@@ -60,6 +62,7 @@ _JOB_DOMAIN = {
     "evening": "medical",
     "weekly": "resilience",
     "degradation": "resilience",
+    "comms_weekly": "communications",
 }
 
 
@@ -79,6 +82,18 @@ def _build_message(job: str):
         return push.weekly_human_systems_review(_fetch_rows(days=7))
     if job == "degradation":
         return push.capacity_degradation_alert(_fetch_rows(days=7))
+    if job == "comms_weekly":
+        # COMMS-001 WP6: the Weekly Thought Leadership Brief. Reuses the live
+        # opportunity engine; stays quiet (None) when nothing is publishable.
+        from lib.comms import opportunities as _opp, weekly as _weekly
+        opps = _opp.gather_opportunities()
+        if not any(getattr(o, "is_publishable", True) for o in opps):
+            return None
+        body = _weekly.compose_weekly_brief(opps)
+        return push.PushMessage(
+            kind="influence", output_class="action",
+            title="Weekly Thought Leadership Brief", body=body, severity="info", raw=True,
+        )
     raise ValueError(f"unknown job: {job}")
 
 

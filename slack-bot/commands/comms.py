@@ -24,10 +24,10 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio
+    from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting
     from lib.human_systems import safety
 except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio  # type: ignore
+    from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting  # type: ignore
     from slack_bot.lib.human_systems import safety  # type: ignore
 
 
@@ -96,16 +96,20 @@ def _draft(rest: str) -> str:
     if fmt_key and fmt_key not in formats.FORMATS_BY_KEY:
         valid = ", ".join(f.key for f in formats.FORMATS)
         return f"Unknown format '{fmt_key}'. Options: {valid}."
+    # Generate a first-draft prose piece via the shared LLM client; degrade to the
+    # deterministic scaffold when no LLM is configured (WP8).
+    mode, body = drafting.generate_draft(o, fmt_key or o.suggested_format)
     # Record the draft intent in the content lifecycle (non-blocking).
     try:
         portfolio.record_content(
             content_id=f"{o.source_kind}-{o.source_ref}", title=o.title, pillar=o.pillar_key,
             source_kind=o.source_kind, source_ref=o.source_ref, classification=o.classification,
             status="draft", fmt=(fmt_key or o.suggested_format), strategic_domain=o.strategic_domain,
+            notes=f"draft_mode={mode}",
         )
     except Exception:  # pragma: no cover
         pass
-    return formats.render_format(o, fmt_key or o.suggested_format)
+    return body
 
 
 def _pillars() -> str:

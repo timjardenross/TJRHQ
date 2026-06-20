@@ -17,7 +17,7 @@ if str(_BOT) not in sys.path:
     sys.path.insert(0, str(_BOT))
 
 from lib import daily_brief  # noqa: E402
-from lib.comms import pillars, opportunities as opp, formats, weekly, portfolio  # noqa: E402
+from lib.comms import pillars, opportunities as opp, formats, weekly, portfolio, drafting  # noqa: E402
 from lib.human_systems import framework, decision, safety  # noqa: E402
 from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
 import commands.comms as comms_cmd  # noqa: E402
@@ -159,7 +159,10 @@ class TestCommsCommand(unittest.TestCase):
         self.assertIn("Content Opportunities", out)
 
     def test_draft_by_index(self):
+        # Hermetic: force the scaffold path (no live LLM call from the command).
         with patch.object(comms_cmd.opp, "gather_opportunities", return_value=[_opp()]), \
+             patch.object(comms_cmd.drafting, "generate_draft",
+                          return_value=("scaffold", "*Draft scaffold — Case Study*")), \
              patch.object(comms_cmd.portfolio, "record_content", lambda **k: True):
             out = comms_cmd.handle_comms("draft 1")
         self.assertIn("Draft scaffold", out)
@@ -177,6 +180,35 @@ class TestCommsCommand(unittest.TestCase):
              patch.object(comms_cmd.portfolio, "pipeline_summary", return_value={}):
             out = comms_cmd.handle_comms("portfolio")
         self.assertIn("Reputation Portfolio", out)
+
+
+# ── WP8 LLM-assisted drafting (reuses llm.py; graceful fallback) ──────────────
+
+class TestDrafting(unittest.TestCase):
+    def test_build_prompts_grounded(self):
+        sys_p, user_p = drafting.build_prompts(_opp(), "case_study")
+        self.assertIn("Communications & Presence Officer", sys_p)
+        self.assertIn("Case Study", user_p)
+        self.assertIn("Operational Resilience", user_p)   # pillar in the prompt
+        self.assertIn("evidence", user_p.lower())
+
+    def test_llm_mode_when_available(self):
+        mode, text = drafting.generate_draft(
+            _opp(), "linkedin_post", llm_fn=lambda s, u: (True, "A grounded first draft."))
+        self.assertEqual(mode, "llm")
+        self.assertIn("AI first draft", text)
+        self.assertIn("A grounded first draft.", text)
+        self.assertIn("not published", text)
+
+    def test_falls_back_to_scaffold_when_unavailable(self):
+        mode, text = drafting.generate_draft(
+            _opp(), "case_study", llm_fn=lambda s, u: (False, "no provider"))
+        self.assertEqual(mode, "scaffold")
+        self.assertIn("Draft scaffold", text)
+
+    def test_empty_llm_falls_back(self):
+        mode, _ = drafting.generate_draft(_opp(), llm_fn=lambda s, u: (True, "   "))
+        self.assertEqual(mode, "scaffold")
 
 
 # ── WP7 portfolio store graceful ──────────────────────────────────────────────

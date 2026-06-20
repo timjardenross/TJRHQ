@@ -90,12 +90,28 @@ class TestRunner(unittest.TestCase):
         rows = {"morning": [HARD], "evening": [HARD],
                 "weekly": [GOOD, HARD], "degradation": [HARD]}
         for job in hss.JOBS:
-            with patch.object(hss, "_fetch_rows", return_value=rows[job]):
+            with patch.object(hss, "_fetch_rows", return_value=rows.get(job, [GOOD])):
                 report = hss.run_job(job, dry_run=True)
             if report.get("skipped"):
                 continue
             self.assertIn("text", report)
             self.assertEqual(safety.check_language(report["text"]), [], f"job {job}")
+
+    def test_comms_weekly_delivers_when_opportunities_exist(self):
+        from lib.comms import opportunities as copp
+        from lib.comms.opportunities import build_opportunity
+        opp = build_opportunity("mission", ref="M1", title="Resilience shakedown",
+                                body="incident recovery and continuity lessons")
+        with patch.object(copp, "gather_opportunities", return_value=[opp]):
+            report = hss.run_job("comms_weekly", dry_run=True)
+        self.assertFalse(report.get("skipped"))
+        self.assertIn("Weekly Thought Leadership Brief", report["text"])
+
+    def test_comms_weekly_skips_when_no_opportunities(self):
+        from lib.comms import opportunities as copp
+        with patch.object(copp, "gather_opportunities", return_value=[]):
+            report = hss.run_job("comms_weekly", dry_run=True)
+        self.assertTrue(report.get("skipped"))
 
     def test_degradation_skips_when_steady(self):
         steady = [dict(GOOD, log_date=f"2026-06-1{i}") for i in range(4)]
