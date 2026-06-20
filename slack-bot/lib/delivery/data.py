@@ -93,6 +93,39 @@ def record_transition(*, mission_id: str, to_state: str, from_state: str | None 
         return False
 
 
+def record_execution_event(*, mission_id: str, status: str, branch: str | None = None,
+                           backend: str | None = None, pr_url: str | None = None,
+                           detail: str | None = None) -> bool:
+    """Record an execution-dispatch telemetry event (MSN-EDO-003 WP1). Non-blocking."""
+    c = _client()
+    if c is None:
+        return False
+    payload = {
+        "mission_id": mission_id, "status": status, "branch": branch,
+        "backend": backend, "pr_url": pr_url, "detail": (detail or "")[:1000] or None,
+        "created_at": _now(),
+    }
+    try:
+        res = c.insert("mission_execution_events", payload)
+        return bool(getattr(res, "ok", False))
+    except Exception as exc:  # pragma: no cover
+        log.warning("[edo.data] record_execution_event failed: %s", exc)
+        return False
+
+
+def fetch_execution_events(limit: int = 100) -> list[dict]:
+    c = _client()
+    if c is None:
+        return []
+    try:
+        res = (c.raw_client.table("mission_execution_events")
+               .select("*").order("created_at", desc=True).limit(limit).execute())
+        return list(res.data or [])
+    except Exception as exc:
+        log.error("[edo.data] fetch_execution_events failed: %s", exc)
+        return []
+
+
 def register_capability(*, name: str, purpose: str, owner: str | None = None,
                         status: str = "Operational") -> bool:
     """Register/refresh a capability on mission closure (MSN-EDO-002 QW3).

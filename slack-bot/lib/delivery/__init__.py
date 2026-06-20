@@ -10,6 +10,6 @@ Missions/MSN-EDO-001/ for the operating model this implements.
 
 from __future__ import annotations
 
-from . import lifecycle, analysis, data, execution
+from . import lifecycle, analysis, data, execution, forecast
 
-__all__ = ["lifecycle", "analysis", "data", "execution"]
+__all__ = ["lifecycle", "analysis", "data", "execution", "forecast"]

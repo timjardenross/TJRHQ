@@ -97,14 +97,71 @@ export function detectBottlenecks(rows: DeliveryRow[]): Bottleneck[] {
   return out.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
+// ── Control Tower (MSN-EDO-003 WP2) — risk, capacity, constraint ──────────────
+
+export interface MissionRisk {
+  title: string;
+  score: number;
+  level: 'high' | 'medium' | 'low';
+}
+
+const STATE_BASE: Record<string, number> = {
+  blocked: 80, in_review: 50, in_progress: 40, planned: 30, validated: 25, proposed: 20
+};
+
+export function deliveryRisk(r: DeliveryRow): MissionRisk {
+  const st = r.delivery_state;
+  const age = r.age_days ?? 0;
+  let score = STATE_BASE[st] ?? 20;
+  if (age > 14) score += 30;
+  else if (age > 7) score += 20;
+  if ((st === 'in_progress' || st === 'in_review') && !(r.pr_url ?? '').trim()) score += 15;
+  if (['p0', 'p1'].includes((r.priority_norm ?? '').toLowerCase())) score += 10;
+  score = Math.max(0, Math.min(100, score));
+  return { title: r.title, score, level: score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low' };
+}
+
+export interface ControlTower {
+  topRisks: MissionRisk[];
+  highRiskCount: number;
+  constraint: string | null;
+  constraintCount: number;
+  engWip: number;
+}
+
+export function controlTower(rows: DeliveryRow[]): ControlTower {
+  const open = rows.filter((r) => OPEN_STATES.includes(r.delivery_state));
+  const risks = open.map(deliveryRisk).sort((a, b) => b.score - a.score);
+  const counts: Record<string, number> = {};
+  open.forEach((r) => (counts[r.delivery_state] = (counts[r.delivery_state] ?? 0) + 1));
+  const constraint = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] ?? null;
+  const engWip = rows.filter(
+    (r) => /engineer/.test(r.task_type_norm ?? '') && ['in_progress', 'in_review'].includes(r.delivery_state)
+  ).length;
+  return {
+    topRisks: risks.slice(0, 5),
+    highRiskCount: risks.filter((r) => r.level === 'high').length,
+    constraint,
+    constraintCount: constraint ? counts[constraint] : 0,
+    engWip
+  };
+}
+
 export interface DeliveryData {
   rows: DeliveryRow[];
   metrics: DeliveryMetrics | null;
   bottlenecks: Bottleneck[];
+  tower: ControlTower;
   isLive: boolean;
 }
 
 export async function loadDelivery(): Promise<DeliveryData> {
   const [rows, metrics] = await Promise.all([fetchDeliveryRows(), fetchDeliveryMetrics()]);
-  return { rows, metrics, bottlenecks: detectBottlenecks(rows), isLive: rows.length > 0 };
+  return {
+    rows,
+    metrics,
+    bottlenecks: detectBottlenecks(rows),
+    tower: controlTower(rows),
+    isLive: rows.length > 0
+  };
 }

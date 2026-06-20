@@ -31,7 +31,7 @@ export function DeliveryPanel() {
     );
   }
 
-  const { rows, metrics, bottlenecks, isLive } = data;
+  const { rows, metrics, bottlenecks, tower, isLive } = data;
   const open = rows.filter((r) => OPEN_STATES.includes(r.delivery_state));
   const byState: Record<string, number> = {};
   open.forEach((r) => (byState[r.delivery_state] = (byState[r.delivery_state] ?? 0) + 1));
@@ -86,9 +86,32 @@ export function DeliveryPanel() {
         )}
       </div>
 
+      {/* Control Tower (WP2): risk + constraint + capacity */}
+      <div className="mt-4 rounded-lcars border border-engineering bg-engineering/10 p-3">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-engineering">Control Tower</p>
+        <div className="mt-1 flex flex-wrap gap-2 text-xs">
+          <StatusBadge label={`${tower.highRiskCount} high-risk`} tone={tower.highRiskCount ? 'operations' : 'status'} />
+          {tower.constraint && (
+            <StatusBadge label={`constraint: ${tower.constraint.replace('_', ' ')} ${tower.constraintCount}`} tone="command" />
+          )}
+          <StatusBadge label={`eng WIP ${tower.engWip}`} tone={tower.engWip > 3 ? 'operations' : 'medical'} />
+        </div>
+        {tower.topRisks.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-1">
+            {tower.topRisks.slice(0, 4).map((r, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs text-lcars-text/80">
+                <StatusBadge label={String(r.score)} tone={r.level === 'high' ? 'operations' : r.level === 'medium' ? 'command' : 'neutral'} />
+                <span>{r.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <p className="mt-3 text-[11px] text-lcars-muted leading-relaxed">
-        Instrumented delivery (EDO). Ask in Slack: <code>/delivery status</code>,{' '}
-        <code>/delivery bottlenecks</code>, <code>/delivery reuse &lt;request&gt;</code>.
+        Instrumented delivery + control tower (EDO). Ask in Slack:{' '}
+        <code>/delivery forecast</code>, <code>/delivery risk</code>,{' '}
+        <code>/delivery execute &lt;id&gt;</code>.
       </p>
     </LCARSPanel>
   );

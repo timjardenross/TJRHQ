@@ -59,6 +59,12 @@ class ExecutionPackage:
         return "\n".join(lines)
 
 
+# Supported execution backends (MSN-EDO-003 WP1). claude_code is the default
+# engine; manual leaves a ready branch+PR for a human; generic is a pluggable hook.
+EXECUTION_BACKENDS = ("claude_code", "manual", "generic")
+DEFAULT_BACKEND = "claude_code"
+
+
 # Governance invariants stamped on every package.
 _GOVERNANCE = {
     "no_autonomous_merge": True,
@@ -163,13 +169,17 @@ def prepare_dispatch(
     *,
     plan_approved: bool,
     base: str = "main",
+    backend: str = DEFAULT_BACKEND,
 ) -> tuple[dict | None, str]:
     """Build the full dispatch artifact set for the execution workflow.
 
     Returns (artifacts, "ok") or (None, reason). ``artifacts`` carries everything
-    the workflow needs to create a branch + draft PR + record the transition,
-    with governance invariants attached. Enforces the plan-approval gate.
+    the workflow needs to create a branch + draft PR + record the transition +
+    telemetry, with governance invariants and a rollback plan attached. Enforces
+    the plan-approval gate and validates the backend.
     """
+    if backend not in EXECUTION_BACKENDS:
+        return None, f"unknown execution backend '{backend}'"
     package, reason = build_execution_package(mission, plan_approved=plan_approved, base=base)
     if package is None:
         return None, reason
@@ -178,6 +188,7 @@ def prepare_dispatch(
         "mission_id": package.mission_id,
         "branch": package.branch,
         "base": package.base,
+        "backend": backend,
         "draft": True,
         "pr_title": f"[EDO] {package.mission_id}: {package.title}",
         "pr_body": render_pr_body(package, mission),
@@ -187,5 +198,11 @@ def prepare_dispatch(
             "from_state": frm, "to_state": to, "actor": "edo-execute",
         },
         "governance": dict(package.governance),
+        # Rollback plan: on failure, delete the branch and revert to prior state.
+        "rollback": {
+            "delete_branch": package.branch,
+            "revert_to_state": frm,
+            "mission_id": package.mission_id,
+        },
     }
     return artifacts, "ok"

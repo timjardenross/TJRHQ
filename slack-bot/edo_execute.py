@@ -42,12 +42,14 @@ def _find_mission(mission_id: str) -> dict | None:
 
 
 def run(mission_id: str, *, plan_approved: bool, base: str = "main",
+        backend: str = execution.DEFAULT_BACKEND,
         mission: dict | None = None) -> tuple[dict | None, str]:
     """Prepare dispatch artifacts for a mission. Returns (artifacts, reason)."""
     mission = mission or _find_mission(mission_id)
     if mission is None:
         return None, f"no mission found matching '{mission_id}'"
-    return execution.prepare_dispatch(mission, plan_approved=plan_approved, base=base)
+    return execution.prepare_dispatch(
+        mission, plan_approved=plan_approved, base=base, backend=backend)
 
 
 def record_transition(artifacts: dict) -> bool:
@@ -60,6 +62,30 @@ def record_transition(artifacts: dict) -> bool:
     )
 
 
+def record_event(artifacts: dict, status: str, *, pr_url: str | None = None,
+                 detail: str | None = None) -> bool:
+    """Record an execution-dispatch telemetry event (non-blocking)."""
+    return data.record_execution_event(
+        mission_id=artifacts.get("mission_id"), status=status,
+        branch=artifacts.get("branch"), backend=artifacts.get("backend"),
+        pr_url=pr_url, detail=detail,
+    )
+
+
+def rollback(artifacts: dict, *, reason: str = "") -> dict:
+    """Failure handling: record a rolled_back telemetry event + return the plan.
+
+    The actual branch deletion / state revert is executed by the workflow (or a
+    human) using this plan; the runner records the audit event.
+    """
+    plan = artifacts.get("rollback") or {}
+    record_event(artifacts, "rolled_back", detail=f"rollback: {reason}"[:1000])
+    log.warning("[edo-execute] rollback for %s: delete %s, revert to %s (%s)",
+                artifacts.get("mission_id"), plan.get("delete_branch"),
+                plan.get("revert_to_state"), reason)
+    return plan
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     p = argparse.ArgumentParser(description="EDO execution runner")
@@ -67,19 +93,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--plan-approved", action="store_true",
                    help="Required governance gate: the plan has been approved")
     p.add_argument("--base", default="main")
-    p.add_argument("--dry-run", action="store_true", help="Emit artifacts only; record no transition")
+    p.add_argument("--backend", default=execution.DEFAULT_BACKEND,
+                   choices=execution.EXECUTION_BACKENDS, help="Execution backend")
+    p.add_argument("--dry-run", action="store_true", help="Emit artifacts only; record no telemetry")
     p.add_argument("--out", help="Write artifacts JSON to this path (for the workflow)")
     args = p.parse_args(argv)
 
-    artifacts, reason = run(args.mission, plan_approved=args.plan_approved, base=args.base)
+    artifacts, reason = run(args.mission, plan_approved=args.plan_approved,
+                            base=args.base, backend=args.backend)
     if artifacts is None:
         log.error("execution blocked: %s", reason)
         print(json.dumps({"ok": False, "reason": reason}, indent=2))
         return 2
 
     if not args.dry_run:
-        ok = record_transition(artifacts)
-        artifacts["transition_recorded"] = ok
+        artifacts["transition_recorded"] = record_transition(artifacts)
+        artifacts["event_recorded"] = record_event(artifacts, "dispatched")
 
     out = json.dumps({"ok": True, **artifacts}, indent=2)
     if args.out:

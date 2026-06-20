@@ -394,6 +394,91 @@ def highest_leverage(
     )
 
 
+# ── MSN-EDO-003 WP3: Decision Intelligence 2.0 — recommendation package ────────
+
+@dataclass
+class RecommendationPackage:
+    primary: str
+    confidence: float
+    expected_impact: str
+    opportunity_cost: str
+    recommended_deferral: str
+    strategic_alignment: str
+    secondary: str | None = None
+    escalation: str | None = None
+
+    def _confidence_label(self) -> str:
+        return "high" if self.confidence >= 0.75 else "moderate" if self.confidence >= 0.5 else "tentative"
+
+    def render(self) -> str:
+        lines = []
+        if self.escalation:
+            lines += [self.escalation, "", "———", ""]
+        lines += [
+            "*Highest-Leverage Action*",
+            self.primary,
+            "",
+            f"• *Confidence:* {self._confidence_label()}",
+            f"• *Expected impact:* {self.expected_impact}",
+            f"• *Opportunity cost:* {self.opportunity_cost}",
+            f"• *Recommended deferral:* {self.recommended_deferral}",
+            f"• *Strategic alignment:* {self.strategic_alignment}",
+        ]
+        if self.secondary:
+            lines += ["", f"*If there's more in the tank:* {self.secondary}"]
+        return "\n".join(lines)
+
+
+_IMPACT_BY_LEVERAGE = {
+    "recovery protection": "Protects tomorrow's capacity; lowers flare and overload risk.",
+    "load reduction": "Frees attention and reduces overload and rework risk.",
+    "unblock delivery": "Removes a stalled item draining attention and delivery throughput.",
+    "delivery bottleneck": "Clears the constraint slowing delivery.",
+    "priority focus": "Advances the highest-value objective while capacity allows.",
+    "maintain": "Sustains steady progress without overextending.",
+}
+
+
+def recommendation_package(
+    snapshot: framework.CapacitySnapshot,
+    load: MissionLoad,
+    frictions: list[FrictionFinding],
+    *,
+    notes: str | None = None,
+    delivery: DeliverySignal | None = None,
+) -> RecommendationPackage:
+    """Executive decision support: one action plus impact, opportunity cost,
+    deferral, and strategic alignment (D-055). Reuses highest_leverage()."""
+    rec = highest_leverage(snapshot, load, frictions, notes=notes, delivery=delivery)
+    alloc = allocate_capacity(snapshot, load)
+
+    expected = _IMPACT_BY_LEVERAGE.get(rec.leverage, "Directs limited capacity to the highest-value next step.")
+
+    # Opportunity cost: what choosing this defers.
+    if rec.secondary:
+        opportunity = f"The next-best option waits: {rec.secondary}"
+    elif alloc.defer:
+        opportunity = f"You hold off on: {alloc.defer[0].lower()}"
+    else:
+        opportunity = "Minimal — this is the lowest-regret use of capacity now."
+
+    deferral = alloc.defer[0] if alloc.defer else "Nothing pressing to defer today."
+
+    # Strategic alignment to D-055 (capacity-first).
+    if rec.leverage in ("recovery protection", "load reduction", "unblock delivery", "delivery bottleneck"):
+        alignment = "Strong — directly protects capacity and clears drag (D-055)."
+    elif rec.leverage == "priority focus":
+        alignment = "Strong — advances the top priority within available capacity (D-055)."
+    else:
+        alignment = "Moderate — steady, capacity-respecting progress."
+
+    return RecommendationPackage(
+        primary=rec.primary, confidence=rec.confidence, expected_impact=expected,
+        opportunity_cost=opportunity, recommended_deferral=deferral,
+        strategic_alignment=alignment, secondary=rec.secondary, escalation=rec.escalation,
+    )
+
+
 # ── WP3: Weekly capacity review (decision-focused) ────────────────────────────
 
 def weekly_capacity_review(rows: list[dict], load: MissionLoad) -> str:

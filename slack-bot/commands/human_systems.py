@@ -281,12 +281,12 @@ def _decide() -> str:
     frictions = decision.detect_friction(rows)
     delivery, _ = _delivery_context()
     # notes=None: red-flag scanning is handled at the command boundary.
-    rec = decision.highest_leverage(snapshot, load, frictions, notes=None, delivery=delivery)
+    pkg = decision.recommendation_package(snapshot, load, frictions, notes=None, delivery=delivery)
     memory.record_recommendation(
         kind="highest_leverage", domain="resilience", output_class="action",
-        summary=rec.primary[:200], source="captain_pull",
+        summary=pkg.primary[:200], source="captain_pull",
     )
-    return safety.frame(rec.render())
+    return safety.frame(pkg.render())
 
 
 def _focus() -> str:

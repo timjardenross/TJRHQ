@@ -21,9 +21,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    from lib.delivery import analysis, data, lifecycle, execution
+    from lib.delivery import analysis, data, lifecycle, execution, forecast
 except Exception:  # pragma: no cover
-    from slack_bot.lib.delivery import analysis, data, lifecycle, execution  # type: ignore
+    from slack_bot.lib.delivery import analysis, data, lifecycle, execution, forecast  # type: ignore
 
 _HELP = (
     "*Engineering & Delivery Officer.*\n"
@@ -34,6 +34,9 @@ _HELP = (
     "• `/delivery lint` — mission data-hygiene issues\n"
     "• `/delivery reuse <request>` — what already exists to reuse first\n"
     "• `/delivery execute <mission_id>` — preview the execution package (gated)\n"
+    "• `/delivery forecast` — control tower: throughput, cycle, bottleneck, risk\n"
+    "• `/delivery risk` — open missions ranked by delivery risk\n"
+    "• `/delivery capacity` — engineering WIP vs capacity\n"
 )
 
 _SEV_EMOJI = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "⚪", "info": "ℹ️"}
@@ -61,7 +64,56 @@ def handle_delivery(text: str, user_id: str | None = None, channel_id: str | Non
         return _reuse(rest)
     if cmd in ("execute", "exec"):
         return _execute(rest)
+    if cmd in ("forecast", "tower"):
+        return _forecast()
+    if cmd == "risk":
+        return _risk()
+    if cmd == "capacity":
+        return _capacity()
     return _HELP
+
+
+def _forecast() -> str:
+    rows = _rows()
+    if not rows:
+        return "*Delivery control tower*\nNo mission data available right now."
+    t = forecast.control_tower(rows)
+    tp, ct, bn, cap = t["throughput"], t["cycle_time"], t["bottleneck"], t["capacity"]
+    lines = [
+        "*Delivery Control Tower*",
+        f"• Throughput: {tp['this_week']} closed this week ({tp['direction']} vs {tp['avg_prior_weeks']}/wk avg)",
+        f"• Cycle time: avg {ct['avg']}d · median {ct['median']}d · p90 {ct['p90']}d" if ct["count"] else "• Cycle time: n/a",
+        f"• Constraint: {bn['constraint'] or 'none'}" + (f" ({bn['constraint_count']} items, oldest {bn['constraint_oldest']}d)" if bn['constraint'] else ""),
+        f"• Engineering capacity: {cap['wip']}/{cap['limit']} WIP ({cap['status']})",
+        f"• High-risk missions: {t['high_risk_count']} of {t['open_count']} open",
+        "",
+        "*Top risks:*",
+    ]
+    for r in t["top_risks"]:
+        lines.append(f"{_SEV_EMOJI.get(r.level,'•')} {r.title} — risk {r.score} ({', '.join(r.reasons)})")
+    return "\n".join(lines)
+
+
+def _risk() -> str:
+    rows = _rows()
+    scored = forecast.risk_scored_missions(rows)
+    if not scored:
+        return "*Delivery risk*\nNo open missions to score."
+    lines = ["*Delivery risk* — open missions ranked", ""]
+    for r in scored[:12]:
+        lines.append(f"{_SEV_EMOJI.get(r.level,'•')} {r.title} — *{r.score}* ({', '.join(r.reasons)})")
+    return "\n".join(lines)
+
+
+def _capacity() -> str:
+    rows = _rows()
+    cap = forecast.engineering_capacity(rows)
+    return (
+        "*Engineering capacity*\n"
+        f"• Work in progress: {cap['wip']} / {cap['limit']} (nominal limit)\n"
+        f"• Utilisation: {int(cap['utilisation']*100)}%  ·  Headroom: {cap['headroom']}\n"
+        f"• Status: *{cap['status']}*"
+    )
 
 
 def _rows():
