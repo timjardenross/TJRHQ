@@ -177,9 +177,9 @@ def _parse_cb(data: str) -> dict:
 
 def _kb_energy(pt: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("⚡ High",   callback_data=f"pl|pt={pt}|e=high"),
-        InlineKeyboardButton("〜 Medium", callback_data=f"pl|pt={pt}|e=medium"),
-        InlineKeyboardButton("🔋 Low",    callback_data=f"pl|pt={pt}|e=low"),
+        InlineKeyboardButton("⚡ High",     callback_data=f"pl|pt={pt}|e=high"),
+        InlineKeyboardButton("〜 Moderate", callback_data=f"pl|pt={pt}|e=moderate"),
+        InlineKeyboardButton("🔋 Low",      callback_data=f"pl|pt={pt}|e=low"),
     ]])
 
 def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
