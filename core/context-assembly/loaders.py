@@ -267,6 +267,34 @@ def load_missions_from_dir(directory: Path) -> List[Dict[str, Any]]:
     return missions
 
 
+# ---------------------------------------------------------------------------
+# Captain Profile
+# ---------------------------------------------------------------------------
+
+def load_captain_profile() -> Dict[str, Any]:
+    """
+    Load the Captain Profile Knowledge Base from knowledge/memory/captain_profile.txt.
+    Returns a dict with metadata fields and the full profile text.
+    Returns an empty dict if the file is missing (safe degradation).
+    """
+    path = config.CAPTAIN_PROFILE_PATH
+    text = _read(path)
+    if not text.strip():
+        return {}
+
+    def _meta(label: str) -> str:
+        m = re.search(rf"^{re.escape(label)}:\s*(.+)", text, re.MULTILINE)
+        return m.group(1).strip() if m else ""
+
+    return {
+        "source":         _meta("source"),
+        "version":        _meta("version"),
+        "classification": _meta("classification"),
+        "text":           text,
+        "source_file":    str(path),
+    }
+
+
 def load_corpus(missions_override_dir: Path = None) -> Dict[str, Any]:
     """
     Load everything into a single dict keyed by entity type.
@@ -284,8 +312,9 @@ def load_corpus(missions_override_dir: Path = None) -> Dict[str, Any]:
     capabilities = load_capabilities()
 
     return {
-        "missions":     {m["id"]: m for m in missions},
-        "decisions":    {d["id"]: d for d in decisions},
-        "adrs":         {a["id"]: a for a in adrs},
-        "capabilities": {c["id"]: c for c in capabilities},
+        "missions":        {m["id"]: m for m in missions},
+        "decisions":       {d["id"]: d for d in decisions},
+        "adrs":            {a["id"]: a for a in adrs},
+        "capabilities":    {c["id"]: c for c in capabilities},
+        "captain_profile": load_captain_profile(),
     }

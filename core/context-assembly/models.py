@@ -87,6 +87,8 @@ class HealthContextPackage:
     medical_officer_note: Optional[str] = None
     safety_flags: List[str] = field(default_factory=list)
     workload_constraint: Optional[str] = None  # reduced | normal | unknown
+    capacity_score: Optional[int] = None        # 0–100 from capacity_score.py
+    capacity_status: Optional[str] = None       # Green | Amber | Red | Unknown
     data_quality: str = "missing"  # complete | partial | missing
 
     def to_dict(self) -> Dict[str, Any]:

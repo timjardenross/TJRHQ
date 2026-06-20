@@ -34,6 +34,12 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 from models import Recommendation, RecommendationPackage, HealthContextPackage
 
 try:
+    from intelligence_store import get_intelligence_evidence, IntelligenceEvidence
+    _INTELLIGENCE_STORE_AVAILABLE = True
+except ImportError:
+    _INTELLIGENCE_STORE_AVAILABLE = False
+
+try:
     from number_one import (
         NumberOne, Mission, Priority, MissionStatus,
         TERMINAL_STATUSES, _to_status, _to_priority, _parse_iso_datetime,
@@ -63,12 +69,19 @@ def rank_missions(
     Returns:
         List of Recommendation objects sorted by priority_rank
     """
-    workload_reduced = _is_workload_reduced(health_context)
     active = _filter_active(missions)
+    cap_status = _capacity_status(health_context)
 
     scored = []
     for m in active:
         score = score_priority(m, missions)
+        # Red capacity depresses non-critical mission scores so queue reorders
+        if cap_status == "Red":
+            priority = str(m.get("priority", "P3")).split()[0].upper()
+            if priority in ("P2", "P3"):
+                score = max(0.0, score - 0.15)
+            elif priority == "P1":
+                score = max(0.0, score - 0.05)
         health_note = check_health_constraints(m, health_context)
         scored.append((score, m, health_note))
 
@@ -82,8 +95,18 @@ def rank_missions(
         blockers = _extract_blocker_descriptions(m)
         due_date = m.get("due_date")
         next_action = _recommend_next_action(m)
-        reason = _explain_recommendation(m, missions, score, rank)
-        confidence = _confidence(score, m)
+
+        # GAP-001/003/004/005: gather intelligence evidence
+        mission_type = str(m.get("mission_type") or m.get("type") or "General Mission")
+        objective = str(m.get("objective") or title or "")
+        evidence = _gather_evidence(mission_type, objective)
+
+        # GAP-003: blend historical outcome score into ranking score
+        if evidence.historical_outcome_score is not None:
+            score = round((score * 0.80) + (evidence.historical_outcome_score * 0.20), 3)
+
+        reason = _explain_recommendation(m, missions, score, rank, evidence)
+        confidence = _confidence(score, m, evidence)
 
         recommendations.append(Recommendation(
             priority_rank=rank,
@@ -99,6 +122,26 @@ def rank_missions(
         ))
 
     return recommendations
+
+
+def _gather_evidence(mission_type: str, objective: str):
+    """Return IntelligenceEvidence if the store is available, else a null-object."""
+    if not _INTELLIGENCE_STORE_AVAILABLE:
+        try:
+            from intelligence_store import IntelligenceEvidence
+            return IntelligenceEvidence()
+        except ImportError:
+            pass
+        # Minimal fallback
+        class _NullEvidence:
+            applicable_lessons = []
+            similar_closed_missions = []
+            historical_outcome_score = None
+            outcome_sample_size = 0
+            evidence_summary = ""
+            confidence_adjustment = 0.0
+        return _NullEvidence()
+    return get_intelligence_evidence(mission_type, objective)
 
 
 def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) -> float:
@@ -143,23 +186,29 @@ def check_health_constraints(
 ) -> Optional[str]:
     """
     Return a health constraint note if the mission should be approached with care.
-    Returns None if no constraint applies.
+    Uses capacity_status (Green/Amber/Red) when available; falls back to
+    workload_constraint for legacy health context packages.
     """
     if not health_context:
         return None
-    if health_context.workload_constraint != "reduced":
-        return None
 
+    cap_status = _capacity_status(health_context)
     priority = str(mission.get("priority", "P3")).split()[0].upper()
     domain = str(mission.get("domain", "")).lower()
-
-    # High-cognitive or high-effort domains during reduced workload
     heavy_domains = {"engineering", "governance", "science", "workflow"}
-    if domain in heavy_domains and priority not in ("P0",):
-        return "Consider lower cognitive effort given current recovery status"
 
-    if priority in ("P2", "P3"):
-        return "Low-priority task — consider deferring during reduced capacity"
+    if cap_status == "Red":
+        if priority in ("P2", "P3"):
+            return "Defer — capacity is Red; reserve energy for P0/P1 only"
+        if priority == "P1" and domain in heavy_domains:
+            return "High cognitive load — pace carefully; capacity is Red"
+        return None
+
+    if cap_status == "Amber" or health_context.workload_constraint == "reduced":
+        if domain in heavy_domains and priority not in ("P0",):
+            return "Consider lower cognitive effort given current recovery status"
+        if priority in ("P2", "P3"):
+            return "Low-priority task — consider deferring during reduced capacity"
 
     return None
 
@@ -192,7 +241,11 @@ def generate_recommendation_package(
     active_count = len([m for m in missions if str(m.get("status", "")).upper() not in terminal])
 
     recs = rank_missions(missions, health_context, top_n)
-    health_applied = health_context is not None and health_context.workload_constraint == "reduced"
+    cap_status = _capacity_status(health_context)
+    health_applied = (
+        health_context is not None
+        and (health_context.workload_constraint == "reduced" or cap_status in ("Amber", "Red"))
+    )
 
     return RecommendationPackage(
         assembled_at=datetime.utcnow().isoformat() + "Z",
@@ -215,6 +268,20 @@ def _filter_active(missions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _is_workload_reduced(health: Optional[HealthContextPackage]) -> bool:
     return health is not None and health.workload_constraint == "reduced"
+
+
+def _capacity_status(health: Optional[HealthContextPackage]) -> Optional[str]:
+    """Return Green/Amber/Red/Unknown from the health package, or None if unavailable."""
+    if not health:
+        return None
+    if health.capacity_status:
+        return health.capacity_status
+    # Fallback: derive from workload_constraint for legacy packages
+    if health.workload_constraint == "reduced":
+        return "Amber"
+    if health.workload_constraint == "normal":
+        return "Green"
+    return None
 
 
 def _due_date_score(due_date: Optional[str]) -> float:
@@ -311,8 +378,14 @@ def _explain_recommendation(
     all_missions: List[Dict[str, Any]],
     score: float,
     rank: int,
+    evidence=None,
 ) -> str:
-    """Generate a plain-English reason for this recommendation."""
+    """
+    Generate a plain-English reason for this recommendation.
+
+    GAP-001: Injects applicable lessons.
+    GAP-004: Surfaces historical evidence and traceability rationale.
+    """
     priority = str(mission.get("priority", "P3")).split()[0].upper()
     status = str(mission.get("status", "")).upper()
     due_date = mission.get("due_date")
@@ -346,22 +419,55 @@ def _explain_recommendation(
     if not parts:
         parts.append(f"score {score:.2f} in priority ranking")
 
-    return "; ".join(parts).capitalize()
+    base_reason = "; ".join(parts).capitalize()
+
+    # --- GAP-001: Lesson injection ---
+    if evidence and evidence.applicable_lessons:
+        top = evidence.applicable_lessons[0]
+        lesson_ref = f"Lesson {top.lesson_id} applies: {top.title}"
+        if top.guidance and top.guidance not in ("None captured.", ""):
+            lesson_ref += f" — {top.guidance}"
+        base_reason = f"{base_reason}. {lesson_ref}"
+
+    # --- GAP-003/004: Historical performance traceability ---
+    if evidence and evidence.historical_outcome_score is not None:
+        pct = int(evidence.historical_outcome_score * 100)
+        n = evidence.outcome_sample_size
+        direction = "strong" if pct >= 70 else "mixed" if pct >= 50 else "poor"
+        mission_type = str(mission.get("mission_type") or mission.get("type") or "this type")
+        base_reason += (
+            f". Historical evidence: {mission_type} missions average "
+            f"{pct}% outcome score ({direction}, n={n})"
+        )
+
+    # --- GAP-004: Similar closed missions ---
+    if evidence and evidence.similar_closed_missions:
+        ids = ", ".join(m.mission_id for m in evidence.similar_closed_missions[:2])
+        base_reason += f". Similar prior missions: {ids}"
+
+    return base_reason
 
 
-def _confidence(score: float, mission: Dict[str, Any]) -> float:
+def _confidence(score: float, mission: Dict[str, Any], evidence=None) -> float:
     """
     Confidence in this recommendation.
 
-    High confidence when priority + due date are both explicit.
-    Lower confidence when score is driven only by priority with no due date.
+    GAP-005: Adjusts confidence based on historical evidence quality.
+    Base: priority × due date explicitness.
+    Evidence layer: historical outcome score shifts confidence up or down.
     """
     base = min(0.95, score)
     has_due_date = bool(mission.get("due_date"))
     has_explicit_priority = str(mission.get("priority", "")).strip().upper() in ("P0", "P1", "P2", "P3")
 
     if has_due_date and has_explicit_priority:
-        return round(min(0.95, base + 0.05), 2)
-    if has_due_date or has_explicit_priority:
-        return round(base, 2)
-    return round(max(0.4, base - 0.10), 2)
+        base = round(min(0.95, base + 0.05), 2)
+    elif not has_due_date and not has_explicit_priority:
+        base = round(max(0.4, base - 0.10), 2)
+
+    # GAP-005: evidence-based confidence adjustment
+    if evidence:
+        adj = evidence.confidence_adjustment
+        base = round(min(0.95, max(0.25, base + adj)), 2)
+
+    return base

@@ -50,27 +50,29 @@ class TestMissionBrief(unittest.TestCase):
 
     def test_valid_input_calls_llm_and_returns_output(self):
         from commands.mission_brief import handle_mission_brief
-        with patch("llm.generate_response", return_value="MOCK BRIEF OUTPUT"):
+        # handle_mission_brief calls Mistral as primary provider; patch at source
+        with patch("commands.mission_brief._call_mistral_mission_scribe", return_value="MOCK BRIEF OUTPUT"):
             result = handle_mission_brief("Build a Slack backlog capture tool")
         self.assertIn("MOCK BRIEF OUTPUT", result)
         self.assertIn("MISSION IMPLEMENTATION BRIEF", result)
 
     def test_result_is_string(self):
         from commands.mission_brief import handle_mission_brief
-        with patch("llm.generate_response", return_value="output"):
+        with patch("commands.mission_brief._call_mistral_mission_scribe", return_value="output"):
             result = handle_mission_brief("any text")
         self.assertIsInstance(result, str)
 
     def test_llm_failure_returns_fallback(self):
         from commands.mission_brief import handle_mission_brief
-        with patch("llm.generate_response", side_effect=RuntimeError("offline")):
+        with patch("commands.mission_brief._call_mistral_mission_scribe", side_effect=RuntimeError("offline")):
             result = handle_mission_brief("Build something important")
         self.assertIn("MISSION IMPLEMENTATION BRIEF", result)
         self.assertIn("Build something important", result)
 
     def test_fallback_contains_implementation_instruction(self):
         from commands.mission_brief import handle_mission_brief
-        with patch("llm.generate_response", side_effect=RuntimeError("x")):
+        # Raise on the Mistral call so _fallback_brief is reached
+        with patch("commands.mission_brief._call_mistral_mission_scribe", side_effect=RuntimeError("x")):
             result = handle_mission_brief("Some task")
         self.assertIn("smallest safe change", result)
 

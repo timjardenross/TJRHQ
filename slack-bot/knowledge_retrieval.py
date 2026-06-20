@@ -44,6 +44,20 @@ DOMAIN_KEYWORDS = {
     "lessons": ["lesson", "lessons learned", "learned"],
     "directives": ["directive", "directives", "build small", "captain"],
     "runtime": ["runtime", "module", "slack bot", "app.py", "router.py"],
+    # WP5 — learning retrieval domain
+    "learning": [
+        "have we done", "done this before", "done similar", "similar mission", "similar work",
+        "prior mission", "previous mission", "prior work", "previous work",
+        "what failed", "what went wrong", "what worked", "what was learned", "what did we learn",
+        "lessons from", "recommendations from", "past recommendations",
+        "knowledge record", "mission outcome", "reusable pattern",
+        "have we investigated", "investigated before",
+    ],
+    "faq": [
+        "faq", "frequently asked", "common question", "how do i", "how do we",
+        "what is uss", "what does commander", "who makes decisions",
+        "where is knowledge stored", "quick question",
+    ],
 }
 
 DOMAIN_DEFAULT_SOURCES = {
@@ -64,9 +78,56 @@ DOMAIN_DEFAULT_SOURCES = {
     "lessons": ["knowledge/Lessons-Learned.md"],
     "directives": ["knowledge/Captains-Directives.md"],
     "runtime": ["knowledge/architecture/Runtime-Module-Design.md", "slack-bot/MODULE-MAP.md"],
+    # WP5 — learning retrieval domain
+    "learning": [
+        "knowledge/Lessons-Learned.md",
+        "knowledge/missions/",
+        "knowledge/Mission-Patterns.md",
+    ],
+    "faq": ["knowledge/Frequently-Asked-Questions.md"],
 }
 
 REQUEST_SOURCE_RULES = [
+    # FAQ — highest priority so quick questions resolve immediately
+    (
+        ["faq", "frequently asked", "common question", "how do i", "how do we",
+         "what is uss tjr", "what does commander tjr", "who makes decisions",
+         "where is knowledge stored"],
+        ["knowledge/Frequently-Asked-Questions.md"],
+    ),
+    # WP5 — Learning retrieval rules (checked before general rules)
+    (
+        ["have we done this", "done this before", "similar mission", "prior mission", "previous mission"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/", "knowledge/Mission-Patterns.md"],
+    ),
+    (
+        ["what failed", "what went wrong", "past failures", "failed before"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/"],
+    ),
+    (
+        ["what worked", "what went well", "what was successful", "successes"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/"],
+    ),
+    (
+        ["what was learned", "what did we learn", "lessons from", "lessons learned"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/"],
+    ),
+    (
+        ["reusable pattern", "patterns we", "mission pattern", "established pattern"],
+        ["knowledge/Mission-Patterns.md", "knowledge/Lessons-Learned.md"],
+    ),
+    (
+        ["recommendations from", "past recommendations", "prior recommendations"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/"],
+    ),
+    (
+        ["knowledge record", "mission outcome", "mission knowledge", "closed mission knowledge"],
+        ["knowledge/missions/"],
+    ),
+    (
+        ["prior work on", "previous work on", "have we investigated", "investigated before"],
+        ["knowledge/Lessons-Learned.md", "knowledge/missions/", "knowledge/Mission-Patterns.md"],
+    ),
     (
         ["build small", "captain's directives", "captains directives", "directives"],
         ["knowledge/Captains-Directives.md"],
@@ -122,6 +183,44 @@ def is_knowledge_retrieval_request(user_text: str) -> bool:
     if is_secret_request(text):
         return True
 
+    # WP5 — Direct learning queries are always knowledge retrieval
+    learning_triggers = [
+        "have we done this",
+        "have we done similar",
+        "done this before",
+        "done similar",
+        "similar mission",
+        "similar work",
+        "prior mission",
+        "previous mission",
+        "prior work on",
+        "previous work on",
+        "have we investigated",
+        "investigated before",
+        "what failed",
+        "what went wrong",
+        "what worked",
+        "what was learned",
+        "what did we learn",
+        "lessons from",
+        "reusable pattern",
+        "recommendations from",
+        "knowledge record",
+        "mission outcome",
+        "show lessons",
+        "show me lessons",
+    ]
+    if any(trigger in text for trigger in learning_triggers):
+        return True
+
+    faq_triggers = [
+        "faq", "frequently asked", "how do i", "quick question",
+        "what is uss tjr", "what does commander", "who makes decisions",
+        "where is knowledge stored",
+    ]
+    if any(trigger in text for trigger in faq_triggers):
+        return True
+
     triggers = [
         "what do",
         "what does",
@@ -150,6 +249,16 @@ def identify_knowledge_domain(user_text: str) -> str:
     text = user_text.lower()
 
     priority_domains = [
+        ("faq", ["faq", "frequently asked", "how do i", "quick question",
+                 "what is uss tjr", "what does commander", "who makes decisions"]),
+        # WP5 — learning domain takes highest priority
+        ("learning", [
+            "have we done this", "done this before", "similar mission", "prior mission",
+            "previous mission", "prior work on", "previous work on", "what failed",
+            "what went wrong", "what worked", "what was learned", "what did we learn",
+            "lessons from", "reusable pattern", "recommendations from", "knowledge record",
+            "mission outcome", "show lessons", "have we investigated",
+        ]),
         ("capabilities", ["capability", "capabilities"]),
         ("directives", ["captain's directives", "captains directives", "build small", "directive"]),
         ("missions", ["mission closure", "closing a mission", "close a mission"]),
@@ -328,6 +437,41 @@ def extract_relevant_lines(content: str, user_text: str, limit: int = 8) -> list
 
 def answer_from_context(user_text: str, context: dict) -> str:
     text = user_text.lower()
+
+    # WP5 — Learning retrieval answers
+    learning_queries = [
+        "have we done this", "done this before", "similar mission", "prior mission",
+        "previous mission", "prior work on", "what failed", "what worked",
+        "what was learned", "what did we learn", "lessons from", "reusable pattern",
+        "recommendations from", "knowledge record", "mission outcome", "show lessons",
+        "have we investigated",
+    ]
+    if any(q in text for q in learning_queries):
+        lessons_sources = [s for s in context["available"] if "lessons" in s["path"].lower()]
+        mission_record_sources = [s for s in context["available"] if "knowledge/missions" in s["path"].lower()]
+        pattern_sources = [s for s in context["available"] if "mission-patterns" in s["path"].lower()]
+
+        parts = []
+        if lessons_sources:
+            snippets = extract_relevant_lines(lessons_sources[0]["content"], user_text, limit=12)
+            if snippets:
+                parts.append("From `knowledge/Lessons-Learned.md`:\n" + "\n".join(snippets))
+        if mission_record_sources:
+            for src in mission_record_sources[:3]:
+                snippets = extract_relevant_lines(src["content"], user_text, limit=6)
+                if snippets:
+                    parts.append(f"From `{src['path']}`:\n" + "\n".join(snippets))
+        if pattern_sources:
+            snippets = extract_relevant_lines(pattern_sources[0]["content"], user_text, limit=6)
+            if snippets:
+                parts.append("From `knowledge/Mission-Patterns.md`:\n" + "\n".join(snippets))
+
+        if parts:
+            return "\n\n".join(parts)
+        return (
+            "No prior missions or lessons were found matching this query. "
+            "As missions close with outcome reviews, relevant records will appear here."
+        )
 
     if "supabase schema" in text:
         schema_sources = [

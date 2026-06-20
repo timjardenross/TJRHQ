@@ -129,6 +129,28 @@ def event_hash_exists(dedup_hash: str) -> bool:
     return len(rows) > 0
 
 
+def event_canonical_url_exists(canonical_url: str) -> bool:
+    """Check if any persisted event already has this canonical URL (cross-run dedup)."""
+    import urllib.parse
+    encoded = urllib.parse.quote(canonical_url, safe="")
+    rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&limit=1")
+    return len(rows) > 0
+
+
+def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
+    """Fallback cross-run dedup when canonical_url is null — match on title+date."""
+    import urllib.parse
+    enc_title = urllib.parse.quote(normalised_title, safe="")
+    rows = _get(
+        f"intelligence_events"
+        f"?raw_title=ilike.{enc_title}"
+        f"&published_at=gte.{date_str}T00:00:00"
+        f"&published_at=lt.{date_str}T23:59:59"
+        f"&limit=1"
+    )
+    return len(rows) > 0
+
+
 def save_event(event: RankedEvent) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure."""
     row = {

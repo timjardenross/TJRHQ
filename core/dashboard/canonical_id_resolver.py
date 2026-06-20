@@ -2,6 +2,10 @@
 Canonical ID Resolution for Dashboard and Queries
 Maps legacy IDs to canonical format using mapping layer.
 Part of P2b (Identifier Mapping Layer) implementation.
+
+DEPRECATED / LOW-TRUST UTILITY:
+This helper should only remain if the dashboard still needs legacy-to-canonical
+resolution. Prefer direct canonical identifiers where possible.
 """
 
 from typing import Optional, Dict, Any

@@ -47,11 +47,14 @@ except Exception:  # pragma: no cover - advisory-only fallback
 class MissionStatus(Enum):
     """Mission lifecycle states.
 
-    MSN-0053: superset = canonical D-008 lifecycle (ADR-0001/MSN-ENFORCE-001
+    MSN-0053: superset = canonical D-008 lifecycle (ADR-0001/MSN-ENFORCE-001,
+    now USS-TJR-MSN-0063 per D-076; legacy id is a permanent alias)
     7-state backbone + operational Blocked/Archived) PLUS the legacy
     pre-D-008 states (retained so existing logic/tests keep working).
     Parsing is via _to_status() and never raises.
     """
+    # --- Pre-triage capture state (assigned by /mission-capture) ---
+    IDEA = "Idea"
     # --- Canonical D-008 backbone (live missions table) ---
     DESIGNED = "Designed"
     IMPLEMENTED = "Implemented"
@@ -168,6 +171,10 @@ class WorkQueueItem:
     confidence: Optional[float] = None
     confidence_band: Optional[ConfidenceBand] = None
     rationale: Optional[str] = None
+    # Engineering-handoff lifecycle projection (read-only; None for missions).
+    # M-20260614-ENGINEERING-HANDOFF-LIFECYCLE: surfaces the handoff's
+    # Pending Triage / Assigned / In Progress / Awaiting Review stage.
+    engineering_status: Optional[str] = None
 
 
 @dataclass
@@ -282,10 +289,10 @@ class NumberOne:
         mission_objs = [Mission.from_registry(m) for m in missions]
         routing_results = routing_results or {}
 
-        # Filter out completed/cancelled missions
+        # Filter out completed/cancelled and dormant (Idea) missions
         active_missions = [
             m for m in mission_objs
-            if m.status not in TERMINAL_STATUSES
+            if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES
         ]
 
         # Build queue items
@@ -306,11 +313,104 @@ class NumberOne:
                 confidence=routing.confidence if routing else None,
                 confidence_band=routing.confidence_band if routing else None,
                 rationale=routing.rationale if routing else None,
+                engineering_status=mission.metadata.get("engineering_status"),
             )
             queue_items.append(item)
 
         # Sort queue
         return self._sort_work_queue(queue_items)
+
+    def get_health_adjusted_queue(
+        self,
+        missions: list[dict[str, Any]],
+        capacity_status: str,
+        routing_results: dict[str, "RoutingDecision"] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Return the work queue with an advisory health-capacity overlay.
+
+        The base priority ordering from get_work_queue() is never overridden —
+        P0 missions always surface first.  The overlay adds a capacity_note to
+        each item and produces a recommended_focus list appropriate to the
+        Captain's current health state.
+
+        capacity_status:
+          "Green"   — full capacity; normal queue ordering applies
+          "Amber"   — reduced capacity; adds advisory note per item
+          "Red"     — critical-only; P0 missions recommended; all others deferred
+
+        Returns a dict (not a list) so the health context travels with the queue:
+          {
+            "capacity_status": str,
+            "queue": list[dict],          # WorkQueueItems serialised + capacity_note
+            "recommended_focus": list[str],
+            "advisory": str,              # plain-English capacity statement
+          }
+
+        Mission records are NEVER altered. This is a read-only advisory overlay.
+        """
+        base_queue = self.get_work_queue(missions, routing_results)
+
+        annotated = []
+        for item in base_queue:
+            d = {
+                "mission_id": item.mission_id,
+                "priority": item.priority.value if hasattr(item.priority, "value") else item.priority,
+                "status": item.status.value if hasattr(item.status, "value") else str(item.status),
+                "title": item.title,
+                "assigned_specialist": item.assigned_specialist,
+                "next_action": item.next_action,
+                "blockers": item.blockers,
+                "capacity_note": "",
+            }
+            pri = d["priority"]
+            if capacity_status == "Red":
+                if pri == "P0":
+                    d["capacity_note"] = "CRITICAL — proceed regardless of capacity"
+                else:
+                    d["capacity_note"] = "DEFERRED — Red capacity: P0 only today"
+            elif capacity_status == "Amber":
+                if pri in ("P0", "P1"):
+                    d["capacity_note"] = "Proceed — priority justifies reduced capacity"
+                else:
+                    d["capacity_note"] = "Advisory: consider deferring on reduced capacity days"
+            else:
+                d["capacity_note"] = ""  # Green: no overlay needed
+            annotated.append(d)
+
+        # Advisory statement
+        if capacity_status == "Red":
+            advisory = (
+                "Captain is at RED capacity today. "
+                "Number One recommends P0 missions only. "
+                "All other work is deferred until capacity recovers."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated if m["priority"] == "P0" and "BLOCKED" not in m["status"].upper()
+            ][:3] or ["No active P0 missions — prioritise rest and recovery"]
+        elif capacity_status == "Amber":
+            advisory = (
+                "Captain is at AMBER capacity today. "
+                "P0 and P1 missions are recommended. "
+                "P2/P3 work should be deferred unless low-cognitive-load."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated
+                if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
+            ][:3]
+        else:
+            advisory = "Captain is at GREEN capacity. Normal prioritisation applies."
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+
+        return {
+            "capacity_status": capacity_status,
+            "queue": annotated,
+            "recommended_focus": recommended_focus,
+            "advisory": advisory,
+        }
 
     def get_follow_ups(self, missions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
@@ -326,7 +426,7 @@ class NumberOne:
         follow_ups = []
 
         for mission in mission_objs:
-            if mission.status in TERMINAL_STATUSES:
+            if mission.status in TERMINAL_STATUSES or mission.status in DORMANT_STATUSES:
                 continue
 
             # Rule: Stale mission
@@ -436,7 +536,7 @@ class NumberOne:
         escalations = []
 
         for mission in mission_objs:
-            if mission.status in TERMINAL_STATUSES:
+            if mission.status in TERMINAL_STATUSES or mission.status in DORMANT_STATUSES:
                 continue
 
             routing = routing_results.get(mission.mission_id)
@@ -534,8 +634,8 @@ class NumberOne:
         escalations = self.get_xo_escalations(missions, routing_results)
         memory_context = self._get_memory_context(missions, routing_results)
 
-        # Calculate metrics (exclude cancelled/completed)
-        active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES]
+        # Calculate metrics (exclude cancelled/completed/dormant)
+        active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES]
         total = len(active_missions)
         active = len([m for m in active_missions if m.status == MissionStatus.ACTIVE])
         blocked = len([m for m in active_missions if m.status == MissionStatus.BLOCKED])
@@ -611,6 +711,7 @@ class NumberOne:
     def _recommend_next_action(self, mission: Mission) -> str:
         """Recommend next action based on mission status."""
         next_actions = {
+            MissionStatus.IDEA: "Triage: promote to Designed or close",
             MissionStatus.DESIGNED: "Begin implementation",
             MissionStatus.IMPLEMENTED: "Run tests",
             MissionStatus.TESTED: "Submit for Number One review",
@@ -761,6 +862,12 @@ class NumberOne:
 TERMINAL_STATUSES = {
     MissionStatus.CLOSED, MissionStatus.ARCHIVED,        # D-008 terminal
     MissionStatus.COMPLETED, MissionStatus.CANCELLED,    # legacy terminal
+}
+
+# Dormant states: captured but not yet triaged — excluded from active work queue
+# without permanently closing the record. Promoted to Designed when actioned.
+DORMANT_STATUSES = {
+    MissionStatus.IDEA,
 }
 
 

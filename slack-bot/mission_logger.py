@@ -1,10 +1,12 @@
 import os
 import re
-import time
-from datetime import datetime
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+import id_registry
 MISSIONS_DIR = BASE_DIR / "Missions"
 MISSION_INDEX = MISSIONS_DIR / "Mission-Index.md"
 
@@ -34,13 +36,7 @@ def ensure_missions_dir() -> Path:
 
 
 def generate_mission_id() -> str:
-    while True:
-        mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-
-        if not (MISSIONS_DIR / f"{mission_id}.md").exists():
-            return mission_id
-
-        time.sleep(1)
+    return id_registry.next_id("MSN")
 
 
 def is_mission_history_request(user_text: str) -> bool:

@@ -19,8 +19,15 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Any
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+import id_registry
 
 log = logging.getLogger(__name__)
 
@@ -187,14 +194,20 @@ def save_mission_to_command_memory(
     title: str,
     created_by: str,
     owner: str | None = None,
+    description: str | None = None,
+    status: str = "Idea",
 ) -> bool:
     """Save a mission to Command Memory (non-blocking).
 
     Args:
-        mission_id: Unique mission identifier (M-YYYYMMDD-HHMMSS)
+        mission_id: Unique mission identifier (M-YYYYMMDD-HHMMSS or DEC-REC-…)
         title: Mission title
         created_by: Slack user ID of mission creator
         owner: Mission owner (defaults to creator)
+        description: LLM-generated structured capture body (optional)
+        status: D-008 lifecycle status (Draft|Planned|Active|Blocked|Review|Completed).
+                Defaults to "Idea" (dormant capture state) to preserve existing
+                callers.  Engineering handoffs should pass "Planned".
 
     Returns:
         True if write succeeded, False otherwise (non-blocking failure).
@@ -208,17 +221,17 @@ def save_mission_to_command_memory(
         "title": title,
         "created_by": created_by,
         "created_at": datetime.utcnow().isoformat() + "Z",
-        # MSN-0051/D-008: canonical lifecycle entry state. Was "Draft" (MSN-0040A),
-        # which the live missions CHECK (ADR-0001/MSN-ENFORCE-001 7-state) rejects.
-        "status": "Designed",
+        "status": status,
         "owner": owner,
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "updated_by": created_by,
     }
+    if description is not None:
+        record["description"] = description
 
     success = client.insert("missions", record)
     if success:
-        log.info(f"[command-memory] Mission {mission_id} saved to Command Memory")
+        log.info(f"[command-memory] Mission {mission_id} saved to Command Memory (status={status})")
     else:
         log.warning(f"[command-memory] Failed to save mission {mission_id} (non-blocking)")
     return success
@@ -244,7 +257,7 @@ def log_decision_to_command_memory(
     client = get_client()
 
     # Generate decision ID
-    decision_id = f"DEC-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    decision_id = id_registry.next_id("DEC")
 
     record = {
         "id": decision_id,

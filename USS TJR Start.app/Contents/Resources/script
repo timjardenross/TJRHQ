@@ -3,8 +3,16 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+STARTUP_AGENT="$SCRIPT_DIR/../../../../STARTUP_AGENT.command"
+
 echo "Starting USS TJR Control Deck..."
 echo "Control directory: $SCRIPT_DIR"
 echo ""
 
-exec "$SCRIPT_DIR/tmux/usstjr-session.sh"
+if [ ! -x "$STARTUP_AGENT" ]; then
+  echo "Startup agent not found or not executable: $STARTUP_AGENT"
+  exit 1
+fi
+
+export STARTUP_AGENT_MODE="${STARTUP_AGENT_MODE:-auto}"
+exec "$STARTUP_AGENT"

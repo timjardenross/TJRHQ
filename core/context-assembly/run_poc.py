@@ -2,6 +2,10 @@
 """
 Context Assembly POC — Phase 0
 
+DEPRECATED EXPERIMENT:
+This script is a POC helper and should not be treated as canonical runtime
+code. Keep only if the POC remains useful for validation or analysis.
+
 Loads the USSTJROS corpus from local markdown files,
 assembles ContextPackages for real missions, and writes
 JSON to ./output/.

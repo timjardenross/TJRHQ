@@ -5,6 +5,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config/services.conf"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "========================================"
 echo "USS TJR Control Deck — Starting"
@@ -15,6 +16,15 @@ echo ""
 if [ -f "$CONFIG_FILE" ]; then
   # shellcheck disable=SC1090
   source "$CONFIG_FILE"
+
+  # If the config still points at a machine-specific path, fall back to the
+  # repo location derived from this script so the control deck can start on a VM.
+  if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
+    REPO_ROOT="$PROJECT_ROOT"
+    SLACK_BOT_DIR="$REPO_ROOT/slack-bot"
+    COMMANDER_DIR="$REPO_ROOT/slack-bot"
+    PAPERCLIP_DIR="$HOME/.paperclip"
+  fi
 
   # Quick pre-flight: warn if critical paths are missing
   ABORT=false

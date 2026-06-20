@@ -29,15 +29,16 @@ CREATE TABLE IF NOT EXISTS missions (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   -- MSN-0051 / Captain decision D-008: CANONICAL mission lifecycle (ADR-0001 /
   -- MSN-ENFORCE-001 7-state backbone + operational states Blocked, Archived).
-  -- This is the CANONICAL TARGET for the missions.status set. NOTE: the LIVE table
-  -- currently enforces only the 7 backbone states; adding 'Blocked','Archived' to the
-  -- live CHECK is a DDL ALTER = WP3b, DEFERRED per Captain (NOT executed here).
+  -- Migration 0013: 'Idea' added as dormant pre-triage capture state (assigned by
+  -- /mission-capture). Ideas are excluded from the Number One work queue until
+  -- promoted to 'Designed' by the Captain.
   -- TEXT (not VARCHAR(20)) because 'Awaiting Number One Review' exceeds 20 chars (matches live schema).
   status      TEXT         NOT NULL
-              CHECK (status IN ('Designed','Implemented','Tested','Awaiting Number One Review','Validated','Awaiting XO Approval','Closed','Blocked','Archived')),
+              CHECK (status IN ('Idea','Designed','Implemented','Tested','Awaiting Number One Review','Validated','Awaiting XO Approval','Closed','Blocked','Archived')),
   owner       VARCHAR(50)  NOT NULL,
   updated_at  TIMESTAMPTZ  DEFAULT NOW(),
-  updated_by  VARCHAR(50)
+  updated_by  VARCHAR(50),
+  description TEXT                                  -- LLM-generated capture body (migration 0013)
 );
 
 CREATE INDEX IF NOT EXISTS idx_missions_status     ON missions(status);

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.request
 import urllib.error
 from datetime import datetime
@@ -27,18 +28,29 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-API_BASE = "http://localhost:5050/api/v1/intelligence"
+API_BASE = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5000") + "/api/v1/intelligence"
 TIMEOUT = 15
 
 _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟡", "GREEN": "🟢", "UNKNOWN": "⚪"}
 _STATUS_EMOJI = {"LIVE": "🟢", "CACHED": "🟡", "STALE": "🟠", "PARTIAL": "🟡", "FAILED": "🔴"}
 
 
+def _auth_headers(extra: dict = None) -> dict:
+    """Base headers + backend API key (Mission 7 — backend requires X-Api-Key)."""
+    headers = {"Accept": "application/json", "User-Agent": "USS-TJR-Slack-Bot/1.0"}
+    if extra:
+        headers.update(extra)
+    _key = os.environ.get("BACKEND_API_KEY")
+    if _key:
+        headers["X-Api-Key"] = _key
+    return headers
+
+
 def _get(path: str) -> dict:
     url = f"{API_BASE}{path}"
     req = urllib.request.Request(
         url,
-        headers={"Accept": "application/json", "User-Agent": "USS-TJR-Slack-Bot/1.0"},
+        headers=_auth_headers(),
     )
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
@@ -54,7 +66,7 @@ def _post(path: str, payload: dict = None) -> dict:
     body = json.dumps(payload or {}).encode()
     req = urllib.request.Request(
         url, data=body,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        headers=_auth_headers({"Content-Type": "application/json"}),
         method="POST",
     )
     try:

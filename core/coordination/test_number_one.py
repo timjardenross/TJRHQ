@@ -107,6 +107,8 @@ class TestNumberOne:
         self.test_specialist_coordination()
         self.test_daily_brief_generation()
         self.test_xo_escalations()
+        self.test_engineering_handoff_ingestion()
+        self.test_engineering_handoff_lifecycle()
 
         print()
         print("=" * 80)
@@ -397,6 +399,171 @@ class TestNumberOne:
             all(e.recommendation for e in escalations),
             "All escalations should have recommendations"
         )
+
+        print()
+
+    def test_engineering_handoff_ingestion(self):
+        """Test 7: Phase-1 (D-054) engineering-handoff ingestion into the queue.
+
+        READ-ONLY surfacing of approved /build handoffs. Verifies approved+open
+        handoffs become Number One work-queue items, terminal/non-approved ones
+        are skipped, and missing/empty dirs degrade gracefully to [].
+        """
+        print("TEST 7: Engineering Handoff Ingestion (Phase 1 / D-054)")
+        print("-" * 80)
+
+        import tempfile
+        from pathlib import Path
+        from engineering_handoff_reader import load_engineering_handoffs
+
+        def _handoff(status="APPROVED_FOR_ENGINEERING", batch="PENDING",
+                     mission_id="unassigned", title="Add retry to connector"):
+            return (
+                "# Engineering Handoff\n\n"
+                f"- Status: {status}\n"
+                f"- Batch Status: {batch}\n"
+                "- Batch Group: unassigned\n"
+                "- Priority: P2\n"
+                "- Decision ID: DEC-REC-TEST\n"
+                "- Approved At: 2026-06-14 12:00:00\n"
+                "- Approved By: XO\n"
+                f"- Mission ID: {mission_id}\n\n"
+                "## Mission Title\n\n"
+                f"{title}\n\n"
+                "## Original Request\n\nDo the thing.\n"
+            )
+
+        with tempfile.TemporaryDirectory() as d:
+            dp = Path(d)
+            (dp / "ENG-HANDOFF-1-open.md").write_text(_handoff())
+            (dp / "ENG-HANDOFF-2-done.md").write_text(_handoff(batch="COMPLETED"))
+            (dp / "ENG-HANDOFF-3-draft.md").write_text(_handoff(status="DRAFT"))
+            (dp / "ENG-HANDOFF-4-router.md").write_text(_handoff(mission_id="USS-TJR-MSN-0048"))
+
+            items = load_engineering_handoffs(dp)
+
+            self.assert_true(
+                len(items) == 2,
+                "Only approved + non-terminal handoffs are surfaced (2 of 4)"
+            )
+
+            queue = self.number_one.get_work_queue(items)
+            qids = {wi.mission_id for wi in queue}
+            self.assert_true(
+                "ENG-HANDOFF-1-open" in qids,
+                "Unassigned handoff appears in queue via filename-stem id"
+            )
+            self.assert_true(
+                "USS-TJR-MSN-0048" in qids,
+                "Router-tagged handoff appears in queue via its mission id"
+            )
+
+            handoff_item = next(wi for wi in queue if wi.mission_id == "ENG-HANDOFF-1-open")
+            self.assert_true(
+                handoff_item.title.startswith("[ENG-HANDOFF]"),
+                "Handoff title is prefixed for command-layer visibility"
+            )
+            self.assert_true(
+                handoff_item.status not in (MissionStatus.COMPLETED, MissionStatus.CLOSED),
+                "Surfaced handoff is active (non-terminal) work"
+            )
+
+        # Graceful degradation: missing/empty dir -> [] (non-blocking)
+        self.assert_true(
+            load_engineering_handoffs("/tmp/__missing_handoffs_dir__") == [],
+            "Missing handoff directory degrades gracefully to []"
+        )
+        with tempfile.TemporaryDirectory() as empty_dir:
+            self.assert_true(
+                load_engineering_handoffs(empty_dir) == [],
+                "Empty handoff directory degrades gracefully to []"
+            )
+
+        print()
+
+    def test_engineering_handoff_lifecycle(self):
+        """Test 8: Engineering handoff lifecycle status projection (read-only).
+
+        M-20260614-ENGINEERING-HANDOFF-LIFECYCLE. Verifies the 5-status
+        vocabulary is derived read-only from the handoff's Batch Status, that
+        the active stages surface (Pending Triage/Assigned/In Progress/Awaiting
+        Review), Completed/terminal are excluded, the status reaches the work
+        queue item, and the summary groups by stage.
+        """
+        print("TEST 8: Engineering Handoff Lifecycle (M-20260614-...-LIFECYCLE)")
+        print("-" * 80)
+
+        import tempfile
+        from pathlib import Path
+        from engineering_handoff_reader import (
+            load_engineering_handoffs,
+            summarise_engineering_handoffs,
+            derive_engineering_status,
+            EngineeringStatus,
+        )
+
+        # Read-only derivation maps raw Batch Status -> lifecycle vocabulary.
+        self.assert_true(
+            derive_engineering_status("PENDING") == EngineeringStatus.PENDING_TRIAGE,
+            "PENDING -> Pending Triage"
+        )
+        self.assert_true(
+            derive_engineering_status("SUBMITTED") == EngineeringStatus.ASSIGNED,
+            "SUBMITTED -> Assigned"
+        )
+        self.assert_true(
+            derive_engineering_status("IN_PROGRESS") == EngineeringStatus.IN_PROGRESS,
+            "IN_PROGRESS -> In Progress"
+        )
+        self.assert_true(
+            derive_engineering_status("DELIVERED") == EngineeringStatus.AWAITING_REVIEW,
+            "DELIVERED -> Awaiting Review (now surfaced, not hidden)"
+        )
+        self.assert_true(
+            derive_engineering_status("FAILED") is None,
+            "FAILED -> excluded (not in the active vocabulary)"
+        )
+        self.assert_true(
+            derive_engineering_status("totally-unknown") == EngineeringStatus.PENDING_TRIAGE,
+            "Unknown status degrades gracefully to Pending Triage"
+        )
+
+        def _h(batch, title):
+            return (
+                "# Engineering Handoff\n\n"
+                "- Status: APPROVED_FOR_ENGINEERING\n"
+                f"- Batch Status: {batch}\n"
+                "- Priority: P2\n- Approved At: 2026-06-14 12:00:00\n"
+                "- Mission ID: unassigned\n\n"
+                f"## Mission Title\n\n{title}\n"
+            )
+
+        with tempfile.TemporaryDirectory() as d:
+            dp = Path(d)
+            (dp / "ENG-HANDOFF-1.md").write_text(_h("PENDING", "triage me"))
+            (dp / "ENG-HANDOFF-2.md").write_text(_h("SUBMITTED", "assigned"))
+            (dp / "ENG-HANDOFF-3.md").write_text(_h("IN_PROGRESS", "wip"))
+            (dp / "ENG-HANDOFF-4.md").write_text(_h("DELIVERED", "review me"))
+            (dp / "ENG-HANDOFF-5.md").write_text(_h("COMPLETED", "done"))
+
+            items = load_engineering_handoffs(dp)
+            self.assert_true(
+                len(items) == 4,
+                "Four active stages surface; Completed excluded (4 of 5)"
+            )
+
+            queue = self.number_one.get_work_queue(items)
+            statuses = {wi.engineering_status for wi in queue}
+            self.assert_true(
+                statuses == {"Pending Triage", "Assigned", "In Progress", "Awaiting Review"},
+                "All four lifecycle stages reach the work-queue items"
+            )
+
+            summary = summarise_engineering_handoffs(items)
+            self.assert_true(
+                summary["total"] == 4 and all(v == 1 for v in summary["by_status"].values()),
+                "Summary groups handoffs by lifecycle stage (1 each)"
+            )
 
         print()
 

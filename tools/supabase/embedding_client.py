@@ -11,9 +11,11 @@ from typing import Any
 
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
-DEFAULT_PROVIDER = "ollama"
+DEFAULT_PROVIDER = "mistral"
 DEFAULT_OLLAMA_MODEL = "nomic-embed-text"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_MISTRAL_EMBEDDING_MODEL = "mistral-embed"
+DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 
 
 class EmbeddingError(RuntimeError):
@@ -28,6 +30,13 @@ class EmbeddingClient:
             self.base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL).rstrip("/")
             self.api_key = ""
             return
+        if self.provider == "mistral":
+            self.api_key = os.environ.get("MISTRAL_API_KEY", "")
+            self.model = os.environ.get("MISTRAL_EMBEDDING_MODEL", DEFAULT_MISTRAL_EMBEDDING_MODEL)
+            self.base_url = os.environ.get("MISTRAL_BASE_URL", DEFAULT_MISTRAL_BASE_URL).rstrip("/")
+            if not self.api_key:
+                raise EmbeddingError("Set MISTRAL_API_KEY before generating Mistral embeddings.")
+            return
         if self.provider == "openai":
             self.api_key = os.environ.get("OPENAI_API_KEY", "")
             self.model = os.environ.get("OPENAI_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
@@ -35,11 +44,12 @@ class EmbeddingClient:
             if not self.api_key:
                 raise EmbeddingError("Set OPENAI_API_KEY before generating OpenAI embeddings.")
             return
-        raise EmbeddingError("Set EMBEDDING_PROVIDER to 'ollama' or 'openai'.")
+        raise EmbeddingError("Set EMBEDDING_PROVIDER to 'mistral', 'ollama', or 'openai'.")
 
     def create(self, inputs: list[str]) -> list[list[float]]:
         if self.provider == "ollama":
             return [self._create_ollama(text) for text in inputs]
+        # mistral and openai both use the OpenAI-compatible /embeddings endpoint
         return self._create_openai(inputs)
 
     def _create_ollama(self, text: str) -> list[float]:

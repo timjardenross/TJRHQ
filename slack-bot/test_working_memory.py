@@ -66,13 +66,19 @@ class TestWorkingMemory:
 
     @pytest.fixture
     def memory(self):
-        """Create working memory instance without Supabase."""
-        return WorkingMemory(
-            supabase_url=None,
-            supabase_key=None,
-            cache_size=10,
-            cache_ttl=3600,
-        )
+        """Create working memory instance without Supabase.
+
+        WorkingMemory falls back to env vars when url/key are None, so we must
+        patch the env vars to empty strings to guarantee memory-only mode.
+        """
+        with patch.dict("os.environ", {"SUPABASE_URL": "", "SUPABASE_SERVICE_ROLE_KEY": ""}):
+            wm = WorkingMemory(
+                supabase_url="",
+                supabase_key="",
+                cache_size=10,
+                cache_ttl=3600,
+            )
+        return wm
 
     def test_set_and_get_string(self, memory):
         """Test storing and retrieving string values."""
@@ -93,15 +99,19 @@ class TestWorkingMemory:
         assert memory.delete("key1")
         assert memory.get("key1") is None
 
-    def test_expiry(self, memory):
-        """Test automatic expiry."""
-        memory.set("key1", "value1", expires_in_seconds=1)
-        assert memory.get("key1") == "value1"
+    def test_expiry(self):
+        """Test automatic expiry via cache TTL (no DB required).
+
+        expires_at metadata is only enforced on DB fetch; without a DB client,
+        expiry must be tested via the in-memory cache TTL instead.
+        """
+        with patch.dict("os.environ", {"SUPABASE_URL": "", "SUPABASE_SERVICE_ROLE_KEY": ""}):
+            short_ttl_memory = WorkingMemory(supabase_url="", supabase_key="", cache_size=10, cache_ttl=1)
+        short_ttl_memory.set("key1", "value1")
+        assert short_ttl_memory.get("key1") == "value1"
 
         time.sleep(1.1)
-        # Cache will return None due to TTL, but we can't test DB expiry without Supabase
-        cached = memory.cache.get("key1")
-        assert cached is None
+        assert short_ttl_memory.get("key1") is None
 
     def test_context_aware_storage(self, memory):
         """Test context type and ID storage."""

@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED DUPLICATE:
+# Canonical launchers live at USS-TJR-Control/scripts/.
 # Start both Slack bots in a single terminal.
 # Each bot runs as a subprocess with its own isolated environment.
 # Output is prefixed: [BOT] for the main bot, [CMD] for Commander.

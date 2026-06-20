@@ -9,17 +9,10 @@ MSN-0011D Part 3: adds optional mission file draft and canonical ID assignment
 
 Public API:
     handle_mission_brief(text, user_id, channel_id) -> str
-    handle_build_brief(text, user_id, channel_id) -> str
+    handle_build_brief(text, user_id, channel_id, thread_ts) -> str
     find_build_record_by_thread(thread_ts) -> dict[str, str] | None
     mark_build_record_approved(build_record, approver_user_id, handoff_path) -> str | None
-    save_engineering_handoff_from_build_record(build_record, approver_user_id) -> str
-    scan_pending_engineering_handoffs(limit=20) -> list[dict[str, str]]
-    format_pending_engineering_handoffs_report(limit=20) -> str
-    claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool
-    claim_oldest_pending_engineering_handoff(batch_group: str) -> dict[str, str] | None
-    update_engineering_handoff_batch_status(handoff_path: str, status: str) -> bool
-    read_engineering_handoff_batch_status(handoff_path: str) -> dict[str, str] | None
-    find_latest_claimed_engineering_handoff() -> dict[str, str] | None
+    save_engineering_handoff_from_build_record(build_record, approver_user_id) -> dict[str, str]
     handle_mission_register_draft(text, user_id, channel_id) -> str
     next_mission_id(index_path) -> str
     generate_mission_file_draft(text, llm_output, mission_id) -> str
@@ -80,6 +73,13 @@ Rules:
 - Acceptance criteria must be testable.
 - Always include the standard implementation guardrail at the end.
 - Output plain text using the exact format template below.
+- APPROVED ENGINEERING LIFECYCLE STATUSES (USS TJR standard — use these and only
+  these when referencing engineering lifecycle states):
+    Pending Triage → Assigned → In Progress → Awaiting Review → Completed
+  Do NOT suggest Design Review, Code Complete, Testing, Deployment, ENG_* variants,
+  or any parallel lifecycle model. If the user request mentions
+  "engineering-specific lifecycle statuses" without specifying alternatives,
+  interpret that as the approved set above.
 
 OUTPUT FORMAT:
 MISSION IMPLEMENTATION BRIEF
@@ -271,10 +271,43 @@ def handle_mission_brief(
         return (
             "*MISSION BRIEF*\n\n"
             "Usage: `/mission-brief <description>`\n"
-            "Example: `/mission-brief Build Slack backlog capture command`\n\n"
+            "   or: `/mission-brief MSN-NNNN [--backend mistral|gemini|vm-ollama] [--mode plan|review|patch]`\n"
+            "Example: `/mission-brief MSN-0056 --backend gemini --mode plan`\n\n"
             "To draft a mission file and assign a Mission Control ID, use `/mission-register-draft`."
         )
 
+    # ── Engineering Router path (text starts with a mission ID) ──────────────
+    mission_id, backend, mode = _parse_router_args(text)
+    if mission_id is not None:
+        log.info(
+            "[mission-brief] Engineering Router path: mission=%s backend=%s mode=%s",
+            mission_id, backend, mode,
+        )
+        try:
+            return handle_mission_brief_from_router(mission_id, backend, mode)
+        except ValueError as exc:
+            return (
+                f":x: *Mission not found*\n`{exc}`\n\n"
+                "_Tip: use the short ID format `MSN-NNNN`, e.g. `MSN-0066`._"
+            )
+        except RuntimeError as exc:
+            err = str(exc)
+            if "API_KEY" in err or "not set" in err.lower():
+                return (
+                    f":x: *Provider configuration error*\n`{err}`\n\n"
+                    "_Check that the relevant API key is set in `.env` and restart the bot._"
+                )
+            if "connect" in err.lower() or "timeout" in err.lower() or "refused" in err.lower():
+                return (
+                    f":x: *Provider unreachable* (`{backend}`)\n`{err}`\n\n"
+                    "_For vm-ollama: ensure Ollama is running. For gemini/mistral: check connectivity._"
+                )
+            return f":x: *Provider error* (`{backend}`)\n`{err}`"
+        except Exception as exc:
+            log.error("[mission-brief] Engineering Router failed: %s — %s", type(exc).__name__, exc)
+            return f":x: *Unexpected error from Engineering Router*\n`{type(exc).__name__}: {exc}`"
+
+    # ── Existing free-text → Mistral Scribe path ─────────────────────────────
     try:
         output = _call_mistral_mission_scribe(f"{_SYSTEM_PROMPT}\n\nUser request:\n{text}")
         output = _normalize_brief_output(output)
@@ -291,12 +324,44 @@ def handle_build_brief(
     channel_id: str | None = None,
     thread_ts: str | None = None,
 ) -> str:
-    """Generate a coding brief plus a GitHub-ready issue payload for /build."""
+    """Generate a coding brief plus a GitHub-ready issue payload for /build.
+
+    When text begins with a mission ID, the Engineering Router path is used
+    automatically via handle_mission_brief().  Router metadata (mission_id,
+    backend, mode) is captured here and persisted in the build record and
+    engineering handoff without duplicating any routing logic.
+    """
+    # Detect router path args before calling handle_mission_brief so we can
+    # persist the metadata.  _parse_router_args is pure and has no side effects.
+    router_mission_id, router_backend, router_mode = _parse_router_args(text)
+    router_meta: dict[str, str] | None = (
+        {
+            "mission_id": router_mission_id,
+            "backend": router_backend,
+            "mode": router_mode,
+        }
+        if router_mission_id is not None
+        else None
+    )
+
     brief_result = handle_mission_brief(text=text, user_id=user_id, channel_id=channel_id)
     brief_text = _unwrap_slack_code_block(brief_result)
     executive_block = _build_executive_handoff_summary(brief_text)
     issue_block = _build_github_issue_preview_from_brief(text=text, brief_text=brief_text)
     approval_block = _build_approval_gate(brief_text)
+
+    # Engineering Officer advisory — fail-open, non-blocking
+    try:
+        from lib.mistral_agents import engineering_officer_slack_block
+        engineering_block = engineering_officer_slack_block(
+            build_request=text,
+            brief_text=brief_text,
+            mission_id=router_mission_id,
+        )
+    except Exception as _eng_exc:
+        log.warning("[mission_brief] Engineering Officer block error: %s", _eng_exc)
+        engineering_block = ":gear: *Engineering Officer Advisory*\n_:robot_face: Agent advisory unavailable._"
+
     record_path = save_build_record(
         request_text=text,
         brief_text=brief_text,
@@ -304,6 +369,7 @@ def handle_build_brief(
         user_id=user_id,
         channel_id=channel_id,
         thread_ts=thread_ts,
+        router_meta=router_meta,
     )
     save_build_record_to_memory(
         request_text=text,
@@ -317,6 +383,7 @@ def handle_build_brief(
     return (
         f"{executive_block}\n\n"
         f"{brief_result}\n\n"
+        f"{engineering_block}\n\n"
         f"{issue_block}\n\n"
         f"{approval_block}\n\n"
         f":file_folder: *Build record saved:* `{record_path}`"
@@ -566,28 +633,16 @@ existing functionality unless clearly obsolete.
 # next_mission_id / _read_next_mission_id
 # ---------------------------------------------------------------------------
 
-def next_mission_id(index_path: Path | None = None) -> str:
-    """Read the next available mission ID from mission-index.txt.
+def next_mission_id(index_path: Path | None = None) -> str:  # noqa: ARG001 — index_path kept for callers
+    """Return the next available mission ID from the central registry.
 
-    Returns the ID string, e.g. 'USS-TJR-MSN-0015'.
-    Raises ValueError if the index cannot be parsed.
+    Returns the ID string, e.g. 'MSN-0066'.
     """
-    target = index_path or _MISSION_INDEX
-    if not target.exists():
-        raise FileNotFoundError(f"Mission index not found: {target}")
-
-    content = target.read_text(encoding="utf-8")
-    match = re.search(r"NEXT AVAILABLE MISSION ID\s*\n\s*(USS-TJR-MSN-\d+)", content)
-    if match:
-        return match.group(1).strip()
-
-    # Fallback: scan the table for the highest existing ID and increment
-    ids = re.findall(r"USS-TJR-MSN-(\d+)", content)
-    if ids:
-        max_num = max(int(n) for n in ids)
-        return f"USS-TJR-MSN-{max_num + 1:04d}"
-
-    raise ValueError("Cannot determine next mission ID from index")
+    import sys
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    import id_registry
+    return id_registry.next_id("MSN")
 
 
 def _read_next_mission_id() -> tuple[str, str | None]:
@@ -599,12 +654,8 @@ def _read_next_mission_id() -> tuple[str, str | None]:
     """
     try:
         return next_mission_id(), None
-    except FileNotFoundError as exc:
-        return "USS-TJR-MSN-XXXX", f"Mission index file not found: {exc}"
-    except ValueError as exc:
-        return "USS-TJR-MSN-XXXX", f"Could not parse next ID: {exc}"
-    except Exception as exc:
-        return "USS-TJR-MSN-XXXX", f"Unexpected error reading index: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        return "MSN-XXXX", f"Could not allocate mission ID: {exc}"
 
 
 # ---------------------------------------------------------------------------
@@ -653,6 +704,7 @@ def save_build_record(
     user_id: str | None = None,
     channel_id: str | None = None,
     thread_ts: str | None = None,
+    router_meta: dict[str, str] | None = None,
 ) -> str:
     """Persist a /build artifact in the repo for later review and reuse."""
     _BUILD_RECORDS_DIR.mkdir(parents=True, exist_ok=True)
@@ -661,6 +713,15 @@ def save_build_record(
     slug = _make_slug(request_text)
     filename = f"BUILD-{timestamp}-{slug}.md"
     target = _BUILD_RECORDS_DIR / filename
+
+    router_section = ""
+    if router_meta:
+        router_section = (
+            "\n## Engineering Router Metadata\n\n"
+            f"- Mission ID: {router_meta.get('mission_id', 'unknown')}\n"
+            f"- Backend: {router_meta.get('backend', 'unknown')}\n"
+            f"- Mode: {router_meta.get('mode', 'unknown')}\n"
+        )
 
     markdown = (
         "# Build Record\n\n"
@@ -671,7 +732,8 @@ def save_build_record(
         "## Request\n\n"
         f"{request_text.strip()}\n\n"
         "## Mission Implementation Brief\n\n"
-        f"```text\n{brief_text.strip()}\n```\n\n"
+        f"```text\n{brief_text.strip()}\n```\n"
+        f"{router_section}\n"
         "## GitHub Handoff Summary\n\n"
         f"{github_summary.strip()}\n"
     )
@@ -712,8 +774,11 @@ def find_build_record_by_thread(thread_ts: str) -> dict[str, str] | None:
         channel_match = re.search(r"^- Channel ID:\s*(.+)$", content, re.MULTILINE)
         user_match = re.search(r"^- User ID:\s*(.+)$", content, re.MULTILINE)
         title_match = re.search(r"^Mission Title:\s*(.+)$", content, re.MULTILINE)
+        router_mission_match = re.search(r"^- Mission ID:\s*(.+)$", content, re.MULTILINE)
+        router_backend_match = re.search(r"^- Backend:\s*(.+)$", content, re.MULTILINE)
+        router_mode_match = re.search(r"^- Mode:\s*(.+)$", content, re.MULTILINE)
 
-        return {
+        record: dict[str, str] = {
             "record_path": str(path.relative_to(_REPO_ROOT)),
             "request_text": request_match.group(1).strip() if request_match else "Build request",
             "channel_id": channel_match.group(1).strip() if channel_match else "unknown",
@@ -721,15 +786,67 @@ def find_build_record_by_thread(thread_ts: str) -> dict[str, str] | None:
             "mission_title": title_match.group(1).strip() if title_match else "Engineering Handoff",
             "thread_ts": thread_ts,
         }
+        if router_mission_match:
+            record["router_mission_id"] = router_mission_match.group(1).strip()
+        if router_backend_match:
+            record["router_backend"] = router_backend_match.group(1).strip()
+        if router_mode_match:
+            record["router_mode"] = router_mode_match.group(1).strip()
+        return record
 
     return None
+
+
+def reject_build_record(
+    build_record: dict[str, str],
+    rejector_user_id: str,
+    reason: str = "",
+) -> dict[str, str]:
+    """Mark a saved /build record as REJECTED — the counterpart to approval.
+
+    Non-destructive: appends a Rejection section to the existing Build-Records file
+    (audit trail) and creates NO engineering handoff. Idempotent (won't duplicate
+    the section). Returns {record_path, mission_title, status, rejected_at}.
+    """
+    record_path_rel = build_record.get("record_path", "") or "unknown"
+    mission_title = build_record.get("mission_title", "").strip() or "Build request"
+    rejected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    abs_path = _REPO_ROOT / record_path_rel if record_path_rel != "unknown" else None
+    if abs_path and abs_path.exists():
+        try:
+            existing = abs_path.read_text(encoding="utf-8")
+            if "## Rejection" not in existing:
+                existing += (
+                    "\n## Rejection\n\n"
+                    "- Status: REJECTED\n"
+                    f"- Rejected by: {rejector_user_id}\n"
+                    f"- Rejected at: {rejected_at}\n"
+                    + (f"- Reason: {reason.strip()}\n" if reason.strip() else "")
+                )
+                abs_path.write_text(existing, encoding="utf-8")
+            log.info("[mission-brief] Build record marked REJECTED: %s", record_path_rel)
+        except OSError as exc:  # pragma: no cover - filesystem edge
+            log.warning("[mission-brief] Could not mark build record rejected: %s", exc)
+
+    return {
+        "record_path": record_path_rel,
+        "mission_title": mission_title,
+        "status": "REJECTED",
+        "rejected_at": rejected_at,
+    }
 
 
 def save_engineering_handoff_from_build_record(
     build_record: dict[str, str],
     approver_user_id: str,
-) -> str:
-    """Create an approved engineering handoff artifact from a build record."""
+) -> dict[str, str]:
+    """Create an approved engineering handoff artifact from a build record.
+
+    Returns a dict with keys:
+        handoff_path  — repo-relative path to the written ENG-HANDOFF file
+        decision_id   — the canonical decision / Command Memory mission ID
+    """
     _ENGINEERING_HANDOFFS_DIR.mkdir(parents=True, exist_ok=True)
 
     request_text = build_record.get("request_text", "Build request").strip()
@@ -757,6 +874,20 @@ def save_engineering_handoff_from_build_record(
     filename = f"ENG-HANDOFF-{timestamp}-{slug}.md"
     target = _ENGINEERING_HANDOFFS_DIR / filename
 
+    router_mission_id = build_record.get("router_mission_id", "")
+    router_backend = build_record.get("router_backend", "")
+    router_mode = build_record.get("router_mode", "")
+
+    router_section = ""
+    if router_mission_id:
+        router_section = (
+            "\n## Engineering Router Metadata\n\n"
+            f"- Mission ID: {router_mission_id}\n"
+            f"- Backend: {router_backend or 'mistral'}\n"
+            f"- Mode: {router_mode or 'plan'}\n"
+            "- ADR-030 Notice: Read-only — Captain approval required before any change.\n"
+        )
+
     markdown = (
         "# Engineering Handoff\n\n"
         f"- Status: APPROVED_FOR_ENGINEERING\n"
@@ -767,6 +898,7 @@ def save_engineering_handoff_from_build_record(
         f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         "- Approved By: XO\n"
         f"- Requesting User: {approver_user_id}\n"
+        f"- Mission ID: {router_mission_id or 'unassigned'}\n"
         "- System Actor: XO\n"
         "- Policy Decision: APPROVED\n"
         "- Decision Reason: XO system policy accepted\n"
@@ -774,7 +906,8 @@ def save_engineering_handoff_from_build_record(
         "- Policy Trace: context loaded -> governance validated -> approval issued\n"
         f"- Source Build Record: {source_record}\n"
         f"- Channel ID: {channel_id}\n"
-        f"- Thread TS: {thread_ts}\n\n"
+        f"- Thread TS: {thread_ts}\n"
+        f"{router_section}\n"
         "## Mission Title\n\n"
         f"{mission_title}\n\n"
         "## Original Request\n\n"
@@ -809,9 +942,11 @@ def save_engineering_handoff_from_build_record(
         log.warning("[mission-brief] Learning loop event write skipped: %s", exc)
 
     try:
-        return str(target.relative_to(_REPO_ROOT))
+        handoff_path = str(target.relative_to(_REPO_ROOT))
     except ValueError:
-        return str(target)
+        handoff_path = str(target)
+
+    return {"handoff_path": handoff_path, "decision_id": decision_id}
 
 
 def xo_can_approve(context: dict[str, str]) -> tuple[bool, str]:
@@ -835,488 +970,6 @@ def is_approver_authorized(user_id: str) -> bool:
     """
     allowed, _ = xo_can_approve({})
     return allowed
-
-
-def find_existing_engineering_handoff(build_record_path: str) -> str | None:
-    """Check if an engineering handoff already exists for this build record.
-
-    Returns repo-relative path if found, None otherwise.
-    """
-    if not _ENGINEERING_HANDOFFS_DIR.exists():
-        return None
-    try:
-        marker = f"Source Build Record: {build_record_path}"
-        for path in _ENGINEERING_HANDOFFS_DIR.glob("*.md"):
-            try:
-                content = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            if marker in content:
-                try:
-                    return str(path.relative_to(_REPO_ROOT))
-                except ValueError:
-                    return str(path)
-    except OSError:
-        pass
-    return None
-
-
-def can_agent_claim_handoff(handoff_path: str) -> bool:
-    """GUARD RAIL #1: Return True only if handoff is ready for agent execution.
-
-    Requires Status=APPROVED_FOR_ENGINEERING, Batch Status=SUBMITTED, and
-    Batch Group not unassigned.
-    """
-    target = _REPO_ROOT / handoff_path
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return False
-
-    status = _extract_metadata_field(content, "Status")
-    batch_status = _extract_metadata_field(content, "Batch Status")
-    batch_group = _extract_metadata_field(content, "Batch Group")
-
-    return (
-        status == "APPROVED_FOR_ENGINEERING"
-        and batch_status == "SUBMITTED"
-        and batch_group not in ("", "unassigned")
-    )
-
-
-def require_explicit_assignment(handoff_path: str) -> bool:
-    """GUARD RAIL #2: Return True if handoff was explicitly assigned by a human."""
-    target = _REPO_ROOT / handoff_path
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return False
-
-    assigned_by = _extract_metadata_field(content, "Assigned By")
-    return bool(assigned_by and assigned_by.strip())
-
-
-def validate_agent_execution_preconditions(handoff_path: str) -> tuple[bool, str]:
-    """Apply all guard rails; return (can_execute, reason_if_blocked).
-
-    Combines GUARD RAIL #1, GUARD RAIL #2, and a concurrent-execution check.
-    """
-    target = _REPO_ROOT / handoff_path
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return False, f"Cannot read handoff file: {handoff_path}"
-
-    if not can_agent_claim_handoff(handoff_path):
-        batch_status = _extract_metadata_field(content, "Batch Status")
-        batch_group = _extract_metadata_field(content, "Batch Group")
-        return False, (
-            f"Guard rail #1 failed: Batch Status={batch_status!r} "
-            f"Batch Group={batch_group!r} — must be SUBMITTED with an assigned group"
-        )
-
-    if not require_explicit_assignment(handoff_path):
-        return False, "Guard rail #2 failed: no explicit Assigned By — human assignment required"
-
-    current_batch_status = _extract_metadata_field(content, "Batch Status")
-    if current_batch_status == "IN_PROGRESS":
-        return False, "Concurrent execution guard: handoff is already IN_PROGRESS"
-
-    return True, ""
-
-
-def mark_build_record_approved(
-    build_record: dict[str, str],
-    approver_user_id: str,
-    handoff_path: str,
-) -> str | None:
-    """Append approval status metadata to the original build record."""
-    source_record = build_record.get("record_path", "unknown")
-    if source_record == "unknown":
-        return None
-
-    target = _REPO_ROOT / source_record
-    if not target.exists():
-        return None
-
-    try:
-        current = target.read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-    if "## Approval Status" in current:
-        return source_record
-
-    approval_block = (
-        "\n\n## Approval Status\n\n"
-        "- Status: APPROVED_FOR_ENGINEERING\n"
-        "- Batch Status: PENDING\n"
-        "- Batch Group: unassigned\n"
-        "- Priority: P2\n"
-        f"- Decision ID: {build_record.get('decision_id', 'unknown')}\n"
-        f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        "- Approved By: XO\n"
-        f"- Requesting User: {approver_user_id}\n"
-        "- System Actor: XO\n"
-        "- Policy Decision: APPROVED\n"
-        "- Decision Reason: XO system policy accepted\n"
-        "- Resulting State: APPROVED_FOR_ENGINEERING + PENDING\n"
-        f"- Engineering Handoff: {handoff_path}\n"
-    )
-
-    try:
-        target.write_text(current.rstrip() + approval_block + "\n", encoding="utf-8")
-        log.info("[mission-brief] Build record marked approved: %s", target)
-        return source_record
-    except OSError:
-        return None
-
-
-def _extract_metadata_field(content: str, field_name: str) -> str:
-    """Extract a simple top-level metadata field from a handoff markdown file."""
-    match = re.search(rf"^- {re.escape(field_name)}:\s*(.+)$", content, re.MULTILINE)
-    return match.group(1).strip() if match else ""
-
-
-def _extract_decision_id(content: str) -> str:
-    """Extract decision id from a handoff or build record."""
-    decision_id = _extract_metadata_field(content, "Decision ID")
-    if decision_id:
-        return decision_id
-    match = re.search(r"Decision ID:\s*(DEC-[A-Z0-9-]+)", content)
-    return match.group(1).strip() if match else ""
-
-
-def _extract_markdown_section(content: str, heading: str) -> str:
-    """Extract the body text immediately following a markdown section heading."""
-    pattern = rf"^##\s+{re.escape(heading)}\s*\n\n(.*?)(?=\n##\s+|\Z)"
-    match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
-    return match.group(1).strip() if match else ""
-
-
-def scan_pending_engineering_handoffs(limit: int = 20) -> list[dict[str, str]]:
-    """Return engineering handoff files that are ready for batch assignment."""
-    if not _ENGINEERING_HANDOFFS_DIR.exists():
-        return []
-
-    results: list[dict[str, str]] = []
-    for path in sorted(_ENGINEERING_HANDOFFS_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True):
-        try:
-            content = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-
-        status = _extract_metadata_field(content, "Status")
-        batch_status = _extract_metadata_field(content, "Batch Status")
-        if status != "APPROVED_FOR_ENGINEERING" or batch_status != "PENDING":
-            continue
-
-        results.append({
-            "path": str(path.relative_to(_REPO_ROOT)),
-            "mission_title": _extract_markdown_section(content, "Mission Title") or path.stem,
-            "decision_id": _extract_decision_id(content),
-            "source_build_record": _extract_metadata_field(content, "Source Build Record"),
-            "batch_group": _extract_metadata_field(content, "Batch Group") or "unassigned",
-            "priority": _extract_metadata_field(content, "Priority") or "P2",
-            "approved_at": _extract_metadata_field(content, "Approved At"),
-            "approved_by": _extract_metadata_field(content, "Approved By"),
-        })
-
-        if len(results) >= max(limit, 0):
-            break
-
-    return results
-
-
-def format_pending_engineering_handoffs_report(limit: int = 20, detailed: bool = False) -> str:
-    """Format a short report of handoffs awaiting batch processing."""
-    pending = scan_pending_engineering_handoffs(limit=limit)
-    header = [
-        ":package: *Batch Scanner*",
-        "",
-        f"Found *{len(pending)}* engineering handoff(s) with `Batch Status: PENDING`.",
-    ]
-
-    if not pending:
-        header.append("No pending handoffs were found.")
-        return "\n".join(header)
-
-    lines = header + ["", "*Pending handoffs:*"]
-    for item in pending:
-        lines.extend([
-            f"- `{item['path']}`",
-            f"  - Mission: {item['mission_title']}",
-        ])
-        if detailed:
-            lines.extend([
-                f"  - Decision ID: {item.get('decision_id') or 'unknown'}",
-                f"  - Approved By: {item.get('approved_by') or 'unknown'}",
-                f"  - Approved At: {item.get('approved_at') or 'unknown'}",
-                f"  - Source Build Record: {item.get('source_build_record') or 'unknown'}",
-            ])
-        lines.extend([
-            f"  - Priority: {item['priority']}",
-            f"  - Batch Group: {item['batch_group']}",
-        ])
-    lines.append("")
-    lines.append("Next step: assign a `Batch Group` and advance `Batch Status` to `SUBMITTED`.")
-    return "\n".join(lines)
-
-
-def claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool:
-    """Assign a pending engineering handoff to a batch group."""
-    target = _REPO_ROOT / handoff_path
-    if not target.exists():
-        return False
-
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return False
-
-    if "Status: APPROVED_FOR_ENGINEERING" not in content or "Batch Status: PENDING" not in content:
-        return False
-
-    updated = content
-    updated = re.sub(
-        r"^- Batch Status:\s*PENDING\s*$",
-        "- Batch Status: SUBMITTED",
-        updated,
-        flags=re.MULTILINE,
-        count=1,
-    )
-    updated = re.sub(
-        r"^- Batch Group:\s*.*$",
-        f"- Batch Group: {batch_group}",
-        updated,
-        flags=re.MULTILINE,
-        count=1,
-    )
-
-    try:
-        target.write_text(updated, encoding="utf-8")
-        log.info("[mission-brief] Engineering handoff claimed: %s -> %s", target, batch_group)
-        try:
-            from lib.build_learning_loop import record_build_lifecycle_event
-            from lib.build_learning_loop import generate_build_outcome_id
-            from lib.build_learning_loop import generate_build_decision_id
-
-            mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
-            source_record = _extract_metadata_field(updated, "Source Build Record")
-            decision_id = _extract_decision_id(updated) or generate_build_decision_id()
-            priority = _extract_metadata_field(updated, "Priority") or "P2"
-            outcome_id = generate_build_outcome_id()
-            record_build_lifecycle_event(
-                event_type="batch_claimed",
-                decision_id=decision_id,
-                source_record=source_record,
-                handoff_path=str(target.relative_to(_REPO_ROOT)),
-                mission_title=mission_title,
-                status="APPROVED_FOR_ENGINEERING",
-                batch_status="SUBMITTED",
-                batch_group=batch_group,
-                priority=priority,
-                outcome_id=outcome_id,
-                batch_actor=batch_group,
-                notes="Engineering handoff claimed for batch processing.",
-            )
-        except Exception as exc:
-            log.warning("[mission-brief] Learning loop claim event skipped: %s", exc)
-        return True
-    except OSError:
-        return False
-
-
-def claim_oldest_pending_engineering_handoff(batch_group: str) -> dict[str, str] | None:
-    """Claim the oldest pending handoff and return the updated record metadata."""
-    pending = scan_pending_engineering_handoffs(limit=1)
-    if not pending:
-        return None
-
-    handoff = pending[0]
-    if not claim_engineering_handoff_batch(handoff["path"], batch_group):
-        return None
-
-    handoff["batch_group"] = batch_group
-    handoff["batch_status"] = "SUBMITTED"
-    return handoff
-
-
-def update_engineering_handoff_batch_status(handoff_path: str, status: str) -> bool:
-    """Advance a claimed engineering handoff to a new lifecycle status."""
-    allowed_statuses = {"SUBMITTED", "IN_PROGRESS", "DELIVERED", "FAILED"}
-    if status not in allowed_statuses:
-        return False
-
-    target = _REPO_ROOT / handoff_path
-    if not target.exists():
-        return False
-
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return False
-
-    if "Status: APPROVED_FOR_ENGINEERING" not in content:
-        return False
-
-    current_status = _extract_metadata_field(content, "Batch Status")
-    if not current_status:
-        return False
-
-    updated = re.sub(
-        r"^- Batch Status:\s*.*$",
-        f"- Batch Status: {status}",
-        content,
-        flags=re.MULTILINE,
-        count=1,
-    )
-
-    try:
-        target.write_text(updated, encoding="utf-8")
-        log.info("[mission-brief] Engineering handoff status updated: %s -> %s", target, status)
-        try:
-            from lib.build_learning_loop import record_build_lifecycle_event
-            from lib.build_learning_loop import generate_build_outcome_id
-            from lib.build_learning_loop import generate_build_decision_id
-
-            mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
-            source_record = _extract_metadata_field(updated, "Source Build Record")
-            decision_id = _extract_decision_id(updated) or generate_build_decision_id()
-            batch_group = _extract_metadata_field(updated, "Batch Group") or "unassigned"
-            priority = _extract_metadata_field(updated, "Priority") or "P2"
-            outcome_id = generate_build_outcome_id()
-            record_build_lifecycle_event(
-                event_type="batch_advanced",
-                decision_id=decision_id,
-                source_record=source_record,
-                handoff_path=str(target.relative_to(_REPO_ROOT)),
-                mission_title=mission_title,
-                status="APPROVED_FOR_ENGINEERING",
-                batch_status=status,
-                batch_group=batch_group,
-                priority=priority,
-                outcome_id=outcome_id,
-                batch_actor=batch_group,
-                notes=f"Batch status advanced to {status}.",
-            )
-        except Exception as exc:
-            log.warning("[mission-brief] Learning loop advance event skipped: %s", exc)
-        return True
-    except OSError:
-        return False
-
-
-def read_engineering_handoff_batch_status(handoff_path: str) -> dict[str, str] | None:
-    """Read the current batch metadata for a handoff file."""
-    target = _REPO_ROOT / handoff_path
-    if not target.exists():
-        return None
-
-    try:
-        content = target.read_text(encoding="utf-8")
-    except OSError:
-        return None
-
-    return {
-        "path": handoff_path,
-        "status": _extract_metadata_field(content, "Status"),
-        "batch_status": _extract_metadata_field(content, "Batch Status"),
-        "batch_group": _extract_metadata_field(content, "Batch Group"),
-        "priority": _extract_metadata_field(content, "Priority"),
-        "mission_title": _extract_markdown_section(content, "Mission Title") or target.stem,
-    }
-
-
-def summarize_engineering_handoff_chain(handoff_path: str) -> dict[str, str] | None:
-    """Summarize the decision/outcome chain for a handoff."""
-    snapshot = read_engineering_handoff_batch_status(handoff_path)
-    if not snapshot:
-        return None
-
-    source_record = ""
-    target = _REPO_ROOT / handoff_path
-    try:
-        content = target.read_text(encoding="utf-8")
-        source_record = _extract_metadata_field(content, "Source Build Record")
-    except OSError:
-        pass
-
-    return {
-        "handoff_path": handoff_path,
-        "mission_title": snapshot.get("mission_title", "unknown"),
-        "decision_id": _extract_decision_id(content) if "content" in locals() else "",
-        "outcome_status": snapshot.get("batch_status", "unknown"),
-        "batch_group": snapshot.get("batch_group", "unknown"),
-        "priority": snapshot.get("priority", "unknown"),
-        "source_build_record": source_record or "unknown",
-        "status": snapshot.get("status", "unknown"),
-    }
-
-
-def format_engineering_handoff_chain_summary(handoff_path: str) -> str:
-    """Format a readable Slack summary for a handoff chain."""
-    summary = summarize_engineering_handoff_chain(handoff_path)
-    if not summary:
-        return (
-            ":package: *Batch Status*\n\n"
-            f"No handoff found for `{handoff_path}`."
-        )
-
-    return (
-        ":package: *Batch Status*\n\n"
-        f"*Mission:* {summary['mission_title']}\n"
-        f"*Decision ID:* `{summary['decision_id'] or 'unknown'}`\n"
-        f"*Source Build Record:* `{summary['source_build_record']}`\n"
-        f"*Status:* `{summary['status']}`\n"
-        f"*Batch Status:* `{summary['outcome_status']}`\n"
-        f"*Batch Group:* `{summary['batch_group']}`\n"
-        f"*Priority:* `{summary['priority']}`\n"
-        f"*Handoff:* `{summary['handoff_path']}`"
-    )
-
-
-def find_latest_claimed_engineering_handoff() -> dict[str, str] | None:
-    """Return the most recently modified claimed handoff, if any."""
-    if not _ENGINEERING_HANDOFFS_DIR.exists():
-        return None
-
-    claimed_statuses = {"SUBMITTED", "IN_PROGRESS", "DELIVERED", "FAILED"}
-    candidates: list[tuple[float, dict[str, str]]] = []
-
-    for path in _ENGINEERING_HANDOFFS_DIR.glob("*.md"):
-        try:
-            content = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-
-        status = _extract_metadata_field(content, "Status")
-        batch_status = _extract_metadata_field(content, "Batch Status")
-        if status != "APPROVED_FOR_ENGINEERING" or batch_status not in claimed_statuses:
-            continue
-
-        try:
-            mtime = path.stat().st_mtime
-        except OSError:
-            mtime = 0.0
-
-        candidates.append((
-            mtime,
-            {
-                "path": str(path.relative_to(_REPO_ROOT)),
-                "status": status,
-                "batch_status": batch_status,
-                "batch_group": _extract_metadata_field(content, "Batch Group") or "unassigned",
-                "priority": _extract_metadata_field(content, "Priority") or "P2",
-                "mission_title": _extract_markdown_section(content, "Mission Title") or path.stem,
-            },
-        ))
-
-    if not candidates:
-        return None
-
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1]
 
 
 def save_build_record_to_memory(
@@ -1534,4 +1187,195 @@ def _fallback_brief(text: str) -> str:
         "*Acceptance Criteria:*\n- TBD\n\n"
         "*Implementation Instruction:*\n"
         "Make the smallest safe change using existing repository patterns."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Engineering Router integration (/mission-brief <MISSION-ID> [--backend X] [--mode Y])
+# ---------------------------------------------------------------------------
+
+import re as _re
+import sys as _sys
+
+_MISSION_ID_RE = _re.compile(
+    r"^(USS-TJR-)?MSN-\d{4}[A-Z]?",
+    _re.IGNORECASE,
+)
+
+# Bare-ID prefix to try when full USS-TJR- prefix not supplied
+_BARE_ID_PREFIX = "USS-TJR-"
+
+
+def _parse_router_args(text: str) -> tuple[str | None, str, str]:
+    """
+    Parse `/mission-brief <mission-id> [--backend X] [--mode Y]` text.
+
+    Returns (mission_id_or_None, backend, mode).
+    mission_id is None when the text does not start with a mission ID.
+    """
+    text = text.strip()
+    if not _MISSION_ID_RE.match(text):
+        return None, "mistral", "plan"
+
+    parts = text.split()
+    raw_id = parts[0].upper()
+    # Normalise: strip legacy USS-TJR- prefix so IDs are always short (MSN-NNNN)
+    if raw_id.startswith("USS-TJR-MSN-"):
+        raw_id = raw_id[len("USS-TJR-"):]
+
+    remaining = parts[1:]
+    backend = "mistral"
+    mode = "plan"
+
+    i = 0
+    while i < len(remaining):
+        tok = remaining[i].lower()
+        if tok == "--backend" and i + 1 < len(remaining):
+            backend = remaining[i + 1].lower()
+            i += 2
+        elif tok == "--mode" and i + 1 < len(remaining):
+            mode = remaining[i + 1].lower()
+            i += 2
+        else:
+            i += 1
+
+    return raw_id, backend, mode
+
+
+def _extract_router_sections(output_text: str) -> dict[str, str]:
+    """
+    Pull structured sections from Engineering Router plan/review output.
+    Falls back to the full text for each section if not found.
+    """
+    lines = output_text.splitlines()
+
+    def _grab_section(heading_variants: list[str], max_lines: int = 8) -> str:
+        for i, line in enumerate(lines):
+            ll = line.lower()
+            if any(v in ll for v in heading_variants):
+                body: list[str] = []
+                for j in range(i + 1, min(i + 1 + max_lines, len(lines))):
+                    if lines[j].startswith("#") or lines[j].startswith("**") and lines[j].endswith("**"):
+                        break
+                    body.append(lines[j])
+                return "\n".join(body).strip()
+        return ""
+
+    summary   = _grab_section(["summary", "what needs to be done", "overview"], 6)
+    steps     = _grab_section(["implementation step", "ordered step", "step-by-step", "steps"], 10)
+    risks     = _grab_section(["risk", "dependency", "validate first"], 6)
+    criteria  = _grab_section(["acceptance criteria", "done when", "success criteria"], 6)
+
+    return {
+        "summary":  summary,
+        "steps":    steps,
+        "risks":    risks,
+        "criteria": criteria,
+    }
+
+
+def _format_router_slack_response(
+    mission_id: str,
+    title: str,
+    backend: str,
+    model_used: str,
+    mode: str,
+    output_text: str,
+    evidence_path: str,
+    warnings: list[str] | None,
+) -> str:
+    """Compose a concise, readable Slack response from Engineering Router output."""
+
+    sections = _extract_router_sections(output_text)
+
+    # Cap full output for Slack if sections not parseable
+    body = output_text[:1800] if not any(sections.values()) else output_text[:2400]
+
+    lines: list[str] = [
+        f"*ENGINEERING BRIEF — {mission_id}*",
+        f"*Title:* {title}",
+        f"*Backend:* `{backend}` · *Model:* `{model_used}` · *Mode:* `{mode}`",
+        "",
+    ]
+
+    if sections["summary"]:
+        lines += [f"*Summary*\n{sections['summary']}", ""]
+    if sections["steps"]:
+        lines += [f"*Implementation Steps*\n{sections['steps']}", ""]
+    if sections["risks"]:
+        lines += [f"*Risks / Dependencies*\n{sections['risks']}", ""]
+    if sections["criteria"]:
+        lines += [f"*Acceptance Criteria*\n{sections['criteria']}", ""]
+
+    if not any(sections.values()):
+        lines += ["```", body, "```", ""]
+
+    if warnings:
+        for w in warnings:
+            lines.append(f":warning: {w}")
+        lines.append("")
+
+    lines += [
+        ":lock: _Read-only — ADR-030 governs. Captain approval required before any change._",
+        f":file_folder: Evidence → `{evidence_path}`",
+    ]
+
+    return "\n".join(lines)
+
+
+def handle_mission_brief_from_router(
+    mission_id: str,
+    backend: str = "mistral",
+    mode: str = "plan",
+) -> str:
+    """
+    Call the Engineering Router for a known mission ID and return a formatted
+    Slack message.  Never modifies repository files (ADR-030).
+
+    Raises ValueError for unknown mission IDs.
+    Raises RuntimeError for provider failures (caller should catch and respond).
+    """
+    if str(_REPO_ROOT) not in _sys.path:
+        _sys.path.insert(0, str(_REPO_ROOT))
+
+    from core.engineering import engineering_router
+    from core.engineering.schemas import Backend, ExecutionMode
+
+    # Validate backend and mode
+    try:
+        backend_enum = Backend(backend)
+    except ValueError:
+        raise ValueError(f"Unknown backend `{backend}`. Valid options: mistral, gemini, vm-ollama")
+
+    try:
+        mode_enum = ExecutionMode(mode)
+    except ValueError:
+        raise ValueError(f"Unknown mode `{mode}`. Valid options: plan, review, patch")
+
+    # Load mission context — may raise ValueError (unknown ID) or FileNotFoundError
+    ctx = engineering_router.load_mission_context(mission_id)
+
+    from core.engineering.schemas import RouterRequest
+    req = RouterRequest(
+        mission_id=mission_id,
+        mode=mode_enum,
+        backend=backend_enum,
+        model=None,
+        mission_context=ctx,
+    )
+
+    resp = engineering_router.route(req)
+
+    if not resp.success:
+        raise RuntimeError(resp.error or "Provider returned an error.")
+
+    return _format_router_slack_response(
+        mission_id=mission_id,
+        title=ctx.title,
+        backend=backend,
+        model_used=resp.model_used,
+        mode=mode,
+        output_text=resp.output_text,
+        evidence_path=getattr(resp, "evidence_path", "unknown"),
+        warnings=resp.warnings,
     )

@@ -1,0 +1,18 @@
+[Unit]
+# XO Telegram bot (@Starship_endeavour_xO_bot) — ACTION-CAPABLE executive officer.
+# Full host/shell control, but plan-then-approve-each: nothing runs without an
+# explicit Captain approval in chat. See xo-bot/ + deploy/README-xo-bot.md.
+Description=Starship Endeavour XO Telegram bot (action-capable)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour/xo-bot
+# Token + allowlist live here; provider keys (GEMINI_API_KEY, ...) inherited from
+# the repo-root .env, which the bot's config._load_env() layers in.
+EnvironmentFile=-/opt/starship-endeavour/xo-bot/.env
+ExecStart=/opt/starship-endeavour/xo-bot/.venv/bin/python /opt/starship-endeavour/xo-bot/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -85,9 +85,20 @@ class BriefGenerator:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            # Skip if already persisted (previous run)
+            # Skip if already persisted by hash (previous run, same source)
             if store.event_hash_exists(event.dedup_hash):
                 continue
+
+            # Cross-run canonical URL dedup — same article from different source in prior run
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+
+            # Fallback: no canonical URL — dedup by normalised title + publication date
+            if not event.canonical_url and event.published_at:
+                from intelligence.classification.deduplicator import _normalise
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
 
             classified.append(event)
 
@@ -115,6 +126,12 @@ class BriefGenerator:
 
         # ── 7. Build BriefEvent snapshots ─────────────────────────────────────
         brief_events = [self._to_brief_event(e) for e in top5]
+
+        # ── 7b. Generate per-event So What (LLM, may fall back to template) ───
+        so_whats = self._generate_so_whats(top5)
+        for be, sw in zip(brief_events, so_whats):
+            if sw:
+                be.so_what = sw
 
         # ── 8. Generate narrative (LLM, may fail) ─────────────────────────────
         (executive_snapshot, emerging_themes, forward_watch,
@@ -232,6 +249,7 @@ class BriefGenerator:
         return "; ".join(parts) if parts else "Monitor for escalation"
 
     def _infer_so_what(self, event: RankedEvent) -> str:
+        """Fallback template — only used if LLM So What generation fails."""
         if event.event_type == "regulatory":
             return "Review regulatory obligations and assess compliance posture"
         if event.event_type == "cyber":
@@ -247,6 +265,59 @@ class BriefGenerator:
         if event.event_type == "energy_disruption":
             return "Review UPS and backup power; assess data centre resilience"
         return "Monitor situation; assess operational exposure and escalate if conditions worsen"
+
+    def _generate_so_whats(self, top: list[RankedEvent]) -> list[str]:
+        """
+        Generate one actionable So What sentence per top event using the LLM.
+        Batches all events in a single call. Falls back to template per-event on failure.
+        Returns list of strings aligned to input list (same length, same order).
+        """
+        if not top:
+            return []
+
+        lines = []
+        for i, e in enumerate(top):
+            cps = " CPS 230 relevant." if e.cps230_relevance else ""
+            banking = f" Banking relevance: {e.banking_relevance}." if e.banking_relevance != "low" else ""
+            summary_text = f" Summary: {e.raw_summary[:200]}" if e.raw_summary else ""
+            lines.append(
+                f"{i+1}. [{e.event_type.upper()}] {e.raw_title} "
+                f"(Source: {e.source_name}, Geography: {e.geography})"
+                f"{cps}{banking}{summary_text}"
+            )
+
+        prompt = (
+            "You are the Operational Resilience Intelligence Officer for an Australian bank.\n\n"
+            "For each of the following events, write exactly ONE sentence answering:\n"
+            "\"What should a Head of Operational Resilience do or consider because of this event?\"\n\n"
+            "Rules:\n"
+            "- Be specific to the event content — do not use generic phrases\n"
+            "- Focus on Australian banking and CPS 230 obligations where relevant\n"
+            "- One sentence only per event\n"
+            "- Return a JSON array of strings, one per event, in the same order\n\n"
+            "EVENTS:\n" + "\n".join(lines) + "\n\n"
+            "Return ONLY a JSON array like: [\"sentence 1\", \"sentence 2\", ...]"
+        )
+
+        try:
+            raw, _ = self.llm.generate(prompt)
+            if not raw:
+                raise ValueError("empty LLM response")
+
+            import re, json
+            raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
+            raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)
+            match = re.search(r"\[.*\]", raw_clean, re.DOTALL)
+            if match:
+                result = json.loads(match.group())
+                if isinstance(result, list) and len(result) == len(top):
+                    log.info("LLM So What generated for %d events", len(result))
+                    return [str(s).strip() for s in result]
+        except Exception as exc:
+            log.warning("LLM So What generation failed (%s) — using templates", exc)
+
+        # Fallback: template per event
+        return [self._infer_so_what(e) for e in top]
 
     def _generate_narrative(
         self,

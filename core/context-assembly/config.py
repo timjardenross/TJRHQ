@@ -17,6 +17,9 @@ HEALTH_SUMMARY_PATH = REPO_ROOT / "memory" / "Health-Summary.md"
 DECISION_REGISTER_PATH = REPO_ROOT / "memory" / "Decision-Register.md"
 CAPTAINS_LOG_DIR       = REPO_ROOT / "Captains-Log"
 
+# Captain Profile Knowledge Base
+CAPTAIN_PROFILE_PATH = REPO_ROOT / "knowledge" / "memory" / "captain_profile.txt"
+
 # WP6: Python context service port (consumed by JS backend)
 CONTEXT_SERVICE_PORT = int(os.getenv("CONTEXT_SERVICE_PORT", "5001"))
 

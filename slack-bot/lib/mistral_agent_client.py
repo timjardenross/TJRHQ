@@ -161,7 +161,7 @@ def call_agent(
             response = client.beta.conversations.start(
                 agent_id=agent_id,
                 agent_version=agent_version,
-                inputs={"messages": [{"role": "user", "content": prompt}]},
+                inputs=[{"role": "user", "content": prompt}],
             )
             text = _extract_text(response)
             elapsed = int((time.monotonic() - start) * 1000)

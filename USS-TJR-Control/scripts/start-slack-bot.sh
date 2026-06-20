@@ -21,6 +21,13 @@ else
   exit 1
 fi
 
+if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
+  REPO_ROOT="$PROJECT_ROOT"
+fi
+if [ -z "${SLACK_BOT_DIR:-}" ] || [ ! -d "${SLACK_BOT_DIR:-/dev/null}" ]; then
+  SLACK_BOT_DIR="$REPO_ROOT/slack-bot"
+fi
+
 echo "========================================"
 echo "Starship Endeavour — Operations Control — Slack Bot"
 echo "========================================"

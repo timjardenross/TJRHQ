@@ -18,6 +18,10 @@ else
   exit 1
 fi
 
+if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
+  REPO_ROOT="$PROJECT_ROOT"
+fi
+
 echo "========================================"
 echo "USS TJR Control Deck - NGROK Tunnel"
 echo "========================================"
