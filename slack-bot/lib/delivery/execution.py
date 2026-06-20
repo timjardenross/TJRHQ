@@ -120,3 +120,72 @@ def dispatch_payload(package: ExecutionPackage) -> dict:
         "ref": package.base,
         "inputs": dict(package.dispatch_inputs),
     }
+
+
+def render_pr_body(package: ExecutionPackage, mission: dict | None = None) -> str:
+    """The draft-PR description for an execution package (governance-bounded)."""
+    steps = package.plan_steps or ["(plan to be attached by the executor)"]
+    lines = [
+        f"## EDO Execution — {package.mission_id}",
+        f"**{package.title}**",
+        "",
+        f"Objective: {package.objective}",
+        "",
+        "### Plan",
+        *[f"- [ ] {s}" for s in steps],
+        "",
+        "### Governance (non-bypassable)",
+        "- [ ] Validation gate passed (tests/evidence recorded)",
+        "- [ ] XO approval obtained before merge",
+        "- This PR is a **draft**. Do not merge without XO closure authority.",
+        "- No autonomous merge or closure — Number One assignment unchanged.",
+        "",
+        f"_Branch `{package.branch}` · target state `{package.target_state}`._",
+    ]
+    return "\n".join(lines)
+
+
+def render_manifest(package: ExecutionPackage) -> dict:
+    """A machine-readable execution manifest committed to the branch."""
+    return {
+        "mission_id": package.mission_id,
+        "title": package.title,
+        "branch": package.branch,
+        "base": package.base,
+        "target_state": package.target_state,
+        "governance": package.governance,
+        "transitions": [{"from": f, "to": t} for f, t in package.transitions],
+    }
+
+
+def prepare_dispatch(
+    mission: dict,
+    *,
+    plan_approved: bool,
+    base: str = "main",
+) -> tuple[dict | None, str]:
+    """Build the full dispatch artifact set for the execution workflow.
+
+    Returns (artifacts, "ok") or (None, reason). ``artifacts`` carries everything
+    the workflow needs to create a branch + draft PR + record the transition,
+    with governance invariants attached. Enforces the plan-approval gate.
+    """
+    package, reason = build_execution_package(mission, plan_approved=plan_approved, base=base)
+    if package is None:
+        return None, reason
+    frm, to = package.transitions[0]
+    artifacts = {
+        "mission_id": package.mission_id,
+        "branch": package.branch,
+        "base": package.base,
+        "draft": True,
+        "pr_title": f"[EDO] {package.mission_id}: {package.title}",
+        "pr_body": render_pr_body(package, mission),
+        "manifest": render_manifest(package),
+        "transition": {
+            "mission_id": package.mission_id,
+            "from_state": frm, "to_state": to, "actor": "edo-execute",
+        },
+        "governance": dict(package.governance),
+    }
+    return artifacts, "ok"
