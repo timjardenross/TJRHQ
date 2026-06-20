@@ -86,7 +86,8 @@ _HELP = (
     "• `/hs explain` — interpret today's signal\n"
     "• `/hs review` — weekly Human Systems review\n"
     "• `/hs log <note>` — log a reflection or trigger event\n"
-    "• `/hs feedback useful|not <note>` — tell the system if guidance helped\n\n"
+    "• `/hs feedback helpful|neutral|not <note>` — tell the system how it landed\n"
+    "• `/hs push morning|evening|weekly|degradation` — preview a proactive push\n\n"
     "_Evidence-informed and non-diagnostic. For anything medical, clinicians "
     "remain the right call._"
 )
@@ -132,7 +133,7 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
     rest = parts[1].strip() if len(parts) > 1 else ""
 
     # Allow natural-language asks ("help me build a low-capacity day plan").
-    _verbs = ("today", "status", "plan", "explain", "review", "log", "feedback", "domains")
+    _verbs = ("today", "status", "plan", "explain", "review", "log", "feedback", "domains", "push")
     # A bare keyword ("plan", "review") is a direct command. Anything else —
     # including "help me build a…" — is treated as a natural-language ask first.
     is_direct = command in _verbs and not (command == "help")
@@ -161,6 +162,8 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
         body = _log(rest, user_id)
     elif command == "feedback":
         body = _feedback(rest, user_id)
+    elif command == "push":
+        body = _push(rest)
     else:  # pragma: no cover - guarded above
         body = _HELP
 
@@ -258,23 +261,49 @@ def _log(note: str, user_id: str | None) -> str:
     )
 
 
+def _push(rest: str) -> str:
+    """On-demand preview of a proactive push (dry-run render). Reuses the runner."""
+    job = (rest.split()[0].lower() if rest else "")
+    valid = ("morning", "evening", "weekly", "degradation")
+    if job not in valid:
+        return (
+            "Which push would you like to preview? Try "
+            "`/hs push morning`, `evening`, `weekly`, or `degradation`."
+        )
+    try:
+        from human_systems_scheduler import run_job  # lazy to avoid import cycle
+        report = run_job(job, dry_run=True, record=False)
+    except Exception as exc:  # pragma: no cover
+        log.warning("[human-systems] push preview failed: %s", exc)
+        return "Couldn't generate that preview right now."
+    if report.get("skipped"):
+        return (
+            f"*{job.capitalize()} push* — no actionable signal right now, so "
+            "nothing would be sent. That's the system staying quiet by design."
+        )
+    return f"_Preview — this is what the {job} push would send:_\n\n{report.get('text', '')}"
+
+
 def _feedback(rest: str, user_id: str | None) -> str:
     parts = rest.split(maxsplit=1)
     verdict = parts[0].lower() if parts else ""
     note = parts[1] if len(parts) > 1 else None
-    if verdict in ("useful", "helpful", "yes", "good"):
-        useful = True
-    elif verdict in ("not", "unhelpful", "no", "bad"):
-        useful = False
+    # Pilot taxonomy: helpful | neutral | not_helpful (with friendly aliases).
+    if verdict in ("helpful", "useful", "yes", "good"):
+        category = "helpful"
+    elif verdict in ("neutral", "ok", "meh"):
+        category = "neutral"
+    elif verdict in ("not", "not_helpful", "not-helpful", "unhelpful", "no", "bad"):
+        category = "not_helpful"
     else:
         return (
-            "Was the last guidance useful? Try `/hs feedback useful` or "
-            "`/hs feedback not <what didn't land>`."
+            "How did that guidance land? Try `/hs feedback helpful`, "
+            "`/hs feedback neutral`, or `/hs feedback not <what didn't land>`."
         )
-    memory.record_feedback(summary=note or verdict, useful=useful, note=note, user_id=user_id)
-    msg = (
-        "Noted — I'll favour that kind of guidance."
-        if useful
-        else "Noted — I'll steer away from that. Thanks for the steer."
-    )
+    memory.record_feedback(summary=note or category, category=category, note=note, user_id=user_id)
+    msg = {
+        "helpful": "Noted — I'll favour that kind of guidance.",
+        "neutral": "Noted — neither helped nor got in the way. Useful signal.",
+        "not_helpful": "Noted — I'll steer away from that. Thanks for the steer.",
+    }[category]
     return safety.frame(f"*Feedback recorded.* {msg}", with_footer=False)

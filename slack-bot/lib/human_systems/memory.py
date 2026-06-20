@@ -82,26 +82,33 @@ def record_recommendation(
         return False
 
 
+# Pilot feedback taxonomy → boolean usefulness mapping (migration 0021).
+_CATEGORY_USEFUL = {"helpful": True, "neutral": None, "not_helpful": False}
+
+
 def record_feedback(
     *,
     summary: str,
-    useful: bool,
+    category: str = "helpful",
     note: str | None = None,
     domain: str | None = None,
     user_id: str | None = None,
 ) -> bool:
-    """Persist the Captain's feedback on a recommendation's usefulness.
+    """Persist the Captain's feedback on a recommendation.
 
-    Rejected/unhelpful recommendations are stored too, so the system can avoid
-    repeating them (doctrine: store rejected or unhelpful recommendations).
+    ``category`` ∈ {helpful, neutral, not_helpful} (the Validation Pilot
+    taxonomy). Neutral and not-helpful feedback are stored too, so the system can
+    measure capacity impact and avoid repeating unhelpful guidance.
     """
     client = _client()
     if client is None:
         return False
+    category = category if category in _CATEGORY_USEFUL else "helpful"
     payload = {
         "given_on": date.today().isoformat(),
         "summary": summary[:1000],
-        "useful": useful,
+        "category": category,
+        "useful": _CATEGORY_USEFUL[category],
         "note": (note or "")[:1000] or None,
         "domain": domain,
         "user_id": user_id,

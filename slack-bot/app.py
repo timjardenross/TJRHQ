@@ -1333,6 +1333,17 @@ if __name__ == "__main__":
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
 
+    # ── Human Systems proactive scheduler (WP7, opt-in) ───────────────────────
+    # Reuses the running bot process and its Slack client — no parallel daemon.
+    # Enable with HUMAN_SYSTEMS_SCHEDULER=on once HUMAN_SYSTEMS_CHANNEL is set.
+    if os.getenv("HUMAN_SYSTEMS_SCHEDULER", "").lower() in ("on", "1", "true", "yes"):
+        try:
+            from human_systems_scheduler import start_in_process
+            start_in_process(app.client)
+            log.info("[startup] Human Systems proactive scheduler enabled")
+        except Exception as _hs_exc:  # non-blocking: never block bot startup
+            log.warning("[startup] Human Systems scheduler not started: %s", _hs_exc)
+
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     try:
         log.info("[startup] SocketModeHandler created; starting connection now")

@@ -289,7 +289,8 @@ class TestCommand(unittest.TestCase):
         self.assertIn("Logged", out)
 
     def test_feedback(self):
-        self.assertIn("Feedback recorded", hs.handle_human_systems("feedback useful"))
+        self.assertIn("Feedback recorded", hs.handle_human_systems("feedback helpful"))
+        self.assertIn("Feedback recorded", hs.handle_human_systems("feedback neutral"))
         self.assertIn("Feedback recorded", hs.handle_human_systems("feedback not too generic"))
 
     def test_red_flag_overrides_and_prepends(self):
