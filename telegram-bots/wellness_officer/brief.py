@@ -81,11 +81,11 @@ def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
     # Recovery telemetry
     lines.append(f"Recovery confidence: {snap.recovery_confidence}% — {snap.confidence_label}")
     lines.append(f"Pulses logged today: {snap.pulses_completed}/4")
-    if snap.latest_energy or snap.latest_mood or snap.latest_stress:
+    if snap.latest_energy or snap.latest_nervous_system or snap.latest_body_signals:
         signals = ", ".join(filter(None, [
-            f"energy={snap.latest_energy}" if snap.latest_energy else None,
-            f"mood={snap.latest_mood}"     if snap.latest_mood   else None,
-            f"stress={snap.latest_stress}" if snap.latest_stress else None,
+            f"capacity={snap.latest_energy}"           if snap.latest_energy         else None,
+            f"nervous_system={snap.latest_nervous_system}" if snap.latest_nervous_system else None,
+            f"body_signals={snap.latest_body_signals}" if snap.latest_body_signals   else None,
         ]))
         lines.append(f"Latest signals: {signals}")
 

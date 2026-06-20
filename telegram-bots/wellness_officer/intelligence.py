@@ -29,9 +29,9 @@ class WellnessSnapshot:
     end_of_day_done:     bool        = False
     evening_done:        bool        = False
     confidence_label:    str         = "No telemetry today"
-    latest_energy:       str | None  = None
-    latest_mood:         str | None  = None
-    latest_stress:       str | None  = None
+    latest_energy:         str | None  = None
+    latest_nervous_system: str | None  = None
+    latest_body_signals:   str | None  = None
     escalation_level:    int         = 0
 
     # ── Daily health log (from health_daily_logs — today's row) ───────────────
@@ -115,9 +115,9 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
             snap.end_of_day_done     = r.get("end_of_day_done", False)
             snap.evening_done        = r.get("evening_done", False)
             snap.confidence_label    = r.get("confidence_label", "Unknown")
-            snap.latest_energy       = r.get("latest_energy")
-            snap.latest_mood         = r.get("latest_mood")
-            snap.latest_stress       = r.get("latest_stress")
+            snap.latest_energy         = r.get("latest_energy")
+            snap.latest_nervous_system = r.get("latest_nervous_system")
+            snap.latest_body_signals   = r.get("latest_body_signals")
             snap.escalation_level    = esc
     except Exception as exc:
         log.error("[wellness] recovery_confidence_today query failed: %s", exc)

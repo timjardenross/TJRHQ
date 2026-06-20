@@ -67,8 +67,8 @@ class RecoveryStatus:
     evening_done: bool
     confidence_label: str
     latest_energy: str | None
-    latest_mood: str | None
-    latest_stress: str | None
+    latest_nervous_system: str | None
+    latest_body_signals: str | None
     latest_readiness: str | None
     last_pulse_at: str | None
 
@@ -109,8 +109,8 @@ _STATUS_DEFAULTS = RecoveryStatus(
     evening_done=False,
     confidence_label="No telemetry today",
     latest_energy=None,
-    latest_mood=None,
-    latest_stress=None,
+    latest_nervous_system=None,
+    latest_body_signals=None,
     latest_readiness=None,
     last_pulse_at=None,
 )
@@ -135,8 +135,8 @@ def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
                 evening_done=row.get("evening_done", False),
                 confidence_label=row.get("confidence_label", "Unknown"),
                 latest_energy=row.get("latest_energy"),
-                latest_mood=row.get("latest_mood"),
-                latest_stress=row.get("latest_stress"),
+                latest_nervous_system=row.get("latest_nervous_system"),
+                latest_body_signals=row.get("latest_body_signals"),
                 latest_readiness=row.get("latest_readiness"),
                 last_pulse_at=row.get("last_pulse_at"),
             )
@@ -247,13 +247,13 @@ def build_daily_summary(status: RecoveryStatus) -> str:
         "",
         f"_{status.confidence_label}_",
     ]
-    if status.latest_energy or status.latest_mood or status.latest_stress:
+    if status.latest_energy or status.latest_nervous_system or status.latest_body_signals:
         lines.append("")
         lines.append("*Latest signals:*")
-        if status.latest_energy:   lines.append(f"• Energy: {status.latest_energy.capitalize()}")
-        if status.latest_mood:     lines.append(f"• Mood: {status.latest_mood.capitalize()}")
-        if status.latest_stress:   lines.append(f"• Stress: {status.latest_stress.capitalize()}")
-        if status.latest_readiness: lines.append(f"• Readiness: {status.latest_readiness.capitalize()}")
+        if status.latest_energy:          lines.append(f"• Capacity: {status.latest_energy.capitalize()}")
+        if status.latest_nervous_system:  lines.append(f"• NS: {status.latest_nervous_system.capitalize()}")
+        if status.latest_body_signals:    lines.append(f"• Body: {status.latest_body_signals.capitalize()}")
+        if status.latest_readiness:       lines.append(f"• Readiness: {status.latest_readiness.capitalize()}")
 
     return "\n".join(lines)
 
