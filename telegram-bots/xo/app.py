@@ -185,7 +185,7 @@ def _kb_energy(pt: str) -> InlineKeyboardMarkup:
 def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("😊 Positive", callback_data=f"pl|pt={pt}|e={e}|m=positive"),
-        InlineKeyboardButton("😐 Neutral",  callback_data=f"pl|pt={pt}|e={e}|m=neutral"),
+        InlineKeyboardButton("😐 Stable",   callback_data=f"pl|pt={pt}|e={e}|m=stable"),
         InlineKeyboardButton("😔 Low",      callback_data=f"pl|pt={pt}|e={e}|m=low"),
     ]])
 
@@ -202,7 +202,7 @@ async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bo
     saved = False
     if db:
         try:
-            db.table("recovery_pulses").upsert(
+            res = db.table("recovery_pulses").upsert(
                 {
                     "log_date":   date.today().isoformat(),
                     "pulse_type": pt,
@@ -214,9 +214,10 @@ async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bo
                 on_conflict="log_date,pulse_type",
             ).execute()
             saved = True
-            log.info("Pulse written: %s energy=%s mood=%s stress=%s", pt, energy, mood, stress)
+            log.info("Pulse written: %s energy=%s mood=%s stress=%s rows=%s",
+                     pt, energy, mood, stress, len(res.data) if res.data else 0)
         except Exception as exc:
-            log.error("pulse upsert failed: %s", exc)
+            log.error("pulse upsert failed: %s | energy=%s mood=%s stress=%s", exc, energy, mood, stress)
     status = get_recovery_status(db)
     return saved, status
 
