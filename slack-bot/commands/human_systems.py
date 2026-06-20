@@ -28,8 +28,10 @@ if str(_REPO_ROOT) not in sys.path:
 # Package import works whether invoked as slack-bot.lib or with slack-bot on path.
 try:
     from lib.human_systems import framework, push, safety, memory
+    from lib.human_systems import decision, mission_load as ml, xo
 except Exception:  # pragma: no cover - fallback for alternate sys.path layouts
     from slack_bot.lib.human_systems import framework, push, safety, memory  # type: ignore
+    from slack_bot.lib.human_systems import decision, mission_load as ml, xo  # type: ignore
 
 
 # ── Data access ───────────────────────────────────────────────────────────────
@@ -71,22 +73,32 @@ def _today_row(rows: list[dict]) -> dict | None:
     return rows[0] if rows else None
 
 
+def _context(days: int = 7):
+    """Shared decision-engine context: (snapshot, mission load, recent rows)."""
+    rows = _fetch_rows(days=days)
+    snapshot = framework.interpret_capacity(_today_row(rows))
+    load = ml.get_mission_load()
+    return snapshot, load, rows
+
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 _HELP = (
     "*Human Systems* — your operating-system support across movement, nutrition, "
     "sleep, mind, performance, and resilience.\n\n"
+    "*Decision support — what should I do about it?*\n"
+    "• `/hs decide` — the single highest-leverage action right now\n"
+    "• `/hs focus` — recommended focus + what to defer (capacity allocation)\n"
+    "• `/hs load` — mission load vs. available capacity\n"
+    "• `/hs friction` — recurring causes of capacity loss\n"
+    "• `/hs capacity-review` — weekly drivers, drains, one change\n"
+    "• `/hs xo <request>` — cross-domain decision (e.g. `xo make progress on coaching`)\n\n"
     "*Ask for support:*\n"
     "• `/hs today` — read today's capacity and what fits\n"
-    "• `/hs plan low-capacity` — a protected low-capacity day plan\n"
-    "• `/hs plan recovery` — a recovery plan for the next few days\n"
-    "• `/hs plan movement` — a capacity-based, pain-aware movement plan\n"
-    "• `/hs plan nutrition` — practical nutrition anchors\n"
-    "• `/hs plan mind` — manage cognitive load / overwhelm\n"
+    "• `/hs plan low-capacity|recovery|movement|nutrition|mind` — build a plan\n"
     "• `/hs explain` — interpret today's signal\n"
     "• `/hs review` — weekly Human Systems review\n"
-    "• `/hs log <note>` — log a reflection or trigger event\n"
-    "• `/hs feedback helpful|neutral|not <note>` — tell the system how it landed\n"
+    "• `/hs log <note>` · `/hs feedback helpful|neutral|not <note>`\n"
     "• `/hs push morning|evening|weekly|degradation` — preview a proactive push\n\n"
     "_Evidence-informed and non-diagnostic. For anything medical, clinicians "
     "remain the right call._"
@@ -108,9 +120,22 @@ def _natural_intent(text: str) -> str | None:
         return "plan mind"
     if any(p in t for p in ("what does my", "pattern suggest", "explain", "signal", "interpret")):
         return "explain"
+    # Decision-support intents (HSF-002).
+    if any(p in t for p in ("overload", "too many missions", "mission load", "how many missions")):
+        return "load"
+    if any(p in t for p in ("friction", "what is consuming", "what's draining", "draining my", "what's costing")):
+        return "friction"
+    if any(p in t for p in ("what should i focus", "what should i prioritise", "what should i prioritize",
+                            "what to focus", "where should i focus", "what should i stop", "what should i defer")):
+        return "focus"
+    if any(p in t for p in ("highest leverage", "what should i do", "what should i do today",
+                            "highest-value", "best use of", "what matters most")):
+        return "decide"
+    if any(p in t for p in ("capacity drivers", "capacity review", "what improved", "weekly capacity")):
+        return "capacity-review"
     if any(p in t for p in ("week", "trend", "review")):
         return "review"
-    if any(p in t for p in ("prioritise", "prioritize", "what should i", "today")):
+    if "today" in t:
         return "today"
     return None
 
@@ -133,7 +158,9 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
     rest = parts[1].strip() if len(parts) > 1 else ""
 
     # Allow natural-language asks ("help me build a low-capacity day plan").
-    _verbs = ("today", "status", "plan", "explain", "review", "log", "feedback", "domains", "push")
+    _verbs = ("today", "status", "plan", "explain", "review", "log", "feedback", "domains", "push",
+              "decide", "focus", "prioritise", "prioritize", "allocate", "load", "friction",
+              "capacity-review", "creview", "xo")
     # A bare keyword ("plan", "review") is a direct command. Anything else —
     # including "help me build a…" — is treated as a natural-language ask first.
     is_direct = command in _verbs and not (command == "help")
@@ -164,6 +191,18 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
         body = _feedback(rest, user_id)
     elif command == "push":
         body = _push(rest)
+    elif command == "decide":
+        body = _decide()
+    elif command in ("focus", "prioritise", "prioritize", "allocate"):
+        body = _focus()
+    elif command == "load":
+        body = _load_assessment()
+    elif command == "friction":
+        body = _friction()
+    elif command in ("capacity-review", "creview"):
+        body = _capacity_review()
+    elif command == "xo":
+        body = _xo(rest)
     else:  # pragma: no cover - guarded above
         body = _HELP
 
@@ -195,6 +234,98 @@ def _today(_rest: str) -> str:
         f"{'low-capacity' if snap.overall_band in ('limited', 'depleted') else 'movement'}`.",
     ]
     return safety.frame("\n".join(lines))
+
+
+# ── HSF-002 decision-support subcommands ──────────────────────────────────────
+
+def _decide() -> str:
+    """WP5 — the single highest-leverage action right now."""
+    snapshot, load, rows = _context(days=7)
+    frictions = decision.detect_friction(rows)
+    # notes=None: red-flag scanning is handled at the command boundary.
+    rec = decision.highest_leverage(snapshot, load, frictions, notes=None)
+    memory.record_recommendation(
+        kind="highest_leverage", domain="resilience", output_class="action",
+        summary=rec.primary[:200], source="captain_pull",
+    )
+    return safety.frame(rec.render())
+
+
+def _focus() -> str:
+    """WP1 — recommended focus + what to defer."""
+    snapshot, load, _ = _context(days=2)
+    alloc = decision.allocate_capacity(snapshot, load)
+    lines = [
+        "*Recommended Focus*",
+        f"_Capacity is {alloc.band}. {alloc.note}_",
+        "",
+    ]
+    for i, item in enumerate(alloc.focus, 1):
+        lines.append(f"{i}. {item}")
+    lines += ["", "*Defer:*"]
+    lines += [f"• {d}" for d in alloc.defer]
+    return safety.frame("\n".join(lines))
+
+
+def _load_assessment() -> str:
+    """WP2 — mission load vs. available capacity."""
+    snapshot, load, _ = _context(days=2)
+    a = decision.assess_mission_load(snapshot, load)
+    lines = [
+        "*Mission Load vs. Capacity*",
+        f"• Current capacity: *{a.band}*",
+        f"• Open missions: *{a.open_count if load.data_available else 'unknown'}*",
+        f"• Sustainable to progress today: *{a.sustainable_active}*",
+        "",
+        f"_{a.headline}_",
+        "",
+        "*Recommendation:* " + a.recommendation,
+    ]
+    return safety.frame("\n".join(lines))
+
+
+def _friction() -> str:
+    """WP4 — recurring causes of capacity loss."""
+    _, _, rows = _context(days=14)
+    findings = decision.detect_friction(rows)
+    if not findings:
+        return safety.frame(
+            "*Friction Scan*\nNo recurring capacity drains detected in recent data. "
+            "Either the pattern is steady or there isn't enough logged yet to read one.",
+            with_footer=False,
+        )
+    lines = ["*Friction — recurring capacity drains*", ""]
+    for f in findings:
+        lines.append(f"• *{f.description}*")
+        lines.append(f"  ↳ {f.lever}")
+        memory.record_friction(  # persist to the register (non-blocking)
+            friction_key=f.key, description=f.description, lever=f.lever, confidence=f.confidence,
+        )
+    lines += ["", "_Patterns are framed as information, not verdicts. Based on the pattern, these may suggest where a small change pays off._"]
+    return safety.frame("\n".join(lines))
+
+
+def _capacity_review() -> str:
+    """WP3 — weekly drivers, drains, one recommended change."""
+    _, load, rows = _context(days=7)
+    body = decision.weekly_capacity_review(rows, load)
+    memory.record_recommendation(
+        kind="capacity_review", domain="resilience", output_class="trend",
+        summary="weekly capacity review issued", source="captain_pull",
+    )
+    return safety.frame(body)
+
+
+def _xo(request: str) -> str:
+    """WP6 — cross-domain decision support."""
+    if not request:
+        return (
+            "What would you like to weigh against your capacity? e.g. "
+            "`/hs xo make progress on the coaching business this week`."
+        )
+    snapshot, load, _ = _context(days=2)
+    # scan=False: the command boundary already scanned the raw text for red flags.
+    return xo.xo_decision(request, snapshot, load, scan=False)
 
 
 def _domains() -> str:

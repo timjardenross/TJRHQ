@@ -13,13 +13,13 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 import { HumanSystemsPanel } from '@/components/HumanSystemsPanel';
 
 const PULL_REQUESTS = [
+  ['/hs decide', 'The single highest-leverage action right now'],
+  ['/hs focus', 'Recommended focus + what to defer'],
+  ['/hs load', 'Mission load vs. available capacity'],
+  ['/hs friction', 'Recurring causes of capacity loss'],
+  ['/hs xo <request>', 'Cross-domain decision (e.g. “make progress on coaching”)'],
   ['/hs today', 'Read today’s capacity and what fits'],
-  ['/hs plan low-capacity', 'A protected low-capacity day plan'],
-  ['/hs plan recovery', 'A recovery plan for the next few days'],
-  ['/hs plan movement', 'A capacity-based, pain-aware movement plan'],
-  ['/hs plan nutrition', 'Practical nutrition anchors'],
-  ['/hs explain', 'Interpret today’s signal'],
-  ['/hs review', 'Weekly Human Systems review']
+  ['/hs plan recovery', 'Build a recovery / movement / nutrition plan']
 ];
 
 const PUSH_OUTPUTS = [
@@ -38,9 +38,10 @@ export default function HumanSystemsPage() {
         </p>
         <h1 className="font-lcars text-2xl font-bold text-medical">Human Systems</h1>
         <p className="mt-1 max-w-2xl text-sm text-lcars-text/80 leading-relaxed">
-          An operational-resilience layer across movement, nutrition, sleep, mind, performance,
-          and resilience. The system reads available data and surfaces evidence-informed,
-          non-diagnostic support — you remain the decision-maker.
+          The Captain’s Capacity Advisor. It reads capacity, recovery, and mission load
+          together and recommends what to prioritise, what to defer, and the single
+          highest-leverage action — evidence-informed, non-diagnostic. You remain the
+          decision-maker.
         </p>
       </header>
 

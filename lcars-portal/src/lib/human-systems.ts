@@ -275,19 +275,102 @@ export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
   }
 }
 
+// ── HSF-002 decision layer (compact mirror of decision.py) ────────────────────
+
+const TERMINAL_STATUSES = ['closed', 'archived'];
+const SUSTAINABLE_ACTIVE: Record<EnergyBand, number> = {
+  good: 2,
+  moderate: 1,
+  limited: 0,
+  depleted: 0
+};
+
+/** Count open (in-flight) missions. Returns null when Supabase is unavailable. */
+export async function fetchOpenMissionCount(): Promise<number | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('missions').select('status');
+    if (error || !data) return null;
+    return data.filter(
+      (r: { status?: string }) => !TERMINAL_STATUSES.includes(String(r.status ?? '').toLowerCase())
+    ).length;
+  } catch {
+    return null;
+  }
+}
+
+export interface Decision {
+  highestLeverage: string;
+  focus: string[];
+  defer: string[];
+  missionLoadNote: string | null;
+}
+
+/** Single highest-leverage action + focus/defer, mirroring the Python engine. */
+export function decide(snapshot: CapacitySnapshot, openMissions: number | null): Decision {
+  const band = snapshot.overallBand;
+
+  // Highest-leverage action.
+  let highestLeverage: string;
+  if (snapshot.escalation) {
+    highestLeverage = 'Involve a clinician — see the escalation note above.';
+  } else if (band === 'limited' || band === 'depleted') {
+    highestLeverage =
+      'Protect capacity today: pick one anchor, defer the rest, and schedule one genuine recovery block now.';
+  } else if (band === 'moderate') {
+    highestLeverage =
+      'Spend your best window on the highest priority, then protect a recovery block. Hold everything below it.';
+  } else {
+    highestLeverage =
+      'Capacity is available — apply it to what matters most, and bank a small recovery anchor.';
+  }
+
+  // Focus / defer.
+  let focus: string[];
+  let defer: string[];
+  if (band === 'limited' || band === 'depleted') {
+    focus = ['Recovery', 'One must-do only'];
+    defer = ['New initiatives', 'Low-priority research', 'Additional commitments'];
+  } else if (band === 'moderate') {
+    focus = ['Top priority', 'A protected recovery block'];
+    defer = ['New initiatives beyond the top priority', 'P3+ backlog'];
+  } else {
+    focus = ['Top priorities', 'Bank a recovery anchor'];
+    defer = ['P3+ backlog', 'New commitments'];
+  }
+
+  // Mission-load note.
+  let missionLoadNote: string | null = null;
+  if (openMissions !== null) {
+    const sustainable = SUSTAINABLE_ACTIVE[band];
+    const overloaded = band === 'limited' || band === 'depleted' || openMissions > 5;
+    missionLoadNote = overloaded
+      ? `${openMissions} open missions exceed ${band} capacity — consider pausing new intake; progress ${Math.max(sustainable, 1)} today.`
+      : `${openMissions} open missions sit within ${band} capacity — up to ${sustainable} to progress today.`;
+  }
+
+  return { highestLeverage, focus, defer, missionLoadNote };
+}
+
 export interface HumanSystemsData {
   snapshot: CapacitySnapshot;
   debt: RecoveryDebt;
+  decision: Decision;
   isLive: boolean;
 }
 
 /** Load the panel's data, degrading gracefully to a neutral no-data snapshot. */
 export async function loadHumanSystems(): Promise<HumanSystemsData> {
-  const rows = await fetchHumanSystemsRows(7);
+  const [rows, openMissions] = await Promise.all([
+    fetchHumanSystemsRows(7),
+    fetchOpenMissionCount()
+  ]);
   const todayRow = rows.find((r) => String(r.log_date) === today()) ?? rows[0] ?? null;
+  const snapshot = interpretCapacity(todayRow);
   return {
-    snapshot: interpretCapacity(todayRow),
+    snapshot,
     debt: recoveryDebt(rows),
+    decision: decide(snapshot, openMissions),
     isLive: rows.length > 0
   };
 }

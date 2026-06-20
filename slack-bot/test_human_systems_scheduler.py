@@ -133,6 +133,12 @@ class TestRunner(unittest.TestCase):
     def test_unknown_job_handled(self):
         self.assertIn("error", hss.run_job("bogus", dry_run=True))
 
+    def test_morning_includes_highest_leverage(self):
+        # HSF-002: the morning pulse now carries the single highest-leverage action.
+        with patch.object(hss, "_fetch_rows", return_value=[HARD]):
+            report = hss.run_job("morning", dry_run=True)
+        self.assertIn("Highest-leverage today", report["text"])
+
     def test_run_all_covers_every_job(self):
         with patch.object(hss, "_fetch_rows", return_value=[GOOD, HARD]):
             reports = hss.run_all(dry_run=True)

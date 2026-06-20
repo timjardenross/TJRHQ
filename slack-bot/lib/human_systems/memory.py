@@ -30,6 +30,7 @@ if str(_REPO_ROOT) not in sys.path:
 REC_TABLE = "human_systems_recommendations"
 FEEDBACK_TABLE = "human_systems_feedback"
 PATTERN_TABLE = "human_systems_patterns"
+FRICTION_TABLE = "human_systems_friction"
 
 
 def _client():
@@ -149,6 +150,27 @@ def record_pattern(
         return bool(getattr(result, "ok", False))
     except Exception as exc:  # pragma: no cover
         log.warning("[human-systems.memory] record_pattern failed: %s", exc)
+        return False
+
+
+def record_friction(*, friction_key: str, description: str, lever: str, confidence: float) -> bool:
+    """Persist a detected friction finding to the register (HSF-002 WP4). Non-blocking."""
+    client = _client()
+    if client is None:
+        return False
+    payload = {
+        "observed_on": date.today().isoformat(),
+        "friction_key": friction_key,
+        "description": description[:1000],
+        "lever": lever[:1000],
+        "confidence": round(max(0.0, min(1.0, float(confidence))), 3),
+        "created_at": _now(),
+    }
+    try:
+        result = client.insert(FRICTION_TABLE, payload)
+        return bool(getattr(result, "ok", False))
+    except Exception as exc:  # pragma: no cover
+        log.warning("[human-systems.memory] record_friction failed: %s", exc)
         return False
 
 

@@ -51,7 +51,7 @@ export function HumanSystemsPanel() {
     );
   }
 
-  const { snapshot, debt, isLive } = data;
+  const { snapshot, debt, decision, isLive } = data;
   const debtTone =
     debt.level === 'high' ? 'operations' : debt.level === 'building' ? 'command' : 'status';
 
@@ -139,17 +139,41 @@ export function HumanSystemsPanel() {
         <span className="text-xs text-lcars-text/70">{debt.message}</span>
       </div>
 
-      {/* Top recommendation. */}
+      {/* HSF-002: Highest-leverage action (the single decision). */}
       <div className="mt-4 rounded-lcars border border-medical bg-medical/10 p-3">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-medical">Top recommendation</p>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-medical">Highest-leverage action</p>
         <p className="mt-1 text-sm text-lcars-text/90 leading-relaxed">
-          {snapshot.topRecommendation}
+          {decision.highestLeverage}
         </p>
+        {decision.missionLoadNote && (
+          <p className="mt-2 text-[11px] text-lcars-text/70">{decision.missionLoadNote}</p>
+        )}
+      </div>
+
+      {/* HSF-002: Recommended focus / defer. */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lcars border border-edge bg-panel/40 p-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-status">Focus</p>
+          <ol className="mt-1 list-decimal pl-4 text-xs text-lcars-text/85">
+            {decision.focus.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ol>
+        </div>
+        <div className="rounded-lcars border border-edge bg-panel/40 p-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-operations">Defer</p>
+          <ul className="mt-1 list-disc pl-4 text-xs text-lcars-text/70">
+            {decision.defer.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <p className="mt-3 text-[11px] text-lcars-muted leading-relaxed">
         Evidence-informed and non-diagnostic. Body signals are information, not a damage readout.
-        Ask the Human Systems Officer in Slack: <code>/hs today</code>, <code>/hs plan recovery</code>.
+        Ask the Capacity Advisor in Slack: <code>/hs decide</code>, <code>/hs focus</code>,{' '}
+        <code>/hs xo &lt;request&gt;</code>.
       </p>
     </LCARSPanel>
   );
