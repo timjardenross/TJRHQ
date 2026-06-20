@@ -20,6 +20,7 @@ _OFFICER = {
     "decision": "Human Systems Officer",
     "ori": "Operational Resilience Intelligence",
     "knowledge": "Knowledge",
+    "strategy": "Strategic Command (XO)",
 }
 
 _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢", "UNKNOWN": "⚪"}
@@ -35,6 +36,7 @@ def compose_daily_brief(
     control_tower: dict | None = None,
     ori=None,                      # intel.ori.ORISignal | None  (MSN-XO-003 WP2)
     knowledge=None,               # list[intel.knowledge.KnowledgeHit] | None (WP3)
+    strategy=None,                 # strategy.objectives.StrategicSnapshot | None (SPC-001 WP4)
     date_str: str | None = None,
 ) -> str:
     """Compose the single daily operating picture. Pure."""
@@ -65,6 +67,24 @@ def compose_daily_brief(
     # Mission load.
     if load.data_available:
         lines.append(f"📋 *Mission load ({_OFFICER['missions']}):* {load.open_count} open")
+
+    # MSN-SPC-001 WP4: Strategic Focus — what today's work serves long-term.
+    if strategy is not None and getattr(strategy, "data_available", False):
+        active = list(getattr(strategy, "active", []) or [])
+        if active:
+            domains = getattr(strategy, "active_domains", []) or []
+            head = (
+                f"🧭 *Strategic Focus ({_OFFICER['strategy']}):* {len(active)} active "
+                f"objective(s) across {len(domains)} domain(s)"
+            )
+            orphans = getattr(strategy, "orphan_count", 0) or 0
+            if orphans:
+                head += f" · {orphans} unaligned mission(s)"
+            lines.append(head)
+            for o in active[:3]:
+                lines.append(
+                    f"   • [{o.priority}] {o.title} — _{o.domain}_ · {o.progress_label()}"
+                )
 
     # Delivery risk + blockers.
     if control_tower:

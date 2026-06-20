@@ -48,6 +48,23 @@ class DeliverySignal:
     overloaded: bool = False
 
 
+# ── MSN-SPC-001 WP6: strategic prioritisation signal (gentle, capacity-respecting) ─
+
+@dataclass
+class StrategicSignal:
+    """Strategic-alignment signal fed into the highest-leverage decision.
+
+    Populated by the caller from the Strategic Planning layer so the
+    human_systems engine stays decoupled from it (same pattern as DeliverySignal).
+    ``alignment_weight`` gently boosts the priority-focus candidate when the day's
+    top priority advances an active objective — it never overrides capacity (D-055).
+    """
+    active_objectives: int = 0
+    top_objective: str | None = None
+    top_domain: str | None = None
+    alignment_weight: float = 1.0
+
+
 # ── WP2: Mission load assessment ──────────────────────────────────────────────
 
 @dataclass
@@ -296,6 +313,7 @@ def highest_leverage(
     learned: dict[str, float] | None = None,
     ori_risk: str | None = None,
     ori_headline: str | None = None,
+    strategic: "StrategicSignal | None" = None,
 ) -> Recommendation:
     """Produce ONE primary action (+ optional secondary), scored by leverage×confidence.
 
@@ -305,6 +323,8 @@ def highest_leverage(
     compete. ``learned`` (EDO-003 WP3) applies gentle confidence multipliers.
     ``ori_risk`` (MSN-XO-003 WP4) lets a RED/AMBER external resilience signal
     compete as a candidate — so all four Commands can influence the recommendation.
+    ``strategic`` (MSN-SPC-001 WP6) gently boosts the priority-focus candidate when
+    the day's top priority advances an active strategic objective (capacity-first).
     """
     escalation = safety.escalation_banner(safety.scan_red_flags(notes))
 
@@ -395,6 +415,13 @@ def highest_leverage(
         for c in candidates:
             c.score *= learned.get(c.domain, learned.get("_global", 1.0))
 
+    # SPC-001 WP6: strategy gently tilts the priority-focus candidate toward an
+    # active objective — bounded so it can re-rank within capacity, never override it.
+    if strategic and strategic.alignment_weight and strategic.alignment_weight != 1.0:
+        for c in candidates:
+            if c.domain == "priority":
+                c.score *= strategic.alignment_weight
+
     candidates.sort(key=lambda c: -c.score)
     top_c = candidates[0]
 
@@ -471,15 +498,19 @@ def recommendation_package(
     learned: dict[str, float] | None = None,
     ori_risk: str | None = None,
     ori_headline: str | None = None,
+    strategic: "StrategicSignal | None" = None,
 ) -> RecommendationPackage:
     """Executive decision support: one action plus impact, opportunity cost,
     deferral, and strategic alignment (D-055). Reuses highest_leverage().
 
     ``ori_risk`` (MSN-XO-003 WP4) lets external resilience intelligence influence
-    the recommendation — all four Commands can now shape the daily decision."""
+    the recommendation — all four Commands can now shape the daily decision.
+    ``strategic`` (MSN-SPC-001 WP6) ties the action back to the strategic objective
+    it advances, so the brief answers "how does today's work serve the long term?"."""
     rec = highest_leverage(snapshot, load, frictions, notes=notes,
                            delivery=delivery, learned=learned,
-                           ori_risk=ori_risk, ori_headline=ori_headline)
+                           ori_risk=ori_risk, ori_headline=ori_headline,
+                           strategic=strategic)
     alloc = allocate_capacity(snapshot, load)
 
     expected = _IMPACT_BY_LEVERAGE.get(rec.leverage, "Directs limited capacity to the highest-value next step.")
@@ -501,6 +532,11 @@ def recommendation_package(
         alignment = "Strong — advances the top priority within available capacity (D-055)."
     else:
         alignment = "Moderate — steady, capacity-respecting progress."
+
+    # SPC-001 WP6: name the strategic objective this work serves (long-term link).
+    if strategic and strategic.top_objective:
+        dom = f", {strategic.top_domain}" if strategic.top_domain else ""
+        alignment += f" Serves objective: {strategic.top_objective}{dom}."
 
     return RecommendationPackage(
         primary=rec.primary, confidence=rec.confidence, expected_impact=expected,

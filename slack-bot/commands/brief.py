@@ -27,11 +27,13 @@ try:
     from lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning
     from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
     from lib.intel import ori as _ori, knowledge as _knowledge
+    from lib.strategy import objectives as _strategy, alignment as _alignment
 except Exception:  # pragma: no cover
     from slack_bot.lib import daily_brief  # type: ignore
     from slack_bot.lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning  # type: ignore
     from slack_bot.lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis  # type: ignore
     from slack_bot.lib.intel import ori as _ori, knowledge as _knowledge  # type: ignore
+    from slack_bot.lib.strategy import objectives as _strategy, alignment as _alignment  # type: ignore
 
 # Reuse the Human Systems command's data helpers (single source of fetch logic).
 try:
@@ -57,12 +59,27 @@ def build_brief() -> str:
     except Exception as exc:  # pragma: no cover
         log.warning("[brief] ORI signal unavailable: %s", exc)
 
+    # MSN-SPC-001 WP4/WP6: strategic snapshot + gentle prioritisation signal.
+    strat_snapshot = None
+    strat_signal = None
+    try:
+        strat_snapshot = _strategy.fetch_snapshot()
+        if strat_snapshot and strat_snapshot.data_available:
+            f = _alignment.to_signal(strat_snapshot)
+            strat_signal = decision.StrategicSignal(
+                active_objectives=f.active_objectives, top_objective=f.top_objective,
+                top_domain=f.top_domain, alignment_weight=f.alignment_weight,
+            )
+    except Exception as exc:  # pragma: no cover
+        log.warning("[brief] strategic snapshot unavailable: %s", exc)
+
     # Pass today's notes so a red flag escalates; ORI risk feeds the decision (WP4).
     notes = (today or {}).get("notes")
     pkg = decision.recommendation_package(
         snapshot, load, frictions, notes=notes, delivery=delivery, learned=learned,
         ori_risk=(ori_signal.overall_risk if ori_signal else None),
         ori_headline=(ori_signal.top_risk if ori_signal else None),
+        strategic=strat_signal,
     )
 
     # EDO control tower (reused, not rebuilt).
@@ -84,6 +101,7 @@ def build_brief() -> str:
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,
         delivery=delivery, control_tower=tower, ori=ori_signal, knowledge=knowledge_hits,
+        strategy=strat_snapshot,
     )
 
     # WP3 adoption metric: record that a brief was issued (usage signal).
@@ -103,7 +121,42 @@ def handle_brief(text: str, user_id: str | None = None, channel_id: str | None =
         )
     if raw in ("adoption", "metrics"):
         return _adoption()
+    if raw in ("strategy", "objectives", "strategic"):
+        return safety.frame(_strategy_view())
     return safety.frame(build_brief())
+
+
+def _strategy_view() -> str:
+    """`/brief strategy` — what objectives are currently active (SPC-001 WP4)."""
+    try:
+        snap = _strategy.fetch_snapshot()
+    except Exception as exc:  # pragma: no cover
+        log.warning("[brief] strategy view unavailable: %s", exc)
+        snap = None
+
+    if snap is None or not snap.data_available:
+        return (
+            "*Strategic Focus*\n_No active objectives recorded yet._\n\n"
+            "The strategic layer sits above missions: Vision → Domain → Objective "
+            "→ Mission. Once objectives are registered, this shows what's active, "
+            "their progress, and any unaligned missions. See "
+            "`governance/STRATEGIC-PLANNING-DOCTRINE.md`."
+        )
+
+    active = snap.active
+    lines = [
+        "*Strategic Focus — active objectives*",
+        f"_{len(active)} active across {len(snap.active_domains)} domain(s)_",
+        "",
+    ]
+    for o in active:
+        lines.append(f"• [{o.priority}] *{o.title}* — _{o.domain}_")
+        lines.append(f"    ↳ {o.progress_label()}")
+    if snap.orphan_count:
+        lines += ["", f"⚠️ {snap.orphan_count} open mission(s) not yet aligned to an "
+                  "objective — review at the fortnightly objective check."]
+    lines += ["", "_Strategy advises the daily decision; capacity stays first (D-055)._"]
+    return "\n".join(lines)
 
 
 def _count(table: str, **eq) -> int:
