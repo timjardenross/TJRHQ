@@ -76,6 +76,43 @@ class TestDelivery(unittest.TestCase):
         self.assertIn("slack down", r.error or "")
 
 
+class TestTelegramDelivery(unittest.TestCase):
+    _ENV = {"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_CHAT_ID": "555"}
+
+    def _msg(self):
+        return push.morning_readiness_pulse(GOOD)
+
+    def test_fans_out_to_both_bots(self):
+        client = MagicMock()
+        with patch.dict("os.environ", self._ENV), \
+             patch.object(delivery, "_send_telegram", return_value=(True, None)) as tg:
+            r = delivery.deliver(self._msg(), client=client, channel="UCAP")
+        self.assertTrue(r.delivered)
+        client.chat_postMessage.assert_called_once()
+        tg.assert_called_once()
+        self.assertEqual(r.channel, "slack+telegram")
+
+    def test_telegram_only_when_no_slack(self):
+        with patch.dict("os.environ", self._ENV), \
+             patch.object(delivery, "_send_telegram", return_value=(True, None)):
+            r = delivery.deliver(self._msg(), client=None, channel=None)
+        self.assertTrue(r.delivered)
+        self.assertEqual(r.channel, "telegram")
+        self.assertIsNone(r.error)
+
+    def test_dry_run_lists_both_surfaces(self):
+        with patch.dict("os.environ", self._ENV):
+            r = delivery.deliver(self._msg(), client=MagicMock(), channel="UCAP", dry_run=True)
+        self.assertFalse(r.delivered)
+        self.assertTrue(r.dry_run)
+        self.assertIn("telegram", r.channel)
+
+    def test_to_telegram_strips_bold_and_truncates(self):
+        self.assertNotIn("*", delivery._to_telegram("*bold* and _italic_"))
+        long = "x" * 5000
+        self.assertLessEqual(len(delivery._to_telegram(long)), delivery._TELEGRAM_MAX)
+
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 
 class TestRunner(unittest.TestCase):
