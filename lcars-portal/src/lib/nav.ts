@@ -32,6 +32,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Systems, runtime and build health'
   },
   {
+    href: '/delivery',
+    label: 'Delivery',
+    glyph: '15',
+    department: 'engineering',
+    description: 'Delivery pipeline, bottlenecks and metrics (EDO)'
+  },
+  {
     href: '/number-one',
     label: 'Number One',
     glyph: '04',

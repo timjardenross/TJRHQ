@@ -71,6 +71,7 @@ from commands.health_event import (
 )
 from commands.health_synthesis import handle_health_brief
 from commands.human_systems import handle_human_systems
+from commands.delivery import handle_delivery
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1236,6 +1237,18 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /hs: user=%s sub=%r", user_id, text)
         respond(handle_human_systems(text, user_id, channel_id))
+
+    # ── Engineering & Delivery Officer (MSN-EDO-001) ──────────────────────────
+
+    @app.command("/delivery")
+    def handle_delivery_slash(ack, respond, command):
+        """/delivery — EDO delivery visibility: status · bottlenecks · metrics · lint · reuse."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /delivery: user=%s sub=%r", user_id, text)
+        respond(handle_delivery(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
