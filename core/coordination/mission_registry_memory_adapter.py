@@ -167,20 +167,12 @@ class MissionRegistryMemoryAdapter:
         return self._load_from_files()
 
     def _build_registry_from_db_path(self):
-        if not self.db_path:
-            return None
-        try:
-            from core.missions.mission_registry import MissionRegistry as LocalMissionRegistry  # type: ignore
-        except Exception:
-            try:
-                from core.missions.mission_registry import MissionRegistry as LocalMissionRegistry  # type: ignore
-            except Exception:
-                return None
-        try:
-            return LocalMissionRegistry(self.db_path)
-        except Exception as exc:
-            log.warning("[mission-registry-memory] registry init failed: %s", exc)
-            return None
+        # The SQLite mission registry was retired under MSN-EDO-005: it was dead
+        # at runtime (db_path was never set by any caller) and one of four
+        # competing mission stores. The adapter uses the canonical file/Supabase
+        # path via _load_from_files(). Kept as a no-op so any future caller that
+        # passes db_path degrades gracefully to the file loader.
+        return None
 
     def _load_from_files(self) -> list[dict[str, Any]]:
         # Fallback is intentionally thin and advisory only.

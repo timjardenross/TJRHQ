@@ -32,6 +32,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Systems, runtime and build health'
   },
   {
+    href: '/delivery',
+    label: 'Delivery',
+    glyph: '15',
+    department: 'engineering',
+    description: 'Delivery pipeline, bottlenecks and metrics (EDO)'
+  },
+  {
     href: '/number-one',
     label: 'Number One',
     glyph: '04',
@@ -58,6 +65,13 @@ export const NAV_ITEMS: NavItem[] = [
     glyph: '07',
     department: 'medical',
     description: 'Stage record — Knowledge Officer'
+  },
+  {
+    href: '/human-systems',
+    label: 'Human Systems',
+    glyph: '14',
+    department: 'medical',
+    description: 'Capacity, energy domains and resilience (HSF-001)'
   },
   {
     href: '/operations',
