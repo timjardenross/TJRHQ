@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
+import { CommandStrip } from '@/components/CommandStrip';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import {
   alerts,
@@ -457,6 +458,9 @@ export default function CaptainsChairPage() {
     <div className="flex gap-4">
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
+
+        {/* ── Captain's operating strip (CCP-001 — live Command Memory) ───── */}
+        <CommandStrip />
 
         {/* ── Recovery section (ROS-001 v1.1 Phase 2 — live Supabase data) ── */}
         <ROSPanels />
