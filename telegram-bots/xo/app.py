@@ -120,9 +120,9 @@ def _bar(pct: int) -> str:
 
 def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
     signals = ", ".join(filter(None, [
-        f"energy={status.latest_energy}"    if status.latest_energy    else None,
-        f"mood={status.latest_mood}"        if status.latest_mood      else None,
-        f"stress={status.latest_stress}"    if status.latest_stress    else None,
+        f"energy={status.latest_energy}"              if status.latest_energy          else None,
+        f"ns={status.latest_nervous_system}"          if status.latest_nervous_system  else None,
+        f"body={status.latest_body_signals}"          if status.latest_body_signals    else None,
     ])) or "no signals yet today"
 
     wellness_ctx = ""
@@ -161,8 +161,8 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
 
 
 # ── Inline pulse flow ─────────────────────────────────────────────────────────
-# Callback data format: pl|pt=<type>|e=<energy>|m=<mood>|s=<stress>
-# Steps: energy → mood → stress → write to DB
+# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>
+# Steps: capacity → nervous system → body signals → write to DB
 
 _PULSE_LABELS = {
     "morning":    "🌅 Morning Readiness",
@@ -194,21 +194,23 @@ def _kb_energy(pt: str) -> InlineKeyboardMarkup:
     ]])
 
 def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
+    """Step 2: Nervous system state (PNE/PRT core signal)."""
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("😊 Positive", callback_data=f"pl|pt={pt}|e={e}|m=positive"),
-        InlineKeyboardButton("😐 Stable",   callback_data=f"pl|pt={pt}|e={e}|m=stable"),
-        InlineKeyboardButton("😔 Low",      callback_data=f"pl|pt={pt}|e={e}|m=low"),
+        InlineKeyboardButton("🟢 Calm",        callback_data=f"pl|pt={pt}|e={e}|m=calm"),
+        InlineKeyboardButton("🟡 Activated",   callback_data=f"pl|pt={pt}|e={e}|m=activated"),
+        InlineKeyboardButton("🔴 Dysregulated", callback_data=f"pl|pt={pt}|e={e}|m=dysregulated"),
     ]])
 
 def _kb_stress(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
+    """Step 3: Body signals (PNE framing — context not score)."""
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("✨ Low",      callback_data=f"pl|pt={pt}|e={e}|m={m}|s=low"),
-        InlineKeyboardButton("⚡ Moderate", callback_data=f"pl|pt={pt}|e={e}|m={m}|s=moderate"),
-        InlineKeyboardButton("🔥 High",     callback_data=f"pl|pt={pt}|e={e}|m={m}|s=high"),
+        InlineKeyboardButton("🤫 Quiet",      callback_data=f"pl|pt={pt}|e={e}|m={m}|s=quiet"),
+        InlineKeyboardButton("💬 Present",    callback_data=f"pl|pt={pt}|e={e}|m={m}|s=present"),
+        InlineKeyboardButton("📢 Significant", callback_data=f"pl|pt={pt}|e={e}|m={m}|s=significant"),
     ]])
 
 
-async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bool, RecoveryStatus, str | None]:
+async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: str) -> tuple[bool, RecoveryStatus, str | None]:
     db = _get_supabase()
     saved = False
     err_msg: str | None = None
@@ -219,21 +221,21 @@ async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bo
         try:
             res = db.table("recovery_pulses").upsert(
                 {
-                    "log_date":   date.today().isoformat(),
-                    "pulse_type": pt,
-                    "energy":          energy,
-                    "nervous_system":  mood,
-                    "body_signals":    stress,
-                    "source":     "telegram",
+                    "log_date":       date.today().isoformat(),
+                    "pulse_type":     pt,
+                    "energy":         energy,
+                    "nervous_system": nervous_system,
+                    "body_signals":   body_signals,
+                    "source":         "telegram",
                 },
                 on_conflict="log_date,pulse_type",
             ).execute()
             saved = True
-            log.info("Pulse written: %s energy=%s mood=%s stress=%s rows=%s",
-                     pt, energy, mood, stress, len(res.data) if res.data else 0)
+            log.info("Pulse written: %s energy=%s ns=%s body=%s rows=%s",
+                     pt, energy, nervous_system, body_signals, len(res.data) if res.data else 0)
         except Exception as exc:
             err_msg = str(exc)
-            log.error("pulse upsert failed: %s | energy=%s mood=%s stress=%s", exc, energy, mood, stress)
+            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s", exc, energy, nervous_system, body_signals)
     status = get_recovery_status(db)
     return saved, status, err_msg
 
@@ -267,6 +269,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
         "*Ops*\n"
         "/dispatch — manual dispatch check\n"
+        "/brief — OR intelligence brief on demand\n"
         "/db\\_status — Supabase connectivity test\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
         "07:00 — Daily Operating Picture \\(capacity · decision · missions · delivery · resilience\\)\n"
@@ -292,7 +295,7 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(
         f"📡 *{_escape(label)}*\n\n"
         f"Confidence: `{_escape(_bar(conf))}` {conf}%\n\n"
-        "How's your energy right now?",
+        "Capacity right now?",
         parse_mode="MarkdownV2",
         reply_markup=_kb_energy(pt),
     )
@@ -427,6 +430,44 @@ async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+# ── OR Intelligence brief ─────────────────────────────────────────────────────
+
+async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate an OR intelligence brief on demand and write it to Supabase."""
+    await update.message.reply_text(
+        "⚙️ Generating OR intelligence brief\\.\\.\\. this may take 30\\-60 seconds\\.",
+        parse_mode="MarkdownV2",
+    )
+    try:
+        from intelligence.scheduler import run_once
+        import asyncio
+        brief = await asyncio.get_event_loop().run_in_executor(None, run_once)
+        risk_icon = {"GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}.get(brief.overall_risk, "⚪")
+        lines = [
+            f"*OR Intelligence Brief — {_escape(brief.brief_id[:8])}*\n",
+            f"{risk_icon} Risk: *{_escape(brief.overall_risk)}*",
+        ]
+        if brief.bottom_line:
+            lines.append(f"\n*Bottom Line*\n{_escape(brief.bottom_line)}")
+        if brief.executive_snapshot:
+            lines.append(f"\n*Snapshot*\n{_escape(brief.executive_snapshot)}")
+        lines.append(f"\n_Events: {brief.events_included} included · {brief.events_suppressed} suppressed_")
+        lines.append("_LCARS Astrometrics updated\\._")
+        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+        log.info("[brief] generated brief_id=%s risk=%s", brief.brief_id, brief.overall_risk)
+    except ImportError:
+        await update.message.reply_text(
+            "⚠️ Intelligence module not available in this environment\\.",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        log.error("[brief] generation failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Brief generation failed: `{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -479,7 +520,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
-            f"Energy: {e_cap} · Mood: {m_cap} · Stress: {s_cap}\n\n"
+            f"Capacity: {e_cap} · NS: {m_cap} · Body: {s_cap}\n\n"
             f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
             f"Pulses: {_escape(done)}  AM · Mid · EOD · PM"
             f"{error_line}",
@@ -490,8 +531,8 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if e and m:
         await query.edit_message_text(
             f"📡 *{_escape(label)}*\n\n"
-            f"Energy: {_escape(e.capitalize())} · Mood: {_escape(m.capitalize())}\n\n"
-            "Stress level?",
+            f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
+            "Body signals right now?",
             parse_mode="MarkdownV2",
             reply_markup=_kb_stress(pt, e, m),
         )
@@ -500,8 +541,8 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if e:
         await query.edit_message_text(
             f"📡 *{_escape(label)}*\n\n"
-            f"Energy: {_escape(e.capitalize())}\n\n"
-            "How's your mood?",
+            f"Capacity: {_escape(e.capitalize())}\n\n"
+            "Nervous system state?",
             parse_mode="MarkdownV2",
             reply_markup=_kb_mood(pt, e),
         )
@@ -601,6 +642,7 @@ def main() -> None:
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
+    app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
