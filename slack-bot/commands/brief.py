@@ -28,12 +28,14 @@ try:
     from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
     from lib.intel import ori as _ori, knowledge as _knowledge
     from lib.strategy import objectives as _strategy, alignment as _alignment
+    from lib.comms import opportunities as _comms
 except Exception:  # pragma: no cover
     from slack_bot.lib import daily_brief  # type: ignore
     from slack_bot.lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning  # type: ignore
     from slack_bot.lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis  # type: ignore
     from slack_bot.lib.intel import ori as _ori, knowledge as _knowledge  # type: ignore
     from slack_bot.lib.strategy import objectives as _strategy, alignment as _alignment  # type: ignore
+    from slack_bot.lib.comms import opportunities as _comms  # type: ignore
 
 # Reuse the Human Systems command's data helpers (single source of fetch logic).
 try:
@@ -98,10 +100,17 @@ def build_brief() -> str:
     except Exception as exc:  # pragma: no cover
         log.warning("[brief] knowledge unavailable: %s", exc)
 
+    # COMMS-001 WP5: surface the top publishable opportunity (reused engine).
+    comms_opps = None
+    try:
+        comms_opps = _comms.gather_opportunities()
+    except Exception as exc:  # pragma: no cover
+        log.warning("[brief] comms opportunities unavailable: %s", exc)
+
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,
         delivery=delivery, control_tower=tower, ori=ori_signal, knowledge=knowledge_hits,
-        strategy=strat_snapshot,
+        strategy=strat_snapshot, comms=comms_opps,
     )
 
     # WP3 adoption metric: record that a brief was issued (usage signal).

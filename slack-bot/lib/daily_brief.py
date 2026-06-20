@@ -21,6 +21,7 @@ _OFFICER = {
     "ori": "Operational Resilience Intelligence",
     "knowledge": "Knowledge",
     "strategy": "Strategic Command (XO)",
+    "comms": "Communications & Presence Officer",
 }
 
 _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢", "UNKNOWN": "⚪"}
@@ -37,6 +38,7 @@ def compose_daily_brief(
     ori=None,                      # intel.ori.ORISignal | None  (MSN-XO-003 WP2)
     knowledge=None,               # list[intel.knowledge.KnowledgeHit] | None (WP3)
     strategy=None,                 # strategy.objectives.StrategicSnapshot | None (SPC-001 WP4)
+    comms=None,                    # list[comms.ContentOpportunity] | None (COMMS-001 WP5)
     date_str: str | None = None,
 ) -> str:
     """Compose the single daily operating picture. Pure."""
@@ -122,6 +124,16 @@ def compose_daily_brief(
         lines.append(f"📚 *Relevant prior knowledge ({_OFFICER['knowledge']}):*")
         for h in knowledge[:4]:
             lines.append(f"   • [{h.kind}] {h.title}")
+
+    # COMMS-001 WP5: presence — a publishable opportunity worth surfacing today.
+    if comms:
+        pub = [o for o in comms if getattr(o, "is_publishable", True)]
+        if pub:
+            top = pub[0]
+            lines.append(
+                f"📡 *Presence ({_OFFICER['comms']}):* {len(pub)} publishable "
+                f"opportunity(ies) — top: {top.title} (_{top.pillar_name}_) · `/comms weekly`"
+            )
 
     lines += [
         "",

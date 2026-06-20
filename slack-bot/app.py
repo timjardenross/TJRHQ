@@ -73,6 +73,7 @@ from commands.health_synthesis import handle_health_brief
 from commands.human_systems import handle_human_systems
 from commands.delivery import handle_delivery
 from commands.brief import handle_brief
+from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1262,6 +1263,18 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /delivery: user=%s sub=%r", user_id, text)
         respond(handle_delivery(text, user_id, channel_id))
+
+    # ── Communications & Presence Officer (USS-TJR-MSN-COMMS-001) ──────────────
+
+    @app.command("/comms")
+    def handle_comms_slash(ack, respond, command):
+        """/comms — the ship's external voice: weekly influence brief · opportunities · draft scaffolds · portfolio."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /comms: user=%s sub=%r", user_id, text)
+        respond(handle_comms(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
