@@ -76,8 +76,31 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
     )
 
 
+def _record_health(store, source, *, status: str, items: int,
+                   latency_ms: int, error: str = None) -> None:
+    """Write one intelligence_source_health row for this sync run (WP7 obs).
+
+    Best-effort: a health-logging failure must never mask the sync outcome.
+    """
+    try:
+        from intelligence.models import SourceHealth
+        store.save_source_health(SourceHealth(
+            source_id=source.source_id,
+            source_name=source.source_name,
+            checked_at=datetime.now(timezone.utc),
+            status=status,
+            items_retrieved=items,
+            latency_ms=latency_ms,
+            error_message=error,
+        ))
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("Could not record source health: %s", exc)
+
+
 def run(days: int, dry_run: bool, backfill: bool,
         emit_sql: bool = False, source_id: str = None) -> dict:
+    import time
+    t0 = time.monotonic()
     lookback = max(days, 3650) if backfill else days
     source = _resolve_source(dry_run or emit_sql)
     if source_id:
@@ -88,6 +111,24 @@ def run(days: int, dry_run: bool, backfill: bool,
     if not no_db:
         from intelligence.persistence import intelligence_store as store  # noqa
     sql: list[str] = []
+
+    try:
+        return _run_inner(days, lookback, source, no_db, dry_run, emit_sql, store, sql)
+    except Exception as exc:
+        if not no_db and store is not None:
+            _record_health(store, source, status="failed", items=0,
+                           latency_ms=int((time.monotonic() - t0) * 1000),
+                           error=str(exc)[:500])
+        raise
+    finally:
+        # Success-path health is written inside _run_inner so it can report the
+        # exact saved count; this block only guards the failure path above.
+        pass
+
+
+def _run_inner(days, lookback, source, no_db, dry_run, emit_sql, store, sql) -> dict:
+    import time
+    t0 = time.monotonic()
 
     briefs = discover_parsed_briefs(lookback_days=lookback)
     log.info("Discovered %d briefs (lookback=%d days, dry_run=%s)",
@@ -200,6 +241,17 @@ def run(days: int, dry_run: bool, backfill: bool,
         _print_report(stats, True, None, file=sys.stderr)
     else:
         _print_report(stats, dry_run, pending_events if dry_run else None)
+
+    if not no_db:
+        # 'ok' when the repo was reachable and returned briefs; 'stale' when the
+        # discovery came back empty (repo unreachable / no briefs in window).
+        _record_health(
+            store, source,
+            status="ok" if stats["briefs_found"] else "stale",
+            items=stats.get("events_saved", 0),
+            latency_ms=int((time.monotonic() - t0) * 1000),
+            error=None if stats["briefs_found"] else "no briefs discovered",
+        )
     return stats
 
 
