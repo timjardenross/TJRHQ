@@ -43,7 +43,7 @@ if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
 from lib.human_systems import push, delivery, memory, decision, mission_load, framework  # noqa: E402
-from commands.human_systems import _fetch_rows, _today_row  # noqa: E402
+from commands.human_systems import _fetch_rows, _today_row, _delivery_context  # noqa: E402
 
 JOBS = ("morning", "evening", "weekly", "degradation")
 
@@ -70,7 +70,8 @@ def _build_message(job: str):
         snap = framework.interpret_capacity(_today_row(rows))
         load = mission_load.get_mission_load()
         frictions = decision.detect_friction(rows)
-        rec = decision.highest_leverage(snap, load, frictions, notes=None)
+        delivery, _ = _delivery_context()
+        rec = decision.highest_leverage(snap, load, frictions, notes=None, delivery=delivery)
         return push.morning_readiness_pulse(_today_row(rows), recommendation=rec.primary)
     if job == "evening":
         return push.evening_recovery_reflection(_today_row(_fetch_rows(days=2)))

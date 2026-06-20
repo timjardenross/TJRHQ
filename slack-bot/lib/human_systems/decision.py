@@ -32,6 +32,22 @@ _SUSTAINABLE_ACTIVE = {"good": 2, "moderate": 1, "limited": 0, "depleted": 0}
 OVERLOAD_BACKLOG_THRESHOLD = 5
 
 
+# ── HSF-002 WP5 ⟂ EDO: delivery signal (active missions, blocked, bottlenecks) ─
+
+@dataclass
+class DeliverySignal:
+    """Engineering-delivery signal fed into the highest-leverage decision.
+
+    Populated by the caller from the EDO delivery layer so the human_systems
+    engine stays decoupled from it (no cross-package import).
+    """
+    open_missions: int = 0
+    blocked: int = 0
+    oldest_open_age_days: int = 0
+    top_bottleneck: str | None = None
+    overloaded: bool = False
+
+
 # ── WP2: Mission load assessment ──────────────────────────────────────────────
 
 @dataclass
@@ -276,11 +292,14 @@ def highest_leverage(
     frictions: list[FrictionFinding],
     *,
     notes: str | None = None,
+    delivery: DeliverySignal | None = None,
 ) -> Recommendation:
     """Produce ONE primary action (+ optional secondary), scored by leverage×confidence.
 
     Decision-reduction by construction: candidates are ranked and only the top
-    one (plus at most one clearly-distinct secondary) is surfaced.
+    one (plus at most one clearly-distinct secondary) is surfaced. ``delivery``
+    (HSF-002 WP5 ⟂ EDO) lets active missions, blocked work, and bottlenecks
+    compete as candidates so "what should I do today" reflects delivery reality.
     """
     escalation = safety.escalation_banner(safety.scan_red_flags(notes))
 
@@ -318,6 +337,24 @@ def highest_leverage(
             rationale=f0.description.rstrip("."),
             leverage=f0.key.replace("_", " "), domain="friction",
         ))
+
+    # Delivery signal — blocked work and bottlenecks compete for the lever.
+    if delivery is not None:
+        if delivery.blocked > 0:
+            candidates.append(_Candidate(
+                score=0.82 * data_conf,
+                primary=f"Clear the blocked delivery item — {delivery.blocked} "
+                        "mission(s) are blocked and quietly draining attention.",
+                rationale=f"{delivery.blocked} blocked mission(s) in delivery",
+                leverage="unblock delivery", domain="delivery",
+            ))
+        elif delivery.top_bottleneck:
+            candidates.append(_Candidate(
+                score=0.6 * data_conf,
+                primary=f"Address the top delivery bottleneck: {delivery.top_bottleneck}.",
+                rationale="delivery is stalling on one item",
+                leverage="delivery bottleneck", domain="delivery",
+            ))
 
     # Apply capacity to the top priority — when capacity is available.
     top = _top_priority_label(load)

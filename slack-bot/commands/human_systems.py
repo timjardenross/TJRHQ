@@ -81,6 +81,41 @@ def _context(days: int = 7):
     return snapshot, load, rows
 
 
+def _delivery_context():
+    """Build (DeliverySignal, open_engineering_count) from the EDO delivery layer.
+
+    Graceful: returns (None, None) when delivery data is unavailable, so the
+    human_systems engine works with or without it (HSF-002 WP5/WP6 ⟂ EDO).
+    """
+    try:
+        from lib.delivery import data as ddata, analysis as danalysis, lifecycle as dlife
+    except Exception:  # pragma: no cover
+        return None, None
+    try:
+        rows = ddata.fetch_delivery_rows()
+    except Exception:  # pragma: no cover
+        return None, None
+    if not rows:
+        return None, None
+
+    def _state(r):
+        return r.get("delivery_state") or dlife.canonical_state(r.get("status"))
+
+    open_rows = [r for r in rows if dlife.is_open(_state(r))]
+    blocked = sum(1 for r in rows if _state(r) == "blocked")
+    open_eng = sum(1 for r in open_rows if "engineer" in str(r.get("task_type_norm") or ""))
+    bottlenecks = danalysis.detect_bottlenecks(rows)
+    oldest = max((r.get("age_days") or 0 for r in open_rows), default=0)
+    sig = decision.DeliverySignal(
+        open_missions=len(open_rows),
+        blocked=blocked,
+        oldest_open_age_days=oldest,
+        top_bottleneck=(bottlenecks[0].title if bottlenecks else None),
+        overloaded=len(open_rows) > 5,
+    )
+    return sig, (open_eng if open_eng else None)
+
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 
 _HELP = (
@@ -244,8 +279,9 @@ def _decide() -> str:
     """WP5 — the single highest-leverage action right now."""
     snapshot, load, rows = _context(days=7)
     frictions = decision.detect_friction(rows)
+    delivery, _ = _delivery_context()
     # notes=None: red-flag scanning is handled at the command boundary.
-    rec = decision.highest_leverage(snapshot, load, frictions, notes=None)
+    rec = decision.highest_leverage(snapshot, load, frictions, notes=None, delivery=delivery)
     memory.record_recommendation(
         kind="highest_leverage", domain="resilience", output_class="action",
         summary=rec.primary[:200], source="captain_pull",
@@ -326,8 +362,9 @@ def _xo(request: str) -> str:
             "`/hs xo make progress on the coaching business this week`."
         )
     snapshot, load, _ = _context(days=2)
+    _, engineering_load = _delivery_context()
     # scan=False: the command boundary already scanned the raw text for red flags.
-    return xo.xo_decision(request, snapshot, load, scan=False)
+    return xo.xo_decision(request, snapshot, load, scan=False, engineering_load=engineering_load)
 
 
 def _domains() -> str:

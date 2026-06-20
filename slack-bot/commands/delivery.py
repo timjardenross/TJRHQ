@@ -21,9 +21,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    from lib.delivery import analysis, data, lifecycle
+    from lib.delivery import analysis, data, lifecycle, execution
 except Exception:  # pragma: no cover
-    from slack_bot.lib.delivery import analysis, data, lifecycle  # type: ignore
+    from slack_bot.lib.delivery import analysis, data, lifecycle, execution  # type: ignore
 
 _HELP = (
     "*Engineering & Delivery Officer.*\n"
@@ -33,6 +33,7 @@ _HELP = (
     "• `/delivery metrics` — cycle time, PR rate, outcome rate, rework\n"
     "• `/delivery lint` — mission data-hygiene issues\n"
     "• `/delivery reuse <request>` — what already exists to reuse first\n"
+    "• `/delivery execute <mission_id>` — preview the execution package (gated)\n"
 )
 
 _SEV_EMOJI = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "⚪", "info": "ℹ️"}
@@ -58,6 +59,8 @@ def handle_delivery(text: str, user_id: str | None = None, channel_id: str | Non
         return _lint()
     if cmd == "reuse":
         return _reuse(rest)
+    if cmd in ("execute", "exec"):
+        return _execute(rest)
     return _HELP
 
 
@@ -126,6 +129,31 @@ def _lint() -> str:
     for f in findings[:15]:
         lines.append(f"{_SEV_EMOJI.get(f.severity,'•')} {f.title}: {f.detail}")
     return "\n".join(lines)
+
+
+def _execute(arg: str) -> str:
+    """Preview the execution package for a mission (governance-gated, no dispatch)."""
+    mid = (arg or "").strip()
+    if not mid:
+        return "Usage: `/delivery execute <mission_id>` — previews the execution package."
+    rows = _rows()
+    match = next(
+        (r for r in rows if str(r.get("mission_id") or "") == mid
+         or mid.lower() in str(r.get("title") or "").lower()),
+        None,
+    )
+    if not match:
+        return f"No open mission matching `{mid}`."
+    pkg, reason = execution.build_execution_package(
+        match, plan_approved=True, approver="preview",
+    )
+    if pkg is None:
+        return f"*Execution blocked* — {reason}."
+    return (
+        pkg.render()
+        + "\n\n_Preview only. Dispatch requires explicit plan approval; merge and "
+        "closure remain with the XO._"
+    )
 
 
 def _reuse(query: str) -> str:

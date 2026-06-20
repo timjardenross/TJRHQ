@@ -43,22 +43,52 @@ class CapacityAllocationView:
     not_reporting: list[str] = field(default_factory=list)
 
 
-def allocate(snapshot: framework.CapacitySnapshot, load: MissionLoad) -> CapacityAllocationView:
-    """Estimate how current capacity is already committed across Commands."""
+def allocate(
+    snapshot: framework.CapacitySnapshot,
+    load: MissionLoad,
+    *,
+    engineering_load: int | None = None,
+) -> CapacityAllocationView:
+    """Estimate how current capacity is already committed across Commands.
+
+    When ``engineering_load`` is supplied (open engineering missions, from the EDO
+    delivery layer), Engineering becomes a *reporting* domain (HSF-002 WP6 ⟂ EDO)
+    rather than "not yet reporting".
+    """
     band = snapshot.overall_band
     recovery = _RECOVERY_SHARE.get(band, 25)
-    work = min(70, load.open_count * 12) if load.data_available else 0
-    committed = min(100, recovery + work)
-    remaining = max(0, 100 - committed)
+    reporting_keys = {c["key"] for c in REGISTERED_COMMANDS if c["reporting"]}
 
     shares = {"Recovery": recovery}
-    if load.data_available:
-        shares["Missions / Work"] = work
+    if engineering_load is not None:
+        eng = min(60, engineering_load * 10)
+        shares["Engineering"] = eng
+        reporting_keys.add("engineering")
+    elif load.data_available:
+        shares["Missions / Work"] = min(70, load.open_count * 12)
 
-    not_reporting = [c["label"] for c in REGISTERED_COMMANDS if not c["reporting"]]
+    committed = min(100, sum(shares.values()))
+    remaining = max(0, 100 - committed)
+    not_reporting = [c["label"] for c in REGISTERED_COMMANDS if c["key"] not in reporting_keys]
     return CapacityAllocationView(
         band=band, shares=shares, remaining=remaining, not_reporting=not_reporting,
     )
+
+
+def recommended_adjustment(view: CapacityAllocationView) -> str:
+    """The single biggest rebalance the Captain could make right now."""
+    eng = view.shares.get("Engineering", view.shares.get("Missions / Work", 0))
+    recovery = view.shares.get("Recovery", 0)
+    if view.remaining < 15 and eng >= 40:
+        return ("Work/engineering is consuming most capacity — the highest-impact "
+                "adjustment is to defer new engineering intake and protect recovery.")
+    if recovery >= 45:
+        return ("Recovery is the dominant claim on capacity — hold new commitments "
+                "until capacity rebuilds; that protects everything downstream.")
+    if view.remaining >= 40:
+        return ("There is spare capacity — direct it to the single highest-priority "
+                "domain rather than spreading it thin.")
+    return "Allocation is broadly balanced — holding the current split is reasonable."
 
 
 _NEW_INITIATIVE_HINTS = (
@@ -79,18 +109,21 @@ def xo_decision(
     *,
     notes: str | None = None,
     scan: bool = True,
+    engineering_load: int | None = None,
 ) -> str:
     """Answer a cross-domain Captain request with one capacity-grounded recommendation.
 
     ``scan`` may be set False when the caller has already scanned the input for
     red flags (e.g. the /hs command boundary), to avoid a duplicate banner.
+    ``engineering_load`` (from the EDO delivery layer) lights Engineering up as a
+    real reporting domain.
     """
     escalation = (
         safety.escalation_banner(safety.scan_red_flags(f"{request} {notes or ''}"))
         if scan else None
     )
 
-    view = allocate(snapshot, load)
+    view = allocate(snapshot, load, engineering_load=engineering_load)
     remaining = view.remaining
     wants_new = _is_new_initiative(request)
 
@@ -135,4 +168,5 @@ def xo_decision(
             " — these light up as those Commands come online._"
         )
     lines += ["", "*Recommendation:*", rec]
+    lines += ["", f"*Recommended adjustment:* {recommended_adjustment(view)}"]
     return safety.frame("\n".join(l for l in lines if l is not None))
