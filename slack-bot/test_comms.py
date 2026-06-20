@@ -175,6 +175,40 @@ class TestCommsCommand(unittest.TestCase):
     def test_pillars(self):
         self.assertIn("Thought Leadership Pillars", comms_cmd.handle_comms("pillars"))
 
+    def test_send_no_surface_configured(self):
+        import human_systems_scheduler as hss
+        from lib.human_systems import delivery
+        with patch.object(delivery, "get_slack_client", return_value=None), \
+             patch.object(delivery, "captain_channel", return_value=None), \
+             patch.object(delivery, "telegram_config", return_value=(None, None)), \
+             patch.object(hss, "run_job") as rj:
+            out = comms_cmd.handle_comms("send")
+        rj.assert_not_called()
+        self.assertIn("no delivery surface", out.lower())
+
+    def test_send_delivers_to_both(self):
+        import human_systems_scheduler as hss
+        from lib.human_systems import delivery
+        with patch.object(delivery, "get_slack_client", return_value=object()), \
+             patch.object(delivery, "captain_channel", return_value="UCAP"), \
+             patch.object(delivery, "telegram_config", return_value=("t", "c")), \
+             patch.object(hss, "run_job",
+                          return_value={"job": "comms_weekly", "delivered": True,
+                                        "channel": "slack+telegram"}):
+            out = comms_cmd.handle_comms("send")
+        self.assertIn("sent", out.lower())
+        self.assertIn("slack+telegram", out)
+
+    def test_send_quiet_when_nothing_publishable(self):
+        import human_systems_scheduler as hss
+        from lib.human_systems import delivery
+        with patch.object(delivery, "get_slack_client", return_value=None), \
+             patch.object(delivery, "captain_channel", return_value="UCAP"), \
+             patch.object(delivery, "telegram_config", return_value=(None, None)), \
+             patch.object(hss, "run_job", return_value={"job": "comms_weekly", "skipped": True}):
+            out = comms_cmd.handle_comms("send")
+        self.assertIn("Nothing to send", out)
+
     def test_portfolio_graceful(self):
         with patch.object(comms_cmd.portfolio, "fetch_portfolio", return_value=[]), \
              patch.object(comms_cmd.portfolio, "pipeline_summary", return_value={}):

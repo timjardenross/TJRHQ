@@ -47,6 +47,8 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
         return safety.frame(_pillars(), with_footer=False)
     if cmd in ("portfolio", "reputation"):
         return safety.frame(_portfolio(), with_footer=False)
+    if cmd in ("send", "test-send", "push"):
+        return safety.frame(_send(), with_footer=False)
     return safety.frame(_help(), with_footer=False)
 
 
@@ -57,7 +59,8 @@ def _help() -> str:
         "always writes, edits, and publishes.\n\n"
         "• `/comms weekly` — \"What should I be talking about this week?\"\n"
         "• `/comms opportunities` — publishable opportunities mined from Command Memory\n"
-        "• `/comms draft <n> [format]` — a draft scaffold for opportunity n\n"
+        "• `/comms draft <n> [format]` — an AI first draft (Gemini) for opportunity n\n"
+        "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n"
         "• `/comms pillars` — the eight thought-leadership themes\n"
         "• `/comms portfolio` — published reputation record + content pipeline\n\n"
         "_Reputation over reach. Intelligence first. Captain-as-publisher._"
@@ -118,6 +121,37 @@ def _pillars() -> str:
         lines.append(f"• *{p.name}* — {p.audience}")
         lines.append(f"    ↳ _{p.key_message}_ · advances {p.strategic_domain}")
     return "\n".join(lines)
+
+
+def _send() -> str:
+    """Deliver the Weekly Thought Leadership Brief now to the configured bot(s).
+
+    Reuses the scheduler's comms_weekly job + the shared delivery fan-out, so the
+    brief goes to whichever surfaces are set (Slack DM and/or Telegram). On-demand
+    equivalent of the Monday cron — for the Captain or the VM operator."""
+    try:
+        from human_systems_scheduler import run_job
+        from lib.human_systems import delivery
+    except Exception:  # pragma: no cover
+        from slack_bot.human_systems_scheduler import run_job  # type: ignore
+        from slack_bot.lib.human_systems import delivery  # type: ignore
+
+    client = delivery.get_slack_client()
+    channel = delivery.captain_channel()
+    tg_token, tg_chat = delivery.telegram_config()
+    if not channel and not (tg_token and tg_chat):
+        return ("*Nothing sent* — no delivery surface is configured. Set "
+                "`HUMAN_SYSTEMS_CHANNEL` (Slack) and/or `TELEGRAM_BOT_TOKEN` + "
+                "`TELEGRAM_CHAT_ID` (Telegram), then try `/comms send` again.")
+
+    report = run_job("comms_weekly", client=client, channel=channel, dry_run=False)
+    if report.get("skipped"):
+        return ("*Nothing to send* — no publishable opportunities right now. "
+                "That's the system staying quiet by design.")
+    if report.get("delivered"):
+        return f"*Weekly influence brief sent* → {report.get('channel')}."
+    return (f"*Couldn't deliver* — {report.get('error') or 'no surface available'}. "
+            "Check the bot token(s) and recipient config.")
 
 
 def _portfolio() -> str:
