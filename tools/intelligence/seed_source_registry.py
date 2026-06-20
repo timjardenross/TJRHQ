@@ -33,6 +33,10 @@ import os
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
+# ORI curated digest source (USS-TJR-MSN-0074). Kept in sync with the seed row in
+# migration 0006 and with tools/intelligence/github_brief_sync.py.
+ORI_SOURCE_NAME = "Daily Operational Resilience Briefs (GitHub)"
+
 # ─── Source Registry ───────────────────────────────────────────────────────────
 # Fields: source_name, category, priority_rank, url, rss_url, api_endpoint,
 #         source_type, jurisdiction, confidence_weight, active, notes
@@ -884,6 +888,23 @@ SOURCES = [
         "confidence_weight":  0.92,
         "active":             True,
         "notes":              "NCSC UK threat intelligence reports. Frequently co-authored with ACSC. Separate from advisories feed.",
+    },
+
+    # ─── Category: Curated Resilience Digest (USS-TJR-MSN-0074) ───────────────
+    # Requires migration 0006 (adds source_type 'github_markdown' + category
+    # 'resilience_brief'). Supplement only — regulators stay priority 1.
+    {
+        "source_name":        ORI_SOURCE_NAME,
+        "category":           "resilience_brief",
+        "priority_rank":      2,
+        "url":                "https://github.com/timjardenross/daily-operational-resilience-briefs",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "github_markdown",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.75,
+        "active":             True,
+        "notes":              "Daily Operational Resilience Briefs (GitHub). Curated digest ingested by GitHubMarkdownAdapter + tools/intelligence/github_brief_sync.py. MSN-0074.",
     },
 ]
 
