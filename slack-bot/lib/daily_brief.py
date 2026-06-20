@@ -18,7 +18,12 @@ _OFFICER = {
     "delivery": "Engineering & Delivery Officer",
     "missions": "Number One",
     "decision": "Human Systems Officer",
+    "ori": "Operational Resilience Intelligence",
+    "knowledge": "Knowledge",
 }
+
+_RISK_EMOJI = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢", "UNKNOWN": "⚪"}
+_TREND_ARROW = {"worsening": "↑", "improving": "↓", "steady": "→", "unknown": "·"}
 
 
 def compose_daily_brief(
@@ -28,6 +33,8 @@ def compose_daily_brief(
     load,                         # mission_load.MissionLoad
     delivery=None,                # decision.DeliverySignal | None
     control_tower: dict | None = None,
+    ori=None,                      # intel.ori.ORISignal | None  (MSN-XO-003 WP2)
+    knowledge=None,               # list[intel.knowledge.KnowledgeHit] | None (WP3)
     date_str: str | None = None,
 ) -> str:
     """Compose the single daily operating picture. Pure."""
@@ -78,6 +85,23 @@ def compose_daily_brief(
     if delivery and delivery.blocked:
         lines.append(f"⛔ *Active blockers:* {delivery.blocked} blocked mission(s)"
                      + (f" · top: {delivery.top_bottleneck}" if delivery.top_bottleneck else ""))
+
+    # MSN-XO-003 WP2: Operational Resilience Intelligence (surfaced automatically).
+    if ori is not None and getattr(ori, "data_available", True):
+        risk = (ori.overall_risk or "UNKNOWN").upper()
+        conf = f" · confidence {ori.confidence:.0%}" if ori.confidence is not None else ""
+        lines.append(
+            f"{_RISK_EMOJI.get(risk, '⚪')} *Resilience ({_OFFICER['ori']}):* "
+            f"{risk} {_TREND_ARROW.get(ori.trend, '·')} — {ori.top_risk}{conf}"
+        )
+        if ori.recommended_action:
+            lines.append(f"   • _Recommended:_ {ori.recommended_action}")
+
+    # MSN-XO-003 WP3: relevant prior knowledge (surfaced automatically).
+    if knowledge:
+        lines.append(f"📚 *Relevant prior knowledge ({_OFFICER['knowledge']}):*")
+        for h in knowledge[:4]:
+            lines.append(f"   • [{h.kind}] {h.title}")
 
     lines += [
         "",

@@ -26,10 +26,12 @@ try:
     from lib import daily_brief
     from lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning
     from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
+    from lib.intel import ori as _ori, knowledge as _knowledge
 except Exception:  # pragma: no cover
     from slack_bot.lib import daily_brief  # type: ignore
     from slack_bot.lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning  # type: ignore
     from slack_bot.lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis  # type: ignore
+    from slack_bot.lib.intel import ori as _ori, knowledge as _knowledge  # type: ignore
 
 # Reuse the Human Systems command's data helpers (single source of fetch logic).
 try:
@@ -47,10 +49,21 @@ def build_brief() -> str:
     frictions = decision.detect_friction(rows)
     delivery, _ = _delivery_context()
     learned = learning.learned_adjustments()
-    # Pass today's notes so a red flag escalates at the top of the brief.
+
+    # MSN-XO-003 WP2: ORI signal (reused from existing briefs).
+    ori_signal = None
+    try:
+        ori_signal = _ori.fetch_ori_signal()
+    except Exception as exc:  # pragma: no cover
+        log.warning("[brief] ORI signal unavailable: %s", exc)
+
+    # Pass today's notes so a red flag escalates; ORI risk feeds the decision (WP4).
     notes = (today or {}).get("notes")
-    pkg = decision.recommendation_package(snapshot, load, frictions, notes=notes,
-                                          delivery=delivery, learned=learned)
+    pkg = decision.recommendation_package(
+        snapshot, load, frictions, notes=notes, delivery=delivery, learned=learned,
+        ori_risk=(ori_signal.overall_risk if ori_signal else None),
+        ori_headline=(ori_signal.top_risk if ori_signal else None),
+    )
 
     # EDO control tower (reused, not rebuilt).
     tower = None
@@ -61,9 +74,16 @@ def build_brief() -> str:
     except Exception as exc:  # pragma: no cover
         log.warning("[brief] control tower unavailable: %s", exc)
 
+    # MSN-XO-003 WP3: relevant prior knowledge (reused from Command Memory).
+    knowledge_hits = None
+    try:
+        knowledge_hits = _knowledge.relevant_knowledge(f"{pkg.primary} {snapshot.headline}")
+    except Exception as exc:  # pragma: no cover
+        log.warning("[brief] knowledge unavailable: %s", exc)
+
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,
-        delivery=delivery, control_tower=tower,
+        delivery=delivery, control_tower=tower, ori=ori_signal, knowledge=knowledge_hits,
     )
 
     # WP3 adoption metric: record that a brief was issued (usage signal).
@@ -86,19 +106,32 @@ def handle_brief(text: str, user_id: str | None = None, channel_id: str | None =
     return safety.frame(build_brief())
 
 
-def _adoption() -> str:
-    """WP3 adoption metrics: brief usage + recommendation effectiveness."""
-    issued = 0
+def _count(table: str, **eq) -> int:
+    """Reuse the graceful client to count rows (adoption telemetry, no new store)."""
     try:
-        c = memory._client()  # reuse the graceful client
-        if c is not None:
-            res = (c.raw_client.table("human_systems_recommendations")
-                   .select("id", count="exact").eq("kind", "daily_brief").execute())
-            issued = getattr(res, "count", None) or len(res.data or [])
+        c = memory._client()
+        if c is None:
+            return 0
+        q = c.raw_client.table(table).select("*", count="exact")
+        for k, v in eq.items():
+            q = q.eq(k, v)
+        res = q.execute()
+        return getattr(res, "count", None) or len(res.data or [])
     except Exception:  # pragma: no cover
-        issued = 0
+        return 0
+
+
+def _adoption() -> str:
+    """WP5 adoption & consumption metrics — reuses existing telemetry tables."""
+    briefs = _count("human_systems_recommendations", kind="daily_brief")
+    feedback = _count("human_systems_feedback")
+    retrievals = _count("retrieval_logs")
+    ori_briefs = _count("intelligence_briefs")
     return (
-        "*Daily brief — adoption*\n"
-        f"• Briefs issued: {issued}\n\n"
+        "*Daily Operating Picture — adoption & consumption*\n"
+        f"• Briefs issued: {briefs}\n"
+        f"• Feedback responses: {feedback}\n"
+        f"• Knowledge retrievals: {retrievals}\n"
+        f"• ORI briefs available: {ori_briefs}\n\n"
         + learning.effectiveness_report()
     )

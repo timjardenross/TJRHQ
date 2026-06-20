@@ -294,14 +294,17 @@ def highest_leverage(
     notes: str | None = None,
     delivery: DeliverySignal | None = None,
     learned: dict[str, float] | None = None,
+    ori_risk: str | None = None,
+    ori_headline: str | None = None,
 ) -> Recommendation:
     """Produce ONE primary action (+ optional secondary), scored by leverage×confidence.
 
     Decision-reduction by construction: candidates are ranked and only the top
     one (plus at most one clearly-distinct secondary) is surfaced. ``delivery``
     (HSF-002 WP5 ⟂ EDO) lets active missions, blocked work, and bottlenecks
-    compete as candidates. ``learned`` (EDO-003 WP3) applies gentle, observed
-    confidence multipliers per domain (advisory — never autonomous).
+    compete. ``learned`` (EDO-003 WP3) applies gentle confidence multipliers.
+    ``ori_risk`` (MSN-XO-003 WP4) lets a RED/AMBER external resilience signal
+    compete as a candidate — so all four Commands can influence the recommendation.
     """
     escalation = safety.escalation_banner(safety.scan_red_flags(notes))
 
@@ -366,6 +369,17 @@ def highest_leverage(
             primary=f"Spend your best window on: {top}. Hold everything below it.",
             rationale=f"capacity is {band} and '{top}' is the highest active priority",
             leverage="priority focus", domain="priority",
+        ))
+
+    # ORI external resilience risk — a RED/AMBER signal can compete (WP4).
+    if ori_risk and str(ori_risk).upper() in ("RED", "AMBER"):
+        sev = str(ori_risk).upper()
+        candidates.append(_Candidate(
+            score=(0.78 if sev == "RED" else 0.55) * data_conf,
+            primary=("Review the emerging resilience risk before committing the day"
+                     + (f": {ori_headline}" if ori_headline else "") + "."),
+            rationale=f"external resilience risk is {sev}",
+            leverage="resilience risk", domain="resilience_ext",
         ))
 
     # Default — maintain.
@@ -442,6 +456,7 @@ _IMPACT_BY_LEVERAGE = {
     "unblock delivery": "Removes a stalled item draining attention and delivery throughput.",
     "delivery bottleneck": "Clears the constraint slowing delivery.",
     "priority focus": "Advances the highest-value objective while capacity allows.",
+    "resilience risk": "Avoids committing the day into a rising external risk.",
     "maintain": "Sustains steady progress without overextending.",
 }
 
@@ -454,11 +469,17 @@ def recommendation_package(
     notes: str | None = None,
     delivery: DeliverySignal | None = None,
     learned: dict[str, float] | None = None,
+    ori_risk: str | None = None,
+    ori_headline: str | None = None,
 ) -> RecommendationPackage:
     """Executive decision support: one action plus impact, opportunity cost,
-    deferral, and strategic alignment (D-055). Reuses highest_leverage()."""
+    deferral, and strategic alignment (D-055). Reuses highest_leverage().
+
+    ``ori_risk`` (MSN-XO-003 WP4) lets external resilience intelligence influence
+    the recommendation — all four Commands can now shape the daily decision."""
     rec = highest_leverage(snapshot, load, frictions, notes=notes,
-                           delivery=delivery, learned=learned)
+                           delivery=delivery, learned=learned,
+                           ori_risk=ori_risk, ori_headline=ori_headline)
     alloc = allocate_capacity(snapshot, load)
 
     expected = _IMPACT_BY_LEVERAGE.get(rec.leverage, "Directs limited capacity to the highest-value next step.")
