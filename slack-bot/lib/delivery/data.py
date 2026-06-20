@@ -63,6 +63,19 @@ def fetch_metrics() -> dict | None:
         return None
 
 
+def fetch_dispatch_health() -> dict | None:
+    """The dispatch_health roll-up row (MSN-EDO-003), or None when unavailable."""
+    c = _client()
+    if c is None:
+        return None
+    try:
+        rows = list((c.raw_client.table("dispatch_health").select("*").limit(1).execute()).data or [])
+        return rows[0] if rows else None
+    except Exception as exc:
+        log.error("[edo.data] fetch_dispatch_health failed: %s", exc)
+        return None
+
+
 def fetch_capabilities() -> list[dict]:
     c = _client()
     if c is None:

@@ -293,13 +293,15 @@ def highest_leverage(
     *,
     notes: str | None = None,
     delivery: DeliverySignal | None = None,
+    learned: dict[str, float] | None = None,
 ) -> Recommendation:
     """Produce ONE primary action (+ optional secondary), scored by leverage×confidence.
 
     Decision-reduction by construction: candidates are ranked and only the top
     one (plus at most one clearly-distinct secondary) is surfaced. ``delivery``
     (HSF-002 WP5 ⟂ EDO) lets active missions, blocked work, and bottlenecks
-    compete as candidates so "what should I do today" reflects delivery reality.
+    compete as candidates. ``learned`` (EDO-003 WP3) applies gentle, observed
+    confidence multipliers per domain (advisory — never autonomous).
     """
     escalation = safety.escalation_banner(safety.scan_red_flags(notes))
 
@@ -374,6 +376,11 @@ def highest_leverage(
         leverage="maintain", domain="maintain",
     ))
 
+    # EDO-003 WP3: apply gentle learned confidence multipliers (advisory).
+    if learned:
+        for c in candidates:
+            c.score *= learned.get(c.domain, learned.get("_global", 1.0))
+
     candidates.sort(key=lambda c: -c.score)
     top_c = candidates[0]
 
@@ -446,10 +453,12 @@ def recommendation_package(
     *,
     notes: str | None = None,
     delivery: DeliverySignal | None = None,
+    learned: dict[str, float] | None = None,
 ) -> RecommendationPackage:
     """Executive decision support: one action plus impact, opportunity cost,
     deferral, and strategic alignment (D-055). Reuses highest_leverage()."""
-    rec = highest_leverage(snapshot, load, frictions, notes=notes, delivery=delivery)
+    rec = highest_leverage(snapshot, load, frictions, notes=notes,
+                           delivery=delivery, learned=learned)
     alloc = allocate_capacity(snapshot, load)
 
     expected = _IMPACT_BY_LEVERAGE.get(rec.leverage, "Directs limited capacity to the highest-value next step.")

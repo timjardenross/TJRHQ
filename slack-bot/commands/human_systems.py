@@ -28,10 +28,10 @@ if str(_REPO_ROOT) not in sys.path:
 # Package import works whether invoked as slack-bot.lib or with slack-bot on path.
 try:
     from lib.human_systems import framework, push, safety, memory
-    from lib.human_systems import decision, mission_load as ml, xo
+    from lib.human_systems import decision, mission_load as ml, xo, learning
 except Exception:  # pragma: no cover - fallback for alternate sys.path layouts
     from slack_bot.lib.human_systems import framework, push, safety, memory  # type: ignore
-    from slack_bot.lib.human_systems import decision, mission_load as ml, xo  # type: ignore
+    from slack_bot.lib.human_systems import decision, mission_load as ml, xo, learning  # type: ignore
 
 
 # ── Data access ───────────────────────────────────────────────────────────────
@@ -129,7 +129,8 @@ _HELP = (
     "• `/hs load` — mission load vs. available capacity\n"
     "• `/hs friction` — recurring causes of capacity loss\n"
     "• `/hs capacity-review` — weekly drivers, drains, one change\n"
-    "• `/hs xo <request>` — cross-domain decision (e.g. `xo make progress on coaching`)\n\n"
+    "• `/hs xo <request>` — cross-domain decision (e.g. `xo make progress on coaching`)\n"
+    "• `/hs effectiveness` — how helpful past recommendations have been (learned)\n\n"
     "*Ask for support:*\n"
     "• `/hs today` — read today's capacity and what fits\n"
     "• `/hs plan low-capacity|recovery|movement|nutrition|mind` — build a plan\n"
@@ -197,7 +198,7 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
     # Allow natural-language asks ("help me build a low-capacity day plan").
     _verbs = ("today", "status", "plan", "explain", "review", "log", "feedback", "domains", "push",
               "decide", "focus", "prioritise", "prioritize", "allocate", "load", "friction",
-              "capacity-review", "creview", "xo")
+              "capacity-review", "creview", "xo", "effectiveness")
     # A bare keyword ("plan", "review") is a direct command. Anything else —
     # including "help me build a…" — is treated as a natural-language ask first.
     is_direct = command in _verbs and not (command == "help")
@@ -240,6 +241,8 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
         body = _capacity_review()
     elif command == "xo":
         body = _xo(rest)
+    elif command == "effectiveness":
+        body = safety.frame(learning.effectiveness_report(), with_footer=False)
     else:  # pragma: no cover - guarded above
         body = _HELP
 
@@ -280,8 +283,10 @@ def _decide() -> str:
     snapshot, load, rows = _context(days=7)
     frictions = decision.detect_friction(rows)
     delivery, _ = _delivery_context()
+    learned = learning.learned_adjustments()  # EDO-003 WP3: learn from outcomes
     # notes=None: red-flag scanning is handled at the command boundary.
-    pkg = decision.recommendation_package(snapshot, load, frictions, notes=None, delivery=delivery)
+    pkg = decision.recommendation_package(snapshot, load, frictions, notes=None,
+                                          delivery=delivery, learned=learned)
     memory.record_recommendation(
         kind="highest_leverage", domain="resilience", output_class="action",
         summary=pkg.primary[:200], source="captain_pull",

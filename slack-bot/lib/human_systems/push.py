@@ -48,12 +48,14 @@ def _escalation_push(text: str | None) -> PushMessage | None:
 
 # ── Morning readiness pulse ───────────────────────────────────────────────────
 
-def morning_readiness_pulse(today_row: dict | None, *, recommendation: str | None = None) -> PushMessage:
+def morning_readiness_pulse(today_row: dict | None, *, recommendation: str | None = None,
+                            delivery_note: str | None = None) -> PushMessage:
     """A concise morning read of today's capacity and what fits.
 
-    ``recommendation`` (HSF-002) — when supplied, the single highest-leverage
-    action is appended so the pulse is decision-supporting, not just informative.
-    Kept as plain text so push.py stays decoupled from the decision engine.
+    ``recommendation`` (HSF-002) — the single highest-leverage action.
+    ``delivery_note`` (EDO-003 WP1) — a one-line delivery-intelligence summary,
+    appended only when there's something worth flagging. Both plain text so
+    push.py stays decoupled from the decision/delivery engines.
     """
     esc = _escalation_push((today_row or {}).get("notes"))
     if esc:
@@ -74,10 +76,11 @@ def morning_readiness_pulse(today_row: dict | None, *, recommendation: str | Non
             else "A practical next step could be choosing one anchor for the day and "
                  "pacing the rest around it."
         )
+        delivery_line = f"\n\n*Delivery:* {delivery_note}" if delivery_note else ""
         body = (
             f"{snap.headline}\n\n"
             f"*Capacity by domain:* {domain_line}\n\n"
-            f"{next_step}"
+            f"{next_step}{delivery_line}"
         )
         oclass = "risk_signal" if snap.overall_band in ("limited", "depleted") else "information"
     return PushMessage(

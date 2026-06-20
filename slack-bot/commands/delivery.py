@@ -37,6 +37,7 @@ _HELP = (
     "• `/delivery forecast` — control tower: throughput, cycle, bottleneck, risk\n"
     "• `/delivery risk` — open missions ranked by delivery risk\n"
     "• `/delivery capacity` — engineering WIP vs capacity\n"
+    "• `/delivery dispatch` — execution-dispatch health + audit\n"
 )
 
 _SEV_EMOJI = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "⚪", "info": "ℹ️"}
@@ -70,7 +71,22 @@ def handle_delivery(text: str, user_id: str | None = None, channel_id: str | Non
         return _risk()
     if cmd == "capacity":
         return _capacity()
+    if cmd in ("dispatch", "health"):
+        return _dispatch()
     return _HELP
+
+
+def _dispatch() -> str:
+    h = data.fetch_dispatch_health()
+    if not h:
+        return "*Dispatch health*\nNo execution dispatches recorded yet."
+    return (
+        "*Execution Dispatch health*\n"
+        f"• Missions dispatched: {h.get('missions_dispatched', 0)}\n"
+        f"• Dispatched: {h.get('dispatched', 0)}  ·  PRs opened: {h.get('pr_opened', 0)}\n"
+        f"• Failed: {h.get('failed', 0)}  ·  Rolled back: {h.get('rolled_back', 0)}\n"
+        "\n_Governance: draft PRs only · no autonomous merge/closure · XO approval required._"
+    )
 
 
 def _forecast() -> str:

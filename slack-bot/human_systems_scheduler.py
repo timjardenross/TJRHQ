@@ -71,8 +71,24 @@ def _build_message(job: str):
         load = mission_load.get_mission_load()
         frictions = decision.detect_friction(rows)
         delivery, _ = _delivery_context()
-        rec = decision.highest_leverage(snap, load, frictions, notes=None, delivery=delivery)
-        return push.morning_readiness_pulse(_today_row(rows), recommendation=rec.primary)
+        try:
+            from lib.human_systems import learning as _learning
+            learned = _learning.learned_adjustments()
+        except Exception:
+            learned = None
+        rec = decision.highest_leverage(snap, load, frictions, notes=None,
+                                        delivery=delivery, learned=learned)
+        # EDO-003 WP1: concise delivery-intelligence line when worth flagging.
+        note = None
+        if delivery and (delivery.blocked or delivery.open_missions):
+            bits = [f"{delivery.open_missions} open"]
+            if delivery.blocked:
+                bits.append(f"{delivery.blocked} blocked")
+            if delivery.top_bottleneck:
+                bits.append(f"constraint: {delivery.top_bottleneck}")
+            note = " · ".join(bits)
+        return push.morning_readiness_pulse(_today_row(rows), recommendation=rec.primary,
+                                            delivery_note=note)
     if job == "evening":
         return push.evening_recovery_reflection(_today_row(_fetch_rows(days=2)))
     if job == "weekly":
