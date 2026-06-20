@@ -4,33 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { AI_ROLES, DEFAULT_ROLE_ID, getRoleById, type AIRole } from '@/lib/ai-roles';
 import { AI_MODELS, type AIModel } from '@/lib/ai-models';
 
-// ── Context indicator ─────────────────────────────────────────────────────────
-
-function ContextBadge({ sources }: { sources: string[] }) {
-  if (sources.length === 0) return null;
-  const labels: Record<string, string> = {
-    'missions':             'Missions',
-    'decisions':            'Decisions',
-    'architecture_records': 'Architecture',
-    'knowledge_documents':  'Knowledge',
-    'command_memory':       'Memory',
-    'health_daily_logs (today)':      'Health ●',
-    'health_daily_logs (last known)': 'Health ○',
-  };
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {sources.map((s) => (
-        <span
-          key={s}
-          className="rounded-md border border-status/40 bg-status/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-status"
-        >
-          {labels[s] ?? s}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Message {
@@ -138,6 +111,64 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
+// ── Quick prompts ─────────────────────────────────────────────────────────────
+
+const QUICK_PROMPTS: { label: string; prompt: string; role?: string }[] = [
+  {
+    label: 'Capacity check',
+    prompt: 'Based on a FRAGILE recovery posture today, what mission load is appropriate and what should I defer?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Rest vs push?',
+    prompt: 'I have tasks I want to get done but my energy is low. How do I decide whether to push through or rest?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Sleep impact',
+    prompt: 'I slept fewer than 6 hours last night. What does that mean for my capacity today and how should I adjust?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Stage 2 readiness',
+    prompt: 'What does consistent Stage 2-ready behaviour look like day to day? What am I trying to create conditions for?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'Nervous system',
+    prompt: 'My nervous system feels activated today. What are the most effective ways to support settling without withdrawing entirely?',
+    role: 'medical_officer',
+  },
+  {
+    label: 'XO: mission review',
+    prompt: 'Review my current active missions for overcommitment risk. What should I protect, pause, or defer this week?',
+    role: 'xo',
+  },
+];
+
+function QuickPrompts({
+  onSelect,
+}: {
+  onSelect: (prompt: string, role?: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted mb-2">Quick prompts</p>
+      <div className="flex flex-wrap gap-1.5">
+        {QUICK_PROMPTS.map((qp) => (
+          <button
+            key={qp.label}
+            onClick={() => onSelect(qp.prompt, qp.role)}
+            className="rounded-lcars border border-medical/40 bg-medical/5 px-2.5 py-1 text-[11px] text-medical hover:bg-medical/15 transition-colors"
+          >
+            {qp.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Loading indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator() {
@@ -161,15 +192,14 @@ function TypingIndicator() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AIConsolePage() {
-  const [messages, setMessages]           = useState<Message[]>([]);
-  const [input, setInput]                 = useState('');
-  const [selectedRole, setSelectedRole]   = useState(DEFAULT_ROLE_ID);
+  const [messages, setMessages]         = useState<Message[]>([]);
+  const [input, setInput]               = useState('');
+  const [selectedRole, setSelectedRole] = useState(DEFAULT_ROLE_ID);
   const [selectedModel, setSelectedModel] = useState('glm-5.2');
-  const [systemPrompt, setSystemPrompt]   = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
+  const [systemPrompt, setSystemPrompt] = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
   const [editingPrompt, setEditingPrompt] = useState(false);
-  const [loading, setLoading]             = useState(false);
-  const [streamBuffer, setStreamBuffer]   = useState('');
-  const [contextSources, setContextSources] = useState<string[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [streamBuffer, setStreamBuffer] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -229,12 +259,6 @@ export default function AIConsolePage() {
           },
         ]);
         return;
-      }
-
-      // Capture context sources from response header if present
-      const sourcesHeader = res.headers.get('x-context-sources');
-      if (sourcesHeader) {
-        try { setContextSources(JSON.parse(sourcesHeader)); } catch {}
       }
 
       // Handle SSE stream
@@ -313,6 +337,12 @@ export default function AIConsolePage() {
     setStreamBuffer('');
   }
 
+  function handleQuickPrompt(prompt: string, role?: string) {
+    if (role) handleRoleChange(role);
+    setInput(prompt);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-12rem)]">
 
@@ -335,14 +365,6 @@ export default function AIConsolePage() {
         </div>
       </div>
 
-      {/* ── Context strip ── */}
-      {contextSources.length > 0 && (
-        <div className="flex-shrink-0 rounded-lcars border border-status/30 bg-status/5 px-3 py-2 flex items-center gap-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-status shrink-0">Live context</p>
-          <ContextBadge sources={contextSources} />
-        </div>
-      )}
-
       {/* ── Config strip ── */}
       <div className="flex-shrink-0 rounded-lcars border border-edge bg-panel/40 p-3 flex flex-col gap-3">
 
@@ -357,6 +379,11 @@ export default function AIConsolePage() {
             <ModelSelector selected={selectedModel} onChange={setSelectedModel} />
           </div>
         </div>
+
+        {/* Quick prompts */}
+        {messages.length === 0 && (
+          <QuickPrompts onSelect={handleQuickPrompt} />
+        )}
 
         {/* System prompt — editable */}
         <div>
@@ -391,12 +418,9 @@ export default function AIConsolePage() {
         {messages.length === 0 && !loading && (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-xs text-lcars-muted text-center">
-              GLM 5.2 has live access to your missions, decisions, health status,
-              knowledge base, and command memory.
-              <br className="mb-1" />
-              Ask about the current ship state directly — no pasting required.
+              Select a role, adjust the system prompt if needed, then send a message.
               <br />
-              <span className="text-[10px] opacity-60 mt-1 block">Shift+Enter for new line · Enter to send</span>
+              <span className="text-[10px] opacity-60">Shift+Enter for new line · Enter to send</span>
             </p>
           </div>
         )}

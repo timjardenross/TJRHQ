@@ -6,6 +6,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { recoveryBrief as mockBrief } from '@/lib/mockData';
 import { useROSData } from '@/lib/useROSData';
 import { toneClasses } from '@/lib/departments';
+import { RecoveryConfidencePanel } from '@/components/RecoveryConfidencePanel';
+import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
 import type { RecoveryPostureBand, StatusTone } from '@/lib/types';
 
 // ── Tone helpers ──────────────────────────────────────────────────────────────
@@ -81,6 +83,9 @@ export default function RecoveryBriefPage() {
         </p>
       </LCARSPanel>
 
+      {/* ── Recovery Confidence ── */}
+      <RecoveryConfidencePanel />
+
       {/* ── Recovery Posture ── */}
       <LCARSPanel title="Recovery Posture" accent="medical" eyebrow="What does my system need today?">
         <div className={`rounded-lcars border ${pc.border} ${pc.bg} p-5`}>
@@ -120,6 +125,9 @@ export default function RecoveryBriefPage() {
           </div>
         </div>
       </LCARSPanel>
+
+      {/* ── Wellness Intelligence — live from health_insights ── */}
+      <WellnessInsightPanel />
 
       {/* ── Recovery Guidance ── */}
       <LCARSPanel
@@ -172,6 +180,22 @@ export default function RecoveryBriefPage() {
           Full mission detail and fleet status → Captain&apos;s Chair
         </Link>
       </LCARSPanel>
+
+      {/* ── D-055: Complete the loop — log today's entry ── */}
+      <div className="rounded-lcars border border-edge bg-panel/40 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-1">End of day</p>
+          <p className="text-sm text-lcars-text/90">
+            Complete today&apos;s Captain&apos;s Log entry to close the recovery loop.
+          </p>
+        </div>
+        <Link
+          href="/captains-log"
+          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
+        >
+          Log Today →
+        </Link>
+      </div>
 
     </div>
   );

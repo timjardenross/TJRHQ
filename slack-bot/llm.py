@@ -13,6 +13,7 @@ DEFAULT_ENGINEER_MODEL = "deepseek-coder:6.7b"
 DEFAULT_REASONING_MODEL = "deepseek-r1:14b"
 DEFAULT_FAST_MODEL = "gemma3"
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_TIMEOUT_SECONDS = 20
 EMBEDDING_MODEL_ENV = "OLLAMA_EMBEDDING_MODEL"
 
@@ -327,3 +328,65 @@ def ask_commander_with_specialists(
     if not success:
         raise LLMUnavailableError(response)
     return response
+
+
+# ── Google AI (Gemini) ────────────────────────────────────────────────────────
+
+def get_gemini_model() -> str:
+    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+
+
+def is_gemini_available() -> bool:
+    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+
+
+def generate_with_gemini(prompt: str, system_prompt: str | None = None, model: str | None = None) -> str:
+    """Generate via Google AI (Gemini) REST API. Raises LLMUnavailableError on failure."""
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise LLMUnavailableError("Google AI (Gemini) credentials are not configured.")
+    model = model or get_gemini_model()
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={api_key}"
+    )
+    payload: dict = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.3},
+    }
+    if system_prompt:
+        payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.URLError as error:
+        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
+    except Exception as error:
+        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
+    candidates = body.get("candidates") or []
+    if not candidates:
+        raise LLMUnavailableError("Gemini returned no candidates.")
+    try:
+        parts = candidates[0]["content"]["parts"]
+        content = "".join(p.get("text", "") for p in parts).strip()
+    except (KeyError, IndexError, TypeError) as error:
+        raise LLMUnavailableError("Gemini returned an unexpected response shape.") from error
+    if not content:
+        raise LLMUnavailableError("Gemini returned an empty response.")
+    return content
+
+
+def ask_gemini_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]:
+    """Google AI generation as a graceful (ok, text) tuple — never raises."""
+    try:
+        return True, generate_with_gemini(prompt=user_prompt, system_prompt=system_prompt)
+    except LLMUnavailableError as error:
+        return False, str(error)
+    except Exception as error:
+        return False, f"{type(error).__name__}"

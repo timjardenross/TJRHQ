@@ -64,12 +64,22 @@ from commands.health_check import (
     build_health_check_modal,
     handle_health_check_submit,
 )
+from commands.recovery_pulse import (
+    MODAL_CALLBACK_ID as RECOVERY_PULSE_MODAL_CALLBACK_ID,
+    build_recovery_pulse_modal,
+    handle_recovery_pulse_submit,
+    send_confidence_summary,
+)
 from commands.health_event import (
     EVENT_MODAL_CALLBACK_ID as HEALTH_EVENT_MODAL_CALLBACK_ID,
     build_health_event_modal,
     handle_health_event_submit,
 )
 from commands.health_synthesis import handle_health_brief
+from commands.human_systems import handle_human_systems
+from commands.delivery import handle_delivery
+from commands.brief import handle_brief
+from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
 
@@ -1119,6 +1129,50 @@ if app:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    # ── Recovery Pulse (D-055) ────────────────────────────────────────────────
+
+    @app.command("/recovery-pulse")
+    def handle_recovery_pulse_slash(ack, command, client):
+        """/recovery-pulse — open recovery pulse modal (4 pulses per day)."""
+        ack()
+        trigger_id = command.get("trigger_id")
+        user_id = command.get("user_id", "")
+        log.info("[app] /recovery-pulse: user=%s trigger_id=%s", user_id, trigger_id)
+
+        if not trigger_id:
+            log.error("[recovery-pulse] No trigger_id — cannot open modal")
+            return
+
+        try:
+            client.views_open(trigger_id=trigger_id, view=build_recovery_pulse_modal())
+        except Exception as exc:
+            log.error("[recovery-pulse] views_open failed: %s — %s", type(exc).__name__, exc)
+
+    @app.view(RECOVERY_PULSE_MODAL_CALLBACK_ID)
+    def handle_recovery_pulse_view_submission(ack, body, client):
+        """Process recovery pulse modal submission."""
+        ack()
+        user_id = body.get("user", {}).get("id", "")
+        values = body.get("view", {}).get("state", {}).get("values", {})
+        log.info("[recovery-pulse] Modal submitted by user=%s", user_id)
+
+        def _run():
+            handle_recovery_pulse_submit(values, user_id, client)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    @app.command("/recovery-status")
+    def handle_recovery_status_slash(ack, command, client):
+        """/recovery-status — DM today's recovery confidence snapshot."""
+        ack()
+        user_id = command.get("user_id", "")
+        log.info("[app] /recovery-status: user=%s", user_id)
+
+        def _run():
+            send_confidence_summary(user_id, client)
+
+        threading.Thread(target=_run, daemon=True).start()
+
     # ── Health Check ──────────────────────────────────────────────────────────
 
     @app.command("/health-check")
@@ -1209,6 +1263,64 @@ if app:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    # ── Human Systems (HSF-001) ───────────────────────────────────────────────
+
+    @app.command("/human-systems")
+    def handle_human_systems_slash(ack, respond, command):
+        """/human-systems — Human Systems Framework: Captain-pulled support."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /human-systems: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
+
+    @app.command("/hs")
+    def handle_hs_slash(ack, respond, command):
+        """/hs — alias for /human-systems."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /hs: user=%s sub=%r", user_id, text)
+        respond(handle_human_systems(text, user_id, channel_id))
+
+    # ── Daily Operating Picture (MSN-XO-002) ─────────────────────────────────
+
+    @app.command("/brief")
+    def handle_brief_slash(ack, respond, command):
+        """/brief — the single daily operating picture."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /brief: user=%s sub=%r", user_id, text)
+        respond(handle_brief(text, user_id, channel_id))
+
+    # ── EDO Delivery Officer (MSN-EDO-001) ────────────────────────────────────
+
+    @app.command("/delivery")
+    def handle_delivery_slash(ack, respond, command):
+        """/delivery — EDO delivery visibility."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /delivery: user=%s sub=%r", user_id, text)
+        respond(handle_delivery(text, user_id, channel_id))
+
+    # ── Communications & Presence Officer (MSN-COMMS-001) ────────────────────
+
+    @app.command("/comms")
+    def handle_comms_slash(ack, respond, command):
+        """/comms — weekly influence brief · opportunities · draft scaffolds · portfolio."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /comms: user=%s sub=%r", user_id, text)
+        respond(handle_comms(text, user_id, channel_id))
+
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
 else:
@@ -1285,6 +1397,21 @@ log.info(
 # ========================================================================
 # END MSN-0060B INITIALIZATION
 # ========================================================================
+
+# ── D-055 Recovery Scheduler ──────────────────────────────────────────────────
+# L2/L3 proactive dispatch via Slack DM. L0/L1 reminders are Telegram's domain.
+
+try:
+    from recovery_scheduler import start_recovery_scheduler
+    if app is not None:
+        _recovery_scheduler = start_recovery_scheduler(app.client)
+    else:
+        log.warning("[recovery-scheduler] Slack app unavailable — scheduler not started")
+except Exception as _rec_exc:
+    log.warning("[recovery-scheduler] Could not start: %s", _rec_exc)
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     if not SLACK_BOT_TOKEN or not SLACK_APP_TOKEN:
         print("Commander TJR startup halted: Slack tokens are not configured.")
@@ -1304,6 +1431,15 @@ if __name__ == "__main__":
         log.info("[startup] Socket Mode running")
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
+
+    # ── Human Systems proactive scheduler (WP7, opt-in) ───────────────────────
+    if os.getenv("HUMAN_SYSTEMS_SCHEDULER", "").lower() in ("on", "1", "true", "yes"):
+        try:
+            from human_systems_scheduler import start_in_process
+            start_in_process(app.client)
+            log.info("[startup] Human Systems proactive scheduler enabled")
+        except Exception as _hs_exc:
+            log.warning("[startup] Human Systems scheduler not started: %s", _hs_exc)
 
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     try:

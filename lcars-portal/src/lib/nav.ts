@@ -39,51 +39,58 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Crew assignments and execution'
   },
   {
-    href: '/xo-brief',
-    label: 'XO Brief',
-    glyph: '05',
-    department: 'science',
-    description: 'Operational intelligence brief'
-  },
-  {
     href: '/medical',
     label: 'Medical Bay',
-    glyph: '06',
+    glyph: '05',
     department: 'medical',
     description: 'Recovery indexes and life participation'
   },
   {
     href: '/recovery-brief',
     label: 'Recovery Brief',
-    glyph: '07',
+    glyph: '06',
     department: 'medical',
     description: 'Daily recovery-first morning brief'
   },
   {
     href: '/stage-progression',
     label: 'Stage Progression',
-    glyph: '08',
+    glyph: '07',
     department: 'medical',
     description: 'Stage record — Knowledge Officer'
   },
   {
     href: '/operations',
     label: 'Operations',
-    glyph: '09',
+    glyph: '08',
     department: 'operations',
     description: 'Service and integration status'
   },
   {
     href: '/knowledge-base',
     label: 'Knowledge Base',
-    glyph: '10',
+    glyph: '09',
     department: 'science',
     description: 'Knowledge, ADRs and playbooks'
   },
   {
+    href: '/xo-brief',
+    label: 'Intelligence Brief',
+    glyph: '10',
+    department: 'science',
+    description: 'Work intelligence brief — OR pipeline'
+  },
+  {
+    href: '/medical/pulse',
+    label: 'Recovery Pulse',
+    glyph: '11',
+    department: 'medical',
+    description: 'Log a recovery pulse — four per day'
+  },
+  {
     href: '/medical/check-in',
     label: 'Health Check-In',
-    glyph: '11',
+    glyph: '11b',
     department: 'medical',
     description: 'Log today\'s daily health check-in'
   },

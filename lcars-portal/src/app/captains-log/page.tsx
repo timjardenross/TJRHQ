@@ -1,112 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LCARSPanel } from '@/components/LCARSPanel';
-import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-
-// ── History types ─────────────────────────────────────────────────────────────
-
-interface LogEntry {
-  id: string;
-  log_date: string;
-  health_status: string | null;
-  work_status: string | null;
-  personal_status: string | null;
-  captain_capacity_rating: string | null;
-  overall_note: string | null;
-  what_happened: string | null;
-  wins: string | null;
-  blockers: string | null;
-  tomorrows_priority: string | null;
-}
-
-// ── History components ────────────────────────────────────────────────────────
-
-function ragTone(v: string | null): 'status' | 'command' | 'operations' | 'neutral' {
-  if (v === 'Green') return 'status';
-  if (v === 'Amber') return 'command';
-  if (v === 'Red')   return 'operations';
-  return 'neutral';
-}
-
-function EntryCard({ entry }: { entry: LogEntry }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasDetail = entry.what_happened || entry.wins || entry.blockers || entry.tomorrows_priority;
-
-  return (
-    <div className="rounded-lcars border border-edge bg-space/30 p-3">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="font-mono text-xs text-lcars-muted">{entry.log_date}</p>
-        <div className="flex gap-1.5 flex-wrap justify-end">
-          {entry.health_status   && <StatusBadge label={`H: ${entry.health_status}`}   tone={ragTone(entry.health_status)} />}
-          {entry.work_status     && <StatusBadge label={`W: ${entry.work_status}`}     tone={ragTone(entry.work_status)} />}
-          {entry.personal_status && <StatusBadge label={`P: ${entry.personal_status}`} tone={ragTone(entry.personal_status)} />}
-        </div>
-      </div>
-
-      {entry.captain_capacity_rating && (
-        <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">
-          Capacity: <span className="text-lcars-text">{entry.captain_capacity_rating}</span>
-        </p>
-      )}
-
-      {entry.overall_note && (
-        <p className="text-xs text-lcars-text/80 leading-relaxed">{entry.overall_note}</p>
-      )}
-
-      {expanded && (
-        <div className="mt-3 flex flex-col gap-2 border-t border-edge/60 pt-3">
-          {entry.what_happened && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-lcars-muted">What happened</p>
-              <p className="text-xs text-lcars-text/80 mt-0.5 leading-relaxed">{entry.what_happened}</p>
-            </div>
-          )}
-          {entry.wins && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-status">Wins</p>
-              <p className="text-xs text-lcars-text/80 mt-0.5 leading-relaxed">{entry.wins}</p>
-            </div>
-          )}
-          {entry.blockers && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-operations">Blockers</p>
-              <p className="text-xs text-lcars-text/80 mt-0.5 leading-relaxed">{entry.blockers}</p>
-            </div>
-          )}
-          {entry.tomorrows_priority && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-command">Tomorrow</p>
-              <p className="text-xs text-lcars-text/80 mt-0.5 leading-relaxed">{entry.tomorrows_priority}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {hasDetail && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-2 text-[10px] uppercase tracking-[0.15em] text-command hover:opacity-70"
-        >
-          {expanded ? 'Show less' : 'Show more'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function LogHistory({ entries }: { entries: LogEntry[] }) {
-  if (!entries.length) return null;
-  return (
-    <LCARSPanel title="Recent Entries" accent="command" eyebrow={`Last ${entries.length} log entries`}>
-      <div className="flex flex-col gap-3">
-        {entries.map((e) => <EntryCard key={e.id} entry={e} />)}
-      </div>
-    </LCARSPanel>
-  );
-}
 
 type RAGStatus = 'Green' | 'Amber' | 'Red';
 type CapacityRating = 'Green' | 'Amber' | 'Red';
@@ -170,21 +67,6 @@ function TextArea({
 export default function CaptainsLogPage() {
   const router = useRouter();
   const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
-
-  const [history, setHistory] = useState<LogEntry[]>([]);
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase
-        .from('captains_log_entries')
-        .select('id, log_date, health_status, work_status, personal_status, captain_capacity_rating, overall_note, what_happened, wins, blockers, tomorrows_priority')
-        .order('log_date', { ascending: false })
-        .limit(7);
-      if (data) setHistory(data as LogEntry[]);
-    }
-    load();
-  }, []);
 
   const [healthStatus, setHealthStatus]       = useState<RAGStatus | ''>('');
   const [workStatus, setWorkStatus]           = useState<RAGStatus | ''>('');
@@ -251,31 +133,52 @@ export default function CaptainsLogPage() {
 
   return (
     <div className="flex flex-col gap-4">
-
-      <LogHistory entries={history} />
-
       <LCARSPanel
         title="Captain's Log"
         accent="command"
         eyebrow={today}
       >
         <p className="text-xs text-lcars-muted">
-          End-of-day structured reflection. Upserts on date — re-submitting today updates the record.
+          End-of-day structured reflection. Close the recovery loop — log what was, what changed,
+          and what tomorrow needs. Upserts on date — re-submitting today updates the record.
         </p>
       </LCARSPanel>
 
-      {/* RAG status */}
-      <LCARSPanel title="Status" accent="command" eyebrow="Today's RAG ratings">
+      {/* D-055 — Recovery reflection first */}
+      <LCARSPanel
+        title="Recovery Reflection"
+        accent="medical"
+        eyebrow="D-055 · Capacity loop — complete before mission log"
+      >
+        <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
+          Before logging missions, close the recovery loop. How did the day land in the body?
+          This is the primary record — mission detail is context.
+        </p>
         <div className="flex flex-col gap-4">
-          <RAGField label="Health" value={healthStatus} onChange={setHealthStatus} />
+          <TextArea
+            label="Recovery note — how did the day land?"
+            value={overallNote}
+            onChange={setOverallNote}
+            placeholder="How did the nervous system land today? What restored or depleted capacity? What does the body need tonight?"
+            rows={3}
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <RAGField label="Health" value={healthStatus} onChange={setHealthStatus} />
+            <RAGField label="Captain capacity" value={capacityRating} onChange={setCapacityRating} />
+          </div>
+        </div>
+      </LCARSPanel>
+
+      {/* RAG status */}
+      <LCARSPanel title="Status" accent="command" eyebrow="Work and personal RAG">
+        <div className="flex flex-col gap-4">
           <RAGField label="Work" value={workStatus} onChange={setWorkStatus} />
           <RAGField label="Personal" value={personalStatus} onChange={setPersonalStatus} />
-          <RAGField label="Captain capacity" value={capacityRating} onChange={setCapacityRating} />
         </div>
       </LCARSPanel>
 
       {/* Narrative */}
-      <LCARSPanel title="Log Entry" accent="command" eyebrow="Narrative fields — all optional">
+      <LCARSPanel title="Mission Log" accent="command" eyebrow="Narrative fields — all optional">
         <div className="flex flex-col gap-4">
           <TextArea
             label="What happened today"
@@ -312,13 +215,7 @@ export default function CaptainsLogPage() {
             label="Tomorrow's priority"
             value={tomorrowPriority}
             onChange={setTomorrowPriority}
-            placeholder="The one thing that matters most tomorrow."
-          />
-          <TextArea
-            label="Overall note"
-            value={overallNote}
-            onChange={setOverallNote}
-            placeholder="Anything else for the record."
+            placeholder="The one thing that matters most tomorrow — through a capacity lens."
           />
         </div>
       </LCARSPanel>
