@@ -61,16 +61,27 @@ from telegram.ext import (
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
-_supabase = None
+_supabase      = None
+_supabase_err  = None  # last init error, shown in Telegram responses
 
 def _get_supabase():
-    global _supabase
-    if _supabase is None and SUPABASE_URL and SUPABASE_KEY:
-        try:
-            from supabase import create_client
-            _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except Exception as exc:
-            log.warning("Supabase client failed: %s", exc)
+    global _supabase, _supabase_err
+    if _supabase is None:
+        if not SUPABASE_URL:
+            _supabase_err = "SUPABASE_URL not set"
+            log.warning("[supabase] %s", _supabase_err)
+        elif not SUPABASE_KEY:
+            _supabase_err = "SUPABASE_KEY not set"
+            log.warning("[supabase] %s", _supabase_err)
+        else:
+            try:
+                from supabase import create_client
+                _supabase     = create_client(SUPABASE_URL, SUPABASE_KEY)
+                _supabase_err = None
+                log.info("[supabase] client initialised")
+            except Exception as exc:
+                _supabase_err = str(exc)
+                log.warning("[supabase] client failed: %s", exc)
     return _supabase
 
 
@@ -130,10 +141,38 @@ async def cmd_recovery_status(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(_escape(build_daily_summary(status)), parse_mode="MarkdownV2")
 
 
+async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    db = _get_supabase()
+    if not db:
+        reason = _escape(_supabase_err or "unknown error")
+        await update.message.reply_text(
+            f"⚠️ *Supabase: not connected*\n\n`{reason}`",
+            parse_mode="MarkdownV2",
+        )
+        return
+    try:
+        res  = db.table("recovery_confidence_today").select("recovery_confidence,pulses_completed").execute()
+        row  = res.data[0] if res.data else {}
+        conf = row.get("recovery_confidence", 0)
+        pulses = row.get("pulses_completed", 0)
+        await update.message.reply_text(
+            f"✅ *Supabase: connected*\n\nrecovery\\_confidence\\_today: {conf}% · {pulses}/4 pulses",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        await update.message.reply_text(
+            f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 async def cmd_engineering_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     db = _get_supabase()
     if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        reason = _escape(_supabase_err or "unknown error")
+        await update.message.reply_text(
+            f"⚠️ Supabase unavailable — `{reason}`", parse_mode="MarkdownV2"
+        )
         return
     try:
         result = db.table("missions").select(
@@ -187,6 +226,7 @@ def main() -> None:
     app.add_handler(CommandHandler("help",               cmd_help))
     app.add_handler(CommandHandler("recovery_status",    cmd_recovery_status))
     app.add_handler(CommandHandler("engineering_status", cmd_engineering_status))
+    app.add_handler(CommandHandler("db_status",          cmd_db_status))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     log.info("Chief Engineer Bot polling…")

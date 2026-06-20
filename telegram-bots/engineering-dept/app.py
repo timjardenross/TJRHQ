@@ -54,16 +54,27 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
-_supabase = None
+_supabase      = None
+_supabase_err  = None
 
 def _get_supabase():
-    global _supabase
-    if _supabase is None and SUPABASE_URL and SUPABASE_KEY:
-        try:
-            from supabase import create_client
-            _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except Exception as exc:
-            log.warning("Supabase client failed: %s", exc)
+    global _supabase, _supabase_err
+    if _supabase is None:
+        if not SUPABASE_URL:
+            _supabase_err = "SUPABASE_URL not set"
+            log.warning("[supabase] %s", _supabase_err)
+        elif not SUPABASE_KEY:
+            _supabase_err = "SUPABASE_KEY not set"
+            log.warning("[supabase] %s", _supabase_err)
+        else:
+            try:
+                from supabase import create_client
+                _supabase     = create_client(SUPABASE_URL, SUPABASE_KEY)
+                _supabase_err = None
+                log.info("[supabase] client initialised")
+            except Exception as exc:
+                _supabase_err = str(exc)
+                log.warning("[supabase] client failed: %s", exc)
     return _supabase
 
 
@@ -107,7 +118,8 @@ async def cmd_recovery_status(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def cmd_operations_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     db = _get_supabase()
     if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        reason = _escape(_supabase_err or "unknown error")
+        await update.message.reply_text(f"⚠️ Supabase unavailable — `{reason}`\\.", parse_mode="MarkdownV2")
         return
     try:
         result = db.table("missions").select(
