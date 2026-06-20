@@ -197,10 +197,14 @@ def _kb_stress(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
     ]])
 
 
-async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bool, RecoveryStatus]:
+async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bool, RecoveryStatus, str | None]:
     db = _get_supabase()
     saved = False
-    if db:
+    err_msg: str | None = None
+    if not db:
+        err_msg = "Supabase unavailable (check SUPABASE_KEY)"
+        log.error("[pulse] %s", err_msg)
+    else:
         try:
             res = db.table("recovery_pulses").upsert(
                 {
@@ -217,9 +221,10 @@ async def _write_pulse(pt: str, energy: str, mood: str, stress: str) -> tuple[bo
             log.info("Pulse written: %s energy=%s mood=%s stress=%s rows=%s",
                      pt, energy, mood, stress, len(res.data) if res.data else 0)
         except Exception as exc:
+            err_msg = str(exc)
             log.error("pulse upsert failed: %s | energy=%s mood=%s stress=%s", exc, energy, mood, stress)
     status = get_recovery_status(db)
-    return saved, status
+    return saved, status, err_msg
 
 
 # ── Command handlers ──────────────────────────────────────────────────────────
@@ -264,6 +269,34 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode="MarkdownV2",
         reply_markup=_kb_energy(pt),
     )
+
+
+async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Test Supabase connectivity and report result."""
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text(
+            "⚠️ *Supabase: not connected*\n\n"
+            "SUPABASE\\_URL or SUPABASE\\_KEY missing or client init failed\\.\n"
+            "Check bot screen session logs\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+    try:
+        res = db.table("recovery_confidence_today").select("recovery_confidence,pulses_completed").execute()
+        row = res.data[0] if res.data else {}
+        conf   = row.get("recovery_confidence", 0)
+        pulses = row.get("pulses_completed", 0)
+        await update.message.reply_text(
+            f"✅ *Supabase: connected*\n\n"
+            f"recovery\\_confidence\\_today: {conf}% · {pulses}/4 pulses",
+            parse_mode="MarkdownV2",
+        )
+    except Exception as exc:
+        await update.message.reply_text(
+            f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
 
 
 async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -404,7 +437,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     label = _PULSE_LABELS.get(pt, pt)
 
     if e and m and s:
-        saved, status = await _write_pulse(pt, e, m, s)
+        saved, status, err_msg = await _write_pulse(pt, e, m, s)
         icon = "✅" if saved else "⚠️"
         conf = status.recovery_confidence
         done = " ".join([
@@ -416,11 +449,13 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         e_cap = _escape(e.capitalize())
         m_cap = _escape(m.capitalize())
         s_cap = _escape(s.capitalize())
+        error_line = f"\n\n_Error: {_escape(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
             f"Energy: {e_cap} · Mood: {m_cap} · Stress: {s_cap}\n\n"
             f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
-            f"Pulses: {_escape(done)}  AM · Mid · EOD · PM",
+            f"Pulses: {_escape(done)}  AM · Mid · EOD · PM"
+            f"{error_line}",
             parse_mode="MarkdownV2",
         )
         return
@@ -519,6 +554,7 @@ def main() -> None:
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
+    app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
