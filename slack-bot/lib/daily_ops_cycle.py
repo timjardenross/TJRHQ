@@ -75,6 +75,13 @@ class CycleContext:
     improvement_summary: str | None = None
     improvement_budget: dict = field(default_factory=dict)
 
+    # EXEC-004: Investigation Lifecycle
+    open_investigations_count: int = 0
+    high_confidence_findings: list[dict] = field(default_factory=list)
+    decision_packages_ready: int = 0
+    investigations_closed_this_cycle: int = 0
+    new_investigations_opened: list[str] = field(default_factory=list)
+
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
     cycle_started: datetime = field(default_factory=datetime.utcnow)
@@ -240,6 +247,113 @@ def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
         log.warning("[daily-cycle] Number One step failed (non-blocking): %s", exc)
 
 
+# ── Step 6.5: Investigation Review (EXEC-004) ────────────────────────────────
+
+def _step_investigation_review(ctx: CycleContext) -> None:
+    """D-059 Investigation Lifecycle — run officer investigation triggers.
+
+    Runs after Number One so all operational signals are available in ctx.
+    Runs before Improvement Review so investigation findings can feed discovery.
+
+    Sequence:
+      1. Run officer investigation triggers (open new investigations on threshold)
+      2. For each newly opened investigation: collect evidence + generate findings
+      3. Surface high-confidence findings and decision packages in all_items
+      4. Surface open investigation count in ctx
+    """
+    try:
+        from lib.investigation.officer_investigations import run_all_investigation_triggers
+        from lib.investigation.registry import get_open_investigations, get_investigations_summary
+        from lib.investigation.evidence import collect_evidence
+        from lib.investigation.findings import generate_findings
+        from lib.investigation.decision_package import generate_decision_package, get_pending_decision_packages
+
+        # Trigger new investigations from officer thresholds
+        new_inv_ids = run_all_investigation_triggers(ctx)
+        ctx.new_investigations_opened = new_inv_ids
+
+        # Collect evidence and generate findings for newly opened investigations
+        for inv_id in new_inv_ids[:3]:  # cap at 3 per cycle to bound latency
+            try:
+                from lib.investigation.registry import get_investigation
+                from lib.investigation.registry import update_investigation_status
+                from lib.investigation.framework import InvestigationStatus
+
+                inv = get_investigation(inv_id)
+                if not inv:
+                    continue
+
+                update_investigation_status(inv_id, InvestigationStatus.COLLECTING_EVIDENCE)
+                evidence = collect_evidence(inv_id, inv.question, inv.officer, ctx)
+
+                update_investigation_status(inv_id, InvestigationStatus.FINDINGS_READY)
+                findings = generate_findings(inv_id, evidence, inv.question)
+
+                # Generate decision package if findings warrant one
+                if findings.lead_recommendation and findings.lead_recommendation.action_type in (
+                    "mission", "improvement", "decision"
+                ):
+                    pkg = generate_decision_package(inv_id, findings, inv.question)
+                    if pkg:
+                        from lib.investigation.framework import InvestigationStatus
+                        update_investigation_status(inv_id, InvestigationStatus.DECISION_PENDING)
+
+                # Surface high-confidence findings in all_items
+                for finding in findings.high_confidence_findings:
+                    ctx.high_confidence_findings.append({
+                        "investigation_id": inv_id,
+                        "observation": finding.observation[:120],
+                        "confidence": finding.confidence,
+                        "lead_action": (
+                            findings.lead_recommendation.action_type
+                            if findings.lead_recommendation else "no_action"
+                        ),
+                    })
+                    ctx.all_items.append({
+                        "type": "investigation_finding",
+                        "title": f"[INVESTIGATION] {inv_id}: {finding.observation[:80]}",
+                        "source": f"investigation:{inv.officer}",
+                        "priority": "P1" if finding.confidence >= 0.75 else "P2",
+                        "mission_id": inv_id,
+                    })
+
+            except Exception as exc:
+                log.warning("[daily-cycle] Investigation evidence/findings failed for %s: %s", inv_id, exc)
+
+        # Surface pending decision packages
+        try:
+            pending_packages = get_pending_decision_packages(limit=5)
+            ctx.decision_packages_ready = len(pending_packages)
+            for pkg in pending_packages:
+                ctx.all_items.append({
+                    "type": "decision_package_ready",
+                    "title": f"[DECISION PACKAGE] {pkg.investigation_id}: {pkg.problem_statement[:70]}",
+                    "source": "investigation",
+                    "priority": "P1",
+                    "mission_id": pkg.investigation_id,
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Decision package surface failed: %s", exc)
+
+        # Count all open investigations
+        try:
+            summary = get_investigations_summary()
+            ctx.open_investigations_count = summary.get("open_total", 0)
+        except Exception as exc:
+            ctx.open_investigations_count = len(new_inv_ids)
+
+        ctx.data_freshness["investigation"] = datetime.utcnow().isoformat()
+
+        log.info(
+            "[daily-cycle] Investigation step: %d new, %d open, %d high-confidence findings, %d decision packages",
+            len(new_inv_ids), ctx.open_investigations_count,
+            len(ctx.high_confidence_findings), ctx.decision_packages_ready,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Investigation step failed (non-blocking): %s", exc)
+
+
 # ── Step 7: Improvement Discovery (EXEC-002 / EXEC-002A) ─────────────────────
 
 def _step_improvement_review(
@@ -341,8 +455,39 @@ def _format_improvement_discovery_section(ctx: CycleContext) -> str:
     return "\n".join(lines)
 
 
+def _format_investigation_section(ctx: CycleContext) -> str:
+    """Format the EXEC-004 investigation intelligence section for the Captain brief."""
+    if not (ctx.open_investigations_count or ctx.high_confidence_findings
+            or ctx.decision_packages_ready or ctx.new_investigations_opened):
+        return ""
+
+    lines: list[str] = ["*Investigations (D-059):*"]
+
+    if ctx.open_investigations_count:
+        lines.append(f"  Open: {ctx.open_investigations_count}")
+    if ctx.new_investigations_opened:
+        lines.append(f"  Opened this cycle: {len(ctx.new_investigations_opened)}")
+    if ctx.high_confidence_findings:
+        lines.append(f"  High-confidence findings: {len(ctx.high_confidence_findings)}")
+    if ctx.decision_packages_ready:
+        lines.append(f"  Decision packages awaiting XO: {ctx.decision_packages_ready}")
+    if ctx.investigations_closed_this_cycle:
+        lines.append(f"  Closed this cycle: {ctx.investigations_closed_this_cycle}")
+
+    # Surface top finding
+    if ctx.high_confidence_findings:
+        top = ctx.high_confidence_findings[0]
+        lines.append(
+            f"  Top finding [{top.get('investigation_id','')}]: "
+            f"{top.get('observation','')[:80]} "
+            f"→ `{top.get('lead_action','?')}`"
+        )
+
+    return "\n".join(lines)
+
+
 def assemble_executive_brief(ctx: CycleContext) -> str:
-    """Route all items and format Captain brief. Step 7 + 8."""
+    """Route all items and format Captain brief. Steps 7-9."""
     try:
         from core.coordination.exception_router import classify_all, format_captain_brief
 
@@ -353,7 +498,12 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
             number_one_summary=ctx.number_one_summary,
         )
 
-        # Append improvement intelligence section (EXEC-003 WP6)
+        # Investigation intelligence section (EXEC-004 WP9)
+        investigation_section = _format_investigation_section(ctx)
+        if investigation_section:
+            brief = f"{brief}\n\n{investigation_section}"
+
+        # Improvement intelligence section (EXEC-003 WP6)
         discovery_section = _format_improvement_discovery_section(ctx)
         if discovery_section:
             brief = f"{brief}\n\n{discovery_section}"
@@ -399,8 +549,8 @@ def run_daily_cycle(
 
     Sequence:
       Human Systems → Strategic Planning → ORI → Engineering →
-      Communications → Number One → Improvement Discovery (D-057) →
-      Exception Router → Captain Brief
+      Communications → Number One → Investigation Review (D-059) →
+      Improvement Discovery (D-057/D-058) → Exception Router → Captain Brief
 
     Args:
         missions:               Active missions list
@@ -418,7 +568,8 @@ def run_daily_cycle(
     _step_engineering(missions, ctx)
     _step_communications(ctx)
     _step_number_one(missions, ctx)
-    _step_improvement_review(ctx, weekly_run=weekly_improvement_run)
+    _step_investigation_review(ctx)                                 # EXEC-004 D-059
+    _step_improvement_review(ctx, weekly_run=weekly_improvement_run)  # EXEC-002/003 D-057
 
     return assemble_executive_brief(ctx)
 

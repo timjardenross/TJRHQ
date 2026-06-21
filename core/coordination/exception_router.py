@@ -72,6 +72,8 @@ XO_HANDLES: frozenset[str] = frozenset({
     "mission_alignment_exception",
     "resilience_advisory",           # ORI AMBER — XO monitors, escalates to Captain if needed
     "improvement_mission_approval",  # EXEC-002 improvement missions route through XO
+    "investigation_finding",         # EXEC-004 high-confidence findings for XO review
+    "decision_package_ready",        # EXEC-004 investigation decision packages await XO
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
