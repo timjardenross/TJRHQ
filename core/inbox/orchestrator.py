@@ -11,6 +11,7 @@ Pipeline (all steps best-effort):
   4. Detect duplicates (check existing source_url)
   5. Governance assessment (via GovernanceContextService, cached in DB)
   6. Mark processing_status = 'completed'
+  7. Research (Mistral agents) — async, non-blocking; fires for research/mission/decision
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import json
 import logging
 import os
 import re
+import threading
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -146,6 +148,60 @@ def _summarize(item: dict) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Research (Mistral agents) — step 7, fires async after pipeline completes
+# ---------------------------------------------------------------------------
+
+# Classifications that warrant autonomous research
+_RESEARCH_CLASSIFICATIONS = {"research", "mission", "decision"}
+
+
+def _build_research_topic(item: dict) -> str:
+    """Compose a research topic string from the captured item (10–1000 chars)."""
+    title = (item.get("title") or "").strip()
+    raw = (item.get("raw_text") or "").strip()
+    topic = f"{title} — {raw}" if (title and raw) else title or raw
+    topic = topic.strip(" —")
+    if len(topic) < 10:
+        topic = topic + " — provide an overview and key considerations"
+    return topic[:1000]
+
+
+def _run_research(item_id: str, item: dict) -> None:
+    """
+    Background thread: call ResearchOrchestrator then persist results.
+    All failures are non-blocking — sets research_status='failed' and logs.
+    """
+    try:
+        from core.coordination.research_orchestration import ResearchOrchestrator
+    except Exception as exc:
+        log.warning("[inbox-orchestrator] ResearchOrchestrator import failed (skipping research): %s", exc)
+        _db.update("captured_items", item_id, {"research_status": "failed"})
+        return
+
+    _db.update("captured_items", item_id, {"research_status": "running"})
+    try:
+        topic = _build_research_topic(item)
+        result = ResearchOrchestrator().run_research_mission(
+            research_topic=topic,
+            mission_id=item_id,
+        )
+        _db.update("captured_items", item_id, {
+            "research_status": "completed" if result.status in ("success", "partial") else "failed",
+            "research_findings": result.consolidated_findings or "",
+            "research_brief": result.captains_brief or "",
+            "research_mission_id": result.mission_id,
+            "research_confidence": result.confidence,
+        })
+        log.info(
+            "[inbox-orchestrator] Research complete item_id=%s status=%s confidence=%.2f provider=%s",
+            item_id, result.status, result.confidence, result.primary_provider,
+        )
+    except Exception as exc:
+        log.error("[inbox-orchestrator] Research failed for %s: %s", item_id, exc)
+        _db.update("captured_items", item_id, {"research_status": "failed"})
+
+
+# ---------------------------------------------------------------------------
 # Main orchestration entry point
 # ---------------------------------------------------------------------------
 
@@ -202,6 +258,12 @@ def process_captured_item(item_id: str) -> None:
         updates["last_processed_at"] = datetime.now(timezone.utc).isoformat()
         updates["processing_confidence"] = 0.7  # rule-based baseline
 
+        # 7. Queue research for actionable classifications (non-blocking)
+        classification = updates.get("classification", "")
+        is_duplicate = updates.get("duplicate_detected", False)
+        if classification in _RESEARCH_CLASSIFICATIONS and not is_duplicate:
+            updates["research_status"] = "pending"
+
         _db.update("captured_items", item_id, updates)
         log.info(
             "[inbox-orchestrator] Processed item_id=%s classification=%s importance=%s governance=%s",
@@ -210,6 +272,17 @@ def process_captured_item(item_id: str) -> None:
             updates.get("importance"),
             updates.get("governance_status"),
         )
+
+        # Fire research in a daemon thread so it never blocks the capture response
+        if classification in _RESEARCH_CLASSIFICATIONS and not is_duplicate:
+            t = threading.Thread(
+                target=_run_research,
+                args=(item_id, item),
+                daemon=True,
+                name=f"inbox-research-{item_id[:8]}",
+            )
+            t.start()
+            log.info("[inbox-orchestrator] Research thread launched for item_id=%s topic=%s", item_id, _build_research_topic(item)[:80])
 
     except Exception as exc:
         log.error("[inbox-orchestrator] Processing failed for %s: %s", item_id, exc)
