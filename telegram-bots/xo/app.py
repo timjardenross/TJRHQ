@@ -612,8 +612,9 @@ async def _scheduled_dispatch(bot) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
+    ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
+    ("brief",          "OR intelligence brief on demand"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("dispatch",        "Manual XO dispatch check"),
