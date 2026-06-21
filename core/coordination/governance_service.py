@@ -207,20 +207,21 @@ class GovernanceContextService:
     def _retrieve_relevant_decisions(self, entity_text: str) -> list[dict]:
         rows = self._db.select_all(
             "decision_records",
-            "id,title,problem_statement,decision_summary,recommended_option,status",
+            "id,mission_id,recommendation_text,decision_reason,human_decision",
             limit=50,
         )
         relevant = []
         for row in rows:
             artefact_text = (
-                f"{row.get('title', '')} {row.get('problem_statement', '')} "
-                f"{row.get('decision_summary', '')} {row.get('recommended_option', '')}"
+                f"{row.get('mission_id', '')} {row.get('recommendation_text', '')} "
+                f"{row.get('decision_reason', '')}"
             )
             if _is_relevant(entity_text, artefact_text):
+                rec_text = row.get("recommendation_text") or ""
                 relevant.append({
                     "id": row.get("id", ""),
-                    "title": row.get("title", ""),
-                    "status": row.get("status", ""),
+                    "title": row.get("mission_id") or rec_text[:80],
+                    "status": row.get("human_decision", ""),
                     "artefact_text": artefact_text,
                     "score": _overlap_score(entity_text, artefact_text),
                 })
