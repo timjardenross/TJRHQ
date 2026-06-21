@@ -66,10 +66,12 @@ class CycleContext:
     number_one_summary: str | None = None
     number_one_items: list[dict] = field(default_factory=list)
 
-    # EXEC-002/002A: Continuous Improvement Engine
+    # EXEC-002/002A/003: Continuous Improvement Engine
     improvement_opportunities: list[dict] = field(default_factory=list)
     improvement_missions_created: int = 0
     improvement_missions_deferred: int = 0
+    improvement_backlog_count: int = 0   # EXEC-003: persistent backlog depth
+    improvement_backlog_drained: int = 0  # EXEC-003: items promoted from backlog
     improvement_summary: str | None = None
     improvement_budget: dict = field(default_factory=dict)
 
@@ -262,11 +264,19 @@ def _step_improvement_review(
 
         result = run_discovery(ctx, weekly_run=weekly_run)
 
-        ctx.improvement_opportunities    = [o.to_dict() for o in result.candidates]
-        ctx.improvement_missions_created = len(result.missions_created)
+        ctx.improvement_opportunities     = [o.to_dict() for o in result.candidates]
+        ctx.improvement_missions_created  = len(result.missions_created)
         ctx.improvement_missions_deferred = result.missions_deferred
+        ctx.improvement_backlog_drained   = result.backlog_drained
         ctx.improvement_budget = result.budget.to_dict() if result.budget else {}
         ctx.improvement_summary = format_discovery_summary(result)
+
+        # EXEC-003: surface backlog depth for Captain brief
+        try:
+            from lib.improvement.backlog import get_backlog_count
+            ctx.improvement_backlog_count = get_backlog_count()
+        except Exception:
+            ctx.improvement_backlog_count = result.backlog_items_added
 
         # Surface High-band items to exception router (cap at 3 to avoid noise)
         for opp in result.high_band[:3]:
@@ -292,6 +302,45 @@ def _step_improvement_review(
 
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
+def _format_improvement_discovery_section(ctx: CycleContext) -> str:
+    """Format the EXEC-003 improvement intelligence section for the Captain brief.
+
+    Presents discovery (always-on) separately from execution (budget-gated)
+    so the Captain can distinguish 'we stopped looking' from 'nothing to act on'.
+    """
+    lines: list[str] = []
+
+    # Discovery summary
+    if ctx.improvement_summary:
+        lines.append(f"*Improvement Intelligence (D-058):*\n{ctx.improvement_summary}")
+    elif ctx.improvement_opportunities:
+        total = len(ctx.improvement_opportunities)
+        lines.append(f"*Improvement Intelligence:* {total} candidate(s) discovered")
+
+    # Execution status (separate from discovery)
+    budget = ctx.improvement_budget
+    if budget:
+        active  = budget.get("active_improvement_missions", "?")
+        maximum = budget.get("max_improvement_missions", "?")
+        cap_st  = budget.get("capacity_status", "?")
+        label   = budget.get("status_label", "")
+        created = ctx.improvement_missions_created
+        drained = ctx.improvement_backlog_drained
+        backlog = ctx.improvement_backlog_count
+
+        exec_parts = [f"Active: {active}/{maximum} slots ({cap_st})"]
+        if created:
+            exec_parts.append(f"{created} created this cycle")
+        if drained:
+            exec_parts.append(f"{drained} promoted from backlog")
+        if backlog:
+            exec_parts.append(f"Backlog depth: {backlog}")
+
+        lines.append("*Improvement Execution:* " + " | ".join(exec_parts))
+
+    return "\n".join(lines)
+
+
 def assemble_executive_brief(ctx: CycleContext) -> str:
     """Route all items and format Captain brief. Step 7 + 8."""
     try:
@@ -303,6 +352,12 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
             capacity_status=ctx.capacity_status,
             number_one_summary=ctx.number_one_summary,
         )
+
+        # Append improvement intelligence section (EXEC-003 WP6)
+        discovery_section = _format_improvement_discovery_section(ctx)
+        if discovery_section:
+            brief = f"{brief}\n\n{discovery_section}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -314,10 +369,12 @@ def _fallback_brief(ctx: CycleContext) -> str:
     budget = ctx.improvement_budget
     budget_line = ""
     if budget:
+        backlog_part = f" | Backlog: {ctx.improvement_backlog_count}" if ctx.improvement_backlog_count else ""
         budget_line = (
-            f"\nImprovement budget: {budget.get('active_improvement_missions', '?')}/"
+            f"\nImprovement: {budget.get('active_improvement_missions', '?')}/"
             f"{budget.get('max_improvement_missions', '?')} slots "
             f"({budget.get('capacity_status', '?')})"
+            f"{backlog_part}"
         )
     return (
         f"*CAPTAIN BRIEF — {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC*\n"

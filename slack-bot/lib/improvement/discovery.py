@@ -1,19 +1,21 @@
-"""Improvement Discovery Automation (EXEC-002A WP10).
+"""Improvement Discovery Automation (EXEC-002A WP10 / EXEC-003 WP4).
 
-Self-generating improvement behaviour. Officers discover opportunities without
-Captain prompting, on a defined schedule, and convert qualifying observations
-into missions automatically via the improvement budget gate.
+Architecture (D-058):
+  DISCOVERY PHASE  — always runs, no capacity gate.
+  EXECUTION PHASE  — capacity-gated by Human Systems (D-055).
+
+Officers discover opportunities every cycle. Opportunities that cannot
+be executed immediately are added to the persistent Improvement Backlog
+(WP3) and drained when capacity opens, rather than being lost.
 
 Review Schedule (WP10):
   Daily:   human_systems, ori, number_one
   Weekly:  engineering, strategic_planning, communications, knowledge
 
 Discovery Workflow:
-  Observation → Candidate → Score → Budget Check → Mission Draft →
-  Number One Triage → XO Approval → Execution
-
-The budget gate (WP8) prevents improvement overload.
-The scorecard (WP9) is created at mission creation for tracking.
+  Observation → Candidate → Score → [Attempt Execution] →
+    Budget open  → Mission created + Scorecard → XO approval queue
+    Budget closed → Persistent Backlog (drained next cycle with capacity)
 
 Public API:
     REVIEW_SCHEDULE                — officer → frequency mapping
@@ -64,19 +66,22 @@ REVIEW_SCHEDULE: dict[str, str] = {
 @dataclass
 class DiscoveryResult:
     """Output of a discovery run."""
-    daily_reviews_run: list[str]   = field(default_factory=list)
-    weekly_reviews_run: list[str]  = field(default_factory=list)
+    daily_reviews_run: list[str]  = field(default_factory=list)
+    weekly_reviews_run: list[str] = field(default_factory=list)
 
-    candidates: list[ImprovementOpportunity] = field(default_factory=list)
-    high_band:  list[ImprovementOpportunity] = field(default_factory=list)
+    candidates:  list[ImprovementOpportunity] = field(default_factory=list)
+    high_band:   list[ImprovementOpportunity] = field(default_factory=list)
     medium_band: list[ImprovementOpportunity] = field(default_factory=list)
-    low_band:   list[ImprovementOpportunity] = field(default_factory=list)
+    low_band:    list[ImprovementOpportunity] = field(default_factory=list)
 
-    missions_created: list[str] = field(default_factory=list)   # mission IDs
-    missions_deferred: int = 0   # budget gate prevented creation
-    missions_failed: int = 0     # creation error
+    missions_created:  list[str] = field(default_factory=list)  # mission IDs
+    missions_deferred: int = 0    # added to backlog (budget or D-057)
+    missions_failed:   int = 0    # creation error
 
-    budget: Any = None           # ImprovementBudget (typed loosely to avoid circular)
+    backlog_items_added: int = 0  # total items persisted to backlog this cycle
+    backlog_drained:     int = 0  # items promoted from backlog to missions
+
+    budget: Any = None            # ImprovementBudget (typed loosely to avoid circular)
     discovered_at: datetime = field(default_factory=datetime.utcnow)
 
     @property
@@ -88,7 +93,7 @@ class DiscoveryResult:
         return self.daily_reviews_run + self.weekly_reviews_run
 
 
-# ── Review runners ────────────────────────────────────────────────────────────
+# ── Discovery Phase helpers ───────────────────────────────────────────────────
 
 def _run_daily_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunity]]:
     """Run daily officer reviews. Returns (officers_run, opportunities)."""
@@ -146,7 +151,7 @@ def _run_weekly_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunit
     return officers_run, opportunities
 
 
-# ── Mission creation with budget gate ────────────────────────────────────────
+# ── Execution Phase helpers ───────────────────────────────────────────────────
 
 def _create_missions_within_budget(
     high_band: list[ImprovementOpportunity],
@@ -156,14 +161,15 @@ def _create_missions_within_budget(
     """Create missions for High-band opportunities, gated by improvement budget.
 
     Processes in composite score order (highest first).
-    Stops when budget is exhausted.
+    Opportunities that cannot be executed are added to the persistent backlog.
     Runs D-057 pre-flight check on each candidate.
-    Creates scorecard at mission creation.
+    Creates scorecard at mission creation (WP9).
     """
     try:
         from lib.improvement.framework import d057_check
         from lib.improvement.budget import ImprovementBudgetEngine
         from lib.improvement.scorecard import create_scorecard
+        from lib.improvement.backlog import add_to_backlog, mark_backlog_item_processed
         from command_memory_integration import create_mission_from_officer
     except ImportError as exc:
         log.warning("[improvement.discovery] Cannot import mission tools: %s", exc)
@@ -175,11 +181,15 @@ def _create_missions_within_budget(
 
     for opp in high_band:
         if slots_used >= max_slots:
+            # Budget exhausted — add to backlog for next cycle
+            if add_to_backlog(opp):
+                result.backlog_items_added += 1
             result.missions_deferred += 1
-            _log_deferred(opp, "Budget exhausted")
             continue
 
         # D-057 pre-flight
+        d057_clear = True
+        d057_reason = ""
         try:
             check = d057_check(
                 title=opp.suggested_action,
@@ -187,17 +197,27 @@ def _create_missions_within_budget(
                 officer=opp.source_officer,
             )
             if not check.all_clear:
-                result.missions_deferred += 1
-                _log_deferred(opp, check.recommendation)
-                continue
+                d057_clear = False
+                d057_reason = check.recommendation
         except Exception as exc:
             log.debug("[improvement.discovery] D-057 check failed for %s: %s", opp.source_officer, exc)
 
-        # Budget gate
+        if not d057_clear:
+            if add_to_backlog(opp):
+                result.backlog_items_added += 1
+            result.missions_deferred += 1
+            log.info(
+                "[improvement.discovery] D-057 gate: %s deferred — %s",
+                opp.source_officer, d057_reason,
+            )
+            continue
+
+        # Budget gate (secondary check after pre-flight)
         can_create, reason = engine.can_create_mission(budget, opp.category.value)
         if not can_create:
+            if add_to_backlog(opp):
+                result.backlog_items_added += 1
             result.missions_deferred += 1
-            _log_deferred(opp, reason)
             continue
 
         # Create mission
@@ -248,28 +268,95 @@ def _create_missions_within_budget(
             result.missions_failed += 1
 
 
-def _log_deferred(opp: ImprovementOpportunity, reason: str) -> None:
-    """Log a deferred improvement candidate to Command Memory (non-blocking)."""
-    try:
-        sys.path.insert(0, str(_BOT))
-        from command_memory_integration import log_decision_to_command_memory
+def _drain_from_backlog(budget: Any, result: DiscoveryResult) -> None:
+    """Attempt to fill remaining budget slots from the persistent backlog.
 
-        log_decision_to_command_memory(
-            statement=(
-                f"Improvement deferred ({opp.source_officer}): "
-                f"{opp.suggested_action[:80]}"
-            ),
-            rationale=(
-                f"Deferred reason: {reason}. "
-                f"Category: {opp.category.value}. "
-                f"Score: {round(opp.score.composite, 1) if opp.score else 'unscored'}. "
-                f"Observation: {opp.observation[:120]}. "
-                f"Will surface in next weekly review when budget allows."
-            ),
-            owner=f"improvement_deferred:{opp.source_officer}",
+    Called after current-cycle High-band processing. If budget slots remain
+    and the backlog has items, promotes top-scored backlog items to missions.
+    """
+    try:
+        from lib.improvement.backlog import drain_backlog, mark_backlog_item_processed
+        from lib.improvement.scorecard import create_scorecard
+        from command_memory_integration import create_mission_from_officer
+
+        remaining_slots = max(0, budget.budget_remaining - len(result.missions_created))
+        if remaining_slots <= 0:
+            return
+
+        candidates = drain_backlog(remaining_slots, budget)
+        if not candidates:
+            return
+
+        log.info(
+            "[improvement.discovery] Draining backlog: %d item(s) eligible for %d slot(s)",
+            len(candidates), remaining_slots,
         )
-    except Exception:
-        pass
+
+        for item in candidates:
+            try:
+                mission_id = create_mission_from_officer(
+                    officer=item.officer,
+                    title=f"[IMPROVE] {item.suggested_action[:80]}",
+                    summary=(
+                        f"D-057 improvement mission (from backlog). "
+                        f"Category: {item.category}. "
+                        f"Observation: {item.observation} "
+                        f"Expected benefit: {item.expected_benefit}"
+                    ),
+                    priority="P2",
+                    strategic_alignment="D-057 / D-058 Continuous Improvement",
+                    expected_outcome=item.expected_benefit,
+                    success_criteria=f"Benefit: {item.expected_benefit}",
+                    requires_approval="xo",
+                )
+
+                if mission_id:
+                    result.missions_created.append(mission_id)
+                    result.backlog_drained += 1
+                    mark_backlog_item_processed(item.decision_id, mission_id)
+
+                    try:
+                        create_scorecard(
+                            mission_id=mission_id,
+                            officer=item.officer,
+                            baseline_state=item.observation,
+                            target_state=item.expected_benefit,
+                        )
+                    except Exception as exc:
+                        log.debug("[improvement.discovery] Backlog scorecard skipped: %s", exc)
+
+                    log.info(
+                        "[improvement.discovery] Backlog item promoted: %s → %s",
+                        item.decision_id, mission_id,
+                    )
+                else:
+                    log.warning(
+                        "[improvement.discovery] Backlog mission creation failed for %s",
+                        item.officer,
+                    )
+            except Exception as exc:
+                log.warning(
+                    "[improvement.discovery] Backlog drain error (%s): %s",
+                    item.decision_id, exc,
+                )
+
+    except Exception as exc:
+        log.debug("[improvement.discovery] Backlog drain skipped: %s", exc)
+
+
+def _backlog_medium_band(medium_band: list[ImprovementOpportunity], result: DiscoveryResult) -> None:
+    """Add Medium-band items to the persistent backlog for weekly review promotion."""
+    if not medium_band:
+        return
+    try:
+        from lib.improvement.backlog import add_to_backlog
+
+        for opp in medium_band:
+            if add_to_backlog(opp):
+                result.backlog_items_added += 1
+
+    except Exception as exc:
+        log.debug("[improvement.discovery] Medium-band backlog failed: %s", exc)
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────
@@ -282,17 +369,57 @@ def run_discovery(
 ) -> DiscoveryResult:
     """Run improvement discovery for all officers due for review.
 
+    Architecture (D-058):
+      DISCOVERY PHASE  — always runs; no capacity gate.
+      EXECUTION PHASE  — capacity-gated by Human Systems (D-055).
+
     Args:
         ctx:              CycleContext with current operational state
         weekly_run:       If True, weekly officers also run (default: daily only)
-        captain_override: If True, bypass Red capacity budget gate for critical items
+        captain_override: If True, bypass Red capacity gate for critical items
 
     Returns:
-        DiscoveryResult with all candidates, created missions, and budget state.
+        DiscoveryResult with all candidates, created missions, backlog additions,
+        and budget state.
     """
     result = DiscoveryResult()
 
-    # Step 1: Determine budget
+    # ── DISCOVERY PHASE (always runs — no capacity gate) ──────────────────────
+
+    # Step 1: Run daily officer reviews
+    daily_officers, daily_opps = _run_daily_reviews(ctx)
+    result.daily_reviews_run = daily_officers
+    all_opps = list(daily_opps)
+
+    # Step 2: Run weekly officer reviews (when scheduled)
+    if weekly_run:
+        weekly_officers, weekly_opps = _run_weekly_reviews(ctx)
+        result.weekly_reviews_run = weekly_officers
+        all_opps.extend(weekly_opps)
+
+    # Step 3: Score and band all discovered opportunities
+    score_context = {
+        "capacity_status":     getattr(ctx, "capacity_status", "Unknown"),
+        "orphan_count":        getattr(ctx, "orphan_count", 0),
+        "engineering_blocked": getattr(ctx, "engineering_blocked", 0),
+        "comms_ready_count":   getattr(ctx, "comms_ready_count", 0),
+        "resilience_risk":     getattr(ctx, "resilience_risk", "Unknown"),
+    }
+    all_opps = score_and_rank(all_opps, score_context)
+
+    result.candidates  = all_opps
+    result.high_band   = [o for o in all_opps if o.band == ImprovementBand.HIGH]
+    result.medium_band = [o for o in all_opps if o.band == ImprovementBand.MEDIUM]
+    result.low_band    = [o for o in all_opps if o.band == ImprovementBand.LOW]
+
+    log.info(
+        "[improvement.discovery] DISCOVERY complete: %d candidates — %d High, %d Medium, %d Low",
+        len(all_opps), len(result.high_band), len(result.medium_band), len(result.low_band),
+    )
+
+    # ── EXECUTION PHASE (capacity-gated by Human Systems) ────────────────────
+
+    # Step 4: Determine execution budget (after discovery, not before)
     try:
         from lib.improvement.budget import get_current_budget
 
@@ -309,96 +436,60 @@ def run_discovery(
     except Exception as exc:
         log.warning("[improvement.discovery] Budget unavailable: %s", exc)
 
-    # Step 2: Run due reviews
-    daily_officers, daily_opps = _run_daily_reviews(ctx)
-    result.daily_reviews_run = daily_officers
-    all_opps = list(daily_opps)
+    # Step 5: Create missions from High-band within budget; backlog the rest
+    if result.high_band:
+        if result.budget is not None and result.budget.can_create:
+            _create_missions_within_budget(result.high_band, result.budget, result)
+        else:
+            # Budget closed — add all High-band to backlog
+            try:
+                from lib.improvement.backlog import add_to_backlog
 
-    if weekly_run:
-        weekly_officers, weekly_opps = _run_weekly_reviews(ctx)
-        result.weekly_reviews_run = weekly_officers
-        all_opps.extend(weekly_opps)
+                for opp in result.high_band:
+                    if add_to_backlog(opp):
+                        result.backlog_items_added += 1
+                result.missions_deferred += len(result.high_band)
+                log.info(
+                    "[improvement.discovery] %d High-band item(s) added to backlog — budget closed",
+                    len(result.high_band),
+                )
+            except Exception as exc:
+                log.warning("[improvement.discovery] High-band backlog failed: %s", exc)
+                result.missions_deferred += len(result.high_band)
 
-    # Step 3: Score and band
-    score_context = {
-        "capacity_status":     getattr(ctx, "capacity_status", "Unknown"),
-        "orphan_count":        getattr(ctx, "orphan_count", 0),
-        "engineering_blocked": getattr(ctx, "engineering_blocked", 0),
-        "comms_ready_count":   getattr(ctx, "comms_ready_count", 0),
-        "resilience_risk":     getattr(ctx, "resilience_risk", "Unknown"),
-    }
-    all_opps = score_and_rank(all_opps, score_context)
+    # Step 6: Add Medium-band to backlog for weekly review promotion
+    _backlog_medium_band(result.medium_band, result)
 
-    result.candidates  = all_opps
-    result.high_band   = [o for o in all_opps if o.band == ImprovementBand.HIGH]
-    result.medium_band = [o for o in all_opps if o.band == ImprovementBand.MEDIUM]
-    result.low_band    = [o for o in all_opps if o.band == ImprovementBand.LOW]
-
-    log.info(
-        "[improvement.discovery] %d candidates: %d High, %d Medium, %d Low",
-        len(all_opps), len(result.high_band), len(result.medium_band), len(result.low_band),
-    )
-
-    # Step 4: Create missions within budget
-    if result.budget is not None and result.budget.can_create and result.high_band:
-        _create_missions_within_budget(result.high_band, result.budget, result)
-    elif result.high_band:
-        log.info(
-            "[improvement.discovery] %d High-band opportunities deferred — budget closed",
-            len(result.high_band),
-        )
-        result.missions_deferred += len(result.high_band)
-
-    # Step 5: Log Medium-band as decisions for weekly review
-    _log_medium_band(result.medium_band)
+    # Step 7: Drain backlog if budget slots remain after current-cycle creation
+    if result.budget is not None and result.budget.can_create:
+        _drain_from_backlog(result.budget, result)
 
     return result
-
-
-def _log_medium_band(medium_band: list[ImprovementOpportunity]) -> None:
-    """Log Medium-band items as Command Memory decisions (non-blocking)."""
-    if not medium_band:
-        return
-    try:
-        sys.path.insert(0, str(_BOT))
-        from command_memory_integration import log_decision_to_command_memory
-
-        for opp in medium_band:
-            log_decision_to_command_memory(
-                statement=(
-                    f"Improvement candidate (Medium): "
-                    f"{opp.source_officer} — {opp.suggested_action[:80]}"
-                ),
-                rationale=(
-                    f"Category: {opp.category.value}. "
-                    f"Observation: {opp.observation[:120]}. "
-                    f"Expected benefit: {opp.expected_benefit}. "
-                    f"Score: {round(opp.score.composite, 1) if opp.score else 'unscored'}. "
-                    f"Effort: {opp.estimated_effort}. "
-                    f"Review in next weekly improvement cycle."
-                ),
-                owner=f"improvement_candidate:{opp.source_officer}",
-            )
-    except Exception as exc:
-        log.debug("[improvement.discovery] Medium-band log skipped: %s", exc)
 
 
 # ── Formatting ────────────────────────────────────────────────────────────────
 
 def format_discovery_summary(result: DiscoveryResult) -> str:
     """Format discovery result as a brief summary line for Captain brief."""
-    if not result.candidates:
+    if not result.candidates and not result.backlog_drained:
         return "_Improvement discovery: no opportunities identified this cycle._"
 
-    parts = [
-        f"*Improvement Discovery:* {result.total_candidates} candidate(s) — "
-        f"{len(result.high_band)} High / {len(result.medium_band)} Medium / {len(result.low_band)} Low"
-    ]
+    parts: list[str] = []
+
+    if result.candidates:
+        parts.append(
+            f"*Improvement Discovery:* {result.total_candidates} candidate(s) — "
+            f"{len(result.high_band)} High / {len(result.medium_band)} Medium / {len(result.low_band)} Low"
+        )
 
     if result.missions_created:
         parts.append(f"{len(result.missions_created)} mission(s) created (XO queue)")
+    if result.backlog_drained:
+        parts.append(f"{result.backlog_drained} promoted from backlog")
     if result.missions_deferred:
-        parts.append(f"{result.missions_deferred} deferred (budget or D-057 gate)")
+        parts.append(f"{result.missions_deferred} added to backlog")
+    if result.backlog_items_added and not result.missions_deferred:
+        parts.append(f"{result.backlog_items_added} item(s) queued to backlog")
 
     if result.budget:
         parts.append(
@@ -407,9 +498,10 @@ def format_discovery_summary(result: DiscoveryResult) -> str:
         )
 
     reviews = result.daily_reviews_run + result.weekly_reviews_run
-    parts.append(f"Reviews run: {', '.join(reviews)}")
+    if reviews:
+        parts.append(f"Reviews run: {', '.join(reviews)}")
 
-    return " | ".join(parts)
+    return " | ".join(parts) if parts else "_Improvement discovery: no data._"
 
 
 __all__ = [

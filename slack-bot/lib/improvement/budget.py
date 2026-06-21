@@ -38,6 +38,17 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+# ── Architecture constants (EXEC-003 WP1) ────────────────────────────────────
+
+# Discovery is always permitted regardless of capacity status.
+# Only the execution of improvement missions is capacity-gated.
+DISCOVERY_ALWAYS_PERMITTED: bool = True
+
+# Execution of improvement missions is governed by Human Systems capacity.
+# This constant documents the governing principle from D-058.
+EXECUTION_GOVERNED_BY_CAPACITY: bool = True
+
+
 # ── Allocation model (source: EXEC-002A WP8) ──────────────────────────────────
 
 CAPACITY_ALLOCATION: dict[str, dict[str, Any]] = {
@@ -304,6 +315,8 @@ __all__ = [
     "ImprovementBudget",
     "ImprovementBudgetEngine",
     "CAPACITY_ALLOCATION",
+    "DISCOVERY_ALWAYS_PERMITTED",
+    "EXECUTION_GOVERNED_BY_CAPACITY",
     "get_current_budget",
     "budget_report",
 ]
