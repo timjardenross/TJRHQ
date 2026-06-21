@@ -152,7 +152,7 @@ def _summarize(item: dict) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 # Classifications that warrant autonomous research
-_RESEARCH_CLASSIFICATIONS = {"research", "mission", "decision"}
+_RESEARCH_CLASSIFICATIONS = {"research", "mission", "decision", "unclassified"}
 
 
 def _build_research_topic(item: dict) -> str:
