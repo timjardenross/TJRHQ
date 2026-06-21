@@ -1071,7 +1071,7 @@ def _job_pending_research_sweep(_client) -> None:
     """
     try:
         import sys
-        sys.path.insert(0, str(_REPO_ROOT)) if "_REPO_ROOT" in dir() else None
+        sys.path.insert(0, str(_REPO_ROOT))
         from core.inbox.orchestrator import _run_research, _db  # noqa: PLC0415
 
         if not _db.enabled():
