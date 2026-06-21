@@ -123,11 +123,14 @@ def format_notebook_synthesis(synthesis: NotebookSynthesis) -> str:
 def inject_into_xo_brief(
     synthesis: NotebookSynthesis,
     xo_signals: list[dict[str, Any]],
+    supabase_client: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Inject notebook items as XO signals for xo_orchestrator.py consumption.
 
     Notebook items surface through the existing XO synthesis layer — not as a
     parallel channel. Call this before xo_orchestrator.synthesise_officer_outputs().
+    Optionally includes pattern signals (emerging themes, stalled ideas) when
+    supabase_client is provided (EXEC-010C WP8).
     """
     injected = list(xo_signals)
 
@@ -149,6 +152,34 @@ def inject_into_xo_brief(
             "priority":    "P2",
             "mission_id":  item["id"],
         })
+
+    # Pattern signals (WP8 extension — non-blocking)
+    if supabase_client is not None:
+        try:
+            from .notebook_patterns import detect_patterns
+            patterns = detect_patterns(supabase_client, lookback_days=14)
+            if patterns.emerging_themes:
+                top = patterns.emerging_themes[0]
+                injected.append({
+                    "type":        "pattern_signal",
+                    "source":      "notebook",
+                    "title":       f"[Notebook Pattern] {top.theme.replace('_', ' ').title()} theme — {top.count} notes",
+                    "priority":    "P3",
+                    "mission_id":  None,
+                    "description": f"Emerging theme across {top.count} notes in the last 14 days.",
+                })
+            if patterns.abandoned_ideas:
+                stalled = len(patterns.abandoned_ideas)
+                injected.append({
+                    "type":        "pattern_signal",
+                    "source":      "notebook",
+                    "title":       f"[Notebook Pattern] {stalled} stalled idea(s) in triage",
+                    "priority":    "P3",
+                    "mission_id":  None,
+                    "description": f"{stalled} note(s) in CAPTURED/OFFICER_REVIEW for >7 days without advancement.",
+                })
+        except Exception as exc:
+            log.warning("[notebook-xo] Pattern injection failed (non-blocking): %s", exc)
 
     return injected
 

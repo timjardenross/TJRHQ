@@ -465,29 +465,54 @@ function MedicalBayLink() {
 
 // ── Notebook Widget (EXEC-010B WP9) ──────────────────────────────────────────
 
+interface NbNote {
+  id: string;
+  title: string | null;
+  raw_content: string;
+  status: string;
+  created_at: string;
+  recommended_route: string | null;
+  strategic_alignment_score: number | null;
+  routed_entity_type: string | null;
+  routed_to_id: string | null;
+}
+
 function NotebookWidget() {
-  const [readyCount, setReadyCount]     = useState<number | null>(null);
+  const [readyCount, setReadyCount]       = useState<number | null>(null);
   const [capturedCount, setCapturedCount] = useState<number | null>(null);
-  const [latest, setLatest]             = useState<string | null>(null);
+  const [topOpportunity, setTopOpportunity] = useState<NbNote | null>(null);
+  const [recentRouted, setRecentRouted]   = useState<NbNote[]>([]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase
       .from('intelligence_notes')
-      .select('id, title, raw_content, status, created_at')
-      .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING'])
+      .select('id, title, raw_content, status, created_at, recommended_route, strategic_alignment_score, routed_entity_type, routed_to_id')
+      .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING', 'ROUTED'])
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(100)
       .then(({ data }) => {
         if (!data) return;
-        setReadyCount(data.filter((n) => n.status === 'READY_FOR_ROUTING').length);
-        setCapturedCount(data.filter((n) => n.status === 'CAPTURED').length);
-        const first = data[0];
-        if (first) setLatest(first.title || (first.raw_content as string).slice(0, 50));
+        const ready = data.filter((n) => n.status === 'READY_FOR_ROUTING');
+        const captured = data.filter((n) => n.status === 'CAPTURED');
+        const routed = data.filter((n) => n.status === 'ROUTED' && n.routed_to_id);
+
+        setReadyCount(ready.length);
+        setCapturedCount(captured.length);
+
+        const top = ready.sort((a, b) =>
+          (b.strategic_alignment_score ?? 0) - (a.strategic_alignment_score ?? 0)
+        )[0] ?? null;
+        setTopOpportunity(top as NbNote | null);
+        setRecentRouted((routed.slice(0, 3) as NbNote[]));
       });
   }, []);
 
   const hasAction = (readyCount ?? 0) > 0;
+
+  function noteTitle(n: NbNote) {
+    return n.title || n.raw_content.slice(0, 48) + (n.raw_content.length > 48 ? '…' : '');
+  }
 
   return (
     <Panel className={hasAction ? 'border-command/40' : ''}>
@@ -506,6 +531,7 @@ function NotebookWidget() {
         <p className="text-[10px] text-lcars-muted">Loading…</p>
       ) : (
         <div className="flex flex-col gap-2">
+          {/* Route queue */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 shrink-0 rounded-full ${hasAction ? 'bg-command animate-pulse' : 'bg-edge'}`} />
@@ -522,10 +548,28 @@ function NotebookWidget() {
             </div>
             <span className="font-mono text-sm font-bold text-lcars-muted">{capturedCount}</span>
           </div>
-          {latest && (
-            <p className="mt-1 truncate text-[10px] text-lcars-muted/70 italic">
-              Latest: {latest}
-            </p>
+
+          {/* Top opportunity */}
+          {topOpportunity && (
+            <div className="mt-1 rounded border border-command/20 bg-command/5 px-2 py-1.5">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-command mb-0.5">Top opportunity</p>
+              <p className="text-[10px] text-lcars-text truncate">{noteTitle(topOpportunity)}</p>
+              {topOpportunity.recommended_route && (
+                <p className="text-[9px] text-lcars-muted">→ {topOpportunity.recommended_route}</p>
+              )}
+            </div>
+          )}
+
+          {/* Recent conversions */}
+          {recentRouted.length > 0 && (
+            <div className="mt-1">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-status mb-1">Recent conversions</p>
+              {recentRouted.map((n) => (
+                <p key={n.id} className="text-[9px] text-lcars-muted/80 truncate">
+                  ✓ {noteTitle(n)}{n.routed_entity_type ? ` → ${n.routed_entity_type.replace(/_/g, ' ')}` : ''}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       )}

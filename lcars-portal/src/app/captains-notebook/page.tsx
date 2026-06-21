@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -26,6 +26,9 @@ interface IntelligenceNote {
   recommended_route: string | null;
   routed_to_type: string | null;
   routed_to_id: string | null;
+  routed_entity_type: string | null;
+  routed_at: string | null;
+  routed_by: string | null;
 }
 
 type FilterStatus = 'ALL' | 'CAPTURED' | 'OFFICER_REVIEW' | 'NUMBER_ONE_REVIEW' | 'READY_FOR_ROUTING' | 'ROUTED' | 'ARCHIVED';
@@ -200,6 +203,21 @@ function NoteCard({
             </div>
           )}
 
+          {note.routed_to_id && (
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted mb-1">Artefact Created</p>
+              <div className="rounded border border-status/20 bg-status/5 px-2 py-1.5 flex flex-col gap-0.5">
+                {note.routed_entity_type && (
+                  <p className="text-[10px] uppercase tracking-wider text-status font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
+                )}
+                <p className="text-xs text-lcars-text font-mono">{note.routed_to_id}</p>
+                {note.routed_by && (
+                  <p className="text-[10px] text-lcars-muted">via {note.routed_by}{note.routed_at ? ` · ${relativeAge(note.routed_at)}` : ''}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {!isArchived && (
             <div className="flex gap-2 pt-1">
               {canRoute && (
@@ -240,6 +258,8 @@ export default function CaptainsNotebookPage() {
   const [capturing, setCapturing]           = useState(false);
   const [captureError, setCaptureError]     = useState<string | null>(null);
   const [captureSuccess, setCaptureSuccess] = useState(false);
+  const [quickMode, setQuickMode]           = useState(false);
+  const quickRef = useRef<HTMLTextAreaElement>(null);
 
   // Inbox
   const [notes, setNotes]         = useState<IntelligenceNote[]>([]);
@@ -253,7 +273,7 @@ export default function CaptainsNotebookPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('intelligence_notes')
-      .select('id, title, raw_content, source, tags, status, created_at, updated_at, assigned_officers, officer_findings, triage_summary, classification, confidence_score, strategic_alignment_score, recommended_route, routed_to_type, routed_to_id')
+      .select('id, title, raw_content, source, tags, status, created_at, updated_at, assigned_officers, officer_findings, triage_summary, classification, confidence_score, strategic_alignment_score, recommended_route, routed_to_type, routed_to_id, routed_entity_type, routed_at, routed_by')
       .order('created_at', { ascending: false })
       .limit(100);
     setLoading(false);
@@ -261,6 +281,10 @@ export default function CaptainsNotebookPage() {
   }
 
   useEffect(() => { loadNotes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (quickMode) quickRef.current?.focus();
+  }, [quickMode]);
 
   async function handleCapture() {
     if (!captureContent.trim()) return;
@@ -350,50 +374,92 @@ export default function CaptainsNotebookPage() {
       </LCARSPanel>
 
       {/* Quick Capture */}
-      <LCARSPanel title="Quick Capture" accent="command" eyebrow="Raw thought → Officer Corps">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Title (optional)</p>
-            <input
-              type="text"
-              value={captureTitle}
-              onChange={(e) => setCaptureTitle(e.target.value)}
-              placeholder="Leave blank to auto-title from content"
-              className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Thought or intelligence</p>
-            <textarea
-              value={captureContent}
-              onChange={(e) => setCaptureContent(e.target.value)}
-              rows={4}
-              placeholder="Capture the raw thought. Officers will determine what it means, why it matters, and where it routes."
-              className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none resize-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Tags (comma-separated, optional)</p>
-            <input
-              type="text"
-              value={captureTags}
-              onChange={(e) => setCaptureTags(e.target.value)}
-              placeholder="strategy, delivery, health…"
-              className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
-            />
-          </div>
-          {captureError && (
-            <p className="text-xs text-operations">{captureError}</p>
-          )}
+      <LCARSPanel
+        title="Quick Capture"
+        accent="command"
+        eyebrow="Raw thought → Officer Corps"
+        actions={
           <button
             type="button"
-            onClick={handleCapture}
-            disabled={capturing || !captureContent.trim()}
-            className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+            onClick={() => setQuickMode(!quickMode)}
+            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command transition-colors"
           >
-            {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
+            {quickMode ? 'Full form' : 'Quick mode'}
           </button>
-        </div>
+        }
+      >
+        {quickMode ? (
+          /* ── One-tap mobile capture ─────────────────────────────── */
+          <div className="flex flex-col gap-3">
+            <textarea
+              ref={quickRef}
+              value={captureContent}
+              onChange={(e) => setCaptureContent(e.target.value)}
+              rows={5}
+              placeholder="Capture the thought. Officers will refine and route it."
+              className="w-full rounded-lcars border border-command bg-space px-3 py-3 text-base text-lcars-text placeholder:text-lcars-muted focus:outline-none resize-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  if (captureContent.trim() && !capturing) handleCapture();
+                }
+              }}
+            />
+            {captureError && <p className="text-xs text-operations">{captureError}</p>}
+            <button
+              type="button"
+              onClick={handleCapture}
+              disabled={capturing || !captureContent.trim()}
+              className="w-full rounded-lcars bg-command px-4 py-3.5 font-lcars text-base font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+            >
+              {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
+            </button>
+            <p className="text-[10px] text-lcars-muted text-center">⌘↵ or Ctrl↵ to capture</p>
+          </div>
+        ) : (
+          /* ── Full form ──────────────────────────────────────────── */
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Title (optional)</p>
+              <input
+                type="text"
+                value={captureTitle}
+                onChange={(e) => setCaptureTitle(e.target.value)}
+                placeholder="Leave blank to auto-title from content"
+                className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Thought or intelligence</p>
+              <textarea
+                value={captureContent}
+                onChange={(e) => setCaptureContent(e.target.value)}
+                rows={4}
+                placeholder="Capture the raw thought. Officers will determine what it means, why it matters, and where it routes."
+                className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none resize-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Tags (comma-separated, optional)</p>
+              <input
+                type="text"
+                value={captureTags}
+                onChange={(e) => setCaptureTags(e.target.value)}
+                placeholder="strategy, delivery, health…"
+                className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
+              />
+            </div>
+            {captureError && <p className="text-xs text-operations">{captureError}</p>}
+            <button
+              type="button"
+              onClick={handleCapture}
+              disabled={capturing || !captureContent.trim()}
+              className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+            >
+              {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
+            </button>
+          </div>
+        )}
       </LCARSPanel>
 
       {/* Inbox */}
