@@ -74,6 +74,8 @@ XO_HANDLES: frozenset[str] = frozenset({
     "improvement_mission_approval",  # EXEC-002 improvement missions route through XO
     "investigation_finding",         # EXEC-004 high-confidence findings for XO review
     "decision_package_ready",        # EXEC-004 investigation decision packages await XO
+    "initiative_stop_recommendation",# EXEC-006 stop/pause/merge initiative decisions
+    "initiative_review",             # EXEC-006 initiative review packages
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({

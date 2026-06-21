@@ -92,6 +92,16 @@ class CycleContext:
     knowledge_quality: dict = field(default_factory=dict)
     learning_summary: str | None = None
 
+    # EXEC-006: Strategic Outcomes & Initiative Management
+    initiative_health_summary: dict = field(default_factory=dict)   # green/amber/red counts
+    initiatives_total: int = 0
+    stop_recommendations: int = 0
+    accelerate_recommendations: int = 0
+    strategic_risks: list[str] = field(default_factory=list)
+    alignment_coverage_pct: float = 0.0
+    strategic_outcomes_summary: str | None = None
+    executive_strategic_review: str | None = None
+
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
     cycle_started: datetime = field(default_factory=datetime.utcnow)
@@ -511,6 +521,103 @@ def _step_learning_review(ctx: CycleContext) -> None:
         log.warning("[daily-cycle] Learning step failed (non-blocking): %s", exc)
 
 
+# ── Step 6.7: Strategic Outcomes & Initiative Management (EXEC-006) ───────────
+
+def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False) -> None:
+    """EXEC-006 D-062 — measure strategic progress through outcomes, not activity.
+
+    Runs last (after investigation, learning, and improvement) so it can read
+    every other officer's signals as health inputs. Refreshes initiative health,
+    runs the alignment scan, generates stop/continue/accelerate recommendations,
+    and assembles the Strategic Outcomes dashboard. Monthly: the full Executive
+    Strategic Review. Fully non-blocking.
+    """
+    try:
+        from lib.strategy.initiatives import list_initiatives
+        from lib.strategy.outcomes import refresh_initiative_health
+        from lib.strategy.portfolio_intelligence import recommend_all, Recommendation
+        from lib.strategy.strategic_review import (
+            build_strategic_dashboard, format_strategic_dashboard,
+            run_executive_strategic_review, format_executive_review,
+        )
+
+        # Shared health inputs from the rest of the cycle
+        inputs = {
+            "capacity_status": ctx.capacity_status,
+            "resilience_risk": ctx.resilience_risk,
+            "blocked_missions": ctx.engineering_blocked,
+            "total_missions": ctx.engineering_in_progress + ctx.engineering_blocked,
+        }
+
+        initiatives = list_initiatives(include_closed=False)
+        if not initiatives:
+            ctx.strategic_outcomes_summary = (
+                "*Strategic Outcomes:* _No initiatives defined — work is not yet "
+                "traced to measurable outcomes (D-062)._"
+            )
+            ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+            return
+
+        # Refresh health for each initiative (persisted)
+        for init in initiatives:
+            try:
+                refresh_initiative_health(init.initiative_id, inputs)
+            except Exception:
+                pass
+
+        # Dashboard (WP7)
+        dash = build_strategic_dashboard(inputs)
+        ctx.initiative_health_summary = dash.health_summary
+        ctx.initiatives_total = dash.total_initiatives
+        ctx.strategic_risks = dash.strategic_risks
+        if dash.alignment:
+            ctx.alignment_coverage_pct = dash.alignment.coverage_pct
+        ctx.strategic_outcomes_summary = format_strategic_dashboard(dash)
+
+        # Stop / Continue / Accelerate (WP5)
+        recs = recommend_all(inputs)
+        ctx.stop_recommendations = len([r for r in recs if r.recommendation in (
+            Recommendation.STOP, Recommendation.PAUSE, Recommendation.MERGE)])
+        ctx.accelerate_recommendations = len([r for r in recs if r.recommendation == Recommendation.ACCELERATE])
+
+        # Surface disinvestment recommendations to XO; off-track initiatives + strategic risk to Captain
+        for r in recs:
+            if r.recommendation in (Recommendation.STOP, Recommendation.MERGE):
+                ctx.all_items.append({
+                    "type": "initiative_stop_recommendation",
+                    "title": f"[{r.recommendation.value.upper()}] {r.title[:70]} — {r.rationale[:60]}",
+                    "source": "strategic_planning",
+                    "priority": "P2",
+                    "mission_id": r.initiative_id,
+                })
+        for risk in dash.strategic_risks[:3]:
+            ctx.all_items.append({
+                "type": "strategic_decision",
+                "title": f"[STRATEGIC RISK] {risk[:80]}",
+                "source": "strategic_planning",
+                "priority": "P1",
+            })
+
+        # Monthly Executive Strategic Review (WP9)
+        if monthly_review:
+            try:
+                review = run_executive_strategic_review(inputs)
+                ctx.executive_strategic_review = format_executive_review(review)
+            except Exception as exc:
+                log.debug("[daily-cycle] Executive strategic review failed: %s", exc)
+
+        ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Strategic outcomes: %d initiatives (%s), %d stop, %d accelerate, alignment %.0f%%",
+            ctx.initiatives_total, ctx.initiative_health_summary,
+            ctx.stop_recommendations, ctx.accelerate_recommendations,
+            ctx.alignment_coverage_pct * 100,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Strategic outcomes step failed (non-blocking): %s", exc)
+
+
 # ── Step 7: Improvement Discovery (EXEC-002 / EXEC-002A) ─────────────────────
 
 def _step_improvement_review(
@@ -671,6 +778,14 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.learning_summary:
             brief = f"{brief}\n\n{ctx.learning_summary}"
 
+        # Strategic Outcomes (EXEC-006 WP7) — progress, not activity
+        if ctx.strategic_outcomes_summary:
+            brief = f"{brief}\n\n{ctx.strategic_outcomes_summary}"
+
+        # Monthly Executive Strategic Review (EXEC-006 WP9)
+        if ctx.executive_strategic_review:
+            brief = f"{brief}\n\n{ctx.executive_strategic_review}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -707,18 +822,21 @@ def run_daily_cycle(
     capacity_entry: dict[str, Any] | None = None,
     *,
     weekly_improvement_run: bool = False,
+    monthly_strategic_review: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
     Sequence:
       Human Systems → Strategic Planning → ORI → Engineering →
-      Communications → Number One → Investigation Review (D-059) →
-      Improvement Discovery (D-057/D-058) → Exception Router → Captain Brief
+      Communications → Number One → Investigation Review (D-059/D-060) →
+      Improvement Discovery (D-057/D-058) → Learning (D-061) →
+      Strategic Outcomes (D-062) → Exception Router → Captain Brief
 
     Args:
-        missions:               Active missions list
-        capacity_entry:         Today's capacity log entry
-        weekly_improvement_run: If True, weekly officer reviews also run (WP10)
+        missions:                 Active missions list
+        capacity_entry:           Today's capacity log entry
+        weekly_improvement_run:   If True, weekly officer reviews also run (WP10)
+        monthly_strategic_review: If True, the full Executive Strategic Review runs (EXEC-006 WP9)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -734,6 +852,7 @@ def run_daily_cycle(
     _step_investigation_review(ctx)                                 # EXEC-004 D-059 / EXEC-005 D-060
     _step_improvement_review(ctx, weekly_run=weekly_improvement_run)  # EXEC-002/003 D-057
     _step_learning_review(ctx)                                       # EXEC-005 D-061
+    _step_strategic_outcomes(ctx, monthly_review=monthly_strategic_review)  # EXEC-006 D-062
 
     return assemble_executive_brief(ctx)
 
