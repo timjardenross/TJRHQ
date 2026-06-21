@@ -1,22 +1,23 @@
-"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-008).
+"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-009).
 
 Sequences officer outputs in the prescribed order and assembles the Captain brief.
 Officers consume outputs from previous officers — no isolated reporting.
 
 Sequence:
-   1. Human Systems           — capacity gate (governs everything downstream)
-   2. Strategic Planning      — portfolio decisions
-   3. ORI                     — resilience intelligence
-   4. Engineering             — delivery status
-   5. Communications          — pipeline status
-   6. Number One              — consolidation + executive summary
-   6.5 Investigation Review   — D-059 questions, evidence, findings (EXEC-004)
-   6.6 Learning Review        — D-061 patterns, lessons, knowledge quality (EXEC-005)
-   6.7 Strategic Outcomes     — D-062 initiative health, value progress (EXEC-006)
-   6.8 Program Coordination   — D-063 Number One PMO, forecasts, risks (EXEC-007)
-   6.9 Portfolio Optimisation — D-064 value realisation, optimisation (EXEC-008)
-   7.  Exception Router       — classify all items
-   8.  Captain Brief          — Top 3 + exceptions + decisions + capacity
+   1. Human Systems                      — capacity gate (governs everything downstream)
+   2. Strategic Planning                 — portfolio decisions
+   3. ORI                                — resilience intelligence
+   4. Engineering                        — delivery status
+   5. Communications                     — pipeline status
+   6. Number One                         — consolidation + executive summary
+   6.5 Investigation Review              — D-059 questions, evidence, findings (EXEC-004)
+   6.6 Learning Review                   — D-061 patterns, lessons, knowledge quality (EXEC-005)
+   6.7 Strategic Outcomes                — D-062 initiative health, value progress (EXEC-006)
+   6.8 Program Coordination              — D-063 Number One PMO, forecasts, risks (EXEC-007)
+   6.9 Portfolio Optimisation            — D-064 value realisation, optimisation (EXEC-008)
+   7.0 Enterprise Architecture           — D-065 capabilities, maturity, simulation (EXEC-009)
+   7.  Exception Router                  — classify all items
+   8.  Captain Brief                     — Top 3 + exceptions + decisions + capacity
 
 The Captain receives an executive brief, not raw operational data.
 
@@ -124,6 +125,14 @@ class CycleContext:
     portfolio_at_risk_count: int = 0          # initiatives with benefit or delivery risk
     portfolio_review_summary: str | None = None
     portfolio_optimisation_headline: str = ""
+
+    # EXEC-009: Enterprise Architecture, Capability Planning & Strategic Simulation
+    capability_gap_count: int = 0             # critical capability gaps identified
+    capability_total: int = 0                 # total registered capabilities
+    capability_readiness_pct: float = 0.0     # % at Managed maturity or above
+    simulation_low_readiness_count: int = 0   # simulations with low readiness
+    tech_debt_critical_count: int = 0         # critical-severity tech debt items
+    capability_review_summary: str | None = None
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -936,6 +945,154 @@ def _step_portfolio_optimisation(
         log.warning("[daily-cycle] Portfolio optimisation step failed (non-blocking): %s", exc)
 
 
+# ── Step 7.0: Enterprise Architecture & Capability Planning (EXEC-009) ───────
+
+def _step_enterprise_architecture(
+    ctx: CycleContext,
+    *,
+    capability_review: bool = False,
+) -> None:
+    """EXEC-009 D-065 — Enterprise Architecture, Capability Planning & Strategic Simulation.
+
+    Runs after Portfolio Optimisation (so portfolio signals are current). Assesses
+    capability maturity, identifies gaps, runs strategic simulations, and surfaces
+    architecture risks. On capability_review=True generates the full 6-question
+    executive capability review.
+
+    Surfaces capability gaps and simulation warnings to Captain; future state
+    recommendations and tech debt escalations to XO. Fully non-blocking.
+    """
+    try:
+        from lib.strategy.capabilities import list_capabilities
+
+        caps = list_capabilities()
+        ctx.capability_total = len(caps)
+        if not caps:
+            ctx.capability_review_summary = (
+                "*Enterprise Architecture:* _No capabilities registered — register capabilities to enable planning (D-065)._"
+            )
+            ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+            return
+
+        inputs = {
+            "capacity_status": ctx.capacity_status,
+            "resilience_risk": ctx.resilience_risk,
+        }
+
+        # Capability gap analysis (WP8) — surface critical gaps to Captain
+        try:
+            from lib.strategy.capability_gaps import analyse_capability_gaps, GapType
+            gaps = analyse_capability_gaps()
+            critical_gaps = [g for g in gaps if g.is_critical]
+            ctx.capability_gap_count = len(critical_gaps)
+
+            for g in critical_gaps[:3]:
+                ctx.all_items.append({
+                    "type": g.gap_type.value == "threatening" and "capability_risk" or "capability_gap",
+                    "title": f"[CAP GAP] {g.description[:80]}",
+                    "source": "enterprise_architecture",
+                    "priority": "P1",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Capability gap analysis failed: %s", exc)
+
+        # Maturity assessment (WP3) — track readiness
+        try:
+            from lib.strategy.capability_maturity import assess_all_maturity
+            assessments = assess_all_maturity()
+            if assessments:
+                managed = sum(1 for a in assessments if a.assessed_maturity.value >= 3)
+                ctx.capability_readiness_pct = round(managed / len(assessments), 3)
+        except Exception as exc:
+            log.debug("[daily-cycle] Maturity assessment failed: %s", exc)
+
+        # Architecture view (WP4) — surface high-risk entities to Captain
+        try:
+            from lib.strategy.enterprise_architecture import get_architecture_view
+            av = get_architecture_view()
+            for e in av.high_risk[:2]:
+                ctx.all_items.append({
+                    "type": "architecture_risk",
+                    "title": f"[ARCH RISK] {e.name} ({e.state.value}) — high risk",
+                    "source": "enterprise_architecture",
+                    "priority": "P1",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Architecture view failed: %s", exc)
+
+        # Technical debt profile (WP5) — surface critical debt to XO
+        try:
+            from lib.strategy.technical_debt import compute_debt_profile, DebtTrend
+            dp = compute_debt_profile()
+            ctx.tech_debt_critical_count = dp.critical_count
+            increasing_critical = [d for d in dp.top_debts if d.trend == DebtTrend.INCREASING and d.score >= 8]
+            if increasing_critical:
+                ctx.all_items.append({
+                    "type": "technical_debt_escalation",
+                    "title": f"[TECH DEBT] {len(increasing_critical)} critical item(s) with increasing trend",
+                    "source": "enterprise_architecture",
+                    "priority": "P2",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Technical debt profile failed: %s", exc)
+
+        # Future state planning (WP6) — surface critical H1 needs to XO
+        try:
+            from lib.strategy.future_state import build_future_state_plan, FutureCapPriority
+            fp = build_future_state_plan()
+            for p in fp.critical_near_term[:2]:
+                ctx.all_items.append({
+                    "type": "future_state_recommendation",
+                    "title": f"[FUTURE CAP H1] {p.name[:60]} — critical 12-month requirement",
+                    "source": "enterprise_architecture",
+                    "priority": "P2",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Future state planning failed: %s", exc)
+
+        # Strategic simulation (WP7) — surface cross-scenario low readiness to Captain
+        try:
+            from lib.strategy.strategic_simulation import run_all_simulations
+            sim_report = run_all_simulations(inputs)
+            low_ready = [r for r in sim_report.results if r.overall_readiness == "low"]
+            ctx.simulation_low_readiness_count = len(low_ready)
+            if len(low_ready) >= 2:
+                ctx.all_items.append({
+                    "type": "simulation_warning",
+                    "title": (
+                        f"[SIMULATION] Low readiness in {len(low_ready)} strategic scenarios — "
+                        f"capability base may not support strategic continuity"
+                    ),
+                    "source": "enterprise_architecture",
+                    "priority": "P1",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Strategic simulation failed: %s", exc)
+
+        # Full 6-question capability review (on flag)
+        if capability_review:
+            try:
+                from lib.strategy.capability_review import (
+                    generate_capability_review, format_capability_review,
+                )
+                review = generate_capability_review(inputs)
+                ctx.capability_review_summary = format_capability_review(review)
+            except Exception as exc:
+                log.debug("[daily-cycle] Capability review failed: %s", exc)
+
+        ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Enterprise architecture: %d caps, readiness=%.0f%%, critical gaps=%d, "
+            "sim low=%d, tech debt critical=%d",
+            ctx.capability_total, ctx.capability_readiness_pct * 100,
+            ctx.capability_gap_count, ctx.simulation_low_readiness_count,
+            ctx.tech_debt_critical_count,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Enterprise architecture step failed (non-blocking): %s", exc)
+
+
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def _format_improvement_discovery_section(ctx: CycleContext) -> str:
@@ -1056,6 +1213,10 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.portfolio_review_summary:
             brief = f"{brief}\n\n{ctx.portfolio_review_summary}"
 
+        # Enterprise Architecture & Capability Planning (EXEC-009 D-065)
+        if ctx.capability_review_summary:
+            brief = f"{brief}\n\n{ctx.capability_review_summary}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -1095,6 +1256,7 @@ def run_daily_cycle(
     monthly_strategic_review: bool = False,
     delivery_review: bool = False,
     portfolio_review: bool = False,
+    capability_review: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
@@ -1103,7 +1265,8 @@ def run_daily_cycle(
       Communications → Number One → Investigation Review (D-059/D-060) →
       Improvement Discovery (D-057/D-058) → Learning (D-061) →
       Strategic Outcomes (D-062) → Program Coordination (D-063) →
-      Portfolio Optimisation (D-064) → Exception Router → Captain Brief
+      Portfolio Optimisation (D-064) → Enterprise Architecture (D-065) →
+      Exception Router → Captain Brief
 
     Args:
         missions:                 Active missions list
@@ -1112,6 +1275,7 @@ def run_daily_cycle(
         monthly_strategic_review: If True, the full Executive Strategic Review runs (EXEC-006 WP9)
         delivery_review:          If True, the full Executive Delivery Review runs (EXEC-007 WP8)
         portfolio_review:         If True, the full Portfolio Review runs (EXEC-008 WP7)
+        capability_review:        If True, the full Capability Review runs (EXEC-009 WP9)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -1130,6 +1294,7 @@ def run_daily_cycle(
     _step_strategic_outcomes(ctx, monthly_review=monthly_strategic_review)   # EXEC-006 D-062
     _step_program_coordination(ctx, delivery_review=delivery_review)         # EXEC-007 D-063
     _step_portfolio_optimisation(ctx, portfolio_review=portfolio_review)     # EXEC-008 D-064
+    _step_enterprise_architecture(ctx, capability_review=capability_review)  # EXEC-009 D-065
 
     return assemble_executive_brief(ctx)
 

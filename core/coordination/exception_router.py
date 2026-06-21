@@ -56,6 +56,10 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "add_strategic_domain",
     "technology_selection_major",
     "portfolio_escalation",         # EXEC-008 strategic value degradation / objectives at risk
+    "capability_gap",               # EXEC-009 strategic objective has no capable foundation
+    "capability_risk",              # EXEC-009 capability deterioration threatens objective delivery
+    "architecture_risk",            # EXEC-009 current-state architectural entity at portfolio risk
+    "simulation_warning",           # EXEC-009 cross-scenario low readiness requiring strategic decision
 })
 
 XO_HANDLES: frozenset[str] = frozenset({
@@ -81,6 +85,8 @@ XO_HANDLES: frozenset[str] = frozenset({
     "portfolio_recommendation",      # EXEC-008 accelerate/terminate/pause portfolio decisions
     "benefit_risk",                  # EXEC-008 benefits significantly below commitment
     "benefit_realisation_review",    # EXEC-008 periodic benefit realisation requiring decision
+    "future_state_recommendation",  # EXEC-009 H1 future capability investment requiring XO approval
+    "technical_debt_escalation",    # EXEC-009 critical/high tech debt requiring portfolio-level decision
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
