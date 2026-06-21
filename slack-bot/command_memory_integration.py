@@ -348,6 +348,117 @@ def get_active_decisions() -> list[dict[str, Any]]:
     return results
 
 
+def create_mission_from_officer(
+    officer: str,
+    title: str,
+    summary: str,
+    priority: str = "P2",
+    strategic_alignment: str | None = None,
+    recommended_owner: str | None = None,
+    expected_outcome: str | None = None,
+    success_criteria: str | None = None,
+    requires_approval: str = "xo",
+    mission_id: str | None = None,
+    captain_override: bool = False,
+) -> str | None:
+    """Officer creates an actionable mission draft (EXEC-001 WP2).
+
+    Any officer may call this to convert an observation, risk, opportunity,
+    or blocker into a mission. The mission starts in 'Idea' state and routes
+    to the XO approval queue before Number One can action it.
+
+    Authority is validated against the officer's manifest before writing.
+    All creation events are logged to Command Memory for auditability.
+
+    Args:
+        officer:            Officer slug (e.g. 'human_systems', 'number_one')
+        title:              Mission title
+        summary:            Mission rationale / description
+        priority:           P0–P5 (defaults P2)
+        strategic_alignment: Directive or strategic domain (e.g. 'D-055')
+        recommended_owner:  Suggested mission owner after approval
+        expected_outcome:   What success looks like
+        success_criteria:   Measurable success criteria
+        requires_approval:  Approval authority: 'xo' (default) | 'captain' | 'number_one'
+        mission_id:         Optional explicit ID (auto-generated if not provided)
+        captain_override:   Bypass authority gate; logged to audit trail
+
+    Returns:
+        Mission ID string if write succeeded, None otherwise (non-blocking).
+    """
+    try:
+        from core.governance.authority_validator import can_officer, audit_authority_action
+        approved, reason = can_officer(officer, "create_mission_draft")
+        if not approved and not captain_override:
+            log.warning(
+                "[command-memory] Officer '%s' denied create_mission_draft: %s", officer, reason
+            )
+            audit_authority_action(
+                officer=officer, action="create_mission_draft",
+                approved=False, reason=reason, captain_override=False,
+            )
+            return None
+        audit_authority_action(
+            officer=officer, action="create_mission_draft",
+            approved=True, reason=reason,
+            captain_override=captain_override,
+        )
+    except Exception as exc:
+        log.warning("[command-memory] Authority check skipped (non-blocking): %s", exc)
+
+    # Build mission ID
+    if mission_id is None:
+        mission_id = id_registry.next_id("MSN")
+
+    # Compose description from structured fields
+    parts = [f"**Rationale:** {summary}"]
+    if strategic_alignment:
+        parts.append(f"**Strategic Alignment:** {strategic_alignment}")
+    if recommended_owner:
+        parts.append(f"**Recommended Owner:** {recommended_owner}")
+    if expected_outcome:
+        parts.append(f"**Expected Outcome:** {expected_outcome}")
+    if success_criteria:
+        parts.append(f"**Success Criteria:** {success_criteria}")
+    parts.append(f"**Requires Approval:** {requires_approval.upper()}")
+    parts.append(f"**Created By Officer:** {officer}")
+    description = "\n".join(parts)
+
+    client = get_client()
+    record = {
+        "id": mission_id,
+        "title": title,
+        "created_by": f"officer:{officer}",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "status": "Idea",
+        "owner": recommended_owner or f"officer:{officer}",
+        "description": description,
+        "priority": priority,
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_by": f"officer:{officer}",
+    }
+
+    success = client.insert("missions", record)
+    if success:
+        log.info(
+            "[command-memory] Officer '%s' created mission %s (priority=%s, approval=%s)",
+            officer, mission_id, priority, requires_approval
+        )
+        # Log the creation as a decision for auditability
+        log_decision_to_command_memory(
+            statement=f"Officer mission created: {mission_id} — {title}",
+            rationale=(
+                f"Officer '{officer}' created mission from {strategic_alignment or 'operational observation'}. "
+                f"Priority: {priority}. Requires {requires_approval.upper()} approval before execution."
+            ),
+            owner=f"officer:{officer}",
+        )
+        return mission_id
+    else:
+        log.warning("[command-memory] Officer '%s' mission creation failed (non-blocking)", officer)
+        return None
+
+
 def search_memory(query: str) -> dict[str, list[dict]]:
     """Search missions and decisions by keyword.
 
