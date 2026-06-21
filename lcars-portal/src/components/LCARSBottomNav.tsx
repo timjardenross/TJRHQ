@@ -28,7 +28,7 @@ export function LCARSBottomNav() {
   return (
     <nav
       aria-label="Quick access"
-      className="mt-4 flex overflow-hidden rounded-lcars border border-edge"
+      className="mt-4 hidden overflow-hidden rounded-lcars border border-edge lg:flex"
     >
       {BOTTOM_TABS.map((tab) => {
         const active = pathname === tab.href || (tab.href === '/captains-chair' && pathname === '/');
