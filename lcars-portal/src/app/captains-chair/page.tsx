@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   alerts,
   captainTimeline,
@@ -461,6 +463,76 @@ function MedicalBayLink() {
   );
 }
 
+// ── Notebook Widget (EXEC-010B WP9) ──────────────────────────────────────────
+
+function NotebookWidget() {
+  const [readyCount, setReadyCount]     = useState<number | null>(null);
+  const [capturedCount, setCapturedCount] = useState<number | null>(null);
+  const [latest, setLatest]             = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase
+      .from('intelligence_notes')
+      .select('id, title, raw_content, status, created_at')
+      .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING'])
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (!data) return;
+        setReadyCount(data.filter((n) => n.status === 'READY_FOR_ROUTING').length);
+        setCapturedCount(data.filter((n) => n.status === 'CAPTURED').length);
+        const first = data[0];
+        if (first) setLatest(first.title || (first.raw_content as string).slice(0, 50));
+      });
+  }, []);
+
+  const hasAction = (readyCount ?? 0) > 0;
+
+  return (
+    <Panel className={hasAction ? 'border-command/40' : ''}>
+      <SectionHeader
+        title="Captain's Notebook"
+        action={
+          <Link
+            href="/captains-notebook"
+            className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70"
+          >
+            Open →
+          </Link>
+        }
+      />
+      {readyCount === null ? (
+        <p className="text-[10px] text-lcars-muted">Loading…</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${hasAction ? 'bg-command animate-pulse' : 'bg-edge'}`} />
+              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Ready for routing</span>
+            </div>
+            <span className={`font-mono text-sm font-bold ${hasAction ? 'text-command' : 'text-lcars-muted'}`}>
+              {readyCount}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-edge" />
+              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Pending triage</span>
+            </div>
+            <span className="font-mono text-sm font-bold text-lcars-muted">{capturedCount}</span>
+          </div>
+          {latest && (
+            <p className="mt-1 truncate text-[10px] text-lcars-muted/70 italic">
+              Latest: {latest}
+            </p>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CaptainsChairPage() {
@@ -498,6 +570,7 @@ export default function CaptainsChairPage() {
             <EngineeringQueue />
             <MedicalBayLink />
           </div>
+          <NotebookWidget />
         </FleetStatusConditional>
 
       </div>
