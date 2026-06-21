@@ -1063,21 +1063,43 @@ def _job_lifecycle_recommendations(client) -> None:
 
 
 def _job_pending_research_sweep(_client) -> None:
-    """Every 5 min: pick up captured_items with research_status='pending' and run Mistral research.
+    """Every 5 min: pick up captured_items that need orchestration or research and process them.
 
-    Handles items that were queued but whose background thread died (e.g. one-liner runs,
-    bot restarts) and items captured via the mobile UI which bypass the Slack intake trigger.
-    Capped at 5 items per sweep to avoid overwhelming the Mistral quota.
+    Two-stage sweep:
+      Stage 1 — Orchestrate: items stuck at processing_status='pending' (captured but never
+        classified, e.g. mobile UI captures or bot restarts before orchestration ran).
+        Capped at 3 per sweep; process_captured_item() classifies and fires research if eligible.
+      Stage 2 — Research: items already classified with research_status='pending' (classification
+        done but research thread died). Capped at 5 per sweep; calls _run_research() directly.
     """
     try:
         import sys
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.inbox.orchestrator import _run_research, _db  # noqa: PLC0415
+        from core.inbox.orchestrator import _run_research, _db, process_captured_item  # noqa: PLC0415
 
         if not _db.enabled():
             return
 
-        result = (
+        # Stage 1: orchestrate items that were captured but never classified.
+        unprocessed_result = (
+            _db._client.table("captured_items")
+            .select("id, title")
+            .eq("processing_status", "pending")
+            .order("captured_at", desc=False)
+            .limit(3)
+            .execute()
+        )
+        unprocessed = unprocessed_result.data if unprocessed_result and unprocessed_result.data else []
+        if unprocessed:
+            log.info("[pending-research-sweep] Found %d unprocessed item(s) — running orchestrator", len(unprocessed))
+            for item in unprocessed:
+                try:
+                    process_captured_item(item["id"])
+                except Exception as item_exc:  # noqa: BLE001
+                    log.error("[pending-research-sweep] Orchestration failed for %s: %s", item["id"], item_exc)
+
+        # Stage 2: research items that were classified but whose research thread died.
+        research_result = (
             _db._client.table("captured_items")
             .select("*")
             .eq("research_status", "pending")
@@ -1085,16 +1107,17 @@ def _job_pending_research_sweep(_client) -> None:
             .limit(5)
             .execute()
         )
-        items = result.data if result and result.data else []
-        if not items:
+        research_items = research_result.data if research_result and research_result.data else []
+        if not research_items and not unprocessed:
             return
 
-        log.info("[pending-research-sweep] Found %d item(s) to research", len(items))
-        for item in items:
-            try:
-                _run_research(item["id"], item)
-            except Exception as item_exc:  # noqa: BLE001
-                log.error("[pending-research-sweep] Research failed for %s: %s", item["id"], item_exc)
+        if research_items:
+            log.info("[pending-research-sweep] Found %d item(s) with stalled research — running Mistral", len(research_items))
+            for item in research_items:
+                try:
+                    _run_research(item["id"], item)
+                except Exception as item_exc:  # noqa: BLE001
+                    log.error("[pending-research-sweep] Research failed for %s: %s", item["id"], item_exc)
     except Exception as exc:  # noqa: BLE001
         log.error("[pending-research-sweep] Sweep failed: %s", exc)
 
