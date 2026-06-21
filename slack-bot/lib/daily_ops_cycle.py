@@ -82,6 +82,16 @@ class CycleContext:
     investigations_closed_this_cycle: int = 0
     new_investigations_opened: list[str] = field(default_factory=list)
 
+    # EXEC-005: Collaborative Intelligence & Organisational Learning
+    collaborative_investigations: int = 0
+    integrated_findings: list[dict] = field(default_factory=list)
+    lessons_generated_this_cycle: int = 0
+    lesson_candidates_pending: int = 0
+    patterns_detected: list[dict] = field(default_factory=list)
+    cross_domain_opportunities: list[dict] = field(default_factory=list)
+    knowledge_quality: dict = field(default_factory=dict)
+    learning_summary: str | None = None
+
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
     cycle_started: datetime = field(default_factory=datetime.utcnow)
@@ -289,6 +299,9 @@ def _step_investigation_review(ctx: CycleContext) -> None:
                 update_investigation_status(inv_id, InvestigationStatus.FINDINGS_READY)
                 findings = generate_findings(inv_id, evidence, inv.question)
 
+                # EXEC-005 D-060: make significant investigations collaborative
+                _make_collaborative_if_significant(ctx, inv, findings)
+
                 # Generate decision package if findings warrant one
                 if findings.lead_recommendation and findings.lead_recommendation.action_type in (
                     "mission", "improvement", "decision"
@@ -352,6 +365,150 @@ def _step_investigation_review(ctx: CycleContext) -> None:
 
     except Exception as exc:
         log.warning("[daily-cycle] Investigation step failed (non-blocking): %s", exc)
+
+
+# ── EXEC-005 D-060: collaborative upgrade for significant investigations ──────
+
+def _make_collaborative_if_significant(ctx: CycleContext, inv: Any, findings: Any) -> None:
+    """Assemble a multi-officer team, synthesise findings, and run a challenge
+    review when an investigation is significant (D-060).
+
+    Significance test: lead recommendation calls for mission/improvement/decision,
+    OR any high-confidence finding exists. Narrow domain-contained questions stay
+    single-officer.
+    """
+    try:
+        lead_rec = getattr(findings, "lead_recommendation", None)
+        significant = bool(getattr(findings, "high_confidence_findings", [])) or (
+            lead_rec is not None and lead_rec.action_type in ("mission", "improvement", "decision")
+        )
+        if not significant:
+            return
+
+        from lib.investigation.collaboration import (
+            suggest_collaboration_team, assemble_collaboration,
+        )
+        from lib.investigation.synthesis import synthesize_findings, generate_challenge
+
+        inv_id = inv.investigation_id
+        suggestion = suggest_collaboration_team(inv.investigation_type.value, inv.officer)
+        team = assemble_collaboration(
+            inv_id, lead=inv.officer,
+            contributors=suggestion.contributors, reviewer=suggestion.reviewer,
+        )
+
+        if not team.is_collaborative:
+            return
+        ctx.collaborative_investigations += 1
+
+        # WP3 synthesis across participants
+        integrated = synthesize_findings(inv_id, inv.question, team.all_officers)
+        # WP4 challenge/review (reviewer challenges the synthesis)
+        review = generate_challenge(inv_id, integrated, reviewer=team.reviewer or "xo")
+
+        ctx.integrated_findings.append({
+            "investigation_id": inv_id,
+            "headline": integrated.headline,
+            "confidence": integrated.integrated_confidence,
+            "consensus_action": integrated.consensus_action,
+            "participants": team.all_officers,
+            "reviewer": team.reviewer,
+            "revised_confidence": review.revised_confidence,
+            "has_contradiction": integrated.has_contradiction,
+        })
+
+        # Significant integrated findings surface to XO via exception router
+        ctx.all_items.append({
+            "type": "investigation_finding",
+            "title": f"[COLLAB] {inv_id}: {integrated.headline[:80]}",
+            "source": f"investigation:{inv.officer}",
+            "priority": "P1" if integrated.integrated_confidence >= 0.75 else "P2",
+            "mission_id": inv_id,
+        })
+
+        log.info(
+            "[daily-cycle] Investigation %s upgraded to collaborative: %d officers, action=%s, confidence=%.2f",
+            inv_id, team.participant_count, integrated.consensus_action,
+            integrated.integrated_confidence,
+        )
+
+    except Exception as exc:
+        log.debug("[daily-cycle] Collaborative upgrade failed for %s: %s",
+                  getattr(inv, "investigation_id", "?"), exc)
+
+
+# ── Step 6.6: Organisational Learning (EXEC-005) ─────────────────────────────
+
+def _step_learning_review(ctx: CycleContext) -> None:
+    """EXEC-005 D-061 — pattern detection, cross-domain correlation, lesson
+    candidates, knowledge quality, and the Executive Learning Brief.
+
+    Runs after Investigation (so collaborative findings exist) and after
+    Improvement Discovery (so backlog signals are current). Fully non-blocking.
+    """
+    try:
+        from lib.learning.patterns import detect_patterns, pattern_to_investigation
+        from lib.learning.cross_domain import (
+            detect_cross_domain_opportunities, route_to_improvement_backlog,
+        )
+        from lib.learning.lessons import (
+            lesson_from_investigation, get_lesson_candidate_count,
+        )
+        from lib.learning.learning_brief import assemble_learning_brief, format_learning_brief
+
+        # WP8: pattern recognition — MEDIUM/HIGH patterns open investigations
+        patterns = detect_patterns(lookback_days=30)
+        ctx.patterns_detected = [
+            {"theme": p.theme, "label": p.label, "occurrences": p.occurrences, "severity": p.severity}
+            for p in patterns
+        ]
+        for p in patterns:
+            if p.severity in ("MEDIUM", "HIGH"):
+                pattern_to_investigation(p)  # dedup-safe inside
+
+        # WP9: cross-domain opportunities — route into improvement backlog
+        cross_opps = detect_cross_domain_opportunities(ctx)
+        ctx.cross_domain_opportunities = [
+            {"title": o.title, "domains": o.domains, "category": o.category,
+             "confidence": o.confidence}
+            for o in cross_opps
+        ]
+        for o in cross_opps:
+            if o.confidence >= 0.6:
+                route_to_improvement_backlog(o)
+
+        # WP6: lesson candidates from this cycle's closed/concluded investigations
+        lessons_created = 0
+        for ifinding in ctx.integrated_findings:
+            try:
+                inv_id = ifinding.get("investigation_id", "")
+                if not inv_id:
+                    continue
+                from lib.investigation.registry import get_investigation
+                inv = get_investigation(inv_id)
+                if inv and lesson_from_investigation(inv):
+                    lessons_created += 1
+            except Exception:
+                pass
+        ctx.lessons_generated_this_cycle = lessons_created
+        ctx.lesson_candidates_pending = get_lesson_candidate_count(pending_only=True)
+
+        # WP7 + WP10: assemble the Executive Learning Brief (computes knowledge quality)
+        brief = assemble_learning_brief(ctx)
+        if brief.knowledge_quality:
+            ctx.knowledge_quality = brief.knowledge_quality.to_dict()
+        ctx.learning_summary = format_learning_brief(brief)
+
+        ctx.data_freshness["learning"] = datetime.utcnow().isoformat()
+
+        log.info(
+            "[daily-cycle] Learning step: %d patterns, %d cross-domain, %d lessons, KQ=%s",
+            len(patterns), len(cross_opps), lessons_created,
+            ctx.knowledge_quality.get("grade", "n/a") if ctx.knowledge_quality else "n/a",
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Learning step failed (non-blocking): %s", exc)
 
 
 # ── Step 7: Improvement Discovery (EXEC-002 / EXEC-002A) ─────────────────────
@@ -469,6 +626,8 @@ def _format_investigation_section(ctx: CycleContext) -> str:
         lines.append(f"  Opened this cycle: {len(ctx.new_investigations_opened)}")
     if ctx.high_confidence_findings:
         lines.append(f"  High-confidence findings: {len(ctx.high_confidence_findings)}")
+    if ctx.collaborative_investigations:
+        lines.append(f"  Multi-officer (collaborative): {ctx.collaborative_investigations}")
     if ctx.decision_packages_ready:
         lines.append(f"  Decision packages awaiting XO: {ctx.decision_packages_ready}")
     if ctx.investigations_closed_this_cycle:
@@ -507,6 +666,10 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         discovery_section = _format_improvement_discovery_section(ctx)
         if discovery_section:
             brief = f"{brief}\n\n{discovery_section}"
+
+        # Executive Learning Brief (EXEC-005 WP10) — separate from operational status
+        if ctx.learning_summary:
+            brief = f"{brief}\n\n{ctx.learning_summary}"
 
         return brief
     except Exception as exc:
@@ -568,8 +731,9 @@ def run_daily_cycle(
     _step_engineering(missions, ctx)
     _step_communications(ctx)
     _step_number_one(missions, ctx)
-    _step_investigation_review(ctx)                                 # EXEC-004 D-059
+    _step_investigation_review(ctx)                                 # EXEC-004 D-059 / EXEC-005 D-060
     _step_improvement_review(ctx, weekly_run=weekly_improvement_run)  # EXEC-002/003 D-057
+    _step_learning_review(ctx)                                       # EXEC-005 D-061
 
     return assemble_executive_brief(ctx)
 
