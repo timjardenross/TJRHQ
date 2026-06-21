@@ -79,7 +79,7 @@ export default function MissionDetailPage() {
     );
   }
 
-  const dept = DEPARTMENTS[mission.department];
+  const dept = mission.department ? DEPARTMENTS[mission.department] : undefined;
 
   return (
     <div className="flex flex-col gap-4">
