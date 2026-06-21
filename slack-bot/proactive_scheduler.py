@@ -1062,6 +1062,43 @@ def _job_lifecycle_recommendations(client) -> None:
         log.error("[lifecycle_recs] Lifecycle review/approval notification failed: %s", exc)
 
 
+def _job_pending_research_sweep(_client) -> None:
+    """Every 5 min: pick up captured_items with research_status='pending' and run Mistral research.
+
+    Handles items that were queued but whose background thread died (e.g. one-liner runs,
+    bot restarts) and items captured via the mobile UI which bypass the Slack intake trigger.
+    Capped at 5 items per sweep to avoid overwhelming the Mistral quota.
+    """
+    try:
+        import sys
+        sys.path.insert(0, str(_REPO_ROOT)) if "_REPO_ROOT" in dir() else None
+        from core.inbox.orchestrator import _run_research, _db  # noqa: PLC0415
+
+        if not _db.enabled():
+            return
+
+        result = (
+            _db._client.table("captured_items")
+            .select("*")
+            .eq("research_status", "pending")
+            .order("captured_at", desc=False)
+            .limit(5)
+            .execute()
+        )
+        items = result.data if result and result.data else []
+        if not items:
+            return
+
+        log.info("[pending-research-sweep] Found %d item(s) to research", len(items))
+        for item in items:
+            try:
+                _run_research(item["id"], item)
+            except Exception as item_exc:  # noqa: BLE001
+                log.error("[pending-research-sweep] Research failed for %s: %s", item["id"], item_exc)
+    except Exception as exc:  # noqa: BLE001
+        log.error("[pending-research-sweep] Sweep failed: %s", exc)
+
+
 def start_scheduler(client) -> None:
     """Start the APScheduler background scheduler. Call once after bot initialises."""
     if not _ENABLED:
@@ -1229,6 +1266,18 @@ def start_scheduler(client) -> None:
         args=[client],
         id="lifecycle_recommendations",
         name="Lifecycle Pending Actions (MSN-0066)",
+        replace_existing=True,
+    )
+
+    # Pending research sweep — every 5 minutes. Picks up items queued for Mistral research
+    # whose background thread died (bot restart, one-liner runs) or were captured via
+    # mobile UI which doesn't hold a long-running process.
+    scheduler.add_job(
+        _job_pending_research_sweep,
+        CronTrigger(minute="*/5"),
+        args=[client],
+        id="pending_research_sweep",
+        name="Pending Research Sweep (Mistral)",
         replace_existing=True,
     )
 
