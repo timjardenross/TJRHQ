@@ -18,6 +18,34 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Command overview and daily posture'
   },
   {
+    href: '/capture',
+    label: 'Quick Capture',
+    glyph: 'QC',
+    department: 'engineering',
+    description: 'Capture a note, mission, health log or idea (MVP)'
+  },
+  {
+    href: '/xo',
+    label: 'XO Chat',
+    glyph: 'XO',
+    department: 'science',
+    description: 'Ask, route, clarify — intent into next action (MVP)'
+  },
+  {
+    href: '/engineering-queue',
+    label: 'Engineering Queue',
+    glyph: 'EQ',
+    department: 'engineering',
+    description: 'Triage, review, approve and unblock (MVP)'
+  },
+  {
+    href: '/alerts',
+    label: 'Push Alerts',
+    glyph: '!!',
+    department: 'operations',
+    description: 'Gated, meaningful escalations only (MVP)'
+  },
+  {
     href: '/missions',
     label: 'Missions',
     glyph: '02',
