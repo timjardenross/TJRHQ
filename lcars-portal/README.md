@@ -123,6 +123,19 @@ shapes (`src/lib/types.ts`). **No page or component code needs to change.**
 
 ---
 
+## Mobile Command MVP (MSN-IOS-001)
+
+An iPhone-first, installable-PWA Command Centre MVP for five Captain-facing
+surfaces — **Captain's Chair**, **Quick Capture** (`/capture`), **XO Chat**
+(`/xo`), **Engineering Queue** (`/engineering-queue`) and **Push Alerts**
+(`/alerts`) — all reusing the existing Supabase data, XO/Ollama context,
+Engineering lifecycle and notification patterns (no parallel backend). A
+mobile-only bottom command bar links the five surfaces; the desktop portal is
+unchanged. Re-generate PWA icons with `node scripts/gen-icons.mjs`.
+
+- [`docs/MOBILE-MVP.md`](docs/MOBILE-MVP.md) — strategy, reuse/API mapping, alert rules, future native phase.
+- [`docs/MOBILE-MVP-VALIDATION.md`](docs/MOBILE-MVP-VALIDATION.md) — WP8 validation & test evidence.
+
 ## Documentation
 
 - [`docs/ACCEPTANCE-CRITERIA.md`](docs/ACCEPTANCE-CRITERIA.md) — Phase 1 acceptance criteria.

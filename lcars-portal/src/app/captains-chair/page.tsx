@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
+import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -587,6 +588,9 @@ export default function CaptainsChairPage() {
   return (
     <div className="flex gap-4">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
+
+        {/* ── MSN-IOS-001 WP2: iPhone-first daily operating picture (mobile only) ── */}
+        <MobileOperatingPicture />
 
         {/* ── D-055: Captain Capacity leads the page ── */}
         {!isLoading && (
