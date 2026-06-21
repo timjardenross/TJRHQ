@@ -60,6 +60,9 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "capability_risk",              # EXEC-009 capability deterioration threatens objective delivery
     "architecture_risk",            # EXEC-009 current-state architectural entity at portfolio risk
     "simulation_warning",           # EXEC-009 cross-scenario low readiness requiring strategic decision
+    "investment_decision",          # EXEC-010 investment requiring Captain strategic sign-off
+    "benefit_leakage_critical",     # EXEC-010 critical benefit leakage threatening strategic value
+    "investment_review",            # EXEC-010 executive investment review escalation
 })
 
 XO_HANDLES: frozenset[str] = frozenset({
@@ -87,6 +90,10 @@ XO_HANDLES: frozenset[str] = frozenset({
     "benefit_realisation_review",    # EXEC-008 periodic benefit realisation requiring decision
     "future_state_recommendation",  # EXEC-009 H1 future capability investment requiring XO approval
     "technical_debt_escalation",    # EXEC-009 critical/high tech debt requiring portfolio-level decision
+    "business_case_approval",       # EXEC-010 business case awaiting XO approval
+    "capacity_overload",            # EXEC-010 portfolio delivery capacity overloaded
+    "benefit_leakage",              # EXEC-010 benefit realisation declining significantly
+    "roadmap_review",               # EXEC-010 major roadmap change requiring XO review
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
@@ -104,6 +111,9 @@ NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
     "delivery_intervention",         # EXEC-007 PMO intervention recommendation
     "scenario_warning",              # EXEC-008 stressed/constrained scenario signals
     "tradeoff_alert",                # EXEC-008 capacity displacement risk on acceleration
+    "dependency_review",            # EXEC-010 dependency coordination and unblocking required
+    "capacity_review",              # EXEC-010 capacity rebalancing and resource coordination
+    "benefit_lifecycle_update",     # EXEC-010 benefit lifecycle record requires update
 })
 
 

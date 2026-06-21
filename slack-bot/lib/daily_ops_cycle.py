@@ -1,4 +1,4 @@
-"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-009).
+"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-010).
 
 Sequences officer outputs in the prescribed order and assembles the Captain brief.
 Officers consume outputs from previous officers — no isolated reporting.
@@ -16,6 +16,7 @@ Sequence:
    6.8 Program Coordination              — D-063 Number One PMO, forecasts, risks (EXEC-007)
    6.9 Portfolio Optimisation            — D-064 value realisation, optimisation (EXEC-008)
    7.0 Enterprise Architecture           — D-065 capabilities, maturity, simulation (EXEC-009)
+   7.1 Investment Governance             — D-066 investments, business cases, benefits assurance (EXEC-010)
    7.  Exception Router                  — classify all items
    8.  Captain Brief                     — Top 3 + exceptions + decisions + capacity
 
@@ -133,6 +134,16 @@ class CycleContext:
     simulation_low_readiness_count: int = 0   # simulations with low readiness
     tech_debt_critical_count: int = 0         # critical-severity tech debt items
     capability_review_summary: str | None = None
+
+    # EXEC-010: Investment Governance, Roadmapping & Benefits Assurance
+    investment_total: int = 0                 # total registered investments
+    investment_active: int = 0               # active (approved) investments
+    business_cases_approved: int = 0         # APPROVE/APPROVE_WITH_CONDITIONS this cycle
+    business_cases_rejected: int = 0         # REJECT decisions this cycle
+    benefit_leakage_critical: int = 0        # critical leakage items
+    delivery_constraint_critical: int = 0    # critical delivery constraints
+    blocked_initiatives_count: int = 0       # dependency-blocked initiatives
+    investment_review_summary: str | None = None
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -1093,6 +1104,184 @@ def _step_enterprise_architecture(
         log.warning("[daily-cycle] Enterprise architecture step failed (non-blocking): %s", exc)
 
 
+# ── Step 7.1: Investment Governance & Benefits Assurance (EXEC-010) ───────────
+
+def _step_investment_governance(
+    ctx: CycleContext,
+    *,
+    investment_review: bool = False,
+) -> None:
+    """EXEC-010 D-066 — Investment Governance, Roadmapping & Benefits Assurance.
+
+    Runs after Enterprise Architecture (so capability/architecture data is fresh).
+    Assesses business cases, detects benefit leakage, analyses delivery constraints,
+    coordinates dependencies, and provides the 6-question investment review.
+
+    Surfaces critical leakage and major investment decisions to Captain;
+    business case outcomes and capacity overload to XO; dependency and capacity
+    coordination to Number One. Fully non-blocking.
+    """
+    try:
+        # Investment registry counts
+        try:
+            from lib.strategy.investment_governance import list_investments
+            investments = list_investments()
+            ctx.investment_total = len(investments)
+            ctx.investment_active = sum(1 for inv in investments if inv.is_active)
+        except Exception as exc:
+            log.debug("[daily-cycle] Investment registry unavailable: %s", exc)
+
+        inputs = {
+            "capacity_status": ctx.capacity_status,
+            "resilience_risk": ctx.resilience_risk,
+        }
+
+        # Business case assessment (WP2) — surface approved/rejected cases to XO
+        try:
+            from lib.strategy.business_cases import (
+                assess_all_business_cases, BusinessCaseOutcome,
+            )
+            bcs = assess_all_business_cases()
+            approved = [bc for bc in bcs if bc.is_approved]
+            rejected = [bc for bc in bcs if bc.outcome == BusinessCaseOutcome.REJECT]
+            ctx.business_cases_approved = len(approved)
+            ctx.business_cases_rejected = len(rejected)
+
+            for bc in approved[:2]:
+                ctx.all_items.append({
+                    "type": "business_case_approval",
+                    "title": f"[BUSINESS CASE {bc.outcome.value.upper()}] {bc.title[:60]}",
+                    "source": "investment_governance",
+                    "priority": "P2",
+                    "mission_id": bc.initiative_id,
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Business case assessment failed: %s", exc)
+
+        # Dependency analysis (WP3) — surface blocked initiatives to Number One
+        try:
+            from lib.strategy.dependency_management import analyse_dependencies
+            dep_report = analyse_dependencies()
+            ctx.blocked_initiatives_count = len(dep_report.blocked_initiative_ids)
+
+            if dep_report.has_circular:
+                ctx.all_items.append({
+                    "type": "dependency_review",
+                    "title": f"[CIRCULAR DEP] {len(dep_report.circular_chains)} circular dependency chain(s) — deadlock risk",
+                    "source": "investment_governance",
+                    "priority": "P1",
+                })
+            elif dep_report.blocked_initiative_ids:
+                ctx.all_items.append({
+                    "type": "dependency_review",
+                    "title": f"[DEPENDENCIES] {len(dep_report.blocked_initiative_ids)} blocked initiative(s) awaiting resolution",
+                    "source": "investment_governance",
+                    "priority": "P2",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Dependency analysis failed: %s", exc)
+
+        # Capacity planning (WP4) — surface overload to XO
+        try:
+            from lib.strategy.capacity_planning import assess_portfolio_capacity, CapacityState
+            cap_plan = assess_portfolio_capacity(ctx.capacity_status, inputs)
+            if cap_plan.state == CapacityState.OVERLOADED:
+                ctx.all_items.append({
+                    "type": "capacity_overload",
+                    "title": (
+                        f"[CAPACITY] Portfolio OVERLOADED at {cap_plan.utilisation_pct:.0%} — "
+                        f"{len(cap_plan.overloaded_owners)} overloaded owner(s)"
+                    ),
+                    "source": "investment_governance",
+                    "priority": "P1",
+                })
+            elif cap_plan.state == CapacityState.CONSTRAINED:
+                ctx.all_items.append({
+                    "type": "capacity_review",
+                    "title": f"[CAPACITY] Portfolio constrained at {cap_plan.utilisation_pct:.0%} utilisation",
+                    "source": "investment_governance",
+                    "priority": "P2",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Capacity planning failed: %s", exc)
+
+        # Benefit leakage (WP7) — critical → Captain, others → XO
+        try:
+            from lib.strategy.benefit_leakage import detect_benefit_leakage, LeakageRisk
+            leakages = detect_benefit_leakage()
+            critical_leakages = [l for l in leakages if l.is_critical]
+            ctx.benefit_leakage_critical = len(critical_leakages)
+
+            for l in critical_leakages[:2]:
+                ctx.all_items.append({
+                    "type": "benefit_leakage_critical",
+                    "title": f"[CRITICAL LEAKAGE] {l.benefit_title[:50]}: {l.description[:50]}",
+                    "source": "investment_governance",
+                    "priority": "P1",
+                    "mission_id": l.initiative_id,
+                })
+            non_critical = [l for l in leakages if not l.is_critical][:2]
+            for l in non_critical:
+                ctx.all_items.append({
+                    "type": "benefit_leakage",
+                    "title": f"[LEAKAGE] {l.benefit_title[:50]}: {l.leakage_type.value}",
+                    "source": "investment_governance",
+                    "priority": "P2",
+                    "mission_id": l.initiative_id,
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Benefit leakage detection failed: %s", exc)
+
+        # Delivery constraints (WP8) — critical → Captain routing
+        try:
+            from lib.strategy.delivery_constraints import analyse_delivery_constraints
+            cr = analyse_delivery_constraints(inputs)
+            ctx.delivery_constraint_critical = cr.critical_count
+            if cr.critical_count >= 2:
+                ctx.all_items.append({
+                    "type": "investment_decision",
+                    "title": (
+                        f"[CONSTRAINTS] {cr.critical_count} critical delivery constraint(s) — "
+                        f"portfolio risk: {cr.portfolio_risk}"
+                    ),
+                    "source": "investment_governance",
+                    "priority": "P1",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Delivery constraint analysis failed: %s", exc)
+
+        # Full investment review (on flag)
+        if investment_review:
+            try:
+                from lib.strategy.investment_review import (
+                    generate_investment_review, format_investment_review,
+                )
+                ir = generate_investment_review(inputs)
+                ctx.investment_review_summary = format_investment_review(ir)
+                # Escalate to Captain when review is requested
+                ctx.all_items.append({
+                    "type": "investment_review",
+                    "title": f"[INVESTMENT REVIEW] {ir.review_headline}",
+                    "source": "investment_governance",
+                    "priority": "P2",
+                })
+            except Exception as exc:
+                log.debug("[daily-cycle] Investment review failed: %s", exc)
+
+        ctx.data_freshness["investment_governance"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Investment governance: investments=%d/%d active, "
+            "bc approved=%d rejected=%d, blocked=%d, leakage critical=%d, constraints critical=%d",
+            ctx.investment_active, ctx.investment_total,
+            ctx.business_cases_approved, ctx.business_cases_rejected,
+            ctx.blocked_initiatives_count, ctx.benefit_leakage_critical,
+            ctx.delivery_constraint_critical,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Investment governance step failed (non-blocking): %s", exc)
+
+
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def _format_improvement_discovery_section(ctx: CycleContext) -> str:
@@ -1217,6 +1406,10 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.capability_review_summary:
             brief = f"{brief}\n\n{ctx.capability_review_summary}"
 
+        # Investment Governance & Benefits Assurance (EXEC-010 D-066)
+        if ctx.investment_review_summary:
+            brief = f"{brief}\n\n{ctx.investment_review_summary}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -1257,6 +1450,7 @@ def run_daily_cycle(
     delivery_review: bool = False,
     portfolio_review: bool = False,
     capability_review: bool = False,
+    investment_review: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
@@ -1266,7 +1460,7 @@ def run_daily_cycle(
       Improvement Discovery (D-057/D-058) → Learning (D-061) →
       Strategic Outcomes (D-062) → Program Coordination (D-063) →
       Portfolio Optimisation (D-064) → Enterprise Architecture (D-065) →
-      Exception Router → Captain Brief
+      Investment Governance (D-066) → Exception Router → Captain Brief
 
     Args:
         missions:                 Active missions list
@@ -1276,6 +1470,7 @@ def run_daily_cycle(
         delivery_review:          If True, the full Executive Delivery Review runs (EXEC-007 WP8)
         portfolio_review:         If True, the full Portfolio Review runs (EXEC-008 WP7)
         capability_review:        If True, the full Capability Review runs (EXEC-009 WP9)
+        investment_review:        If True, the full Investment Review runs (EXEC-010 WP9)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -1295,6 +1490,7 @@ def run_daily_cycle(
     _step_program_coordination(ctx, delivery_review=delivery_review)         # EXEC-007 D-063
     _step_portfolio_optimisation(ctx, portfolio_review=portfolio_review)     # EXEC-008 D-064
     _step_enterprise_architecture(ctx, capability_review=capability_review)  # EXEC-009 D-065
+    _step_investment_governance(ctx, investment_review=investment_review)     # EXEC-010 D-066
 
     return assemble_executive_brief(ctx)
 
