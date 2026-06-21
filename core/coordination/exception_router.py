@@ -55,6 +55,7 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "drop_strategic_objective",
     "add_strategic_domain",
     "technology_selection_major",
+    "portfolio_escalation",         # EXEC-008 strategic value degradation / objectives at risk
 })
 
 XO_HANDLES: frozenset[str] = frozenset({
@@ -77,6 +78,9 @@ XO_HANDLES: frozenset[str] = frozenset({
     "initiative_stop_recommendation",# EXEC-006 stop/pause/merge initiative decisions
     "initiative_review",             # EXEC-006 initiative review packages
     "delivery_risk_escalation",      # EXEC-007 delivery risks routed to XO
+    "portfolio_recommendation",      # EXEC-008 accelerate/terminate/pause portfolio decisions
+    "benefit_risk",                  # EXEC-008 benefits significantly below commitment
+    "benefit_realisation_review",    # EXEC-008 periodic benefit realisation requiring decision
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
@@ -92,6 +96,8 @@ NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
     "resource_conflict",             # EXEC-007 resource contention
     "sequencing_recommendation",     # EXEC-007 resequence the program
     "delivery_intervention",         # EXEC-007 PMO intervention recommendation
+    "scenario_warning",              # EXEC-008 stressed/constrained scenario signals
+    "tradeoff_alert",                # EXEC-008 capacity displacement risk on acceleration
 })
 
 

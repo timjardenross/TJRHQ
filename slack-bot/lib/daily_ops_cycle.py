@@ -1,18 +1,22 @@
-"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 WP5 / EXEC-002).
+"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-008).
 
 Sequences officer outputs in the prescribed order and assembles the Captain brief.
 Officers consume outputs from previous officers — no isolated reporting.
 
 Sequence:
-  1. Human Systems      — capacity gate (governs everything downstream)
-  2. Strategic Planning — portfolio decisions
-  3. ORI                — resilience intelligence
-  4. Engineering        — delivery status
-  5. Communications     — pipeline status
-  6. Number One         — consolidation + executive summary
-  7. Improvement Review — D-057 continuous improvement (EXEC-002)
-  8. XO                 — executive review (via exception router)
-  9. Captain Brief      — Top 3 + exceptions + decisions + capacity
+   1. Human Systems           — capacity gate (governs everything downstream)
+   2. Strategic Planning      — portfolio decisions
+   3. ORI                     — resilience intelligence
+   4. Engineering             — delivery status
+   5. Communications          — pipeline status
+   6. Number One              — consolidation + executive summary
+   6.5 Investigation Review   — D-059 questions, evidence, findings (EXEC-004)
+   6.6 Learning Review        — D-061 patterns, lessons, knowledge quality (EXEC-005)
+   6.7 Strategic Outcomes     — D-062 initiative health, value progress (EXEC-006)
+   6.8 Program Coordination   — D-063 Number One PMO, forecasts, risks (EXEC-007)
+   6.9 Portfolio Optimisation — D-064 value realisation, optimisation (EXEC-008)
+   7.  Exception Router       — classify all items
+   8.  Captain Brief          — Top 3 + exceptions + decisions + capacity
 
 The Captain receives an executive brief, not raw operational data.
 
@@ -111,6 +115,15 @@ class CycleContext:
     program_interventions: int = 0
     program_summary: str | None = None
     executive_delivery_review: str | None = None
+
+    # EXEC-008: Strategic Portfolio Optimisation & Value Realisation
+    portfolio_value_pct: float = 0.0          # avg benefit realisation across portfolio
+    portfolio_terminate_count: int = 0        # terminate decisions this cycle
+    portfolio_pause_count: int = 0            # pause decisions this cycle
+    portfolio_accelerate_count: int = 0       # accelerate decisions this cycle
+    portfolio_at_risk_count: int = 0          # initiatives with benefit or delivery risk
+    portfolio_review_summary: str | None = None
+    portfolio_optimisation_headline: str = ""
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -800,6 +813,129 @@ def _step_improvement_review(
         log.warning("[daily-cycle] Improvement step failed (non-blocking): %s", exc)
 
 
+# ── Step 6.9: Portfolio Optimisation (EXEC-008) ───────────────────────────────
+
+def _step_portfolio_optimisation(
+    ctx: CycleContext,
+    *,
+    portfolio_review: bool = False,
+) -> None:
+    """EXEC-008 D-064 — Strategic Portfolio Optimisation & Value Realisation.
+
+    Runs after Program Coordination (so delivery forecasts are current) and
+    after Strategic Outcomes (so initiative health is fresh). Answers:
+      Can we deliver this? Should we deliver this? Did it create expected value?
+
+    Surfaces terminate/pause decisions to XO; portfolio-level value degradation
+    to Captain; scenario warnings and tradeoff alerts to Number One.
+    Fully non-blocking.
+    """
+    try:
+        from lib.strategy.initiatives import list_initiatives
+
+        if not list_initiatives(include_closed=False):
+            ctx.portfolio_review_summary = (
+                "*Portfolio Optimisation:* _No initiatives — nothing to optimise (D-064)._"
+            )
+            ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+            return
+
+        inputs = {
+            "capacity_status": ctx.capacity_status,
+            "resilience_risk": ctx.resilience_risk,
+            "cross_domain_opportunities": ctx.cross_domain_opportunities,
+        }
+
+        # WP4 — Portfolio optimisation decisions
+        from lib.strategy.portfolio_optimisation import optimise_portfolio, format_optimisation, OptimisationDecision
+        opt = optimise_portfolio(inputs)
+        ctx.portfolio_terminate_count = opt.terminate_count
+        ctx.portfolio_pause_count     = opt.pause_count
+        ctx.portfolio_accelerate_count = opt.accelerate_count
+        ctx.portfolio_optimisation_headline = opt.headline
+
+        # Surface terminate/pause → XO; portfolio value escalation → Captain
+        for d in opt.decisions:
+            if d.decision == OptimisationDecision.TERMINATE:
+                ctx.all_items.append({
+                    "type": "portfolio_recommendation",
+                    "title": f"[TERMINATE] {d.title[:60]} — {d.rationale[:50]}",
+                    "source": "portfolio_optimisation",
+                    "priority": "P1",
+                    "mission_id": d.initiative_id,
+                })
+            elif d.decision == OptimisationDecision.PAUSE:
+                ctx.all_items.append({
+                    "type": "portfolio_recommendation",
+                    "title": f"[PAUSE] {d.title[:60]} — {d.rationale[:50]}",
+                    "source": "portfolio_optimisation",
+                    "priority": "P2",
+                    "mission_id": d.initiative_id,
+                })
+
+        # WP2 — Value realisation: surface benefit risks
+        try:
+            from lib.strategy.value_realisation import assess_all_value
+            value_reports = assess_all_value()
+            at_risk = [r for r in value_reports if r.at_risk_count > r.total_count // 2 and r.total_count > 0]
+            ctx.portfolio_at_risk_count = len(at_risk)
+
+            # Avg portfolio value realisation
+            if value_reports:
+                total_pct = sum(r.overall_realisation_pct for r in value_reports)
+                ctx.portfolio_value_pct = round(total_pct / len(value_reports), 3)
+
+            # Escalate serious benefit risk to XO; critical portfolio value decline to Captain
+            for r in at_risk:
+                ctx.all_items.append({
+                    "type": "benefit_risk",
+                    "title": f"[BENEFIT RISK] {r.initiative_title[:60]}: {r.headline[:60]}",
+                    "source": "portfolio_optimisation",
+                    "priority": "P2",
+                    "mission_id": r.initiative_id,
+                })
+            if ctx.portfolio_value_pct < 0.2 and value_reports:
+                ctx.all_items.append({
+                    "type": "portfolio_escalation",
+                    "title": (
+                        f"[PORTFOLIO] Average benefit realisation {ctx.portfolio_value_pct:.0%} — "
+                        f"portfolio value significantly below expectations"
+                    ),
+                    "source": "portfolio_optimisation",
+                    "priority": "P1",
+                })
+        except Exception as exc:
+            log.debug("[daily-cycle] Value realisation assessment failed: %s", exc)
+
+        # WP7 — Portfolio review (on delivery_review / portfolio_review flag)
+        if portfolio_review:
+            try:
+                from lib.strategy.portfolio_review import (
+                    generate_portfolio_review, format_portfolio_review,
+                )
+                review = generate_portfolio_review({
+                    **inputs,
+                    "cross_domain_opportunities": ctx.cross_domain_opportunities,
+                })
+                ctx.portfolio_review_summary = format_portfolio_review(review)
+            except Exception as exc:
+                log.debug("[daily-cycle] Portfolio review failed: %s", exc)
+
+        # Build the optimisation summary for the Captain brief
+        if not ctx.portfolio_review_summary:
+            ctx.portfolio_review_summary = format_optimisation(opt)
+
+        ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Portfolio optimisation: terminate=%d, pause=%d, accelerate=%d, value=%.0f%%, at_risk=%d",
+            opt.terminate_count, opt.pause_count, opt.accelerate_count,
+            ctx.portfolio_value_pct * 100, ctx.portfolio_at_risk_count,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Portfolio optimisation step failed (non-blocking): %s", exc)
+
+
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def _format_improvement_discovery_section(ctx: CycleContext) -> str:
@@ -916,6 +1052,10 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.executive_delivery_review:
             brief = f"{brief}\n\n{ctx.executive_delivery_review}"
 
+        # Portfolio Optimisation (EXEC-008 D-064) — value realisation and investment decisions
+        if ctx.portfolio_review_summary:
+            brief = f"{brief}\n\n{ctx.portfolio_review_summary}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -954,6 +1094,7 @@ def run_daily_cycle(
     weekly_improvement_run: bool = False,
     monthly_strategic_review: bool = False,
     delivery_review: bool = False,
+    portfolio_review: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
@@ -962,7 +1103,7 @@ def run_daily_cycle(
       Communications → Number One → Investigation Review (D-059/D-060) →
       Improvement Discovery (D-057/D-058) → Learning (D-061) →
       Strategic Outcomes (D-062) → Program Coordination (D-063) →
-      Exception Router → Captain Brief
+      Portfolio Optimisation (D-064) → Exception Router → Captain Brief
 
     Args:
         missions:                 Active missions list
@@ -970,6 +1111,7 @@ def run_daily_cycle(
         weekly_improvement_run:   If True, weekly officer reviews also run (WP10)
         monthly_strategic_review: If True, the full Executive Strategic Review runs (EXEC-006 WP9)
         delivery_review:          If True, the full Executive Delivery Review runs (EXEC-007 WP8)
+        portfolio_review:         If True, the full Portfolio Review runs (EXEC-008 WP7)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -982,11 +1124,12 @@ def run_daily_cycle(
     _step_engineering(missions, ctx)
     _step_communications(ctx)
     _step_number_one(missions, ctx)
-    _step_investigation_review(ctx)                                 # EXEC-004 D-059 / EXEC-005 D-060
-    _step_improvement_review(ctx, weekly_run=weekly_improvement_run)  # EXEC-002/003 D-057
-    _step_learning_review(ctx)                                       # EXEC-005 D-061
-    _step_strategic_outcomes(ctx, monthly_review=monthly_strategic_review)  # EXEC-006 D-062
-    _step_program_coordination(ctx, delivery_review=delivery_review)  # EXEC-007 D-063
+    _step_investigation_review(ctx)                                          # EXEC-004 D-059 / EXEC-005 D-060
+    _step_improvement_review(ctx, weekly_run=weekly_improvement_run)         # EXEC-002/003 D-057
+    _step_learning_review(ctx)                                               # EXEC-005 D-061
+    _step_strategic_outcomes(ctx, monthly_review=monthly_strategic_review)   # EXEC-006 D-062
+    _step_program_coordination(ctx, delivery_review=delivery_review)         # EXEC-007 D-063
+    _step_portfolio_optimisation(ctx, portfolio_review=portfolio_review)     # EXEC-008 D-064
 
     return assemble_executive_brief(ctx)
 
