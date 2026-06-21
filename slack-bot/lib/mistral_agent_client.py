@@ -174,10 +174,12 @@ def call_agent(
                 )
                 return text
 
+            # Log raw response structure to diagnose empty extraction
             log.warning(
                 "[research] stage=%s provider=mistral_agent status=empty_response "
-                "agent_id=%s... attempt=%d mission=%s",
+                "agent_id=%s... attempt=%d mission=%s raw_outputs=%s",
                 stage, agent_id[:12], attempt, mission_id,
+                _debug_outputs(response),
             )
             return None
 
@@ -213,6 +215,7 @@ def _extract_text(response) -> str:
 
     v1.x: response.outputs is List[Outputs union type].
     MessageOutputEntry has role='assistant' and content field.
+    Content chunks may be str, objects with .text, or dicts {"type":"text","text":"..."}.
     Falls back to legacy .choices/.messages for forward compatibility.
     """
     if hasattr(response, "outputs") and response.outputs:
@@ -221,15 +224,22 @@ def _extract_text(response) -> str:
                 content = getattr(entry, "content", None)
                 if not content:
                     continue
+                if isinstance(content, str):
+                    return content.strip()
                 if isinstance(content, list):
                     parts = []
                     for chunk in content:
                         if isinstance(chunk, str):
                             parts.append(chunk)
+                        elif isinstance(chunk, dict):
+                            parts.append(chunk.get("text") or "")
                         elif hasattr(chunk, "text"):
                             parts.append(chunk.text or "")
-                    return " ".join(parts).strip()
-                return str(content).strip()
+                    result = " ".join(p for p in parts if p).strip()
+                    if result:
+                        return result
+                else:
+                    return str(content).strip()
 
     # Legacy fallback
     if hasattr(response, "choices") and response.choices:
@@ -238,3 +248,30 @@ def _extract_text(response) -> str:
     if hasattr(response, "messages") and response.messages:
         return response.messages[-1].content or ""
     return ""
+
+
+def _debug_outputs(response) -> str:
+    """Return a compact summary of response.outputs for diagnostic logging."""
+    try:
+        outputs = getattr(response, "outputs", None)
+        if not outputs:
+            return "no_outputs"
+        summary = []
+        for i, entry in enumerate(outputs[:3]):
+            role = getattr(entry, "role", "?")
+            content = getattr(entry, "content", None)
+            if isinstance(content, list):
+                chunk_types = []
+                for c in content[:3]:
+                    if isinstance(c, dict):
+                        chunk_types.append(f"dict(keys={list(c.keys())})")
+                    elif hasattr(c, "__class__"):
+                        chunk_types.append(type(c).__name__)
+                    else:
+                        chunk_types.append(repr(c)[:30])
+                summary.append(f"[{i}]role={role} content=list({chunk_types})")
+            else:
+                summary.append(f"[{i}]role={role} content={type(content).__name__}:{repr(content)[:60]}")
+        return " | ".join(summary)
+    except Exception:
+        return "debug_error"
