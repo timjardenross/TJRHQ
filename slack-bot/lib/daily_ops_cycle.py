@@ -66,10 +66,12 @@ class CycleContext:
     number_one_summary: str | None = None
     number_one_items: list[dict] = field(default_factory=list)
 
-    # EXEC-002: Continuous Improvement
+    # EXEC-002/002A: Continuous Improvement Engine
     improvement_opportunities: list[dict] = field(default_factory=list)
     improvement_missions_created: int = 0
+    improvement_missions_deferred: int = 0
     improvement_summary: str | None = None
+    improvement_budget: dict = field(default_factory=dict)
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -236,36 +238,38 @@ def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
         log.warning("[daily-cycle] Number One step failed (non-blocking): %s", exc)
 
 
-# ── Step 7: Improvement Review (EXEC-002) ────────────────────────────────────
+# ── Step 7: Improvement Discovery (EXEC-002 / EXEC-002A) ─────────────────────
 
-def _step_improvement_review(ctx: CycleContext) -> None:
-    """D-057 Continuous Improvement Review — officers review their domains.
+def _step_improvement_review(
+    ctx: CycleContext,
+    *,
+    weekly_run: bool = False,
+) -> None:
+    """D-057 Continuous Improvement Discovery — schedule-aware officer reviews.
 
-    Runs after all operational steps so improvement observations have full
-    cycle context. High-band opportunities are converted to missions (XO queue).
-    Medium-band are logged as decisions for weekly review.
+    Uses the discovery module (EXEC-002A WP10) which:
+      - Runs daily officer reviews every cycle
+      - Runs weekly officer reviews when weekly_run=True
+      - Gates mission creation against the improvement budget (WP8)
+      - Creates scorecards at mission creation (WP9)
+      - Logs deferred candidates for next weekly review
+
+    Runs after all operational steps so improvement observations have full context.
     """
     try:
-        from lib.improvement.officer_reviews import run_all_reviews
-        from lib.improvement.scoring import score_and_rank
-        from lib.improvement.framework import ImprovementBand
+        from lib.improvement.discovery import run_discovery, format_discovery_summary
+        from lib.improvement.budget import budget_report
 
-        score_context = {
-            "capacity_status":    ctx.capacity_status,
-            "orphan_count":       ctx.orphan_count,
-            "engineering_blocked": ctx.engineering_blocked,
-            "comms_ready_count":  ctx.comms_ready_count,
-            "resilience_risk":    ctx.resilience_risk,
-        }
+        result = run_discovery(ctx, weekly_run=weekly_run)
 
-        opportunities = run_all_reviews(ctx)
-        opportunities = score_and_rank(opportunities, score_context)
+        ctx.improvement_opportunities    = [o.to_dict() for o in result.candidates]
+        ctx.improvement_missions_created = len(result.missions_created)
+        ctx.improvement_missions_deferred = result.missions_deferred
+        ctx.improvement_budget = result.budget.to_dict() if result.budget else {}
+        ctx.improvement_summary = format_discovery_summary(result)
 
-        high_band = [o for o in opportunities if o.band == ImprovementBand.HIGH]
-        ctx.improvement_opportunities = [o.to_dict() for o in opportunities]
-
-        # Promote high-band items to all_items so exception_router can classify them
-        for opp in high_band[:5]:  # cap to avoid flooding the brief
+        # Surface High-band items to exception router (cap at 3 to avoid noise)
+        for opp in result.high_band[:3]:
             ctx.all_items.append({
                 "type": "strategic_decision",
                 "title": f"[IMPROVE] {opp.suggested_action[:80]}",
@@ -273,12 +277,14 @@ def _step_improvement_review(ctx: CycleContext) -> None:
                 "priority": "P2",
             })
 
-        ctx.improvement_missions_created = 0  # updated by weekly_review if called
         ctx.data_freshness["improvement"] = datetime.utcnow().isoformat()
 
         log.info(
-            "[daily-cycle] Improvement step: %d opportunities (%d High)",
-            len(opportunities), len(high_band),
+            "[daily-cycle] Improvement step: %d candidates (%d High), "
+            "%d missions created, %d deferred. Budget: %s",
+            len(result.candidates), len(result.high_band),
+            len(result.missions_created), result.missions_deferred,
+            result.budget.status_label if result.budget else "unknown",
         )
     except Exception as exc:
         log.warning("[daily-cycle] Improvement step failed (non-blocking): %s", exc)
@@ -305,12 +311,21 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
 
 def _fallback_brief(ctx: CycleContext) -> str:
     """Minimal brief when routing is unavailable."""
+    budget = ctx.improvement_budget
+    budget_line = ""
+    if budget:
+        budget_line = (
+            f"\nImprovement budget: {budget.get('active_improvement_missions', '?')}/"
+            f"{budget.get('max_improvement_missions', '?')} slots "
+            f"({budget.get('capacity_status', '?')})"
+        )
     return (
         f"*CAPTAIN BRIEF — {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC*\n"
         f"Capacity: {ctx.capacity_status}\n"
         f"Engineering in progress: {ctx.engineering_in_progress} | Blocked: {ctx.engineering_blocked}\n"
         f"ORI Risk: {ctx.resilience_risk}\n"
-        f"Comms ready: {ctx.comms_ready_count}\n"
+        f"Comms ready: {ctx.comms_ready_count}"
+        f"{budget_line}\n"
         f"_(Full brief assembly unavailable — raw summary only)_"
     )
 
@@ -320,13 +335,20 @@ def _fallback_brief(ctx: CycleContext) -> str:
 def run_daily_cycle(
     missions: list[dict[str, Any]],
     capacity_entry: dict[str, Any] | None = None,
+    *,
+    weekly_improvement_run: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
     Sequence:
       Human Systems → Strategic Planning → ORI → Engineering →
-      Communications → Number One → Improvement Review (D-057) →
+      Communications → Number One → Improvement Discovery (D-057) →
       Exception Router → Captain Brief
+
+    Args:
+        missions:               Active missions list
+        capacity_entry:         Today's capacity log entry
+        weekly_improvement_run: If True, weekly officer reviews also run (WP10)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -339,7 +361,7 @@ def run_daily_cycle(
     _step_engineering(missions, ctx)
     _step_communications(ctx)
     _step_number_one(missions, ctx)
-    _step_improvement_review(ctx)
+    _step_improvement_review(ctx, weekly_run=weekly_improvement_run)
 
     return assemble_executive_brief(ctx)
 

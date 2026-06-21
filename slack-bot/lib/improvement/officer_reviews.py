@@ -1,24 +1,27 @@
-"""Officer Improvement Reviews (EXEC-002 WP2).
+"""Officer Improvement Reviews (EXEC-002 WP2 / EXEC-002A WP10).
 
 Each officer runs a structured domain review to identify improvement opportunities.
 Reviews are heuristic — they look for patterns, gaps, waste, and automatable work.
 
+Review Schedule (WP10):
+  Daily:  human_systems, ori, number_one
+  Weekly: engineering, strategic_planning, communications, knowledge
+
 Officers produce observations; observations become ImprovementOpportunity objects.
 The scoring engine (WP4) then bands them High / Medium / Low.
-High-band items route to mission creation via create_mission_from_officer().
-
-Sequence within the daily cycle:
-  _step_improvement_review(ctx) calls each review function,
-  passing pre-computed CycleContext fields rather than re-querying Supabase.
+High-band items route to mission creation via create_mission_from_officer(),
+gated by the improvement budget (WP8).
 
 Public API:
-    review_human_systems(ctx)   -> list[ImprovementOpportunity]
+    REVIEW_SCHEDULE              — officer → "daily" | "weekly" mapping (WP10)
+    review_human_systems(ctx)    -> list[ImprovementOpportunity]
     review_strategic_planning(ctx) -> list[ImprovementOpportunity]
-    review_engineering(ctx)     -> list[ImprovementOpportunity]
-    review_communications(ctx)  -> list[ImprovementOpportunity]
-    review_ori(ctx)             -> list[ImprovementOpportunity]
-    review_number_one(ctx)      -> list[ImprovementOpportunity]
-    run_all_reviews(ctx)        -> list[ImprovementOpportunity]
+    review_engineering(ctx)      -> list[ImprovementOpportunity]
+    review_communications(ctx)   -> list[ImprovementOpportunity]
+    review_ori(ctx)              -> list[ImprovementOpportunity]
+    review_number_one(ctx)       -> list[ImprovementOpportunity]
+    review_knowledge(ctx)        -> list[ImprovementOpportunity]   (WP10 addition)
+    run_all_reviews(ctx)         -> list[ImprovementOpportunity]
 """
 
 from __future__ import annotations
@@ -40,6 +43,19 @@ from lib.improvement.framework import ImprovementCategory, ImprovementOpportunit
 
 if TYPE_CHECKING:
     from lib.daily_ops_cycle import CycleContext
+
+
+# ── Review schedule (WP10) ─────────────────────────────────────────────────────
+
+REVIEW_SCHEDULE: dict[str, str] = {
+    "human_systems":      "daily",
+    "ori":                "daily",
+    "number_one":         "daily",
+    "engineering":        "weekly",
+    "strategic_planning": "weekly",
+    "communications":     "weekly",
+    "knowledge":          "weekly",
+}
 
 
 # ── Human Systems Review ──────────────────────────────────────────────────────
@@ -443,6 +459,116 @@ def review_number_one(ctx: Any) -> list[ImprovementOpportunity]:
     return opportunities
 
 
+# ── Knowledge Review (WP10) ──────────────────────────────────────────────────
+
+def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
+    """Knowledge Officer — knowledge governance improvement review (Weekly, WP10).
+
+    Looks for:
+      - Completed missions without lessons learned logged
+      - Decisions with thin rationale (documentation quality)
+      - Missing ADRs for recent architecture decisions
+      - Duplicate information in Command Memory
+    """
+    opportunities: list[ImprovementOpportunity] = []
+
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+
+        c = CommanderSupabaseClient()
+        if not (c.is_enabled() and c.raw_client):
+            return opportunities
+
+        # Check for recently completed missions without lesson learned entries
+        res_missions = c.raw_client.table("missions").select(
+            "id,title,status,updated_at"
+        ).in_("status", ["completed"]).order("updated_at", desc=True).limit(10).execute()
+
+        completed = list(res_missions.data or [])
+
+        if completed:
+            # Count lesson-learned decisions logged by knowledge officer
+            res_lessons = c.raw_client.table("decisions").select(
+                "id,owner"
+            ).like("owner", "knowledge:%").order("created_at", desc=True).limit(20).execute()
+
+            lesson_owners = {r.get("owner", "") for r in (res_lessons.data or [])}
+            lesson_count = sum(1 for o in lesson_owners if "lesson" in o.lower())
+
+            lesson_ratio = lesson_count / max(len(completed), 1)
+            if lesson_ratio < 0.5 and len(completed) >= 2:
+                opportunities.append(ImprovementOpportunity(
+                    source_officer="knowledge",
+                    domain="lessons_learned",
+                    observation=(
+                        f"{len(completed)} completed missions but only {lesson_count} lesson-learned "
+                        "entries found. Documentation may be lagging delivery."
+                    ),
+                    category=ImprovementCategory.WASTE,
+                    suggested_action=(
+                        "Establish lesson-learned capture as mandatory step in mission closure — "
+                        "Number One blocks closure until lesson is logged"
+                    ),
+                    estimated_effort="low",
+                    expected_benefit="Every completed mission generates a lesson; knowledge base grows with delivery",
+                ))
+
+        # Check for decisions with very thin rationale (< 40 characters)
+        res_decisions = c.raw_client.table("decisions").select(
+            "id,statement,rationale"
+        ).order("created_at", desc=True).limit(20).execute()
+
+        decisions = list(res_decisions.data or [])
+        thin = [d for d in decisions if len(str(d.get("rationale") or "")) < 40]
+
+        if len(thin) >= 3:
+            opportunities.append(ImprovementOpportunity(
+                source_officer="knowledge",
+                domain="documentation_quality",
+                observation=(
+                    f"{len(thin)} of the last {len(decisions)} decisions have rationale "
+                    "under 40 characters. Thin documentation reduces institutional memory value."
+                ),
+                category=ImprovementCategory.WASTE,
+                suggested_action=(
+                    "Add minimum rationale length validation (100 chars) to decision logging — "
+                    "officers must explain the why, not just the what"
+                ),
+                estimated_effort="low",
+                expected_benefit="Decision quality improves; Command Memory becomes genuinely searchable",
+            ))
+
+    except Exception as exc:
+        log.debug("[improvement] knowledge review Supabase check skipped: %s", exc)
+
+    # Check from CycleContext signals
+    all_items = getattr(ctx, "all_items", [])
+    architecture_items = [
+        i for i in all_items
+        if "architecture" in str(i.get("type", "")).lower()
+        or "architecture" in str(i.get("title", "")).lower()
+    ]
+
+    if architecture_items:
+        opportunities.append(ImprovementOpportunity(
+            source_officer="knowledge",
+            domain="adr_coverage",
+            observation=(
+                f"{len(architecture_items)} architecture-related item(s) in this cycle. "
+                "Check that each has a corresponding ADR in the architecture_records table."
+            ),
+            category=ImprovementCategory.REUSE,
+            suggested_action=(
+                "Audit architecture items from this cycle against architecture_records — "
+                "create ADR missions for any decisions not yet formalised"
+            ),
+            estimated_effort="low",
+            expected_benefit="All architecture decisions are formally recorded; future officers can reuse decisions",
+        ))
+
+    return opportunities
+
+
 # ── Composite ─────────────────────────────────────────────────────────────────
 
 def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
@@ -459,6 +585,7 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
         ("communications",     review_communications),
         ("ori",                review_ori),
         ("number_one",         review_number_one),
+        ("knowledge",          review_knowledge),
     ]
 
     for officer, fn in review_fns:
@@ -473,11 +600,13 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
 
 
 __all__ = [
+    "REVIEW_SCHEDULE",
     "review_human_systems",
     "review_strategic_planning",
     "review_engineering",
     "review_communications",
     "review_ori",
     "review_number_one",
+    "review_knowledge",
     "run_all_reviews",
 ]
