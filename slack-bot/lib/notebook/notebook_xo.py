@@ -178,6 +178,16 @@ def inject_into_xo_brief(
                     "mission_id":  None,
                     "description": f"{stalled} note(s) in CAPTURED/OFFICER_REVIEW for >7 days without advancement.",
                 })
+            if patterns.opportunity_clusters:
+                top_opp = patterns.opportunity_clusters[0]
+                injected.append({
+                    "type":        "pattern_signal",
+                    "source":      "notebook",
+                    "title":       f"[Notebook Opportunity] {top_opp.label} — {top_opp.count} high-value notes",
+                    "priority":    "P2",
+                    "mission_id":  None,
+                    "description": f"Opportunity cluster: avg strategic score {top_opp.avg_strategic_score:.0%}, {top_opp.count} notes.",
+                })
         except Exception as exc:
             log.warning("[notebook-xo] Pattern injection failed (non-blocking): %s", exc)
 

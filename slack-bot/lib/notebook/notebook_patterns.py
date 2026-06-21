@@ -35,6 +35,19 @@ _THEME_KEYWORDS: dict[str, list[str]] = {
 class ThemeCluster:
     theme: str
     count: int
+    theme_score: float = 0.0       # normalised 0–1 relative to max cluster size
+    confidence: float = 0.0        # fraction of recent notes vs lookback window
+    note_ids: list[str] = field(default_factory=list)
+    representative_titles: list[str] = field(default_factory=list)
+
+
+@dataclass
+class OpportunityCluster:
+    """Multiple related ideas suggesting a larger initiative."""
+    label: str
+    count: int
+    avg_strategic_score: float
+    confidence: float
     note_ids: list[str] = field(default_factory=list)
     representative_titles: list[str] = field(default_factory=list)
 
@@ -62,6 +75,7 @@ class PatternReport:
     emerging_themes: list[ThemeCluster] = field(default_factory=list)
     recurring_concerns: list[RecurringConcern] = field(default_factory=list)
     abandoned_ideas: list[AbandonedIdea] = field(default_factory=list)
+    opportunity_clusters: list[OpportunityCluster] = field(default_factory=list)
     domain_distribution: dict[str, int] = field(default_factory=dict)
     total_notes_analysed: int = 0
     lookback_days: int = 30
@@ -69,7 +83,7 @@ class PatternReport:
 
     @property
     def has_signals(self) -> bool:
-        return bool(self.emerging_themes or self.recurring_concerns or self.abandoned_ideas)
+        return bool(self.emerging_themes or self.recurring_concerns or self.abandoned_ideas or self.opportunity_clusters)
 
     @property
     def top_theme(self) -> ThemeCluster | None:
@@ -115,11 +129,14 @@ def detect_patterns(
         for theme in _classify_themes(combined):
             theme_buckets[theme].append(note)
 
+    max_count = max((len(v) for v in theme_buckets.values()), default=1)
     report.emerging_themes = sorted(
         [
             ThemeCluster(
                 theme=theme,
                 count=len(bucket_notes),
+                theme_score=round(len(bucket_notes) / max_count, 2),
+                confidence=round(min(len(bucket_notes) / max(report.total_notes_analysed, 1), 1.0), 2),
                 note_ids=[n["id"] for n in bucket_notes[:10]],
                 representative_titles=[
                     (n.get("title") or n.get("raw_content", "")[:60])
@@ -174,6 +191,28 @@ def detect_patterns(
 
     report.abandoned_ideas.sort(key=lambda x: x.days_stalled, reverse=True)
 
+    # Opportunity clusters — theme buckets with high avg strategic score
+    for theme, bucket_notes in theme_buckets.items():
+        if len(bucket_notes) < 2:
+            continue
+        scored = [n for n in bucket_notes if n.get("strategic_alignment_score") is not None]
+        if not scored:
+            continue
+        avg_score = sum(n["strategic_alignment_score"] for n in scored) / len(scored)
+        if avg_score >= 0.5:
+            report.opportunity_clusters.append(OpportunityCluster(
+                label=theme.replace("_", " ").title(),
+                count=len(bucket_notes),
+                avg_strategic_score=round(avg_score, 2),
+                confidence=round(len(scored) / len(bucket_notes), 2),
+                note_ids=[n["id"] for n in bucket_notes[:10]],
+                representative_titles=[
+                    (n.get("title") or n.get("raw_content", "")[:60])
+                    for n in sorted(scored, key=lambda x: x.get("strategic_alignment_score") or 0, reverse=True)[:3]
+                ],
+            ))
+    report.opportunity_clusters.sort(key=lambda c: c.avg_strategic_score, reverse=True)
+
     # Domain distribution from recommended_route
     route_counts: Counter = Counter(
         note.get("recommended_route") or "unrouted"
@@ -215,6 +254,12 @@ def format_pattern_report(report: PatternReport) -> str:
             lines.append(f"  :repeat: {rc.topic} — {rc.frequency}×")
         lines.append("")
 
+    if report.opportunity_clusters:
+        lines.append("*Opportunity Clusters:*")
+        for oc in report.opportunity_clusters[:2]:
+            lines.append(f"  :bulb: {oc.label} — {oc.count} notes, score {oc.avg_strategic_score:.0%}")
+        lines.append("")
+
     if report.abandoned_ideas:
         stalled_count = len(report.abandoned_ideas)
         oldest = report.abandoned_ideas[0]
@@ -226,6 +271,7 @@ def format_pattern_report(report: PatternReport) -> str:
 __all__ = [
     "PatternReport",
     "ThemeCluster",
+    "OpportunityCluster",
     "RecurringConcern",
     "AbandonedIdea",
     "detect_patterns",

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -80,6 +81,32 @@ function routeLabel(route: string | null): string | null {
     case 'archive':    return '→ Archive';
     default:           return `→ ${route}`;
   }
+}
+
+// ── Artefact navigation ────────────────────────────────────────────────────────
+
+const _ARTEFACT_NAV: Record<string, string> = {
+  MISSION:                  '/missions',
+  BUILD_REQUEST:            '/engineering',
+  STRATEGIC_INITIATIVE:     '/strategy',
+  IMPROVEMENT:              '/decisions',
+  KNOWLEDGE_ARTICLE:        '/lessons',
+  RESEARCH_REQUEST:         '/research',
+  COMMUNICATION_OPPORTUNITY: '/comms',
+};
+
+function ArtefactLink({ entityType, artefactId }: { entityType: string | null; artefactId: string }) {
+  const base = entityType ? _ARTEFACT_NAV[entityType] : null;
+  return base ? (
+    <Link
+      href={base}
+      className="text-xs text-lcars-text font-mono hover:text-status underline underline-offset-2"
+    >
+      {artefactId}
+    </Link>
+  ) : (
+    <p className="text-xs text-lcars-text font-mono">{artefactId}</p>
+  );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -210,7 +237,7 @@ function NoteCard({
                 {note.routed_entity_type && (
                   <p className="text-[10px] uppercase tracking-wider text-status font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
                 )}
-                <p className="text-xs text-lcars-text font-mono">{note.routed_to_id}</p>
+                <ArtefactLink entityType={note.routed_entity_type} artefactId={note.routed_to_id} />
                 {note.routed_by && (
                   <p className="text-[10px] text-lcars-muted">via {note.routed_by}{note.routed_at ? ` · ${relativeAge(note.routed_at)}` : ''}</p>
                 )}
