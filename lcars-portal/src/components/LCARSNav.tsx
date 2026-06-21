@@ -17,7 +17,7 @@ export function LCARSNav() {
   return (
     <nav
       aria-label="Primary"
-      className="shrink-0 lg:w-64"
+      className="hidden shrink-0 lg:block lg:w-64"
     >
       <ul className="flex flex-row flex-wrap gap-2 lg:flex-col lg:gap-1.5">
         {NAV_ITEMS.map((item) => {
