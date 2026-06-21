@@ -76,6 +76,7 @@ XO_HANDLES: frozenset[str] = frozenset({
     "decision_package_ready",        # EXEC-004 investigation decision packages await XO
     "initiative_stop_recommendation",# EXEC-006 stop/pause/merge initiative decisions
     "initiative_review",             # EXEC-006 initiative review packages
+    "delivery_risk_escalation",      # EXEC-007 delivery risks routed to XO
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
@@ -87,6 +88,10 @@ NUMBER_ONE_HANDLES: frozenset[str] = frozenset({
     "workload_limit_enforcement",
     "mission_assignment_change",
     "cross_domain_resource_request",
+    "delivery_blocker",              # EXEC-007 blocked work — Number One PMO coordinates
+    "resource_conflict",             # EXEC-007 resource contention
+    "sequencing_recommendation",     # EXEC-007 resequence the program
+    "delivery_intervention",         # EXEC-007 PMO intervention recommendation
 })
 
 

@@ -102,6 +102,16 @@ class CycleContext:
     strategic_outcomes_summary: str | None = None
     executive_strategic_review: str | None = None
 
+    # EXEC-007: Program Management & Dependency Coordination
+    program_health_summary: dict = field(default_factory=dict)      # green/amber/red counts
+    delivery_forecast_summary: dict = field(default_factory=dict)   # forecast band counts
+    blocked_work_count: int = 0
+    resource_conflicts_count: int = 0
+    delivery_risks_count: int = 0
+    program_interventions: int = 0
+    program_summary: str | None = None
+    executive_delivery_review: str | None = None
+
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
     cycle_started: datetime = field(default_factory=datetime.utcnow)
@@ -618,6 +628,118 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
         log.warning("[daily-cycle] Strategic outcomes step failed (non-blocking): %s", exc)
 
 
+# ── Step 6.8: Program Coordination (EXEC-007) ────────────────────────────────
+
+def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = False) -> None:
+    """EXEC-007 D-063 — Number One coordinates execution across initiatives.
+
+    Runs after strategic outcomes (so initiative health is fresh). Builds the
+    PMO program portfolio: program health, forecasts, delivery risks, resource
+    conflicts, critical-path blockers, and intervention recommendations.
+    Surfaces blocked work / conflicts / interventions to the exception router
+    and outcome-threatening criticals to the Captain. Fully non-blocking.
+    """
+    try:
+        from lib.strategy.initiatives import list_initiatives
+        from lib.program.pmo import (
+            coordinate_programs, format_program_portfolio,
+            run_executive_delivery_review, format_delivery_review,
+        )
+        from lib.program.forecasting import DeliveryForecast
+
+        if not list_initiatives(include_closed=False):
+            ctx.program_summary = (
+                "*Program Coordination:* _No initiatives — nothing to coordinate (D-063)._"
+            )
+            ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+            return
+
+        inputs = {
+            "capacity_status": ctx.capacity_status,
+            "resilience_risk": ctx.resilience_risk,
+            "escalations": len(ctx.number_one_items),
+        }
+
+        portfolio = coordinate_programs(inputs)
+
+        # Health summary
+        hs = {"green": 0, "amber": 0, "red": 0, "unknown": 0}
+        for ph in portfolio.program_health:
+            hs[ph.health] = hs.get(ph.health, 0) + 1
+        ctx.program_health_summary = hs
+
+        # Forecast summary
+        fs: dict[str, int] = {}
+        for f in portfolio.forecasts:
+            fs[f.forecast.value] = fs.get(f.forecast.value, 0) + 1
+        ctx.delivery_forecast_summary = fs
+
+        ctx.blocked_work_count = len(portfolio.blocked_work)
+        ctx.resource_conflicts_count = len(portfolio.resource_conflicts)
+        ctx.delivery_risks_count = len(portfolio.delivery_risks)
+        ctx.program_interventions = len(portfolio.interventions)
+        ctx.program_summary = format_program_portfolio(portfolio)
+
+        # Surface blocked work → Number One
+        if portfolio.blocked_work:
+            ctx.all_items.append({
+                "type": "delivery_blocker",
+                "title": f"[DELIVERY] {len(portfolio.blocked_work)} blocked mission(s) across initiatives",
+                "source": "number_one_pmo",
+                "priority": "P1",
+            })
+        # Surface resource conflicts → Number One
+        for conf in portfolio.resource_conflicts:
+            if conf.severity in ("high", "medium"):
+                ctx.all_items.append({
+                    "type": "resource_conflict",
+                    "title": f"[CONFLICT] {conf.description[:80]}",
+                    "source": "number_one_pmo",
+                    "priority": "P1" if conf.severity == "high" else "P2",
+                })
+        # Surface interventions
+        for r in portfolio.interventions:
+            if r.route_to == "captain":
+                ctx.all_items.append({
+                    "type": "strategic_decision",
+                    "title": f"[DELIVERY CRITICAL] {r.action.upper()} {r.initiative_id} — {r.reason[:60]}",
+                    "source": "number_one_pmo",
+                    "priority": "P1",
+                })
+            elif r.route_to == "xo":
+                ctx.all_items.append({
+                    "type": "delivery_risk_escalation",
+                    "title": f"[DELIVERY] {r.action.upper()} {r.initiative_id} — {r.reason[:60]}",
+                    "source": "number_one_pmo",
+                    "priority": "P2",
+                })
+            else:
+                ctx.all_items.append({
+                    "type": "delivery_intervention",
+                    "title": f"[PMO] {r.action.upper()} {r.initiative_id} — {r.reason[:60]}",
+                    "source": "number_one_pmo",
+                    "priority": "P2",
+                })
+
+        # Executive Delivery Review (WP8)
+        if delivery_review:
+            try:
+                review = run_executive_delivery_review(inputs)
+                ctx.executive_delivery_review = format_delivery_review(review)
+            except Exception as exc:
+                log.debug("[daily-cycle] Executive delivery review failed: %s", exc)
+
+        ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Program coordination: %s health, %d blocked, %d conflicts, %d risks, %d interventions",
+            hs, ctx.blocked_work_count, ctx.resource_conflicts_count,
+            ctx.delivery_risks_count, ctx.program_interventions,
+        )
+
+    except Exception as exc:
+        log.warning("[daily-cycle] Program coordination step failed (non-blocking): %s", exc)
+
+
 # ── Step 7: Improvement Discovery (EXEC-002 / EXEC-002A) ─────────────────────
 
 def _step_improvement_review(
@@ -786,6 +908,14 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.executive_strategic_review:
             brief = f"{brief}\n\n{ctx.executive_strategic_review}"
 
+        # Program Coordination (EXEC-007 WP7) — Number One PMO delivery view
+        if ctx.program_summary:
+            brief = f"{brief}\n\n{ctx.program_summary}"
+
+        # Executive Delivery Review (EXEC-007 WP8)
+        if ctx.executive_delivery_review:
+            brief = f"{brief}\n\n{ctx.executive_delivery_review}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -823,6 +953,7 @@ def run_daily_cycle(
     *,
     weekly_improvement_run: bool = False,
     monthly_strategic_review: bool = False,
+    delivery_review: bool = False,
 ) -> str:
     """Run the full daily operating cycle and return the Captain brief.
 
@@ -830,13 +961,15 @@ def run_daily_cycle(
       Human Systems → Strategic Planning → ORI → Engineering →
       Communications → Number One → Investigation Review (D-059/D-060) →
       Improvement Discovery (D-057/D-058) → Learning (D-061) →
-      Strategic Outcomes (D-062) → Exception Router → Captain Brief
+      Strategic Outcomes (D-062) → Program Coordination (D-063) →
+      Exception Router → Captain Brief
 
     Args:
         missions:                 Active missions list
         capacity_entry:           Today's capacity log entry
         weekly_improvement_run:   If True, weekly officer reviews also run (WP10)
         monthly_strategic_review: If True, the full Executive Strategic Review runs (EXEC-006 WP9)
+        delivery_review:          If True, the full Executive Delivery Review runs (EXEC-007 WP8)
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -853,6 +986,7 @@ def run_daily_cycle(
     _step_improvement_review(ctx, weekly_run=weekly_improvement_run)  # EXEC-002/003 D-057
     _step_learning_review(ctx)                                       # EXEC-005 D-061
     _step_strategic_outcomes(ctx, monthly_review=monthly_strategic_review)  # EXEC-006 D-062
+    _step_program_coordination(ctx, delivery_review=delivery_review)  # EXEC-007 D-063
 
     return assemble_executive_brief(ctx)
 
