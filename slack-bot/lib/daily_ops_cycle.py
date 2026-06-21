@@ -1,4 +1,4 @@
-"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-010).
+"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 through EXEC-010A).
 
 Sequences officer outputs in the prescribed order and assembles the Captain brief.
 Officers consume outputs from previous officers — no isolated reporting.
@@ -17,6 +17,7 @@ Sequence:
    6.9 Portfolio Optimisation            — D-064 value realisation, optimisation (EXEC-008)
    7.0 Enterprise Architecture           — D-065 capabilities, maturity, simulation (EXEC-009)
    7.1 Investment Governance             — D-066 investments, business cases, benefits assurance (EXEC-010)
+   7.2 Autonomous Officers               — D-067 officer triggers, actions, handoffs, XO synthesis (EXEC-010A)
    7.  Exception Router                  — classify all items
    8.  Captain Brief                     — Top 3 + exceptions + decisions + capacity
 
@@ -144,6 +145,14 @@ class CycleContext:
     delivery_constraint_critical: int = 0    # critical delivery constraints
     blocked_initiatives_count: int = 0       # dependency-blocked initiatives
     investment_review_summary: str | None = None
+
+    # EXEC-010A: Autonomous Officer Activation
+    officer_triggers_fired: int = 0          # triggers fired across all officers this cycle
+    officer_actions_created: int = 0         # actions created by officers
+    officer_escalations_advanced: int = 0    # escalations advanced through the L0-L5 chain
+    officer_handoffs_created: int = 0        # cross-officer handoffs initiated
+    officer_assignments_made: int = 0        # missions assigned by Number One / officers
+    officer_cycle_summary: str | None = None # XO synthesis section for Captain brief
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -1282,6 +1291,47 @@ def _step_investment_governance(
         log.warning("[daily-cycle] Investment governance step failed (non-blocking): %s", exc)
 
 
+# ── Step 7.2: Autonomous Officer Cycle (EXEC-010A) ───────────────────────────
+
+def _step_autonomous_officers(
+    ctx: CycleContext,
+    missions: list[dict[str, Any]],
+) -> None:
+    """EXEC-010A D-067 — Autonomous Officer Activation.
+
+    Runs after Investment Governance so all strategic, portfolio, investment, and
+    architecture signals are populated. Officers evaluate their triggers, create
+    actions, advance escalations, process handoffs, and produce an XO synthesis
+    for injection into the Captain brief.
+
+    Fully non-blocking — each sub-step degrades gracefully.
+    """
+    try:
+        from lib.officers.daily_operations_cycle import run_officer_cycle, format_officer_cycle_summary
+
+        result = run_officer_cycle(ctx, missions)
+        ctx.officer_triggers_fired = result.triggers_fired
+        ctx.officer_actions_created = result.actions_created
+        ctx.officer_escalations_advanced = result.escalations_advanced
+        ctx.officer_handoffs_created = result.handoffs_created
+        ctx.officer_assignments_made = result.assignments_made
+
+        if result.cycle_summary:
+            ctx.officer_cycle_summary = result.cycle_summary
+        elif result.triggers_fired or result.actions_created:
+            ctx.officer_cycle_summary = format_officer_cycle_summary(result)
+
+        ctx.data_freshness["autonomous_officers"] = datetime.utcnow().isoformat()
+        log.info(
+            "[daily-cycle] Autonomous officers: triggers=%d, actions=%d, escalations=%d, "
+            "handoffs=%d, assignments=%d",
+            result.triggers_fired, result.actions_created,
+            result.escalations_advanced, result.handoffs_created, result.assignments_made,
+        )
+    except Exception as exc:
+        log.warning("[daily-cycle] Autonomous officer cycle failed (non-blocking): %s", exc)
+
+
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def _format_improvement_discovery_section(ctx: CycleContext) -> str:
@@ -1410,6 +1460,10 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
         if ctx.investment_review_summary:
             brief = f"{brief}\n\n{ctx.investment_review_summary}"
 
+        # Autonomous Officer Layer (EXEC-010A D-067) — XO synthesis
+        if ctx.officer_cycle_summary:
+            brief = f"{brief}\n\n{ctx.officer_cycle_summary}"
+
         return brief
     except Exception as exc:
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
@@ -1460,7 +1514,8 @@ def run_daily_cycle(
       Improvement Discovery (D-057/D-058) → Learning (D-061) →
       Strategic Outcomes (D-062) → Program Coordination (D-063) →
       Portfolio Optimisation (D-064) → Enterprise Architecture (D-065) →
-      Investment Governance (D-066) → Exception Router → Captain Brief
+      Investment Governance (D-066) → Autonomous Officers (D-067) →
+      Exception Router → Captain Brief
 
     Args:
         missions:                 Active missions list
@@ -1491,6 +1546,7 @@ def run_daily_cycle(
     _step_portfolio_optimisation(ctx, portfolio_review=portfolio_review)     # EXEC-008 D-064
     _step_enterprise_architecture(ctx, capability_review=capability_review)  # EXEC-009 D-065
     _step_investment_governance(ctx, investment_review=investment_review)     # EXEC-010 D-066
+    _step_autonomous_officers(ctx, missions)                                  # EXEC-010A D-067
 
     return assemble_executive_brief(ctx)
 

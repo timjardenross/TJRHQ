@@ -63,6 +63,8 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "investment_decision",          # EXEC-010 investment requiring Captain strategic sign-off
     "benefit_leakage_critical",     # EXEC-010 critical benefit leakage threatening strategic value
     "investment_review",            # EXEC-010 executive investment review escalation
+    "governance_exception",         # EXEC-010A L5 officer escalation reaching Captain level
+    "officer_action_required",      # EXEC-010A officer action requiring Captain approval
 })
 
 XO_HANDLES: frozenset[str] = frozenset({
