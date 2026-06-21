@@ -1441,6 +1441,14 @@ if __name__ == "__main__":
         except Exception as _hs_exc:
             log.warning("[startup] Human Systems scheduler not started: %s", _hs_exc)
 
+    # ── Proactive scheduler (morning brief, research sweep, escalations, etc.) ─
+    try:
+        from proactive_scheduler import start_scheduler
+        start_scheduler(app.client)
+        log.info("[startup] Proactive scheduler started")
+    except Exception as _ps_exc:
+        log.warning("[startup] Proactive scheduler not started: %s", _ps_exc)
+
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     try:
         log.info("[startup] SocketModeHandler created; starting connection now")
