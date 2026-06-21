@@ -1063,14 +1063,18 @@ def _job_lifecycle_recommendations(client) -> None:
 
 
 def _job_pending_research_sweep(_client) -> None:
-    """Every 5 min: pick up captured_items that need orchestration or research and process them.
+    """Every 5 min: recover stuck captured_items in two passes.
 
-    Two-stage sweep:
-      Stage 1 — Orchestrate: items stuck at processing_status='pending' (captured but never
-        classified, e.g. mobile UI captures or bot restarts before orchestration ran).
-        Capped at 3 per sweep; process_captured_item() classifies and fires research if eligible.
-      Stage 2 — Research: items already classified with research_status='pending' (classification
-        done but research thread died). Capped at 5 per sweep; calls _run_research() directly.
+    Pass 1 — pre-orchestration stuck items (processing_status='pending'):
+        Items captured but never processed (e.g. mobile UI captures, old test
+        items, bot-restart orphans). Runs process_captured_item() which
+        classifies them and auto-queues research if eligible. Capped at 10
+        per sweep; test/empty items will classify as unclassified and skip
+        research automatically.
+
+    Pass 2 — post-orchestration research queue (research_status='pending'):
+        Items that were classified but whose research thread died. Runs
+        _run_research() directly. Capped at 5 per sweep to avoid quota pressure.
     """
     try:
         import sys
@@ -1080,26 +1084,24 @@ def _job_pending_research_sweep(_client) -> None:
         if not _db.enabled():
             return
 
-        # Stage 1: orchestrate items that were captured but never classified.
-        unprocessed_result = (
+        # Pass 1: unprocessed items
+        unprocessed = (
             _db._client.table("captured_items")
             .select("id, title")
             .eq("processing_status", "pending")
             .order("captured_at", desc=False)
-            .limit(3)
+            .limit(10)
             .execute()
         )
-        unprocessed = unprocessed_result.data if unprocessed_result and unprocessed_result.data else []
-        if unprocessed:
-            log.info("[pending-research-sweep] Found %d unprocessed item(s) — running orchestrator", len(unprocessed))
-            for item in unprocessed:
-                try:
-                    process_captured_item(item["id"])
-                except Exception as item_exc:  # noqa: BLE001
-                    log.error("[pending-research-sweep] Orchestration failed for %s: %s", item["id"], item_exc)
+        for item in (unprocessed.data or []):
+            try:
+                log.info("[pending-research-sweep] Orchestrating unprocessed item: %s", item.get("title", item["id"])[:60])
+                process_captured_item(item["id"])
+            except Exception as exc:  # noqa: BLE001
+                log.error("[pending-research-sweep] Orchestration failed for %s: %s", item["id"], exc)
 
-        # Stage 2: research items that were classified but whose research thread died.
-        research_result = (
+        # Pass 2: items queued for research but thread died
+        queued = (
             _db._client.table("captured_items")
             .select("*")
             .eq("research_status", "pending")
@@ -1107,17 +1109,15 @@ def _job_pending_research_sweep(_client) -> None:
             .limit(5)
             .execute()
         )
-        research_items = research_result.data if research_result and research_result.data else []
-        if not research_items and not unprocessed:
-            return
-
+        research_items = queued.data or []
         if research_items:
-            log.info("[pending-research-sweep] Found %d item(s) with stalled research — running Mistral", len(research_items))
-            for item in research_items:
-                try:
-                    _run_research(item["id"], item)
-                except Exception as item_exc:  # noqa: BLE001
-                    log.error("[pending-research-sweep] Research failed for %s: %s", item["id"], item_exc)
+            log.info("[pending-research-sweep] Found %d item(s) queued for research", len(research_items))
+        for item in research_items:
+            try:
+                _run_research(item["id"], item)
+            except Exception as exc:  # noqa: BLE001
+                log.error("[pending-research-sweep] Research failed for %s: %s", item["id"], exc)
+
     except Exception as exc:  # noqa: BLE001
         log.error("[pending-research-sweep] Sweep failed: %s", exc)
 
