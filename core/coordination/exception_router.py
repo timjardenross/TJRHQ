@@ -70,6 +70,8 @@ XO_HANDLES: frozenset[str] = frozenset({
     "communications_exception",
     "objective_scope_change",
     "mission_alignment_exception",
+    "resilience_advisory",           # ORI AMBER — XO monitors, escalates to Captain if needed
+    "improvement_mission_approval",  # EXEC-002 improvement missions route through XO
 })
 
 NUMBER_ONE_HANDLES: frozenset[str] = frozenset({

@@ -1,17 +1,18 @@
-"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 WP5).
+"""Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001 WP5 / EXEC-002).
 
 Sequences officer outputs in the prescribed order and assembles the Captain brief.
 Officers consume outputs from previous officers — no isolated reporting.
 
 Sequence:
-  1. Human Systems    — capacity gate (governs everything downstream)
+  1. Human Systems      — capacity gate (governs everything downstream)
   2. Strategic Planning — portfolio decisions
-  3. ORI              — resilience intelligence
-  4. Engineering      — delivery status
-  5. Communications   — pipeline status
-  6. Number One       — consolidation + executive summary
-  7. XO               — executive review
-  8. Captain Brief    — Top 3 + exceptions + decisions + capacity
+  3. ORI                — resilience intelligence
+  4. Engineering        — delivery status
+  5. Communications     — pipeline status
+  6. Number One         — consolidation + executive summary
+  7. Improvement Review — D-057 continuous improvement (EXEC-002)
+  8. XO                 — executive review (via exception router)
+  9. Captain Brief      — Top 3 + exceptions + decisions + capacity
 
 The Captain receives an executive brief, not raw operational data.
 
@@ -64,6 +65,11 @@ class CycleContext:
 
     number_one_summary: str | None = None
     number_one_items: list[dict] = field(default_factory=list)
+
+    # EXEC-002: Continuous Improvement
+    improvement_opportunities: list[dict] = field(default_factory=list)
+    improvement_missions_created: int = 0
+    improvement_summary: str | None = None
 
     all_items: list[dict] = field(default_factory=list)
     data_freshness: dict[str, str] = field(default_factory=dict)
@@ -230,6 +236,54 @@ def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
         log.warning("[daily-cycle] Number One step failed (non-blocking): %s", exc)
 
 
+# ── Step 7: Improvement Review (EXEC-002) ────────────────────────────────────
+
+def _step_improvement_review(ctx: CycleContext) -> None:
+    """D-057 Continuous Improvement Review — officers review their domains.
+
+    Runs after all operational steps so improvement observations have full
+    cycle context. High-band opportunities are converted to missions (XO queue).
+    Medium-band are logged as decisions for weekly review.
+    """
+    try:
+        from lib.improvement.officer_reviews import run_all_reviews
+        from lib.improvement.scoring import score_and_rank
+        from lib.improvement.framework import ImprovementBand
+
+        score_context = {
+            "capacity_status":    ctx.capacity_status,
+            "orphan_count":       ctx.orphan_count,
+            "engineering_blocked": ctx.engineering_blocked,
+            "comms_ready_count":  ctx.comms_ready_count,
+            "resilience_risk":    ctx.resilience_risk,
+        }
+
+        opportunities = run_all_reviews(ctx)
+        opportunities = score_and_rank(opportunities, score_context)
+
+        high_band = [o for o in opportunities if o.band == ImprovementBand.HIGH]
+        ctx.improvement_opportunities = [o.to_dict() for o in opportunities]
+
+        # Promote high-band items to all_items so exception_router can classify them
+        for opp in high_band[:5]:  # cap to avoid flooding the brief
+            ctx.all_items.append({
+                "type": "strategic_decision",
+                "title": f"[IMPROVE] {opp.suggested_action[:80]}",
+                "source": f"improvement:{opp.source_officer}",
+                "priority": "P2",
+            })
+
+        ctx.improvement_missions_created = 0  # updated by weekly_review if called
+        ctx.data_freshness["improvement"] = datetime.utcnow().isoformat()
+
+        log.info(
+            "[daily-cycle] Improvement step: %d opportunities (%d High)",
+            len(opportunities), len(high_band),
+        )
+    except Exception as exc:
+        log.warning("[daily-cycle] Improvement step failed (non-blocking): %s", exc)
+
+
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def assemble_executive_brief(ctx: CycleContext) -> str:
@@ -271,7 +325,8 @@ def run_daily_cycle(
 
     Sequence:
       Human Systems → Strategic Planning → ORI → Engineering →
-      Communications → Number One → Exception Router → Captain Brief
+      Communications → Number One → Improvement Review (D-057) →
+      Exception Router → Captain Brief
 
     Non-blocking: each step degrades gracefully if data is unavailable.
     Data freshness is tracked; stale inputs are labelled in the brief.
@@ -284,6 +339,7 @@ def run_daily_cycle(
     _step_engineering(missions, ctx)
     _step_communications(ctx)
     _step_number_one(missions, ctx)
+    _step_improvement_review(ctx)
 
     return assemble_executive_brief(ctx)
 
