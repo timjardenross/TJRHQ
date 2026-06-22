@@ -23,6 +23,7 @@ from router import route_request, score_specialists
 from supabase_commander_intake import is_commander_directed, run_supabase_commander
 from mission_registry import create_mission
 from core.coordination.commander_memory_adapter import CommanderMemoryAdapter
+from core.coordination.hierarchy_memory_adapter import HierarchyMemoryAdapter
 
 # MSN-0032: Semantic Specialist Routing integration
 try:
@@ -55,6 +56,7 @@ INTENT_RESEARCH = "research"         # MSN-0054: routes to research orchestratio
 INTENT_GENERAL = "general"
 
 _commander_memory_adapter = CommanderMemoryAdapter()
+_hierarchy_memory_adapter = HierarchyMemoryAdapter()
 
 
 def handle_slack_message(
@@ -283,6 +285,13 @@ def handle_slack_message(
             response_text = f"{response_text}\n\n{memory_context.note}"
     except Exception as exc:
         log.warning("[commander-bridge] Memory note skipped (non-blocking): %s", exc)
+
+    try:
+        hierarchy_context = _hierarchy_memory_adapter.build_hierarchy_note(text=cleaned_text)
+        if hierarchy_context.found:
+            response_text = f"{response_text}{hierarchy_context.context_block}"
+    except Exception as exc:
+        log.warning("[commander-bridge] Hierarchy context skipped (non-blocking): %s", exc)
 
     return {
         "ok": True,

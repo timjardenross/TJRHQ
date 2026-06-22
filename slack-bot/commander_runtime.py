@@ -184,7 +184,7 @@ def load_runtime_context(user_text: str, intent: IntentResult, mission_id: str) 
     sources = []
 
     if intent.intent_type in ["GITHUB_ISSUE", "COLLABORATION", "GENERAL_COMMAND"]:
-        system_prompt = load_commander_context()
+        system_prompt = load_commander_context(text=user_text)
         sources.append("prompt_loader.load_commander_context")
     elif intent.intent_type == "KNOWLEDGE_OFFICER_LEARNING":
         system_prompt = load_commander_with_specialist_context("knowledge_officer")

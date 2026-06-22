@@ -147,13 +147,33 @@ def load_specialist_context(specialist_key: str) -> str:
 # Public Loader Functions
 # -----------------------------
 
-def load_commander_context() -> str:
+def _load_hierarchy_section(text: str) -> str:
+    """Return a hierarchy structural context section, or empty string if unavailable."""
+    if not text:
+        return ""
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _repo_root = str(_Path(__file__).resolve().parents[1])
+        if _repo_root not in _sys.path:
+            _sys.path.insert(0, _repo_root)
+        from core.coordination.hierarchy_memory_adapter import HierarchyMemoryAdapter
+        ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=text)
+        if ctx.found:
+            return build_section("Structural Context", ctx.context_block.strip())
+    except Exception:
+        pass
+    return ""
+
+
+def load_commander_context(text: str = "") -> str:
     return f"""
 # USS TJR COMMAND CONTEXT
 
 {load_core_context()}
 
 {load_memory_context()}
+{_load_hierarchy_section(text)}
 """
 
 

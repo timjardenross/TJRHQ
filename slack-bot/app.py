@@ -82,6 +82,8 @@ from commands.brief import handle_brief
 from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
 from commands.github_issue_draft import handle_github_issue_draft
+from commands.navigate import handle_navigate
+from commands.map import handle_map
 
 # MSN-DISCOVERY-001: Captain's Inbox intake (WP2)
 from lib.captains_inbox_events import register_captains_inbox_handlers
@@ -1320,6 +1322,37 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /comms: user=%s sub=%r", user_id, text)
         respond(handle_comms(text, user_id, channel_id))
+
+    # ── Hierarchical Knowledge Navigation (ADR-022) ───────────────────────────
+
+    @app.command("/nav")
+    def handle_nav_slash(ack, respond, command):
+        """/nav — traverse the knowledge hierarchy without search.
+
+        Usage: /nav <id> <verb>  e.g. /nav msn-0053 up
+               /nav <id1> <id2>  e.g. /nav msn-0053 adr-009
+               /nav status
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /nav: user=%s text=%r", user_id, text)
+        respond(handle_navigate(text, user_id, channel_id))
+
+    @app.command("/map")
+    def handle_map_slash(ack, respond, command):
+        """/map — tag an entity into the knowledge hierarchy.
+
+        Usage: /map msn-0045 ini-002   Tag mission to initiative
+               /map adr-009 obj-002    Link ADR to objective
+        """
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /map: user=%s text=%r", user_id, text)
+        respond(handle_map(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
