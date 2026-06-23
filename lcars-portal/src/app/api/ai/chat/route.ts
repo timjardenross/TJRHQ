@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
+import { parseAndExecuteActions } from '@/lib/ai-actions';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 // Ollama Cloud base URL — configurable without code changes
 const OLLAMA_BASE_URL =
@@ -76,16 +78,17 @@ function streamOllamaResponse(upstream: Response): Response {
       }
 
       const decoder = new TextDecoder();
-      let buffer = '';
+      let lineBuffer = '';
+      let fullText = '';
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split('\n');
+          lineBuffer = lines.pop() ?? '';
 
           for (const line of lines) {
             if (!line.trim()) continue;
@@ -93,11 +96,19 @@ function streamOllamaResponse(upstream: Response): Response {
               const chunk = JSON.parse(line);
               const token = chunk?.message?.content ?? '';
               if (token) {
+                fullText += token;
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ token })}\n\n`)
                 );
               }
               if (chunk?.done) {
+                // Execute any starfleet-action blocks before closing
+                const actionResults = await parseAndExecuteActions(fullText).catch(() => []);
+                if (actionResults.length > 0) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ actions: actionResults })}\n\n`)
+                  );
+                }
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 controller.close();
                 return;
@@ -132,6 +143,12 @@ function streamOllamaResponse(upstream: Response): Response {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   if (!process.env.OLLAMA_CLOUD_ENABLED || process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
     return NextResponse.json(
       { error: 'AI Console is not enabled. Set OLLAMA_CLOUD_ENABLED=true in environment.' },

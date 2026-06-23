@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 /**
  * XO Chat endpoint (MSN-IOS-001 WP4).
@@ -51,6 +52,12 @@ async function callOllama(messages: ChatMessage[], model: string): Promise<Respo
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   if (process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
     return NextResponse.json(
       {
