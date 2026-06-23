@@ -144,6 +144,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'End-of-day structured log entry'
   },
   {
+    href: '/captains-notebook',
+    label: "Captain's Notebook",
+    glyph: '16',
+    department: 'command',
+    description: 'Intelligence intake — capture, triage, route'
+  },
+  {
     href: '/ai-console',
     label: 'AI Console',
     glyph: '13',
