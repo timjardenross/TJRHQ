@@ -6,12 +6,20 @@ import { AI_MODELS, type AIModel } from '@/lib/ai-models';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ActionResult {
+  type: string;
+  success: boolean;
+  detail: string;
+  id?: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   model?: string;
   error?: boolean;
+  actions?: ActionResult[];
 }
 
 // ── Role selector ─────────────────────────────────────────────────────────────
@@ -107,6 +115,37 @@ function MessageBubble({ msg }: { msg: Message }) {
         )}
         {msg.content}
       </div>
+    </div>
+  );
+}
+
+// ── Action result panel ───────────────────────────────────────────────────────
+
+function ActionPanel({ actions }: { actions: ActionResult[] }) {
+  const labels: Record<string, string> = {
+    create_mission: 'Mission registered',
+    create_handoff: 'Handoff dispatched',
+    log_decision: 'Decision logged',
+  };
+
+  return (
+    <div className="ml-3 mt-1.5 flex flex-col gap-1">
+      {actions.map((a, i) => (
+        <div
+          key={i}
+          className={`rounded-lcars border px-3 py-1.5 text-[11px] font-mono ${
+            a.success
+              ? 'border-status/40 bg-status/5 text-status'
+              : 'border-operations/40 bg-operations/5 text-operations'
+          }`}
+        >
+          <span className="uppercase tracking-[0.15em] mr-2">
+            {a.success ? '✓' : '✗'} {labels[a.type] ?? a.type}
+          </span>
+          <span className="opacity-70">{a.detail}</span>
+          {a.id && <span className="ml-2 opacity-50">[{a.id}]</span>}
+        </div>
+      ))}
     </div>
   );
 }
@@ -267,15 +306,16 @@ export default function AIConsolePage() {
 
       const decoder = new TextDecoder();
       let accumulated = '';
-      let buffer = '';
+      let lineBuffer = '';
+      let capturedActions: ActionResult[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
@@ -287,6 +327,9 @@ export default function AIConsolePage() {
             if (chunk.token) {
               accumulated += chunk.token;
               setStreamBuffer(accumulated);
+            }
+            if (chunk.actions) {
+              capturedActions = chunk.actions as ActionResult[];
             }
           } catch (e) {
             if (e instanceof Error && e.message !== 'JSON parse') {
@@ -303,6 +346,7 @@ export default function AIConsolePage() {
           role: 'assistant',
           content: accumulated || '(No response)',
           model: selectedModel,
+          actions: capturedActions.length > 0 ? capturedActions : undefined,
         },
       ]);
     } catch (err) {
@@ -426,7 +470,12 @@ export default function AIConsolePage() {
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
+          <div key={msg.id}>
+            <MessageBubble msg={msg} />
+            {msg.actions && msg.actions.length > 0 && (
+              <ActionPanel actions={msg.actions} />
+            )}
+          </div>
         ))}
 
         {/* Live stream buffer */}
