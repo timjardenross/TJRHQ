@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { AI_ROLES, DEFAULT_ROLE_ID, getRoleById, type AIRole } from '@/lib/ai-roles';
-import { AI_MODELS, type AIModel } from '@/lib/ai-models';
+import { AI_MODELS, DEFAULT_MODEL_ID, type AIModel } from '@/lib/ai-models';
 
 const STORAGE_KEY = 'lcars-ai-console-history';
 const PREFS_KEY   = 'lcars-ai-console-prefs';
@@ -244,7 +244,7 @@ export default function AIConsolePage() {
   const [messages, setMessages]           = useState<Message[]>([]);
   const [input, setInput]                 = useState('');
   const [selectedRole, setSelectedRole]   = useState(DEFAULT_ROLE_ID);
-  const [selectedModel, setSelectedModel] = useState('glm-5.2');
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const [systemPrompt, setSystemPrompt]   = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [loading, setLoading]             = useState(false);

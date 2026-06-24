@@ -38,24 +38,25 @@ async function createMission(payload: ActionPayload): Promise<ActionResult> {
 }
 
 async function createHandoff(payload: ActionPayload): Promise<ActionResult> {
-  const missionId = (payload.mission_id as string) ?? null;
   const title = (payload.title as string) ?? 'Untitled Handoff';
-  const summary = [payload.description, payload.notes].filter(Boolean).join('\n\n') || null;
+  const missionId = (payload.mission_id as string) ?? null;
+  const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const requestId = `AI-BREQ-${ts}-${rand}`;
 
   const row = {
+    request_id: requestId,
     title,
-    summary,
+    summary: (payload.description as string) ?? null,
+    rationale: `Priority: ${payload.priority ?? 'P1'}${missionId ? ` · Mission: ${missionId}` : ''}`,
+    suggested_next_step: (payload.notes as string) ?? null,
     status: 'approved',
-    metadata: {
-      priority: payload.priority ?? 'P1',
-      mission_id: missionId,
-      source: 'lcars-ai-console',
-    },
+    source: 'lcars-ai-console',
   };
 
-  const { data, error } = await supabaseAdmin().from('build_request_inbox').insert(row).select('request_id').single();
+  const { error } = await supabaseAdmin().from('build_request_inbox').insert(row);
   if (error) return { type: 'create_handoff', success: false, detail: error.message };
-  return { type: 'create_handoff', success: true, detail: `Handoff queued: ${title}`, id: data?.request_id };
+  return { type: 'create_handoff', success: true, detail: `Handoff queued: ${title}`, id: requestId };
 }
 
 async function logDecision(payload: ActionPayload): Promise<ActionResult> {

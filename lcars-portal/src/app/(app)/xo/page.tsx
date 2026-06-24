@@ -46,6 +46,7 @@ export default function XOChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamBuffer, setStreamBuffer] = useState('');
   const [actionFlash, setActionFlash] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -67,7 +68,7 @@ export default function XOChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, streamBuffer]);
 
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
 
@@ -86,15 +87,50 @@ export default function XOChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history }),
       });
-      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         setMessages((prev) => [
           ...prev,
           { id: newId(), role: 'assistant', content: data.error ?? 'XO is unavailable.', error: true },
         ]);
-      } else {
-        setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: data.content || '(no reply)', actions: data.actions ?? [] }]);
+        return;
       }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+      const decoder = new TextDecoder();
+      let accumulated = '';
+      let lineBuffer = '';
+      let capturedActions: ActionResult[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6);
+          if (payload === '[DONE]') break;
+          try {
+            const chunk = JSON.parse(payload);
+            if (chunk.error) throw new Error(chunk.error);
+            if (chunk.token) { accumulated += chunk.token; setStreamBuffer(accumulated); }
+            if (chunk.actions) capturedActions = chunk.actions;
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'JSON parse') throw e;
+          }
+        }
+      }
+
+      setMessages((prev) => [...prev, {
+        id: newId(),
+        role: 'assistant',
+        content: accumulated || '(no reply)',
+        actions: capturedActions.length > 0 ? capturedActions : undefined,
+      }]);
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -102,6 +138,7 @@ export default function XOChatPage() {
       ]);
     } finally {
       setLoading(false);
+      setStreamBuffer('');
       inputRef.current?.focus();
     }
   }
@@ -215,7 +252,18 @@ export default function XOChatPage() {
           );
         })}
 
-        {loading && (
+        {loading && streamBuffer && (
+          <div className="flex justify-start">
+            <div className="max-w-[88%] rounded-lcars border border-edge bg-panel/60 px-3.5 py-2.5 text-sm leading-relaxed text-lcars-text/90">
+              <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-science">XO</p>
+              <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                <ReactMarkdown>{streamBuffer}</ReactMarkdown>
+              </div>
+              <span className="inline-block w-1.5 h-3.5 bg-science animate-pulse ml-0.5 align-middle" />
+            </div>
+          </div>
+        )}
+        {loading && !streamBuffer && (
           <div className="flex justify-start">
             <div className="rounded-lcars border border-edge bg-panel/60 px-4 py-3">
               <div className="flex h-3 items-center gap-1.5">
