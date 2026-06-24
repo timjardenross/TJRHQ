@@ -39,6 +39,12 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional
 
+try:
+    from lib.tz import today_brisbane_iso as _today_iso, today_brisbane as _today_date
+except Exception:
+    def _today_iso() -> str: return date.today().isoformat()  # type: ignore[misc]
+    def _today_date() -> date: return date.today()  # type: ignore[misc]
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -212,7 +218,7 @@ def _check_health_logged_today() -> bool:
         from supabase_client import supabase_get, is_configured
         if not is_configured():
             return False
-        today = date.today().isoformat()
+        today = _today_iso()
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
         return bool(rows)
     except Exception:
@@ -229,7 +235,7 @@ def _get_stale_missions() -> list[dict]:
         registry = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
         if not registry.exists():
             return []
-        cutoff = date.today() - timedelta(days=_STALE_DAYS)
+        cutoff = _today_date() - timedelta(days=_STALE_DAYS)
         stale = []
         with open(registry) as f:
             for line in f:
@@ -367,8 +373,7 @@ def _generate_lessons_digest() -> str:
         return ""
 
     # Pick entries that contain last month's date pattern (approximate)
-    from datetime import date as _date
-    today = _date.today()
+    today = _today_date()
     last_month = today.replace(day=1) - timedelta(days=1)
     month_pattern = last_month.strftime("%Y-%m")
     this_month_pattern = today.strftime("%Y-%m")
@@ -401,8 +406,7 @@ def _generate_lessons_digest() -> str:
 def _generate_ko_monthly_brief() -> str:
     """Generate a KO brief: lessons count, knowledge records, stale files, ADR count."""
     import re as _re
-    from datetime import date as _date
-    today = _date.today()
+    today = _today_date()
 
     lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
     knowledge_records_dir = _REPO_ROOT / "knowledge" / "missions"
@@ -463,7 +467,7 @@ def _fetch_readiness_block() -> str:
         if not is_configured():
             return ""
 
-        today = date.today().isoformat()
+        today = _today_iso()
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1") or []
         entry = rows[0] if rows else {}
         cap_score, cap_status = compute_capacity_score(entry) if entry else (None, "Unknown")
@@ -506,7 +510,7 @@ def _check_pain_escalation() -> Optional[dict]:
         if not is_configured():
             return None
 
-        cutoff = (date.today() - timedelta(days=_PAIN_DAYS + 2)).isoformat()
+        cutoff = (_today_date() - timedelta(days=_PAIN_DAYS + 2)).isoformat()
         rows = supabase_get(
             f"analytics_health_daily"
             f"?log_date=gte.{cutoff}"
@@ -653,8 +657,7 @@ def _job_shakedown_digest(client) -> None:
     try:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         from shakedown_logger import get_day_summary, format_day_summary_for_slack
-        from datetime import date as _date
-        summary = get_day_summary(_date.today())
+        summary = get_day_summary(_today_date())
         msg = format_day_summary_for_slack(summary)
         if _post(client, msg):
             log.info("[shakedown] Day %d digest posted (events=%d, failures=%d)",
@@ -809,7 +812,7 @@ def _job_weekly_review(client) -> None:
 
     lines = [
         ":anchor: *Weekly Review — Starship Endeavour*",
-        f"_Week ending {date.today().strftime('%Y-%m-%d')}_",
+        f"_Week ending {_today_date().strftime('%Y-%m-%d')}_",
         "",
         f"*Stale missions:* {len(stale)} missions with no update in {_STALE_DAYS}+ days",
         f"*Pending decisions:* {len(pending)} runtime decisions awaiting review",
@@ -942,7 +945,7 @@ def _format_idea_review(missions: list[dict]) -> str:
     now = datetime.utcnow()
     lines = [
         ":bulb: *Number One — Fortnightly Idea Review*",
-        f"_Cycle: {date.today().strftime('%Y-%m-%d')}_",
+        f"_Cycle: {_today_date().strftime('%Y-%m-%d')}_",
         "",
         f"{len(missions)} idea{'s' if len(missions) != 1 else ''} awaiting triage:",
         "",
@@ -980,7 +983,7 @@ def _format_idea_review(missions: list[dict]) -> str:
 
 def _is_fortnightly_monday() -> bool:
     """Return True on the first Monday of the fortnightly cycle (week numbers 1, 3, 5, ...)."""
-    today = date.today()
+    today = _today_date()
     # Odd ISO week numbers fall on fortnightly Mondays (week 1, 3, 5 ...)
     return today.weekday() == 0 and today.isocalendar()[1] % 2 == 1
 

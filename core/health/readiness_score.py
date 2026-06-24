@@ -223,8 +223,13 @@ def compute_readiness_score(
         ops_deductions.append(f"Mission overload ({active_count} active missions) — -{OVERLOAD_COST} pts")
 
     # WP8: Deadline pressure
-    from datetime import date as _date
-    today_str = _date.today().isoformat()
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        from datetime import datetime as _dt
+        today_str = _dt.now(_ZI("Australia/Brisbane")).date().isoformat()
+    except Exception:
+        from datetime import date as _date
+        today_str = _date.today().isoformat()
     near_deadline = [
         m for m in missions
         if _get_priority(m) in ("P0", "P1")

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import date
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -22,6 +21,8 @@ log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+
+from lib.tz import today_brisbane_iso
 
 
 def _make_supabase():
@@ -54,7 +55,7 @@ _EVENT_TYPES = [
 
 def build_health_event_modal() -> dict:
     """Return the Block Kit view dict for the health event modal."""
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
     return {
         "type": "modal",
         "callback_id": EVENT_MODAL_CALLBACK_ID,
@@ -215,7 +216,7 @@ def _extract(values: dict, block_id: str) -> str | None:
 
 def handle_health_event_submit(values: dict, user_id: str, client) -> None:
     """Write health event to health_events and DM confirmation to user."""
-    event_date        = _extract(values, "event_date") or date.today().isoformat()
+    event_date        = _extract(values, "event_date") or today_brisbane_iso()
     event_type        = _extract(values, "event_type")
     title             = _extract(values, "title") or "(untitled)"
     description       = _extract(values, "description")

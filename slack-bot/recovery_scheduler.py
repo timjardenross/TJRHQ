@@ -66,7 +66,11 @@ def _dispatch_check(slack_client: Any) -> None:
         log.info("[recovery-scheduler] L%d — no Slack alert (Telegram handles this)", level)
         return
 
-    today     = datetime.now().strftime("%Y-%m-%d")
+    try:
+        from zoneinfo import ZoneInfo as _ZI
+        today = datetime.now(_ZI("Australia/Brisbane")).strftime("%Y-%m-%d")
+    except Exception:
+        today = datetime.now().strftime("%Y-%m-%d")
     bar_filled = int(conf / 10)
     bar        = "█" * bar_filled + "░" * (10 - bar_filled)
 
