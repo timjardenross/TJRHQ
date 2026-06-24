@@ -129,7 +129,6 @@ def event_hash_exists(dedup_hash: str) -> bool:
     return len(rows) > 0
 
 
-<<<<<<< HEAD
 def event_canonical_url_exists(canonical_url: str) -> bool:
     """Check if any persisted event already has this canonical URL (cross-run dedup)."""
     import urllib.parse
@@ -152,9 +151,6 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
     return len(rows) > 0
 
 
-def save_event(event: RankedEvent) -> Optional[str]:
-    """Persist a ranked event. Returns event_id or None on failure."""
-=======
 def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure.
 
@@ -163,7 +159,6 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
     regulatory_topic, resilience_themes, watch_item_status, executive_relevance).
     Existing callers pass no `ori` and behaviour is unchanged.
     """
->>>>>>> origin/claude/ori-github-integration-gkxjgt
     row = {
         "source_id": event.source_id,
         "raw_title": event.raw_title,

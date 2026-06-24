@@ -1093,14 +1093,17 @@ def _job_pending_research_sweep(_client) -> None:
             .limit(10)
             .execute()
         )
+        pass1_ids: set = set()
         for item in (unprocessed.data or []):
             try:
                 log.info("[pending-research-sweep] Orchestrating unprocessed item: %s", item.get("title", item["id"])[:60])
+                pass1_ids.add(item["id"])
                 process_captured_item(item["id"])
             except Exception as exc:  # noqa: BLE001
                 log.error("[pending-research-sweep] Orchestration failed for %s: %s", item["id"], exc)
 
         # Pass 2: items queued for research but thread died
+        # Skip any item already handled in Pass 1 this sweep to avoid double-triggering.
         queued = (
             _db._client.table("captured_items")
             .select("*")
@@ -1109,7 +1112,7 @@ def _job_pending_research_sweep(_client) -> None:
             .limit(5)
             .execute()
         )
-        research_items = queued.data or []
+        research_items = [r for r in (queued.data or []) if r["id"] not in pass1_ids]
         if research_items:
             log.info("[pending-research-sweep] Found %d item(s) queued for research", len(research_items))
         for item in research_items:
