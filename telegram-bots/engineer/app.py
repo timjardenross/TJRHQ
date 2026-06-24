@@ -10,8 +10,10 @@ Env:  telegram-bots/engineer/.env
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -130,7 +132,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "*Chief Engineer — Commands*\n\n"
         "/engineering\\_status — active engineering missions\n"
-        "/recovery\\_status — today's recovery confidence \\(read\\-only\\)\n\n"
+        "/recovery\\_status — Captain's recovery confidence \\(read\\-only\\)\n"
+        "/db\\_status — Supabase connectivity test\n"
+        "/restart \\[slack\\|eng\\-dept\\|engineer\\|all\\] — restart engineering services\n\n"
         "_Or just talk to me about engineering matters\\._",
         parse_mode="MarkdownV2",
     )
@@ -213,18 +217,81 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
 
 
+# ── Restart ──────────────────────────────────────────────────────────────────
+
+_RESTARTABLE = {
+    "slack":    ["starfleet-slack-bot.service"],
+    "eng-dept": ["tg-engineering-dept.service"],
+    "engineer": [],  # self-restart only, handled separately
+    "all":      ["starfleet-slack-bot.service", "tg-engineering-dept.service"],
+}
+
+
+async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/restart [slack|eng-dept|all] — restart engineering services. Gates on Captain's chat."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        await update.message.reply_text("🚫 Restricted to the Captain's chat.")
+        return
+
+    arg = (context.args[0].lower() if context.args else "all")
+    services = _RESTARTABLE.get(arg, _RESTARTABLE["all"])
+    names = _escape(", ".join(s.replace(".service", "") for s in services))
+
+    await update.message.reply_text(
+        f"🔄 Restarting: {names}\\.\\.\\.",
+        parse_mode="MarkdownV2",
+    )
+
+    lines = []
+    for svc in services:
+        try:
+            r = subprocess.run(["systemctl", "restart", svc], capture_output=True, text=True, timeout=15)
+            icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
+            lines.append(f"{icon} {svc.replace('.service', '')}")
+        except Exception as exc:
+            lines.append(f"❌ {svc.replace('.service', '')}: {_escape(str(exc))}")
+
+    restart_self = arg in ("engineer", "all")
+    suffix = "\n\n_CE rebooting in 3s\\.\\.\\._" if restart_self else ""
+
+    await update.message.reply_text(
+        f"*Restart results*\n\n{_escape(chr(10).join(lines))}{suffix}",
+        parse_mode="MarkdownV2",
+    )
+
+    if restart_self:
+        await asyncio.sleep(3)
+        subprocess.Popen(["systemctl", "restart", "tg-engineer.service"])
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+_BOT_COMMANDS = [
+    ("engineering_status", "Active engineering missions"),
+    ("recovery_status",    "Captain's recovery confidence (read-only)"),
+    ("restart",            "Restart engineering services  e.g. /restart all"),
+    ("db_status",          "Supabase connectivity test"),
+    ("help",               "Command reference"),
+]
+
+
+async def _post_init(app) -> None:
+    from telegram import BotCommand
+    await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
+    log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
+
 
 def main() -> None:
     log.info("Chief Engineer Bot starting")
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(_post_init).build()
 
     app.add_handler(CommandHandler("start",              cmd_start))
     app.add_handler(CommandHandler("help",               cmd_help))
     app.add_handler(CommandHandler("recovery_status",    cmd_recovery_status))
     app.add_handler(CommandHandler("engineering_status", cmd_engineering_status))
     app.add_handler(CommandHandler("db_status",          cmd_db_status))
+    app.add_handler(CommandHandler("restart",            cmd_restart))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     log.info("Chief Engineer Bot polling…")

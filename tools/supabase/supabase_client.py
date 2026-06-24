@@ -116,3 +116,27 @@ class SupabaseClient:
 
     def rpc(self, name: str, payload: dict[str, Any]) -> Any:
         return self.request("POST", f"/rest/v1/rpc/{name}", payload)
+
+
+# ---------------------------------------------------------------------------
+# Module-level convenience shims — used by slack-bot commands that import
+# `from supabase_client import supabase_get, is_configured` after sys.path
+# manipulation may have resolved to this file instead of core/health/supabase_client.py.
+# ---------------------------------------------------------------------------
+
+def _module_client() -> SupabaseClient:
+    return SupabaseClient()
+
+
+def supabase_get(path: str, timeout: int = 10) -> list[dict[str, Any]]:
+    import urllib.parse as _up
+    client = _module_client()
+    full_path = f"/rest/v1/{path}" if not path.startswith("/") else path
+    result = client.request("GET", full_path)
+    return result if isinstance(result, list) else ([result] if result else [])
+
+
+def is_configured() -> bool:
+    url = os.environ.get("SUPABASE_URL", "")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_ANON_KEY", "")
+    return bool(url and key)

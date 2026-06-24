@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
+import { buildShipContext } from '@/lib/ai-context';
 import { parseAndExecuteActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
@@ -172,7 +173,19 @@ export async function POST(request: NextRequest) {
   // Use client-provided system prompt if supplied (user edited), else role preset
   const resolvedRole = getRoleById(role ?? 'chief_engineer');
   const resolvedModel = model ?? DEFAULT_MODEL;
-  const resolvedSystemPrompt = systemPrompt?.trim() || resolvedRole.systemPrompt;
+  const basePrompt = systemPrompt?.trim() || resolvedRole.systemPrompt;
+
+  let contextText = '';
+  try {
+    const ctx = await buildShipContext();
+    contextText = ctx.text;
+  } catch {
+    /* context is best-effort */
+  }
+
+  const resolvedSystemPrompt = contextText
+    ? `${basePrompt}\n\n${contextText}`
+    : basePrompt;
 
   const fullMessages: ChatMessage[] = [
     { role: 'system', content: resolvedSystemPrompt },

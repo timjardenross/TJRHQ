@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
 
 export interface ActionResult {
   type: string;
@@ -12,9 +10,9 @@ export interface ActionResult {
 type ActionPayload = Record<string, unknown>;
 
 function supabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set');
+  if (!url || !key) throw new Error('Supabase URL / service role key not configured');
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -40,43 +38,24 @@ async function createMission(payload: ActionPayload): Promise<ActionResult> {
 }
 
 async function createHandoff(payload: ActionPayload): Promise<ActionResult> {
-  const repoRoot = process.env.REPO_ROOT ?? '/opt/starship-endeavour';
-  const handoffsDir = join(repoRoot, 'Missions', 'Engineering-Handoffs');
-  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15).replace(/(\d{8})(\d{6})/, '$1-$2');
-  const slug = ((payload.title as string) ?? 'handoff').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
-  const filename = `ENG-HANDOFF-${ts}-${slug}.md`;
-  const missionId = (payload.mission_id as string) ?? 'UNKNOWN';
+  const missionId = (payload.mission_id as string) ?? null;
+  const title = (payload.title as string) ?? 'Untitled Handoff';
+  const summary = [payload.description, payload.notes].filter(Boolean).join('\n\n') || null;
 
-  const content = [
-    `# Engineering Handoff`,
-    ``,
-    `- Status: APPROVED_FOR_ENGINEERING`,
-    `- Batch Status: PENDING`,
-    `- Priority: ${payload.priority ?? 'P1'}`,
-    `- Mission ID: ${missionId}`,
-    `- System Actor: LCARS AI Console`,
-    `- Policy Decision: APPROVED_FOR_ENGINEERING`,
-    `- Source: LCARS portal AI console ${new Date().toISOString().slice(0, 10)}`,
-    ``,
-    `## Mission Title`,
-    ``,
-    `${payload.title ?? 'Untitled Handoff'}`,
-    ``,
-    `## Description`,
-    ``,
-    `${payload.description ?? ''}`,
-    ``,
-    `## Implementation Notes`,
-    ``,
-    `${payload.notes ?? ''}`,
-  ].join('\n');
+  const row = {
+    title,
+    summary,
+    status: 'approved',
+    metadata: {
+      priority: payload.priority ?? 'P1',
+      mission_id: missionId,
+      source: 'lcars-ai-console',
+    },
+  };
 
-  try {
-    writeFileSync(join(handoffsDir, filename), content, 'utf-8');
-    return { type: 'create_handoff', success: true, detail: `Handoff written: ${filename}`, id: filename };
-  } catch (err) {
-    return { type: 'create_handoff', success: false, detail: String(err) };
-  }
+  const { data, error } = await supabaseAdmin().from('build_request_inbox').insert(row).select('request_id').single();
+  if (error) return { type: 'create_handoff', success: false, detail: error.message };
+  return { type: 'create_handoff', success: true, detail: `Handoff queued: ${title}`, id: data?.request_id };
 }
 
 async function logDecision(payload: ActionPayload): Promise<ActionResult> {
