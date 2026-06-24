@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
+import { parseAndExecuteActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 /**
@@ -30,7 +31,8 @@ MOBILE XO MODE — Captain TJR is on a phone and likely time-poor or tired.
 - Be brief. Lead with the answer. No preamble, no restating the question.
 - Use the LIVE SHIP CONTEXT below; do not ask for information it already contains.
 - Do not simply resurface data — translate intent into the next useful action.
-- Where an approval or governance boundary applies, say so plainly and flag it for Captain decision (you are advisory; the Captain decides).
+- Where a governance boundary applies (GitHub writes, deployments, closing missions), flag it plainly for Captain decision.
+- When the Captain approves an action you CAN perform (log a mission, create a handoff, log a decision), emit the starfleet-action block immediately — the system executes it.
 - ALWAYS end your reply with exactly one line beginning "→ Next action:" naming the single most useful next step (e.g. capture a mission, review the engineering queue, rest, log a check-in).
 `.trim();
 
@@ -110,7 +112,8 @@ export async function POST(request: NextRequest) {
     }
     const data = await upstream.json();
     const content = data?.message?.content ?? '';
-    return NextResponse.json({ content, sources });
+    const actions = await parseAndExecuteActions(content).catch(() => []);
+    return NextResponse.json({ content, sources, actions });
   } catch (err: unknown) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     return NextResponse.json(

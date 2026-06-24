@@ -50,7 +50,7 @@ async function createHandoff(payload: ActionPayload): Promise<ActionResult> {
   const content = [
     `# Engineering Handoff`,
     ``,
-    `- Status: PENDING_TRIAGE`,
+    `- Status: APPROVED_FOR_ENGINEERING`,
     `- Batch Status: PENDING`,
     `- Priority: ${payload.priority ?? 'P1'}`,
     `- Mission ID: ${missionId}`,
@@ -80,21 +80,17 @@ async function createHandoff(payload: ActionPayload): Promise<ActionResult> {
 }
 
 async function logDecision(payload: ActionPayload): Promise<ActionResult> {
-  const decisionId = `DEC-AI-${Date.now()}`;
   const row = {
-    id: decisionId,
-    statement: payload.decision ?? payload.statement ?? 'Decision recorded via AI console',
-    rationale: payload.rationale ?? null,
-    created_by: 'lcars-ai-console',
-    created_at: new Date().toISOString(),
-    owner: 'lcars-ai-console',
+    decision_title: payload.decision ?? payload.title ?? 'Decision recorded via AI console',
+    decision_summary: payload.rationale ?? payload.summary ?? null,
+    source: 'lcars-ai-console',
     status: 'Active',
-    alternatives: null,
+    metadata: payload.mission_id ? { mission_id: payload.mission_id } : null,
   };
 
-  const { error } = await supabaseAdmin().from('commander_decisions').insert(row);
+  const { data, error } = await supabaseAdmin().from('commander_decisions').insert(row).select('id').single();
   if (error) return { type: 'log_decision', success: false, detail: error.message };
-  return { type: 'log_decision', success: true, detail: `Decision ${decisionId} logged`, id: decisionId };
+  return { type: 'log_decision', success: true, detail: `Decision logged`, id: data?.id };
 }
 
 // ── Parser ────────────────────────────────────────────────────────────────────

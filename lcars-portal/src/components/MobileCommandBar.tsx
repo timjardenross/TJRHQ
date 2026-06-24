@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAlertCount } from '@/lib/useAlerts';
+import type { NavHref } from '@/lib/nav';
 
 /**
  * MobileCommandBar — the five-surface MVP navigation (MSN-IOS-001 WP7).
@@ -14,7 +15,7 @@ import { useAlertCount } from '@/lib/useAlerts';
  */
 
 interface Tab {
-  href: string;
+  href: NavHref;
   label: string;
   glyph: string;
   /** Static Tailwind colour class (must be literal for the JIT scan). */
