@@ -942,7 +942,6 @@ def main() -> None:
     bot = app.bot
     scheduler.add_job(_scheduled_morning_brief, CronTrigger(hour=7,  minute=0),  id="morning", args=[bot])
     scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=12, minute=30), id="midday",  args=[bot])
-    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=16, minute=0),  id="eod",     args=[bot])
     scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=20, minute=0),  id="evening", args=[bot])
     scheduler.start()
 
