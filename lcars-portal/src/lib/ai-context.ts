@@ -120,7 +120,12 @@ export interface AIContextBlock {
   fetchedAt: string;
 }
 
+let _cache: AIContextBlock | null = null;
+let _cacheAt = 0;
+const CACHE_TTL_MS = 60_000;
+
 export async function buildShipContext(): Promise<AIContextBlock> {
+  if (_cache && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache;
   const db: any = getSupabase();
   const sources: string[] = [];
   const sections: string[] = [];
@@ -251,5 +256,8 @@ ${sections.join('\n\n')}
 === END SHIP CONTEXT ===
 `.trim();
 
-  return { text, sources, fetchedAt };
+  const result = { text, sources, fetchedAt };
+  _cache = result;
+  _cacheAt = Date.now();
+  return result;
 }

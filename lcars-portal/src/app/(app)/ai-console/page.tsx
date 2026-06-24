@@ -6,6 +6,7 @@ import { AI_ROLES, DEFAULT_ROLE_ID, getRoleById, type AIRole } from '@/lib/ai-ro
 import { AI_MODELS, type AIModel } from '@/lib/ai-models';
 
 const STORAGE_KEY = 'lcars-ai-console-history';
+const PREFS_KEY   = 'lcars-ai-console-prefs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ export default function AIConsolePage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
-  // Restore conversation from localStorage on mount
+  // Restore conversation + prefs from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -260,6 +261,14 @@ export default function AIConsolePage() {
         if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed);
       }
     } catch { /* ignore corrupt storage */ }
+    try {
+      const prefs = localStorage.getItem(PREFS_KEY);
+      if (prefs) {
+        const { role, model } = JSON.parse(prefs) as { role?: string; model?: string };
+        if (role) { setSelectedRole(role); setSystemPrompt(getRoleById(role).systemPrompt); }
+        if (model) setSelectedModel(model);
+      }
+    } catch { /* ignore */ }
   }, []);
 
   // Persist conversation whenever it changes
@@ -269,6 +278,13 @@ export default function AIConsolePage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)));
     } catch { /* storage full — silently skip */ }
   }, [messages]);
+
+  // Persist role + model selection
+  useEffect(() => {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ role: selectedRole, model: selectedModel }));
+    } catch { /* ignore */ }
+  }, [selectedRole, selectedModel]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -510,11 +526,13 @@ export default function AIConsolePage() {
         {/* Live stream buffer */}
         {loading && streamBuffer && (
           <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-lcars border border-edge bg-panel/60 px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap text-lcars-text/90">
+            <div className="max-w-[85%] rounded-lcars border border-edge bg-panel/60 px-4 py-3 text-sm leading-relaxed text-lcars-text/90">
               <p className="mb-1.5 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
                 {selectedModel}
               </p>
-              {streamBuffer}
+              <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                <ReactMarkdown>{streamBuffer}</ReactMarkdown>
+              </div>
               <span className="inline-block w-1.5 h-3.5 bg-command animate-pulse ml-0.5 align-middle" />
             </div>
           </div>
