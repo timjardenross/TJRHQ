@@ -36,7 +36,7 @@ MOBILE XO MODE — Captain TJR is on a phone and likely time-poor or tired.
 - ALWAYS end your reply with exactly one line beginning "→ Next action:" naming the single most useful next step (e.g. capture a mission, review the engineering queue, rest, log a check-in).
 `.trim();
 
-async function callOllama(messages: ChatMessage[], model: string): Promise<Response> {
+async function callOllama(messages: ChatMessage[], model: string, stream: boolean): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -45,12 +45,62 @@ async function callOllama(messages: ChatMessage[], model: string): Promise<Respo
     return await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model, messages, stream: false }),
+      body: JSON.stringify({ model, messages, stream }),
       signal: controller.signal,
     });
   } finally {
     clearTimeout(timer);
   }
+}
+
+function streamXOResponse(upstream: Response): Response {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      const reader = upstream.body?.getReader();
+      if (!reader) { controller.close(); return; }
+      const decoder = new TextDecoder();
+      let lineBuffer = '';
+      let fullText = '';
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split('\n');
+          lineBuffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const chunk = JSON.parse(line);
+              const token = chunk?.message?.content ?? '';
+              if (token) {
+                fullText += token;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token })}\n\n`));
+              }
+              if (chunk?.done) {
+                const actionResults = await parseAndExecuteActions(fullText).catch(() => []);
+                if (actionResults.length > 0) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ actions: actionResults })}\n\n`));
+                }
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+                return;
+              }
+            } catch { /* partial JSON line */ }
+          }
+        }
+      } catch {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`));
+      } finally {
+        controller.close();
+        reader.releaseLock();
+      }
+    },
+  });
+  return new Response(readable, {
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -102,7 +152,7 @@ export async function POST(request: NextRequest) {
   ];
 
   try {
-    const upstream = await callOllama(fullMessages, body.model ?? DEFAULT_MODEL);
+    const upstream = await callOllama(fullMessages, body.model ?? DEFAULT_MODEL, true);
     if (!upstream.ok) {
       const detail = await upstream.text().catch(() => 'Unknown error');
       return NextResponse.json(
@@ -110,10 +160,7 @@ export async function POST(request: NextRequest) {
         { status: upstream.status },
       );
     }
-    const data = await upstream.json();
-    const content = data?.message?.content ?? '';
-    const actions = await parseAndExecuteActions(content).catch(() => []);
-    return NextResponse.json({ content, sources, actions });
+    return streamXOResponse(upstream);
   } catch (err: unknown) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     return NextResponse.json(
