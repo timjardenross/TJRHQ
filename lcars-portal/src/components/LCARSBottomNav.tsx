@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import type { NavHref } from '@/lib/nav';
 
 interface BottomTab {
-  href: string;
+  href: NavHref;
   label: string;
   /** Tailwind bg class — must be a static string for Tailwind to include it. */
   bg: string;

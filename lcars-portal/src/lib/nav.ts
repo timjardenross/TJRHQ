@@ -158,3 +158,6 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Direct access to Ollama Cloud GLM 5.2'
   }
 ];
+
+/** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
+export type NavHref = (typeof NAV_ITEMS)[number]['href'];

@@ -11,11 +11,16 @@ Env:  telegram-bots/xo/.env
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import subprocess
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+_TZ = ZoneInfo("Australia/Brisbane")
 
 from dotenv import load_dotenv
 
@@ -118,7 +123,33 @@ def _bar(pct: int) -> str:
 
 # ── XO system prompt ──────────────────────────────────────────────────────────
 
-def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
+def _get_open_missions(db) -> str:
+    """Fetch open missions from Supabase, formatted compactly for the system prompt."""
+    if not db:
+        return ""
+    try:
+        res = db.table("missions").select(
+            "mission_id,title,status,priority"
+        ).not_.in_(
+            "status", ["Closed", "completed", "cancelled", "deferred", "Archived"]
+        ).order("priority").limit(20).execute()
+        rows = res.data or []
+        if not rows:
+            return ""
+        lines = []
+        for r in rows:
+            pri  = f"[{r['priority']}] " if r.get("priority") else ""
+            mid  = r.get("mission_id", "?")
+            st   = r.get("status", "?")
+            title = (r.get("title") or "")[:70]
+            lines.append(f"{pri}{mid} ({st}): {title}")
+        return "\n".join(lines)
+    except Exception as exc:
+        log.warning("[missions] fetch failed: %s", exc)
+        return ""
+
+
+def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> str:
     signals = ", ".join(filter(None, [
         f"energy={status.latest_energy}"              if status.latest_energy          else None,
         f"ns={status.latest_nervous_system}"          if status.latest_nervous_system  else None,
@@ -138,6 +169,9 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
         if parts:
             wellness_ctx = f"\nWellness context: {', '.join(parts)}"
 
+    missions_ctx = f"\n\nOpen missions (current manifest):\n{missions}" if missions else \
+                   "\n\nOpen missions: none on record."
+
     return (
         "You are the Executive Officer (XO) of USS TJR, a personal command vessel.\n"
         "You serve Captain TJR (Tim Jardenross), who operates on ROS-001 v1.1 — "
@@ -148,7 +182,8 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None) -> str:
         f"- Pulses: {status.pulses_completed}/4 complete\n"
         f"- Signals: {signals}\n"
         f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
-        f"{wellness_ctx}\n\n"
+        f"{wellness_ctx}"
+        f"{missions_ctx}\n\n"
         "Your role:\n"
         "- Primary daily companion. The Captain talks to you first.\n"
         "- Help make decisions through a capacity lens — can we do this given recovery state?\n"
@@ -172,7 +207,7 @@ _PULSE_LABELS = {
 }
 
 def _current_pulse_type() -> str:
-    h = datetime.now().hour
+    h = datetime.now(_TZ).hour
     if 5  <= h < 12: return "morning"
     if 12 <= h < 16: return "midday"
     if 16 <= h < 20: return "end_of_day"
@@ -221,7 +256,7 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
         try:
             res = db.table("recovery_pulses").upsert(
                 {
-                    "log_date":       date.today().isoformat(),
+                    "log_date":       datetime.now(_TZ).date().isoformat(),
                     "pulse_type":     pt,
                     "energy":         energy,
                     "nervous_system": nervous_system,
@@ -270,7 +305,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Ops*\n"
         "/dispatch — manual dispatch check\n"
         "/brief — OR intelligence brief on demand\n"
-        "/db\\_status — Supabase connectivity test\n\n"
+        "/db\\_status — Supabase connectivity test\n"
+        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
         "07:00 — Daily Operating Picture \\(capacity · decision · missions · delivery · resilience\\)\n"
         "20:00 — Evening Recovery Reflection\n"
@@ -358,7 +394,7 @@ async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     payload = {
-        "log_date":      date.today().isoformat(),
+        "log_date":      datetime.now(_TZ).date().isoformat(),
         "activity_type": activity_type,
         "source":        "telegram",
         "completed":     True,
@@ -403,7 +439,7 @@ async def cmd_log_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     try:
         db.table("weight_logs").upsert(
-            {"log_date": date.today().isoformat(), "weight_kg": kg, "source": "telegram"},
+            {"log_date": datetime.now(_TZ).date().isoformat(), "weight_kg": kg, "source": "telegram"},
             on_conflict="log_date",
         ).execute()
         await update.message.reply_text(
@@ -428,6 +464,54 @@ async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"Dispatch: {_escape(action)} \\| conf={conf}% \\| sent={'yes' if sent else 'no'}",
         parse_mode="MarkdownV2",
     )
+
+
+# ── Bot restart ──────────────────────────────────────────────────────────────
+
+_RESTARTABLE_SERVICES = {
+    "slack":    ["starfleet-slack-bot.service"],
+    "telegram": ["tg-engineer.service", "tg-engineering-dept.service"],
+    "all":      ["starfleet-slack-bot.service", "tg-engineer.service", "tg-engineering-dept.service"],
+}
+
+
+async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        return
+
+    arg = (context.args[0].lower() if context.args else "all")
+    services = _RESTARTABLE_SERVICES.get(arg, _RESTARTABLE_SERVICES["all"])
+    names = ", ".join(s.replace(".service", "") for s in services)
+
+    await update.message.reply_text(
+        f"🔄 Restarting: {_escape(names)}\\.\\.\\.",
+        parse_mode="MarkdownV2",
+    )
+
+    lines = []
+    for svc in services:
+        try:
+            r = subprocess.run(
+                ["systemctl", "restart", svc],
+                capture_output=True, text=True, timeout=15,
+            )
+            icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
+            lines.append(f"{icon} {svc.replace('.service', '')}")
+        except Exception as exc:
+            lines.append(f"❌ {svc.replace('.service', '')}: {_escape(str(exc))}")
+
+    restart_xo = arg in ("telegram", "all")
+    suffix = "\n\n_XO rebooting in 3s\\.\\.\\._" if restart_xo else ""
+
+    await update.message.reply_text(
+        f"*Restart results*\n\n{_escape(chr(10).join(lines))}{suffix}",
+        parse_mode="MarkdownV2",
+    )
+
+    if restart_xo:
+        await asyncio.sleep(3)
+        subprocess.Popen(["systemctl", "restart", "tg-xo.service"])
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -474,11 +558,12 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     text = (update.message.text or "").strip()
     if not text:
         return
-    db     = _get_supabase()
-    status = get_recovery_status(db)
-    snap   = get_wellness_snapshot(db)
+    db       = _get_supabase()
+    status   = get_recovery_status(db)
+    snap     = get_wellness_snapshot(db)
+    missions = _get_open_missions(db)
     await update.message.chat.send_action("typing")
-    reply = await generate_async(text, _xo_system_prompt(status, snap))
+    reply = await generate_async(text, _xo_system_prompt(status, snap, missions))
     if reply:
         await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
     else:
@@ -580,7 +665,7 @@ async def _scheduled_morning_brief(bot) -> None:
         snap = get_wellness_snapshot(db)
         brief = await generate_wellness_brief_async(snap, generate_async)
 
-        today = date.today().strftime("%a %d %b")
+        today = datetime.now(_TZ).strftime("%a %d %b")
         msg = (
             f"🌅 *Daily Wellness Brief — {_escape(today)}*\n\n"
             f"{_escape(brief)}\n\n"
@@ -617,8 +702,10 @@ _BOT_COMMANDS = [
     ("brief",          "OR intelligence brief on demand"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
+    ("brief",           "OR intelligence brief on demand"),
     ("dispatch",        "Manual XO dispatch check"),
     ("db_status",       "Supabase connectivity test"),
+    ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
     ("help",            "Full command reference + proactive schedule"),
 ]
 
@@ -639,20 +726,22 @@ def main() -> None:
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
+    app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
+    app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")
     bot = app.bot
-    scheduler.add_job(lambda: _scheduled_morning_brief(bot), CronTrigger(hour=7,  minute=0),  id="morning")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=12, minute=30), id="midday")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=16, minute=0),  id="eod")
-    scheduler.add_job(lambda: _scheduled_dispatch(bot),      CronTrigger(hour=20, minute=0),  id="evening")
+    scheduler.add_job(_scheduled_morning_brief, CronTrigger(hour=7,  minute=0),  id="morning", args=[bot])
+    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=12, minute=30), id="midday",  args=[bot])
+    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=16, minute=0),  id="eod",     args=[bot])
+    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=20, minute=0),  id="evening", args=[bot])
     scheduler.start()
 
     log.info("XO Bot polling…")

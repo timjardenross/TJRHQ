@@ -4,11 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { captureItem } from '@/lib/capture';
 
+interface ActionResult {
+  type: string;
+  success: boolean;
+  detail: string;
+  id?: string;
+}
+
 interface Msg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   error?: boolean;
+  actions?: ActionResult[];
 }
 
 const INTENTS: { label: string; prompt: string }[] = [
@@ -67,7 +75,7 @@ export default function XOChatPage() {
           { id: newId(), role: 'assistant', content: data.error ?? 'XO is unavailable.', error: true },
         ]);
       } else {
-        setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: data.content || '(no reply)' }]);
+        setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: data.content || '(no reply)', actions: data.actions ?? [] }]);
       }
     } catch {
       setMessages((prev) => [
@@ -145,6 +153,17 @@ export default function XOChatPage() {
                   <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-science">XO</p>
                 )}
                 {m.content}
+                {m.actions && m.actions.length > 0 && (
+                  <div className="mt-2 border-t border-edge pt-2">
+                    <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-engineering">Actions Executed</p>
+                    {m.actions.map((a, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs">
+                        <span>{a.success ? '✅' : '⚠️'}</span>
+                        <span className={a.success ? 'text-lcars-text/80' : 'text-operations'}>{a.detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {nextAction && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-edge pt-2">
                     <span className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Next:</span>
