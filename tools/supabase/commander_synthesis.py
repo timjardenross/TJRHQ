@@ -327,6 +327,21 @@ def synthesize_commander(
         return deterministic, {"provider": "deterministic", "model": "template"}
 
 
+def _build_hierarchy_block(question: str) -> str:
+    """Return hierarchy context block for the question, or empty string if unavailable."""
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _repo_root = str(_Path(__file__).resolve().parents[2])
+        if _repo_root not in _sys.path:
+            _sys.path.insert(0, _repo_root)
+        from core.coordination.hierarchy_memory_adapter import HierarchyMemoryAdapter
+        ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=question)
+        return ctx.context_block if ctx.found else ""
+    except Exception:
+        return ""
+
+
 def ollama_synthesis(
     question: str,
     context: dict[str, Any],
@@ -335,11 +350,12 @@ def ollama_synthesis(
     model: str,
     decision_context: dict[str, Any] | None = None,
 ) -> str:
+    hierarchy_block = _build_hierarchy_block(question)
     base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL).rstrip("/")
     payload = json.dumps(
         {
             "model": model,
-            "prompt": commander_prompt(question, context, outputs, challenge, decision_context),
+            "prompt": commander_prompt(question, context, outputs, challenge, decision_context, hierarchy_block),
             "stream": False,
             "think": False,
             "options": {"temperature": 0.2},
@@ -363,6 +379,7 @@ def commander_prompt(
     outputs: list[SpecialistOutput],
     challenge: ChallengeReview | None,
     decision_context: dict[str, Any] | None = None,
+    hierarchy_block: str = "",
 ) -> str:
     sources = sorted({source for output in outputs for source in output.sources})
     challenge_text = "None"
@@ -371,7 +388,7 @@ def commander_prompt(
 
     # MSN-0009A: use decision-mode-specific prompt when decision context is available
     if decision_context:
-        return _decision_prompt(question, context, outputs, challenge_text, decision_context, sources)
+        return _decision_prompt(question, context, outputs, challenge_text, decision_context, sources, hierarchy_block)
 
     # Legacy prompt (retained for backwards compatibility)
     return f"""/no_think
@@ -399,7 +416,7 @@ Question:
 
 Mission context:
 {json.dumps(context, indent=2)}
-
+{hierarchy_block}
 Specialist outputs:
 {json.dumps([output.as_dict() for output in outputs], indent=2)}
 
@@ -418,6 +435,7 @@ def _decision_prompt(
     challenge_text: str,
     decision_context: dict[str, Any],
     sources: list[str],
+    hierarchy_block: str = "",
 ) -> str:
     """MSN-0009A decision-mode-aware Commander prompt."""
     mode = decision_context.get("decision_mode", "operational")
@@ -575,7 +593,7 @@ Challenge review (full):
 
 Mission context:
 {json.dumps(context, indent=2)}
-
+{hierarchy_block}
 Allowed sources:
 {json.dumps(sources, indent=2)}
 
