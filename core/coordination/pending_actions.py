@@ -70,6 +70,11 @@ def build_pending_actions(
         if it.get("kind") == "handoff"
     ]
 
+    # Engineering handoffs ready for review
+    engineering_review = [{"id": it.get("id"), "title": it.get("title", "")}
+                          for it in items_at_stage(LifecycleStage.AWAITING_REVIEW, ledger)
+                          if it.get("kind") == "handoff"]
+
     needs_human = (len(review) + len(triage) + len(awaiting_approval)
                    + len(ready_for_engineering))
 
@@ -86,6 +91,7 @@ def build_pending_actions(
         "review": review,
         "triage": triage,
         "awaiting_approval": awaiting_approval,
+        "engineering_review": engineering_review,
         "ready_for_engineering": ready_for_engineering,
         "source": recs.get("source", {}),
     }
@@ -106,11 +112,13 @@ def register(app, route: str = "/api/dashboard/pending-actions") -> Any:
             payload.update({"status": "live", "source_label": "MSN-0066 lifecycle",
                             "timestamp": now})
             return jsonify(payload)
+        payload["engineering_review"] = payload.get("engineering_review", [])
         except Exception as exc:  # noqa: BLE001 - a dashboard read must never crash the app
             return jsonify({
                 "status": "unavailable", "error": str(exc),
                 "spine": {}, "totals": {"needs_human": 0},
                 "review": [], "triage": [], "ready_for_engineering": [],
+                "engineering_review": [],
                 "source_label": "MSN-0066 lifecycle", "timestamp": now,
             }), 503
 
