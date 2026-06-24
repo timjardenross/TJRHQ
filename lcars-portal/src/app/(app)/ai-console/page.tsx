@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { AI_ROLES, DEFAULT_ROLE_ID, getRoleById, type AIRole } from '@/lib/ai-roles';
 import { AI_MODELS, type AIModel } from '@/lib/ai-models';
+
+const STORAGE_KEY = 'lcars-ai-console-history';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +103,7 @@ function MessageBubble({ msg }: { msg: Message }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[85%] rounded-lcars border px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+        className={`max-w-[85%] rounded-lcars border px-4 py-3 text-sm leading-relaxed ${
           isUser
             ? 'border-command/40 bg-command/10 text-lcars-text'
             : msg.error
@@ -113,7 +116,13 @@ function MessageBubble({ msg }: { msg: Message }) {
             {msg.model ?? 'GLM 5.2'}
           </p>
         )}
-        {msg.content}
+        {isUser ? (
+          <span className="whitespace-pre-wrap">{msg.content}</span>
+        ) : (
+          <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -231,16 +240,35 @@ function TypingIndicator() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AIConsolePage() {
-  const [messages, setMessages]         = useState<Message[]>([]);
-  const [input, setInput]               = useState('');
-  const [selectedRole, setSelectedRole] = useState(DEFAULT_ROLE_ID);
+  const [messages, setMessages]           = useState<Message[]>([]);
+  const [input, setInput]                 = useState('');
+  const [selectedRole, setSelectedRole]   = useState(DEFAULT_ROLE_ID);
   const [selectedModel, setSelectedModel] = useState('glm-5.2');
-  const [systemPrompt, setSystemPrompt] = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
+  const [systemPrompt, setSystemPrompt]   = useState(getRoleById(DEFAULT_ROLE_ID).systemPrompt);
   const [editingPrompt, setEditingPrompt] = useState(false);
-  const [loading, setLoading]           = useState(false);
-  const [streamBuffer, setStreamBuffer] = useState('');
+  const [loading, setLoading]             = useState(false);
+  const [streamBuffer, setStreamBuffer]   = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+
+  // Restore conversation from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Message[];
+        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed);
+      }
+    } catch { /* ignore corrupt storage */ }
+  }, []);
+
+  // Persist conversation whenever it changes
+  useEffect(() => {
+    if (messages.length === 0) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)));
+    } catch { /* storage full — silently skip */ }
+  }, [messages]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -379,6 +407,7 @@ export default function AIConsolePage() {
   function clearConversation() {
     setMessages([]);
     setStreamBuffer('');
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }
 
   function handleQuickPrompt(prompt: string, role?: string) {
