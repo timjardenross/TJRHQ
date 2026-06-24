@@ -13,16 +13,16 @@ export const AI_MODELS: AIModel[] = [
     available: true,
   },
   {
-    id: 'kimi-k2',
+    id: 'kimi-k2.7-code',
     label: 'Kimi K2',
-    description: 'Coming soon',
-    available: false,
+    description: 'Strong reasoning and long-context tasks',
+    available: true,
   },
   {
-    id: 'qwen3-coder',
+    id: 'qwen3-coder:480b',
     label: 'Qwen3 Coder',
-    description: 'Coming soon',
-    available: false,
+    description: 'Best for code and technical analysis',
+    available: true,
   },
 ];
 

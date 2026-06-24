@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useRouter } from 'next/navigation';
 import { captureItem } from '@/lib/capture';
+
+const XO_STORAGE_KEY = 'lcars-xo-history';
 
 interface ActionResult {
   type: string;
@@ -46,6 +49,21 @@ export default function XOChatPage() {
   const [actionFlash, setActionFlash] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(XO_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Msg[];
+        if (Array.isArray(parsed) && parsed.length > 0) setMessages(parsed);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    try { localStorage.setItem(XO_STORAGE_KEY, JSON.stringify(messages.slice(-30))); } catch { /* ignore */ }
+  }, [messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -137,11 +155,14 @@ export default function XOChatPage() {
         {messages.map((m) => {
           const isUser = m.role === 'user';
           const nextAction = !isUser && !m.error ? extractNextAction(m.content) : null;
+          const displayContent = nextAction
+            ? m.content.replace(/→\s*Next action:.*$/im, '').trimEnd()
+            : m.content;
           return (
             <div key={m.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={[
-                  'max-w-[88%] whitespace-pre-wrap rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed',
+                  'max-w-[88%] rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed',
                   isUser
                     ? 'border-command/40 bg-command/10 text-lcars-text'
                     : m.error
@@ -152,7 +173,13 @@ export default function XOChatPage() {
                 {!isUser && !m.error && (
                   <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-science">XO</p>
                 )}
-                {m.content}
+                {isUser ? (
+                  <span className="whitespace-pre-wrap">{displayContent}</span>
+                ) : (
+                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                    <ReactMarkdown>{displayContent}</ReactMarkdown>
+                  </div>
+                )}
                 {m.actions && m.actions.length > 0 && (
                   <div className="mt-2 border-t border-edge pt-2">
                     <p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-engineering">Actions Executed</p>

@@ -51,8 +51,12 @@ async function fetchArchitectureRecords(db: any) {
   return data ?? [];
 }
 
+function todayBrisbane(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+}
+
 async function fetchTodayHealth(db: any) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBrisbane();
   const { data } = await db
     .from('health_daily_logs')
     .select('log_date, nervous_system_state, energy, mood, sleep_hours, sleep_quality, workload_constraint, daily_capacity_score, pain_score')
@@ -80,7 +84,7 @@ async function fetchKnowledgeSummary(db: any) {
 }
 
 async function fetchTodayPulses(db: any) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBrisbane();
   const { data } = await db
     .from('recovery_pulses')
     .select('pulse_type, captured_at, energy, nervous_system, body_signals, readiness, pain_score, notes')
