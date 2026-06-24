@@ -127,10 +127,23 @@ export default function XOChatPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-13rem)] max-w-[640px] flex-col gap-3">
-      <header className="shrink-0">
-        <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Executive Officer</p>
-        <h1 className="font-lcars text-2xl font-bold text-science">XO Chat</h1>
-        <p className="text-xs text-lcars-muted">Ask, route, clarify. XO turns intent into the next action.</p>
+      <header className="shrink-0 flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Executive Officer</p>
+          <h1 className="font-lcars text-2xl font-bold text-science">XO Chat</h1>
+          <p className="text-xs text-lcars-muted">Ask, route, clarify. XO turns intent into the next action.</p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => {
+              setMessages([]);
+              try { localStorage.removeItem(XO_STORAGE_KEY); } catch { /* ignore */ }
+            }}
+            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-operations transition-colors mt-1"
+          >
+            Clear
+          </button>
+        )}
       </header>
 
       {/* Message history */}
