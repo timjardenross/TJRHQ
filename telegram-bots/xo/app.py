@@ -296,20 +296,21 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "*XO — Commands*\n\n"
-        "*Recovery*\n"
-        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
-        "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
-        "*Logging*\n"
+        "*Captain Intelligence*\n"
+        "/captain — narrative: what changed, why it matters, what to do\n"
+        "/learning — learning health \\+ compliance, insights, leadership candidates\n"
+        "/pending — attention queue \\+ quick outcome capture \\(tap buttons\\)\n\n"
+        "*Intelligence*\n"
+        "/brief — intelligence brief on demand\n\n"
+        "*Health \\& Recovery*\n"
+        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/PM\\)\n"
+        "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
-        "*Ops*\n"
+        "*System*\n"
         "/dispatch — manual dispatch check\n"
-        "/brief — OR intelligence brief on demand\n"
-        "/learning — learning health \\+ leadership insight \\(internal\\)\n"
-        "/captain — narrative: what changed, why it matters, what to do\n"
-        "/pending — attention queue \\+ quick outcome actions \\(tap to capture\\)\n"
-        "/db\\_status — Supabase connectivity test\n"
-        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
+        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n"
+        "/db\\_status — Supabase connectivity test\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
         "07:00 — Daily Operating Picture \\(capacity · decision · missions · delivery · resilience\\)\n"
         "20:00 — Evening Recovery Reflection\n"
@@ -902,18 +903,22 @@ async def _scheduled_dispatch(bot) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
+    # Captain intelligence — primary daily interface
+    ("captain",         "Narrative: what changed, why it matters, what to do"),
+    ("learning",        "Learning health, compliance, insights, leadership candidates"),
+    ("pending",         "Captain attention queue + quick outcome capture"),
+    # Intelligence
+    ("brief",           "Intelligence brief on demand"),
+    # Health & recovery
     ("recovery_status", "Today's confidence bar + pulse ledger"),
     ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
-    ("brief",           "OR intelligence brief on demand"),
-    ("learning",        "Learning health + leadership insight"),
-    ("captain",         "Narrative: what changed, why, what to do"),
-    ("pending",         "Captain attention queue + quick outcome actions"),
+    # System
     ("dispatch",        "Manual XO dispatch check"),
-    ("db_status",       "Supabase connectivity test"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
-    ("help",            "Full command reference + proactive schedule"),
+    ("db_status",       "Supabase connectivity test"),
+    ("help",            "Commands + proactive schedule"),
 ]
 
 
