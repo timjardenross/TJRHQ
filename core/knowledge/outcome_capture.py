@@ -67,8 +67,17 @@ CONTENT_POTENTIAL = ("none", "low", "medium", "high")
 CONTENT_CLASSIFICATIONS = (
     "internal_work", "linkedin", "coaching", "wellness",
     "operational_resilience", "leadership", "personal_learning",
+    # MSN-0078 WP5: personal experience material (resilience, recovery, chronic
+    # pain, burnout, leadership-under-pressure, career transition). Sensitive by
+    # default — never auto-published; Captain approval required before drafting.
+    "personal_story",
     "not_for_publication",
 )
+
+# Classifications treated as internal/sensitive: excluded from content candidates
+# unless the caller explicitly opts in (include_internal=True). personal_story is
+# sensitive personal/health material; internal_work is plainly internal.
+_INTERNAL_BY_DEFAULT = ("internal_work", "personal_story")
 
 # Classifications that imply EXTERNAL exposure. Sensitive material must never be
 # flagged into one of these (acceptance criterion: no sensitive personal/health/
@@ -327,6 +336,47 @@ def list_content_worthy(limit: int = 25) -> list[dict[str, Any]]:
         f"&content_potential=in.{pot}&order=created_at.desc&limit={int(limit)}"
     )
     return [r for r in rows if r.get("content_classification") != "not_for_publication"]
+
+
+def get_content_candidates(
+    audience: str | None = None,
+    content_type: str | None = None,
+    limit: int = 10,
+    *,
+    include_internal: bool = False,
+) -> list[dict[str, Any]]:
+    """Read-only: outcome_records suitable for COMMS-001 draft generation (MSN-0078 WP3).
+
+    Reuses ``list_content_worthy()`` (medium/high ``content_potential``, already
+    excludes ``not_for_publication``) and applies COMMS-safe filtering:
+
+    - ``not_for_publication`` is ALWAYS excluded (hard stop, double-guarded).
+    - ``internal_work`` and ``personal_story`` are excluded unless
+      ``include_internal=True`` (sensitive / internal-only by default).
+    - ``audience``: optional filter on ``content_classification``
+      (e.g. ``linkedin`` / ``leadership`` / ``operational_resilience`` /
+      ``coaching`` / ``wellness`` / ``personal_learning`` / ``personal_story``).
+    - ``content_type``: advisory hint for the caller's format choice; it does not
+      relax any safety filter.
+
+    Returns plain dicts (no coupling to COMMS types). Empty when offline.
+    The outcome_capture sensitivity guard already applied at write time is
+    preserved — this is a strictly read-only, non-duplicating view.
+    """
+    rows = list_content_worthy(limit=max(int(limit) * 3, int(limit)))
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        cls = r.get("content_classification") or "internal_work"
+        if cls == "not_for_publication":
+            continue  # hard stop, always
+        if cls in _INTERNAL_BY_DEFAULT and not include_internal:
+            continue
+        if audience and cls != audience:
+            continue
+        out.append(r)
+        if len(out) >= int(limit):
+            break
+    return out
 
 
 def list_uncaptured(limit: int = 50) -> list[dict[str, Any]]:

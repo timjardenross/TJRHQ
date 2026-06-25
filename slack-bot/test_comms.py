@@ -293,5 +293,46 @@ class TestPortfolioStore(unittest.TestCase):
             self.assertEqual(portfolio.pipeline_summary(), {})
 
 
+# ── MSN-0078 outcome → content bridge ─────────────────────────────────────────
+
+class TestOutcomeBridge(unittest.TestCase):
+    def test_maps_classification_to_format(self):
+        cands = [
+            {"source_id": "MSN-9", "title": "Shipped under pressure",
+             "reusable_insight": "ship small to ship at all",
+             "content_classification": "linkedin"},
+            {"source_id": "D-3", "title": "Chose local-first",
+             "reusable_insight": "default local, escalate on quota",
+             "content_classification": "leadership"},
+        ]
+        opps = opp.outcome_opportunities(cands)
+        self.assertEqual(len(opps), 2)
+        self.assertEqual(opps[0].source_kind, "outcome")
+        self.assertEqual(opps[0].suggested_format, "linkedin_post")
+        self.assertEqual(opps[1].suggested_format, "executive_insight")
+        # The reusable insight becomes the body/excerpt.
+        self.assertIn("ship small", opps[0].excerpt)
+
+    def test_empty_and_offline_safe(self):
+        self.assertEqual(opp.outcome_opportunities([]), [])
+        # The gather helper degrades to [] when outcome_capture is unavailable.
+        with patch.object(opp, "_gather_outcome_candidates", return_value=[]):
+            # Should not raise; outcomes simply contribute nothing.
+            self.assertEqual(opp.outcome_opportunities(opp._gather_outcome_candidates(5)), [])
+
+    def test_gather_includes_outcomes_even_when_command_memory_offline(self):
+        # The bridge is independent of the Command Memory client: with _client None
+        # but outcome candidates present, outcomes still surface.
+        cand = [{"source_id": "MSN-1", "title": "Resilience win",
+                 "reusable_insight": "design continuity early",
+                 "content_classification": "operational_resilience"}]
+        with patch.object(opp, "_client", return_value=None), \
+             patch.object(opp, "_gather_outcome_candidates", return_value=cand):
+            items = opp.gather_opportunities(publishable_only=False)
+        self.assertTrue(any(o.source_kind == "outcome" for o in items))
+        outcome_items = [o for o in items if o.source_kind == "outcome"]
+        self.assertEqual(outcome_items[0].suggested_format, "industry_commentary")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -203,6 +203,60 @@ def test_content_worthy_excludes_not_for_publication():
     _restore()
 
 
+def _candidate_rows():
+    return [
+        {"outcome_id": "OUTR-1", "title": "A", "content_classification": "linkedin",
+         "content_potential": "high", "reusable_insight": "share X"},
+        {"outcome_id": "OUTR-2", "title": "B", "content_classification": "leadership",
+         "content_potential": "medium", "reusable_insight": "lead Y"},
+        {"outcome_id": "OUTR-3", "title": "C", "content_classification": "internal_work",
+         "content_potential": "high", "reusable_insight": "ops Z"},
+        {"outcome_id": "OUTR-4", "title": "D", "content_classification": "personal_story",
+         "content_potential": "high", "reusable_insight": "recovery story"},
+        {"outcome_id": "OUTR-5", "title": "E", "content_classification": "not_for_publication",
+         "content_potential": "high", "reusable_insight": "secret"},
+    ]
+
+
+def test_get_content_candidates_excludes_internal_personal_and_nfp():
+    oc.list_content_worthy = lambda limit=25: _candidate_rows()  # type: ignore
+    rows = oc.get_content_candidates(limit=10)
+    ids = {r["outcome_id"] for r in rows}
+    # linkedin + leadership kept; internal_work, personal_story, not_for_publication excluded.
+    assert ids == {"OUTR-1", "OUTR-2"}, ids
+    _restore()
+
+
+def test_get_content_candidates_audience_filter():
+    oc.list_content_worthy = lambda limit=25: _candidate_rows()  # type: ignore
+    rows = oc.get_content_candidates(audience="linkedin", limit=10)
+    assert [r["outcome_id"] for r in rows] == ["OUTR-1"]
+    _restore()
+
+
+def test_get_content_candidates_include_internal_optin():
+    oc.list_content_worthy = lambda limit=25: _candidate_rows()  # type: ignore
+    rows = oc.get_content_candidates(limit=10, include_internal=True)
+    ids = {r["outcome_id"] for r in rows}
+    # internal_work + personal_story now included; not_for_publication still excluded.
+    assert "OUTR-3" in ids and "OUTR-4" in ids
+    assert "OUTR-5" not in ids
+    _restore()
+
+
+def test_get_content_candidates_offline_empty():
+    _set_offline()
+    # list_content_worthy returns [] offline → no candidates, no crash.
+    assert oc.get_content_candidates(limit=10) == []
+    _restore()
+
+
+def test_personal_story_in_vocabulary():
+    assert "personal_story" in oc.CONTENT_CLASSIFICATIONS
+    # It must be internal/sensitive by default (not auto-surfaced).
+    assert "personal_story" in oc._INTERNAL_BY_DEFAULT
+
+
 def test_brief_snapshot_offline_quiet():
     _set_offline()
     snap = oc.learning_brief_snapshot()
