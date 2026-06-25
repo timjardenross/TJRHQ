@@ -582,6 +582,9 @@ async def cmd_learning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     Reuses outcome_capture.learning_status() + leadership_outcomes() — no duplicate
     logic, no new storage. Internal only; nothing published."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
+        return
     oc = _load_learning()
     if oc is None:
         await update.message.reply_text(
@@ -645,6 +648,9 @@ def _load_narrative():
 async def cmd_captain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """MSN-0087 WP6/WP7: narrative intelligence — what changed, why it matters, what
     needs attention, and advisory recommendations. Evidence-backed; advisory only."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
+        return
     nv = _load_narrative()
     if nv is None:
         await update.message.reply_text(
@@ -673,6 +679,9 @@ def _parse_oc_cb(data: str) -> dict:
 
 async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """MSN-0087 WP4: consolidated 'Captain Attention' queue with quick outcome actions."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
+        return
     nv = _load_narrative()
     if nv is None:
         await update.message.reply_text("⚠️ Queue unavailable\\.", parse_mode="MarkdownV2")
