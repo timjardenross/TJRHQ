@@ -81,6 +81,7 @@ from commands.delivery import handle_delivery
 from commands.brief import handle_brief
 from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
+from commands.advisory import handle_advisor, handle_challenge, handle_lessons
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
 from commands.map import handle_map
@@ -1363,6 +1364,38 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /map: user=%s text=%r", user_id, text)
         respond(handle_map(text, user_id, channel_id))
+
+    # ── Advisory Runtime (MSN-0092) ───────────────────────────────────────────
+
+    @app.command("/advisor")
+    def handle_advisor_slash(ack, respond, command):
+        """/advisor <question> — multi-officer, evidence-based advisory."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor: user=%s q=%r", user_id, text[:80])
+        respond(handle_advisor(text, user_id, channel_id))
+
+    @app.command("/challenge")
+    def handle_challenge_slash(ack, respond, command):
+        """/challenge <question> — advisory with red-team review surfaced."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /challenge: user=%s q=%r", user_id, text[:80])
+        respond(handle_challenge(text, user_id, channel_id))
+
+    @app.command("/lessons")
+    def handle_lessons_slash(ack, respond, command):
+        """/lessons <topic> — historical lessons brief for a topic."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /lessons: user=%s topic=%r", user_id, text[:80])
+        respond(handle_lessons(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")
