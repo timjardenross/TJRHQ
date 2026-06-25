@@ -167,3 +167,42 @@ def handle_advisor_metrics(text: str, user_id: str | None = None, channel_id: st
     except Exception as exc:  # noqa: BLE001
         log.error("[advisor-metrics] failed: %s", exc)
         return f"*ADVISOR METRICS*\n\nAdvisory runtime error: `{exc}`."
+
+
+def _mod(name: str):
+    import importlib  # noqa: PLC0415
+    return importlib.import_module(name)
+
+
+def handle_advisor_scan(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/advisor-scan` — proactive scan: what the system noticed (informational)."""
+    log.info("[advisor-scan] user=%s", user_id)
+    try:
+        proactive = _mod("proactive")
+        return _slackify(proactive.to_markdown())
+    except Exception as exc:  # noqa: BLE001
+        log.error("[advisor-scan] failed: %s", exc)
+        return f"*ADVISOR SCAN*\n\nAdvisory runtime error: `{exc}`."
+
+
+def handle_timeline(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/timeline <question>` — temporal query (what changed / preceded / began / next)."""
+    text = (text or "").strip()
+    try:
+        temporal = _mod("temporal")
+        if not text:
+            res = temporal.what_changed()
+        else:
+            q = text.lower()
+            if "preced" in q or "before" in q:
+                res = temporal.what_preceded(text)
+            elif "begin" in q or "start" in q or "when" in q:
+                res = temporal.when_did_begin(text)
+            elif "next" in q or "happens" in q or "usually" in q:
+                res = temporal.what_happens_next(text)
+            else:
+                res = temporal.what_changed(text) if "chang" in q else temporal.what_preceded(text)
+        return _slackify("*TIMELINE*\n\n" + temporal.to_markdown(res))
+    except Exception as exc:  # noqa: BLE001
+        log.error("[timeline] failed: %s", exc)
+        return f"*TIMELINE*\n\nAdvisory runtime error: `{exc}`."

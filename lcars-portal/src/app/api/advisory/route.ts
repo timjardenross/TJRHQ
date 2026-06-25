@@ -21,8 +21,10 @@ export const dynamic = 'force-dynamic';
 
 const PY = process.env.PYTHON_BIN ?? 'python3';
 const TIMEOUT_MS = 90_000;
-const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence']);
-const NULLARY_ACTIONS = new Set(['metrics', 'calibration']);
+const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 'temporal', 'episodic']);
+const NULLARY_ACTIONS = new Set([
+  'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
+]);
 
 function resolveRepoRoot(): string | null {
   const candidates = [

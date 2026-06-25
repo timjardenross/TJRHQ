@@ -88,6 +88,8 @@ from commands.advisory import (
     handle_evidence,
     handle_advisory_outcome,
     handle_advisor_metrics,
+    handle_advisor_scan,
+    handle_timeline,
 )
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
@@ -1433,6 +1435,27 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /advisor-metrics: user=%s arg=%r", user_id, text[:40])
         respond(handle_advisor_metrics(text, user_id, channel_id))
+
+    # ── Temporal & Proactive Intelligence (MSN-0095 / MSN-0096) ───────────────
+
+    @app.command("/advisor-scan")
+    def handle_advisor_scan_slash(ack, respond, command):
+        """/advisor-scan — proactive scan of what the system noticed (informational)."""
+        ack()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor-scan: user=%s", user_id)
+        respond(handle_advisor_scan("", user_id, channel_id))
+
+    @app.command("/timeline")
+    def handle_timeline_slash(ack, respond, command):
+        """/timeline <question> — temporal query (what changed / preceded / began / next)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /timeline: user=%s q=%r", user_id, text[:60])
+        respond(handle_timeline(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")

@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Advisory Runtime CLI — USS-TJR-MSN-0092 / MSN-0093.
+"""Advisory Runtime CLI — USS-TJR-MSN-0092 / 0093 / 0095 / 0096.
 
 Thin invocation API for non-Python interfaces (the LCARS Portal Node route
 shells out to this). Prints JSON (default) or markdown.
 
-Usage:
-    python3 core/advisory/cli.py --action advice      --question "..."
-    python3 core/advisory/cli.py --action challenge    --question "..."
-    python3 core/advisory/cli.py --action lessons      --question "..."
-    python3 core/advisory/cli.py --action evidence     --question "..."
-    python3 core/advisory/cli.py --action metrics
-    python3 core/advisory/cli.py --action calibration
-    python3 core/advisory/cli.py --action outcome --advisory-id ADV-... --outcome success [--note "..."]
+Advice / evidence:
+    --action advice|challenge|lessons|evidence --question "..."
+Loop / measurement:
+    --action metrics|calibration|advisory-health
+    --action outcome --advisory-id ADV-... --outcome success [--note "..."]
+Temporal & pattern intelligence (MSN-0095):
+    --action temporal --question "what changed last month?"
+    --action episodic --question "..."
+    --action patterns|signals|timeline
+Proactive intelligence (MSN-0096):
+    --action proactive
 """
 
 from __future__ import annotations
@@ -30,48 +33,86 @@ import lessons as _lessons  # noqa: E402
 import metrics as _metrics  # noqa: E402
 import calibration as _calibration  # noqa: E402
 import outcomes as _outcomes  # noqa: E402
+import temporal as _temporal  # noqa: E402
+import episodic as _episodic  # noqa: E402
+import patterns as _patterns  # noqa: E402
+import signals as _signals  # noqa: E402
+import timeline as _timeline  # noqa: E402
+import proactive as _proactive  # noqa: E402
+import advisory_health as _advisory_health  # noqa: E402
+
+
+def _temporal_route(question: str) -> dict:
+    q = question.lower()
+    if "preced" in q or "before" in q or "led to" in q:
+        return _temporal.what_preceded(question)
+    if "begin" in q or "start" in q or "when did" in q or "since when" in q:
+        return _temporal.when_did_begin(question)
+    if "next" in q or "happens" in q or "usually" in q or "normally" in q:
+        return _temporal.what_happens_next(question)
+    if "as of" in q or "state at" in q or "was true" in q:
+        return _temporal.what_changed(question)  # falls back to change view
+    return _temporal.what_changed()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="USS TJR Advisory Runtime")
-    parser.add_argument("--action", default="advice",
-                        choices=["advice", "challenge", "lessons", "evidence",
-                                 "metrics", "calibration", "outcome"])
+    parser.add_argument("--action", default="advice", choices=[
+        "advice", "challenge", "lessons", "evidence",
+        "metrics", "calibration", "advisory-health", "outcome",
+        "temporal", "episodic", "patterns", "signals", "timeline", "proactive",
+    ])
     parser.add_argument("--question", default="")
     parser.add_argument("--mission-id", default=None)
     parser.add_argument("--format", default="json", choices=["json", "markdown"])
-    parser.add_argument("--no-challenge", action="store_true",
-                        help="Disable the challenge review for the 'advice' action.")
-    # outcome recording
+    parser.add_argument("--no-challenge", action="store_true")
     parser.add_argument("--advisory-id", default="")
     parser.add_argument("--outcome", default="", choices=["", "success", "failure", "partial", "unknown"])
     parser.add_argument("--decision", default="")
     parser.add_argument("--note", default="")
     args = parser.parse_args()
-
     md = args.format == "markdown"
 
-    # Measurement / loop actions ------------------------------------------------
+    def emit(obj, markdown_fn=None):
+        if md and markdown_fn:
+            print(markdown_fn(obj))
+        else:
+            print(json.dumps(obj, indent=2, ensure_ascii=False, default=lambda o: getattr(o, "to_dict", lambda: str(o))()))
+
+    # -- nullary measurement / intelligence actions ---------------------------
     if args.action == "metrics":
-        m = _metrics.advisory_metrics()
-        print(_metrics.to_markdown(m) if md else json.dumps(m, indent=2, ensure_ascii=False))
-        return 0
+        return emit(_metrics.advisory_metrics(), _metrics.to_markdown) or 0
     if args.action == "calibration":
-        r = _calibration.calibration_report()
-        print(_calibration.to_markdown(r) if md else json.dumps(r, indent=2, ensure_ascii=False))
-        return 0
+        return emit(_calibration.calibration_report(), _calibration.to_markdown) or 0
+    if args.action == "advisory-health":
+        return emit(_advisory_health.advisory_health(), _advisory_health.to_markdown) or 0
+    if args.action == "patterns":
+        ps = _patterns.detect_patterns()
+        return emit([p.to_dict() for p in ps], lambda _x: _patterns.to_markdown(ps)) or 0
+    if args.action == "signals":
+        ss = _signals.emerging_signals()
+        return emit([s.to_dict() for s in ss], lambda _x: _signals.to_markdown(ss)) or 0
+    if args.action == "timeline":
+        ev = _timeline.load_events()[:50]
+        return emit({"span": _timeline.span(), "events": [e.to_dict() for e in ev]}) or 0
+    if args.action == "proactive":
+        return emit(_proactive.proactive_scan(), _proactive.to_markdown) or 0
     if args.action == "outcome":
-        result = _outcomes.record_outcome(
-            args.advisory_id, outcome=args.outcome or "unknown",
-            decision_taken=args.decision, feedback=args.note,
-        )
+        result = _outcomes.record_outcome(args.advisory_id, outcome=args.outcome or "unknown",
+                                          decision_taken=args.decision, feedback=args.note)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0 if result.get("ok") else 1
 
-    # Advice actions ------------------------------------------------------------
+    # -- question-bearing actions --------------------------------------------
     if not args.question:
         print(json.dumps({"error": "--question is required for this action"}))
         return 1
+
+    if args.action == "temporal":
+        return emit(_temporal_route(args.question), _temporal.to_markdown) or 0
+    if args.action == "episodic":
+        r = _episodic.find_similar_episodes(args.question)
+        return emit(r, _episodic.to_markdown) or 0
 
     opts = {}
     if args.mission_id:
@@ -80,7 +121,6 @@ def main() -> int:
         opts["challenge"] = False
 
     result = invoke(args.action, args.question, **opts)
-
     if md:
         if args.action == "lessons":
             print(_lessons.to_markdown(result))
@@ -89,7 +129,6 @@ def main() -> int:
         else:
             print(result.to_markdown())
         return 0
-
     if args.action in ("lessons", "evidence"):
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
