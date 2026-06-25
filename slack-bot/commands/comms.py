@@ -39,7 +39,7 @@ try:
         _sys.path.insert(0, _KP)
     from outcome_capture import (  # type: ignore
         requires_approval, get_content_candidates, learning_metrics, list_lessons,
-        SENSITIVE_APPROVAL_REQUIRED,
+        leadership_outcomes, SENSITIVE_APPROVAL_REQUIRED,
     )
 except Exception:  # pragma: no cover
     def requires_approval(_c):  # type: ignore
@@ -49,6 +49,8 @@ except Exception:  # pragma: no cover
     def learning_metrics():  # type: ignore
         return None
     def list_lessons(*a, **k):  # type: ignore
+        return []
+    def leadership_outcomes(*a, **k):  # type: ignore
         return []
     SENSITIVE_APPROVAL_REQUIRED = ()  # type: ignore
 
@@ -77,6 +79,10 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
         return safety.frame(_metrics(), with_footer=False)
     if cmd in ("leadership", "leaders", "insight"):
         return safety.frame(_leadership(), with_footer=False)
+    if cmd in ("resilience", "ori-brief", "resilience-brief"):
+        return safety.frame(_resilience(), with_footer=False)
+    if cmd in ("patterns", "leadership-themes"):
+        return safety.frame(_themes(), with_footer=False)
     return safety.frame(_help(), with_footer=False)
 
 
@@ -93,25 +99,45 @@ def _help() -> str:
         "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n"
         "• `/comms pending` — sensitive content awaiting Captain approval\n"
         "• `/comms metrics` — outcome & learning counts\n"
-        "• `/comms leadership` — internal Leadership Insight brief\n\n"
+        "• `/comms leadership` — internal Leadership Insight (evidence-weighted)\n"
+        "• `/comms resilience` — internal Operational Resilience brief\n"
+        "• `/comms patterns` — recurring leadership themes\n\n"
         "_Reputation over reach. Intelligence first. Captain-as-publisher._"
     )
 
 
-def _leadership() -> str:
-    """WP6: internal Leadership Insight brief from leadership-lens outcomes + lessons.
-
-    Internal audiences only; sensitive/not_for_publication content is excluded
-    upstream by get_content_candidates. Nothing is published."""
+def _lead_data():
+    """Fetch leadership outcomes + recent lessons (read-only, graceful)."""
     try:
-        cands = get_content_candidates(limit=25)
+        outs = leadership_outcomes(limit=50)
     except Exception:  # pragma: no cover
-        cands = []
+        outs = []
     try:
         lessons = list_lessons(limit=6)
     except Exception:  # pragma: no cover
         lessons = []
-    return leadership.compose_leadership_brief(cands, lessons)
+    return outs, lessons
+
+
+def _leadership() -> str:
+    """WP4 (MSN-0085): internal Leadership Insight — what changed / what leaders
+    should know / emerging patterns / evidence-weighted recommended actions.
+    Internal only; evidence + confidence shown; nothing published."""
+    outs, lessons = _lead_data()
+    return leadership.compose_leadership_insight(outs, lessons)
+
+
+def _resilience() -> str:
+    """WP3 (MSN-0085): internal Operational Resilience Brief from resilience-classified
+    outcomes + operational lessons. Internal only."""
+    outs, lessons = _lead_data()
+    return leadership.compose_operational_resilience_brief(outs, lessons)
+
+
+def _themes() -> str:
+    """WP6 (MSN-0085): recurring leadership themes, evidence-tracked."""
+    outs, _ = _lead_data()
+    return leadership.compose_themes(leadership.derive_themes(outs))
 
 
 def _weekly() -> str:

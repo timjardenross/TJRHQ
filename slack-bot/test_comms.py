@@ -413,14 +413,77 @@ class TestLeadershipBrief(unittest.TestCase):
         self.assertIn("No leadership insights", out)
 
     def test_command_routes_leadership(self):
-        cands = [{"title": "Resilience win", "content_classification": "operational_resilience",
-                  "reusable_insight": "build continuity early", "source_type": "mission",
-                  "source_id": "MSN-1"}]
-        with patch.object(comms_cmd, "get_content_candidates", return_value=cands), \
+        outs = [{"title": "Resilience win", "content_classification": "operational_resilience",
+                 "reusable_insight": "design continuity before you need it", "source_type": "mission",
+                 "source_id": "MSN-1", "confidence": 4}]
+        with patch.object(comms_cmd, "leadership_outcomes", return_value=outs), \
              patch.object(comms_cmd, "list_lessons", return_value=[]):
             out = comms_cmd.handle_comms("leadership")
         self.assertIn("Leadership Insight", out)
         self.assertIn("Resilience win", out)
+
+
+# ── MSN-0085 Leadership Intelligence Products ─────────────────────────────────
+
+def _lo(title, cls, insight, conf=4, tags=None):
+    return {"title": title, "content_classification": cls, "reusable_insight": insight,
+            "confidence": conf, "reuse_tags": tags or [], "source_type": "mission",
+            "source_id": title[:6]}
+
+
+class TestLeadershipProducts(unittest.TestCase):
+    def setUp(self):
+        self.outs = [
+            _lo("Local-first AI", "leadership", "default local; reuse existing before building new", 5),
+            _lo("Idea status", "leadership", "audit existing lifecycle states rather than a separate store", 4),
+            _lo("RLS catch", "operational_resilience", "verify/validate RLS before applying a migration", 5),
+            _lo("Validation gate", "operational_resilience", "a validation gate caught 3 bugs before release", 4),
+        ]
+
+    def test_derive_themes_freq_and_confidence(self):
+        themes = leadership.derive_themes(self.outs)
+        names = {t["theme"] for t in themes}
+        self.assertIn("Reuse before build", names)
+        self.assertIn("Validation before deployment", names)
+        for t in themes:
+            self.assertIn(t["confidence"], ("HIGH", "MEDIUM", "LOW"))
+            self.assertGreaterEqual(t["frequency"], 1)
+
+    def test_evidence_weighted_recommendations(self):
+        recs = leadership.evidence_weighted_recommendations(self.outs, min_evidence=2)
+        self.assertTrue(recs)
+        r = recs[0]
+        self.assertIn("recommendation", r)
+        self.assertGreaterEqual(r["evidence"], 2)
+        self.assertIn(r["confidence"], ("HIGH", "MEDIUM", "LOW"))
+
+    def test_leadership_insight_sections(self):
+        out = leadership.compose_leadership_insight(self.outs, [])
+        self.assertIn("Leadership Insight", out)
+        self.assertIn("What changed", out)
+        self.assertIn("What leaders should know", out)
+        self.assertIn("Emerging patterns", out)
+        self.assertIn("Recommended actions", out)
+        self.assertIn("confidence", out.lower())
+
+    def test_resilience_brief_internal_only(self):
+        out = leadership.compose_operational_resilience_brief(self.outs, [])
+        self.assertIn("Operational Resilience Brief", out)
+        self.assertIn("not published", out.lower())
+        self.assertIn("RLS catch", out)
+
+    def test_empty_graceful(self):
+        self.assertIn("No leadership", leadership.compose_leadership_insight([], []))
+        self.assertIn("No operational-resilience", leadership.compose_operational_resilience_brief([], []))
+        self.assertIn("No themes", leadership.compose_themes([]))
+
+    def test_command_routes_resilience_and_themes(self):
+        with patch.object(comms_cmd, "leadership_outcomes", return_value=self.outs), \
+             patch.object(comms_cmd, "list_lessons", return_value=[]):
+            r = comms_cmd.handle_comms("resilience")
+            t = comms_cmd.handle_comms("patterns")
+        self.assertIn("Operational Resilience Brief", r)
+        self.assertIn("Leadership Themes", t)
 
 
 if __name__ == "__main__":

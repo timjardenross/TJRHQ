@@ -379,6 +379,20 @@ def get_content_candidates(
     return out
 
 
+def leadership_outcomes(limit: int = 50) -> list[dict[str, Any]]:
+    """Read-only: leadership / operational-resilience outcomes with evidence fields
+    (confidence, reusable_insight, reuse_tags, source ref) for leadership products
+    (MSN-0085). Unlike get_content_candidates this is NOT gated on content_potential —
+    leadership intelligence draws on all leadership-classified outcomes. Sensitive
+    classes are excluded by classification; offline → []."""
+    return _get(
+        f"{_TABLE}?select=outcome_id,source_type,source_id,title,content_classification,"
+        f"reusable_insight,reuse_tags,confidence,outcome_status"
+        f"&content_classification=in.(leadership,operational_resilience)"
+        f"&order=confidence.desc&limit={int(limit)}"
+    )
+
+
 def list_uncaptured(limit: int = 50) -> list[dict[str, Any]]:
     """Closed missions and recorded decisions that have no outcome_record yet.
 
