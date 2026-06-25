@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
+import { LearningStatusPanel } from '@/components/LearningStatusPanel';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
@@ -619,6 +620,8 @@ export default function CaptainsChairPage() {
             <MedicalBayLink />
           </div>
           <NotebookWidget />
+          {/* MSN-0080: Learning Intelligence Visibility — "Are we learning?" */}
+          <LearningStatusPanel />
         </FleetStatusConditional>
 
       </div>

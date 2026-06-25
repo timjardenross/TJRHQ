@@ -137,24 +137,31 @@ def compose_daily_brief(
                 f"opportunity(ies) — top: {top.title} (_{top.pillar_name}_) · `/comms weekly`"
             )
 
-    # MSN-0076 WP5: outcome & learning loop — one concise line, never overloaded.
+    # MSN-0076/0080 WP3: outcome & learning loop — one concise line, never overloaded.
     if learning is not None and getattr(learning, "has_signal", False):
         bits: list[str] = []
-        if getattr(learning, "uncaptured_count", 0):
-            bits.append(f"{learning.uncaptured_count} item(s) missing outcomes")
+        uncap = getattr(learning, "uncaptured_count", 0)
+        if uncap:
+            overdue = getattr(learning, "overdue_count", 0)
+            bits.append(f"{uncap} item(s) missing outcomes"
+                        + (f" ({overdue} overdue)" if overdue else ""))
         if getattr(learning, "content_worthy_count", 0):
             bits.append(f"{learning.content_worthy_count} content-worthy")
         if getattr(learning, "reusable_count", 0):
             bits.append(f"{learning.reusable_count} reusable insight(s)")
+        if getattr(learning, "sensitive_pending", 0):
+            bits.append(f"{learning.sensitive_pending} sensitive pending approval")
         recent = list(getattr(learning, "recent_lessons", []) or [])
+        health = getattr(learning, "health", "") or ""
+        health_tag = f" {_RISK_EMOJI.get(health.upper(), '')}".rstrip() if health and health != "UNKNOWN" else ""
         if bits or recent:
-            line = f"🧠 *Learning ({_OFFICER['learning']}):* " + (" · ".join(bits) if bits else "")
+            line = f"🧠 *Learning ({_OFFICER['learning']}){health_tag}:* " + (" · ".join(bits) if bits else "")
             if recent:
                 top = recent[0]
                 title = (top.get("title") if isinstance(top, dict) else str(top)) or ""
                 line += f"{' · ' if bits else ''}latest: {title[:60]}"
             lines.append(line.rstrip())
-            lines.append("   • `python3 tools/record_outcome.py list-uncaptured`")
+            lines.append("   • `python3 tools/record_outcome.py status`")
 
     lines += [
         "",

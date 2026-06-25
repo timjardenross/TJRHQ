@@ -399,14 +399,16 @@ def list_uncaptured(limit: int = 50) -> list[dict[str, Any]]:
         sid = str(m.get("mission_id") or m.get("id") or "")
         if sid and ("mission", sid) not in captured:
             pending.append({"source_type": "mission", "source_id": sid,
-                            "title": m.get("title") or sid})
+                            "title": m.get("title") or sid,
+                            "age_days": _age_days(m.get("updated_at") or m.get("created_at"))})
 
     # Decisions (any). Decisions table id column is `id`.
     for d in _get("decisions?select=*&order=created_at.desc&limit=200"):
         sid = str(d.get("id") or "")
         if sid and ("decision", sid) not in captured:
             title = d.get("decision_type") or d.get("statement") or d.get("title") or sid
-            pending.append({"source_type": "decision", "source_id": sid, "title": title})
+            pending.append({"source_type": "decision", "source_id": sid, "title": title,
+                            "age_days": _age_days(d.get("updated_at") or d.get("created_at"))})
 
     return pending[: int(limit)]
 
@@ -421,6 +423,10 @@ class LearningSnapshot:
     uncaptured_count: int = 0
     reusable_count: int = 0
     content_worthy_count: int = 0
+    # MSN-0080: aging + health + sensitive signals for the XO brief line.
+    overdue_count: int = 0
+    sensitive_pending: int = 0
+    health: str = "UNKNOWN"
     data_available: bool = False
 
     @property
@@ -428,18 +434,26 @@ class LearningSnapshot:
         return bool(
             self.recent_lessons or self.uncaptured_count
             or self.reusable_count or self.content_worthy_count
+            or self.sensitive_pending
         )
 
 
 def learning_brief_snapshot() -> LearningSnapshot:
-    """Compact signal for the daily/XO brief. Empty/quiet when offline."""
+    """Compact signal for the daily/XO brief. Empty/quiet when offline.
+
+    Projects the authoritative learning_status() so the brief and the Captain's
+    Chair report the same numbers (single source of truth)."""
     if not is_configured():
         return LearningSnapshot(data_available=False)
+    s = learning_status()
     return LearningSnapshot(
         recent_lessons=list_lessons(limit=3),
-        uncaptured_count=len(list_uncaptured(limit=50)),
-        reusable_count=len(list_reusable_insights(limit=25)),
-        content_worthy_count=len(list_content_worthy(limit=25)),
+        uncaptured_count=s.pending_outcomes,
+        reusable_count=s.reusable_insights,
+        content_worthy_count=s.content_candidates,
+        overdue_count=s.overdue_outcomes,
+        sensitive_pending=s.sensitive_pending,
+        health=s.health,
         data_available=True,
     )
 
@@ -545,3 +559,195 @@ def learning_metrics() -> LearningMetrics:
         sensitive_pending=len(sensitive),
         data_available=True,
     )
+
+
+# ===========================================================================
+# MSN-0080 — Learning Intelligence Visibility (status service, aging, health)
+# ===========================================================================
+
+# Reminder aging bands (WP4) — visibility, not escalation.
+AGING_GREEN_MAX = 7    # 0–7 days
+AGING_AMBER_MAX = 14   # 8–14 days; 15+ → RED
+
+
+def _age_days(ts: str | None, *, _now: datetime | None = None) -> Optional[int]:
+    """Whole days since an ISO timestamp. None if unparseable/missing."""
+    if not ts:
+        return None
+    try:
+        s = str(ts).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        now = _now or datetime.now(timezone.utc)
+        return max(0, (now - dt).days)
+    except Exception:
+        return None
+
+
+def aging_band(age_days: Optional[int]) -> str:
+    """GREEN (0–7) · AMBER (8–14) · RED (15+) · UNKNOWN (no date)."""
+    if age_days is None:
+        return "UNKNOWN"
+    if age_days <= AGING_GREEN_MAX:
+        return "GREEN"
+    if age_days <= AGING_AMBER_MAX:
+        return "AMBER"
+    return "RED"
+
+
+@dataclass
+class LearningStatus:
+    # Core counts (WP1).
+    outcomes_recorded: int = 0
+    pending_outcomes: int = 0
+    overdue_outcomes: int = 0          # pending in the RED band (15+ days)
+    lessons_captured: int = 0
+    reusable_insights: int = 0
+    content_candidates: int = 0
+    sensitive_pending: int = 0
+    # Aging / velocity (WP4/WP1).
+    pending_green: int = 0
+    pending_amber: int = 0
+    pending_red: int = 0
+    oldest_uncaptured_days: Optional[int] = None
+    average_outcome_age_days: Optional[int] = None     # avg age of pending items
+    learning_velocity_7d: int = 0                      # outcomes recorded in last 7 days
+    # Trend (WP6) — outcomes per week, most-recent-first; [] if no history.
+    outcomes_per_week: list[int] = field(default_factory=list)
+    # Health (WP5).
+    health: str = "UNKNOWN"
+    health_reasons: list[str] = field(default_factory=list)
+    data_available: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "OUTCOMES RECORDED": self.outcomes_recorded,
+            "PENDING OUTCOMES": self.pending_outcomes,
+            "OVERDUE OUTCOMES": self.overdue_outcomes,
+            "LESSONS CAPTURED": self.lessons_captured,
+            "REUSABLE INSIGHTS": self.reusable_insights,
+            "CONTENT CANDIDATES": self.content_candidates,
+            "SENSITIVE DRAFTS PENDING": self.sensitive_pending,
+            "LEARNING VELOCITY (7d)": self.learning_velocity_7d,
+            "OLDEST UNCAPTURED (days)": self.oldest_uncaptured_days,
+            "AVG OUTCOME AGE (days)": self.average_outcome_age_days,
+            "HEALTH": self.health,
+        }
+
+
+def _velocity_and_trend(recent: list[dict[str, Any]]) -> tuple[int, list[int]]:
+    """From recent outcome rows (with created_at), compute last-7-day count and a
+    4-week trend (most recent week first). Graceful with limited history."""
+    now = datetime.now(timezone.utc)
+    weeks = [0, 0, 0, 0]
+    last7 = 0
+    for r in recent:
+        age = _age_days(r.get("created_at"), _now=now)
+        if age is None:
+            continue
+        if age <= 7:
+            last7 += 1
+        wk = age // 7
+        if 0 <= wk < 4:
+            weeks[wk] += 1
+    # Trim trailing zero-weeks so "limited history" shows fewer buckets, not fake zeros.
+    while len(weeks) > 1 and weeks[-1] == 0:
+        weeks.pop()
+    return last7, weeks
+
+
+def learning_health(*, pending: int, overdue: int, velocity: int,
+                    outcomes: int) -> tuple[str, list[str]]:
+    """Simple, explainable health model (WP5).
+
+    RED:   high backlog (pending ≥ 10) OR any overdue (15+ days) with no recent capture.
+    GREEN: low backlog (pending ≤ 3) AND recent capture activity (velocity ≥ 1 or
+           nothing pending).
+    AMBER: anything in between.
+    """
+    reasons: list[str] = []
+    if overdue > 0 and velocity == 0:
+        reasons.append(f"{overdue} overdue (15+ days) and no captures in 7 days")
+        return "RED", reasons
+    if pending >= 10:
+        reasons.append(f"high backlog ({pending} pending)")
+        return "RED", reasons
+    if pending <= 3 and (velocity >= 1 or pending == 0):
+        reasons.append(f"low backlog ({pending} pending)")
+        reasons.append("active capture" if velocity >= 1 else "nothing outstanding")
+        return "GREEN", reasons
+    # Otherwise amber.
+    if pending:
+        reasons.append(f"moderate backlog ({pending} pending)")
+    if velocity == 0:
+        reasons.append("no captures in the last 7 days")
+    if overdue:
+        reasons.append(f"{overdue} overdue item(s)")
+    return "AMBER", reasons or ["mixed signals"]
+
+
+def learning_status() -> LearningStatus:
+    """Authoritative learning-status service (WP1). Reuses the existing list_*/
+    metrics helpers; adds aging, velocity, trend and a health band. Offline → an
+    empty status with data_available=False (no crash, no network)."""
+    if not is_configured():
+        return LearningStatus(data_available=False)
+
+    pend = pending_outcomes(limit=1000)
+    ages = [p.get("age_days") for p in pend if p.get("age_days") is not None]
+    bands = [aging_band(p.get("age_days")) for p in pend]
+    pending_red = bands.count("RED")
+    recent = list_recent_outcomes(limit=1000)
+    velocity, trend = _velocity_and_trend(recent)
+    sensitive = [r for r in get_content_candidates(limit=1000, include_internal=True)
+                 if requires_approval(r.get("content_classification"))]
+
+    health, reasons = learning_health(
+        pending=len(pend), overdue=pending_red, velocity=velocity, outcomes=len(recent),
+    )
+
+    return LearningStatus(
+        outcomes_recorded=len(recent),
+        pending_outcomes=len(pend),
+        overdue_outcomes=pending_red,
+        lessons_captured=len(list_lessons(limit=1000)),
+        reusable_insights=len(list_reusable_insights(limit=1000)),
+        content_candidates=len(get_content_candidates(limit=1000)),
+        sensitive_pending=len(sensitive),
+        pending_green=bands.count("GREEN"),
+        pending_amber=bands.count("AMBER"),
+        pending_red=pending_red,
+        oldest_uncaptured_days=(max(ages) if ages else None),
+        average_outcome_age_days=(round(sum(ages) / len(ages)) if ages else None),
+        learning_velocity_7d=velocity,
+        outcomes_per_week=trend,
+        health=health,
+        health_reasons=reasons,
+        data_available=True,
+    )
+
+
+_HEALTH_EMOJI = {"GREEN": "🟢", "AMBER": "🟠", "RED": "🔴", "UNKNOWN": "⚪"}
+
+
+def learning_status_block() -> str:
+    """Concise multi-line LEARNING STATUS block for the Captain's Chair / CLI (WP2)."""
+    s = learning_status()
+    if not s.data_available:
+        return "*LEARNING STATUS*\n_Unavailable offline._"
+    lines = [
+        "*LEARNING STATUS*",
+        f"Outcomes: {s.outcomes_recorded}   Pending: {s.pending_outcomes}"
+        + (f" ({s.pending_red} overdue)" if s.pending_red else ""),
+        f"Lessons: {s.lessons_captured}   Reusable: {s.reusable_insights}   "
+        f"Content: {s.content_candidates}",
+    ]
+    if s.sensitive_pending:
+        lines.append(f"Sensitive pending approval: {s.sensitive_pending}")
+    if s.oldest_uncaptured_days is not None:
+        lines.append(f"Oldest uncaptured: {s.oldest_uncaptured_days}d · "
+                     f"velocity (7d): {s.learning_velocity_7d}")
+    lines.append(f"Learning Health: {_HEALTH_EMOJI.get(s.health, '⚪')} {s.health}"
+                 + (f" — {s.health_reasons[0]}" if s.health_reasons else ""))
+    return "\n".join(lines)

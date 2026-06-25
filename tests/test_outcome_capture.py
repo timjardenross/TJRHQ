@@ -294,6 +294,72 @@ def test_learning_metrics_offline_safe():
     assert m.as_dict()["OUTCOMES RECORDED"] == 0
 
 
+def test_aging_band_thresholds():
+    assert oc.aging_band(0) == "GREEN"
+    assert oc.aging_band(7) == "GREEN"
+    assert oc.aging_band(8) == "AMBER"
+    assert oc.aging_band(14) == "AMBER"
+    assert oc.aging_band(15) == "RED"
+    assert oc.aging_band(99) == "RED"
+    assert oc.aging_band(None) == "UNKNOWN"
+
+
+def test_age_days_parses_iso():
+    from datetime import datetime, timezone, timedelta
+    now = datetime(2026, 6, 25, tzinfo=timezone.utc)
+    ts = (now - timedelta(days=10)).isoformat()
+    assert oc._age_days(ts, _now=now) == 10
+    assert oc._age_days(None) is None
+    assert oc._age_days("not-a-date") is None
+
+
+def test_learning_health_model():
+    # RED: overdue with no recent capture.
+    h, _ = oc.learning_health(pending=4, overdue=2, velocity=0, outcomes=4)
+    assert h == "RED"
+    # RED: high backlog.
+    h, _ = oc.learning_health(pending=12, overdue=0, velocity=5, outcomes=20)
+    assert h == "RED"
+    # GREEN: low backlog + active capture.
+    h, _ = oc.learning_health(pending=2, overdue=0, velocity=3, outcomes=10)
+    assert h == "GREEN"
+    # GREEN: nothing pending.
+    h, _ = oc.learning_health(pending=0, overdue=0, velocity=0, outcomes=10)
+    assert h == "GREEN"
+    # AMBER: moderate backlog, no recent capture, not overdue.
+    h, reasons = oc.learning_health(pending=6, overdue=0, velocity=0, outcomes=6)
+    assert h == "AMBER" and reasons
+
+
+def test_velocity_and_trend_buckets():
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    rows = [
+        {"created_at": (now - timedelta(days=1)).isoformat()},   # week 0
+        {"created_at": (now - timedelta(days=3)).isoformat()},   # week 0
+        {"created_at": (now - timedelta(days=9)).isoformat()},   # week 1
+        {"created_at": "bad"},                                    # ignored
+    ]
+    last7, weeks = oc._velocity_and_trend(rows)
+    assert last7 == 2
+    assert weeks[0] == 2 and weeks[1] == 1
+
+
+def test_learning_status_offline_safe():
+    _set_offline()
+    s = oc.learning_status()
+    assert s.data_available is False
+    assert s.health == "UNKNOWN"
+    assert s.as_dict()["PENDING OUTCOMES"] == 0
+
+
+def test_learning_status_block_offline():
+    _set_offline()
+    block = oc.learning_status_block()
+    assert "LEARNING STATUS" in block
+    assert "Unavailable" in block
+
+
 def test_brief_snapshot_offline_quiet():
     _set_offline()
     snap = oc.learning_brief_snapshot()
@@ -340,6 +406,34 @@ def test_daily_brief_renders_learning_line():
     # No learning param → no learning line (backward compatible).
     out2 = db.compose_daily_brief(capacity=_Cap(), recommendation=_Rec(), load=_Load())
     assert "Learning (" not in out2
+
+
+def test_daily_brief_shows_health_overdue_and_sensitive():
+    import daily_brief as db
+
+    class _Dom:
+        def __init__(self): self.label, self.band = "Physical", "GREEN"
+
+    class _Cap:
+        headline = "Steady"; overall_band = "GREEN"; overall_score = 80; domains = [_Dom()]
+
+    class _Rec:
+        escalation = ""; primary = "x"; expected_impact = "i"; opportunity_cost = "c"
+        recommended_deferral = "l"; strategic_alignment = "a"
+        def _confidence_label(self): return "High"
+
+    class _Load:
+        data_available = True; open_count = 1
+
+    snap = oc.LearningSnapshot(
+        uncaptured_count=5, overdue_count=2, reusable_count=1, content_worthy_count=0,
+        sensitive_pending=1, health="AMBER", data_available=True,
+    )
+    out = db.compose_daily_brief(capacity=_Cap(), recommendation=_Rec(), load=_Load(),
+                                 learning=snap)
+    assert "2 overdue" in out
+    assert "sensitive pending approval" in out
+    assert "🟠" in out  # AMBER health tag
 
 
 # ---------------------------------------------------------------------------

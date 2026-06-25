@@ -64,6 +64,8 @@ from outcome_capture import (  # type: ignore  # noqa: E402
     list_content_worthy,
     learning_brief_snapshot,
     learning_metrics,
+    learning_status,
+    learning_status_block,
     SOURCE_TYPES,
     OUTCOME_STATUSES,
     CONTENT_POTENTIAL,
@@ -216,6 +218,24 @@ def _cmd_list_content(args) -> int:
     return 0
 
 
+def _cmd_status(args) -> int:
+    """MSN-0080: the Captain's Chair LEARNING STATUS block + aging/health."""
+    s = learning_status()
+    print()
+    # Reuse the canonical block, then add aging detail.
+    block = learning_status_block().replace("*", "")  # plain for CLI
+    print(block)
+    if s.data_available:
+        print(f"\n  Aging — GREEN(0-7): {s.pending_green}  "
+              f"AMBER(8-14): {s.pending_amber}  RED(15+): {s.pending_red}")
+        if s.outcomes_per_week:
+            print("  Outcomes/week (recent→older): " +
+                  " ".join(str(n) for n in s.outcomes_per_week))
+        if s.health_reasons:
+            print("  Health basis: " + "; ".join(s.health_reasons))
+    return 0
+
+
 def _cmd_metrics(args) -> int:
     m = learning_metrics()
     print("\n── Learning Metrics ──────────────────────────────────────────")
@@ -281,6 +301,7 @@ def main() -> None:
         ("list-content", _cmd_list_content, "List content-worthy learnings"),
         ("brief", _cmd_brief, "Show the compact learning/outcome snapshot"),
         ("metrics", _cmd_metrics, "Show learning metrics (counts)"),
+        ("status", _cmd_status, "Show the LEARNING STATUS block (aging + health)"),
     ]:
         sp = sub.add_parser(name, help=help_)
         sp.add_argument("--limit", type=int, default=10)
