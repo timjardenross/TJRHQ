@@ -306,6 +306,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/dispatch — manual dispatch check\n"
         "/brief — OR intelligence brief on demand\n"
         "/learning — learning health \\+ leadership insight \\(internal\\)\n"
+        "/captain — narrative: what changed, why it matters, what to do\n"
+        "/pending — attention queue \\+ quick outcome actions \\(tap to capture\\)\n"
         "/db\\_status — Supabase connectivity test\n"
         "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
@@ -625,6 +627,127 @@ async def cmd_learning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
 
 
+def _load_narrative():
+    """Import the narrative service (core/knowledge/learning_narrative). Returns module or None."""
+    try:
+        import sys
+        from pathlib import Path
+        kp = str(Path(__file__).resolve().parents[2] / "core" / "knowledge")
+        if kp not in sys.path:
+            sys.path.insert(0, kp)
+        import learning_narrative  # type: ignore
+        return learning_narrative
+    except Exception as exc:  # pragma: no cover
+        log.warning("[narrative] learning_narrative unavailable: %s", exc)
+        return None
+
+
+async def cmd_captain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """MSN-0087 WP6/WP7: narrative intelligence — what changed, why it matters, what
+    needs attention, and advisory recommendations. Evidence-backed; advisory only."""
+    nv = _load_narrative()
+    if nv is None:
+        await update.message.reply_text(
+            "⚠️ Narrative module not available\\.", parse_mode="MarkdownV2")
+        return
+    try:
+        text = nv.captain_brief_text()
+        await update.message.reply_text(_escape(text), parse_mode="MarkdownV2")
+    except Exception as exc:
+        log.error("[captain] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Captain narrative failed: `{_escape(str(exc))}`", parse_mode="MarkdownV2")
+
+
+# MSN-0087 WP3: quick outcome-capture callback codes (short to fit Telegram's 64-byte limit).
+_OC_STATUS = {"w": "worked", "p": "partial", "d": "defer"}
+
+
+def _parse_oc_cb(data: str) -> dict:
+    """Pure: parse an 'oc|<w|p|d>|<source_type>|<source_id>' callback. {} if invalid."""
+    parts = (data or "").split("|")
+    if len(parts) != 4 or parts[0] != "oc" or parts[1] not in _OC_STATUS:
+        return {}
+    return {"action": _OC_STATUS[parts[1]], "source_type": parts[2], "source_id": parts[3]}
+
+
+async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """MSN-0087 WP4: consolidated 'Captain Attention' queue with quick outcome actions."""
+    nv = _load_narrative()
+    if nv is None:
+        await update.message.reply_text("⚠️ Queue unavailable\\.", parse_mode="MarkdownV2")
+        return
+    try:
+        q = nv.pending_actions()
+        if not q.get("data_available"):
+            await update.message.reply_text(
+                "📋 *Captain Attention*\nUnavailable \\(Supabase not configured\\)\\.",
+                parse_mode="MarkdownV2")
+            return
+        lines = [
+            "*Captain Attention*",
+            f"Overdue outcomes: {q['pending_total']} pending · {len(q['overdue'])} overdue (15d+)",
+            f"Learning debt (30d+): {q['learning_debt']}",
+            f"Sensitive drafts pending approval: {q['sensitive_pending']}  (/comms pending)",
+            f"Leadership candidates: {q['leadership_candidates']}  (/comms leadership)",
+        ]
+        await update.message.reply_text(_escape("\n".join(lines)), parse_mode="MarkdownV2")
+        # Inline quick-capture for the top overdue items (≤3) — one tap, no typing.
+        for item in q["overdue"][:3]:
+            st, sid = item.get("source_type", "mission"), str(item.get("source_id", ""))
+            title = _plain(item.get("title", sid))[:60]
+            kb = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✓ Worked", callback_data=f"oc|w|{st}|{sid}"),
+                InlineKeyboardButton("~ Partial", callback_data=f"oc|p|{st}|{sid}"),
+                InlineKeyboardButton("⏸ Defer", callback_data=f"oc|d|{st}|{sid}"),
+            ]])
+            await update.message.reply_text(
+                _escape(f"Outcome pending: {title}"), parse_mode="MarkdownV2", reply_markup=kb)
+    except Exception as exc:
+        log.error("[pending] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Queue failed: `{_escape(str(exc))}`", parse_mode="MarkdownV2")
+
+
+async def handle_outcome_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """MSN-0087 WP3: complete a quick outcome capture from an inline button. Reuses the
+    tested outcome_capture.record_outcome (idempotent upsert). Defer = acknowledge only."""
+    query = update.callback_query
+    await query.answer()
+    parsed = _parse_oc_cb(query.data or "")
+    if not parsed:
+        return
+    if parsed["action"] == "defer":
+        await query.edit_message_text(
+            _escape("⏸ Deferred — stays in the queue."), parse_mode="MarkdownV2")
+        return
+    oc = _load_learning()
+    if oc is None:
+        await query.edit_message_text(
+            _escape("⚠️ Capture module unavailable."), parse_mode="MarkdownV2")
+        return
+    try:
+        res = oc.record_outcome(oc.OutcomeInput(
+            source_type=parsed["source_type"], source_id=parsed["source_id"],
+            title=parsed["source_id"], outcome_status=parsed["action"],
+            outcome_summary="Quick capture via Telegram (Captain).",
+            created_by="telegram-quick", promote_lesson=False,
+        ))
+        if res.persisted:
+            msg = f"✓ Outcome recorded: {parsed['source_id']} → {parsed['action']}."
+        elif res.success:
+            msg = f"✓ Validated (offline, not persisted): {parsed['action']}."
+        else:
+            msg = "⚠️ Could not record: " + "; ".join(res.errors)
+        await query.edit_message_text(_escape(msg), parse_mode="MarkdownV2")
+        log.info("[outcome-cb] %s %s -> %s persisted=%s",
+                 parsed["source_type"], parsed["source_id"], parsed["action"], res.persisted)
+    except Exception as exc:
+        log.error("[outcome-cb] failed: %s", exc)
+        await query.edit_message_text(
+            f"⚠️ Capture failed: `{_escape(str(exc))}`", parse_mode="MarkdownV2")
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -776,6 +899,8 @@ _BOT_COMMANDS = [
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
     ("learning",        "Learning health + leadership insight"),
+    ("captain",         "Narrative: what changed, why, what to do"),
+    ("pending",         "Captain attention queue + quick outcome actions"),
     ("dispatch",        "Manual XO dispatch check"),
     ("db_status",       "Supabase connectivity test"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
@@ -806,8 +931,11 @@ def main() -> None:
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("learning",        cmd_learning))
+    app.add_handler(CommandHandler("captain",         cmd_captain))
+    app.add_handler(CommandHandler("pending",         cmd_pending))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
+    app.add_handler(CallbackQueryHandler(handle_outcome_callback, pattern=r"^oc\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")

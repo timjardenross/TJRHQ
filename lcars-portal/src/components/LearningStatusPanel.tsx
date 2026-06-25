@@ -105,6 +105,29 @@ export function LearningStatusPanel() {
             <span>· Velocity (7d): {data.velocity7d}</span>
           </div>
 
+          {/* MSN-0087 WP8: narrative — significance + attention (derived from counts). */}
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">This week</p>
+              <ul className="text-[11px] text-lcars-text/80 space-y-0.5">
+                <li>• {data.velocity7d} outcome(s) captured (7d)</li>
+                <li>• {data.reusable} reusable insight(s)</li>
+                <li>• {data.content} content candidate(s)</li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Attention</p>
+              <ul className="text-[11px] text-lcars-text/80 space-y-0.5">
+                {data.overdue > 0 && <li>• {data.overdue} overdue outcome(s)</li>}
+                {data.sensitive > 0 && <li>• {data.sensitive} sensitive draft(s) pending approval</li>}
+                {data.pending > 0 && <li>• {data.pending} item(s) awaiting capture</li>}
+                {data.overdue === 0 && data.sensitive === 0 && data.pending === 0 && (
+                  <li className="text-status">• Nothing outstanding</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
           <p className="mt-3 text-[10px] text-lcars-muted">
             Learning Health: <span className="uppercase tracking-wide">{health}</span> — visibility only;
             capture remains human, nothing is published.
