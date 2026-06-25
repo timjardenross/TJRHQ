@@ -305,6 +305,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Ops*\n"
         "/dispatch — manual dispatch check\n"
         "/brief — OR intelligence brief on demand\n"
+        "/learning — learning health \\+ leadership insight \\(internal\\)\n"
         "/db\\_status — Supabase connectivity test\n"
         "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
@@ -552,6 +553,78 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+def _plain(s) -> str:
+    """Strip MarkdownV2 format chars from dynamic content (it is re-escaped by _escape)."""
+    return str(s or "").replace("*", "").replace("_", "")
+
+
+def _load_learning():
+    """Import the reused learning service (core/knowledge/outcome_capture). Returns the
+    module or None. The bot already runs with the repo root on sys.path; core/knowledge
+    is added defensively (it is not a package)."""
+    try:
+        import sys
+        from pathlib import Path
+        kp = str(Path(__file__).resolve().parents[2] / "core" / "knowledge")
+        if kp not in sys.path:
+            sys.path.insert(0, kp)
+        import outcome_capture  # type: ignore
+        return outcome_capture
+    except Exception as exc:  # pragma: no cover
+        log.warning("[learning] outcome_capture unavailable: %s", exc)
+        return None
+
+
+async def cmd_learning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """MSN-0086 WP3/WP6: concise learning + leadership intelligence on demand.
+
+    Reuses outcome_capture.learning_status() + leadership_outcomes() — no duplicate
+    logic, no new storage. Internal only; nothing published."""
+    oc = _load_learning()
+    if oc is None:
+        await update.message.reply_text(
+            "⚠️ Learning module not available in this environment\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+    try:
+        s = oc.learning_status()
+        if not getattr(s, "data_available", False):
+            await update.message.reply_text(
+                "📊 *Learning Status*\nUnavailable \\(Supabase not configured\\)\\.",
+                parse_mode="MarkdownV2",
+            )
+            return
+        emoji = {"GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}.get(s.health, "⚪")
+        leads = oc.leadership_outcomes(limit=3) or []
+
+        msg = [
+            "*Learning Status*",
+            f"Health: {emoji} {_plain(s.health)}",
+            f"Capture compliance: {_plain(s.capture_compliance_pct)}%",
+            f"Reusable insights: {_plain(s.reusable_insights)}",
+            f"Leadership candidates: {_plain(s.leadership_candidates)}",
+            f"Outcomes pending: {_plain(s.pending_outcomes)} "
+            f"({_plain(s.overdue_outcomes)} overdue)",
+        ]
+        if s.sensitive_pending:
+            msg.append(f"Sensitive drafts pending approval: {_plain(s.sensitive_pending)}")
+        if leads:
+            top = leads[0]
+            insight = _plain((top.get("reusable_insight") or top.get("title") or "")[:160])
+            if insight:
+                msg += ["", "*Leadership insight:*", insight]
+        msg += ["", "_/comms leadership for the full brief. Internal only; nothing published._"]
+        await update.message.reply_text(_escape("\n".join(msg)), parse_mode="MarkdownV2")
+        log.info("[learning] delivered health=%s pending=%s", s.health, s.pending_outcomes)
+    except Exception as exc:
+        log.error("[learning] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Learning status failed: `{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -702,6 +775,7 @@ _BOT_COMMANDS = [
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
+    ("learning",        "Learning health + leadership insight"),
     ("dispatch",        "Manual XO dispatch check"),
     ("db_status",       "Supabase connectivity test"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
@@ -731,6 +805,7 @@ def main() -> None:
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
+    app.add_handler(CommandHandler("learning",        cmd_learning))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
