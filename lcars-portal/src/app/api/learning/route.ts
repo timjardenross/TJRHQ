@@ -8,10 +8,13 @@ import { createClient } from '@supabase/supabase-js';
 // re-derives the same simple, explainable counts/health for the dashboard.
 
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  // outcome_records is authenticated/service_role only (no anon) — it holds
+  // sensitive personal_story / not_for_publication content. This is a SERVER-side
+  // route handler, so use the service-role key (never exposed to the browser);
+  // fall back to anon (which will be denied by RLS) so the panel degrades safely.
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
 }
 
 const SENSITIVE = ['coaching', 'wellness', 'personal_story', 'internal_work'];

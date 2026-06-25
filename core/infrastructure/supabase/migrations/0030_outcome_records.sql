@@ -89,7 +89,12 @@ CREATE INDEX IF NOT EXISTS idx_outcome_records_source
 CREATE INDEX IF NOT EXISTS idx_outcome_records_content
     ON outcome_records (content_potential, content_classification);
 
--- Enable RLS (same pattern as lessons_learned / decisions).
+-- Enable RLS. Posture CORRECTED at activation (MSN-0081 WP1): authenticated read
+-- + service_role full access — matching the project's established pattern
+-- (lessons_learned / health / missions). NO anon policy: outcome_records holds
+-- sensitive personal_story / not_for_publication free-text, which must never be
+-- readable via the public anon key. (The original draft granted anon SELECT; that
+-- was removed before any production application — see MSN-0081.)
 ALTER TABLE outcome_records ENABLE ROW LEVEL SECURITY;
 
 -- Service role has full access.
@@ -97,10 +102,7 @@ DROP POLICY IF EXISTS "service_role_full_access" ON outcome_records;
 CREATE POLICY "service_role_full_access" ON outcome_records
     FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- Anon can read (same as lessons_learned / decisions pattern).
--- NOTE: anon read is intentionally limited to non-sensitive operational signals.
--- Sensitive personal/health/workplace detail must NOT be placed in published-
--- classification rows (enforced in the capture layer, not at the DB).
-DROP POLICY IF EXISTS "anon_read" ON outcome_records;
-CREATE POLICY "anon_read" ON outcome_records
-    FOR SELECT TO anon USING (true);
+-- Authenticated read only (NO anon).
+DROP POLICY IF EXISTS "auth_read" ON outcome_records;
+CREATE POLICY "auth_read" ON outcome_records
+    FOR SELECT TO authenticated USING (true);
