@@ -24,6 +24,7 @@ const TIMEOUT_MS = 90_000;
 const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 'temporal', 'episodic']);
 const NULLARY_ACTIONS = new Set([
   'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
+  'operating-picture', 'wellness', 'strategic', 'forecast', 'daily-brief', 'data-quality',
 ]);
 
 function resolveRepoRoot(): string | null {

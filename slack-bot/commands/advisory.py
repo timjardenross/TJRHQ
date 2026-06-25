@@ -206,3 +206,29 @@ def handle_timeline(text: str, user_id: str | None = None, channel_id: str | Non
     except Exception as exc:  # noqa: BLE001
         log.error("[timeline] failed: %s", exc)
         return f"*TIMELINE*\n\nAdvisory runtime error: `{exc}`."
+
+
+_INTEL_VIEWS = {
+    "brief": ("daily_brief", "to_markdown"),
+    "picture": ("operating_picture", "to_markdown"),
+    "wellness": ("wellness", "to_markdown"),
+    "strategic": ("strategic", "to_markdown"),
+    "forecast": ("forecast", "to_markdown"),
+    "trust": ("data_quality", "to_markdown"),
+    "data": ("data_quality", "to_markdown"),
+}
+
+
+def handle_intel(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/intel [brief|picture|wellness|strategic|forecast|trust]` — intelligence views."""
+    view = (text or "brief").strip().split()[0].lower() if (text or "").strip() else "brief"
+    if view not in _INTEL_VIEWS:
+        return ("*INTEL*\n\nUsage: `/intel [brief|picture|wellness|strategic|forecast|trust]`\n"
+                "Default `brief` = daily intelligence briefing.")
+    mod_name, fn = _INTEL_VIEWS[view]
+    log.info("[intel] user=%s view=%s", user_id, view)
+    try:
+        return _slackify(getattr(_mod(mod_name), fn)())
+    except Exception as exc:  # noqa: BLE001
+        log.error("[intel] failed: %s", exc)
+        return f"*INTEL*\n\nAdvisory runtime error: `{exc}`."

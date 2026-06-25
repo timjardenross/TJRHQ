@@ -90,6 +90,7 @@ from commands.advisory import (
     handle_advisor_metrics,
     handle_advisor_scan,
     handle_timeline,
+    handle_intel,
 )
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
@@ -1456,6 +1457,16 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /timeline: user=%s q=%r", user_id, text[:60])
         respond(handle_timeline(text, user_id, channel_id))
+
+    @app.command("/intel")
+    def handle_intel_slash(ack, respond, command):
+        """/intel [brief|picture|wellness|strategic|forecast|trust] — intelligence views."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /intel: user=%s view=%r", user_id, text[:30])
+        respond(handle_intel(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")

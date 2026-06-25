@@ -15,13 +15,15 @@ import { useEffect, useState, type ReactNode } from 'react';
  * Discoverability only — no new intelligence, no officers, no autonomy.
  */
 
-type Tab = 'dashboard' | 'performance' | 'timeline' | 'operational';
+type Tab = 'briefing' | 'dashboard' | 'performance' | 'timeline' | 'operational' | 'trust';
 
 const TABS: { key: Tab; label: string; action: string }[] = [
+  { key: 'briefing', label: 'Briefing', action: 'daily-brief' },
   { key: 'dashboard', label: 'Dashboard', action: 'metrics' },
   { key: 'performance', label: 'Performance', action: 'calibration' },
   { key: 'timeline', label: 'Timeline', action: 'timeline' },
   { key: 'operational', label: 'Operational', action: 'proactive' },
+  { key: 'trust', label: 'Trust', action: 'data-quality' },
 ];
 
 async function fetchAction(action: string): Promise<unknown> {
@@ -91,10 +93,12 @@ export default function IntelligencePage() {
         <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
+      {!loading && data && tab === 'briefing' && <Briefing d={data} />}
       {!loading && data && tab === 'dashboard' && <Dashboard d={data} />}
       {!loading && data && tab === 'performance' && <Performance d={data} />}
       {!loading && data && tab === 'timeline' && <Timeline d={data} />}
       {!loading && data && tab === 'operational' && <Operational d={data} />}
+      {!loading && data && tab === 'trust' && <Trust d={data} />}
     </div>
   );
 }
@@ -110,6 +114,93 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 
 function pct(n: unknown): string {
   return typeof n === 'number' ? `${Math.round(n * 100)}%` : '—';
+}
+
+function Briefing({ d }: { d: any }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <Card title="Headline">
+        <p className="font-semibold">{d.headline}</p>
+        <p className="mt-1 text-xs text-lcars-muted">{d.note}</p>
+      </Card>
+      <Card title="Overnight">{d.what_changed_overnight || '—'}</Card>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card title="Operating Picture">{d.operating_picture || '—'}</Card>
+        <Card title="Wellness">{d.wellness || '—'}</Card>
+        <Card title="Strategic">{d.strategic || '—'}</Card>
+      </div>
+      {(d.may_require_action ?? []).length > 0 && (
+        <Card title="May Require Action">
+          <ul className="list-disc pl-5">
+            {d.may_require_action.map((t: any, i: number) => (
+              <li key={i}>[{t.level}] <strong>{t.trigger_type}</strong>: {t.message}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {(d.deserves_attention ?? []).length > 0 && (
+        <Card title="Deserves Attention">
+          <ul className="list-disc pl-5">
+            {d.deserves_attention.map((t: any, i: number) => (
+              <li key={i}>[{t.level}] <strong>{t.trigger_type}</strong>: {t.message}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {(d.opportunities ?? []).length > 0 && (
+        <Card title="Opportunities">
+          <ul className="list-disc pl-5">
+            {d.opportunities.map((o: any, i: number) => (
+              <li key={i}>💡 <strong>{o.opportunity_type}</strong>: {o.message}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {(d.forecasts ?? []).length > 0 && (
+        <Card title="Forecasts">
+          <ul className="list-disc pl-5">
+            {d.forecasts.map((f: any, i: number) => (
+              <li key={i}>
+                <strong>{f.metric}</strong> ({f.confidence}, n={f.sample_size}): {f.projection}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      <Card title="Data Capture">{d.capture_prompt || '—'}</Card>
+    </div>
+  );
+}
+
+function Trust({ d }: { d: any }) {
+  const gaps = d.capture_gaps ?? {};
+  const trust = d.trust ?? {};
+  return (
+    <div className="flex flex-col gap-3">
+      <Card title="Trust">
+        <p>{trust.narrative}</p>
+        <ul className="mt-2 list-disc pl-5">
+          <li>Data completeness: {pct(trust.data_completeness)}</li>
+          <li>Evidence quality: {pct(trust.evidence_quality)}</li>
+          <li>Recommendation quality: {pct(trust.recommendation_quality)}</li>
+          <li>Recognises uncertainty: {trust.recognises_uncertainty ? 'yes' : 'no'}</li>
+        </ul>
+      </Card>
+      <Card title="Capture Gaps">
+        <p>{gaps.narrative}</p>
+        <ul className="mt-2 list-disc pl-5">
+          {(gaps.gaps ?? [])
+            .filter((g: any) => g.missing_count > 0 || g.standing)
+            .map((g: any, i: number) => (
+              <li key={i}>
+                <strong>{g.kind}</strong> ({g.missing_count}): {g.why}
+                <div className="text-xs text-lcars-muted">How: {g.how_to_capture}</div>
+              </li>
+            ))}
+        </ul>
+      </Card>
+    </div>
+  );
 }
 
 function Dashboard({ d }: { d: any }) {

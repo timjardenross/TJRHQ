@@ -40,6 +40,12 @@ import signals as _signals  # noqa: E402
 import timeline as _timeline  # noqa: E402
 import proactive as _proactive  # noqa: E402
 import advisory_health as _advisory_health  # noqa: E402
+import operating_picture as _operating_picture  # noqa: E402
+import wellness as _wellness  # noqa: E402
+import strategic as _strategic  # noqa: E402
+import forecast as _forecast  # noqa: E402
+import daily_brief as _daily_brief  # noqa: E402
+import data_quality as _data_quality  # noqa: E402
 
 
 def _temporal_route(question: str) -> dict:
@@ -61,6 +67,8 @@ def main() -> int:
         "advice", "challenge", "lessons", "evidence",
         "metrics", "calibration", "advisory-health", "outcome",
         "temporal", "episodic", "patterns", "signals", "timeline", "proactive",
+        "operating-picture", "wellness", "strategic", "forecast", "daily-brief",
+        "data-quality",
     ])
     parser.add_argument("--question", default="")
     parser.add_argument("--mission-id", default=None)
@@ -97,6 +105,19 @@ def main() -> int:
         return emit({"span": _timeline.span(), "events": [e.to_dict() for e in ev]}) or 0
     if args.action == "proactive":
         return emit(_proactive.proactive_scan(), _proactive.to_markdown) or 0
+    if args.action == "operating-picture":
+        return emit(_operating_picture.captain_operating_picture(), lambda _x: _operating_picture.to_markdown()) or 0
+    if args.action == "wellness":
+        return emit(_wellness.wellness_intelligence(), lambda _x: _wellness.to_markdown()) or 0
+    if args.action == "strategic":
+        return emit(_strategic.strategic_intelligence(), lambda _x: _strategic.to_markdown()) or 0
+    if args.action == "forecast":
+        return emit(_forecast.all_forecasts(), lambda _x: _forecast.to_markdown()) or 0
+    if args.action == "daily-brief":
+        return emit(_daily_brief.daily_intelligence_brief(), lambda _x: _daily_brief.to_markdown()) or 0
+    if args.action == "data-quality":
+        return emit({"capture_gaps": _data_quality.capture_gaps(), "trust": _data_quality.trust_metrics()},
+                    lambda _x: _data_quality.to_markdown()) or 0
     if args.action == "outcome":
         result = _outcomes.record_outcome(args.advisory_id, outcome=args.outcome or "unknown",
                                           decision_taken=args.decision, feedback=args.note)
