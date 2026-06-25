@@ -151,6 +151,8 @@ class AdvisoryResponse:
     advisory_note: str = ADVISORY_AUTHORITY_NOTE
     generated_at: str = ""
     raw_synthesis: str = ""       # underlying Commander synthesis (for audit)
+    advisory_id: str = ""         # set when the advice is recorded for outcome tracking
+    learning_note: str = ""       # closed-loop signal from prior outcomes (MSN-0093)
 
     def __post_init__(self) -> None:
         if not self.generated_at:
@@ -177,6 +179,8 @@ class AdvisoryResponse:
             "degraded": self.degraded,
             "advisory_note": self.advisory_note,
             "generated_at": self.generated_at,
+            "advisory_id": self.advisory_id,
+            "learning_note": self.learning_note,
         }
 
     # -- rendering ----------------------------------------------------------
@@ -235,6 +239,8 @@ class AdvisoryResponse:
         L.append("## 6. Confidence Level")
         basis = f" — {self.confidence.basis}" if self.confidence.basis else ""
         L.append(f"**{self.confidence.band}** ({int(self.confidence.value * 100)}%){basis}")
+        if self.learning_note:
+            L.append(f"_Learning signal: {self.learning_note}_")
         if self.escalation_required:
             L.append("")
             L.append("> ⚠ Escalation recommended — Captain decision advised before proceeding.")
@@ -250,6 +256,9 @@ class AdvisoryResponse:
         L.append("")
 
         L.append(f"---\n_{self.advisory_note}_")
+        if self.advisory_id:
+            L.append(f"_Advisory ref: {self.advisory_id} — close the loop with "
+                     f"`/advisory-outcome {self.advisory_id} <success|failure|partial>`._")
         if self.degraded:
             L.append("_Note: produced in degraded mode — live retrieval/LLM was unavailable._")
         return "\n".join(L)

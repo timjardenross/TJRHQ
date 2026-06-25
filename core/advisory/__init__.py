@@ -35,8 +35,13 @@ from service import (  # noqa: E402,F401
     request_challenge,
     invoke,
     available_officers,
+    evidence_brief,
 )
 from lessons import lessons_brief  # noqa: E402,F401
+from outcomes import record_advisory, record_outcome  # noqa: E402,F401
+from calibration import calibration_report  # noqa: E402,F401
+from metrics import advisory_metrics  # noqa: E402,F401
+from learning import historical_signal  # noqa: E402,F401
 
 __all__ = [
     "AdvisoryResponse",
@@ -50,5 +55,11 @@ __all__ = [
     "request_challenge",
     "invoke",
     "available_officers",
+    "evidence_brief",
     "lessons_brief",
+    "record_advisory",
+    "record_outcome",
+    "calibration_report",
+    "advisory_metrics",
+    "historical_signal",
 ]

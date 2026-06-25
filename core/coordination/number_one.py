@@ -270,6 +270,24 @@ class NumberOne:
         self.current_time = datetime.utcnow()
         self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
+    def request_advisory_support(self, mission: dict[str, Any]) -> dict[str, Any]:
+        """MSN-0093 WP2 — consume advisory intelligence for one mission.
+
+        Number One remains the assignment authority; this only *requests* risk,
+        dependency, historical-comparison and confidence support from the shared
+        advisory runtime. Lazy-imported so Number One has no hard dependency on
+        the advisory layer (returns a clear note if it is unavailable).
+        """
+        try:
+            from number_one_advisory import advisory_support  # noqa: PLC0415
+            return advisory_support(mission)
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "mission_id": mission.get("mission_id") or mission.get("id", ""),
+                "error": f"advisory runtime unavailable: {exc}",
+                "authority_note": "Number One decides assignment. Advisory only.",
+            }
+
     def get_work_queue(
         self,
         missions: list[dict[str, Any]],

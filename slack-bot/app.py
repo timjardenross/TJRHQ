@@ -81,7 +81,14 @@ from commands.delivery import handle_delivery
 from commands.brief import handle_brief
 from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
-from commands.advisory import handle_advisor, handle_challenge, handle_lessons
+from commands.advisory import (
+    handle_advisor,
+    handle_challenge,
+    handle_lessons,
+    handle_evidence,
+    handle_advisory_outcome,
+    handle_advisor_metrics,
+)
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
 from commands.map import handle_map
@@ -1396,6 +1403,36 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /lessons: user=%s topic=%r", user_id, text[:80])
         respond(handle_lessons(text, user_id, channel_id))
+
+    @app.command("/evidence")
+    def handle_evidence_slash(ack, respond, command):
+        """/evidence <question> — historical evidence + related decisions."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /evidence: user=%s q=%r", user_id, text[:80])
+        respond(handle_evidence(text, user_id, channel_id))
+
+    @app.command("/advisory-outcome")
+    def handle_advisory_outcome_slash(ack, respond, command):
+        """/advisory-outcome <id|last> <success|failure|partial> [note] — close the loop."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisory-outcome: user=%s text=%r", user_id, text[:80])
+        respond(handle_advisory_outcome(text, user_id, channel_id))
+
+    @app.command("/advisor-metrics")
+    def handle_advisor_metrics_slash(ack, respond, command):
+        """/advisor-metrics [calibration] — advisory metrics / calibration report."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor-metrics: user=%s arg=%r", user_id, text[:40])
+        respond(handle_advisor_metrics(text, user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")

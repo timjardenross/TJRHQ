@@ -46,6 +46,8 @@ from schema import (  # noqa: E402
 )
 import evidence as _evidence  # noqa: E402
 import lessons as _lessons  # noqa: E402
+import learning as _learning  # noqa: E402
+import outcomes as _outcomes  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +86,17 @@ def request_advice(
     mission_type: Optional[str] = None,
     challenge: bool = True,
     keyword: bool = False,
+    record: bool = True,
+    _action: str = "advice",
 ) -> AdvisoryResponse:
     """Produce a standard AdvisoryResponse for ``question``.
 
     challenge=True (default) runs the red-team review so disagreement is surfaced
     — honouring "multiple perspectives before single recommendations".
+
+    The closed loop (MSN-0093): a learning signal from prior outcomes adjusts
+    confidence, and the advice is recorded (record=True) so its outcome can later
+    be tracked. Recording grants no authority — the Captain still decides.
     """
     question = (question or "").strip()
     if not question:
@@ -116,7 +124,17 @@ def request_advice(
         base -= 0.15
     confidence = _evidence.score_confidence(base, raw_ev, officer_confidences)
 
-    return AdvisoryResponse(
+    # MSN-0093 closed-loop: fold the historical-outcome signal into confidence.
+    signal = _learning.historical_signal(question)
+    learning_note = ""
+    if signal.get("matched", 0) >= 1:
+        learning_note = signal.get("note", "")
+        delta = signal.get("confidence_delta", 0.0)
+        if delta:
+            new_basis = (confidence.basis + "; prior-outcome adjusted").strip("; ")
+            confidence = ConfidenceLevel.from_value(confidence.value + delta, basis=new_basis)
+
+    resp = AdvisoryResponse(
         question=question,
         executive_summary=_summarise(pipeline, confidence, len(evidence_items), len(lesson_refs)),
         recommendation=pipeline["recommendation"],
@@ -133,12 +151,19 @@ def request_advice(
         sources=pipeline.get("sources", []),
         degraded=pipeline.get("degraded", False),
         raw_synthesis=pipeline.get("raw_synthesis", ""),
+        learning_note=learning_note,
     )
+
+    if record:
+        resp.advisory_id = _outcomes.record_advisory(resp, action=_action)
+
+    return resp
 
 
 def request_challenge(question: str, **kwargs: Any) -> AdvisoryResponse:
     """Advisory with the challenge/red-team review forced on and surfaced first."""
     kwargs["challenge"] = True
+    kwargs.setdefault("_action", "challenge")
     resp = request_advice(question, **kwargs)
     if not resp.disagreement and resp.reviewer:
         resp.disagreement = (
@@ -148,15 +173,50 @@ def request_challenge(question: str, **kwargs: Any) -> AdvisoryResponse:
     return resp
 
 
+def evidence_brief(question: str) -> dict[str, Any]:
+    """Evidence-focused view for the `/evidence` action — historical evidence,
+    related decisions and lessons for a question, without a full synthesis."""
+    question = (question or "").strip()
+    if not question:
+        return {"question": "", "evidence": [], "related_decisions": [], "lessons": [],
+                "narrative": "Provide a question to review evidence."}
+
+    items, _raw = _evidence.gather_evidence("Advisory", question)
+    decisions = _evidence.gather_related_decisions(question, limit=5)
+    lesson_refs = _lessons.related_lessons("Advisory", question, limit=5)
+    signal = _learning.historical_signal(question)
+
+    parts: list[str] = []
+    if items:
+        parts.append(f"{len(items)} historical evidence item(s) found.")
+    if decisions:
+        parts.append(f"{len(decisions)} related prior decision(s).")
+    if signal.get("success_rate") is not None:
+        parts.append(f"Similar past decisions succeeded {int(signal['success_rate'] * 100)}% of the time.")
+    if not parts:
+        parts.append("No historical evidence matched this question yet.")
+
+    return {
+        "question": question,
+        "evidence": [e.to_dict() for e in items],
+        "related_decisions": [d.to_dict() for d in decisions],
+        "lessons": [l.to_dict() for l in lesson_refs],
+        "learning_signal": signal,
+        "narrative": " ".join(parts),
+    }
+
+
 def invoke(action: str, query: str, **opts: Any):
     """Single dispatcher for interfaces.
 
-    action: "advice" | "challenge" | "lessons"
-    Returns an AdvisoryResponse for advice/challenge, or a lessons-brief dict.
+    action: "advice" | "challenge" | "lessons" | "evidence"
+    Returns an AdvisoryResponse for advice/challenge, or a brief dict otherwise.
     """
     action = (action or "advice").lower().strip()
     if action in ("lessons", "lesson", "history"):
         return _lessons.lessons_brief(query)
+    if action in ("evidence", "evidence_review"):
+        return evidence_brief(query)
     if action in ("challenge", "review"):
         return request_challenge(query, **opts)
     return request_advice(query, **opts)

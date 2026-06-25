@@ -34,6 +34,34 @@ def _lessons():
     return lessons
 
 
+def _outcomes():
+    import outcomes  # noqa: PLC0415
+    return outcomes
+
+
+def _metrics():
+    import metrics  # noqa: PLC0415
+    return metrics
+
+
+def _calibration():
+    import calibration  # noqa: PLC0415
+    return calibration
+
+
+def _slackify(md: str) -> str:
+    md = md.replace("**", "*")
+    out = []
+    for line in md.splitlines():
+        if line.startswith("# "):
+            out.append(f"*{line[2:]}*")
+        elif line.startswith("## "):
+            out.append(f"*{line[3:]}*")
+        else:
+            out.append(line)
+    return "\n".join(out)[:2900]
+
+
 def handle_advisor(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
     text = (text or "").strip()
     if not text:
@@ -83,18 +111,59 @@ def handle_lessons(text: str, user_id: str | None = None, channel_id: str | None
     log.info("[lessons] user=%s topic=%r", user_id, text[:80])
     try:
         brief = _service().invoke("lessons", text)
-        md = _lessons().to_markdown(brief)
-        md = md.replace("**", "*")
-        out = []
-        for line in md.splitlines():
-            if line.startswith("# "):
-                out.append(f"*{line[2:]}*")
-            elif line.startswith("## "):
-                out.append(f"*{line[3:]}*")
-            else:
-                out.append(line)
-        text_out = "\n".join(out)
-        return text_out[:2900] if text_out.strip() else "*LESSONS*\n\nNo lessons matched that topic."
+        text_out = _slackify(_lessons().to_markdown(brief))
+        return text_out if text_out.strip() else "*LESSONS*\n\nNo lessons matched that topic."
     except Exception as exc:  # noqa: BLE001
         log.error("[lessons] failed: %s", exc)
         return f"*LESSONS*\n\nAdvisory runtime error: `{exc}`."
+
+
+def handle_evidence(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    text = (text or "").strip()
+    if not text:
+        return ("*EVIDENCE*\n\nUsage: `/evidence <question>`\n"
+                "Shows historical evidence, related prior decisions and lessons.")
+    log.info("[evidence] user=%s q=%r", user_id, text[:80])
+    try:
+        brief = _service().invoke("evidence", text)
+        lines = [f"*EVIDENCE — {text}*", "", brief.get("narrative", "")]
+        for d in brief.get("related_decisions", []):
+            tag = f" [{d.get('outcome')}]" if d.get("outcome") else ""
+            lines.append(f"• `{d.get('decision_id')}`{tag}: {d.get('question')}")
+        for l in brief.get("lessons", []):
+            lines.append(f"• {l.get('lesson_id')}: {l.get('title')}")
+        return "\n".join(lines)[:2900]
+    except Exception as exc:  # noqa: BLE001
+        log.error("[evidence] failed: %s", exc)
+        return f"*EVIDENCE*\n\nAdvisory runtime error: `{exc}`."
+
+
+def handle_advisory_outcome(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/advisory-outcome <advisory_id|last> <success|failure|partial> [note]`."""
+    parts = (text or "").split()
+    if len(parts) < 2:
+        return ("*ADVISORY OUTCOME*\n\n"
+                "Usage: `/advisory-outcome <advisory_id|last> <success|failure|partial> [note]`\n"
+                "Closes the advisory loop so the system can learn from what happened.")
+    advisory_id, outcome = parts[0], parts[1].lower()
+    note = " ".join(parts[2:])
+    log.info("[advisory-outcome] user=%s id=%s outcome=%s", user_id, advisory_id, outcome)
+    try:
+        res = _outcomes().record_outcome(advisory_id, outcome=outcome, feedback=note)
+        prefix = "✅" if res.get("ok") else "⚠️"
+        return f"*ADVISORY OUTCOME*\n\n{prefix} {res.get('message')}"
+    except Exception as exc:  # noqa: BLE001
+        log.error("[advisory-outcome] failed: %s", exc)
+        return f"*ADVISORY OUTCOME*\n\nAdvisory runtime error: `{exc}`."
+
+
+def handle_advisor_metrics(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/advisor-metrics [calibration]` — advisory metrics or calibration report."""
+    log.info("[advisor-metrics] user=%s arg=%r", user_id, text)
+    try:
+        if (text or "").strip().lower().startswith("cal"):
+            return _slackify(_calibration().to_markdown())
+        return _slackify(_metrics().to_markdown())
+    except Exception as exc:  # noqa: BLE001
+        log.error("[advisor-metrics] failed: %s", exc)
+        return f"*ADVISOR METRICS*\n\nAdvisory runtime error: `{exc}`."

@@ -3,18 +3,21 @@
 import { useState, type ReactNode } from 'react';
 
 /**
- * Advisors — USS-TJR-MSN-0092 WP5.
+ * Advisor Hub — USS-TJR-MSN-0092 / MSN-0093 WP6.
  *
- * Surfaces the shared advisory runtime (core/advisory) in the portal via
- * /api/advisory. Three actions, one engine:
- *   - Ask Advisors      → multi-officer, evidence-based recommendation
- *   - Challenge Decision → red-team review surfaced
- *   - Review Lessons     → prior lessons for the topic
+ * Unified advisory experience over the shared advisory runtime (core/advisory)
+ * via /api/advisory:
+ *   - Ask Advisors        → multi-officer, evidence-based recommendation
+ *   - Challenge Decision  → red-team review surfaced
+ *   - Historical Evidence → evidence + related prior decisions
+ *   - Review Lessons      → prior lessons for the topic
+ *   - Metrics             → advisory utilisation, success rates, top advisors
+ *   - Outcome capture     → close the loop so the system learns
  *
  * Advisory only — Captain TJR decides. No autonomous action.
  */
 
-type Action = 'advice' | 'challenge' | 'lessons';
+type Action = 'advice' | 'challenge' | 'lessons' | 'evidence';
 
 interface OfficerPerspective {
   officer: string;
@@ -42,6 +45,8 @@ interface AdvisoryResult {
   escalation_required?: boolean;
   disagreement?: string;
   advisory_note?: string;
+  advisory_id?: string;
+  learning_note?: string;
   degraded?: boolean;
 }
 
@@ -51,44 +56,74 @@ interface LessonsResult {
   lessons: LessonRef[];
   similar_missions: { mission_id: string; title: string; outcome_score?: number }[];
 }
+interface EvidenceResult {
+  question: string;
+  narrative: string;
+  evidence: EvidenceItem[];
+  related_decisions: RelatedDecision[];
+  lessons: LessonRef[];
+}
+interface MetricsResult {
+  totals: Record<string, number>;
+  recommendation_success_rate?: number | null;
+  confidence_distribution: Record<string, number>;
+  advisor_utilisation: Record<string, number>;
+  dashboard: {
+    top_advisors: { officer: string; accuracy: number; samples: number }[];
+    most_valuable_lessons: { lesson_id: string; uses: number; success_rate?: number | null; signal: string }[];
+    historical_effectiveness?: number | null;
+  };
+}
 
 const ACTIONS: { key: Action; label: string }[] = [
   { key: 'advice', label: 'Ask Advisors' },
   { key: 'challenge', label: 'Challenge Decision' },
+  { key: 'evidence', label: 'Historical Evidence' },
   { key: 'lessons', label: 'Review Lessons' },
 ];
 
 export default function AdvisoryPage() {
   const [question, setQuestion] = useState('');
-  const [action, setAction] = useState<Action>('advice');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [advice, setAdvice] = useState<AdvisoryResult | null>(null);
   const [lessons, setLessons] = useState<LessonsResult | null>(null);
+  const [evidence, setEvidence] = useState<EvidenceResult | null>(null);
+  const [metrics, setMetrics] = useState<MetricsResult | null>(null);
+  const [outcomeMsg, setOutcomeMsg] = useState<string | null>(null);
+
+  function clearResults() {
+    setError(null);
+    setAdvice(null);
+    setLessons(null);
+    setEvidence(null);
+    setMetrics(null);
+    setOutcomeMsg(null);
+  }
+
+  async function post(body: Record<string, unknown>) {
+    const res = await fetch('/api/advisory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Advisory runtime error.');
+    return data.result;
+  }
 
   async function run(act: Action) {
     if (!question.trim()) {
       setError('Enter a question or topic first.');
       return;
     }
-    setAction(act);
     setLoading(true);
-    setError(null);
-    setAdvice(null);
-    setLessons(null);
+    clearResults();
     try {
-      const res = await fetch('/api/advisory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: act, question: question.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Advisory runtime error.');
-        return;
-      }
-      if (act === 'lessons') setLessons(data.result as LessonsResult);
-      else setAdvice(data.result as AdvisoryResult);
+      const result = await post({ action: act, question: question.trim() });
+      if (act === 'lessons') setLessons(result as LessonsResult);
+      else if (act === 'evidence') setEvidence(result as EvidenceResult);
+      else setAdvice(result as AdvisoryResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Request failed.');
     } finally {
@@ -96,13 +131,48 @@ export default function AdvisoryPage() {
     }
   }
 
+  async function showMetrics() {
+    setLoading(true);
+    clearResults();
+    try {
+      setMetrics((await post({ action: 'metrics' })) as MetricsResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Request failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function recordOutcome(outcome: string) {
+    if (!advice?.advisory_id) return;
+    setOutcomeMsg('Recording…');
+    try {
+      const result = (await post({ action: 'outcome', advisoryId: advice.advisory_id, outcome })) as {
+        message?: string;
+      };
+      setOutcomeMsg(result.message ?? 'Recorded.');
+    } catch (e) {
+      setOutcomeMsg(e instanceof Error ? e.message : 'Failed to record outcome.');
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5 p-4">
-      <header>
-        <h1 className="text-xl font-semibold uppercase tracking-wider text-lcars-text">Advisors</h1>
-        <p className="text-sm text-lcars-muted">
-          Multi-officer, evidence-based advisory. Advisory only — you decide.
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold uppercase tracking-wider text-lcars-text">Advisor Hub</h1>
+          <p className="text-sm text-lcars-muted">
+            Multi-officer, evidence-based advisory that learns from outcomes. Advisory only — you decide.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={showMetrics}
+          disabled={loading}
+          className="shrink-0 rounded-lcars border border-edge bg-panel/50 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-lcars-muted hover:border-lcars-muted disabled:opacity-50"
+        >
+          Metrics
+        </button>
       </header>
 
       <textarea
@@ -129,13 +199,37 @@ export default function AdvisoryPage() {
 
       {loading && <p className="text-sm text-lcars-muted">Consulting officers…</p>}
       {error && (
-        <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
-          {error}
-        </p>
+        <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
-      {advice && <AdviceView data={advice} />}
+      {advice && (
+        <>
+          <AdviceView data={advice} />
+          {advice.advisory_id && (
+            <Section title="Close the Loop">
+              <p className="mb-2 text-xs text-lcars-muted">
+                Record the outcome so advisors learn (ref {advice.advisory_id}):
+              </p>
+              <div className="flex gap-2">
+                {['success', 'partial', 'failure'].map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => recordOutcome(o)}
+                    className="rounded-lcars border border-edge bg-panel/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-lcars-text hover:border-lcars-muted"
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+              {outcomeMsg && <p className="mt-2 text-xs text-lcars-muted">{outcomeMsg}</p>}
+            </Section>
+          )}
+        </>
+      )}
       {lessons && <LessonsView data={lessons} />}
+      {evidence && <EvidenceView data={evidence} />}
+      {metrics && <MetricsView data={metrics} />}
     </div>
   );
 }
@@ -228,6 +322,7 @@ function AdviceView({ data }: { data: AdvisoryResult }) {
           ({Math.round((data.confidence?.value ?? 0) * 100)}%)
           {data.confidence?.basis ? ` — ${data.confidence.basis}` : ''}
         </p>
+        {data.learning_note && <p className="mt-1 text-xs italic text-lcars-muted">{data.learning_note}</p>}
         {data.escalation_required && (
           <p className="mt-1 text-amber-300">⚠ Escalation recommended — Captain decision advised.</p>
         )}
@@ -281,6 +376,80 @@ function LessonsView({ data }: { data: LessonsResult }) {
           </ul>
         </Section>
       ) : null}
+    </div>
+  );
+}
+
+function EvidenceView({ data }: { data: EvidenceResult }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <Section title="Historical Evidence">{data.narrative}</Section>
+      {data.related_decisions?.length ? (
+        <Section title="Related Prior Decisions">
+          <ul className="list-disc pl-5">
+            {data.related_decisions.map((d, i) => (
+              <li key={i}>
+                <code>{d.decision_id}</code>
+                {d.outcome ? ` [${d.outcome}]` : ''} — {d.question}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+      {data.lessons?.length ? (
+        <Section title="Related Lessons">
+          <ul className="list-disc pl-5">
+            {data.lessons.map((l) => (
+              <li key={l.lesson_id}>
+                <strong>{l.lesson_id}: {l.title}</strong>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+    </div>
+  );
+}
+
+function MetricsView({ data }: { data: MetricsResult }) {
+  const sr = data.recommendation_success_rate;
+  return (
+    <div className="flex flex-col gap-3">
+      <Section title="Advisory Metrics">
+        <ul className="list-disc pl-5">
+          <li>Advisory requests: {data.totals.advisory_requests ?? 0}</li>
+          <li>Challenge requests: {data.totals.challenge_requests ?? 0}</li>
+          <li>Outcomes recorded: {data.totals.outcomes_recorded ?? 0}</li>
+          <li>Recommendation success rate: {sr != null ? `${Math.round(sr * 100)}%` : '—'}</li>
+        </ul>
+      </Section>
+      <Section title="Top Advisors">
+        {data.dashboard.top_advisors?.length ? (
+          <ul className="list-disc pl-5">
+            {data.dashboard.top_advisors.map((r) => (
+              <li key={r.officer}>
+                {r.officer}: {Math.round(r.accuracy * 100)}% (n={r.samples})
+              </li>
+            ))}
+          </ul>
+        ) : (
+          'No outcome data yet.'
+        )}
+      </Section>
+      <Section title="Most Valuable Lessons">
+        {data.dashboard.most_valuable_lessons?.length ? (
+          <ul className="list-disc pl-5">
+            {data.dashboard.most_valuable_lessons.map((l) => (
+              <li key={l.lesson_id}>
+                {l.lesson_id} — used {l.uses}×
+                {l.success_rate != null ? `, ${Math.round(l.success_rate * 100)}% success` : ''} ({l.signal})
+              </li>
+            ))}
+          </ul>
+        ) : (
+          'No lessons surfaced yet.'
+        )}
+      </Section>
     </div>
   );
 }
