@@ -176,8 +176,13 @@ def _cmd_list_uncaptured(args) -> int:
     rows = list_uncaptured(limit=args.limit)
     print(f"\n── Open Items Missing Outcome Capture ({len(rows)}) ──────────")
     _offline_note()
+    _TIER = {"learning_debt": "🔴 DEBT(30d+)", "xo": "🟠 XO(21d+)",
+             "number_one": "🟠 N1(14d+)", "reminder": "🟡 reminder(7d+)", "none": ""}
     for r in rows:
-        print(f"  [{r['source_type']:<8}] {str(r['source_id']):<16} {r['title'][:56]}")
+        tier = _TIER.get(r.get("escalation_tier", "none"), "")
+        age = r.get("age_days")
+        age_s = f"{age}d" if age is not None else "?"
+        print(f"  [{r['source_type']:<8}] {str(r['source_id']):<16} {age_s:>4}  {tier:<14} {r['title'][:44]}")
     if rows:
         print("\n  → Record with: python3 tools/record_outcome.py record "
               "--source-type <t> --source-id <id> --title <...> --status <...>")

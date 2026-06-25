@@ -345,12 +345,31 @@ def test_velocity_and_trend_buckets():
     assert weeks[0] == 2 and weeks[1] == 1
 
 
+def test_escalation_tier_thresholds():
+    assert oc.escalation_tier(0) == "none"
+    assert oc.escalation_tier(6) == "none"
+    assert oc.escalation_tier(7) == "reminder"
+    assert oc.escalation_tier(13) == "reminder"
+    assert oc.escalation_tier(14) == "number_one"
+    assert oc.escalation_tier(20) == "number_one"
+    assert oc.escalation_tier(21) == "xo"
+    assert oc.escalation_tier(29) == "xo"
+    assert oc.escalation_tier(30) == "learning_debt"
+    assert oc.escalation_tier(None) == "none"
+
+
 def test_learning_status_offline_safe():
     _set_offline()
     s = oc.learning_status()
     assert s.data_available is False
     assert s.health == "UNKNOWN"
-    assert s.as_dict()["PENDING OUTCOMES"] == 0
+    d = s.as_dict()
+    assert d["PENDING OUTCOMES"] == 0
+    # MSN-0082 operational metrics present in the status dict.
+    assert "CAPTURE COMPLIANCE (%)" in d
+    assert "LEARNING DEBT (30d+)" in d
+    assert "LEADERSHIP CANDIDATES" in d
+    assert s.learning_debt == 0
 
 
 def test_learning_status_block_offline():

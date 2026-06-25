@@ -382,5 +382,46 @@ class TestSensitiveApprovalGate(unittest.TestCase):
         self.assertIn("Nothing pending", out)
 
 
+# ── MSN-0082 Leadership Intelligence Brief ────────────────────────────────────
+
+from lib.comms import leadership  # noqa: E402
+
+
+class TestLeadershipBrief(unittest.TestCase):
+    def test_compose_groups_leadership_and_lessons(self):
+        cands = [
+            {"title": "Decided local-first AI", "content_classification": "leadership",
+             "reusable_insight": "default local; escalate on quota",
+             "source_type": "decision", "source_id": "D-3"},
+            {"title": "Continuity drill", "content_classification": "operational_resilience",
+             "reusable_insight": "design continuity before you need it",
+             "source_type": "mission", "source_id": "MSN-9"},
+            {"title": "Should not show", "content_classification": "linkedin",
+             "reusable_insight": "x", "source_type": "note", "source_id": "N-1"},
+        ]
+        lessons = [{"lesson_id": "LL-1", "title": "Ship small", "future_guidance": "reduce batch size"}]
+        out = leadership.compose_leadership_brief(cands, lessons)
+        self.assertIn("Weekly Leadership Insight", out)
+        self.assertIn("internal", out.lower())
+        self.assertIn("Decided local-first AI", out)
+        self.assertIn("Continuity drill", out)
+        self.assertNotIn("Should not show", out)   # non-leadership class excluded
+        self.assertIn("Ship small", out)            # reusable leadership lesson
+
+    def test_empty_graceful(self):
+        out = leadership.compose_leadership_brief([], [])
+        self.assertIn("No leadership insights", out)
+
+    def test_command_routes_leadership(self):
+        cands = [{"title": "Resilience win", "content_classification": "operational_resilience",
+                  "reusable_insight": "build continuity early", "source_type": "mission",
+                  "source_id": "MSN-1"}]
+        with patch.object(comms_cmd, "get_content_candidates", return_value=cands), \
+             patch.object(comms_cmd, "list_lessons", return_value=[]):
+            out = comms_cmd.handle_comms("leadership")
+        self.assertIn("Leadership Insight", out)
+        self.assertIn("Resilience win", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

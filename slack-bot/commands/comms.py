@@ -24,10 +24,10 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 try:
-    from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting
+    from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership
     from lib.human_systems import safety
 except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting  # type: ignore
+    from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership  # type: ignore
     from slack_bot.lib.human_systems import safety  # type: ignore
 
 # MSN-0079: sensitive-content approval gate + review/metrics surfaces. Reuses the
@@ -38,7 +38,7 @@ try:
     if _KP not in _sys.path:
         _sys.path.insert(0, _KP)
     from outcome_capture import (  # type: ignore
-        requires_approval, get_content_candidates, learning_metrics,
+        requires_approval, get_content_candidates, learning_metrics, list_lessons,
         SENSITIVE_APPROVAL_REQUIRED,
     )
 except Exception:  # pragma: no cover
@@ -48,6 +48,8 @@ except Exception:  # pragma: no cover
         return []
     def learning_metrics():  # type: ignore
         return None
+    def list_lessons(*a, **k):  # type: ignore
+        return []
     SENSITIVE_APPROVAL_REQUIRED = ()  # type: ignore
 
 
@@ -73,6 +75,8 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
         return safety.frame(_pending(), with_footer=False)
     if cmd in ("metrics", "stats"):
         return safety.frame(_metrics(), with_footer=False)
+    if cmd in ("leadership", "leaders", "insight"):
+        return safety.frame(_leadership(), with_footer=False)
     return safety.frame(_help(), with_footer=False)
 
 
@@ -88,9 +92,26 @@ def _help() -> str:
         "• `/comms portfolio` — published reputation record + content pipeline\n"
         "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n"
         "• `/comms pending` — sensitive content awaiting Captain approval\n"
-        "• `/comms metrics` — outcome & learning counts\n\n"
+        "• `/comms metrics` — outcome & learning counts\n"
+        "• `/comms leadership` — internal Leadership Insight brief\n\n"
         "_Reputation over reach. Intelligence first. Captain-as-publisher._"
     )
+
+
+def _leadership() -> str:
+    """WP6: internal Leadership Insight brief from leadership-lens outcomes + lessons.
+
+    Internal audiences only; sensitive/not_for_publication content is excluded
+    upstream by get_content_candidates. Nothing is published."""
+    try:
+        cands = get_content_candidates(limit=25)
+    except Exception:  # pragma: no cover
+        cands = []
+    try:
+        lessons = list_lessons(limit=6)
+    except Exception:  # pragma: no cover
+        lessons = []
+    return leadership.compose_leadership_brief(cands, lessons)
 
 
 def _weekly() -> str:

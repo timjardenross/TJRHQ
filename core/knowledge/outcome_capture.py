@@ -516,8 +516,33 @@ def pending_outcomes(limit: int = 50) -> list[dict[str, Any]]:
     """Closed missions / recorded decisions still missing an outcome_record.
 
     Thin wrapper over list_uncaptured() (the join already lives there) — no new
-    store, offline → []. This IS the outcome reminder queue."""
-    return list_uncaptured(limit=limit)
+    store, offline → []. This IS the outcome reminder queue. Each item carries an
+    ``escalation_tier`` (MSN-0082) derived from its age."""
+    items = list_uncaptured(limit=limit)
+    for it in items:
+        it["escalation_tier"] = escalation_tier(it.get("age_days"))
+    return items
+
+
+# MSN-0082 WP3: reminder/escalation tiers — inform, never punish.
+ESCALATION_REMINDER_DAYS = 7    # 7d  → reminder (owner: self)
+ESCALATION_N1_DAYS = 14         # 14d → Number One attention
+ESCALATION_XO_DAYS = 21         # 21d → XO visibility
+ESCALATION_DEBT_DAYS = 30       # 30d → learning debt
+
+
+def escalation_tier(age_days: Optional[int]) -> str:
+    """Map a pending item's age to an operational tier (MSN-0082 WP3):
+    none (<7) · reminder (7–13) · number_one (14–20) · xo (21–29) · learning_debt (30+)."""
+    if age_days is None or age_days < ESCALATION_REMINDER_DAYS:
+        return "none"
+    if age_days < ESCALATION_N1_DAYS:
+        return "reminder"
+    if age_days < ESCALATION_XO_DAYS:
+        return "number_one"
+    if age_days < ESCALATION_DEBT_DAYS:
+        return "xo"
+    return "learning_debt"
 
 
 # --- Learning metrics (WP7) — lightweight counts -----------------------------
@@ -618,6 +643,11 @@ class LearningStatus:
     # Health (WP5).
     health: str = "UNKNOWN"
     health_reasons: list[str] = field(default_factory=list)
+    # MSN-0082 WP8: operational learning-health metrics.
+    capture_compliance_pct: Optional[int] = None   # % of closable items with an outcome
+    overdue_pct: Optional[int] = None              # % of pending that are RED (15+)
+    learning_debt: int = 0                         # pending items 30+ days old
+    leadership_candidates: int = 0                 # leadership/op-resilience content candidates
     data_available: bool = False
 
     def as_dict(self) -> dict[str, Any]:
@@ -632,6 +662,10 @@ class LearningStatus:
             "LEARNING VELOCITY (7d)": self.learning_velocity_7d,
             "OLDEST UNCAPTURED (days)": self.oldest_uncaptured_days,
             "AVG OUTCOME AGE (days)": self.average_outcome_age_days,
+            "CAPTURE COMPLIANCE (%)": self.capture_compliance_pct,
+            "OVERDUE (%)": self.overdue_pct,
+            "LEARNING DEBT (30d+)": self.learning_debt,
+            "LEADERSHIP CANDIDATES": self.leadership_candidates,
             "HEALTH": self.health,
         }
 
@@ -707,8 +741,19 @@ def learning_status() -> LearningStatus:
         pending=len(pend), overdue=pending_red, velocity=velocity, outcomes=len(recent),
     )
 
+    # MSN-0082 WP8 operational metrics.
+    recorded = len(recent)
+    closable = recorded + len(pend)                      # captured + still-pending closures
+    compliance = round(100 * recorded / closable) if closable else None
+    overdue_pct = round(100 * pending_red / len(pend)) if pend else 0
+    learning_debt = sum(1 for p in pend if (p.get("age_days") or 0) >= ESCALATION_DEBT_DAYS)
+    leadership_candidates = len([
+        r for r in get_content_candidates(limit=1000)
+        if r.get("content_classification") in ("leadership", "operational_resilience")
+    ])
+
     return LearningStatus(
-        outcomes_recorded=len(recent),
+        outcomes_recorded=recorded,
         pending_outcomes=len(pend),
         overdue_outcomes=pending_red,
         lessons_captured=len(list_lessons(limit=1000)),
@@ -724,6 +769,10 @@ def learning_status() -> LearningStatus:
         outcomes_per_week=trend,
         health=health,
         health_reasons=reasons,
+        capture_compliance_pct=compliance,
+        overdue_pct=overdue_pct,
+        learning_debt=learning_debt,
+        leadership_candidates=leadership_candidates,
         data_available=True,
     )
 
