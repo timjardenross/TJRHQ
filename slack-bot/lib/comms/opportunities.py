@@ -85,6 +85,9 @@ class ContentOpportunity:
     suggested_format: str
     classification: str
     score: float
+    # MSN-0079: the underlying outcome content_classification (sensitivity routing).
+    # None for the 8 Command-Memory sources; set for outcome-sourced opportunities.
+    content_classification: str | None = None
 
     @property
     def is_publishable(self) -> bool:
@@ -150,6 +153,7 @@ def outcome_opportunities(candidates: list[dict]) -> list["ContentOpportunity"]:
         fmt = _OUTCOME_CLASS_FORMAT.get(cls or "")
         if fmt:
             opp.suggested_format = fmt
+        opp.content_classification = cls
         out.append(opp)
     return out
 

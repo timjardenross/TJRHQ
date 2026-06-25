@@ -334,5 +334,53 @@ class TestOutcomeBridge(unittest.TestCase):
         self.assertEqual(outcome_items[0].suggested_format, "industry_commentary")
 
 
+# ── MSN-0079 sensitive-content approval gate + review/metrics ─────────────────
+
+def _sensitive_opp(cls="personal_story"):
+    o = opp.build_opportunity("outcome", ref="MSN-9", title="Recovery under pressure",
+                              body="a personal story about leading through pain")
+    o.content_classification = cls
+    return o
+
+
+class TestSensitiveApprovalGate(unittest.TestCase):
+    def test_draft_blocks_sensitive_without_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities",
+                          return_value=[_sensitive_opp("personal_story")]):
+            out = comms_cmd.handle_comms("draft 1")
+        self.assertIn("approval required", out.lower())
+        self.assertIn("confirm", out.lower())
+
+    def test_draft_allows_sensitive_with_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities",
+                          return_value=[_sensitive_opp("coaching")]), \
+             patch.object(comms_cmd.drafting, "generate_draft",
+                          return_value=("scaffold", "*Draft scaffold — Lessons Learned*")), \
+             patch.object(comms_cmd.portfolio, "record_content", lambda **k: True):
+            out = comms_cmd.handle_comms("draft 1 confirm")
+        self.assertIn("Draft scaffold", out)
+
+    def test_non_sensitive_draft_needs_no_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities", return_value=[_opp()]), \
+             patch.object(comms_cmd.drafting, "generate_draft",
+                          return_value=("scaffold", "*Draft scaffold — Case Study*")), \
+             patch.object(comms_cmd.portfolio, "record_content", lambda **k: True):
+            out = comms_cmd.handle_comms("draft 1")
+        self.assertIn("Draft scaffold", out)
+
+    def test_pending_lists_sensitive(self):
+        cands = [{"title": "Burnout lesson", "content_classification": "personal_story",
+                  "source_type": "note", "source_id": "N-1"}]
+        with patch.object(comms_cmd, "get_content_candidates", return_value=cands):
+            out = comms_cmd.handle_comms("pending")
+        self.assertIn("Burnout lesson", out)
+        self.assertIn("approval", out.lower())
+
+    def test_pending_empty_safe(self):
+        with patch.object(comms_cmd, "get_content_candidates", return_value=[]):
+            out = comms_cmd.handle_comms("pending")
+        self.assertIn("Nothing pending", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

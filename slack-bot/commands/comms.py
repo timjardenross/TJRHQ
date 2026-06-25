@@ -30,6 +30,26 @@ except Exception:  # pragma: no cover
     from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting  # type: ignore
     from slack_bot.lib.human_systems import safety  # type: ignore
 
+# MSN-0079: sensitive-content approval gate + review/metrics surfaces. Reuses the
+# outcome_capture system of record (read-only). Guarded so /comms degrades cleanly.
+try:
+    import sys as _sys
+    _KP = str(_REPO_ROOT / "core" / "knowledge")
+    if _KP not in _sys.path:
+        _sys.path.insert(0, _KP)
+    from outcome_capture import (  # type: ignore
+        requires_approval, get_content_candidates, learning_metrics,
+        SENSITIVE_APPROVAL_REQUIRED,
+    )
+except Exception:  # pragma: no cover
+    def requires_approval(_c):  # type: ignore
+        return False
+    def get_content_candidates(*a, **k):  # type: ignore
+        return []
+    def learning_metrics():  # type: ignore
+        return None
+    SENSITIVE_APPROVAL_REQUIRED = ()  # type: ignore
+
 
 def handle_comms(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
     raw = (text or "").strip()
@@ -49,6 +69,10 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
         return safety.frame(_portfolio(), with_footer=False)
     if cmd in ("send", "test-send", "push"):
         return safety.frame(_send(), with_footer=False)
+    if cmd in ("pending", "approvals", "review"):
+        return safety.frame(_pending(), with_footer=False)
+    if cmd in ("metrics", "stats"):
+        return safety.frame(_metrics(), with_footer=False)
     return safety.frame(_help(), with_footer=False)
 
 
@@ -62,7 +86,9 @@ def _help() -> str:
         "• `/comms draft <n> [format]` — a draft scaffold for opportunity n\n"
         "• `/comms pillars` — the eight thought-leadership themes\n"
         "• `/comms portfolio` — published reputation record + content pipeline\n"
-        "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n\n"
+        "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n"
+        "• `/comms pending` — sensitive content awaiting Captain approval\n"
+        "• `/comms metrics` — outcome & learning counts\n\n"
         "_Reputation over reach. Intelligence first. Captain-as-publisher._"
     )
 
@@ -88,6 +114,10 @@ def _opportunities() -> str:
 
 def _draft(rest: str) -> str:
     toks = rest.split()
+    # MSN-0079: an explicit confirm/approve token is the Captain's approval for
+    # sensitive content. Strip it out before parsing index/format.
+    confirmed = any(t.lower() in ("confirm", "approve", "approved") for t in toks)
+    toks = [t for t in toks if t.lower() not in ("confirm", "approve", "approved")]
     if not toks or not toks[0].lstrip("#").isdigit():
         return "Which opportunity? Try `/comms draft 1` (optionally `/comms draft 1 case_study`)."
     idx = int(toks[0].lstrip("#"))
@@ -96,6 +126,17 @@ def _draft(rest: str) -> str:
     if not (1 <= idx <= len(items)):
         return f"Opportunity {idx} isn't in range (1–{len(items)}). Try `/comms opportunities`."
     o = items[idx - 1]
+    # MSN-0079 WP5: sensitive classifications require explicit Captain approval
+    # before a draft is generated. Block (don't generate) until confirmed.
+    cls = getattr(o, "content_classification", None)
+    if requires_approval(cls) and not confirmed:
+        return (
+            f"🔒 *Captain approval required* — this draft is classified "
+            f"*{cls}* (sensitive: personal / coaching / wellness / internal).\n"
+            f"It will not be generated, stored externally, or published. To proceed, "
+            f"re-run with confirmation:\n`/comms draft {idx}"
+            f"{(' ' + fmt_key) if fmt_key else ''} confirm`"
+        )
     if fmt_key and fmt_key not in formats.FORMATS_BY_KEY:
         valid = ", ".join(f.key for f in formats.FORMATS)
         return f"Unknown format '{fmt_key}'. Options: {valid}."
@@ -157,6 +198,52 @@ def _send() -> str:
         return f"*Weekly influence brief sent* → {report.get('channel')}."
     return (f"*Couldn't deliver* — {report.get('error') or 'no surface available'}. "
             "Check the bot token(s) and recipient config.")
+
+
+def _pending() -> str:
+    """WP6: review queue of sensitive content awaiting Captain approval.
+
+    Lists outcome-derived candidates whose classification is sensitive
+    (coaching / wellness / personal_story / internal_work). These never appear in
+    the default opportunity list and are never auto-published. The Captain may:
+      • approve → `/comms draft <n> confirm` (generates an internal draft only)
+      • reject  → mark the outcome `not_for_publication` via record_outcome
+      • defer   → leave it (it simply stays here)
+    """
+    try:
+        cands = get_content_candidates(include_internal=True, limit=25)
+    except Exception:  # pragma: no cover
+        cands = []
+    sensitive = [c for c in cands if requires_approval(c.get("content_classification"))]
+    lines = ["*Sensitive Content — pending Captain approval*", ""]
+    if not sensitive:
+        lines.append("_Nothing pending. Sensitive outcomes (coaching, wellness, "
+                     "personal story, internal) appear here for review before any draft._")
+        return "\n".join(lines)
+    for i, c in enumerate(sensitive[:25], 1):
+        lines.append(f"{i}. *{c.get('title','Untitled')}* — _{c.get('content_classification')}_ "
+                     f"_(source {c.get('source_type')}:{c.get('source_id')})_")
+    lines += [
+        "",
+        "_Approve_: `/comms draft <n> confirm` (internal draft only — never published).",
+        "_Reject_: mark the outcome `not_for_publication`. _Defer_: leave it here.",
+        "_Human approval is mandatory; nothing here is auto-published._",
+    ]
+    return "\n".join(lines)
+
+
+def _metrics() -> str:
+    """WP7: lightweight learning metrics for the COMMS summary surface."""
+    m = learning_metrics() if learning_metrics else None
+    if not m or not getattr(m, "data_available", False):
+        return ("*Learning Metrics*\n_Unavailable offline — connect Command Memory "
+                "to see outcome/lesson counts._")
+    d = m.as_dict()
+    lines = ["*Learning Metrics*", ""]
+    for k, v in d.items():
+        lines.append(f"• {k}: *{v}*")
+    lines += ["", "_Counts are read-only operational signals; nothing is published._"]
+    return "\n".join(lines)
 
 
 def _portfolio() -> str:

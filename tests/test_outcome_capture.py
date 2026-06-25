@@ -257,6 +257,43 @@ def test_personal_story_in_vocabulary():
     assert "personal_story" in oc._INTERNAL_BY_DEFAULT
 
 
+def test_requires_approval_for_sensitive_classes():
+    for cls in ("coaching", "wellness", "personal_story", "internal_work"):
+        assert oc.requires_approval(cls) is True, cls
+    for cls in ("linkedin", "leadership", "operational_resilience", None, ""):
+        assert oc.requires_approval(cls) is False, cls
+
+
+def test_closure_prompt_requests_when_no_outcome_and_never_invents():
+    oc.has_outcome = lambda st, sid: False  # type: ignore
+    prompt = oc.closure_prompt("mission", "MSN-0079", "Auto-capture")
+    assert prompt is not None
+    # It asks; it must not assert any lesson content itself.
+    assert "outcome pending" in prompt.lower()
+    assert "What was learned?" in prompt
+    assert "record_outcome.py record" in prompt
+    _restore()
+
+
+def test_closure_prompt_silent_when_outcome_exists():
+    oc.has_outcome = lambda st, sid: True  # type: ignore
+    assert oc.closure_prompt("decision", "D-1", "X") is None
+    _restore()
+
+
+def test_pending_outcomes_offline_empty():
+    _set_offline()
+    assert oc.pending_outcomes() == []
+    _restore()
+
+
+def test_learning_metrics_offline_safe():
+    _set_offline()
+    m = oc.learning_metrics()
+    assert m.data_available is False
+    assert m.as_dict()["OUTCOMES RECORDED"] == 0
+
+
 def test_brief_snapshot_offline_quiet():
     _set_offline()
     snap = oc.learning_brief_snapshot()

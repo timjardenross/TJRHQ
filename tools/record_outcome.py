@@ -63,6 +63,7 @@ from outcome_capture import (  # type: ignore  # noqa: E402
     list_reusable_insights,
     list_content_worthy,
     learning_brief_snapshot,
+    learning_metrics,
     SOURCE_TYPES,
     OUTCOME_STATUSES,
     CONTENT_POTENTIAL,
@@ -215,6 +216,17 @@ def _cmd_list_content(args) -> int:
     return 0
 
 
+def _cmd_metrics(args) -> int:
+    m = learning_metrics()
+    print("\n── Learning Metrics ──────────────────────────────────────────")
+    if not m.data_available:
+        print("  (Supabase not configured — metrics unavailable.)")
+        return 0
+    for k, v in m.as_dict().items():
+        print(f"  {k:<26} {v}")
+    return 0
+
+
 def _cmd_brief(args) -> int:
     snap = learning_brief_snapshot()
     print("\n── Learning & Outcome Snapshot ───────────────────────────────")
@@ -268,6 +280,7 @@ def main() -> None:
         ("list-reusable", _cmd_list_reusable, "List reusable insights"),
         ("list-content", _cmd_list_content, "List content-worthy learnings"),
         ("brief", _cmd_brief, "Show the compact learning/outcome snapshot"),
+        ("metrics", _cmd_metrics, "Show learning metrics (counts)"),
     ]:
         sp = sub.add_parser(name, help=help_)
         sp.add_argument("--limit", type=int, default=10)

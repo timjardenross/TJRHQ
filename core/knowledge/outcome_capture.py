@@ -442,3 +442,106 @@ def learning_brief_snapshot() -> LearningSnapshot:
         content_worthy_count=len(list_content_worthy(limit=25)),
         data_available=True,
     )
+
+
+# ===========================================================================
+# MSN-0079 — Auto-capture hooks, sensitive-approval, reminder queue, metrics
+# ===========================================================================
+
+# Classifications that must NOT become external-style content without explicit
+# Captain approval. Single source of truth (COMMS imports requires_approval()).
+SENSITIVE_APPROVAL_REQUIRED = ("coaching", "wellness", "personal_story", "internal_work")
+
+
+def requires_approval(content_classification: str | None) -> bool:
+    """True when a classification needs explicit Captain approval before drafting."""
+    return (content_classification or "") in SENSITIVE_APPROVAL_REQUIRED
+
+
+# --- Closure hooks (WP1/WP2) — request capture, NEVER invent a lesson ---------
+
+def has_outcome(source_type: str, source_id: str) -> bool:
+    """True if an outcome_record already exists for this source. Offline → False
+    (so the prompt is shown rather than suppressed — we never assume captured)."""
+    sid = urllib.parse.quote(str(source_id or ""))
+    st = urllib.parse.quote(str(source_type or ""))
+    rows = _get(f"{_TABLE}?select=outcome_id&source_type=eq.{st}&source_id=eq.{sid}&limit=1")
+    return bool(rows)
+
+
+def closure_prompt(source_type: str, source_id: str, title: str = "") -> str | None:
+    """A capture *request* to surface when a work item closes. Returns None if an
+    outcome already exists. Never generates a lesson — it only asks the questions.
+
+    The prompt is identical in spirit across source types so the Captain always
+    sees the same four questions plus the exact command to record the answer.
+    """
+    if has_outcome(source_type, source_id):
+        return None
+    label = (title or source_id or "").strip()
+    head = {
+        "mission": "Mission closed",
+        "decision": "Decision resolved",
+        "recommendation": "Recommendation closed",
+        "action": "Action completed",
+    }.get(source_type, "Item closed")
+    return (
+        f"📝 *{head} — outcome pending:* {label}\n"
+        "   • Did it work? (worked / partial / failed)\n"
+        "   • What was learned?\n"
+        "   • Is there a reusable insight?\n"
+        "   • Any content potential?\n"
+        f"   _Capture:_ `python3 tools/record_outcome.py record "
+        f"--source-type {source_type} --source-id {source_id} --title \"{label}\" --status <...>`"
+    )
+
+
+# --- Reminder queue (WP3) — derived, no new storage --------------------------
+
+def pending_outcomes(limit: int = 50) -> list[dict[str, Any]]:
+    """Closed missions / recorded decisions still missing an outcome_record.
+
+    Thin wrapper over list_uncaptured() (the join already lives there) — no new
+    store, offline → []. This IS the outcome reminder queue."""
+    return list_uncaptured(limit=limit)
+
+
+# --- Learning metrics (WP7) — lightweight counts -----------------------------
+
+@dataclass
+class LearningMetrics:
+    outcomes_recorded: int = 0
+    pending_outcomes: int = 0
+    lessons_captured: int = 0
+    reusable_insights: int = 0
+    content_candidates: int = 0
+    sensitive_pending: int = 0
+    data_available: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "OUTCOMES RECORDED": self.outcomes_recorded,
+            "PENDING OUTCOMES": self.pending_outcomes,
+            "LESSONS CAPTURED": self.lessons_captured,
+            "REUSABLE INSIGHTS": self.reusable_insights,
+            "CONTENT CANDIDATES": self.content_candidates,
+            "SENSITIVE DRAFTS PENDING": self.sensitive_pending,
+        }
+
+
+def learning_metrics() -> LearningMetrics:
+    """Operational learning counts for Captain's Chair / XO brief / CLI. Counts are
+    capped at 1000 for cost; offline → zeros with data_available=False."""
+    if not is_configured():
+        return LearningMetrics(data_available=False)
+    sensitive = [r for r in get_content_candidates(limit=1000, include_internal=True)
+                 if requires_approval(r.get("content_classification"))]
+    return LearningMetrics(
+        outcomes_recorded=len(list_recent_outcomes(limit=1000)),
+        pending_outcomes=len(pending_outcomes(limit=1000)),
+        lessons_captured=len(list_lessons(limit=1000)),
+        reusable_insights=len(list_reusable_insights(limit=1000)),
+        content_candidates=len(get_content_candidates(limit=1000)),
+        sensitive_pending=len(sensitive),
+        data_available=True,
+    )
