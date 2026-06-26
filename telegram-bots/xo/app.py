@@ -283,6 +283,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Chat ID: `{update.effective_chat.id}`\n\n"
         "*Recovery*\n"
         "/recovery\\_status · /recovery\\_pulse\n\n"
+        "*Missions \\(read\\-only\\)*\n"
+        "/mission\\_list \\[active|idea|blocked|all\\]\n"
+        "/mission\\_status \\<id\\>\n\n"
         "*Logging*\n"
         "/log\\_activity · /log\\_weight\n\n"
         "*Ops*\n"
@@ -299,6 +302,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Recovery*\n"
         "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
         "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
+        "*Missions \\(read\\-only\\)*\n"
+        "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
+        "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n\n"
         "*Logging*\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
@@ -552,6 +558,146 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+# ── Mission read commands (MSN-0167) ─────────────────────────────────────────
+
+_MISSION_STATUS_MAP = {
+    "active":     ["Active"],
+    "idea":       ["Idea"],
+    "blocked":    ["Blocked"],
+    "completed":  ["Completed", "completed"],
+    "closed":     ["Closed"],
+    "designed":   ["Designed"],
+    "implemented":["Implemented"],
+    "tested":     ["Tested"],
+}
+_CLOSED_STATUSES = ["Closed", "completed", "cancelled", "deferred", "Archived"]
+
+
+async def cmd_mission_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Read-only mission list. Usage: /mission_list [active|idea|blocked|completed|all]"""
+    args = context.args or []
+    filter_key = (args[0].lower() if args else "active")
+    status_values = _MISSION_STATUS_MAP.get(filter_key)
+    show_all = (filter_key == "all")
+
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        query = db.table("missions").select("mission_id,title,status,priority")
+        if status_values:
+            query = query.in_("status", status_values)
+        elif not show_all:
+            query = query.not_.in_("status", _CLOSED_STATUSES)
+        else:
+            # all — exclude only terminal
+            query = query.not_.in_("status", ["cancelled", "deferred"])
+
+        res = query.order("priority", desc=False).limit(10).execute()
+        rows = res.data or []
+
+        if not rows:
+            label = _escape_strict(filter_key.title())
+            await update.message.reply_text(
+                f"No {label} missions found\\.", parse_mode="MarkdownV2"
+            )
+            return
+
+        label = _escape_strict(filter_key.title())
+        count = len(rows)
+        header = f"*{label} Missions* \\({count}\\)\n"
+        lines = [header]
+        for r in rows:
+            mid   = r.get("mission_id", "?")
+            st    = _escape_strict(r.get("status") or "?")
+            title = _escape_strict((r.get("title") or "Untitled")[:55])
+            lines.append(f"`{mid}` — {st}\n{title}")
+
+        await update.message.reply_text(
+            "\n\n".join(lines), parse_mode="MarkdownV2"
+        )
+
+    except Exception as exc:
+        log.error("[mission-list] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Mission list unavailable: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
+async def cmd_mission_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Look up a single mission. Usage: /mission_status <id_or_fragment>"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Mission Status*\n\n"
+            "Usage: `/mission_status <id>`\n\n"
+            "_Examples: `/mission_status 0165` or `/mission_status USS\\-TJR\\-MSN\\-0165`_",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    query_str = " ".join(args).strip()
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        res = (
+            db.table("missions")
+            .select("mission_id,title,status,priority,owner,created_at,description")
+            .ilike("mission_id", f"%{query_str}%")
+            .limit(3)
+            .execute()
+        )
+        rows = res.data or []
+
+        if not rows:
+            await update.message.reply_text(
+                f"No mission found matching `{_escape_strict(query_str[:40])}`\\.",
+                parse_mode="MarkdownV2",
+            )
+            return
+
+        row   = rows[0]
+        mid   = row.get("mission_id", "?")
+        title = _escape_strict((row.get("title") or "Untitled")[:80])
+        st    = _escape_strict(row.get("status") or "?")
+        pri   = _escape_strict(str(row.get("priority") or "—"))
+        owner = _escape_strict(str(row.get("owner") or "—"))
+        dt    = _escape_strict((row.get("created_at") or "")[:10])
+        desc  = (row.get("description") or "")[:200].strip()
+
+        parts = [
+            f"*Mission:* `{mid}`",
+            f"*{title}*",
+            f"",
+            f"*Status:* {st}",
+            f"*Priority:* {pri}",
+            f"*Owner:* {owner}",
+            f"*Created:* {dt}",
+        ]
+        if desc:
+            parts.append(f"\n_{_escape_strict(desc)}_")
+        if len(rows) > 1:
+            others = ", ".join(f"`{r.get('mission_id', '')}`" for r in rows[1:])
+            parts.append(f"\n_Also matched: {others}_")
+
+        await update.message.reply_text(
+            "\n".join(parts), parse_mode="MarkdownV2"
+        )
+
+    except Exception as exc:
+        log.error("[mission-status] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Lookup failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -699,6 +845,8 @@ async def _scheduled_dispatch(bot) -> None:
 _BOT_COMMANDS = [
     ("recovery_status", "Today's confidence bar + pulse ledger"),
     ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
+    ("mission_list",    "List missions  e.g. /mission_list active"),
+    ("mission_status",  "Mission detail  e.g. /mission_status 0167"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
@@ -726,6 +874,8 @@ def main() -> None:
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
+    app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
+    app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))

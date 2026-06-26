@@ -8,6 +8,7 @@ import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { MobileAlertDrawer } from '@/components/MobileAlertDrawer';
 import {
   alerts,
   captainTimeline,
@@ -591,6 +592,9 @@ export default function CaptainsChairPage() {
 
         {/* ── MSN-IOS-001 WP2: iPhone-first daily operating picture (mobile only) ── */}
         <MobileOperatingPicture />
+
+        {/* ── MSN-0169: Alerts & Decisions drawer trigger (mobile only; xl+ sidebar handles it) ── */}
+        <MobileAlertDrawer />
 
         {/* ── D-055: Captain Capacity leads the page ── */}
         {!isLoading && (
