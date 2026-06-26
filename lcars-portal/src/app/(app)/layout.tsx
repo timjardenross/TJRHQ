@@ -7,7 +7,7 @@ import { SHIP } from '@/lib/mockData';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col px-3 py-3 pb-24 md:px-5 md:py-5 lg:pb-5">
+    <div className="mx-auto flex min-h-dvh max-w-[1600px] flex-col px-3 py-3 pb-24 md:px-5 md:py-5 lg:pb-5">
       <LCARSHeader
         ship={SHIP.name}
         registry={SHIP.registry}

@@ -433,7 +433,7 @@ export default function AIConsolePage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 h-[calc(100vh-12rem)]">
+    <div className="flex flex-col gap-3 h-[calc(100dvh-12rem)]">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-2 flex-shrink-0">

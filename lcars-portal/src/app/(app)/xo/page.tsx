@@ -163,7 +163,7 @@ export default function XOChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-13rem)] max-w-[640px] flex-col gap-3">
+    <div className="mx-auto flex h-[calc(100dvh-13rem)] max-w-[640px] flex-col gap-3">
       <header className="shrink-0 flex items-start justify-between gap-2">
         <div>
           <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Executive Officer</p>
