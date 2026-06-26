@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent
-_COUNTER_FILE = _REPO_ROOT / ".id-counters.json"
-_LOCK_FILE = _REPO_ROOT / ".id-counters.lock"
+# _MINT_TEST_COUNTER lets the test suite point subprocesses at an isolated counter.
+_COUNTER_FILE = Path(os.environ["_MINT_TEST_COUNTER"]) if "_MINT_TEST_COUNTER" in os.environ else _REPO_ROOT / ".id-counters.json"
+_LOCK_FILE = _COUNTER_FILE.with_suffix(".lock")
 
 # Start above the highest known existing IDs so we never collide with legacy records.
 #   MSN: counter reconciled to 143 (Phase 0 audit, MSN-0064) → first new canonical ID is USS-TJR-MSN-0144

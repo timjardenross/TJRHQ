@@ -1,88 +1,57 @@
 /**
- * Server-side canonical ID registry — TypeScript mirror of the Python id_registry.py.
+ * Server-side canonical ID minting for the LCARS portal.
  *
- * Shares the same `.id-counters.json` counter file so all runtime paths (Slack bot,
- * LCARS portal) increment the same atomic sequence and can never collide.
+ * MSN-0147: delegates to tools/mint_id.py (Python) so id_registry.py remains the
+ * single writer of .id-counters.json. Eliminates the cross-language lock-contention
+ * risk present in the earlier TypeScript-mirror implementation.
  *
- * MSN-0144: replaces the MSN-AI-${Date.now()} fallback in ai-actions.ts.
+ * REPO_ROOT env var (MSN-0144 deployment hardening): overrides the default
+ * path.resolve(process.cwd(), '..') assumption so the portal can be run from any
+ * working directory.
  *
- * NOTE: This module uses Node.js `fs` and is server-side only. Never import it
- * from client components.
+ * NOTE: Server-side only. Never import from client components.
  */
 
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// process.cwd() in Next.js server context is the lcars-portal/ directory.
-// The repo root is one level up.
-const REPO_ROOT = path.resolve(process.cwd(), '..');
-const COUNTER_FILE = path.join(REPO_ROOT, '.id-counters.json');
-const LOCK_FILE = path.join(REPO_ROOT, '.id-counters.lock');
-const REGISTRY_FILE = path.join(REPO_ROOT, 'core', 'mission-control', 'registry', 'mission-index.txt');
+const execFileAsync = promisify(execFile);
 
-const CANONICAL_PREFIX: Record<string, string> = {
-  MSN: 'USS-TJR-MSN',
-};
+// REPO_ROOT: explicit env var wins; default assumes Next.js runs from lcars-portal/.
+const REPO_ROOT = process.env.REPO_ROOT
+  ? path.resolve(process.env.REPO_ROOT)
+  : path.resolve(process.cwd(), '..');
 
-const SEEDS: Record<string, number> = {
-  MSN: 143,
-  BREQ: 10,
-  DEC: 0,
-};
-
-async function acquireLock(retries = 20, delayMs = 50): Promise<void> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const fd = fs.openSync(LOCK_FILE, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
-      fs.closeSync(fd);
-      return;
-    } catch {
-      await new Promise<void>(r => setTimeout(r, delayMs));
-    }
-  }
-  throw new Error(`Could not acquire ${LOCK_FILE} after ${retries} retries`);
-}
-
-function releaseLock(): void {
-  try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore */ }
-}
-
-function loadCounters(): Record<string, number> {
-  try {
-    return JSON.parse(fs.readFileSync(COUNTER_FILE, 'utf8')) as Record<string, number>;
-  } catch {
-    return {};
-  }
-}
-
-function saveCounters(data: Record<string, number>): void {
-  fs.writeFileSync(COUNTER_FILE, JSON.stringify(data, null, 2) + '\n', 'utf8');
-}
+const MINT_SCRIPT = path.join(REPO_ROOT, 'tools', 'mint_id.py');
+const REGISTRY_FILE = path.join(
+  REPO_ROOT, 'core', 'mission-control', 'registry', 'mission-index.txt',
+);
 
 /**
  * Mint the next canonical ID for the given prefix.
- * For MSN returns USS-TJR-MSN-NNNN; other prefixes return PREFIX-NNNN.
- * Atomically increments the shared .id-counters.json counter.
+ * Delegates to tools/mint_id.py → id_registry.next_id() so Python is the
+ * single counter writer. For MSN returns USS-TJR-MSN-NNNN; other prefixes return PREFIX-NNNN.
+ * Falls back to a timestamp-based canonical ID on any subprocess failure.
  */
 export async function nextId(prefix: string): Promise<string> {
-  const p = prefix.toUpperCase();
-  const canonical = CANONICAL_PREFIX[p] ?? p;
-  await acquireLock();
   try {
-    const data = loadCounters();
-    const n = (data[p] ?? SEEDS[p] ?? 0) + 1;
-    data[p] = n;
-    saveCounters(data);
-    return `${canonical}-${String(n).padStart(4, '0')}`;
-  } finally {
-    releaseLock();
+    const { stdout } = await execFileAsync(
+      'python3', [MINT_SCRIPT, prefix.toUpperCase()],
+      { timeout: 5000 },
+    );
+    return stdout.trim();
+  } catch {
+    // Non-blocking fallback — keeps canonical prefix even under failure
+    return `USS-TJR-${prefix.toUpperCase()}-${Date.now()}`;
   }
 }
 
 /**
  * Append a runtime mission entry to the authoritative registry (MSN-0145).
- * Uses the same dash-list format as slack-bot/mission_registry.py::append_canonical_registry().
- * Non-fatal: filesystem write failures are silently swallowed — the Supabase record is the primary.
+ * Same dash-list format as slack-bot/mission_registry.py::append_canonical_registry().
+ * Non-fatal: any filesystem failure is silently swallowed.
  */
 export function appendToRegistry(
   missionId: string,
@@ -96,6 +65,6 @@ export function appendToRegistry(
     const entry = `\n- ${missionId} | ${ts} | ${domain} | ${status} | ${title}\n`;
     fs.appendFileSync(REGISTRY_FILE, entry, 'utf8');
   } catch {
-    // Non-blocking — Supabase record is the source of truth for LCARS missions
+    // Non-blocking — Supabase is the source of truth for LCARS missions
   }
 }
