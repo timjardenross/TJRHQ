@@ -15,7 +15,7 @@
       radial-gradient(circle at 12% -10%, rgba(255, 184, 28, 0.08), transparent 40%),
       radial-gradient(circle at 90% 0%, rgba(0, 153, 255, 0.08), transparent 45%);
     background-attachment: fixed;
-    min-height: 100vh;
+    min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
   }
 
   h1,
