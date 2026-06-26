@@ -1,6 +1,6 @@
 """Central sequential ID registry for Starship Endeavour.
 
-Generates short, human-typeable IDs: MSN-0066, BREQ-0011, DEC-0001.
+Generates human-typeable IDs: USS-TJR-MSN-0144, BREQ-0011, DEC-0001.
 Thread-safe via an exclusive file lock. Falls back to a timestamp suffix on
 I/O error so generation never blocks the caller.
 
@@ -20,13 +20,20 @@ _COUNTER_FILE = _REPO_ROOT / ".id-counters.json"
 _LOCK_FILE = _REPO_ROOT / ".id-counters.lock"
 
 # Start above the highest known existing IDs so we never collide with legacy records.
-#   MSN: highest USS-TJR-MSN-0065 on record → first new ID is MSN-0066
+#   MSN: counter reconciled to 143 (Phase 0 audit, MSN-0064) → first new canonical ID is USS-TJR-MSN-0144
 #   BREQ: 10 legacy timestamp-format BREQ files → first new ID is BREQ-0011
 #   DEC: all legacy DECs are timestamp-format → first new ID is DEC-0001
 _SEEDS: dict[str, int] = {
-    "MSN": 65,
+    "MSN": 143,
     "BREQ": 10,
     "DEC": 0,
+}
+
+# Prefixes that emit a full canonical form rather than the bare prefix.
+# MSN-0064 Phase 1: MSN IDs now emit USS-TJR-MSN-NNNN (canonical per ADR-0001/MSN-0045).
+# BREQ and DEC retain their short form.
+_CANONICAL_PREFIX: dict[str, str] = {
+    "MSN": "USS-TJR-MSN",
 }
 
 
@@ -43,12 +50,15 @@ def _save(data: dict[str, int]) -> None:
 
 
 def next_id(prefix: str) -> str:
-    """Return the next sequential ID for prefix, e.g. next_id('MSN') → 'MSN-0066'.
+    """Return the next sequential ID for prefix, e.g. next_id('MSN') → 'USS-TJR-MSN-0144'.
 
     Increments atomically under an exclusive file lock. On any I/O failure
     falls back to a microsecond timestamp suffix so callers never error out.
+    MSN prefix emits the full canonical form USS-TJR-MSN-NNNN; other prefixes
+    emit the short form (e.g. BREQ-0011, DEC-0001).
     """
     prefix = prefix.upper()
+    canonical = _CANONICAL_PREFIX.get(prefix, prefix)
     try:
         _LOCK_FILE.touch(exist_ok=True)
         with open(_LOCK_FILE, "w") as lf:
@@ -57,7 +67,7 @@ def next_id(prefix: str) -> str:
             n = data.get(prefix, _SEEDS.get(prefix, 0)) + 1
             data[prefix] = n
             _save(data)
-            return f"{prefix}-{n:04d}"
+            return f"{canonical}-{n:04d}"
     except Exception:  # noqa: BLE001 — never let ID generation crash the caller
         from datetime import datetime
-        return f"{prefix}-{datetime.now().strftime('%H%M%S%f')[:10]}"
+        return f"{canonical}-{datetime.now().strftime('%H%M%S%f')[:10]}"
