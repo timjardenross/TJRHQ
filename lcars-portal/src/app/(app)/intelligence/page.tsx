@@ -15,9 +15,10 @@ import { useEffect, useState, type ReactNode } from 'react';
  * Discoverability only — no new intelligence, no officers, no autonomy.
  */
 
-type Tab = 'briefing' | 'dashboard' | 'performance' | 'timeline' | 'operational' | 'trust';
+type Tab = 'awareness' | 'briefing' | 'dashboard' | 'performance' | 'timeline' | 'operational' | 'trust';
 
 const TABS: { key: Tab; label: string; action: string }[] = [
+  { key: 'awareness', label: 'Awareness', action: 'awareness' },
   { key: 'briefing', label: 'Briefing', action: 'daily-brief' },
   { key: 'dashboard', label: 'Dashboard', action: 'metrics' },
   { key: 'performance', label: 'Performance', action: 'calibration' },
@@ -38,7 +39,7 @@ async function fetchAction(action: string): Promise<unknown> {
 }
 
 export default function IntelligencePage() {
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const [tab, setTab] = useState<Tab>('awareness');
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export default function IntelligencePage() {
         <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
+      {!loading && data && tab === 'awareness' && <ProductView d={data} />}
       {!loading && data && tab === 'briefing' && <Briefing d={data} />}
       {!loading && data && tab === 'dashboard' && <Dashboard d={data} />}
       {!loading && data && tab === 'performance' && <Performance d={data} />}
@@ -114,6 +116,34 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 
 function pct(n: unknown): string {
   return typeof n === 'number' ? `${Math.round(n * 100)}%` : '—';
+}
+
+function ProductView({ d }: { d: any }) {
+  // Renders the MSN-0099 product envelope: meaning only, no machinery.
+  return (
+    <div className="flex flex-col gap-3">
+      <Card title={d.product ?? 'Awareness'}>
+        {d.bottom_line && <p className="font-semibold">{d.bottom_line}</p>}
+        {d.cadence && <p className="mt-1 text-xs uppercase tracking-widest text-lcars-muted">{d.cadence}</p>}
+      </Card>
+      {(d.sections ?? []).map((s: any, i: number) => (
+        <Card key={i} title={s.heading}>
+          {s.text && <p>{s.text}</p>}
+          {(s.items ?? []).length > 0 && (
+            <ul className="list-disc pl-5">
+              {s.items.map((it: string, j: number) => <li key={j}>{it}</li>)}
+            </ul>
+          )}
+          {s.suppressed ? (
+            <p className="mt-1 text-xs italic text-lcars-muted">
+              +{s.suppressed} more held back to protect attention
+            </p>
+          ) : null}
+        </Card>
+      ))}
+      {d.note && <p className="text-xs italic text-lcars-muted">{d.note}</p>}
+    </div>
+  );
 }
 
 function Briefing({ d }: { d: any }) {

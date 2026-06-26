@@ -91,6 +91,8 @@ from commands.advisory import (
     handle_advisor_scan,
     handle_timeline,
     handle_intel,
+    handle_awareness,
+    handle_products,
 )
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
@@ -1467,6 +1469,27 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /intel: user=%s view=%r", user_id, text[:30])
         respond(handle_intel(text, user_id, channel_id))
+
+    # ── Intelligence Products (MSN-0099) ──────────────────────────────────────
+
+    @app.command("/awareness")
+    def handle_awareness_slash(ack, respond, command):
+        """/awareness [product] — Daily Awareness Brief (meaning, not machinery)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /awareness: user=%s product=%r", user_id, text[:30])
+        respond(handle_awareness(text, user_id, channel_id))
+
+    @app.command("/products")
+    def handle_products_slash(ack, respond, command):
+        """/products — the intelligence product catalogue."""
+        ack()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /products: user=%s", user_id)
+        respond(handle_products("", user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")

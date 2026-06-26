@@ -25,6 +25,8 @@ const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 
 const NULLARY_ACTIONS = new Set([
   'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
   'operating-picture', 'wellness', 'strategic', 'forecast', 'daily-brief', 'data-quality',
+  'awareness', 'resilience-watch', 'wellness-insights', 'strategic-outlook',
+  'opportunity-review', 'captains-picture', 'products',
 ]);
 
 function resolveRepoRoot(): string | null {

@@ -46,6 +46,8 @@ import strategic as _strategic  # noqa: E402
 import forecast as _forecast  # noqa: E402
 import daily_brief as _daily_brief  # noqa: E402
 import data_quality as _data_quality  # noqa: E402
+import products as _products  # noqa: E402
+import presentation as _presentation  # noqa: E402
 
 
 def _temporal_route(question: str) -> dict:
@@ -69,6 +71,9 @@ def main() -> int:
         "temporal", "episodic", "patterns", "signals", "timeline", "proactive",
         "operating-picture", "wellness", "strategic", "forecast", "daily-brief",
         "data-quality",
+        # MSN-0099 intelligence products
+        "awareness", "resilience-watch", "wellness-insights", "strategic-outlook",
+        "opportunity-review", "captains-picture", "products",
     ])
     parser.add_argument("--question", default="")
     parser.add_argument("--mission-id", default=None)
@@ -118,6 +123,19 @@ def main() -> int:
     if args.action == "data-quality":
         return emit({"capture_gaps": _data_quality.capture_gaps(), "trust": _data_quality.trust_metrics()},
                     lambda _x: _data_quality.to_markdown()) or 0
+    # MSN-0099 intelligence products (Captain-facing; machinery hidden)
+    _PRODUCT_ACTIONS = {
+        "awareness": _products.daily_awareness_brief,
+        "resilience-watch": _products.operational_resilience_watch,
+        "wellness-insights": _products.wellness_insights,
+        "strategic-outlook": _products.strategic_outlook,
+        "opportunity-review": _products.opportunity_review,
+        "captains-picture": _products.captains_operating_picture,
+    }
+    if args.action in _PRODUCT_ACTIONS:
+        return emit(_PRODUCT_ACTIONS[args.action](), _presentation.to_markdown) or 0
+    if args.action == "products":
+        return emit(_products.catalogue(), lambda _x: _products.catalogue_markdown()) or 0
     if args.action == "outcome":
         result = _outcomes.record_outcome(args.advisory_id, outcome=args.outcome or "unknown",
                                           decision_taken=args.decision, feedback=args.note)

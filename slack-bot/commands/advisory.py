@@ -218,6 +218,40 @@ _INTEL_VIEWS = {
     "data": ("data_quality", "to_markdown"),
 }
 
+# MSN-0099 Captain-facing products (meaning, not machinery).
+_PRODUCTS = {
+    "awareness": "daily_awareness_brief",
+    "picture": "captains_operating_picture",
+    "resilience": "operational_resilience_watch",
+    "wellness": "wellness_insights",
+    "strategic": "strategic_outlook",
+    "opportunity": "opportunity_review",
+}
+
+
+def handle_awareness(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/awareness [product]` — the Daily Awareness Brief, or another product."""
+    view = (text or "awareness").strip().split()[0].lower() if (text or "").strip() else "awareness"
+    fn = _PRODUCTS.get(view, "daily_awareness_brief")
+    log.info("[awareness] user=%s product=%s", user_id, fn)
+    try:
+        products = _mod("products")
+        presentation = _mod("presentation")
+        return _slackify(presentation.to_markdown(getattr(products, fn)()))
+    except Exception as exc:  # noqa: BLE001
+        log.error("[awareness] failed: %s", exc)
+        return f"*AWARENESS*\n\nAdvisory runtime error: `{exc}`."
+
+
+def handle_products(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
+    """`/products` — the intelligence product catalogue."""
+    log.info("[products] user=%s", user_id)
+    try:
+        return _slackify(_mod("products").catalogue_markdown())
+    except Exception as exc:  # noqa: BLE001
+        log.error("[products] failed: %s", exc)
+        return f"*PRODUCTS*\n\nAdvisory runtime error: `{exc}`."
+
 
 def handle_intel(text: str, user_id: str | None = None, channel_id: str | None = None) -> str:
     """`/intel [brief|picture|wellness|strategic|forecast|trust]` — intelligence views."""
