@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { nextId, appendToRegistry } from '@/lib/id-registry';
 
 const CLOSED_STATUSES = ['Closed', 'completed', 'cancelled', 'deferred', 'Archived'];
 
@@ -31,6 +32,57 @@ export async function GET(request: NextRequest) {
     const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
       { error: 'Failed to fetch missions', detail },
+      { status: 500 },
+    );
+  }
+}
+
+// MSN-0171: Mission creation endpoint — single canonical write gate
+export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (!title) {
+    return NextResponse.json({ error: 'title is required' }, { status: 400 });
+  }
+
+  const status   = typeof body.status      === 'string' ? body.status.trim()      : 'Idea';
+  const priority = typeof body.priority    === 'string' ? body.priority.trim()    : null;
+  const owner    = typeof body.owner       === 'string' ? body.owner.trim()       : null;
+  const description = typeof body.description === 'string' ? body.description.trim() : null;
+
+  try {
+    const mission_id = await nextId('MSN');
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('missions')
+      .insert({
+        mission_id,
+        title,
+        status,
+        ...(priority    !== null && { priority }),
+        ...(owner       !== null && { owner }),
+        ...(description !== null && { description }),
+      })
+      .select('mission_id, title, status, created_at')
+      .single();
+
+    if (error) throw error;
+
+    // Non-blocking runtime registry append (MSN-0145 pattern)
+    appendToRegistry(mission_id, title, 'LCARS-API', status);
+
+    return NextResponse.json({ mission: data }, { status: 201 });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: 'Failed to create mission', detail },
       { status: 500 },
     );
   }

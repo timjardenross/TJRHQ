@@ -35,6 +35,8 @@ TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY       = os.environ.get("SUPABASE_KEY", "")
+# MSN-0172: LCARS portal base URL for POST /api/missions (no trailing slash)
+LCARS_PORTAL_URL   = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -283,9 +285,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Chat ID: `{update.effective_chat.id}`\n\n"
         "*Recovery*\n"
         "/recovery\\_status · /recovery\\_pulse\n\n"
-        "*Missions \\(read\\-only\\)*\n"
+        "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|all\\]\n"
-        "/mission\\_status \\<id\\>\n\n"
+        "/mission\\_status \\<id\\>\n"
+        "/mission\\_create \\<title\\>\n\n"
         "*Logging*\n"
         "/log\\_activity · /log\\_weight\n\n"
         "*Ops*\n"
@@ -302,9 +305,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Recovery*\n"
         "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
         "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
-        "*Missions \\(read\\-only\\)*\n"
+        "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
-        "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n\n"
+        "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n"
+        "/mission\\_create \\<title\\> — create a new Idea mission \\(e\\.g\\. `/mission_create Build ops dashboard`\\)\n\n"
         "*Logging*\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
@@ -698,6 +702,59 @@ async def cmd_mission_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
 
+# ── Mission create command (MSN-0172) ────────────────────────────────────────
+
+async def cmd_mission_create(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Create a new mission via the Mission Control API. Usage: /mission_create <title>"""
+    args = context.args or []
+    title = " ".join(args).strip()
+    if not title:
+        await update.message.reply_text(
+            "*Mission Create*\n\n"
+            "Usage: `/mission_create <title>`\n\n"
+            "_Example: `/mission_create Build ops dashboard`_",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    if not LCARS_PORTAL_URL:
+        await update.message.reply_text(
+            "⚠️ `LCARS_PORTAL_URL` not configured — mission creation unavailable\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{LCARS_PORTAL_URL}/api/missions",
+                json={"title": title, "status": "Idea"},
+            )
+        if resp.status_code == 201:
+            mission = resp.json().get("mission", {})
+            mid = mission.get("mission_id", "?")
+            st  = _escape_strict(mission.get("status", "Idea"))
+            t   = _escape_strict((mission.get("title") or title)[:80])
+            await update.message.reply_text(
+                f"✅ *Mission created*\n\n"
+                f"`{mid}` — {st}\n{t}",
+                parse_mode="MarkdownV2",
+            )
+        else:
+            detail = _escape_strict(str(resp.text)[:120])
+            await update.message.reply_text(
+                f"⚠️ API returned `{resp.status_code}`:\n`{detail}`",
+                parse_mode="MarkdownV2",
+            )
+    except Exception as exc:
+        log.error("[mission-create] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Mission creation failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -847,6 +904,7 @@ _BOT_COMMANDS = [
     ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
     ("mission_list",    "List missions  e.g. /mission_list active"),
     ("mission_status",  "Mission detail  e.g. /mission_status 0167"),
+    ("mission_create",  "Create mission  e.g. /mission_create Build ops dashboard"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
@@ -876,6 +934,7 @@ def main() -> None:
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
+    app.add_handler(CommandHandler("mission_create",  cmd_mission_create))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))

@@ -1,26 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { alerts, decisionsAwaitingApproval } from '@/lib/mockData';
+import { useAlerts } from '@/lib/useAlerts';
+import { decisionsAwaitingApproval } from '@/lib/mockData';
+import type { AlertSeverity } from '@/lib/alerts';
 
-const LEVEL_DOT: Record<string, string> = {
+const SEV_DOT: Record<AlertSeverity, string> = {
   critical: 'bg-operations',
+  high:     'bg-operations',
   warning:  'bg-command',
-  info:     'bg-medical',
-  nominal:  'bg-status',
 };
 
-const LEVEL_TEXT: Record<string, string> = {
+const SEV_TEXT: Record<AlertSeverity, string> = {
   critical: 'text-operations',
+  high:     'text-operations',
   warning:  'text-command',
-  info:     'text-medical',
-  nominal:  'text-status',
 };
 
 export function MobileAlertDrawer() {
   const [open, setOpen] = useState(false);
-  const activeAlerts = alerts.filter((a) => a.level !== 'nominal');
-  const totalCount = activeAlerts.length + decisionsAwaitingApproval.length;
+  const { alerts, isLoading } = useAlerts();
+  const totalCount = alerts.length + decisionsAwaitingApproval.length;
 
   return (
     <>
@@ -80,29 +80,31 @@ export function MobileAlertDrawer() {
             </button>
           </div>
 
-          {/* Active alerts */}
+          {/* Active alerts — live via useAlerts() */}
           <section className="mb-5">
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-operations">
               Active Alerts
-              {activeAlerts.length > 0 && (
-                <span className="ml-1 text-lcars-muted">({activeAlerts.length})</span>
+              {!isLoading && alerts.length > 0 && (
+                <span className="ml-1 text-lcars-muted">({alerts.length})</span>
               )}
             </p>
-            {activeAlerts.length === 0 ? (
+            {isLoading ? (
+              <p className="text-sm text-lcars-muted">Loading…</p>
+            ) : alerts.length === 0 ? (
               <p className="text-sm text-lcars-muted">All systems nominal.</p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {activeAlerts.map((a) => (
+                {alerts.map((a) => (
                   <li
                     key={a.id}
                     className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-3"
                   >
                     <span
-                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${LEVEL_DOT[a.level] ?? 'bg-lcars-muted'}`}
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${SEV_DOT[a.severity] ?? 'bg-lcars-muted'}`}
                       aria-hidden="true"
                     />
                     <div className="min-w-0">
-                      <p className={`text-[11px] font-bold uppercase ${LEVEL_TEXT[a.level] ?? 'text-lcars-text'}`}>
+                      <p className={`text-[11px] font-bold uppercase ${SEV_TEXT[a.severity] ?? 'text-lcars-text'}`}>
                         {a.title}
                       </p>
                       <p className="text-[10px] text-lcars-muted">{a.detail}</p>
