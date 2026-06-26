@@ -99,8 +99,7 @@ def start_recovery_scheduler(slack_client: Any) -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone="Australia/Brisbane")
     scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=7,  minute=0),  id="rec_morning")
     scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=12, minute=30), id="rec_midday")
-    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=16, minute=0),  id="rec_eod")
-    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=20, minute=0),  id="rec_evening")
+    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=21, minute=0),  id="rec_evening")
     scheduler.start()
-    log.info("[recovery-scheduler] Running — L2/L3 dispatch at 07:00, 12:30, 16:00, 20:00 AEST")
+    log.info("[recovery-scheduler] Running — L2/L3 dispatch at 07:00, 12:30, 21:00 AEST")
     return scheduler

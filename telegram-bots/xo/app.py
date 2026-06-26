@@ -309,7 +309,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
         "07:00 — Daily Operating Picture \\(capacity · decision · missions · delivery · resilience\\)\n"
-        "20:00 — Evening Recovery Reflection\n"
+        "21:00 — Evening Recovery Reflection\n"
         "Mon 08:00 — Weekly Human Systems Review\n"
         "Mon 08:30 — Weekly Thought Leadership Brief \\(when opportunities exist\\)\n"
         "15:00 — Capacity Degradation Alert \\(only when threshold crossed\\)\n\n"
@@ -739,8 +739,7 @@ def main() -> None:
     bot = app.bot
     scheduler.add_job(_scheduled_morning_brief, CronTrigger(hour=7,  minute=0),  id="morning", args=[bot])
     scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=12, minute=30), id="midday",  args=[bot])
-    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=16, minute=0),  id="eod",     args=[bot])
-    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=20, minute=0),  id="evening", args=[bot])
+    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=21, minute=0),  id="evening", args=[bot])
     scheduler.start()
 
     log.info("XO Bot polling…")
