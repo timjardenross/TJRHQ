@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { nextId, appendToRegistry } from './id-registry';
 
 export interface ActionResult {
   type: string;
@@ -19,12 +20,24 @@ function supabaseAdmin() {
 // ── Action handlers ───────────────────────────────────────────────────────────
 
 async function createMission(payload: ActionPayload): Promise<ActionResult> {
-  const missionId = (payload.mission_id as string) ?? `MSN-AI-${Date.now()}`;
+  // MSN-0144: mint a canonical USS-TJR-MSN-NNNN ID if the AI did not provide one.
+  // Falls back to a timestamp-based MSN ID if the counter file is unavailable.
+  let missionId = payload.mission_id as string | undefined;
+  if (!missionId) {
+    try {
+      missionId = await nextId('MSN');
+    } catch {
+      missionId = `USS-TJR-MSN-${Date.now()}`;
+    }
+  }
+
+  const title = String(payload.title ?? 'Untitled mission');
+  const status = String(payload.status ?? 'Idea');
   const row = {
     mission_id: missionId,
-    title: payload.title ?? 'Untitled mission',
+    title,
     priority: payload.priority ?? 'P2',
-    status: payload.status ?? 'Idea',
+    status,
     description: payload.description ?? null,
     task_type: payload.task_type ?? null,
     mission_type: payload.mission_type ?? null,
@@ -34,6 +47,10 @@ async function createMission(payload: ActionPayload): Promise<ActionResult> {
 
   const { error } = await supabaseAdmin().from('missions').insert(row);
   if (error) return { type: 'create_mission', success: false, detail: error.message };
+
+  // MSN-0145: append runtime entry to the authoritative mission registry.
+  appendToRegistry(missionId, title, 'LCARS', status);
+
   return { type: 'create_mission', success: true, detail: `Mission ${missionId} registered`, id: missionId };
 }
 
