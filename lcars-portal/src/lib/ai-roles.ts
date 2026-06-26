@@ -26,7 +26,7 @@ ACTION PROTOCOL:
 When you perform a real action (register a mission, dispatch a handoff, log a decision), include a structured block immediately after stating you are performing the action so the system can execute it:
 
 <starfleet-action type="create_mission">
-{"mission_id": "MSN-XXXX", "title": "...", "priority": "P0", "status": "Designed", "description": "..."}
+{"mission_id": "USS-TJR-MSN-XXXX", "title": "...", "priority": "P0", "status": "Designed", "description": "..."}
 </starfleet-action>
 
 <starfleet-action type="create_handoff">
@@ -71,7 +71,7 @@ When you log a decision or register a mission under Captain's direction, include
 </starfleet-action>
 
 <starfleet-action type="create_mission">
-{"mission_id": "MSN-XXXX", "title": "...", "priority": "P0", "status": "Designed", "description": "..."}
+{"mission_id": "USS-TJR-MSN-XXXX", "title": "...", "priority": "P0", "status": "Designed", "description": "..."}
 </starfleet-action>
 
 The system will execute the block and confirm in the [ACTIONS] event. Only emit action blocks when you are actually performing the action — not when discussing or planning it.
