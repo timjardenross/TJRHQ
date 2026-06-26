@@ -47,7 +47,31 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
         return safety.frame(_pillars(), with_footer=False)
     if cmd in ("portfolio", "reputation"):
         return safety.frame(_portfolio(), with_footer=False)
+    if cmd in ("send", "dispatch", "fire"):
+        return safety.frame(_send(), with_footer=False)
     return safety.frame(_help(), with_footer=False)
+
+
+def _send() -> str:
+    from lib.human_systems import delivery
+    import human_systems_scheduler as hss
+
+    channel = delivery.captain_channel()
+    tg_token, _tg_chat = delivery.telegram_config()
+
+    if not channel and not tg_token:
+        return "No delivery surface configured. Set SLACK_CHANNEL or TELEGRAM_BOT_TOKEN."
+
+    client = delivery.get_slack_client() if channel else None
+    result = hss.run_job("comms_weekly", client=client, channel=channel)
+
+    if result.get("skipped"):
+        return "Nothing to send — no publishable opportunities found."
+    if result.get("delivered"):
+        ch = result.get("channel", "")
+        suffix = f" ({ch})" if ch else ""
+        return f"Weekly influence brief sent{suffix} — Captain to review and publish."
+    return "Weekly influence brief dispatched."
 
 
 def _help() -> str:

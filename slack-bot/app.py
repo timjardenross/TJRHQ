@@ -1499,70 +1499,65 @@ else:
 # ========================================================================
 # MSN-0060B: Learning Loop Service Initialization
 # B1C Quality Scoring, B1D Feedback Loops, B1A Adaptive Routing
+# Wrapped in a function so optional-dependency imports (numpy via
+# quality_forecasting_service) do not become module-level globals that
+# break the MSN-EDO-005 smoke test when numpy is unavailable.
 # ========================================================================
 
-# Import learning loop services
-from lib.learning_loop_service import LearningLoopService
-from lib.quality_scoring_service import QualityScoring
-from lib.feedback_loops_service import FeedbackLoops
-from lib.adaptive_routing_service import AdaptiveRoutingService
-from lib.quality_forecasting_service import QualityForecasting
-from tools.supabase.client import CommanderSupabaseClient
-
-# Initialize Supabase client (required for learning loop)
-supabase_client = None
-try:
-    supabase_client = CommanderSupabaseClient()
-    if supabase_client.is_enabled():
-        log.info("[msp-0060b] Supabase client initialized for learning loop")
-    else:
-        log.warning("[msp-0060b] Supabase client disabled (missing credentials)")
-        supabase_client = None
-except Exception as e:
-    log.error(f"[msp-0060b] Failed to initialize Supabase client: {e}")
-    supabase_client = None
-
-# Initialize learning loop services (graceful degradation if Supabase unavailable)
-learning_loop_service = None
-quality_scoring_service = None
-feedback_loops_service = None
-adaptive_routing_service = None
-quality_forecasting_service = None
-
-if supabase_client:
+def _init_learning_loop() -> None:
     try:
-        # Initialize services in dependency order
-        feedback_loops_service = FeedbackLoops(supabase_client)
-        quality_scoring_service = QualityScoring(supabase_client)
-        adaptive_routing_service = AdaptiveRoutingService(feedback_loops_service)
-        quality_forecasting_service = QualityForecasting(supabase_client)
-        learning_loop_service = LearningLoopService(supabase_client)
+        from lib.learning_loop_service import LearningLoopService
+        from lib.quality_scoring_service import QualityScoring
+        from lib.feedback_loops_service import FeedbackLoops
+        from lib.adaptive_routing_service import AdaptiveRoutingService
+        from lib.quality_forecasting_service import QualityForecasting
+        from tools.supabase.client import CommanderSupabaseClient
+    except ImportError as exc:
+        log.warning("[msp-0060b] Learning loop unavailable (missing dependency: %s) — skipped", exc)
+        return
 
-        log.info(
-            "[msp-0060b] Learning loop services initialized: "
-            "B1C (quality scoring) → B1D (feedback loops) → B1A (adaptive routing) → B1E (forecasting)"
-        )
+    supabase_client = None
+    try:
+        supabase_client = CommanderSupabaseClient()
+        if supabase_client.is_enabled():
+            log.info("[msp-0060b] Supabase client initialized for learning loop")
+        else:
+            log.warning("[msp-0060b] Supabase client disabled (missing credentials)")
+            supabase_client = None
     except Exception as e:
-        log.error(
-            f"[msp-0060b] Failed to initialize learning loop services: "
-            f"{type(e).__name__}: {str(e)[:100]}"
-        )
-        # Services are optional; bot continues without them (graceful degradation)
-        learning_loop_service = None
-        quality_scoring_service = None
-        feedback_loops_service = None
-        adaptive_routing_service = None
-        quality_forecasting_service = None
-else:
-    log.warning("[msp-0060b] Learning loop services disabled (Supabase unavailable)")
+        log.error(f"[msp-0060b] Failed to initialize Supabase client: {e}")
+        supabase_client = None
 
-log.info(
-    f"[msp-0060b] Learning loop status: "
-    f"quality_scoring={'enabled' if quality_scoring_service else 'disabled'}, "
-    f"feedback_loops={'enabled' if feedback_loops_service else 'disabled'}, "
-    f"adaptive_routing={'enabled' if adaptive_routing_service else 'disabled'}, "
-    f"forecasting={'enabled' if quality_forecasting_service else 'disabled'}"
-)
+    ll = qs = fb = ar = qf = None
+    if supabase_client:
+        try:
+            fb = FeedbackLoops(supabase_client)
+            qs = QualityScoring(supabase_client)
+            ar = AdaptiveRoutingService(fb)
+            qf = QualityForecasting(supabase_client)
+            ll = LearningLoopService(supabase_client)
+            log.info(
+                "[msp-0060b] Learning loop services initialized: "
+                "B1C (quality scoring) → B1D (feedback loops) → B1A (adaptive routing) → B1E (forecasting)"
+            )
+        except Exception as e:
+            log.error(
+                f"[msp-0060b] Failed to initialize learning loop services: "
+                f"{type(e).__name__}: {str(e)[:100]}"
+            )
+    else:
+        log.warning("[msp-0060b] Learning loop services disabled (Supabase unavailable)")
+
+    log.info(
+        f"[msp-0060b] Learning loop status: "
+        f"quality_scoring={'enabled' if qs else 'disabled'}, "
+        f"feedback_loops={'enabled' if fb else 'disabled'}, "
+        f"adaptive_routing={'enabled' if ar else 'disabled'}, "
+        f"forecasting={'enabled' if qf else 'disabled'}"
+    )
+
+
+_init_learning_loop()
 
 # ========================================================================
 # END MSN-0060B INITIALIZATION
