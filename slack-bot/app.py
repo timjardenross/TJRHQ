@@ -81,6 +81,19 @@ from commands.delivery import handle_delivery
 from commands.brief import handle_brief
 from commands.comms import handle_comms
 from commands.ask_specialist import handle_ask_specialist
+from commands.advisory import (
+    handle_advisor,
+    handle_challenge,
+    handle_lessons,
+    handle_evidence,
+    handle_advisory_outcome,
+    handle_advisor_metrics,
+    handle_advisor_scan,
+    handle_timeline,
+    handle_intel,
+    handle_awareness,
+    handle_products,
+)
 from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
 from commands.map import handle_map
@@ -1363,6 +1376,120 @@ if app:
         channel_id = command.get("channel_id", "")
         log.info("[app] /map: user=%s text=%r", user_id, text)
         respond(handle_map(text, user_id, channel_id))
+
+    # ── Advisory Runtime (MSN-0092) ───────────────────────────────────────────
+
+    @app.command("/advisor")
+    def handle_advisor_slash(ack, respond, command):
+        """/advisor <question> — multi-officer, evidence-based advisory."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor: user=%s q=%r", user_id, text[:80])
+        respond(handle_advisor(text, user_id, channel_id))
+
+    @app.command("/challenge")
+    def handle_challenge_slash(ack, respond, command):
+        """/challenge <question> — advisory with red-team review surfaced."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /challenge: user=%s q=%r", user_id, text[:80])
+        respond(handle_challenge(text, user_id, channel_id))
+
+    @app.command("/lessons")
+    def handle_lessons_slash(ack, respond, command):
+        """/lessons <topic> — historical lessons brief for a topic."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /lessons: user=%s topic=%r", user_id, text[:80])
+        respond(handle_lessons(text, user_id, channel_id))
+
+    @app.command("/evidence")
+    def handle_evidence_slash(ack, respond, command):
+        """/evidence <question> — historical evidence + related decisions."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /evidence: user=%s q=%r", user_id, text[:80])
+        respond(handle_evidence(text, user_id, channel_id))
+
+    @app.command("/advisory-outcome")
+    def handle_advisory_outcome_slash(ack, respond, command):
+        """/advisory-outcome <id|last> <success|failure|partial> [note] — close the loop."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisory-outcome: user=%s text=%r", user_id, text[:80])
+        respond(handle_advisory_outcome(text, user_id, channel_id))
+
+    @app.command("/advisor-metrics")
+    def handle_advisor_metrics_slash(ack, respond, command):
+        """/advisor-metrics [calibration] — advisory metrics / calibration report."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor-metrics: user=%s arg=%r", user_id, text[:40])
+        respond(handle_advisor_metrics(text, user_id, channel_id))
+
+    # ── Temporal & Proactive Intelligence (MSN-0095 / MSN-0096) ───────────────
+
+    @app.command("/advisor-scan")
+    def handle_advisor_scan_slash(ack, respond, command):
+        """/advisor-scan — proactive scan of what the system noticed (informational)."""
+        ack()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /advisor-scan: user=%s", user_id)
+        respond(handle_advisor_scan("", user_id, channel_id))
+
+    @app.command("/timeline")
+    def handle_timeline_slash(ack, respond, command):
+        """/timeline <question> — temporal query (what changed / preceded / began / next)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /timeline: user=%s q=%r", user_id, text[:60])
+        respond(handle_timeline(text, user_id, channel_id))
+
+    @app.command("/intel")
+    def handle_intel_slash(ack, respond, command):
+        """/intel [brief|picture|wellness|strategic|forecast|trust] — intelligence views."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /intel: user=%s view=%r", user_id, text[:30])
+        respond(handle_intel(text, user_id, channel_id))
+
+    # ── Intelligence Products (MSN-0099) ──────────────────────────────────────
+
+    @app.command("/awareness")
+    def handle_awareness_slash(ack, respond, command):
+        """/awareness [product] — Daily Awareness Brief (meaning, not machinery)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /awareness: user=%s product=%r", user_id, text[:30])
+        respond(handle_awareness(text, user_id, channel_id))
+
+    @app.command("/products")
+    def handle_products_slash(ack, respond, command):
+        """/products — the intelligence product catalogue."""
+        ack()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /products: user=%s", user_id)
+        respond(handle_products("", user_id, channel_id))
 
 if SUPABASE_ANON_KEY:
     log.info("✅ SUPABASE_ANON_KEY configured")

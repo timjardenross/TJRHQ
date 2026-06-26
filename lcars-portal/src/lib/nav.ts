@@ -32,6 +32,20 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Ask, route, clarify — intent into next action (MVP)'
   },
   {
+    href: '/advisory',
+    label: 'Advisors',
+    glyph: 'AD',
+    department: 'science',
+    description: 'Ask advisors, challenge a decision, review lessons (MSN-0092)'
+  },
+  {
+    href: '/intelligence',
+    label: 'Intelligence',
+    glyph: 'IC',
+    department: 'science',
+    description: 'Advisor dashboard, performance, timeline, operational picture (MSN-0097)'
+  },
+  {
     href: '/engineering-queue',
     label: 'Engineering Queue',
     glyph: 'EQ',
