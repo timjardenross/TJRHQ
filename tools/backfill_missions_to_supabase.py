@@ -42,7 +42,8 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 VALID_STATUSES = {
     "Idea", "Designed", "Implemented", "Tested",
     "Awaiting Number One Review", "Validated", "Awaiting XO Approval",
-    "Closed", "Blocked", "Archived",
+    "Awaiting Captain Approval", "Approved",
+    "Closed", "Blocked", "Archived", "Requires Rework",
 }
 
 REPO = "timjardenross/USSTJROS"

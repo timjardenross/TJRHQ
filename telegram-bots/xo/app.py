@@ -309,6 +309,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
         "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n"
         "/mission\\_create \\<title\\> — create a new Idea mission \\(e\\.g\\. `/mission_create Build ops dashboard`\\)\n\n"
+        "*Captain Governance*\n"
+        "/captain\\_approve \\<id\\> — approve a mission \\(e\\.g\\. `/captain_approve 0175`\\)\n"
+        "/captain\\_reject \\<id\\> \\<reason\\> — reject with reason \\(e\\.g\\. `/captain_reject 0175 Scope too broad`\\)\n\n"
         "*Logging*\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
@@ -574,6 +577,9 @@ _MISSION_STATUS_MAP = {
     "implemented": ["Implemented"],
     "tested":      ["Tested"],
     "validated":   ["Validated"],
+    "approved":    ["Approved"],
+    "awaiting":    ["Awaiting Captain Approval", "Awaiting XO Approval"],
+    "rework":      ["Requires Rework"],
     "closed":      ["Closed", "Archived"],
     "all":         [],  # sentinel — handled by show_all path
 }
@@ -758,6 +764,113 @@ async def cmd_mission_create(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
 
+# ── Captain governance commands (MSN-0175) ───────────────────────────────────
+
+async def _captain_decision_via_api(
+    update,
+    mission_ref: str,
+    decision: str,
+    reason: str = "",
+) -> None:
+    """Shared logic for /captain_approve and /captain_reject via LCARS API."""
+    if not LCARS_PORTAL_URL:
+        await update.message.reply_text(
+            "⚠️ `LCARS_PORTAL_URL` not configured — captain governance unavailable\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    endpoint = "approve" if decision == "approve" else "reject"
+    payload: dict = {"source": "Telegram", "owner": "Captain"}
+    if reason:
+        payload["reason"] = reason
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
+                json=payload,
+            )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            mid   = _escape_strict(data.get("mission_id", mission_ref))
+            title = _escape_strict((data.get("title") or "")[:60])
+            prev  = _escape_strict(data.get("previous_status", ""))
+            new_s = _escape_strict(data.get("new_status", ""))
+            verb  = "✅ *Mission Approved*" if decision == "approve" else "⛔ *Mission Rejected — Requires Rework*"
+            await update.message.reply_text(
+                f"{verb}\n\n`{mid}`\n{title}\n\n_{prev}_ → *{new_s}*",
+                parse_mode="MarkdownV2",
+            )
+        elif resp.status_code == 404:
+            await update.message.reply_text(
+                f"⚠️ Mission `{_escape_strict(mission_ref)}` not found\\.",
+                parse_mode="MarkdownV2",
+            )
+        elif resp.status_code == 409:
+            data    = resp.json()
+            current = _escape_strict(data.get("current_status", "unknown"))
+            await update.message.reply_text(
+                f"⚠️ Mission `{_escape_strict(mission_ref)}` is `{current}` — not eligible for {decision}\\.",
+                parse_mode="MarkdownV2",
+            )
+        elif resp.status_code == 400:
+            data = resp.json()
+            err  = _escape_strict(str(data.get("error", resp.text))[:100])
+            await update.message.reply_text(
+                f"⚠️ Bad request: `{err}`",
+                parse_mode="MarkdownV2",
+            )
+        else:
+            detail = _escape_strict(str(resp.text)[:120])
+            await update.message.reply_text(
+                f"⚠️ API returned `{resp.status_code}`:\n`{detail}`",
+                parse_mode="MarkdownV2",
+            )
+    except Exception as exc:
+        log.error("[captain-%s] failed: %s", decision, exc)
+        await update.message.reply_text(
+            f"⚠️ Captain {decision} failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
+async def cmd_captain_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Approve a mission. Usage: /captain_approve <mission_id>"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Captain Approve*\n\n"
+            "Usage: `/captain_approve <mission_id>`\n\n"
+            "_Example: `/captain_approve 0175`_\n\n"
+            "Eligible statuses: `Awaiting Captain Approval`, `Awaiting XO Approval`, `Validated`, `Tested`",
+            parse_mode="MarkdownV2",
+        )
+        return
+    await _captain_decision_via_api(update, args[0].strip(), "approve")
+
+
+async def cmd_captain_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Reject a mission and require rework. Usage: /captain_reject <mission_id> <reason>"""
+    args = context.args or []
+    if len(args) < 2:
+        await update.message.reply_text(
+            "*Captain Reject*\n\n"
+            "Usage: `/captain_reject <mission_id> <reason>`\n\n"
+            "_A reason is required\\._\n\n"
+            "_Example: `/captain_reject 0175 Scope too broad — split into two missions`_",
+            parse_mode="MarkdownV2",
+        )
+        return
+    await _captain_decision_via_api(
+        update,
+        args[0].strip(),
+        "reject",
+        " ".join(args[1:]).strip(),
+    )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -907,7 +1020,9 @@ _BOT_COMMANDS = [
     ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
     ("mission_list",    "List missions  e.g. /mission_list active"),
     ("mission_status",  "Mission detail  e.g. /mission_status 0167"),
-    ("mission_create",  "Create mission  e.g. /mission_create Build ops dashboard"),
+    ("mission_create",   "Create mission  e.g. /mission_create Build ops dashboard"),
+    ("captain_approve",  "Approve mission  e.g. /captain_approve 0175"),
+    ("captain_reject",   "Reject mission   e.g. /captain_reject 0175 Scope too broad"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
@@ -937,7 +1052,9 @@ def main() -> None:
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
-    app.add_handler(CommandHandler("mission_create",  cmd_mission_create))
+    app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
+    app.add_handler(CommandHandler("captain_approve",  cmd_captain_approve))
+    app.add_handler(CommandHandler("captain_reject",   cmd_captain_reject))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))

@@ -9,6 +9,7 @@ import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { MobileAlertDrawer } from '@/components/MobileAlertDrawer';
+import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import {
   alerts,
   captainTimeline,
@@ -607,6 +608,9 @@ export default function CaptainsChairPage() {
 
         {/* ── Recovery panels (live Supabase data via useROSData) ── */}
         <ROSPanels />
+
+        {/* ── MSN-0176: Captain approval queue — always visible (decisions don't wait for posture) ── */}
+        <CaptainApprovalQueue />
 
         {/* ── Fleet section — collapses on FRAGILE/REST per D-055 ── */}
         <FleetStatusConditional posture={currentPosture}>
