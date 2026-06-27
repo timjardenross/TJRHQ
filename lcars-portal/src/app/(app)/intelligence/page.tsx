@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import ProactiveSignals from '@/components/ProactiveSignals';
 
 /**
  * Intelligence Centre — USS-TJR-MSN-0097.
@@ -99,6 +100,7 @@ export default function IntelligencePage() {
       {!loading && data && tab === 'dashboard' && <Dashboard d={data} />}
       {!loading && data && tab === 'performance' && <Performance d={data} />}
       {!loading && data && tab === 'timeline' && <Timeline d={data} />}
+      {tab === 'operational' && <div className="mb-2"><ProactiveSignals /></div>}
       {!loading && data && tab === 'operational' && <Operational d={data} />}
       {!loading && data && tab === 'trust' && <Trust d={data} />}
     </div>

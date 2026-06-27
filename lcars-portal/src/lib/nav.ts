@@ -74,20 +74,6 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Capture a note, mission, health log or idea (MVP)'
   },
   {
-    href: '/xo',
-    label: 'XO Chat',
-    glyph: 'XO',
-    department: 'science',
-    description: 'Ask, route, clarify — intent into next action (MVP)'
-  },
-  {
-    href: '/advisory',
-    label: 'Advisors',
-    glyph: 'AD',
-    department: 'science',
-    description: 'Ask advisors, challenge a decision, review lessons (MSN-0092)'
-  },
-  {
     href: '/intelligence',
     label: 'Intelligence',
     glyph: 'IC',
@@ -212,13 +198,6 @@ export const NAV_ITEMS: NavItem[] = [
     glyph: '16',
     department: 'command',
     description: 'Intelligence intake — capture, triage, route'
-  },
-  {
-    href: '/ai-console',
-    label: 'AI Console',
-    glyph: '13',
-    department: 'science',
-    description: 'Direct access to Ollama Cloud GLM 5.2'
   }
 ];
 
