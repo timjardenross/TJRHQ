@@ -34,6 +34,12 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Allow bot requests carrying the shared secret
+  const botSecret = request.headers.get('x-bot-secret');
+  if (botSecret && process.env.BOT_API_SECRET && botSecret === process.env.BOT_API_SECRET) {
+    return supabaseResponse;
+  }
+
   // Redirect unauthenticated users to login
   if (!user) {
     const loginUrl = request.nextUrl.clone();

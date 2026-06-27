@@ -37,6 +37,7 @@ SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY       = os.environ.get("SUPABASE_KEY", "")
 # MSN-0172: LCARS portal base URL for POST /api/missions (no trailing slash)
 LCARS_PORTAL_URL   = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
+LCARS_API_SECRET   = os.environ.get("LCARS_API_SECRET", "")
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,12 @@ def _get_supabase():
 
 
 # ── MarkdownV2 escaping ───────────────────────────────────────────────────────
+
+def _bot_headers() -> dict:
+    if LCARS_API_SECRET:
+        return {"X-Bot-Secret": LCARS_API_SECRET}
+    return {}
+
 
 def _escape(text: str) -> str:
     result = []
@@ -738,7 +745,7 @@ async def cmd_mission_create(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, headers=_bot_headers()) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions",
                 json={"title": title, "status": "Idea"},
@@ -790,7 +797,7 @@ async def _captain_decision_via_api(
 
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, headers=_bot_headers()) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
                 json=payload,
@@ -892,7 +899,7 @@ async def _lifecycle_api_call(
         return
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, headers=_bot_headers()) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
                 json=payload,
@@ -986,7 +993,7 @@ async def cmd_operating_picture(update: Update, context: ContextTypes.DEFAULT_TY
         return
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=_bot_headers()) as client:
             resp = await client.get(f"{LCARS_PORTAL_URL}/api/operating-picture")
         if resp.status_code != 200:
             await update.message.reply_text(
