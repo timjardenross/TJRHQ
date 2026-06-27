@@ -939,7 +939,7 @@ def _get_idea_missions() -> list[dict]:
         client = CommanderSupabaseClient()
         if not client.is_enabled():
             return []
-        rows = client._get("missions?select=*&status=ilike.Idea&order=created_at.asc&limit=30")
+        rows = client.get("missions?select=*&status=ilike.Idea&order=created_at.asc&limit=30")
         return rows or []
     except Exception as exc:
         log.debug("[idea_review] Supabase unavailable: %s", exc)
