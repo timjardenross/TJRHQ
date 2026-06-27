@@ -35,6 +35,8 @@ const governanceRoutes = require('./api/governance');
 const advisorRoutes = require('./api/advisors');
 const consoleRoutes = require('./api/console');
 const captureRoutes = require('./api/capture');
+const searchRoutes = require('./api/search');
+const timelineRoutes = require('./api/timeline');
 const { errorHandler } = require('./middleware/error-handling');
 const notificationEngine = require('./services/notification-engine');
 
@@ -115,6 +117,8 @@ app.use('/api/v1/governance', governanceRoutes);
 app.use('/api/v1/advisors', advisorRoutes);
 app.use('/api/v1/console', consoleRoutes);
 app.use('/api/v1/capture', captureRoutes);
+app.use('/api/v1/search', searchRoutes);
+app.use('/api/v1/timeline', timelineRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

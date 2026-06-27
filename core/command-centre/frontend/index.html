@@ -341,6 +341,84 @@
     .debug-mode { display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 1px solid #00ccff; border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 10px; color: #00dd00; max-width: 300px; max-height: 200px; overflow-y: auto; z-index: 1000; }
     .debug-mode.active { display: block; }
 
+    /* ── Global Search Bar (MSN-3A-001) ─────────────────────── */
+    .global-search-wrap {
+      position: relative; margin-bottom: 16px;
+    }
+    .global-search-input {
+      width: 100%; padding: 10px 40px 10px 36px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px; color: #e0e6ff; font-size: 13px; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .global-search-input:focus { outline: none; border-color: rgba(0,204,255,0.4); background: rgba(0,204,255,0.03); }
+    .global-search-icon {
+      position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+      color: #5a6080; font-size: 14px; pointer-events: none;
+    }
+    .global-search-spinner {
+      display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      width: 14px; height: 14px; border: 2px solid rgba(0,204,255,0.2);
+      border-top-color: #00ccff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .global-search-spinner.active { display: block; }
+    @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+    .search-results-overlay {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 800;
+      background: #0d1117; border: 1px solid rgba(0,204,255,0.2);
+      border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      max-height: 420px; overflow-y: auto;
+    }
+    .search-results-overlay.open { display: block; }
+    .search-result-section { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .search-result-section:last-child { border-bottom: none; }
+    .search-result-section-title {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+      color: #5a6080; padding: 4px 14px 2px;
+    }
+    .search-result-item {
+      display: flex; align-items: flex-start; gap: 10px; padding: 7px 14px;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .search-result-item:hover { background: rgba(0,204,255,0.06); }
+    .search-result-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .search-result-body { flex: 1; min-width: 0; }
+    .search-result-title { font-size: 12px; font-weight: 600; color: #e0e6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-result-detail { font-size: 10px; color: #a0a6c0; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-result-ts { font-size: 10px; color: #5a6080; flex-shrink: 0; }
+    .search-no-results { padding: 20px 14px; text-align: center; color: #5a6080; font-size: 12px; }
+
+    /* ── Timeline Card (MSN-3A-002) ──────────────────────────── */
+    .timeline-event {
+      display: flex; gap: 12px; padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .timeline-event:last-child { border-bottom: none; }
+    .timeline-dot-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .timeline-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .timeline-dot.mission   { background: #C8922A; }
+    .timeline-dot.health    { background: #3A7BC8; }
+    .timeline-dot.log       { background: #F0B840; }
+    .timeline-dot.events    { background: #D94444; }
+    .timeline-dot.intelligence { background: #6A3FAF; }
+    .timeline-dot.captures  { background: #2ecc71; }
+    .timeline-dot.default   { background: #5a6080; }
+    .timeline-body { flex: 1; min-width: 0; }
+    .timeline-title { font-size: 12px; color: #c8d0e8; line-height: 1.35; }
+    .timeline-detail { font-size: 10px; color: #a0a6c0; margin-top: 2px; }
+    .timeline-ts { font-size: 10px; color: #5a6080; white-space: nowrap; flex-shrink: 0; margin-top: 4px; }
+    .timeline-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .timeline-filter-btn {
+      font-size: 10px; padding: 3px 9px; border-radius: 4px; cursor: pointer;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      color: #a0a6c0; font-family: inherit;
+    }
+    .timeline-filter-btn.active { background: rgba(0,204,255,0.1); border-color: rgba(0,204,255,0.35); color: #00ccff; font-weight: 700; }
+
     /* ── Notification Bell + Drawer ─────────────────────────── */
     .notif-bell-btn {
       position: relative; background: rgba(255,255,255,0.04);
@@ -450,6 +528,22 @@
       <div class="notif-list" id="notif-list">
         <div class="notif-empty">No notifications</div>
       </div>
+    </div>
+
+    <!-- GLOBAL SEARCH (MSN-3A-001) -->
+    <div class="global-search-wrap" id="global-search-wrap">
+      <span class="global-search-icon">🔍</span>
+      <input
+        class="global-search-input"
+        id="global-search-input"
+        type="text"
+        placeholder="Search missions, log entries, decisions, captures…"
+        autocomplete="off"
+        oninput="onGlobalSearch(this.value)"
+        onkeydown="onSearchKeydown(event)"
+      >
+      <span class="global-search-spinner" id="global-search-spinner"></span>
+      <div class="search-results-overlay" id="search-results-overlay"></div>
     </div>
 
     <!-- TAB NAVIGATION -->
@@ -763,6 +857,24 @@
       <div class="intel-card" style="margin-top:12px;">
         <div class="intel-card-title">🗂 Intelligence Archive</div>
         <div id="records-intel-archive"><p class="intel-loading">Loading archive…</p></div>
+      </div>
+
+      <!-- Unified Timeline (MSN-3A-002) -->
+      <div class="intel-card" style="margin-top:12px;">
+        <div class="intel-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>⏱ Unified Timeline</span>
+          <span id="timeline-count" style="font-size:10px;color:#5a6080;font-weight:400;text-transform:none;letter-spacing:0;"></span>
+        </div>
+        <div class="timeline-filter-row" id="timeline-filters">
+          <button class="timeline-filter-btn active" data-type="">All</button>
+          <button class="timeline-filter-btn" data-type="missions">🚀 Missions</button>
+          <button class="timeline-filter-btn" data-type="health">🩺 Health</button>
+          <button class="timeline-filter-btn" data-type="log">📓 Log</button>
+          <button class="timeline-filter-btn" data-type="events">⚡ Events</button>
+          <button class="timeline-filter-btn" data-type="intelligence">📡 Intel</button>
+          <button class="timeline-filter-btn" data-type="captures">📥 Captures</button>
+        </div>
+        <div id="records-timeline"><p class="intel-loading">Loading timeline…</p></div>
       </div>
 
     </div>
@@ -1764,6 +1876,9 @@
 
       // ── Pending Captures ─────────────────────────────────────────────────
       renderPendingCaptures(capturesData.status === 'fulfilled' ? capturesData.value : null);
+
+      // ── Unified Timeline ─────────────────────────────────────────────────
+      loadTimeline();
     }
 
     function renderPendingCaptures(captures) {
@@ -2443,6 +2558,201 @@
         else openCapture();
       }
       if (e.key === 'Escape') closeCapture();
+    });
+
+    // ── Global Search (MSN-3A-001) ────────────────────────────────────────
+    const TYPE_ICONS = {
+      mission:      '🚀',
+      decision:     '⚖️',
+      log:          '📓',
+      capture:      '📥',
+      intelligence: '📡',
+    };
+
+    const TYPE_LABELS = {
+      mission:      'Missions',
+      decision:     'Decisions',
+      log:          "Captain's Log",
+      capture:      'Captures',
+      intelligence: 'Intelligence',
+    };
+
+    let _searchTimer = null;
+    let _searchLastQ = '';
+
+    function onGlobalSearch(val) {
+      const q = val.trim();
+      clearTimeout(_searchTimer);
+      if (!q || q.length < 2) {
+        closeSearchResults();
+        return;
+      }
+      _searchTimer = setTimeout(() => runSearch(q), 280);
+    }
+
+    async function runSearch(q) {
+      if (q === _searchLastQ) return;
+      _searchLastQ = q;
+      const spinner = document.getElementById('global-search-spinner');
+      const overlay = document.getElementById('search-results-overlay');
+      if (spinner) spinner.classList.add('active');
+      try {
+        const data = await fetchJSON(`/api/v1/search?q=${encodeURIComponent(q)}&limit=6`);
+        renderSearchResults(data);
+      } catch(e) {
+        if (overlay) overlay.innerHTML = `<div class="search-no-results">Search failed: ${e.message}</div>`;
+        if (overlay) overlay.classList.add('open');
+      } finally {
+        if (spinner) spinner.classList.remove('active');
+      }
+    }
+
+    function renderSearchResults(data) {
+      const overlay = document.getElementById('search-results-overlay');
+      if (!overlay) return;
+      const results = data && data.results ? data.results : [];
+      if (!results.length) {
+        overlay.innerHTML = `<div class="search-no-results">No results for "${data.query || ''}"</div>`;
+        overlay.classList.add('open');
+        return;
+      }
+      // Group by type
+      const grouped = {};
+      for (const r of results) {
+        if (!grouped[r.type]) grouped[r.type] = [];
+        grouped[r.type].push(r);
+      }
+      let html = '';
+      for (const [type, items] of Object.entries(grouped)) {
+        html += `<div class="search-result-section">
+          <div class="search-result-section-title">${TYPE_LABELS[type] || type}</div>
+          ${items.map(r => `
+            <div class="search-result-item" onclick="navigateToResult(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+              <span class="search-result-icon">${TYPE_ICONS[r.type] || '•'}</span>
+              <div class="search-result-body">
+                <div class="search-result-title">${r.title || ''}</div>
+                ${r.detail ? `<div class="search-result-detail">${r.detail}</div>` : ''}
+              </div>
+              <span class="search-result-ts">${(r.timestamp || '').slice(0,10)}</span>
+            </div>`).join('')}
+        </div>`;
+      }
+      overlay.innerHTML = html;
+      overlay.classList.add('open');
+    }
+
+    function navigateToResult(result) {
+      closeSearchResults();
+      const input = document.getElementById('global-search-input');
+      if (input) input.value = '';
+      _searchLastQ = '';
+      if (result.tab_target) {
+        activateTab(result.tab_target);
+        // For missions, highlight the row in the queue
+        if (result.type === 'mission' && result.entity_id) {
+          setTimeout(() => {
+            loadCommandConsole().then(() => highlightMissionInQueue(result.entity_id));
+          }, 200);
+        }
+      }
+    }
+
+    function closeSearchResults() {
+      const overlay = document.getElementById('search-results-overlay');
+      if (overlay) overlay.classList.remove('open');
+    }
+
+    function onSearchKeydown(e) {
+      if (e.key === 'Escape') {
+        closeSearchResults();
+        document.getElementById('global-search-input').blur();
+      }
+    }
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+      if (!document.getElementById('global-search-wrap')?.contains(e.target)) {
+        closeSearchResults();
+      }
+    });
+
+    // ── Unified Timeline (MSN-3A-002) ─────────────────────────────────────
+    let _timelineData   = [];
+    let _timelineFilter = '';
+
+    function _dotClass(source) {
+      const s = (source || '').toLowerCase();
+      if (s === 'missions')     return 'mission';
+      if (s === 'health')       return 'health';
+      if (s === 'log')          return 'log';
+      if (s === 'events')       return 'events';
+      if (s === 'intelligence') return 'intelligence';
+      if (s === 'captures')     return 'captures';
+      return 'default';
+    }
+
+    function _relativeTs(iso) {
+      if (!iso) return '';
+      const diff = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 60)     return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24)     return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      if (d < 7)      return `${d}d ago`;
+      return iso.slice(0, 10);
+    }
+
+    function renderTimeline(events) {
+      const el = document.getElementById('records-timeline');
+      const countEl = document.getElementById('timeline-count');
+      if (!el) return;
+      if (!events || !events.length) {
+        el.innerHTML = '<p class="intel-loading">No events in this period</p>';
+        if (countEl) countEl.textContent = '';
+        return;
+      }
+      if (countEl) countEl.textContent = `${events.length} events`;
+      el.innerHTML = events.map(e => `
+        <div class="timeline-event">
+          <div class="timeline-dot-col"><span class="timeline-dot ${_dotClass(e.source)}"></span></div>
+          <div class="timeline-body">
+            <div class="timeline-title">${e.title || ''}</div>
+            ${e.detail ? `<div class="timeline-detail">${e.detail}</div>` : ''}
+          </div>
+          <span class="timeline-ts">${_relativeTs(e.timestamp)}</span>
+        </div>`).join('');
+    }
+
+    function filterTimeline(type) {
+      _timelineFilter = type;
+      // Update filter buttons
+      document.querySelectorAll('.timeline-filter-btn').forEach(b => {
+        b.classList.toggle('active', (b.dataset.type || '') === type);
+      });
+      const visible = type
+        ? _timelineData.filter(e => e.source === type)
+        : _timelineData;
+      renderTimeline(visible);
+    }
+
+    async function loadTimeline() {
+      const el = document.getElementById('records-timeline');
+      if (!el) return;
+      try {
+        const data = await fetchJSON('/api/v1/timeline?limit=60');
+        _timelineData = (data && data.events) ? data.events : [];
+        renderTimeline(_timelineData);
+      } catch(e) {
+        el.innerHTML = `<p class="intel-loading" style="color:#E85555">Timeline unavailable: ${e.message}</p>`;
+      }
+    }
+
+    // Timeline filter button clicks
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('.timeline-filter-btn');
+      if (!btn) return;
+      filterTimeline(btn.dataset.type || '');
     });
 
     // ── Notification Bell + Drawer ────────────────────────────────────────
