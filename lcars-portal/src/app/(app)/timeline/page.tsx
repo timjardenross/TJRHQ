@@ -25,16 +25,16 @@ async function fetchMissionTransitions(days: number): Promise<TimelineEvent[]> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
     .from('mission_state_transitions')
-    .select('id, mission_id, from_state, to_state, actor, transitioned_at')
-    .gte('transitioned_at', since)
-    .order('transitioned_at', { ascending: false })
+    .select('id, mission_id, from_state, to_state, actor, created_at')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
     .limit(30);
   return (data ?? []).map(r => ({
     id:        `mst-${r.id}`,
     source:    'missions' as const,
     title:     `${r.mission_id}: ${r.from_state ?? '?'} → ${r.to_state}`,
     detail:    r.actor ? `by ${r.actor}` : undefined,
-    timestamp: r.transitioned_at,
+    timestamp: r.created_at,
     metadata:  { from: r.from_state, to: r.to_state },
   }));
 }
@@ -86,16 +86,16 @@ async function fetchCommanderEvents(days: number): Promise<TimelineEvent[]> {
   if (!supabase) return [];
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
-    .from('commander_events')
-    .select('id, event_type, title, description, created_at')
+    .from('mission_execution_events')
+    .select('id, status, mission_id, created_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(20);
   return (data ?? []).map(r => ({
     id:        `ev-${r.id}`,
     source:    'events' as const,
-    title:     r.title ?? `Event: ${r.event_type}`,
-    detail:    r.description?.slice(0, 100),
+    title:     `${r.mission_id ?? 'System'}: ${r.status}`,
+    detail:    undefined,
     timestamp: r.created_at,
   }));
 }

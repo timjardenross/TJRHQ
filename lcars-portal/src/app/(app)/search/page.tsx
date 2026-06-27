@@ -75,16 +75,16 @@ async function searchCaptures(q: string): Promise<SearchResult[]> {
 async function searchEvents(q: string): Promise<SearchResult[]> {
   if (!supabase) return [];
   const { data } = await supabase
-    .from('commander_events')
-    .select('id, event_type, title, description, created_at')
-    .or(`title.ilike.%${q}%,description.ilike.%${q}%`)
+    .from('mission_execution_events')
+    .select('id, status, mission_id, created_at')
+    .or(`status.ilike.%${q}%,mission_id.ilike.%${q}%`)
     .order('created_at', { ascending: false })
     .limit(4);
   return (data ?? []).map(r => ({
     type:      'event' as const,
     id:        String(r.id),
-    title:     r.title ?? `Event: ${r.event_type}`,
-    detail:    r.description?.slice(0, 100),
+    title:     `${r.mission_id ?? 'System'}: ${r.status}`,
+    detail:    undefined,
     timestamp: r.created_at,
     href:      '/missions',
   }));
