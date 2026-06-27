@@ -10,9 +10,7 @@ WP2: /mission-status now supports lifecycle transitions:
 WP3: /mission-list now supports `idea` filter:
   /mission-list idea  — Idea-status missions sorted by age (oldest first)
 
-Data sources (in priority order):
-  1. Supabase missions table (if configured and populated)
-  2. core/mission-control/registry/mission-index.txt (flat-file fallback)
+Data source: Supabase missions table (sole system of record)
 
 Public API:
     handle_mission_list(text, user_id, channel_id) -> str
@@ -33,7 +31,6 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_REGISTRY   = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
 
 # Statuses considered "active" for /mission-list default view
 _ACTIVE_STATUSES = {"in_progress", "active", "in progress", "planned", "blocked", "design"}
@@ -63,12 +60,10 @@ _MAX_REF_CHARS = 6000   # cap reference file content to avoid oversized prompts
 
 def _load_mission_dossier(mission_id: str) -> dict:
     """
-    Assemble a mission dossier dict from all available local sources.
+    Assemble a mission dossier dict from local sources.
 
     Sources (all optional, fail-silent):
-      1. mission-index.txt  — title, priority, status, owner, specialist, reference path
-      2. core/mission-control/examples/USS-TJR-MSN-XXXX.txt — structured mission file
-      3. Reference file pointed to by the index row
+      1. core/mission-control/examples/USS-TJR-MSN-XXXX.txt — structured mission file
 
     Returns a dict with keys:
         mission_id, title, priority, status, owner, specialist,
@@ -86,28 +81,6 @@ def _load_mission_dossier(mission_id: str) -> dict:
         "mission_file_content": "",
         "reference_content": "",
     }
-
-    # 1. Parse mission-index.txt
-    try:
-        if _REGISTRY.exists():
-            for line in _REGISTRY.read_text(encoding="utf-8").splitlines():
-                if not line.startswith("|"):
-                    continue
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) < 5:
-                    continue
-                row_id = parts[1]
-                # Match bare or full ID
-                if row_id == mission_id or row_id == mission_id.replace("USS-TJR-", ""):
-                    dossier["title"]      = parts[2] if len(parts) > 2 else ""
-                    dossier["priority"]   = parts[3] if len(parts) > 3 else ""
-                    dossier["status"]     = parts[4] if len(parts) > 4 else ""
-                    dossier["owner"]      = parts[5] if len(parts) > 5 else ""
-                    dossier["specialist"] = parts[6] if len(parts) > 6 else ""
-                    dossier["reference_path"] = parts[7] if len(parts) > 7 else ""
-                    break
-    except Exception as exc:
-        log.debug("[mission_lifecycle] dossier: registry parse failed: %s", exc)
 
     # Normalise mission_id to full form for file lookups
     bare_id = mission_id.replace("USS-TJR-", "")
@@ -171,32 +144,6 @@ def _format_qa_dossier(dossier: dict, closing_note: str = "") -> str:
         lines.append("\n(No structured mission file or reference document found in local sources.)")
 
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Registry reader (flat-file)
-# ---------------------------------------------------------------------------
-
-def _parse_registry() -> list[dict]:
-    """Parse mission-index.txt into a list of dicts."""
-    if not _REGISTRY.exists():
-        return []
-    missions = []
-    for line in _REGISTRY.read_text().splitlines():
-        if not line.startswith("|") or line.startswith("| Mission ID"):
-            continue
-        parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 5:
-            continue
-        missions.append({
-            "id":       parts[1],
-            "title":    parts[2],
-            "priority": parts[3],
-            "status":   parts[4],
-            "owner":    parts[5] if len(parts) > 5 else "",
-            "specialist": parts[6] if len(parts) > 6 else "",
-        })
-    return missions
 
 
 def _supabase_missions(status_filter: Optional[str] = None, order: str = "created_at.desc") -> list[dict]:
@@ -343,24 +290,11 @@ def handle_mission_list(
 
     status_filter = filter_arg if filter_arg and not show_all else None
 
-    # Try Supabase first
     db_missions = _supabase_missions(status_filter)
     if db_missions:
         return _format_mission_list(db_missions, source="Supabase", filter_arg=filter_arg)
 
-    # Fallback: flat file
-    all_missions = _parse_registry()
-    if not all_missions:
-        return ":warning: Mission registry not found. Check `core/mission-control/registry/mission-index.txt`."
-
-    if show_all:
-        filtered = all_missions
-    elif status_filter:
-        filtered = [m for m in all_missions if status_filter in m["status"].lower()]
-    else:
-        filtered = [m for m in all_missions if m["status"].lower() in _ACTIVE_STATUSES]
-
-    return _format_mission_list(filtered, source="registry", filter_arg=filter_arg)
+    return ":warning: No missions returned from Supabase. Check that Supabase is configured and reachable."
 
 
 def _format_idea_list(missions: list[dict]) -> str:

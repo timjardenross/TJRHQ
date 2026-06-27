@@ -195,10 +195,9 @@ def _mission_last_activity(mission_id: str) -> Optional[datetime]:
 def _read_mission_index() -> list[dict]:
     """Return active missions from Supabase (system of record).
 
-    Falls back to mission-index.txt with a warning if Supabase is unavailable.
     Returns list of dicts: {id, timestamp, domain, status, description}
+    Returns empty list if Supabase is unavailable or not configured.
     """
-    # Supabase path (primary)
     try:
         import sys as _sys
         _sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
@@ -223,41 +222,7 @@ def _read_mission_index() -> list[dict]:
                 ]
     except Exception as exc:
         log.warning("[notifications] Supabase mission read failed: %s", exc)
-
-    # Fallback — file (legacy, not authoritative post MSN-BOT-SOR)
-    log.warning(
-        "[notifications] FALLBACK: reading missions from mission-index.txt. "
-        "Supabase is unavailable or not configured. Data may be stale."
-    )
-    missions = []
-    candidates = [
-        _REPO_ROOT / "Missions" / "Mission-Index.md",
-        _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt",
-    ]
-    for path in candidates:
-        if not path.exists():
-            continue
-        try:
-            with open(path) as f:
-                for line in f:
-                    line = line.strip()
-                    if not line.startswith("- "):
-                        continue
-                    line = line[2:]
-                    parts = [p.strip() for p in line.split("|")]
-                    if len(parts) < 4:
-                        continue
-                    missions.append({
-                        "id":          parts[0],
-                        "timestamp":   parts[1] if len(parts) > 1 else "",
-                        "domain":      parts[2] if len(parts) > 2 else "",
-                        "status":      parts[3] if len(parts) > 3 else "",
-                        "description": parts[4] if len(parts) > 4 else "",
-                    })
-            break
-        except Exception as exc:
-            log.warning("[notifications] Failed to read mission index %s: %s", path, exc)
-    return missions
+    return []
 
 
 def get_mission_escalations() -> list[dict]:

@@ -20,21 +20,12 @@ from mission_logger import (
     ensure_missions_dir,
     generate_mission_id,
     redact_secrets,
-    update_mission_index,
     _supabase_insert_mission,
 )
 
 log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# MSN-0045 (Captain decision 2): runtime mission logging writes to the AUTHORITATIVE
-# registry. Previously this pointed at the deprecated `missions/Mission-Registry.md`
-# (a write-only dead-end nothing read back). The deprecated file is retained on disk
-# for read compatibility (knowledge_retrieval/repository_awareness reference it) but is
-# no longer a write target.
-CANONICAL_REGISTRY = BASE_DIR / "core" / "mission-control" / "registry" / "mission-index.txt"
-# Legacy (deprecated) write target — RETAINED FOR READ COMPAT ONLY, never written:
-DEPRECATED_REGISTRY = BASE_DIR / "missions" / "Mission-Registry.md"
 
 VALID_STATUSES = ["Draft", "Planned", "Active", "Blocked", "Review", "Completed", "Archived"]
 
@@ -151,21 +142,8 @@ Created from Commander mission registry request.
 """
 
     mission_file_for(mission_id).write_text(content, encoding="utf-8")
-    update_mission_index(mission_id, domain, "Active", title)
-    append_canonical_registry(mission_id, title, domain, "Active")
     _supabase_insert_mission(mission_id, title, domain, "Active")
     return {"mission_id": mission_id, "title": title, "domain": domain, "status": "Active"}
-
-
-def append_canonical_registry(mission_id: str, title: str, domain: str, status: str) -> None:
-    # MSN-BOT-SOR: deprecated — mission-index.txt is no longer authoritative.
-    # Supabase is the system of record; _supabase_insert_mission() is called by the caller.
-    # This stub is retained to avoid breaking existing callers during migration.
-    log.warning(
-        "[mission-registry] DEPRECATED: append_canonical_registry() called for %s. "
-        "mission-index.txt is not authoritative. Data is written to Supabase.",
-        mission_id,
-    )
 
 
 def get_mission(mission_id: str) -> Optional[str]:

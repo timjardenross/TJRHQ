@@ -16,8 +16,6 @@ if str(BASE_DIR) not in sys.path:
 import id_registry
 MISSIONS_DIR = BASE_DIR / "Missions"
 MISSION_INDEX = MISSIONS_DIR / "Mission-Index.md"
-# MSN-0145: authoritative runtime registry sink
-_CANONICAL_REGISTRY = BASE_DIR / "core" / "mission-control" / "registry" / "mission-index.txt"
 
 MISSION_HISTORY_TRIGGERS = [
     "recent missions",
@@ -40,27 +38,6 @@ def ensure_missions_dir() -> Path:
     # MSN-BOT-SOR: Mission-Index.md is export/cache only. Do not initialise it as a
     # data source. File creation is skipped — Supabase is the system of record.
     return MISSIONS_DIR
-
-
-def _append_runtime_to_canonical_registry(
-    mission_id: str,
-    title: str,
-    domain: str,
-    status: str,
-) -> None:
-    """MSN-0145: append a runtime mission row to the authoritative registry.
-
-    Uses the same dash-list format as mission_registry.append_canonical_registry().
-    Non-blocking — file write failures are silently suppressed.
-    """
-    if not _CANONICAL_REGISTRY.exists():
-        return
-    try:
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-        with _CANONICAL_REGISTRY.open("a", encoding="utf-8") as f:
-            f.write(f"\n- {mission_id} | {ts} | {domain} | {status} | {redact_secrets(title)}\n")
-    except Exception:
-        pass
 
 
 def generate_mission_id() -> str:
@@ -140,22 +117,7 @@ Optional future notes.
         encoding="utf-8",
     )
 
-    update_mission_index(
-        mission_id=mission_id,
-        mission_domain=mission_domain,
-        status=status,
-        title=build_title(user_request),
-    )
-
-    # MSN-BOT-SOR: Supabase is authoritative; file registry is cache/export only
     _supabase_insert_mission(
-        mission_id=mission_id,
-        title=build_title(user_request),
-        domain=mission_domain,
-        status=status,
-    )
-    # MSN-0145: also append to canonical registry file (cache/export, non-authoritative)
-    _append_runtime_to_canonical_registry(
         mission_id=mission_id,
         title=build_title(user_request),
         domain=mission_domain,
@@ -175,22 +137,6 @@ Optional future notes.
         # Non-blocking failure — mission still created locally
 
     return mission_file
-
-
-def update_mission_index(
-    mission_id: str,
-    mission_domain: str,
-    status: str,
-    title: str,
-) -> None:
-    # MSN-BOT-SOR: deprecated — mission-index.txt is no longer authoritative.
-    # Supabase is now written directly via _supabase_insert_mission().
-    # This stub is retained to avoid breaking callers during migration.
-    log.warning(
-        "[mission-logger] DEPRECATED: update_mission_index() called for %s. "
-        "mission-index.txt is not authoritative. Write to Supabase instead.",
-        mission_id,
-    )
 
 
 def _supabase_insert_mission(
