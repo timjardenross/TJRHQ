@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
 
-const CLOSED_STATUSES = ['Closed', 'completed', 'cancelled', 'deferred', 'Archived'];
+// Valid Supabase status values (CHECK constraint on missions.status)
+const VALID_STATUSES = [
+  'Idea', 'Designed', 'Implemented', 'Tested',
+  'Awaiting Number One Review', 'Validated', 'Awaiting XO Approval',
+  'Closed', 'Blocked', 'Archived',
+] as const;
+const CLOSED_STATUSES = ['Closed', 'Archived'];
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +20,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     let query = supabase
       .from('missions')
-      .select('mission_id, title, status, priority, owner, created_at, updated_at')
+      .select('mission_id, title, status, priority, created_by, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -51,9 +57,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 });
   }
 
-  const status   = typeof body.status      === 'string' ? body.status.trim()      : 'Idea';
-  const priority = typeof body.priority    === 'string' ? body.priority.trim()    : null;
-  const owner    = typeof body.owner       === 'string' ? body.owner.trim()       : null;
+  const rawStatus  = typeof body.status === 'string' ? body.status.trim() : 'Idea';
+  const status     = (VALID_STATUSES as readonly string[]).includes(rawStatus) ? rawStatus : 'Idea';
+  const priority   = typeof body.priority    === 'string' ? body.priority.trim()    : null;
+  const created_by = typeof body.created_by  === 'string' ? body.created_by.trim()  : null;
   const description = typeof body.description === 'string' ? body.description.trim() : null;
 
   try {
@@ -67,7 +74,7 @@ export async function POST(request: NextRequest) {
         title,
         status,
         ...(priority    !== null && { priority }),
-        ...(owner       !== null && { owner }),
+        ...(created_by  !== null && { created_by }),
         ...(description !== null && { description }),
       })
       .select('mission_id, title, status, created_at')
