@@ -268,13 +268,18 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
 
     # Primary: Supabase mission_state_transitions (MSN-BOT-SOR)
     try:
+        import uuid as _uuid
         from tools.supabase.client import CommanderSupabaseClient
         client = CommanderSupabaseClient()
         if client.is_enabled():
             client.insert("mission_state_transitions", {
+                "id":               str(_uuid.uuid4()),
                 "mission_id":       mission_id,
-                "from_status":      from_status or None,
+                "from_state":       from_status or None,   # original NOT NULL-compatible col
+                "to_state":         to_status,             # NOT NULL — required
+                "from_status":      from_status or None,   # MSN-BOT-SOR extended col
                 "to_status":        to_status,
+                "actor":            user_id or "Captain",
                 "transitioned_by":  user_id or "Captain",
                 "transitioned_at":  now_iso,
                 "note":             note or None,
