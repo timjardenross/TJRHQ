@@ -490,6 +490,72 @@
           <div id="captains-log-widget"></div>
         </div>
       </div>
+
+      <!-- Recovery Pulse Entry + Sleep Trends -->
+      <div class="intel-grid" style="margin-top:12px;">
+        <div class="intel-card">
+          <div class="intel-card-title">📡 Log Recovery Pulse</div>
+          <div id="pulse-entry-form">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <div style="flex:1;min-width:120px;">
+                <label style="font-size:10px;color:#a0a6c0;display:block;margin-bottom:3px;">PULSE TYPE</label>
+                <select id="pulse-type" style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                  <option value="morning">🌅 Morning</option>
+                  <option value="midday">☀️ Midday</option>
+                  <option value="end_of_day">🌆 End of Day</option>
+                  <option value="evening">🌙 Evening</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:80px;">
+                <label style="font-size:10px;color:#a0a6c0;display:block;margin-bottom:3px;">PAIN (0–10)</label>
+                <input id="pulse-pain" type="number" min="0" max="10" step="0.5" placeholder="—"
+                  style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;box-sizing:border-box;">
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <div style="flex:1;">
+                <label style="font-size:10px;color:#a0a6c0;display:block;margin-bottom:3px;">ENERGY</label>
+                <select id="pulse-energy" style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                  <option value="">—</option>
+                  <option value="low">Low</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label style="font-size:10px;color:#a0a6c0;display:block;margin-bottom:3px;">MOOD</label>
+                <select id="pulse-mood" style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                  <option value="">—</option>
+                  <option value="low">Low</option>
+                  <option value="stable">Stable</option>
+                  <option value="positive">Positive</option>
+                </select>
+              </div>
+              <div style="flex:1;">
+                <label style="font-size:10px;color:#a0a6c0;display:block;margin-bottom:3px;">READINESS</label>
+                <select id="pulse-readiness" style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                  <option value="">—</option>
+                  <option value="low">Low</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+            <textarea id="pulse-notes" rows="2" placeholder="Notes (optional)"
+              style="width:100%;background:#1a1e2e;color:#e0e4ff;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="submitPulse()" style="padding:6px 18px;font-size:12px;background:#1e3a5c;color:#72B0F0;border:1px solid rgba(114,176,240,0.4);border-radius:4px;cursor:pointer;">Log Pulse</button>
+              <span id="pulse-status" style="font-size:11px;color:#a0a6c0;"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="intel-card">
+          <div class="intel-card-title">📈 Sleep &amp; Capacity Trends</div>
+          <div id="sickbay-trends"><p class="intel-loading">Loading trends…</p></div>
+        </div>
+      </div>
+
       <div class="dept-links">
         <a class="dept-link dept-link-amber" href="xo-health-oversight.html">📊 XO Health Model →</a>
       </div>
@@ -1518,25 +1584,7 @@
           </div>`).join('');
     }
 
-    // ── Sickbay tab ──────────────────────────────────────────────────────
-    let sickbayLoaded = false;
-    async function loadSickbayTab() {
-      if (sickbayLoaded) return;
-      sickbayLoaded = true;
-      try {
-        const [readiness, synthesis, queue] = await Promise.all([
-          fetchJSON('/api/v1/coordination/readiness').catch(() => null),
-          fetchJSON('/api/v1/captains-log/latest-synthesis').catch(() => null),
-          fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
-        ]);
-        renderSickbayReadiness(readiness);
-        renderWeeklyBrief(synthesis);
-        renderMedicalWatchlist(queue);
-      } catch (e) {
-        console.warn('Sickbay tab load error:', e);
-      }
-    }
-
+    // ── Sickbay render functions (used by loadSickbayTab below) ─────────
     function renderSickbayReadiness(data) {
       const el = document.getElementById('sickbay-readiness');
       if (!el) return;
@@ -1760,16 +1808,18 @@
       if (sickbayLoaded) return;
       sickbayLoaded = true;
       try {
-        const [healthStatus, readiness, weekly, queue] = await Promise.allSettled([
+        const [healthStatus, readiness, weekly, queue, trends] = await Promise.allSettled([
           fetchJSON('/api/v1/personal-health/status').catch(() => null),
           fetchJSON('/api/v1/coordination/readiness').catch(() => null),
           fetchJSON('/api/v1/captains-log/latest-synthesis').catch(() => null),
           fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
+          fetchJSON('/api/v1/personal-health/trends?days=14').catch(() => null),
         ]);
         renderRecoveryPulse(healthStatus.status === 'fulfilled' ? healthStatus.value : null);
         renderSickbayReadiness(readiness.status === 'fulfilled' ? readiness.value : null);
         renderWeeklyBrief(weekly.status === 'fulfilled' ? weekly.value : null);
         renderMedicalWatchlist(queue.status === 'fulfilled' ? queue.value : null);
+        renderSickbayTrends(trends.status === 'fulfilled' ? trends.value : null);
       } catch(e) {
         console.warn('Sickbay load error:', e);
       }
@@ -1827,6 +1877,82 @@
           <span style="color:${capCol};font-weight:700;">${cap.score ?? '—'} · ${cap.status || '—'}</span>
         </div>` : ''}
       </div>`;
+    }
+
+    async function submitPulse() {
+      const statusEl = document.getElementById('pulse-status');
+      const btn = document.querySelector('#pulse-entry-form button');
+      const pulse_type = document.getElementById('pulse-type')?.value;
+      const pain_score = document.getElementById('pulse-pain')?.value;
+      const energy     = document.getElementById('pulse-energy')?.value || undefined;
+      const mood       = document.getElementById('pulse-mood')?.value || undefined;
+      const readiness  = document.getElementById('pulse-readiness')?.value || undefined;
+      const notes      = document.getElementById('pulse-notes')?.value?.trim() || undefined;
+
+      if (!pulse_type) { if (statusEl) statusEl.textContent = 'Select a pulse type.'; return; }
+
+      if (btn) { btn.textContent = 'Logging…'; btn.disabled = true; }
+      if (statusEl) statusEl.textContent = '';
+
+      try {
+        const body = { pulse_type, ...(pain_score !== '' && { pain_score: Number(pain_score) }), energy, mood, readiness, notes };
+        const sep = '/api/v1/personal-health/pulse'.includes('?') ? '&' : '?';
+        const url = API_BASE + '/api/v1/personal-health/pulse' + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
+        if (statusEl) statusEl.textContent = '✓ Pulse logged';
+        if (statusEl) statusEl.style.color = '#5DD17A';
+        // Reset form
+        ['pulse-pain','pulse-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['pulse-energy','pulse-mood','pulse-readiness'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        // Reload sickbay data
+        sickbayLoaded = false;
+        loadSickbayTab();
+      } catch (err) {
+        if (statusEl) { statusEl.textContent = `✗ ${err.message}`; statusEl.style.color = '#E85555'; }
+      } finally {
+        if (btn) { btn.textContent = 'Log Pulse'; btn.disabled = false; }
+      }
+    }
+
+    function renderSickbayTrends(data) {
+      const el = document.getElementById('sickbay-trends');
+      if (!el) return;
+      const rows = (data && data.rows) || [];
+      if (!rows.length) {
+        el.innerHTML = '<p class="chair-empty">No trend data available.<br>Log Captain\'s Log entries to populate.</p>';
+        return;
+      }
+      const corr = data.correlation;
+      const corrNote = corr != null
+        ? `<div style="font-size:10px;color:#a0a6c0;margin-bottom:8px;">Pain/sleep correlation: <strong style="color:${Math.abs(corr) > 0.5 ? '#f39c12' : '#5DD17A'}">${corr > 0 ? '+' : ''}${corr}</strong>${Math.abs(corr) > 0.5 ? ' (notable)' : ''}</div>`
+        : '';
+      const capColr = s => s === 'Green' ? '#5DD17A' : s === 'Red' ? '#E85555' : '#F0A040';
+      const recent = rows.slice(-10).reverse();
+      el.innerHTML = corrNote + `
+        <div style="overflow-x:auto;">
+          <table style="width:100%;font-size:10px;border-collapse:collapse;">
+            <thead>
+              <tr style="color:#a0a6c0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                <th style="text-align:left;padding:3px 4px;">Date</th>
+                <th style="text-align:center;padding:3px 4px;">Pain</th>
+                <th style="text-align:center;padding:3px 4px;">Sleep</th>
+                <th style="text-align:center;padding:3px 4px;">CPAP</th>
+                <th style="text-align:center;padding:3px 4px;">Cap</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${recent.map(r => `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                  <td style="padding:3px 4px;color:#c0c6e0;">${r.date || '—'}</td>
+                  <td style="text-align:center;padding:3px 4px;color:${r.pain >= 7 ? '#E85555' : r.pain >= 4 ? '#F0A040' : '#5DD17A'};">${r.pain ?? '—'}</td>
+                  <td style="text-align:center;padding:3px 4px;color:#c0c6e0;">${r.sleep_h != null ? r.sleep_h + 'h' : '—'}</td>
+                  <td style="text-align:center;padding:3px 4px;color:#a0a6c0;">${r.cpap_h != null ? r.cpap_h + 'h' : '—'}</td>
+                  <td style="text-align:center;padding:3px 4px;color:${capColr(r.cap_status)};">${r.capacity ?? '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
     }
 
     // ── MSN-D: Command Console ────────────────────────────────────────────
