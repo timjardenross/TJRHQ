@@ -1,22 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { missions as mockMissions } from '@/lib/mockData';
-import { DEPARTMENTS } from '@/lib/departments';
 import type { Mission } from '@/lib/types';
 
 const STATUS_OPTIONS = [
   'ASSIGNED', 'IN_PROGRESS', 'REVIEW', 'ACTIVE', 'BLOCKED', 'COMPLETE', 'DEFERRED'
 ];
 
+function fmt(iso?: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted">{label}</p>
+      <p className={`text-sm text-lcars-text break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</p>
+    </div>
+  );
+}
+
 export default function MissionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
 
   const [mission, setMission] = useState<Mission | null>(null);
   const [newStatus, setNewStatus] = useState('');
@@ -26,7 +39,6 @@ export default function MissionDetailPage() {
   const [error, setError]         = useState<string | null>(null);
 
   useEffect(() => {
-    // Try live Supabase first, fall back to mock
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const { data } = await supabase
@@ -53,12 +65,12 @@ export default function MissionDetailPage() {
     setError(null);
 
     const supabase = createSupabaseBrowserClient();
-    const updatePayload: Record<string, unknown> = { status: newStatus };
-    if (note.trim()) updatePayload.notes = note.trim();
+    const payload: Record<string, unknown> = { status: newStatus };
+    if (note.trim()) payload.notes = note.trim();
 
     const { error: dbError } = await supabase
       .from('missions')
-      .update(updatePayload)
+      .update(payload)
       .eq('mission_id', mission.mission_id);
 
     setSaving(false);
@@ -67,45 +79,84 @@ export default function MissionDetailPage() {
     } else {
       setSaved(true);
       setMission({ ...mission, status: newStatus });
+      setNote('');
       setTimeout(() => setSaved(false), 2000);
     }
   }
 
   if (!mission) {
-    return (
-      <div className="py-16 text-center text-lcars-muted text-sm">
-        Loading mission…
-      </div>
-    );
+    return <div className="py-16 text-center text-lcars-muted text-sm">Loading mission…</div>;
   }
 
-  const dept = mission.department ? DEPARTMENTS[mission.department] : undefined;
+  const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';
 
   return (
     <div className="flex flex-col gap-4">
 
-      {/* Back */}
-      <Link
-        href="/missions"
-        className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command"
-      >
+      <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command">
         ← Mission Registry
       </Link>
 
       {/* Header */}
-      <LCARSPanel
-        title={mission.mission_id}
-        accent="command"
-        eyebrow={`${dept?.label ?? mission.department} · ${mission.reference}`}
-        actions={<StatusBadge label={mission.status} status={mission.status} />}
-      >
+      <LCARSPanel title={mission.mission_id} accent="command" eyebrow={eyebrow} actions={<StatusBadge label={mission.status} status={mission.status} />}>
         <h2 className="font-lcars text-xl font-bold text-lcars-text">{mission.title}</h2>
-        <div className="mt-2 flex flex-wrap gap-4 text-xs text-lcars-muted">
-          <span>Owner: <span className="text-lcars-text">{mission.owner}</span></span>
-          <span>Specialist: <span className="text-lcars-text">{mission.specialist}</span></span>
-          <span>Priority: <span className="text-lcars-text font-bold">{mission.priority}</span></span>
+        {mission.description && (
+          <p className="mt-2 text-sm text-lcars-muted leading-relaxed">{mission.description}</p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-3">
+          {mission.priority && (
+            <span className="rounded border border-edge px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-command">
+              {mission.priority}
+            </span>
+          )}
+          {mission.created_by && (
+            <span className="text-xs text-lcars-muted">Created by <span className="text-lcars-text">{mission.created_by}</span></span>
+          )}
         </div>
       </LCARSPanel>
+
+      {/* Details grid */}
+      <LCARSPanel title="Mission Details" accent="science" eyebrow="Operational record">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <Field label="Mission ID"   value={mission.mission_id} />
+          <Field label="Status"       value={mission.status} />
+          <Field label="Mission Type" value={mission.mission_type} />
+          <Field label="Task Type"    value={mission.task_type} />
+          <Field label="Priority"     value={mission.priority} />
+          <Field label="Created"      value={fmt(mission.created_at)} />
+          <Field label="Last Updated" value={fmt(mission.updated_at)} />
+          <Field label="Closed"       value={fmt(mission.closed_at)} />
+          {mission.outcome_rating != null && (
+            <Field label="Outcome Rating" value={String(mission.outcome_rating)} />
+          )}
+          {mission.rework_of && (
+            <Field label="Rework Of" value={mission.rework_of} />
+          )}
+        </div>
+      </LCARSPanel>
+
+      {/* Engineering */}
+      {(mission.repo || mission.branch_name || mission.pr_url) && (
+        <LCARSPanel title="Engineering" accent="engineering" eyebrow="Repository & delivery">
+          <div className="flex flex-col gap-3">
+            <Field label="Repository"   value={mission.repo} mono />
+            <Field label="Branch"       value={mission.branch_name} mono />
+            {mission.pr_url && (
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted">Pull Request</p>
+                <a
+                  href={mission.pr_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono text-science hover:underline break-all"
+                >
+                  {mission.pr_url}
+                </a>
+              </div>
+            )}
+          </div>
+        </LCARSPanel>
+      )}
 
       {/* Status update */}
       <LCARSPanel title="Update Status" accent="command" eyebrow="Write-back to mission registry">
@@ -140,13 +191,11 @@ export default function MissionDetailPage() {
             />
           </div>
 
-          {error && (
-            <p className="text-xs text-operations">{error}</p>
-          )}
+          {error && <p className="text-xs text-operations">{error}</p>}
 
           <button
             onClick={handleSave}
-            disabled={saving || newStatus === mission.status && !note}
+            disabled={saving || (newStatus === mission.status && !note)}
             className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Update Mission'}
