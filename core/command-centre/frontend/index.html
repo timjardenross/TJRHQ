@@ -569,7 +569,10 @@
 
         <!-- OR Intelligence Brief -->
         <div class="intel-card">
-          <div class="intel-card-title">📡 OR Intelligence Brief</div>
+          <div class="intel-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>📡 OR Intelligence Brief</span>
+            <button id="intel-refresh-btn" onclick="triggerIntelRefresh()" style="font-size:10px;padding:2px 8px;background:rgba(0,204,255,0.08);border:1px solid rgba(0,204,255,0.25);color:#00ccff;border-radius:4px;cursor:pointer;">⟳ Generate</button>
+          </div>
           <div id="astro-or-brief"><p class="intel-loading">Loading intelligence brief…</p></div>
         </div>
 
@@ -583,6 +586,12 @@
         <div class="intel-card">
           <div class="intel-card-title">📌 Recommendation Engine</div>
           <div id="recommendations-widget"><p class="intel-loading">Loading recommendations…</p></div>
+        </div>
+
+        <!-- Source Health -->
+        <div class="intel-card">
+          <div class="intel-card-title">🛰 Source Health</div>
+          <div id="astro-source-health"><p class="intel-loading">Loading sources…</p></div>
         </div>
 
       </div>
@@ -644,6 +653,12 @@
           <div id="records-captures">Loading...</div>
         </div>
       </div>
+      <!-- Intelligence Archive -->
+      <div class="intel-card" style="margin-top:12px;">
+        <div class="intel-card-title">🗂 Intelligence Archive</div>
+        <div id="records-intel-archive"><p class="intel-loading">Loading archive…</p></div>
+      </div>
+
       <div class="dept-links">
         <a class="dept-link dept-link-primary" href="decisions-registry.html">⚖️ Full Decision Registry →</a>
         <a class="dept-link dept-link-secondary" href="captains-log.html">📋 Captain's Log →</a>
@@ -1198,16 +1213,67 @@
       if (astrometricsLoaded) return;
       astrometricsLoaded = true;
       try {
-        const [intel, recs] = await Promise.all([
+        const [intel, recs, sources] = await Promise.allSettled([
           fetchJSON('/api/v1/intelligence/latest').catch(() => null),
           fetchJSON('/api/v1/coordination/recommendations').catch(() => null),
+          fetchJSON('/api/v1/intelligence/source-health').catch(() => null),
         ]);
-        renderORBrief(intel);
-        renderStrategicWatchlist(intel);
-        renderRecsIntel(recs);
+        renderORBrief(intel.status === 'fulfilled' ? intel.value : null);
+        renderStrategicWatchlist(intel.status === 'fulfilled' ? intel.value : null);
+        renderRecsIntel(recs.status === 'fulfilled' ? recs.value : null);
+        renderSourceHealth(sources.status === 'fulfilled' ? sources.value : null);
       } catch (e) {
         console.warn('Astrometrics load error:', e);
       }
+    }
+
+    async function triggerIntelRefresh() {
+      const btn = document.getElementById('intel-refresh-btn');
+      const briefEl = document.getElementById('astro-or-brief');
+      if (btn) { btn.textContent = '⟳ Generating…'; btn.disabled = true; }
+      if (briefEl) briefEl.innerHTML = '<p class="intel-loading">Generating new intelligence brief — this may take 30–60s…</p>';
+      try {
+        const sep = '/api/v1/intelligence/generate'.includes('?') ? '&' : '?';
+        const url = API_BASE + '/api/v1/intelligence/generate' +
+          (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
+        const result = await r.json();
+        // Reload astrometrics with fresh data
+        astrometricsLoaded = false;
+        await loadAstrometricsTab();
+      } catch (err) {
+        if (briefEl) briefEl.innerHTML = `<p style="color:#E85555;font-size:12px;">Generation failed: ${err.message}</p>`;
+      } finally {
+        if (btn) { btn.textContent = '⟳ Generate'; btn.disabled = false; }
+      }
+    }
+
+    function renderSourceHealth(data) {
+      const el = document.getElementById('astro-source-health');
+      if (!el) return;
+      const sources = Array.isArray(data) ? data : (data && data.sources) || [];
+      if (!sources.length) {
+        el.innerHTML = '<p class="chair-empty">Source health data unavailable.<br>Intelligence pipeline not configured.</p>';
+        return;
+      }
+      const statusDot = s => {
+        const ok = s === 'active' || s === 'healthy' || s === 'ok';
+        const warn = s === 'stale' || s === 'degraded';
+        return ok ? '🟢' : warn ? '🟡' : '🔴';
+      };
+      el.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;">
+          ${sources.map(s => `
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+              <span style="flex-shrink:0">${statusDot(s.status || s.health)}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name || s.source_id || '—'}</div>
+                ${s.last_updated || s.last_fetched ? `<div style="font-size:10px;color:#a0a6c0;">${(s.last_updated || s.last_fetched || '').slice(0, 10)}</div>` : ''}
+              </div>
+              <span style="font-size:10px;color:#a0a6c0;flex-shrink:0;">${(s.item_count != null ? s.item_count + ' items' : s.status || s.health || '—')}</span>
+            </div>`).join('')}
+        </div>`;
     }
 
     function renderORBrief(data) {
@@ -1371,12 +1437,13 @@
         return `<span style="font-size:0.72em;padding:2px 6px;border-radius:3px;background:${colour}22;color:${colour};border:1px solid ${colour}44;white-space:nowrap">${label}</span>`;
       };
 
-      const [govData, lessonsData, adrData, directivesData, capturesData] = await Promise.allSettled([
+      const [govData, lessonsData, adrData, directivesData, capturesData, archiveData] = await Promise.allSettled([
         fetchJSON('/api/v1/governance/decisions').catch(() => null),
         fetchJSON('/api/v1/coordination/lessons').catch(() => null),
         fetchJSON('/api/v1/governance/adrs').catch(() => null),
         fetchJSON('/api/v1/governance/directives').catch(() => null),
         fetchJSON('/api/v1/capture/pending?limit=20').catch(() => null),
+        fetchJSON('/api/v1/intelligence/archive').catch(() => null),
       ]);
 
       // ── Governance Decisions ─────────────────────────────────────────────
@@ -1463,6 +1530,34 @@
           </div>`;
       } else if (directivesEl) {
         directivesEl.innerHTML = '<p class="muted">Directives unavailable.</p>';
+      }
+
+      // ── Intelligence Archive ─────────────────────────────────────────────
+      const archiveEl = document.getElementById('records-intel-archive');
+      const archive = archiveData.status === 'fulfilled' ? archiveData.value : null;
+      if (archiveEl) {
+        const briefs = Array.isArray(archive) ? archive : (archive && archive.briefs) || [];
+        if (!briefs.length) {
+          archiveEl.innerHTML = '<p class="chair-empty">No archived intelligence briefs.<br>Generate a brief from Astrometrics to populate.</p>';
+        } else {
+          const riskColr = r => r === 'RED' ? '#E85555' : r === 'AMBER' ? '#F0A040' : '#5DD17A';
+          archiveEl.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">
+              ${briefs.slice(0, 5).map(b => {
+                const brief = b.brief || b;
+                const genDate = brief.generated_at ? brief.generated_at.slice(0, 10) : (b.created_at || '').slice(0, 10) || '—';
+                const risk = brief.overall_risk || '—';
+                const snap = (brief.executive_snapshot || brief.summary || '').slice(0, 100);
+                return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <span style="font-size:10px;color:#a0a6c0;">${genDate}</span>
+                    <span style="font-size:10px;color:${riskColr(risk)};font-weight:600;">${risk}</span>
+                  </div>
+                  ${snap ? `<div style="font-size:11px;color:#c0c6e0;line-height:1.4;">${snap}${snap.length >= 100 ? '…' : ''}</div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>`;
+        }
       }
 
       // ── Pending Captures ─────────────────────────────────────────────────
