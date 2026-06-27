@@ -1,0 +1,175 @@
+import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+
+type Severity = 'critical' | 'high' | 'medium';
+
+interface Signal {
+  id: string;
+  severity: Severity;
+  category: string;
+  title: string;
+  detail: string;
+  mission_id?: string;
+  action?: string;
+}
+
+const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, high: 1, medium: 2 };
+
+export async function GET() {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const signals: Signal[] = [];
+
+  // 1. BLOCKED missions older than 7 days
+  try {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('missions')
+      .select('mission_id, title, updated_at')
+      .eq('status', 'BLOCKED')
+      .lt('updated_at', cutoff);
+    if (data) {
+      for (const m of data) {
+        signals.push({
+          id: `blocked-${m.mission_id}`,
+          severity: 'high',
+          category: 'Mission',
+          title: 'Blocked mission stalled',
+          detail: `"${m.title}" has been BLOCKED for over 7 days.`,
+          mission_id: m.mission_id,
+        });
+      }
+    }
+  } catch {}
+
+  // 2. Active missions stalled > 14 days
+  try {
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('missions')
+      .select('mission_id, title, status, updated_at')
+      .not('status', 'in', '("COMPLETE","DEFERRED","CLOSED")')
+      .lt('updated_at', cutoff);
+    if (data) {
+      for (const m of data) {
+        signals.push({
+          id: `stalled-${m.mission_id}`,
+          severity: 'medium',
+          category: 'Mission',
+          title: 'Stalled mission',
+          detail: `"${m.title}" (${m.status}) has not been updated in over 14 days.`,
+          mission_id: m.mission_id,
+        });
+      }
+    }
+  } catch {}
+
+  // 3 & 4. Pain trend from last 5 recovery_pulses
+  try {
+    const { data } = await supabase
+      .from('recovery_pulses')
+      .select('pain_score, captured_at')
+      .order('captured_at', { ascending: false })
+      .limit(5);
+    if (data && data.length > 0) {
+      const avg = data.reduce((sum, r) => sum + (r.pain_score ?? 0), 0) / data.length;
+      if (avg > 8) {
+        signals.push({
+          id: 'pain-critical',
+          severity: 'critical',
+          category: 'Health',
+          title: 'Pain critically high',
+          detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 8).`,
+        });
+      } else if (avg > 6) {
+        signals.push({
+          id: 'pain-elevated',
+          severity: 'high',
+          category: 'Health',
+          title: 'Pain trend elevated',
+          detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 6).`,
+        });
+      }
+    }
+  } catch {}
+
+  // 5. Most recent captain's log older than 3 days
+  try {
+    const { data } = await supabase
+      .from('captains_log_entries')
+      .select('log_date')
+      .order('log_date', { ascending: false })
+      .limit(1);
+    if (data && data.length > 0) {
+      const latest = new Date(data[0].log_date);
+      const diffDays = (Date.now() - latest.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays > 3) {
+        signals.push({
+          id: 'log-gap',
+          severity: 'medium',
+          category: 'Operations',
+          title: 'No log entry in 3+ days',
+          detail: `Last captain's log was ${Math.floor(diffDays)} days ago (${data[0].log_date}).`,
+        });
+      }
+    } else {
+      signals.push({
+        id: 'log-none',
+        severity: 'medium',
+        category: 'Operations',
+        title: 'No log entry in 3+ days',
+        detail: 'No captain\'s log entries found.',
+      });
+    }
+  } catch {}
+
+  // 6. REVIEW missions older than 48 hours
+  try {
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('missions')
+      .select('mission_id, title, updated_at')
+      .eq('status', 'REVIEW')
+      .lt('updated_at', cutoff);
+    if (data) {
+      for (const m of data) {
+        signals.push({
+          id: `review-${m.mission_id}`,
+          severity: 'high',
+          category: 'Mission',
+          title: 'Awaiting review',
+          detail: `"${m.title}" has been awaiting review for over 48 hours.`,
+          mission_id: m.mission_id,
+        });
+      }
+    }
+  } catch {}
+
+  // 7. No recovery_pulses in last 48 hours
+  try {
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('recovery_pulses')
+      .select('id')
+      .gte('captured_at', cutoff)
+      .limit(1);
+    if (!data || data.length === 0) {
+      signals.push({
+        id: 'recovery-gap',
+        severity: 'medium',
+        category: 'Health',
+        title: 'Recovery gap detected',
+        detail: 'No recovery pulses recorded in the last 48 hours.',
+      });
+    }
+  } catch {}
+
+  signals.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+
+  return NextResponse.json({ signals });
+}

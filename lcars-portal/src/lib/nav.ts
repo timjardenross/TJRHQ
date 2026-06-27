@@ -18,6 +18,41 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Command overview and daily posture'
   },
   {
+    href: '/operating-model',
+    label: 'Operating Model',
+    glyph: 'OM',
+    department: 'command',
+    description: 'Personal operating model — roles, priorities, capacity (MSN-3B-002)'
+  },
+  {
+    href: '/executive-staff',
+    label: 'Executive Staff',
+    glyph: 'ES',
+    department: 'science',
+    description: 'Unified executive staff console — XO, advisors, AI (MSN-3C-001)'
+  },
+  {
+    href: '/automation-centre',
+    label: 'Automation Centre',
+    glyph: 'AC',
+    department: 'operations',
+    description: 'Scheduled jobs, notification routing, delivery history (MSN-3C-002)'
+  },
+  {
+    href: '/knowledge',
+    label: 'Knowledge Hub',
+    glyph: 'KH',
+    department: 'science',
+    description: 'Decisions, lessons, intelligence, architecture records (MSN-3D-002)'
+  },
+  {
+    href: '/preferences',
+    label: 'Preferences',
+    glyph: '⚙',
+    department: 'engineering',
+    description: 'Operating mode, favourites, notifications, advisor defaults (MSN-3D-001)'
+  },
+  {
     href: '/search',
     label: 'Search',
     glyph: '🔍',
