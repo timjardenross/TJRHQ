@@ -72,7 +72,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
@@ -1238,7 +1238,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
-    scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")
+    scheduler = BackgroundScheduler(timezone="Australia/Brisbane")
     bot = app.bot
     scheduler.add_job(_scheduled_morning_brief, CronTrigger(hour=7,  minute=0),  id="morning", args=[bot])
     scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=12, minute=30), id="midday",  args=[bot])
