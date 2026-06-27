@@ -211,6 +211,25 @@ def _supabase_missions(status_filter: Optional[str] = None, order: str = "create
         return []
 
 
+def _supabase_get_mission(mission_id: str) -> Optional[dict]:
+    """Direct Supabase lookup by mission_id text column. Returns None on miss or error."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from tools.supabase.client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if not client.is_enabled():
+            return None
+        mission_id_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
+        for mid_try in (mission_id_full, mission_id):
+            rows = client._get(f"missions?select=*&mission_id=eq.{mid_try}&limit=1")
+            if rows:
+                return rows[0]
+        return None
+    except Exception as exc:
+        log.debug("[mission_lifecycle] Supabase get_mission failed: %s", exc)
+        return None
+
+
 def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
     """Update mission status in Supabase. Returns True on success."""
     try:
@@ -221,9 +240,9 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
             return False
         # Try both bare and prefixed IDs
         mission_id_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
-        for mid_try in (mission_id, mission_id_full):
+        for mid_try in (mission_id_full, mission_id):
             result = client._patch(
-                f"missions?id=eq.{mid_try}",
+                f"missions?mission_id=eq.{mid_try}",
                 {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()},
             )
             if result:
@@ -433,12 +452,10 @@ def handle_mission_status(
         return _handle_status_transition(mission_id, mission_id_full, canonical, user_id, note)
 
     # --- Read mode ---
-    db_missions = _supabase_missions()
-    if db_missions:
-        for m in db_missions:
-            mid = (m.get("id") or m.get("mission_id") or "").upper()
-            if mid in (mission_id, mission_id_full):
-                return _format_mission_detail(m)
+    # Direct lookup by mission_id text column (avoids 50-row cap and UUID confusion)
+    db_row = _supabase_get_mission(mission_id)
+    if db_row:
+        return _format_mission_detail(db_row)
 
     # Fallback: flat file
     all_missions = _parse_registry()
@@ -508,7 +525,7 @@ def _handle_status_transition(
 
 
 def _format_mission_detail(m: dict) -> str:
-    mid      = m.get("id") or m.get("mission_id", "")
+    mid      = m.get("mission_id") or m.get("id", "")
     title    = m.get("title", "")
     status   = m.get("status", "")
     priority = m.get("priority", "")
