@@ -59,7 +59,7 @@ app.use(express.urlencoded({ extended: true }));
 const _apiKey = process.env.BACKEND_API_KEY;
 app.use((req, res, next) => {
   if (!_apiKey) return next(); // dev mode: no key configured
-  if (req.path === '/health') return next(); // health check is always public
+  if (req.path === '/health' || req.path === '/api/config') return next(); // public endpoints
   const provided = req.headers['x-api-key'] || req.query.api_key;
   if (provided !== _apiKey) {
     return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });
@@ -75,6 +75,11 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
   next();
+});
+
+// Config endpoint — public, returns API key for frontend self-authentication (local-only)
+app.get('/api/config', (req, res) => {
+  res.json({ apiKey: _apiKey || '' });
 });
 
 // Health check endpoint (always available)

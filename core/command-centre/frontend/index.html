@@ -83,19 +83,19 @@
       gap: 16px;
       margin-bottom: 20px;
     }
-    /* Row 1: Alerts (wide) | Recommended Next Action (slim) */
+    /* Row 1: Alerts (wide) | Intelligence Headline */
     .chair-panel-alerts    { grid-column: 1 / 5; }
-    .chair-panel-rec       { grid-column: 5 / 7; }
-    /* Row 2: Mission Status | Readiness | Intelligence Headline */
+    .chair-panel-intel     { grid-column: 5 / 7; }
+    /* Row 2: Mission Status | Readiness | Governance Pulse */
     .chair-panel-missions  { grid-column: 1 / 3; }
     .chair-panel-readiness { grid-column: 3 / 5; }
-    .chair-panel-intel     { grid-column: 5 / 7; }
+    .chair-panel-gov       { grid-column: 5 / 7; }
 
     @media (max-width: 1100px) {
       .chair-grid { grid-template-columns: repeat(2, 1fr); }
-      .chair-panel-alerts, .chair-panel-rec,
+      .chair-panel-alerts, .chair-panel-intel,
       .chair-panel-missions, .chair-panel-readiness,
-      .chair-panel-intel { grid-column: auto; }
+      .chair-panel-gov { grid-column: auto; }
     }
     @media (max-width: 600px) {
       .chair-grid { grid-template-columns: 1fr; }
@@ -110,10 +110,10 @@
     }
     /* Each Chair panel gets a subtle top-border hint of its target department */
     .chair-panel-alerts    { border-top: 2px solid var(--sf-dept-command, #C8922A); }
-    .chair-panel-rec       { border-top: 2px solid var(--sf-dept-nav, #6A3FAF); }
     .chair-panel-missions  { border-top: 2px solid var(--sf-dept-ops, #B33030); }
     .chair-panel-readiness { border-top: 2px solid var(--sf-dept-medical, #3A7BC8); }
     .chair-panel-intel     { border-top: 2px solid var(--sf-dept-nav, #6A3FAF); }
+    .chair-panel-gov       { border-top: 2px solid var(--sf-dept-science, #2D5FA8); }
     .chair-panel-title {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.8px; color: var(--sf-dept-command-light, #F0B840); margin-bottom: 12px;
@@ -370,8 +370,7 @@
     <!-- TAB NAVIGATION -->
     <nav class="tab-nav" id="tab-nav">
       <button class="tab-btn active" data-tab="chair">🪑 Captain's Chair</button>
-      <button class="tab-btn" data-tab="command">🖖 Command</button>
-      <button class="tab-btn" data-tab="operations">🚀 Operations</button>
+      <button class="tab-btn" data-tab="command">🖖 Command Console</button>
       <button class="tab-btn" data-tab="sickbay">🩺 Sickbay</button>
       <button class="tab-btn" data-tab="astrometrics">📡 Astrometrics</button>
       <button class="tab-btn" data-tab="records">📜 Starfleet Records</button>
@@ -394,20 +393,11 @@
           <div id="chair-alerts"><p class="chair-empty">Loading…</p></div>
         </div>
 
-        <!-- 🎯 Recommended Next Action (slim card) -->
-        <div class="chair-panel chair-panel-rec">
-          <div class="chair-panel-title">
-            🎯 Recommended Action
-            <a class="chair-drill" data-drill="astrometrics">→ Detail</a>
-          </div>
-          <div id="chair-rec"><p class="chair-empty">Loading…</p></div>
-        </div>
-
         <!-- 🚀 Mission Status -->
         <div class="chair-panel chair-panel-missions">
           <div class="chair-panel-title">
             🚀 Mission Status
-            <a class="chair-drill" data-drill="operations">→ Operations</a>
+            <a class="chair-drill" data-drill="command">→ Command Console</a>
           </div>
           <div id="chair-missions"><p class="chair-empty">Loading…</p></div>
         </div>
@@ -430,46 +420,41 @@
           <div id="chair-intel"><p class="chair-empty">Loading…</p></div>
         </div>
 
+        <!-- ⚖️ Governance Pulse -->
+        <div class="chair-panel chair-panel-gov">
+          <div class="chair-panel-title">
+            ⚖️ Governance Pulse
+            <a class="chair-drill" data-drill="records">→ Records</a>
+          </div>
+          <div id="chair-gov"><p class="chair-empty">Loading…</p></div>
+        </div>
+
       </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
-    <!-- TAB: COMMAND (Number One's operational domain)                 -->
+    <!-- TAB: COMMAND CONSOLE (Mission lifecycle + execution ownership) -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-command">
       <div class="dashboard-grid">
         <div class="widget-container">
-          <div id="brief-widget"></div>
-          <div id="queue-widget"></div>
-        </div>
-        <div class="widget-container">
-          <div id="escalations-widget"></div>
-          <div id="blockers-command-widget"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <!-- TAB: OPERATIONS (Mission execution and delivery)               -->
-    <!-- ═══════════════════════════════════════════════════════════════ -->
-    <div class="tab-panel" id="tab-operations">
-      <div class="dashboard-grid">
-        <!-- Mission Queue with capacity overlay -->
-        <div class="widget-container">
+          <div class="intel-card">
+            <div class="intel-card-title">📋 Today's Brief</div>
+            <div id="cmd-brief"><p class="intel-loading">Loading…</p></div>
+          </div>
           <div class="intel-card">
             <div class="intel-card-title">🚀 Mission Queue</div>
-            <div id="ops-queue"><p class="intel-loading">Loading mission queue…</p></div>
+            <div id="cmd-queue"><p class="intel-loading">Loading missions…</p></div>
+          </div>
+        </div>
+        <div class="widget-container">
+          <div class="intel-card">
+            <div class="intel-card-title">⚠️ Escalations</div>
+            <div id="cmd-escalations"><p class="intel-loading">Loading…</p></div>
           </div>
           <div class="intel-card">
             <div class="intel-card-title">🚧 Active Blockers</div>
-            <div id="ops-blockers"><p class="intel-loading">Loading blockers…</p></div>
-          </div>
-        </div>
-        <!-- Lessons Applied -->
-        <div class="widget-container">
-          <div class="intel-card">
-            <div class="intel-card-title">📚 Lessons Applied</div>
-            <div id="ops-lessons"><p class="intel-loading">Loading lessons…</p></div>
+            <div id="cmd-blockers"><p class="intel-loading">Loading…</p></div>
           </div>
         </div>
       </div>
@@ -477,6 +462,7 @@
         <a class="dept-link dept-link-primary" href="mission-registry.html">📋 Full Mission Registry →</a>
       </div>
     </div>
+
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- TAB: SICKBAY (Medical Officer and Captain readiness)           -->
@@ -745,8 +731,18 @@
       return '#a0a6c0';
     }
 
+    let _apiKey = '';
+    async function _initApiKey() {
+      try {
+        const r = await fetch(API_BASE + '/api/config');
+        if (r.ok) { const d = await r.json(); _apiKey = d.apiKey || ''; }
+      } catch(e) { console.warn('Could not fetch API config:', e); }
+    }
+
     async function fetchJSON(path) {
-      const r = await fetch(API_BASE + path);
+      const sep = path.includes('?') ? '&' : '?';
+      const url = API_BASE + path + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+      const r = await fetch(url);
       if (!r.ok) throw new Error(r.status);
       const json = await r.json();
       return (json && json.data !== undefined) ? json.data : json;
@@ -768,8 +764,7 @@
         sessionStorage.setItem('cc-active-tab', name);
         if (name === 'astrometrics') loadAstrometricsTab();
         if (name === 'records')      loadRecordsTab();
-        if (name === 'command')      loadCommandBlockers();
-        if (name === 'operations')   loadOperationsTab();
+        if (name === 'command')      loadCommandConsole();
         if (name === 'sickbay')      loadSickbayTab();
         if (name === 'engineering')  loadEngineeringTab();
         if (name === 'advisors')     loadAdvisorsTab();
@@ -907,13 +902,48 @@
         ${generatedAt ? `<div class="intel-headline-meta">Updated ${generatedAt}${intel.provider_used ? ' · ' + intel.provider_used : ''}</div>` : ''}`;
     }
 
+    async function renderGovernancePulse() {
+      const el = document.getElementById('chair-gov');
+      if (!el) return;
+      try {
+        const [decs, adrs, dirs] = await Promise.allSettled([
+          fetchJSON('/api/v1/governance/decisions').catch(() => null),
+          fetchJSON('/api/v1/governance/adrs').catch(() => null),
+          fetchJSON('/api/v1/governance/directives').catch(() => null),
+        ]);
+        const decisions = decs.status === 'fulfilled' && decs.value ? decs.value.canonical || [] : [];
+        const adrList   = adrs.status === 'fulfilled' && adrs.value ? adrs.value.adrs || [] : [];
+        const dirList   = dirs.status === 'fulfilled' && dirs.value ? dirs.value.directives || [] : [];
+        const latest = decisions[0];
+        const latestLabel = latest ? `${latest.id} · ${latest.date || '—'}` : '—';
+        el.innerHTML = `
+          <div class="gov-pulse-row">
+            <span class="gov-pulse-label">Decisions</span>
+            <span class="gov-pulse-val">${decisions.length} <span class="gov-pulse-dim">total</span></span>
+          </div>
+          <div class="gov-pulse-row">
+            <span class="gov-pulse-label">Latest</span>
+            <span class="gov-pulse-val" style="font-size:10px">${latestLabel}</span>
+          </div>
+          <div class="gov-pulse-row">
+            <span class="gov-pulse-label">ADRs</span>
+            <span class="gov-pulse-val">${adrList.length} <span class="gov-pulse-dim">recorded</span></span>
+          </div>
+          <div class="gov-pulse-row">
+            <span class="gov-pulse-label">Directives</span>
+            <span class="gov-pulse-val">${dirList.length} <span class="gov-pulse-dim">active</span></span>
+          </div>`;
+      } catch (err) {
+        el.innerHTML = '<p class="chair-empty">Governance data unavailable.</p>';
+      }
+    }
+
     async function loadChair() {
       try {
-        const [escalations, blockers, recs, readiness, queue, intel] = await Promise.allSettled([
+        const [escalations, blockers, readiness, queue, intel] = await Promise.allSettled([
           fetchJSON('/api/v1/coordination/escalations').catch(() => null),
-          fetchJSON('/api/blockers').catch(() => null),
-          fetchJSON('/api/recommendations').catch(() => null),
-          fetchJSON('/api/readiness').catch(() => null),
+          fetchJSON('/api/v1/coordination/blockers').catch(() => null),
+          fetchJSON('/api/v1/coordination/readiness').catch(() => null),
           fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
           fetchJSON('/api/v1/intelligence/latest').catch(() => null),
         ]);
@@ -921,45 +951,117 @@
           escalations.status === 'fulfilled' ? escalations.value : null,
           blockers.status    === 'fulfilled' ? blockers.value    : null
         );
-        renderRecommendedAction(recs.status     === 'fulfilled' ? recs.value      : null);
         renderMissionStatus(queue.status        === 'fulfilled' ? queue.value     : null);
         renderCaptainReadiness(readiness.status === 'fulfilled' ? readiness.value : null);
         renderIntelHeadline(intel.status        === 'fulfilled' ? intel.value     : null);
+        await renderGovernancePulse();
       } catch (e) {
         console.warn('Chair load error:', e);
       }
     }
 
-    // ── Command dept — blockers panel ──────────────────────────────────
-    let commandBlockersLoaded = false;
-    async function loadCommandBlockers() {
-      if (commandBlockersLoaded) return;
-      commandBlockersLoaded = true;
+    // ── Command Console ─────────────────────────────────────────────────
+    let commandConsoleLoaded = false;
+    async function loadCommandConsole() {
+      if (commandConsoleLoaded) return;
+      commandConsoleLoaded = true;
       try {
-        const data = await fetchJSON('/api/blockers').catch(() => null);
-        const el = document.getElementById('blockers-command-widget');
-        if (!el || !data) return;
-        const total = data.total_blockers || 0;
-        if (total === 0) {
-          el.innerHTML = `<div class="intel-card"><div class="intel-card-title">🚧 Active Blockers</div><p style="color:#00dd00;font-size:13px;">✅ No active blockers — system operating normally</p></div>`;
-          return;
-        }
-        function section(title, items, cls) {
-          if (!items || !items.length) return '';
-          return `<div class="blocker-section">
-            <div class="blocker-section-title ${cls}">${title} (${items.length})</div>
-            ${items.map(b => `<div class="blocker-item"><strong>${b.mission_id}</strong> (${b.priority})<span class="blocker-age"> — ${b.age_days}d</span></div>`).join('')}
-          </div>`;
-        }
-        el.innerHTML = `<div class="intel-card">
-          <div class="intel-card-title">🚧 Active Blockers (${total})</div>
-          ${section('Critical (P0)', data.critical, 'critical')}
-          ${section('High (P1)', data.high, 'high')}
-          ${section('Normal', data.normal, 'normal')}
-        </div>`;
+        const [log, missions, escalations, blockers] = await Promise.allSettled([
+          fetchJSON('/api/v1/captains-log/today').catch(() => null),
+          fetchJSON('/api/v1/missions/list?limit=20').catch(() => null),
+          fetchJSON('/api/v1/coordination/escalations').catch(() => null),
+          fetchJSON('/api/v1/coordination/blockers').catch(() => null),
+        ]);
+        renderCmdBrief(log.status === 'fulfilled' ? log.value : null);
+        renderCmdQueue(missions.status === 'fulfilled' ? missions.value : null);
+        renderCmdEscalations(escalations.status === 'fulfilled' ? escalations.value : null);
+        renderCmdBlockers(blockers.status === 'fulfilled' ? blockers.value : null);
       } catch (e) {
-        console.warn('Command blockers load error:', e);
+        console.warn('Command console load error:', e);
       }
+    }
+
+    function renderCmdBrief(data) {
+      const el = document.getElementById('cmd-brief');
+      if (!el) return;
+      if (!data || !data.entry) {
+        el.innerHTML = '<p class="chair-empty">No Captain\'s Log entry today.<br>Log your daily intent to activate the brief.</p>';
+        return;
+      }
+      const e = data.entry;
+      const intent = e.daily_intention || e.notes || '';
+      const capacity = e.capacity_rating != null ? e.capacity_rating + '/10' : '—';
+      const mood = e.mood_rating != null ? e.mood_rating + '/10' : '—';
+      el.innerHTML = `
+        <div class="log-status-filed">✅ Entry logged today</div>
+        ${intent ? `<div class="log-intent-preview">${intent.slice(0, 300)}${intent.length > 300 ? '…' : ''}</div>` : ''}
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:#a0a6c0;">
+          <span>Capacity: <strong style="color:#e0e6ff">${capacity}</strong></span>
+          <span>Mood: <strong style="color:#e0e6ff">${mood}</strong></span>
+        </div>`;
+    }
+
+    function renderCmdQueue(data) {
+      const el = document.getElementById('cmd-queue');
+      if (!el) return;
+      const missions = Array.isArray(data) ? data : (data && data.missions) || [];
+      const active = missions.filter(m => !['Completed','Archived','Cancelled','Deferred'].includes(m.status));
+      if (!active.length) {
+        el.innerHTML = '<p class="chair-empty">No active missions in queue.</p>';
+        return;
+      }
+      el.innerHTML = active.slice(0, 12).map(m => {
+        const priClass = m.priority === 'P0' ? 'priority-p0' : m.priority === 'P1' ? 'priority-p1' : 'priority-p2';
+        const statusColr = m.status === 'Blocked' ? '#ff4444' : m.status === 'Active' ? '#5DD17A' : '#a0a6c0';
+        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;">
+          <div style="display:flex;gap:6px;align-items:center;width:100%;">
+            <span class="mission-priority ${priClass}">${m.priority}</span>
+            <span class="mission-title" style="font-weight:600">${m.title}</span>
+            <span style="font-size:9px;color:${statusColr};margin-left:auto;">${(m.status || '').toUpperCase()}</span>
+          </div>
+          ${m.mission_id ? `<div style="font-size:10px;color:#a0a6c0;margin-top:2px;">${m.mission_id}</div>` : ''}
+        </div>`;
+      }).join('') + (active.length > 12 ? `<p style="font-size:10px;color:#a0a6c0;margin-top:6px;">+${active.length - 12} more</p>` : '');
+    }
+
+    function renderCmdEscalations(data) {
+      const el = document.getElementById('cmd-escalations');
+      if (!el) return;
+      const escs = (data && data.escalations) || [];
+      if (!escs.length) {
+        el.innerHTML = '<p class="chair-clear">✅ No active escalations</p>';
+        return;
+      }
+      el.innerHTML = escs.map(esc => {
+        const lvl = (esc.level || '').toLowerCase();
+        return `<div class="mission-item" style="padding:6px 0;">
+          <span class="alert-badge ${lvl}">${(esc.level || '').toUpperCase()}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;">${esc.reason || esc.title || 'Escalation'}</div>
+            ${esc.mission_id ? `<div style="font-size:10px;color:#a0a6c0;">${esc.mission_id}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderCmdBlockers(data) {
+      const el = document.getElementById('cmd-blockers');
+      if (!el) return;
+      const total = (data && data.total_blockers) || 0;
+      if (total === 0) {
+        el.innerHTML = '<p class="chair-clear">✅ No active blockers</p>';
+        return;
+      }
+      function section(title, items, cls) {
+        if (!items || !items.length) return '';
+        return `<div class="blocker-section">
+          <div class="blocker-section-title ${cls}">${title} (${items.length})</div>
+          ${items.map(b => `<div class="blocker-item"><strong>${b.mission_id}</strong> (${b.priority})<span class="blocker-age"> — ${b.age_days}d</span></div>`).join('')}
+        </div>`;
+      }
+      el.innerHTML = section('Critical (P0)', data.critical, 'critical') +
+        section('High (P1)', data.high, 'high') +
+        section('Normal', data.normal, 'normal');
     }
 
     // ── Astrometrics tab ────────────────────────────────────────────────
@@ -970,7 +1072,7 @@
       try {
         const [intel, recs] = await Promise.all([
           fetchJSON('/api/v1/intelligence/latest').catch(() => null),
-          fetchJSON('/api/recommendations').catch(() => null),
+          fetchJSON('/api/v1/coordination/recommendations').catch(() => null),
         ]);
         renderORBrief(intel);
         renderStrategicWatchlist(intel);
@@ -1143,7 +1245,7 @@
 
       const [govData, lessonsData, adrData, directivesData] = await Promise.allSettled([
         fetchJSON('/api/v1/governance/decisions').catch(() => null),
-        fetchJSON('/api/lessons').catch(() => null),
+        fetchJSON('/api/v1/coordination/lessons').catch(() => null),
         fetchJSON('/api/v1/governance/adrs').catch(() => null),
         fetchJSON('/api/v1/governance/directives').catch(() => null),
       ]);
@@ -1243,8 +1345,8 @@
       try {
         const [queue, blockers, lessons] = await Promise.all([
           fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
-          fetchJSON('/api/blockers').catch(() => null),
-          fetchJSON('/api/lessons').catch(() => null),
+          fetchJSON('/api/v1/coordination/blockers').catch(() => null),
+          fetchJSON('/api/v1/coordination/lessons').catch(() => null),
         ]);
         renderOpsQueue(queue);
         renderOpsBlockers(blockers);
@@ -1330,7 +1432,7 @@
       sickbayLoaded = true;
       try {
         const [readiness, synthesis, queue] = await Promise.all([
-          fetchJSON('/api/readiness').catch(() => null),
+          fetchJSON('/api/v1/coordination/readiness').catch(() => null),
           fetchJSON('/api/v1/captains-log/latest-synthesis').catch(() => null),
           fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
         ]);
@@ -1567,7 +1669,7 @@
       try {
         const [healthStatus, readiness, weekly, queue] = await Promise.allSettled([
           fetchJSON('/api/v1/personal-health/status').catch(() => null),
-          fetchJSON('/api/readiness').catch(() => null),
+          fetchJSON('/api/v1/coordination/readiness').catch(() => null),
           fetchJSON('/api/v1/captains-log/latest-synthesis').catch(() => null),
           fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
         ]);
@@ -1640,7 +1742,7 @@
       try {
         const [console_data, blockers] = await Promise.allSettled([
           fetchJSON('/api/v1/console/dashboard').catch(() => null),
-          fetchJSON('/api/blockers').catch(() => null),
+          fetchJSON('/api/v1/coordination/blockers').catch(() => null),
         ]);
         const dash = console_data.status === 'fulfilled' ? console_data.value : null;
         renderCommandDashboard(dash);
@@ -1861,8 +1963,8 @@
     });
 
     // ── Boot ─────────────────────────────────────────────────────────────
-    // Load the Chair immediately — it's the landing page
-    loadChair();
+    // Fetch API key first, then load the Chair (landing page)
+    _initApiKey().then(() => loadChair());
   </script>
 </body>
 </html>
