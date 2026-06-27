@@ -311,7 +311,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_create \\<title\\> — create a new Idea mission \\(e\\.g\\. `/mission_create Build ops dashboard`\\)\n\n"
         "*Captain Governance*\n"
         "/captain\\_approve \\<id\\> — approve a mission \\(e\\.g\\. `/captain_approve 0175`\\)\n"
-        "/captain\\_reject \\<id\\> \\<reason\\> — reject with reason \\(e\\.g\\. `/captain_reject 0175 Scope too broad`\\)\n\n"
+        "/captain\\_reject \\<id\\> \\<reason\\> — reject with reason \\(e\\.g\\. `/captain_reject 0175 Scope too broad`\\)\n"
+        "/mission\\_submit \\<id\\> — submit for Captain approval \\(Tested/Validated/Implemented\\)\n"
+        "/handoff\\_engineering \\<id\\> — hand off to Engineering \\(Idea/Designed/Approved/Requires Rework\\)\n"
+        "/operating\\_picture — Captain's live operating picture\n\n"
         "*Logging*\n"
         "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
@@ -871,6 +874,171 @@ async def cmd_captain_reject(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+# ── Mission lifecycle commands (MSN-0178 / MSN-0179 / MSN-0180) ──────────────
+
+async def _lifecycle_api_call(
+    update,
+    mission_ref: str,
+    endpoint: str,
+    payload: dict,
+    action_label: str,
+) -> None:
+    """Generic helper: POST to LCARS API lifecycle endpoint and reply."""
+    if not LCARS_PORTAL_URL:
+        await update.message.reply_text(
+            "⚠️ `LCARS_PORTAL_URL` not configured\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
+                json=payload,
+            )
+        if resp.status_code in (200, 201):
+            data  = resp.json()
+            mid   = _escape_strict(data.get("mission_id", mission_ref))
+            title = _escape_strict((data.get("title") or "")[:60])
+            prev  = _escape_strict(data.get("previous_status", ""))
+            new_s = _escape_strict(data.get("new_status", ""))
+            note  = _escape_strict(
+                data.get("next_captain_action") or
+                data.get("next_engineering_action") or ""
+            )
+            msg = f"✅ *{_escape_strict(action_label)}*\n\n`{mid}`\n{title}\n\n_{prev}_ → *{new_s}*"
+            if note:
+                msg += f"\n\n_{note}_"
+            await update.message.reply_text(msg, parse_mode="MarkdownV2")
+        elif resp.status_code == 404:
+            await update.message.reply_text(
+                f"⚠️ Mission `{_escape_strict(mission_ref)}` not found\\.",
+                parse_mode="MarkdownV2",
+            )
+        elif resp.status_code == 409:
+            data    = resp.json()
+            current = _escape_strict(data.get("current_status", "unknown"))
+            err     = _escape_strict(data.get("error", "Not eligible"))
+            await update.message.reply_text(
+                f"⚠️ {err}: `{current}`\\.",
+                parse_mode="MarkdownV2",
+            )
+        else:
+            detail = _escape_strict(str(resp.text)[:120])
+            await update.message.reply_text(
+                f"⚠️ API returned `{resp.status_code}`:\n`{detail}`",
+                parse_mode="MarkdownV2",
+            )
+    except Exception as exc:
+        log.error("[%s] failed: %s", endpoint, exc)
+        await update.message.reply_text(
+            f"⚠️ {_escape_strict(action_label)} failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
+async def cmd_mission_submit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Submit mission for Captain approval. Usage: /mission_submit <mission_id>"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Mission Submit*\n\n"
+            "Usage: `/mission_submit <mission_id>`\n\n"
+            "_Example: `/mission_submit 0171`_\n\n"
+            "Eligible statuses: `Tested`, `Validated`, `Implemented`",
+            parse_mode="MarkdownV2",
+        )
+        return
+    await _lifecycle_api_call(
+        update, args[0].strip(), "submit",
+        {"source": "Telegram", "submitter": "Engineering"},
+        "Mission Submitted for Captain Approval",
+    )
+
+
+async def cmd_handoff_engineering(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Hand off mission to Engineering. Usage: /handoff_engineering <mission_id>"""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "*Handoff to Engineering*\n\n"
+            "Usage: `/handoff_engineering <mission_id>`\n\n"
+            "_Example: `/handoff_engineering 0178`_\n\n"
+            "Eligible statuses: `Idea`, `Designed`, `Approved`, `Requires Rework`",
+            parse_mode="MarkdownV2",
+        )
+        return
+    await _lifecycle_api_call(
+        update, args[0].strip(), "handoff",
+        {"source": "Telegram", "officer": "Captain"},
+        "Mission Handed Off to Engineering",
+    )
+
+
+async def cmd_operating_picture(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show Captain's Operating Picture. Usage: /operating_picture"""
+    if not LCARS_PORTAL_URL:
+        await update.message.reply_text(
+            "⚠️ `LCARS_PORTAL_URL` not configured — operating picture unavailable\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{LCARS_PORTAL_URL}/api/operating-picture")
+        if resp.status_code != 200:
+            await update.message.reply_text(
+                f"⚠️ Operating picture unavailable \\(`{resp.status_code}`\\)\\.",
+                parse_mode="MarkdownV2",
+            )
+            return
+        data      = resp.json()
+        missions  = data.get("missions", {})
+        decisions = data.get("decisions", {})
+        actions   = data.get("next_actions", [])
+        recent    = data.get("recent_transitions", [])
+        counters  = data.get("counters") or {}
+
+        lines = [
+            "*Captain's Operating Picture*\n",
+            f"Active: `{missions.get('active_count', 0)}`",
+            f"Awaiting approval: `{missions.get('awaiting_approval_count', 0)}`",
+            f"Blocked: `{missions.get('blocked_count', 0)}`",
+            f"Approved: `{missions.get('approved_count', 0)}`",
+            f"Open decisions: `{decisions.get('open_count', 0)}`",
+        ]
+
+        if counters.get("next_MSN"):
+            lines.append(f"Next ID: `{_escape_strict(counters['next_MSN'])}`")
+
+        if actions:
+            lines.append("\n*Next Actions:*")
+            for i, action in enumerate(actions[:5], 1):
+                lines.append(f"{i}\\. {_escape_strict(str(action))}")
+
+        if recent:
+            lines.append("\n*Recent Decisions:*")
+            for t in recent[:3]:
+                mid  = _escape_strict(str(t.get("mission_id", ""))[-4:])
+                to_s = _escape_strict(str(t.get("to_state", "")))
+                lines.append(f"• `{mid}` → {to_s}")
+
+        # Degraded data warning
+        if "error" in data:
+            lines.append(f"\n⚠️ _Partial data: {_escape_strict(str(data['error'])[:60])}_")
+
+        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+
+    except Exception as exc:
+        log.error("[operating-picture] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Operating picture failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Free-text conversation ────────────────────────────────────────────────────
 
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1021,8 +1189,11 @@ _BOT_COMMANDS = [
     ("mission_list",    "List missions  e.g. /mission_list active"),
     ("mission_status",  "Mission detail  e.g. /mission_status 0167"),
     ("mission_create",   "Create mission  e.g. /mission_create Build ops dashboard"),
-    ("captain_approve",  "Approve mission  e.g. /captain_approve 0175"),
-    ("captain_reject",   "Reject mission   e.g. /captain_reject 0175 Scope too broad"),
+    ("captain_approve",      "Approve mission  e.g. /captain_approve 0175"),
+    ("captain_reject",       "Reject mission   e.g. /captain_reject 0175 Scope too broad"),
+    ("mission_submit",       "Submit for Captain approval  e.g. /mission_submit 0178"),
+    ("handoff_engineering",  "Hand off to Engineering  e.g. /handoff_engineering 0181"),
+    ("operating_picture",    "Captain's operating picture"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     ("brief",           "OR intelligence brief on demand"),
@@ -1053,8 +1224,11 @@ def main() -> None:
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
-    app.add_handler(CommandHandler("captain_approve",  cmd_captain_approve))
-    app.add_handler(CommandHandler("captain_reject",   cmd_captain_reject))
+    app.add_handler(CommandHandler("captain_approve",     cmd_captain_approve))
+    app.add_handler(CommandHandler("captain_reject",      cmd_captain_reject))
+    app.add_handler(CommandHandler("mission_submit",      cmd_mission_submit))
+    app.add_handler(CommandHandler("handoff_engineering", cmd_handoff_engineering))
+    app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))

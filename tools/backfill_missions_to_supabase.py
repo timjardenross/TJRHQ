@@ -40,7 +40,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
 VALID_STATUSES = {
-    "Idea", "Designed", "Implemented", "Tested",
+    "Idea", "Designed", "Approved for Engineering", "Implemented", "Tested",
     "Awaiting Number One Review", "Validated", "Awaiting XO Approval",
     "Awaiting Captain Approval", "Approved",
     "Closed", "Blocked", "Archived", "Requires Rework",
