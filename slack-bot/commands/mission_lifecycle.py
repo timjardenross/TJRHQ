@@ -204,7 +204,7 @@ def _supabase_missions(status_filter: Optional[str] = None, order: str = "create
         if status_filter:
             # Exact case-insensitive match for Idea; ilike for others
             qs += f"&status=ilike.{status_filter}"
-        rows = client._get(qs)
+        rows = client.get(qs)
         return rows or []
     except Exception as exc:
         log.debug("[mission_lifecycle] Supabase unavailable: %s", exc)
@@ -221,7 +221,7 @@ def _supabase_get_mission(mission_id: str) -> Optional[dict]:
             return None
         mission_id_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
         for mid_try in (mission_id_full, mission_id):
-            rows = client._get(f"missions?select=*&mission_id=eq.{mid_try}&limit=1")
+            rows = client.get(f"missions?select=*&mission_id=eq.{mid_try}&limit=1")
             if rows:
                 return rows[0]
         return None
