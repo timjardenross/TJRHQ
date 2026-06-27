@@ -70,13 +70,13 @@ export async function POST(
     if (updateErr) throw updateErr;
 
     // Audit record — non-blocking
-    supabase.from('mission_state_transitions').insert({
+    void (async () => { try { await supabase.from('mission_state_transitions').insert({
       mission_id: mission.mission_id,
       from_state: prevStatus,
       to_state:   'Approved for Engineering',
       actor:      officer,
       evidence:   JSON.stringify({ action: 'handoff', source }),
-    }).then(() => {/* fire-and-forget */}).catch(() => {/* non-fatal */});
+    }); } catch { /* non-fatal */ } })();
 
     return NextResponse.json({
       mission_id:      mission.mission_id,
