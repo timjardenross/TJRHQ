@@ -32,7 +32,7 @@ async function searchMissions(q: string): Promise<SearchResult[]> {
     title:     r.title,
     detail:    r.status,
     timestamp: r.updated_at,
-    href:      '/missions',
+    href:      `/missions/${r.mission_id}`,
   }));
 }
 
