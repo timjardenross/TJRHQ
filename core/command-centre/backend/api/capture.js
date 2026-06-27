@@ -179,4 +179,40 @@ router.get('/pending', asyncHandler(async (req, res) => {
   res.json(successResponse(rows || [], 200, { count: (rows || []).length }));
 }));
 
+// ── POST /api/v1/capture/:id/route ──────────────────────────────────────────
+// Manually route an existing pending capture to a target type.
+// Body: { type: 'mission'|'idea'|'health'|'decision'|'note' }
+router.post('/:id/route', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { type } = req.body || {};
+  if (!type || !VALID_TYPES.includes(type)) {
+    throw new ApiError(400, `type must be one of: ${VALID_TYPES.join(', ')}`);
+  }
+
+  // Fetch the item
+  const rows = await supabaseGet(
+    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,raw_text,item_type,processing_status,captured_at&limit=1`
+  );
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+  const item = rows[0];
+
+  // Update item_type if changing routing target
+  if (item.item_type !== type) {
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, { item_type: type });
+  }
+
+  const routing = await _routeCapture(id, type, item.raw_text || item.title || '', item.captured_at || new Date().toISOString());
+  res.json(successResponse({ id, type, routing }, 200, { source: 'manual_route' }));
+}));
+
+// ── PATCH /api/v1/capture/:id/dismiss ───────────────────────────────────────
+// Dismiss a pending capture — marks it as dismissed without routing.
+router.patch('/:id/dismiss', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const rows = await supabaseGet(`captured_items?id=eq.${encodeURIComponent(id)}&select=id&limit=1`);
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, { processing_status: 'dismissed' });
+  res.json(successResponse({ id, processing_status: 'dismissed' }, 200));
+}));
+
 module.exports = router;

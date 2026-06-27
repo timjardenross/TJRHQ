@@ -67,7 +67,6 @@
     /* Department-specific active tab colours */
     .tab-btn[data-tab="chair"].active,
     .tab-btn[data-tab="command"].active  { color: var(--sf-dept-command-light, #F0B840); background: var(--sf-dept-command-bg, rgba(200,146,42,0.10)); border-color: var(--sf-dept-command, #C8922A); }
-    .tab-btn[data-tab="operations"].active,
     .tab-btn[data-tab="engineering"].active { color: var(--sf-dept-ops-light, #D94444); background: var(--sf-dept-ops-bg, rgba(179,48,48,0.10)); border-color: var(--sf-dept-ops, #B33030); }
     .tab-btn[data-tab="sickbay"].active  { color: var(--sf-dept-medical-light, #72B0F0); background: var(--sf-dept-medical-bg, rgba(58,123,200,0.10)); border-color: var(--sf-dept-medical, #3A7BC8); }
     .tab-btn[data-tab="astrometrics"].active { color: var(--sf-dept-nav-light, #9B6AE0); background: var(--sf-dept-nav-bg, rgba(106,63,175,0.10)); border-color: var(--sf-dept-nav, #6A3FAF); }
@@ -219,7 +218,6 @@
     /* Intel card titles inherit department colour from their tab panel */
     .intel-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tab-dept-color, var(--sf-dept-science-light, #4E84D4)); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(var(--tab-dept-rgb, 45,95,168), 0.15); }
     /* Set --tab-dept-color per tab */
-    #tab-operations { --tab-dept-color: var(--sf-dept-ops-light); --tab-dept-rgb: var(--sf-dept-ops-rgb); }
     #tab-sickbay    { --tab-dept-color: var(--sf-dept-medical-light); --tab-dept-rgb: var(--sf-dept-medical-rgb); }
     #tab-astrometrics { --tab-dept-color: var(--sf-dept-nav-light); --tab-dept-rgb: var(--sf-dept-nav-rgb); }
     #tab-records    { --tab-dept-color: var(--sf-dept-science-light); --tab-dept-rgb: var(--sf-dept-science-rgb); }
@@ -370,7 +368,7 @@
     <!-- TAB NAVIGATION -->
     <nav class="tab-nav" id="tab-nav">
       <button class="tab-btn active" data-tab="chair">🪑 Captain's Chair</button>
-      <button class="tab-btn" data-tab="command">🖖 Command Console</button>
+      <button class="tab-btn" data-tab="command">⚡ Command Console</button>
       <button class="tab-btn" data-tab="sickbay">🩺 Sickbay</button>
       <button class="tab-btn" data-tab="astrometrics">📡 Astrometrics</button>
       <button class="tab-btn" data-tab="records">📜 Starfleet Records</button>
@@ -458,7 +456,35 @@
           </div>
         </div>
       </div>
-      <div class="dept-links">
+      <!-- Pending Approvals — full-width below the 2-col grid -->
+      <div class="intel-card" style="margin-top:12px;">
+        <div class="intel-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>✅ Pending Approvals</span>
+          <span id="cmd-approvals-count" style="font-size:0.8em;font-weight:normal;color:#a0a6c0;"></span>
+        </div>
+        <div id="cmd-approvals"><p class="intel-loading">Loading…</p></div>
+      </div>
+      <!-- Mission search + filter bar -->
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="cmd-mission-search" type="text" placeholder="🔍 Search missions…" style="
+          flex:1;min-width:180px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);
+          border-radius:5px;color:#e0e6ff;padding:7px 10px;font-size:12px;font-family:inherit;
+        " oninput="filterMissionQueue(this.value, document.getElementById('cmd-status-filter').value)">
+        <select id="cmd-status-filter" style="
+          background:#1a1e2e;color:#a0a6c0;border:1px solid rgba(255,255,255,0.15);
+          border-radius:5px;padding:7px 8px;font-size:12px;cursor:pointer;
+        " onchange="filterMissionQueue(document.getElementById('cmd-mission-search').value, this.value)">
+          <option value="">All statuses</option>
+          <option value="Blocked">Blocked</option>
+          <option value="Awaiting Captain Approval">Awaiting Captain Approval</option>
+          <option value="Awaiting XO Approval">Awaiting XO Approval</option>
+          <option value="Approved for Engineering">Approved for Engineering</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Requires Rework">Requires Rework</option>
+        </select>
+        <button onclick="commandConsoleLoaded=false;loadCommandConsole();" style="padding:7px 14px;font-size:11px;opacity:0.7;">↺ Refresh</button>
+      </div>
+      <div class="dept-links" style="margin-top:8px;">
         <a class="dept-link dept-link-primary" href="mission-registry.html">📋 Full Mission Registry →</a>
       </div>
     </div>
@@ -556,9 +582,6 @@
         </div>
       </div>
 
-      <div class="dept-links">
-        <a class="dept-link dept-link-amber" href="xo-health-oversight.html">📊 XO Health Model →</a>
-      </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -594,10 +617,6 @@
           <div id="astro-source-health"><p class="intel-loading">Loading sources…</p></div>
         </div>
 
-      </div>
-      <div class="dept-links">
-        <a class="dept-link dept-link-primary" href="or-intelligence.html">📡 Full OR Intelligence Cockpit →</a>
-        <a class="dept-link dept-link-secondary" href="or-intelligence.html#archive">🗂 Intelligence Archive →</a>
       </div>
     </div>
 
@@ -659,10 +678,6 @@
         <div id="records-intel-archive"><p class="intel-loading">Loading archive…</p></div>
       </div>
 
-      <div class="dept-links">
-        <a class="dept-link dept-link-primary" href="decisions-registry.html">⚖️ Full Decision Registry →</a>
-        <a class="dept-link dept-link-secondary" href="captains-log.html">📋 Captain's Log →</a>
-      </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -691,15 +706,8 @@
           </div>
         </div>
       </div>
-      <div class="intel-card" style="margin-top:12px;">
-        <div class="intel-card-title" style="display:flex;justify-content:space-between;align-items:center;">
-          <span>🏛 Engineering Governance</span>
-          <span id="eng-gov-counts" class="muted" style="font-size:0.8em;font-weight:normal;"></span>
-        </div>
-        <div id="eng-governance"><p class="intel-loading">Loading governance…</p></div>
-      </div>
       <div class="dept-links">
-        <a class="dept-link dept-link-secondary" href="system-status.html">🔧 Full System Status →</a>
+        <span class="dept-link dept-link-secondary" style="opacity:0.4;cursor:default;">⚙️ System details shown above</span>
       </div>
     </div>
 
@@ -889,14 +897,14 @@
       escs.forEach(e => {
         const lvl = (e.level || '').toLowerCase();
         if (lvl === 'critical' || lvl === 'high') {
-          alerts.push({ level: lvl, text: e.reason || e.title || 'Escalation', sub: e.mission_id || '' });
+          alerts.push({ level: lvl, text: e.reason || e.title || 'Escalation', missionId: e.mission || e.mission_id || '' });
         }
       });
 
       // Blockers → critical only for the Chair
       const critBlockers = (blockers && blockers.critical) || [];
       critBlockers.forEach(b => {
-        alerts.push({ level: 'critical', text: `${b.mission_id} blocked`, sub: `${b.priority} · ${b.age_days}d` });
+        alerts.push({ level: 'critical', text: `${b.mission_id} blocked`, sub: `${b.priority} · ${b.age_days}d`, missionId: b.mission_id || '' });
       });
 
       if (!alerts.length) {
@@ -904,14 +912,45 @@
         return;
       }
 
-      el.innerHTML = `<div class="alert-list">${alerts.map(a => `
-        <div class="alert-item">
+      el.innerHTML = `<div class="alert-list">${alerts.map(a => {
+        const hasLink = !!a.missionId;
+        return `<div class="alert-item${hasLink ? ' alert-item-link' : ''}" ${hasLink ? `data-mission="${a.missionId}" title="Click to act on ${a.missionId}"` : ''} style="${hasLink ? 'cursor:pointer;' : ''}">
           <span class="alert-badge ${a.level}">${a.level.toUpperCase()}</span>
-          <div>
+          <div style="flex:1;min-width:0;">
             <div class="alert-text">${a.text}</div>
-            ${a.sub ? `<div class="alert-sub">${a.sub}</div>` : ''}
+            ${a.missionId ? `<div class="alert-sub">${a.missionId}${hasLink ? ' · <span style="color:#5b9af5;font-size:10px;">→ act</span>' : ''}</div>` : (a.sub ? `<div class="alert-sub">${a.sub}</div>` : '')}
           </div>
-        </div>`).join('')}</div>`;
+        </div>`;
+      }).join('')}</div>`;
+
+      // Alert click → navigate to Command Console + highlight mission
+      el.querySelectorAll('.alert-item-link').forEach(item => {
+        item.addEventListener('click', () => {
+          const mId = item.dataset.mission;
+          activateTab('command');
+          commandConsoleLoaded = false;
+          loadCommandConsole().then(() => {
+            if (mId) highlightMissionInQueue(mId);
+          });
+        });
+      });
+    }
+
+    function highlightMissionInQueue(missionId) {
+      // Scroll to and flash-highlight the mission row in cmd-queue
+      const queueEl = document.getElementById('cmd-queue');
+      if (!queueEl) return;
+      const rows = queueEl.querySelectorAll('.mission-item');
+      rows.forEach(row => {
+        const idEl = row.querySelector('[data-mission-id]');
+        const rowId = idEl ? idEl.dataset.missionId : '';
+        if (rowId && (rowId === missionId || rowId.includes(missionId) || missionId.includes(rowId))) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          row.style.transition = 'background 0.3s';
+          row.style.background = 'rgba(0,204,255,0.12)';
+          setTimeout(() => { row.style.background = ''; }, 2500);
+        }
+      });
     }
 
     function renderRecommendedAction(data) {
@@ -1054,23 +1093,92 @@
 
     // ── Command Console ─────────────────────────────────────────────────
     let commandConsoleLoaded = false;
+    let _allMissions = []; // cache for client-side filtering
+
     async function loadCommandConsole() {
       if (commandConsoleLoaded) return;
       commandConsoleLoaded = true;
       try {
         const [log, missions, escalations, blockers] = await Promise.allSettled([
           fetchJSON('/api/v1/captains-log/today').catch(() => null),
-          fetchJSON('/api/v1/missions/list?limit=50').catch(() => null),
+          fetchJSON('/api/v1/missions/list?limit=100').catch(() => null),
           fetchJSON('/api/v1/coordination/escalations').catch(() => null),
           fetchJSON('/api/v1/coordination/blockers').catch(() => null),
         ]);
         renderCmdBrief(log.status === 'fulfilled' ? log.value : null);
-        renderCmdQueue(missions.status === 'fulfilled' ? missions.value : null);
+        const missionsData = missions.status === 'fulfilled' ? missions.value : null;
+        _allMissions = missionsData ? (Array.isArray(missionsData) ? missionsData : (missionsData.data || [])) : [];
+        renderCmdQueue(missionsData);
+        renderCmdApprovals(_allMissions);
         renderCmdEscalations(escalations.status === 'fulfilled' ? escalations.value : null);
         renderCmdBlockers(blockers.status === 'fulfilled' ? blockers.value : null);
       } catch (e) {
         console.warn('Command console load error:', e);
       }
+    }
+
+    function renderCmdApprovals(missions) {
+      const el = document.getElementById('cmd-approvals');
+      const countEl = document.getElementById('cmd-approvals-count');
+      if (!el) return;
+      const all = Array.isArray(missions) ? missions : (missions && missions.data) || [];
+      const pending = all.filter(m => m.status === 'Awaiting Captain Approval');
+      if (countEl) countEl.textContent = pending.length ? `${pending.length} awaiting` : '';
+      if (!pending.length) {
+        el.innerHTML = '<p class="chair-clear">✅ No missions awaiting approval</p>';
+        return;
+      }
+      el.innerHTML = pending.map(m => {
+        const mId = m.id || m.mission_id || '';
+        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;gap:6px;align-items:center;width:100%;">
+            <span style="font-size:10px;color:#a0a6c0;">${m.mission_id || m.id || ''}</span>
+            <span style="font-weight:600;flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title || 'Untitled'}</span>
+            <span style="font-size:10px;color:#a0a6c0;">${m.owner || m.domain || ''}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button class="approval-btn" data-id="${mId}" data-action="Approved"
+              style="font-size:11px;padding:4px 14px;background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:4px;cursor:pointer;">
+              ✓ Approve
+            </button>
+            <button class="approval-btn" data-id="${mId}" data-action="Requires Rework"
+              style="font-size:11px;padding:4px 14px;background:rgba(231,76,60,0.12);border:1px solid #e74c3c;color:#e74c3c;border-radius:4px;cursor:pointer;">
+              ↩ Request Rework
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+      el.querySelectorAll('.approval-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const mId = btn.dataset.id;
+          const action = btn.dataset.action;
+          const row = btn.closest('.mission-item');
+          btn.disabled = true; btn.textContent = '…';
+          try {
+            await changeMissionStatus(mId, action);
+            if (row) row.innerHTML = `<div style="font-size:11px;color:#5DD17A;padding:4px 0;">✓ ${action} — reloading…</div>`;
+            commandConsoleLoaded = false;
+            setTimeout(() => loadCommandConsole(), 900);
+          } catch(err) {
+            btn.disabled = false; btn.textContent = action === 'Approved' ? '✓ Approve' : '↩ Request Rework';
+            console.error('[approvals] action failed:', err);
+          }
+        });
+      });
+    }
+
+    // Client-side search + status filter for Mission Queue
+    function filterMissionQueue(search, status) {
+      const filtered = _allMissions.filter(m => {
+        const matchSearch = !search || search.trim() === '' ||
+          (m.title || '').toLowerCase().includes(search.toLowerCase()) ||
+          (m.mission_id || '').toLowerCase().includes(search.toLowerCase()) ||
+          (m.id || '').toLowerCase().includes(search.toLowerCase());
+        const matchStatus = !status || m.status === status;
+        return matchSearch && matchStatus;
+      });
+      renderCmdQueue(filtered);
     }
 
     function renderCmdBrief(data) {
@@ -1568,122 +1676,89 @@
       }
 
       // ── Pending Captures ─────────────────────────────────────────────────
+      renderPendingCaptures(capturesData.status === 'fulfilled' ? capturesData.value : null);
+    }
+
+    function renderPendingCaptures(captures) {
       const capturesEl = document.getElementById('records-captures');
-      const captures = capturesData.status === 'fulfilled' ? capturesData.value : null;
-      if (capturesEl) {
-        const list = Array.isArray(captures) ? captures : [];
-        if (!list.length) {
-          capturesEl.innerHTML = '<p class="chair-clear">✅ No pending captures</p>';
-        } else {
-          const typeIcon = t => ({ note:'📝', mission:'🚀', idea:'💡', health:'🩺', decision:'⚖️' }[t] || '📌');
-          const statusClr = s => s === 'pending_decision' ? '#f39c12' : '#a0a6c0';
-          capturesEl.innerHTML = `
-            <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} item${list.length !== 1 ? 's' : ''} awaiting triage</div>
-            <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
-              ${list.map(c => `
-                <div style="padding:5px 0;border-bottom:1px solid var(--border)">
-                  <div style="display:flex;align-items:flex-start;gap:6px">
-                    <span style="flex-shrink:0">${typeIcon(c.item_type)}</span>
-                    <div style="flex:1;min-width:0">
-                      <div style="font-size:0.88em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title || c.raw_text || '—'}</div>
-                      <div style="display:flex;gap:8px;margin-top:2px">
-                        <span style="font-size:0.72em;color:${statusClr(c.processing_status)}">${c.processing_status}</span>
-                        <span style="font-size:0.72em;color:var(--text-muted)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</span>
-                      </div>
-                    </div>
+      if (!capturesEl) return;
+      const list = Array.isArray(captures) ? captures : [];
+      if (!list.length) {
+        capturesEl.innerHTML = '<p class="chair-clear">✅ No pending captures</p>';
+        return;
+      }
+      const typeIcon = t => ({ note:'📝', mission:'🚀', idea:'💡', health:'🩺', decision:'⚖️' }[t] || '📌');
+      const statusClr = s => s === 'pending_decision' ? '#f39c12' : '#a0a6c0';
+
+      capturesEl.innerHTML = `
+        <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} item${list.length !== 1 ? 's' : ''} awaiting triage</div>
+        <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="captures-list">
+          ${list.map(c => `
+            <div class="capture-triage-row" data-id="${c.id}" style="padding:6px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:flex-start;gap:6px">
+                <span style="flex-shrink:0">${typeIcon(c.item_type)}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:0.88em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title || c.raw_text || '—'}</div>
+                  <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap;">
+                    <span style="font-size:0.72em;color:${statusClr(c.processing_status)}">${c.processing_status}</span>
+                    <span style="font-size:0.72em;color:var(--text-muted)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</span>
                   </div>
-                </div>`).join('')}
-            </div>`;
-        }
-      }
-    }
-
-    // ── Operations tab ───────────────────────────────────────────────────
-    let operationsLoaded = false;
-    async function loadOperationsTab() {
-      if (operationsLoaded) return;
-      operationsLoaded = true;
-      try {
-        const [queue, blockers, lessons] = await Promise.all([
-          fetchJSON('/api/v1/coordination/health-queue').catch(() => null),
-          fetchJSON('/api/v1/coordination/blockers').catch(() => null),
-          fetchJSON('/api/v1/coordination/lessons').catch(() => null),
-        ]);
-        renderOpsQueue(queue);
-        renderOpsBlockers(blockers);
-        renderOpsLessons(lessons);
-      } catch (e) {
-        console.warn('Operations tab load error:', e);
-      }
-    }
-
-    function renderOpsQueue(data) {
-      const el = document.getElementById('ops-queue');
-      if (!el) return;
-      const queue = (data && data.queue) || [];
-      const capacity = (data && data.capacity_status) || 'Unknown';
-      if (!queue.length) {
-        el.innerHTML = '<p class="chair-empty">No active missions in queue.<br>System operating normally.</p>';
-        return;
-      }
-      const capClass = capacity.toLowerCase() === 'green' ? 'capacity-green'
-                     : capacity.toLowerCase() === 'amber' ? 'capacity-amber' : 'capacity-red';
-      el.innerHTML = `<span class="mission-capacity ${capClass}" style="margin-bottom:12px;display:inline-block;">Capacity: ${capacity}</span>` +
-        queue.map(m => {
-          const priClass = m.priority === 'P0' ? 'priority-p0' : m.priority === 'P1' ? 'priority-p1' : 'priority-p2';
-          const blocked = m.blockers && m.blockers.length > 0;
-          return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;">
-            <div style="display:flex;gap:6px;align-items:center;width:100%;">
-              <span class="mission-priority ${priClass}">${m.priority}</span>
-              <span class="mission-title" style="font-weight:600">${m.title}</span>
-              ${blocked ? '<span style="font-size:9px;color:#ff4444;margin-left:auto;">BLOCKED</span>' : ''}
-            </div>
-            ${m.next_action ? `<div class="mission-next" style="margin-top:3px;padding-left:2px;">→ ${m.next_action}</div>` : ''}
-            ${m.assigned_specialist ? `<div class="mission-next">Assigned: ${m.assigned_specialist}</div>` : ''}
-            ${m.capacity_note ? `<div style="font-size:10px;color:#ffaa00;margin-top:2px;">⚠ ${m.capacity_note}</div>` : ''}
-          </div>`;
-        }).join('');
-    }
-
-    function renderOpsBlockers(data) {
-      const el = document.getElementById('ops-blockers');
-      if (!el) return;
-      const total = (data && data.total_blockers) || 0;
-      if (total === 0) {
-        el.innerHTML = '<p class="chair-clear">✅ No active blockers — all missions clear to proceed</p>';
-        return;
-      }
-      function section(title, items, cls) {
-        if (!items || !items.length) return '';
-        return `<div class="blocker-section">
-          <div class="blocker-section-title ${cls}">${title} (${items.length})</div>
-          ${items.map(b => `<div class="blocker-item">
-            <strong>${b.mission_id}</strong> (${b.priority})<span class="blocker-age"> — ${b.age_days}d blocked</span>
-          </div>`).join('')}
+                  <div class="capture-actions" style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;">
+                    <button class="cap-btn" data-id="${c.id}" data-action="route" data-type="mission"
+                      style="font-size:10px;padding:2px 8px;background:rgba(41,182,246,0.1);border:1px solid rgba(41,182,246,0.4);color:#5b9af5;border-radius:3px;cursor:pointer;">
+                      🚀 Mission
+                    </button>
+                    <button class="cap-btn" data-id="${c.id}" data-action="route" data-type="health"
+                      style="font-size:10px;padding:2px 8px;background:rgba(58,123,200,0.1);border:1px solid rgba(58,123,200,0.4);color:#72B0F0;border-radius:3px;cursor:pointer;">
+                      🩺 Health
+                    </button>
+                    <button class="cap-btn" data-id="${c.id}" data-action="route" data-type="decision"
+                      style="font-size:10px;padding:2px 8px;background:rgba(200,146,42,0.1);border:1px solid rgba(200,146,42,0.4);color:#F0B840;border-radius:3px;cursor:pointer;">
+                      ⚖️ Decision
+                    </button>
+                    <button class="cap-btn" data-id="${c.id}" data-action="dismiss"
+                      style="font-size:10px;padding:2px 8px;background:rgba(120,120,120,0.1);border:1px solid rgba(120,120,120,0.3);color:#888;border-radius:3px;cursor:pointer;">
+                      ✕ Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>`).join('')}
         </div>`;
-      }
-      el.innerHTML = `<p style="font-size:12px;margin-bottom:10px;">Total blocked: <strong>${total}</strong></p>` +
-        section('Critical (P0)', data.critical, 'critical') +
-        section('High (P1)', data.high, 'high') +
-        section('Normal', data.normal, 'normal');
-    }
 
-    function renderOpsLessons(data) {
-      const el = document.getElementById('ops-lessons');
-      if (!el) return;
-      const lessons = (data && data.lessons) || [];
-      if (!lessons.length) {
-        el.innerHTML = '<p class="chair-empty">No lessons on record yet.<br>Lessons are captured at mission closure.</p>';
-        return;
-      }
-      el.innerHTML = `<p style="font-size:10px;color:#a0a6c0;margin-bottom:10px;">${lessons.length} lesson${lessons.length !== 1 ? 's' : ''} captured — showing most recent</p>` +
-        lessons.slice(0, 10).map(l => `
-          <div class="lesson-item">
-            <span class="lesson-id">${l.lesson_id}</span>
-            <div class="lesson-title">${l.title}</div>
-            ${l.mission_id ? `<div class="lesson-mission">↳ ${l.mission_id}</div>` : ''}
-            ${l.guidance ? `<div style="font-size:11px;color:#a0a6c0;margin-top:3px;line-height:1.4;">${l.guidance.slice(0, 120)}${l.guidance.length > 120 ? '…' : ''}</div>` : ''}
-          </div>`).join('');
+      capturesEl.querySelectorAll('.cap-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          const row = btn.closest('.capture-triage-row');
+          btn.disabled = true; btn.textContent = '…';
+          try {
+            const sep = `?api_key=${encodeURIComponent(_apiKey || '')}`;
+            let url, opts;
+            if (action === 'dismiss') {
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/dismiss${sep}`;
+              opts = { method: 'PATCH', headers: {'Content-Type':'application/json'} };
+            } else {
+              url = `${API_BASE}/api/v1/capture/${encodeURIComponent(id)}/route${sep}`;
+              opts = { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: btn.dataset.type }) };
+            }
+            const r = await fetch(url, opts);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            if (row) row.style.opacity = '0.4';
+            setTimeout(() => {
+              if (row) row.remove();
+              // Refresh count
+              const remaining = capturesEl.querySelectorAll('.capture-triage-row').length;
+              const countEl = capturesEl.querySelector('[data-count]');
+              if (!remaining) capturesEl.innerHTML = '<p class="chair-clear">✅ No pending captures</p>';
+            }, 300);
+          } catch(err) {
+            btn.disabled = false;
+            btn.textContent = action === 'dismiss' ? '✕ Dismiss' : btn.textContent;
+            console.error('[captures] triage failed:', err);
+          }
+        });
+      });
     }
 
     // ── Sickbay render functions (used by loadSickbayTab below) ─────────
@@ -1901,53 +1976,7 @@
         }
       };
 
-      // Engineering Governance — recent decisions + ADR count
-      const renderGovernance = async () => {
-        const el = document.getElementById('eng-governance');
-        const countEl = document.getElementById('eng-gov-counts');
-        try {
-          const [decData, adrData] = await Promise.allSettled([
-            fetchJSON('/api/v1/governance/decisions').catch(() => null),
-            fetchJSON('/api/v1/governance/adrs').catch(() => null),
-          ]);
-
-          const decisions = decData.status === 'fulfilled' && decData.value?.data?.canonical
-            ? decData.value.data.canonical : [];
-          const adrCount = adrData.status === 'fulfilled' && adrData.value?.data?.total
-            ? adrData.value.data.total : 0;
-
-          if (countEl) countEl.textContent = `${decisions.length} decisions · ${adrCount} ADRs`;
-
-          const STATUS_COLOR = {
-            'APPROVED': '#6aff8a', 'RESOLVED': '#6aff8a',
-            'PENDING': '#F0B840', 'IN PROGRESS': '#F0B840',
-            'REJECTED': '#ff6a6a',
-          };
-
-          const recent = decisions.slice(0, 8);
-          if (!recent.length) {
-            el.innerHTML = '<p class="muted">No governance decisions available.</p>';
-            return;
-          }
-
-          el.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px;">` +
-            recent.map(d => {
-              const statusKey = (d.status || '').toUpperCase().split('—')[0].trim();
-              const color = STATUS_COLOR[statusKey] || '#aaa';
-              return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border);gap:8px">
-                <div style="flex:1;min-width:0">
-                  <span style="color:#c0c8e8;font-size:0.82em">[${d.id}]</span>
-                  <span style="font-size:0.82em;margin-left:4px">${d.title}</span>
-                </div>
-                <span style="color:${color};font-size:0.75em;white-space:nowrap;flex-shrink:0">${statusKey || 'UNKNOWN'}</span>
-              </div>`;
-            }).join('') + `</div>`;
-        } catch(e) {
-          el.innerHTML = '<p class="muted">Governance data unavailable.</p>';
-        }
-      };
-
-      await Promise.allSettled([renderServices(), renderLLM(), renderAPIs(), renderActivity(), renderGovernance()]);
+      await Promise.allSettled([renderServices(), renderLLM(), renderAPIs(), renderActivity()]);
     }
 
     // ── MSN-F: Sickbay Recovery Pulse ────────────────────────────────────
