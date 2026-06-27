@@ -622,26 +622,22 @@ def handle_mission_close(
     closed_in_db = False
     closed_in_file = False
 
-    # Try Supabase update
-    try:
-        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
-        from tools.supabase.client import CommanderSupabaseClient
-        client = CommanderSupabaseClient()
-        if client.is_enabled():
-            now_dt = datetime.now(timezone.utc)
-            patch_payload = {
-                "status": "Closed",
-                "updated_at": now_dt.strftime("%Y-%m-%dT%H:%M:%S"),  # timestamp without tz
-                "closed_at": now_dt.isoformat(),                       # timestamp with tz
-            }
-            mission_id_full_try = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
-            for mid_try in (mission_id_full_try, mission_id):
-                result = client._patch(f"missions?mission_id=eq.{mid_try}", patch_payload)
-                if result:
-                    closed_in_db = True
-                    break
-    except Exception as exc:
-        log.debug("[mission_lifecycle] Supabase close failed: %s", exc)
+    # Try Supabase update — reuse _supabase_update_mission_status (known-good PATCH path)
+    closed_in_db = _supabase_update_mission_status(mission_id, "Closed")
+    if closed_in_db:
+        # Separately stamp closed_at (timestamptz column)
+        try:
+            sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+            from tools.supabase.client import CommanderSupabaseClient
+            _cl = CommanderSupabaseClient()
+            if _cl.is_enabled():
+                mid_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
+                _cl._patch(
+                    f"missions?mission_id=eq.{mid_full}",
+                    {"closed_at": datetime.now(timezone.utc).isoformat()},
+                )
+        except Exception as _ca_exc:
+            log.warning("[mission_lifecycle] closed_at stamp failed: %s", _ca_exc)
 
     # Write closure log
     try:
