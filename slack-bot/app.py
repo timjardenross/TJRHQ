@@ -1663,6 +1663,7 @@ if __name__ == "__main__":
         log.info("[startup] Socket Mode running")
 
         # Supabase connectivity self-test (MSN-BOT-SOR)
+        # PYTHONPATH already includes REPO_ROOT via start-slack-bot.sh — no path surgery needed.
         try:
             from tools.supabase.client import CommanderSupabaseClient
             _sb = CommanderSupabaseClient()
