@@ -22,15 +22,15 @@ async function searchMissions(q: string): Promise<SearchResult[]> {
   const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('missions')
-    .select('mission_id, title, status, domain, updated_at')
-    .or(`title.ilike.%${q}%,mission_id.ilike.%${q}%,domain.ilike.%${q}%`)
+    .select('mission_id, title, status, description, updated_at')
+    .or(`title.ilike.%${q}%,mission_id.ilike.%${q}%,description.ilike.%${q}%`)
     .order('updated_at', { ascending: false })
     .limit(6);
   return (data ?? []).map(r => ({
     type:      'mission' as const,
     id:        r.mission_id,
     title:     r.title,
-    detail:    `${r.status} · ${r.domain ?? '—'}`,
+    detail:    r.status,
     timestamp: r.updated_at,
     href:      '/missions',
   }));
