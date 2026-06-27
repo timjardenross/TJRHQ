@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type Mode = 'password' | 'magic';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [mode, setMode]       = useState<Mode>('password');
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +27,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) setError(error.message);
-    // on success middleware redirects automatically
+    else router.push('/captains-chair');
   }
 
   async function handleMagicLink(e: React.FormEvent) {
