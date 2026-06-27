@@ -17,31 +17,77 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # WP1 — Escalation Manager
 # ---------------------------------------------------------------------------
 
+class _InMemorySupabaseClient:
+    """Minimal in-memory fake for CommanderSupabaseClient, used in tests."""
+
+    def __init__(self):
+        self._tables: dict = {}
+
+    def is_enabled(self) -> bool:
+        return True
+
+    def insert(self, table: str, payload: dict) -> object:
+        self._tables.setdefault(table, []).append(dict(payload))
+        from unittest.mock import MagicMock
+        r = MagicMock()
+        r.ok = True
+        return r
+
+    def get(self, query: str) -> list:
+        table, _, qs = query.partition("?")
+        rows = list(self._tables.get(table, []))
+        # Apply simple eq/is.null/not.in filters (good enough for tests)
+        for part in qs.split("&"):
+            if not part or part.startswith("select=") or part.startswith("order=") or part.startswith("limit="):
+                continue
+            if "=is.null" in part:
+                col = part.split("=is.null")[0]
+                rows = [r for r in rows if r.get(col) is None]
+            elif "=not.null" in part:
+                col = part.split("=not.null")[0]
+                rows = [r for r in rows if r.get(col) is not None]
+            elif "=eq." in part:
+                col, _, val = part.partition("=eq.")
+                # URL-decode simple percent encoding
+                import urllib.parse
+                val = urllib.parse.unquote(val)
+                rows = [r for r in rows if str(r.get(col, "")) == val]
+        return rows
+
+    def _patch(self, query: str, payload: dict) -> bool:
+        table, _, qs = query.partition("?")
+        store = self._tables.get(table, [])
+        # Find matching rows and update
+        matched = self.get(query)
+        for row in store:
+            if row in matched:
+                row.update(payload)
+        return True
+
+    def delete(self, query: str) -> bool:
+        return True
+
+
 class TestEscalationManagerCadence(unittest.TestCase):
-    """Test cadence logic without hitting the real DB."""
+    """Test cadence logic and Supabase-backed storage via in-memory fake."""
 
     def setUp(self):
         import escalation_manager as em
         self.em = em
-        # Use a temp DB for each test
-        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        self._tmp.close()
-        self._orig_db_path = em._DB_PATH
-        em._DB_PATH = Path(self._tmp.name)
+        self._fake_client = _InMemorySupabaseClient()
+        self._patcher = patch("escalation_manager._client", return_value=self._fake_client)
+        self._patcher.start()
 
     def tearDown(self):
-        self.em._DB_PATH = self._orig_db_path
-        os.unlink(self._tmp.name)
+        self._patcher.stop()
 
     def _row(self, first_detected, notification_count, last_notified=None):
-        """Simulate a sqlite3.Row-like object."""
-        r = MagicMock()
-        r.__getitem__ = lambda s, k: {
+        """Return a plain dict matching _should_notify_now expectations."""
+        return {
             "first_detected": first_detected,
             "notification_count": notification_count,
             "last_notified": last_notified,
-        }[k]
-        return r
+        }
 
     def test_never_notified_always_due(self):
         row = self._row("2026-06-10T09:00:00", 0)
@@ -171,19 +217,17 @@ class TestAlertMetrics(unittest.TestCase):
     def setUp(self):
         import escalation_manager as em
         import alert_metrics as am
-        self._tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        self._tmp.close()
-        self._orig_em = em._DB_PATH
-        self._orig_am = am._DB_PATH
-        em._DB_PATH = Path(self._tmp.name)
-        am._DB_PATH = Path(self._tmp.name)
+        self._fake_client = _InMemorySupabaseClient()
+        self._patcher_em = patch("escalation_manager._client", return_value=self._fake_client)
+        self._patcher_am = patch("alert_metrics._client", return_value=self._fake_client)
+        self._patcher_em.start()
+        self._patcher_am.start()
         self.em = em
         self.am = am
 
     def tearDown(self):
-        self.em._DB_PATH = self._orig_em
-        self.am._DB_PATH = self._orig_am
-        os.unlink(self._tmp.name)
+        self._patcher_em.stop()
+        self._patcher_am.stop()
 
     def _seed_events(self):
         """Push some escalations to generate event data."""

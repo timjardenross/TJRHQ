@@ -235,21 +235,41 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
 
 
 def _write_transition_audit(mission_id: str, from_status: str, to_status: str, user_id: str, note: str) -> None:
-    """Write an audit record for a status transition."""
+    """Record a status transition in Supabase mission_state_transitions and local JSON backup."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Primary: Supabase mission_state_transitions (MSN-BOT-SOR)
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if client.is_enabled():
+            client.insert("mission_state_transitions", {
+                "mission_id":       mission_id,
+                "from_status":      from_status or None,
+                "to_status":        to_status,
+                "transitioned_by":  user_id or "Captain",
+                "transitioned_at":  now_iso,
+                "note":             note or None,
+                "source":           "slack-bot",
+            })
+    except Exception as exc:
+        log.warning("[mission_lifecycle] Supabase transition record failed: %s", exc)
+
+    # Secondary: local JSON backup (non-authoritative)
     try:
         _TRANSITION_LOG_DIR.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         log_file = _TRANSITION_LOG_DIR / f"TRANSITION-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
-            "mission_id": mission_id,
-            "from_status": from_status,
-            "to_status": to_status,
+            "mission_id":      mission_id,
+            "from_status":     from_status,
+            "to_status":       to_status,
             "transitioned_by": user_id or "Captain",
-            "transitioned_at": datetime.utcnow().isoformat() + "Z",
-            "note": note or None,
+            "transitioned_at": now_iso,
+            "note":            note or None,
         }, indent=2))
     except Exception as exc:
-        log.warning("[mission_lifecycle] Transition audit write failed: %s", exc)
+        log.warning("[mission_lifecycle] Local transition backup write failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------

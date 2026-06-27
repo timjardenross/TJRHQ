@@ -567,27 +567,62 @@ existing functionality unless clearly obsolete.
 # ---------------------------------------------------------------------------
 
 def next_mission_id(index_path: Path | None = None) -> str:
-    """Read the next available mission ID from mission-index.txt.
+    """Return the next available mission ID.
+
+    Queries Supabase for the highest existing USS-TJR-MSN-NNNN ID and increments.
+    Falls back to scanning mission-index.txt with a deprecation warning when
+    Supabase is unavailable or index_path is explicitly provided (test/legacy use).
 
     Returns the ID string, e.g. 'USS-TJR-MSN-0015'.
-    Raises ValueError if the index cannot be parsed.
+    Raises ValueError if the ID cannot be determined from any source.
     """
-    target = index_path or _MISSION_INDEX
-    if not target.exists():
-        raise FileNotFoundError(f"Mission index not found: {target}")
+    # Explicit index_path means caller is in test/legacy mode — use file
+    if index_path is not None:
+        return _next_mission_id_from_file(index_path)
 
-    content = target.read_text(encoding="utf-8")
+    # Supabase path (primary — MSN-BOT-SOR)
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if client.is_enabled():
+            rows = client.get("missions?select=id&id=like.USS-TJR-MSN-*&order=id.desc&limit=50")
+            if rows:
+                nums = [
+                    int(m.group(1))
+                    for r in rows
+                    for m in [re.search(r"USS-TJR-MSN-(\d+)", r.get("id", ""))]
+                    if m
+                ]
+                if nums:
+                    return f"USS-TJR-MSN-{max(nums) + 1:04d}"
+    except Exception as exc:
+        log.warning("[mission-brief] Supabase ID lookup failed: %s", exc)
+
+    # Fallback — file (not authoritative post MSN-BOT-SOR)
+    log.warning(
+        "[mission-brief] FALLBACK: reading next mission ID from mission-index.txt. "
+        "Supabase is unavailable or not configured."
+    )
+    if not _MISSION_INDEX.exists():
+        raise FileNotFoundError(f"Mission index not found: {_MISSION_INDEX}")
+    return _next_mission_id_from_file(_MISSION_INDEX)
+
+
+def _next_mission_id_from_file(path: Path) -> str:
+    """Parse the highest USS-TJR-MSN-NNNN from a file and return next."""
+    if not path.exists():
+        raise FileNotFoundError(f"Mission index not found: {path}")
+    content = path.read_text(encoding="utf-8")
     match = re.search(r"NEXT AVAILABLE MISSION ID\s*\n\s*(USS-TJR-MSN-\d+)", content)
     if match:
         return match.group(1).strip()
-
-    # Fallback: scan the table for the highest existing ID and increment
     ids = re.findall(r"USS-TJR-MSN-(\d+)", content)
     if ids:
         max_num = max(int(n) for n in ids)
         return f"USS-TJR-MSN-{max_num + 1:04d}"
-
-    raise ValueError("Cannot determine next mission ID from index")
+    raise ValueError(f"Cannot determine next mission ID from {path}")
 
 
 def _read_next_mission_id() -> tuple[str, str | None]:

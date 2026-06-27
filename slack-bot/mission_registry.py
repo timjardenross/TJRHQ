@@ -4,21 +4,27 @@
 # core/missions/mission-registry/mission_registry.py is a different module (SQLite `MissionRegistry`
 # class / ADR-0001 closure store). Filename collision only — see
 # Missions/Completed/USS-TJR-MSN-0048-Classification-Register.md.
+import logging
 import re
+import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from mission_logger import (
     MISSION_INDEX,
     MISSIONS_DIR,
+    _BASE_DIR,
     build_title,
     ensure_missions_dir,
     generate_mission_id,
     redact_secrets,
     update_mission_index,
+    _supabase_insert_mission,
 )
+
+log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 # MSN-0045 (Captain decision 2): runtime mission logging writes to the AUTHORITATIVE
@@ -147,24 +153,19 @@ Created from Commander mission registry request.
     mission_file_for(mission_id).write_text(content, encoding="utf-8")
     update_mission_index(mission_id, domain, "Active", title)
     append_canonical_registry(mission_id, title, domain, "Active")
+    _supabase_insert_mission(mission_id, title, domain, "Active")
     return {"mission_id": mission_id, "title": title, "domain": domain, "status": "Active"}
 
 
 def append_canonical_registry(mission_id: str, title: str, domain: str, status: str) -> None:
-    """Append a runtime mission record to the AUTHORITATIVE registry (MSN-0045).
-
-    Runtime records use timestamp IDs (M-YYYYMMDD-HHMMSS) and are appended as
-    dash-list lines under the "RUNTIME MISSION LOG" section of mission-index.txt.
-    They are intentionally NOT written as canonical table rows (canonical rows use
-    USS-TJR-MSN-NNNN identifiers and require full metadata). This keeps the canonical
-    table intact while ensuring runtime logging lands in the authoritative file.
-    """
-    if not CANONICAL_REGISTRY.exists():
-        return
-
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    with CANONICAL_REGISTRY.open("a", encoding="utf-8") as registry:
-        registry.write(f"\n- {mission_id} | {timestamp} | {domain} | {status} | {redact_secrets(title)}\n")
+    # MSN-BOT-SOR: deprecated — mission-index.txt is no longer authoritative.
+    # Supabase is the system of record; _supabase_insert_mission() is called by the caller.
+    # This stub is retained to avoid breaking existing callers during migration.
+    log.warning(
+        "[mission-registry] DEPRECATED: append_canonical_registry() called for %s. "
+        "mission-index.txt is not authoritative. Data is written to Supabase.",
+        mission_id,
+    )
 
 
 def get_mission(mission_id: str) -> Optional[str]:

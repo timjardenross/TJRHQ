@@ -1,7 +1,10 @@
 """
-Alert Resolution Metrics — WP2
+Alert Resolution Metrics — MSN-BOT-SOR: Supabase-backed
 
-Computes notification effectiveness from escalation_manager's event log.
+Computes notification effectiveness from escalation_events and
+escalation_history tables in Supabase.
+
+notifications.db (SQLite) is retired — do not copy to VPS.
 
 API:
   get_notification_metrics(days=7)   → 7-day window
@@ -9,44 +12,31 @@ API:
   get_notification_metrics()         → lifetime
 
   format_metrics_summary(metrics)    → human-readable Slack string
-
-No manual data entry required: all data flows from the escalation_manager
-events written during process_escalations(), acknowledge_escalation(), and
-resolve_escalation().
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import sqlite3
-from contextlib import contextmanager
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator, Optional
-
-import os
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_DB_PATH = Path(os.environ.get("ESCALATION_DB_PATH", "") or _REPO_ROOT / "notifications.db")
 
 
-@contextmanager
-def _db() -> Iterator[sqlite3.Connection]:
-    conn = sqlite3.connect(str(_DB_PATH))
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+def _client():
+    sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+    from client import CommanderSupabaseClient
+    return CommanderSupabaseClient()
 
 
 def _since_iso(days: Optional[int]) -> Optional[str]:
     if days is None:
         return None
-    return (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -55,87 +45,73 @@ def _since_iso(days: Optional[int]) -> Optional[str]:
 
 def get_notification_metrics(days: Optional[int] = 7) -> dict:
     """
-    Compute notification effectiveness metrics.
-
-    Args:
-        days: Window in days. None = lifetime.
+    Compute notification effectiveness metrics from Supabase.
 
     Returns dict with:
-        window_days          int or None
-        alerts_created       int
-        alerts_notified      int
-        alerts_acknowledged  int
-        alerts_resolved      int
-        alerts_outstanding   int
-        avg_time_to_ack_hours  float or None
-        avg_time_to_resolve_hours  float or None
-        resolution_rate_pct  float
-        oldest_open_days     float or None
-        generated_at         str  (ISO)
+        window_days, alerts_created, alerts_notified, alerts_acknowledged,
+        alerts_resolved, alerts_outstanding, avg_time_to_ack_hours,
+        avg_time_to_resolve_hours, resolution_rate_pct, oldest_open_days,
+        generated_at
     """
+    now_str = datetime.now(timezone.utc).isoformat()
     since = _since_iso(days)
-    now_str = datetime.now().isoformat(timespec="seconds")
 
     try:
-        with _db() as conn:
-            # Check tables exist
-            tables = {r[0] for r in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()}
-            if "escalation_history" not in tables or "alert_events" not in tables:
-                return _empty_metrics(days, now_str)
+        client = _client()
+        if not client.is_enabled():
+            return _empty_metrics(days, now_str)
 
-            # alerts_created
-            q_created = (
-                "SELECT COUNT(*) FROM alert_events WHERE event_type='created'"
-                + (" AND event_at >= ?" if since else "")
-            )
-            alerts_created = conn.execute(q_created, (since,) if since else ()).fetchone()[0]
+        # Fetch all events in window
+        events_query = "escalation_events?select=escalation_id,event_type,event_at"
+        if since:
+            events_query += f"&event_at=gte.{since}"
+        events = client.get(events_query) or []
 
-            # alerts_notified (distinct alert_keys that had ≥1 notify event)
-            q_notified = (
-                "SELECT COUNT(DISTINCT alert_key) FROM alert_events WHERE event_type='notified'"
-                + (" AND event_at >= ?" if since else "")
-            )
-            alerts_notified = conn.execute(q_notified, (since,) if since else ()).fetchone()[0]
+        # Aggregate in Python
+        by_type: dict[str, set] = {
+            "created": set(),
+            "notified": set(),
+            "acknowledged": set(),
+            "resolved": set(),
+        }
+        all_events_by_key: dict[str, list] = {}
+        for ev in events:
+            et = ev.get("event_type", "")
+            eid = ev.get("escalation_id", "")
+            if et in by_type:
+                by_type[et].add(eid)
+            all_events_by_key.setdefault(eid, []).append(ev)
 
-            # alerts_acknowledged
-            q_ack = (
-                "SELECT COUNT(DISTINCT alert_key) FROM alert_events WHERE event_type='acknowledged'"
-                + (" AND event_at >= ?" if since else "")
-            )
-            alerts_acknowledged = conn.execute(q_ack, (since,) if since else ()).fetchone()[0]
+        alerts_created = len(by_type["created"])
+        alerts_notified = len(by_type["notified"])
+        alerts_acknowledged = len(by_type["acknowledged"])
+        alerts_resolved = len(by_type["resolved"])
 
-            # alerts_resolved
-            q_res = (
-                "SELECT COUNT(DISTINCT alert_key) FROM alert_events WHERE event_type='resolved'"
-                + (" AND event_at >= ?" if since else "")
-            )
-            alerts_resolved = conn.execute(q_res, (since,) if since else ()).fetchone()[0]
+        # Outstanding = open escalations (not time-windowed)
+        open_rows = client.get("escalation_history?resolved_at=is.null&select=id,first_detected") or []
+        alerts_outstanding = len(open_rows)
 
-            # alerts_outstanding (open escalations)
-            alerts_outstanding = conn.execute(
-                "SELECT COUNT(*) FROM escalation_history WHERE resolved_at IS NULL"
-            ).fetchone()[0]
+        # Avg time to acknowledge and resolve
+        avg_ack_hours = _avg_time_between_event_types(all_events_by_key, "created", "acknowledged")
+        avg_resolve_hours = _avg_time_between_event_types(all_events_by_key, "created", "resolved")
 
-            # avg time to acknowledge
-            avg_ack_hours = _avg_time_between_events(conn, "created", "acknowledged", since)
+        # Resolution rate
+        total = alerts_created
+        resolution_rate = (alerts_resolved / total * 100) if total else 0.0
 
-            # avg time to resolve
-            avg_resolve_hours = _avg_time_between_events(conn, "created", "resolved", since)
-
-            # resolution rate
-            total_closeable = alerts_created
-            resolution_rate = (alerts_resolved / total_closeable * 100) if total_closeable else 0.0
-
-            # oldest open escalation
-            oldest_row = conn.execute(
-                "SELECT first_detected FROM escalation_history WHERE resolved_at IS NULL ORDER BY first_detected ASC LIMIT 1"
-            ).fetchone()
-            oldest_open_days: Optional[float] = None
-            if oldest_row:
-                first = datetime.fromisoformat(oldest_row[0])
-                oldest_open_days = round((datetime.now() - first).total_seconds() / 86400, 1)
+        # Oldest open
+        oldest_open_days: Optional[float] = None
+        if open_rows:
+            try:
+                oldest_str = min(r["first_detected"] for r in open_rows if r.get("first_detected"))
+                first = datetime.fromisoformat(oldest_str)
+                if first.tzinfo is None:
+                    first = first.replace(tzinfo=timezone.utc)
+                oldest_open_days = round(
+                    (datetime.now(timezone.utc) - first).total_seconds() / 86400, 1
+                )
+            except Exception:
+                pass
 
     except Exception as exc:
         log.warning("[metrics] Metrics computation failed: %s", exc)
@@ -156,38 +132,35 @@ def get_notification_metrics(days: Optional[int] = 7) -> dict:
     }
 
 
-def _avg_time_between_events(
-    conn: sqlite3.Connection,
+def _avg_time_between_event_types(
+    events_by_key: dict[str, list],
     from_type: str,
     to_type: str,
-    since: Optional[str],
 ) -> Optional[float]:
-    """Compute average hours between two event types for the same alert_key."""
-    try:
-        # Get all from_type events
-        q = (
-            "SELECT alert_key, event_at FROM alert_events WHERE event_type=?"
-            + (" AND event_at >= ?" if since else "")
+    """Compute average hours between two event types for the same escalation_id."""
+    durations = []
+    for eid, evs in events_by_key.items():
+        from_events = sorted(
+            [e for e in evs if e.get("event_type") == from_type],
+            key=lambda e: e.get("event_at", ""),
         )
-        from_rows = conn.execute(q, (from_type, since) if since else (from_type,)).fetchall()
-        if not from_rows:
-            return None
-
-        # For each, find earliest to_type event
-        durations = []
-        for row in from_rows:
-            to_row = conn.execute(
-                "SELECT event_at FROM alert_events WHERE alert_key=? AND event_type=? AND event_at > ? ORDER BY event_at LIMIT 1",
-                (row["alert_key"], to_type, row["event_at"]),
-            ).fetchone()
-            if to_row:
-                t_from = datetime.fromisoformat(row["event_at"])
-                t_to   = datetime.fromisoformat(to_row["event_at"])
-                durations.append((t_to - t_from).total_seconds() / 3600)
-
-        return round(sum(durations) / len(durations), 1) if durations else None
-    except Exception:
-        return None
+        to_events = sorted(
+            [e for e in evs if e.get("event_type") == to_type],
+            key=lambda e: e.get("event_at", ""),
+        )
+        if not from_events or not to_events:
+            continue
+        try:
+            t_from = datetime.fromisoformat(from_events[0]["event_at"])
+            # Find first to_type event after from_type
+            for te in to_events:
+                t_to = datetime.fromisoformat(te["event_at"])
+                if t_to > t_from:
+                    durations.append((t_to - t_from).total_seconds() / 3600)
+                    break
+        except Exception:
+            continue
+    return round(sum(durations) / len(durations), 1) if durations else None
 
 
 def _empty_metrics(days: Optional[int], now_str: str) -> dict:
@@ -211,53 +184,38 @@ def _empty_metrics(days: Optional[int], now_str: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def format_metrics_summary(m: dict) -> str:
-    """
-    Format metrics as a Slack message.
-
-    Example output:
-      :bar_chart: *Alert Metrics — Last 7 Days*
-      14 alerts raised, 11 resolved, 3 outstanding.
-      Average resolution time: 2.4 days.
-      Resolution rate: 78.6%.
-    """
     window = f"Last {m['window_days']} Days" if m.get("window_days") else "Lifetime"
     lines = [f":bar_chart: *Alert Metrics — {window}*"]
 
-    created    = m["alerts_created"]
-    resolved   = m["alerts_resolved"]
-    acked      = m["alerts_acknowledged"]
+    created     = m["alerts_created"]
+    resolved    = m["alerts_resolved"]
+    acked       = m["alerts_acknowledged"]
     outstanding = m["alerts_outstanding"]
-    rate       = m["resolution_rate_pct"]
+    rate        = m["resolution_rate_pct"]
 
     if created == 0:
         lines.append("No alerts recorded in this period.")
         return "\n".join(lines)
 
-    lines.append(f"{created} alert{'s' if created != 1 else ''} raised, {resolved} resolved, {outstanding} outstanding.")
-
+    lines.append(
+        f"{created} alert{'s' if created != 1 else ''} raised, "
+        f"{resolved} resolved, {outstanding} outstanding."
+    )
     if acked:
         lines.append(f"{acked} acknowledged.")
-
     if m["avg_time_to_resolve_hours"] is not None:
-        days = m["avg_time_to_resolve_hours"] / 24
-        lines.append(f"Average resolution time: {days:.1f} day{'s' if days != 1 else ''}.")
-
+        days_val = m["avg_time_to_resolve_hours"] / 24
+        lines.append(f"Average resolution time: {days_val:.1f} day{'s' if days_val != 1 else ''}.")
     if m["avg_time_to_ack_hours"] is not None:
         lines.append(f"Average time to acknowledge: {m['avg_time_to_ack_hours']:.1f} hours.")
-
     lines.append(f"Resolution rate: {rate}%.")
-
     if m.get("oldest_open_days") is not None:
         lines.append(f"Oldest open alert: {m['oldest_open_days']:.0f} days.")
-
     return "\n".join(lines)
 
 
 def get_metrics_block_for_brief() -> str:
-    """
-    Return a compact metrics line suitable for appending to the morning brief.
-    Only shows if there are outstanding or recently resolved alerts.
-    """
+    """Return a compact metrics line for the morning brief."""
     try:
         m7  = get_notification_metrics(days=7)
         m30 = get_notification_metrics(days=30)

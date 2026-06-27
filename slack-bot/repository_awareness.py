@@ -70,7 +70,7 @@ SOURCE_OF_TRUTH_ALIASES = {
         ],
         "primary": "core/mission-control/",
         "supporting": [
-            "core/mission-control/registry/mission-index.txt",
+            "core/mission-control/registry/mission-index.txt",  # export/cache only — Supabase is authoritative (MSN-BOT-SOR)
             "core/mission-control/registry/active-missions.txt",
             "Missions/",
         ],

@@ -1,13 +1,14 @@
 """
-Escalation Manager — WP1: Repeated Escalation Management
+Escalation Manager — MSN-BOT-SOR: Supabase-backed
 
 Prevents alert fatigue by tracking escalation lifecycle and enforcing
 notification cadence rules. Same condition is never pushed daily.
 
-Persistence: SQLite at REPO_ROOT/notifications.db (alongside missions.db)
+Persistence: Supabase escalation_history + escalation_events tables.
+             notifications.db (SQLite) is retired — do not copy to VPS.
 
 Notification cadence:
-  Day 1  → initial notification
+  Day 0  → initial notification
   Day 3  → reminder
   Day 7  → escalation (severity promoted)
   Day 14+ → every 7 days thereafter
@@ -16,37 +17,25 @@ Severity progression by notification count:
   1st push: original severity (WARNING)
   2nd push: ALERT
   3rd+ push: CRITICAL
-
-Configuration (.env):
-  ESCALATION_DB_PATH = /path/to/notifications.db   # override default
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import sqlite3
-from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Paths and constants
-# ---------------------------------------------------------------------------
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-import os
-_DB_PATH = Path(os.environ.get("ESCALATION_DB_PATH", "") or _REPO_ROOT / "notifications.db")
-
 # Notification cadence: days since first_detected
-_CADENCE_DAYS = [0, 3, 7]        # initial, reminder, escalation
-_REPEAT_INTERVAL_DAYS = 7         # every 7 days after escalation
+_CADENCE_DAYS = [0, 3, 7]
+_REPEAT_INTERVAL_DAYS = 7
 
-# Severity progression
 from captain_notifications import (
     SEVERITY_INFO,
     SEVERITY_WARNING,
@@ -57,63 +46,24 @@ from captain_notifications import (
 )
 
 _PROGRESSION = {
-    1: lambda s: s,                                      # 1st: keep original
-    2: lambda s: max_severity(s, SEVERITY_ALERT),        # 2nd: at least ALERT
-    3: lambda s: SEVERITY_CRITICAL,                      # 3rd+: always CRITICAL
+    1: lambda s: s,
+    2: lambda s: max_severity(s, SEVERITY_ALERT),
+    3: lambda s: SEVERITY_CRITICAL,
 }
 
 
 # ---------------------------------------------------------------------------
-# Database setup
+# Supabase client
 # ---------------------------------------------------------------------------
 
-def _init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS escalation_history (
-            id TEXT PRIMARY KEY,
-            mission_id TEXT NOT NULL,
-            alert_type TEXT NOT NULL,
-            original_severity TEXT NOT NULL,
-            current_severity TEXT NOT NULL,
-            first_detected TEXT NOT NULL,
-            last_notified TEXT,
-            notification_count INTEGER NOT NULL DEFAULT 0,
-            resolved_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS alert_events (
-            rowid INTEGER PRIMARY KEY AUTOINCREMENT,
-            alert_key TEXT NOT NULL,
-            event_type TEXT NOT NULL,
-            event_at TEXT NOT NULL,
-            metadata TEXT
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_escalation_mission
-            ON escalation_history(mission_id);
-        CREATE INDEX IF NOT EXISTS idx_escalation_resolved
-            ON escalation_history(resolved_at);
-        CREATE INDEX IF NOT EXISTS idx_events_alert_key
-            ON alert_events(alert_key);
-        CREATE INDEX IF NOT EXISTS idx_events_event_at
-            ON alert_events(event_at);
-    """)
-    conn.commit()
-
-
-@contextmanager
-def _db() -> Iterator[sqlite3.Connection]:
-    conn = sqlite3.connect(str(_DB_PATH))
-    conn.row_factory = sqlite3.Row
-    try:
-        _init_db(conn)
-        yield conn
-    finally:
-        conn.close()
+def _client():
+    sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+    from client import CommanderSupabaseClient
+    return CommanderSupabaseClient()
 
 
 def _now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _alert_key(mission_id: str, alert_type: str) -> str:
@@ -125,34 +75,32 @@ def _alert_key(mission_id: str, alert_type: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _escalated_severity(original: str, count: int) -> str:
-    """Return the severity to use for notification number `count`."""
     fn = _PROGRESSION.get(count, _PROGRESSION[3])
     return fn(original)
 
 
-def _should_notify_now(row: sqlite3.Row, today: date) -> bool:
-    """
-    Return True if this escalation is due for another notification.
-    Uses cadence: Day 0, Day 3, Day 7, then every 7 days after.
-    """
-    first = datetime.fromisoformat(row["first_detected"]).date()
+def _should_notify_now(row: dict, today: date) -> bool:
+    """Return True if this escalation is due for another notification."""
+    first_str = row.get("first_detected", "")
+    try:
+        first = datetime.fromisoformat(first_str).date()
+    except Exception:
+        return True
     age_days = (today - first).days
-    count = row["notification_count"]
+    count = row.get("notification_count", 0)
 
-    # Not yet notified
     if count == 0:
         return True
-
-    # Within cadence schedule
     if count < len(_CADENCE_DAYS):
         return age_days >= _CADENCE_DAYS[count]
 
-    # Past initial schedule: notify every _REPEAT_INTERVAL_DAYS days
-    last_notified = row["last_notified"]
+    last_notified = row.get("last_notified")
     if last_notified:
-        last = datetime.fromisoformat(last_notified).date()
-        return (today - last).days >= _REPEAT_INTERVAL_DAYS
-
+        try:
+            last = datetime.fromisoformat(last_notified).date()
+            return (today - last).days >= _REPEAT_INTERVAL_DAYS
+        except Exception:
+            pass
     return False
 
 
@@ -160,7 +108,7 @@ def process_escalations(
     active_escalations: list[dict],
 ) -> list[dict]:
     """
-    Main entry point for WP1.
+    Main entry point.
 
     Given the raw escalation list from captain_notifications.get_mission_escalations(),
     applies cadence rules and returns only those that should be notified NOW.
@@ -168,92 +116,120 @@ def process_escalations(
     Side effects:
     - Creates new escalation records for first-time alerts
     - Updates notification_count and last_notified on existing records
-    - Records events in alert_events
+    - Records events in escalation_events
     - Closes resolved escalations (those no longer in active_escalations)
 
-    Returns filtered list of escalation dicts (same shape as input, with
-    `current_severity` and `notification_count` added).
+    Returns filtered list of escalation dicts with current_severity and
+    notification_count added.
     """
     today = date.today()
     now_str = _now_iso()
 
-    # Build lookup of active alert keys
-    active_keys = {
-        _alert_key(e["id"], at): e
-        for e in active_escalations
-        for at in _derive_alert_types(e)
-    }
+    try:
+        client = _client()
+        if not client.is_enabled():
+            log.warning("[escalation] Supabase not configured — escalation tracking disabled.")
+            return active_escalations  # pass-through without cadence enforcement
 
-    to_notify: list[dict] = []
+        # Build lookup of active alert keys
+        active_keys = {
+            _alert_key(e["id"], at): e
+            for e in active_escalations
+            for at in _derive_alert_types(e)
+        }
 
-    with _db() as conn:
+        to_notify: list[dict] = []
+
         # --- Close resolved escalations ---
-        open_rows = conn.execute(
-            "SELECT * FROM escalation_history WHERE resolved_at IS NULL"
-        ).fetchall()
-        for row in open_rows:
+        open_rows = client.get("escalation_history?resolved_at=is.null&select=*")
+        for row in (open_rows or []):
             if row["id"] not in active_keys:
-                conn.execute(
-                    "UPDATE escalation_history SET resolved_at=? WHERE id=?",
-                    (now_str, row["id"]),
+                client._patch(
+                    f"escalation_history?id=eq.{_url_encode(row['id'])}",
+                    {"resolved_at": now_str},
                 )
-                conn.execute(
-                    "INSERT INTO alert_events (alert_key, event_type, event_at) VALUES (?,?,?)",
-                    (row["id"], "resolved", now_str),
-                )
+                client.insert("escalation_events", {
+                    "escalation_id": row["id"],
+                    "event_type":    "resolved",
+                    "event_at":      now_str,
+                })
                 log.info("[escalation] Auto-closed: %s", row["id"])
-        conn.commit()
 
         # --- Process active escalations ---
         for key, escalation in active_keys.items():
             alert_type = key.split(":", 1)[1]
-            row = conn.execute(
-                "SELECT * FROM escalation_history WHERE id=?", (key,)
-            ).fetchone()
+            existing = client.get(f"escalation_history?id=eq.{_url_encode(key)}&select=*")
+            row = existing[0] if existing else None
 
             if row is None:
-                # First time this alert is detected — create record
-                conn.execute(
-                    """INSERT INTO escalation_history
-                       (id, mission_id, alert_type, original_severity, current_severity,
-                        first_detected, last_notified, notification_count)
-                       VALUES (?,?,?,?,?,?,NULL,0)""",
-                    (key, escalation["id"], alert_type,
-                     escalation["severity"], escalation["severity"], now_str),
-                )
-                conn.execute(
-                    "INSERT INTO alert_events (alert_key, event_type, event_at) VALUES (?,?,?)",
-                    (key, "created", now_str),
-                )
-                conn.commit()
-                row = conn.execute(
-                    "SELECT * FROM escalation_history WHERE id=?", (key,)
-                ).fetchone()
+                # First time — create record
+                client.insert("escalation_history", {
+                    "id":                 key,
+                    "mission_id":         escalation["id"],
+                    "alert_type":         alert_type,
+                    "original_severity":  escalation["severity"],
+                    "current_severity":   escalation["severity"],
+                    "first_detected":     now_str,
+                    "last_notified":      None,
+                    "notification_count": 0,
+                })
+                client.insert("escalation_events", {
+                    "escalation_id": key,
+                    "event_type":    "created",
+                    "event_at":      now_str,
+                })
+                # Re-fetch to get the row we just created
+                fresh = client.get(f"escalation_history?id=eq.{_url_encode(key)}&select=*")
+                row = fresh[0] if fresh else {
+                    "id": key, "first_detected": now_str,
+                    "notification_count": 0, "last_notified": None,
+                    "original_severity": escalation["severity"],
+                }
 
             if _should_notify_now(row, today):
-                new_count = row["notification_count"] + 1
-                new_severity = _escalated_severity(row["original_severity"], new_count)
-
-                conn.execute(
-                    """UPDATE escalation_history
-                       SET notification_count=?, last_notified=?, current_severity=?
-                       WHERE id=?""",
-                    (new_count, now_str, new_severity, key),
+                new_count = row.get("notification_count", 0) + 1
+                new_severity = _escalated_severity(
+                    row.get("original_severity", escalation["severity"]), new_count
                 )
-                conn.execute(
-                    "INSERT INTO alert_events (alert_key, event_type, event_at, metadata) VALUES (?,?,?,?)",
-                    (key, "notified", now_str,
-                     json.dumps({"count": new_count, "severity": new_severity})),
+                client._patch(
+                    f"escalation_history?id=eq.{_url_encode(key)}",
+                    {
+                        "notification_count": new_count,
+                        "last_notified":      now_str,
+                        "current_severity":   new_severity,
+                    },
                 )
-                conn.commit()
-
-                enriched = {**escalation, "current_severity": new_severity,
-                            "notification_count": new_count, "alert_type": alert_type}
+                client.insert("escalation_events", {
+                    "escalation_id": key,
+                    "event_type":    "notified",
+                    "severity":      new_severity,
+                    "event_at":      now_str,
+                    "metadata":      json.dumps({"count": new_count, "severity": new_severity}),
+                })
+                enriched = {
+                    **escalation,
+                    "current_severity":   new_severity,
+                    "notification_count": new_count,
+                    "alert_type":         alert_type,
+                }
                 to_notify.append(enriched)
             else:
-                log.debug("[escalation] Suppressed (cadence): %s (count=%d)", key, row["notification_count"])
+                log.debug(
+                    "[escalation] Suppressed (cadence): %s (count=%d)",
+                    key, row.get("notification_count", 0),
+                )
 
-    return to_notify
+        return to_notify
+
+    except Exception as exc:
+        log.error("[escalation] process_escalations failed: %s", exc)
+        return active_escalations  # fail-open: return all so nothing is silently dropped
+
+
+def _url_encode(value: str) -> str:
+    """Percent-encode a value for use in PostgREST query strings."""
+    import urllib.parse
+    return urllib.parse.quote(str(value), safe="")
 
 
 def _derive_alert_types(escalation: dict) -> list[str]:
@@ -272,10 +248,9 @@ def _derive_alert_types(escalation: dict) -> list[str]:
             types.append("stale_48h")
         elif "open for" in r or "open" in r:
             types.append("open_days")
-    # Ensure at least one type
     if not types:
         types.append("general")
-    return list(dict.fromkeys(types))  # deduplicate preserving order
+    return list(dict.fromkeys(types))
 
 
 # ---------------------------------------------------------------------------
@@ -284,42 +259,51 @@ def _derive_alert_types(escalation: dict) -> list[str]:
 
 def acknowledge_escalation(alert_key: str) -> bool:
     """Mark an escalation as acknowledged (does not close it)."""
-    now_str = _now_iso()
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT id FROM escalation_history WHERE id=? AND resolved_at IS NULL",
-            (alert_key,)
-        ).fetchone()
-        if not row:
+    try:
+        client = _client()
+        if not client.is_enabled():
             return False
-        conn.execute(
-            "INSERT INTO alert_events (alert_key, event_type, event_at) VALUES (?,?,?)",
-            (alert_key, "acknowledged", now_str),
+        existing = client.get(
+            f"escalation_history?id=eq.{_url_encode(alert_key)}&resolved_at=is.null&select=id"
         )
-        conn.commit()
-    return True
+        if not existing:
+            return False
+        client.insert("escalation_events", {
+            "escalation_id": alert_key,
+            "event_type":    "acknowledged",
+            "event_at":      _now_iso(),
+        })
+        return True
+    except Exception as exc:
+        log.error("[escalation] acknowledge_escalation failed: %s", exc)
+        return False
 
 
 def resolve_escalation(alert_key: str) -> bool:
     """Manually resolve an escalation."""
-    now_str = _now_iso()
-    with _db() as conn:
-        row = conn.execute(
-            "SELECT id FROM escalation_history WHERE id=? AND resolved_at IS NULL",
-            (alert_key,)
-        ).fetchone()
-        if not row:
+    try:
+        client = _client()
+        if not client.is_enabled():
             return False
-        conn.execute(
-            "UPDATE escalation_history SET resolved_at=? WHERE id=?",
-            (now_str, alert_key),
+        existing = client.get(
+            f"escalation_history?id=eq.{_url_encode(alert_key)}&resolved_at=is.null&select=id"
         )
-        conn.execute(
-            "INSERT INTO alert_events (alert_key, event_type, event_at) VALUES (?,?,?)",
-            (alert_key, "resolved", now_str),
+        if not existing:
+            return False
+        now_str = _now_iso()
+        client._patch(
+            f"escalation_history?id=eq.{_url_encode(alert_key)}",
+            {"resolved_at": now_str},
         )
-        conn.commit()
-    return True
+        client.insert("escalation_events", {
+            "escalation_id": alert_key,
+            "event_type":    "resolved",
+            "event_at":      now_str,
+        })
+        return True
+    except Exception as exc:
+        log.error("[escalation] resolve_escalation failed: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -328,18 +312,29 @@ def resolve_escalation(alert_key: str) -> bool:
 
 def get_open_escalations() -> list[dict]:
     """Return all currently open (unresolved) escalations."""
-    with _db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM escalation_history WHERE resolved_at IS NULL ORDER BY first_detected"
-        ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        client = _client()
+        if not client.is_enabled():
+            return []
+        rows = client.get(
+            "escalation_history?resolved_at=is.null&order=first_detected.asc&select=*"
+        )
+        return rows or []
+    except Exception as exc:
+        log.error("[escalation] get_open_escalations failed: %s", exc)
+        return []
 
 
 def get_escalation_history(limit: int = 50) -> list[dict]:
     """Return recent escalation records (open and closed)."""
-    with _db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM escalation_history ORDER BY first_detected DESC LIMIT ?",
-            (limit,)
-        ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        client = _client()
+        if not client.is_enabled():
+            return []
+        rows = client.get(
+            f"escalation_history?order=first_detected.desc&limit={limit}&select=*"
+        )
+        return rows or []
+    except Exception as exc:
+        log.error("[escalation] get_escalation_history failed: %s", exc)
+        return []

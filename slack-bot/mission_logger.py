@@ -1,8 +1,14 @@
+import logging
 import os
 import re
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+_BASE_DIR = Path(__file__).resolve().parent.parent
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
@@ -31,10 +37,8 @@ SECRET_ENV_KEYS = [
 
 def ensure_missions_dir() -> Path:
     MISSIONS_DIR.mkdir(parents=True, exist_ok=True)
-
-    if not MISSION_INDEX.exists():
-        MISSION_INDEX.write_text("# Mission Index\n\n", encoding="utf-8")
-
+    # MSN-BOT-SOR: Mission-Index.md is export/cache only. Do not initialise it as a
+    # data source. File creation is skipped — Supabase is the system of record.
     return MISSIONS_DIR
 
 
@@ -143,7 +147,14 @@ Optional future notes.
         title=build_title(user_request),
     )
 
-    # MSN-0145: sync to authoritative mission registry
+    # MSN-BOT-SOR: Supabase is authoritative; file registry is cache/export only
+    _supabase_insert_mission(
+        mission_id=mission_id,
+        title=build_title(user_request),
+        domain=mission_domain,
+        status=status,
+    )
+    # MSN-0145: also append to canonical registry file (cache/export, non-authoritative)
     _append_runtime_to_canonical_registry(
         mission_id=mission_id,
         title=build_title(user_request),
@@ -172,14 +183,40 @@ def update_mission_index(
     status: str,
     title: str,
 ) -> None:
-    ensure_missions_dir()
+    # MSN-BOT-SOR: deprecated — mission-index.txt is no longer authoritative.
+    # Supabase is now written directly via _supabase_insert_mission().
+    # This stub is retained to avoid breaking callers during migration.
+    log.warning(
+        "[mission-logger] DEPRECATED: update_mission_index() called for %s. "
+        "mission-index.txt is not authoritative. Write to Supabase instead.",
+        mission_id,
+    )
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    safe_title = redact_secrets(title)
-    entry = f"- {mission_id} | {timestamp} | {mission_domain} | {status} | {safe_title}\n"
 
-    with MISSION_INDEX.open("a", encoding="utf-8") as index_file:
-        index_file.write(entry)
+def _supabase_insert_mission(
+    mission_id: str,
+    title: str,
+    domain: str,
+    status: str,
+) -> None:
+    """Insert or upsert a mission row into the Supabase missions table."""
+    try:
+        sys.path.insert(0, str(_BASE_DIR / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if not client.is_enabled():
+            return
+        payload = {
+            "id": mission_id,
+            "title": title,
+            "domain": domain,
+            "status": status,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        client.insert("missions", payload)
+    except Exception as exc:
+        log.debug("[mission-logger] Supabase mission insert failed: %s", exc)
 
 
 def load_recent_missions(limit: int = 5) -> str:
