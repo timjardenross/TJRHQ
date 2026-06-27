@@ -98,6 +98,13 @@ from commands.github_issue_draft import handle_github_issue_draft
 from commands.navigate import handle_navigate
 from commands.map import handle_map
 
+# MSN-BOT-SOR: Mission lifecycle commands (Supabase-backed)
+from commands.mission_lifecycle import (
+    handle_mission_list,
+    handle_mission_status,
+    handle_mission_close,
+)
+
 # MSN-DISCOVERY-001: Captain's Inbox intake (WP2)
 from lib.captains_inbox_events import register_captains_inbox_handlers
 
@@ -848,6 +855,66 @@ if app:
 
         threading.Thread(target=_run, daemon=True).start()
 
+    @app.command("/mission-list")
+    def handle_mission_list_slash(ack, respond, command):
+        """/mission-list — List missions from Supabase."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /mission-list: user=%s filter=%r", user_id, text)
+        respond(handle_mission_list(text, user_id, channel_id))
+
+    @app.command("/mission-status")
+    def handle_mission_status_slash(ack, respond, command):
+        """/mission-status — Show or update status of a mission (Supabase-backed)."""
+        ack()  # always first — never block ack on DB calls
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /mission-status: user=%s id=%r", user_id, text)
+
+        if not text:
+            respond(handle_mission_status("", user_id, channel_id))
+            return
+
+        respond(":hourglass_flowing_sand: `/mission-status` accepted. Fetching…")
+
+        def _run_status() -> None:
+            try:
+                result = handle_mission_status(text, user_id, channel_id)
+                respond(result)
+            except Exception as exc:
+                log.error("[app] /mission-status failed: %s", exc, exc_info=True)
+                respond(f":x: `/mission-status` error: `{type(exc).__name__}` — check runtime logs.")
+
+        threading.Thread(target=_run_status, daemon=True).start()
+
+    @app.command("/mission-close")
+    def handle_mission_close_slash(ack, respond, command, client):
+        """/mission-close — Mark a mission as closed (Supabase-backed)."""
+        ack()
+        text = (command.get("text") or "").strip()
+        user_id = command.get("user_id", "")
+        channel_id = command.get("channel_id", "")
+        log.info("[app] /mission-close: user=%s text=%r", user_id, text[:80])
+
+        if not text:
+            respond(handle_mission_close("", user_id, channel_id))
+            return
+
+        respond(":hourglass_flowing_sand: `/mission-close` accepted. Closing mission…")
+
+        def _run_close() -> None:
+            try:
+                result = handle_mission_close(text, user_id, channel_id)
+                respond(result)
+            except Exception as exc:
+                log.error("[app] /mission-close failed: %s", exc, exc_info=True)
+                respond(f":x: `/mission-close` error: `{type(exc).__name__}` — check runtime logs.")
+
+        threading.Thread(target=_run_close, daemon=True).start()
+
     @app.command("/decision-log")
     def handle_decision_log_slash(ack, respond, command):
         """/decision-log — Log a decision as a structured record.
@@ -1591,9 +1658,24 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     def _socket_mode_watchdog() -> None:
-        """Log once after 5s to confirm Socket Mode is running, then stay silent."""
+        """Log once after 5s to confirm Socket Mode is running, then run preflight checks."""
         time.sleep(5)
         log.info("[startup] Socket Mode running")
+
+        # Supabase connectivity self-test (MSN-BOT-SOR)
+        try:
+            from tools.supabase.client import CommanderSupabaseClient
+            _sb = CommanderSupabaseClient()
+            if _sb.is_enabled():
+                _rows = _sb.get("missions?select=mission_id&limit=1")
+                if _rows:
+                    log.info("[startup] Supabase connectivity OK — missions table readable")
+                else:
+                    log.warning("[startup] Supabase connected but missions table returned 0 rows")
+            else:
+                log.warning("[startup] Supabase NOT configured — SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing")
+        except Exception as _sb_exc:
+            log.error("[startup] Supabase self-test FAILED: %s", _sb_exc)
 
     threading.Thread(target=_socket_mode_watchdog, daemon=True).start()
 
