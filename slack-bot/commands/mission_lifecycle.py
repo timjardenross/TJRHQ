@@ -240,10 +240,12 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
             return False
         # Try both bare and prefixed IDs
         mission_id_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
+        # updated_at is timestamp without time zone — omit timezone suffix
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
         for mid_try in (mission_id_full, mission_id):
             result = client._patch(
                 f"missions?mission_id=eq.{mid_try}",
-                {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()},
+                {"status": new_status, "updated_at": now_str},
             )
             if result:
                 return True
@@ -477,12 +479,9 @@ def _handle_status_transition(
     """Execute a lifecycle status transition and write audit record."""
     # Fetch current status for audit trail
     from_status = "Unknown"
-    db_missions = _supabase_missions()
-    for m in db_missions:
-        mid = (m.get("id") or m.get("mission_id") or "").upper()
-        if mid in (mission_id, mission_id_full):
-            from_status = m.get("status", "Unknown")
-            break
+    db_row = _supabase_get_mission(mission_id)
+    if db_row:
+        from_status = db_row.get("status", "Unknown")
 
     # Apply the transition
     updated = _supabase_update_mission_status(mission_id, new_status)
