@@ -193,10 +193,42 @@ def _mission_last_activity(mission_id: str) -> Optional[datetime]:
 
 
 def _read_mission_index() -> list[dict]:
-    """
-    Read the mission index from Mission-Index.md.
+    """Return active missions from Supabase (system of record).
+
+    Falls back to mission-index.txt with a warning if Supabase is unavailable.
     Returns list of dicts: {id, timestamp, domain, status, description}
     """
+    # Supabase path (primary)
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if client.is_enabled():
+            rows = client.get(
+                "missions?select=id,title,status,domain,created_at"
+                "&status=not.in.(Closed,Archived,Cancelled,CANCELLED,COMPLETED,Completed)"
+                "&order=created_at.asc"
+            )
+            if rows is not None:
+                return [
+                    {
+                        "id":          r.get("id", ""),
+                        "timestamp":   r.get("created_at", ""),
+                        "domain":      r.get("domain", ""),
+                        "status":      r.get("status", ""),
+                        "description": r.get("title", ""),
+                    }
+                    for r in rows
+                ]
+    except Exception as exc:
+        log.warning("[notifications] Supabase mission read failed: %s", exc)
+
+    # Fallback — file (legacy, not authoritative post MSN-BOT-SOR)
+    log.warning(
+        "[notifications] FALLBACK: reading missions from mission-index.txt. "
+        "Supabase is unavailable or not configured. Data may be stale."
+    )
     missions = []
     candidates = [
         _REPO_ROOT / "Missions" / "Mission-Index.md",
@@ -211,7 +243,7 @@ def _read_mission_index() -> list[dict]:
                     line = line.strip()
                     if not line.startswith("- "):
                         continue
-                    line = line[2:]  # strip "- "
+                    line = line[2:]
                     parts = [p.strip() for p in line.split("|")]
                     if len(parts) < 4:
                         continue
@@ -222,7 +254,7 @@ def _read_mission_index() -> list[dict]:
                         "status":      parts[3] if len(parts) > 3 else "",
                         "description": parts[4] if len(parts) > 4 else "",
                     })
-            break  # use first file found
+            break
         except Exception as exc:
             log.warning("[notifications] Failed to read mission index %s: %s", path, exc)
     return missions

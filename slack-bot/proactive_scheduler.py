@@ -224,20 +224,22 @@ def _check_health_logged_today() -> bool:
 # ---------------------------------------------------------------------------
 
 def _get_stale_missions() -> list[dict]:
-    """Return missions that have not been updated in _STALE_DAYS days."""
+    """Return active missions from Supabase that have not been updated in _STALE_DAYS days."""
     try:
-        registry = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
-        if not registry.exists():
+        sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
+        client = CommanderSupabaseClient()
+        if not client.is_enabled():
+            log.warning("[scheduler] Supabase not configured — stale mission check skipped.")
             return []
-        cutoff = date.today() - timedelta(days=_STALE_DAYS)
-        stale = []
-        with open(registry) as f:
-            for line in f:
-                if "| IN_PROGRESS |" in line or "| Active |" in line or "| IN_PROGRESS" in line:
-                    parts = [p.strip() for p in line.split("|")]
-                    if len(parts) >= 3:
-                        stale.append({"id": parts[1], "title": parts[2], "status": parts[4] if len(parts) > 4 else ""})
-        return stale[:10]
+        cutoff = (date.today() - timedelta(days=_STALE_DAYS)).isoformat()
+        rows = client.get(
+            f"missions?select=id,title,status,updated_at"
+            f"&status=in.(Active,IN_PROGRESS,Blocked,BLOCKED,Planned,TRIAGED)"
+            f"&updated_at=lte.{cutoff}T00:00:00Z"
+            f"&order=updated_at.asc&limit=10"
+        )
+        return [{"id": r.get("id", ""), "title": r.get("title", ""), "status": r.get("status", "")} for r in (rows or [])]
     except Exception as exc:
         log.warning("[scheduler] Stale mission check failed: %s", exc)
         return []
@@ -468,21 +470,30 @@ def _fetch_readiness_block() -> str:
         entry = rows[0] if rows else {}
         cap_score, cap_status = compute_capacity_score(entry) if entry else (None, "Unknown")
 
-        # Fetch missions for ops component
-        from pathlib import Path as _Path
-        registry = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-index.txt"
+        # Fetch missions for ops component — Supabase is system of record (MSN-BOT-SOR)
         missions = []
-        if registry.exists():
-            with open(registry) as f:
-                for line in f:
-                    parts = [p.strip() for p in line.split("|")]
-                    if len(parts) >= 5:
-                        missions.append({
-                            "mission_id": parts[1],
-                            "title": parts[2],
-                            "priority": parts[3],
-                            "status": parts[4],
-                        })
+        try:
+            from client import CommanderSupabaseClient as _SupaClient
+            _sc = _SupaClient()
+            if _sc.is_enabled():
+                _rows = _sc.get(
+                    "missions?select=id,title,priority,status"
+                    "&status=not.in.(Closed,Archived,Cancelled,CANCELLED,COMPLETED,Completed)"
+                    "&order=created_at.asc&limit=50"
+                )
+                missions = [
+                    {
+                        "mission_id": r.get("id", ""),
+                        "title": r.get("title", ""),
+                        "priority": r.get("priority", "P3"),
+                        "status": r.get("status", ""),
+                    }
+                    for r in (_rows or [])
+                ]
+            else:
+                log.warning("[scheduler] Supabase not configured — readiness ops component empty.")
+        except Exception as _exc:
+            log.warning("[scheduler] Supabase mission fetch for readiness failed: %s", _exc)
 
         result = compute_readiness_score(cap_score, cap_status, missions)
         return "\n" + format_readiness_for_slack(result)

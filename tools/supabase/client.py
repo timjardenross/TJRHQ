@@ -28,7 +28,7 @@ class SupabaseWriteResult:
 
 
 class CommanderSupabaseClient:
-    """Small insert-only client with graceful disabled mode.
+    """Supabase client with insert, select, patch, and delete support.
 
     Uses supabase-py when installed. Falls back to PostgREST over urllib so the
     Slack bot can run without adding a dependency during this MVP.
@@ -127,6 +127,87 @@ class CommanderSupabaseClient:
         )
         with urllib.request.urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def get(self, query: str, timeout: int = 10) -> list[dict[str, Any]]:
+        """GET /rest/v1/{query} — query is the full path including filters.
+
+        Example: client.get("missions?id=eq.USS-TJR-MSN-0001&select=id,status")
+        Returns a list of row dicts, or [] on error / disabled.
+        """
+        if not self.is_enabled():
+            return []
+        try:
+            if self._supabase is not None:
+                # supabase-py path: parse table + params from query string
+                table, _, params_str = query.partition("?")
+                builder = self._supabase.table(table).select("*")
+                # Pass raw params via rpc-style for complex filters; fall back to REST
+                result = self._rest_get(query, timeout)
+                return result
+            return self._rest_get(query, timeout)
+        except Exception:
+            return []
+
+    def _rest_get(self, query: str, timeout: int = 10) -> list[dict[str, Any]]:
+        request = urllib.request.Request(
+            f"{self.url}/rest/v1/{query}",
+            method="GET",
+            headers={
+                "apikey": self.key,
+                "Authorization": f"Bearer {self.key}",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result if isinstance(result, list) else [result]
+
+    def _patch(self, query: str, payload: dict[str, Any], timeout: int = 10) -> bool:
+        """PATCH /rest/v1/{query} with payload. Returns True on success.
+
+        Example: client._patch("missions?id=eq.USS-TJR-MSN-0001", {"status": "Active"})
+        """
+        if not self.is_enabled():
+            return False
+        try:
+            body = json.dumps(payload).encode("utf-8")
+            request = urllib.request.Request(
+                f"{self.url}/rest/v1/{query}",
+                data=body,
+                method="PATCH",
+                headers={
+                    "apikey": self.key,
+                    "Authorization": f"Bearer {self.key}",
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=timeout):
+                return True
+        except Exception:
+            return False
+
+    def delete(self, query: str, timeout: int = 10) -> bool:
+        """DELETE /rest/v1/{query}. Returns True on success.
+
+        Example: client.delete("escalation_history?id=eq.some-key")
+        """
+        if not self.is_enabled():
+            return False
+        try:
+            request = urllib.request.Request(
+                f"{self.url}/rest/v1/{query}",
+                method="DELETE",
+                headers={
+                    "apikey": self.key,
+                    "Authorization": f"Bearer {self.key}",
+                    "Prefer": "return=minimal",
+                },
+            )
+            with urllib.request.urlopen(request, timeout=timeout):
+                return True
+        except Exception:
+            return False
 
 
 def is_supabase_enabled() -> bool:

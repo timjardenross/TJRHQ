@@ -7,11 +7,13 @@ from knowledge_retrieval import recommend_knowledge_sources
 from mission_logger import (
     MISSION_INDEX,
     MISSIONS_DIR,
+    _BASE_DIR,
     build_title,
     ensure_missions_dir,
     generate_mission_id,
     redact_secrets,
     update_mission_index,
+    _supabase_insert_mission,
 )
 from mission_registry import VALID_STATUSES, extract_mission_id, get_mission, mission_file_for
 from specialist_registry import load_specialist_profiles
@@ -266,6 +268,7 @@ def create_mission_execution_record(user_text: str) -> dict:
     content = render_mission_record(mission_id, timestamp, plan, status="Active", marker="Execution Plan Created")
     mission_file_for(mission_id).write_text(content, encoding="utf-8")
     update_mission_index(mission_id, plan["mission_type"], "Active", title)
+    _supabase_insert_mission(mission_id, title, plan["mission_type"], "Active")
 
     return {
         "mission_id": mission_id,
@@ -735,18 +738,14 @@ def extract_section_text(markdown: str, heading: str) -> str:
 
 
 def update_index_status(mission_id: str, status: str) -> None:
-    if not MISSION_INDEX.exists():
-        return
-    lines = MISSION_INDEX.read_text(encoding="utf-8").splitlines()
-    updated_lines = []
-    for line in lines:
-        if line.startswith(f"- {mission_id} |"):
-            parts = [part.strip() for part in line[2:].split("|")]
-            if len(parts) >= 5:
-                parts[3] = status
-                line = "- " + " | ".join(parts)
-        updated_lines.append(line)
-    MISSION_INDEX.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+    # MSN-BOT-SOR: Mission-Index.md is not authoritative. Status updates write to Supabase.
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "[mission-executor] DEPRECATED: update_index_status() called for %s status=%s. "
+        "Mission-Index.md is not authoritative. Update Supabase missions table instead.",
+        mission_id, status,
+    )
+    _supabase_insert_mission(mission_id, mission_id, "", status)
 
 
 def latest_active_mission_id() -> Optional[str]:
