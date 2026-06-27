@@ -18,6 +18,20 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Command overview and daily posture'
   },
   {
+    href: '/search',
+    label: 'Search',
+    glyph: '🔍',
+    department: 'science',
+    description: 'Universal search — missions, log, captures, events (MSN-3A-001)'
+  },
+  {
+    href: '/timeline',
+    label: 'Timeline',
+    glyph: '⏱',
+    department: 'science',
+    description: 'Unified operational timeline — all sources (MSN-3A-002)'
+  },
+  {
     href: '/capture',
     label: 'Quick Capture',
     glyph: 'QC',
