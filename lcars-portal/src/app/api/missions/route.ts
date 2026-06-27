@@ -4,7 +4,7 @@ import { nextId, appendToRegistry } from '@/lib/id-registry';
 
 // Valid Supabase status values (CHECK constraint on missions.status)
 const VALID_STATUSES = [
-  'Idea', 'Designed', 'Implemented', 'Tested',
+  'Idea', 'Designed', 'Approved for Engineering', 'Implemented', 'Tested',
   'Awaiting Number One Review', 'Validated', 'Awaiting XO Approval',
   'Awaiting Captain Approval', 'Approved',
   'Closed', 'Blocked', 'Archived', 'Requires Rework',
