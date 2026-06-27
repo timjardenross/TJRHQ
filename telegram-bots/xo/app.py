@@ -564,17 +564,20 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # ── Mission read commands (MSN-0167) ─────────────────────────────────────────
 
+# Valid Supabase status values (constraint: Idea|Designed|Implemented|Tested|
+# Awaiting Number One Review|Validated|Awaiting XO Approval|Closed|Blocked|Archived)
 _MISSION_STATUS_MAP = {
-    "active":     ["Active"],
-    "idea":       ["Idea"],
-    "blocked":    ["Blocked"],
-    "completed":  ["Completed", "completed"],
-    "closed":     ["Closed"],
-    "designed":   ["Designed"],
-    "implemented":["Implemented"],
-    "tested":     ["Tested"],
+    "active":      ["Implemented", "Tested", "Awaiting Number One Review", "Validated", "Awaiting XO Approval"],
+    "idea":        ["Idea"],
+    "blocked":     ["Blocked"],
+    "designed":    ["Designed"],
+    "implemented": ["Implemented"],
+    "tested":      ["Tested"],
+    "validated":   ["Validated"],
+    "closed":      ["Closed", "Archived"],
+    "all":         [],  # sentinel — handled by show_all path
 }
-_CLOSED_STATUSES = ["Closed", "completed", "cancelled", "deferred", "Archived"]
+_CLOSED_STATUSES = ["Closed", "Archived"]
 
 
 async def cmd_mission_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -652,7 +655,7 @@ async def cmd_mission_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         res = (
             db.table("missions")
-            .select("mission_id,title,status,priority,owner,created_at,description")
+            .select("mission_id,title,status,priority,created_by,created_at,description")
             .ilike("mission_id", f"%{query_str}%")
             .limit(3)
             .execute()
@@ -666,14 +669,14 @@ async def cmd_mission_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return
 
-        row   = rows[0]
-        mid   = row.get("mission_id", "?")
-        title = _escape_strict((row.get("title") or "Untitled")[:80])
-        st    = _escape_strict(row.get("status") or "?")
-        pri   = _escape_strict(str(row.get("priority") or "—"))
-        owner = _escape_strict(str(row.get("owner") or "—"))
-        dt    = _escape_strict((row.get("created_at") or "")[:10])
-        desc  = (row.get("description") or "")[:200].strip()
+        row        = rows[0]
+        mid        = row.get("mission_id", "?")
+        title      = _escape_strict((row.get("title") or "Untitled")[:80])
+        st         = _escape_strict(row.get("status") or "?")
+        pri        = _escape_strict(str(row.get("priority") or "—"))
+        created_by = _escape_strict(str(row.get("created_by") or "—"))
+        dt         = _escape_strict((row.get("created_at") or "")[:10])
+        desc       = (row.get("description") or "")[:200].strip()
 
         parts = [
             f"*Mission:* `{mid}`",
@@ -681,7 +684,7 @@ async def cmd_mission_status(update: Update, context: ContextTypes.DEFAULT_TYPE)
             f"",
             f"*Status:* {st}",
             f"*Priority:* {pri}",
-            f"*Owner:* {owner}",
+            f"*Created by:* {created_by}",
             f"*Created:* {dt}",
         ]
         if desc:
