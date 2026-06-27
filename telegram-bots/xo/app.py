@@ -738,7 +738,7 @@ async def cmd_mission_create(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions",
                 json={"title": title, "status": "Idea"},
@@ -790,7 +790,7 @@ async def _captain_decision_via_api(
 
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
                 json=payload,
@@ -892,7 +892,7 @@ async def _lifecycle_api_call(
         return
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             resp = await client.post(
                 f"{LCARS_PORTAL_URL}/api/missions/{mission_ref}/{endpoint}",
                 json=payload,
@@ -986,7 +986,7 @@ async def cmd_operating_picture(update: Update, context: ContextTypes.DEFAULT_TY
         return
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(f"{LCARS_PORTAL_URL}/api/operating-picture")
         if resp.status_code != 200:
             await update.message.reply_text(
