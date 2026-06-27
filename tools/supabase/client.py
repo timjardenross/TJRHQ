@@ -165,7 +165,7 @@ class CommanderSupabaseClient:
     def _patch(self, query: str, payload: dict[str, Any], timeout: int = 10) -> bool:
         """PATCH /rest/v1/{query} with payload. Returns True on success.
 
-        Example: client._patch("missions?id=eq.USS-TJR-MSN-0001", {"status": "Active"})
+        Example: client._patch("missions?mission_id=eq.USS-TJR-MSN-0001", {"status": "Active"})
         """
         if not self.is_enabled():
             return False
@@ -184,7 +184,9 @@ class CommanderSupabaseClient:
             )
             with urllib.request.urlopen(request, timeout=timeout):
                 return True
-        except Exception:
+        except Exception as exc:
+            import logging as _log
+            _log.getLogger(__name__).debug("[supabase] _patch failed (%s): %s", query, exc)
             return False
 
     def delete(self, query: str, timeout: int = 10) -> bool:
