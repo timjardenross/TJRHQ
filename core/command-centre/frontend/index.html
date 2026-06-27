@@ -573,6 +573,10 @@
           <div class="intel-card-title">📋 Captain's Directives</div>
           <div id="records-directives">Loading...</div>
         </div>
+        <div class="intel-card">
+          <div class="intel-card-title">📥 Pending Captures</div>
+          <div id="records-captures">Loading...</div>
+        </div>
       </div>
       <div class="dept-links">
         <a class="dept-link dept-link-primary" href="decisions-registry.html">⚖️ Full Decision Registry →</a>
@@ -1301,11 +1305,12 @@
         return `<span style="font-size:0.72em;padding:2px 6px;border-radius:3px;background:${colour}22;color:${colour};border:1px solid ${colour}44;white-space:nowrap">${label}</span>`;
       };
 
-      const [govData, lessonsData, adrData, directivesData] = await Promise.allSettled([
+      const [govData, lessonsData, adrData, directivesData, capturesData] = await Promise.allSettled([
         fetchJSON('/api/v1/governance/decisions').catch(() => null),
         fetchJSON('/api/v1/coordination/lessons').catch(() => null),
         fetchJSON('/api/v1/governance/adrs').catch(() => null),
         fetchJSON('/api/v1/governance/directives').catch(() => null),
+        fetchJSON('/api/v1/capture/pending?limit=20').catch(() => null),
       ]);
 
       // ── Governance Decisions ─────────────────────────────────────────────
@@ -1392,6 +1397,36 @@
           </div>`;
       } else if (directivesEl) {
         directivesEl.innerHTML = '<p class="muted">Directives unavailable.</p>';
+      }
+
+      // ── Pending Captures ─────────────────────────────────────────────────
+      const capturesEl = document.getElementById('records-captures');
+      const captures = capturesData.status === 'fulfilled' ? capturesData.value : null;
+      if (capturesEl) {
+        const list = Array.isArray(captures) ? captures : [];
+        if (!list.length) {
+          capturesEl.innerHTML = '<p class="chair-clear">✅ No pending captures</p>';
+        } else {
+          const typeIcon = t => ({ note:'📝', mission:'🚀', idea:'💡', health:'🩺', decision:'⚖️' }[t] || '📌');
+          const statusClr = s => s === 'pending_decision' ? '#f39c12' : '#a0a6c0';
+          capturesEl.innerHTML = `
+            <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} item${list.length !== 1 ? 's' : ''} awaiting triage</div>
+            <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+              ${list.map(c => `
+                <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+                  <div style="display:flex;align-items:flex-start;gap:6px">
+                    <span style="flex-shrink:0">${typeIcon(c.item_type)}</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:0.88em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title || c.raw_text || '—'}</div>
+                      <div style="display:flex;gap:8px;margin-top:2px">
+                        <span style="font-size:0.72em;color:${statusClr(c.processing_status)}">${c.processing_status}</span>
+                        <span style="font-size:0.72em;color:var(--text-muted)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>`).join('')}
+            </div>`;
+        }
       }
     }
 
