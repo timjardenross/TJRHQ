@@ -691,6 +691,13 @@
           </div>
         </div>
       </div>
+      <div class="intel-card" style="margin-top:12px;">
+        <div class="intel-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>🏛 Engineering Governance</span>
+          <span id="eng-gov-counts" class="muted" style="font-size:0.8em;font-weight:normal;"></span>
+        </div>
+        <div id="eng-governance"><p class="intel-loading">Loading governance…</p></div>
+      </div>
       <div class="dept-links">
         <a class="dept-link dept-link-secondary" href="system-status.html">🔧 Full System Status →</a>
       </div>
@@ -1894,7 +1901,53 @@
         }
       };
 
-      await Promise.allSettled([renderServices(), renderLLM(), renderAPIs(), renderActivity()]);
+      // Engineering Governance — recent decisions + ADR count
+      const renderGovernance = async () => {
+        const el = document.getElementById('eng-governance');
+        const countEl = document.getElementById('eng-gov-counts');
+        try {
+          const [decData, adrData] = await Promise.allSettled([
+            fetchJSON('/api/v1/governance/decisions').catch(() => null),
+            fetchJSON('/api/v1/governance/adrs').catch(() => null),
+          ]);
+
+          const decisions = decData.status === 'fulfilled' && decData.value?.data?.canonical
+            ? decData.value.data.canonical : [];
+          const adrCount = adrData.status === 'fulfilled' && adrData.value?.data?.total
+            ? adrData.value.data.total : 0;
+
+          if (countEl) countEl.textContent = `${decisions.length} decisions · ${adrCount} ADRs`;
+
+          const STATUS_COLOR = {
+            'APPROVED': '#6aff8a', 'RESOLVED': '#6aff8a',
+            'PENDING': '#F0B840', 'IN PROGRESS': '#F0B840',
+            'REJECTED': '#ff6a6a',
+          };
+
+          const recent = decisions.slice(0, 8);
+          if (!recent.length) {
+            el.innerHTML = '<p class="muted">No governance decisions available.</p>';
+            return;
+          }
+
+          el.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px;">` +
+            recent.map(d => {
+              const statusKey = (d.status || '').toUpperCase().split('—')[0].trim();
+              const color = STATUS_COLOR[statusKey] || '#aaa';
+              return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border);gap:8px">
+                <div style="flex:1;min-width:0">
+                  <span style="color:#c0c8e8;font-size:0.82em">[${d.id}]</span>
+                  <span style="font-size:0.82em;margin-left:4px">${d.title}</span>
+                </div>
+                <span style="color:${color};font-size:0.75em;white-space:nowrap;flex-shrink:0">${statusKey || 'UNKNOWN'}</span>
+              </div>`;
+            }).join('') + `</div>`;
+        } catch(e) {
+          el.innerHTML = '<p class="muted">Governance data unavailable.</p>';
+        }
+      };
+
+      await Promise.allSettled([renderServices(), renderLLM(), renderAPIs(), renderActivity(), renderGovernance()]);
     }
 
     // ── MSN-F: Sickbay Recovery Pulse ────────────────────────────────────
