@@ -32,6 +32,9 @@ const intelligenceRoutes = require('./api/intelligence');
 const calibrationRoutes = require('./api/calibration');
 const notificationRoutes = require('./api/notifications');
 const governanceRoutes = require('./api/governance');
+const advisorRoutes = require('./api/advisors');
+const consoleRoutes = require('./api/console');
+const captureRoutes = require('./api/capture');
 const { errorHandler } = require('./middleware/error-handling');
 
 // Initialize Express app
@@ -103,6 +106,9 @@ app.use('/api/v1/personal-health', personalHealthRoutes);
 app.use('/api/v1/calibration', calibrationRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/governance', governanceRoutes);
+app.use('/api/v1/advisors', advisorRoutes);
+app.use('/api/v1/console', consoleRoutes);
+app.use('/api/v1/capture', captureRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -158,6 +164,17 @@ app.get('/api', (req, res) => {
         events:       'GET /api/v1/intelligence/events',
         themes:       'GET /api/v1/intelligence/themes',
         generate:     'POST /api/v1/intelligence/generate'
+      },
+      advisors: {
+        personas: 'GET  /api/v1/advisors/personas',
+        session:  'POST /api/v1/advisors/session'
+      },
+      console: {
+        dashboard: 'GET /api/v1/console/dashboard'
+      },
+      capture: {
+        submit: 'POST /api/v1/capture',
+        recent: 'GET  /api/v1/capture/recent'
       }
     },
     documentation: 'See MSN-0035-PHASE2-INTEGRATION-PLAN.md',
