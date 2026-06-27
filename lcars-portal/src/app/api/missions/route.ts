@@ -6,7 +6,8 @@ import { nextId, appendToRegistry } from '@/lib/id-registry';
 const VALID_STATUSES = [
   'Idea', 'Designed', 'Implemented', 'Tested',
   'Awaiting Number One Review', 'Validated', 'Awaiting XO Approval',
-  'Closed', 'Blocked', 'Archived',
+  'Awaiting Captain Approval', 'Approved',
+  'Closed', 'Blocked', 'Archived', 'Requires Rework',
 ] as const;
 const CLOSED_STATUSES = ['Closed', 'Archived'];
 
