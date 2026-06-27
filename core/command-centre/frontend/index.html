@@ -968,7 +968,7 @@
       try {
         const [log, missions, escalations, blockers] = await Promise.allSettled([
           fetchJSON('/api/v1/captains-log/today').catch(() => null),
-          fetchJSON('/api/v1/missions/list?limit=20').catch(() => null),
+          fetchJSON('/api/v1/missions/list?limit=50').catch(() => null),
           fetchJSON('/api/v1/coordination/escalations').catch(() => null),
           fetchJSON('/api/v1/coordination/blockers').catch(() => null),
         ]);
@@ -1001,27 +1001,85 @@
         </div>`;
     }
 
+    const _MISSION_STATUSES = [
+      'Idea','Designed','Approved for Engineering','Implemented',
+      'Tested','Awaiting Number One Review','Validated',
+      'Awaiting XO Approval','Awaiting Captain Approval','Approved',
+      'Blocked','Requires Rework','Closed','Archived',
+    ];
+
     function renderCmdQueue(data) {
       const el = document.getElementById('cmd-queue');
       if (!el) return;
       const missions = Array.isArray(data) ? data : (data && data.missions) || [];
-      const active = missions.filter(m => !['Completed','Archived','Cancelled','Deferred'].includes(m.status));
+      const active = missions.filter(m => !['Closed','Archived'].includes(m.status));
       if (!active.length) {
         el.innerHTML = '<p class="chair-empty">No active missions in queue.</p>';
         return;
       }
-      el.innerHTML = active.slice(0, 12).map(m => {
+      el.innerHTML = active.slice(0, 15).map(m => {
         const priClass = m.priority === 'P0' ? 'priority-p0' : m.priority === 'P1' ? 'priority-p1' : 'priority-p2';
-        const statusColr = m.status === 'Blocked' ? '#ff4444' : m.status === 'Active' ? '#5DD17A' : '#a0a6c0';
-        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;">
+        const statusColr = m.status === 'Blocked' ? '#ff4444' : m.status === 'Approved' ? '#5DD17A' : '#a0a6c0';
+        const mId = m.id || m.mission_id || '';
+        const opts = _MISSION_STATUSES.map(s =>
+          `<option value="${s}"${s === m.status ? ' selected' : ''}>${s}</option>`
+        ).join('');
+        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
           <div style="display:flex;gap:6px;align-items:center;width:100%;">
-            <span class="mission-priority ${priClass}">${m.priority}</span>
-            <span class="mission-title" style="font-weight:600">${m.title}</span>
-            <span style="font-size:9px;color:${statusColr};margin-left:auto;">${(m.status || '').toUpperCase()}</span>
+            <span class="mission-priority ${priClass}">${m.priority || '—'}</span>
+            <span class="mission-title" style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title}</span>
+            <span style="font-size:9px;color:${statusColr};flex-shrink:0;">${(m.status || '').toUpperCase()}</span>
           </div>
-          ${m.mission_id ? `<div style="font-size:10px;color:#a0a6c0;margin-top:2px;">${m.mission_id}</div>` : ''}
+          <div style="display:flex;gap:8px;align-items:center;margin-top:4px;width:100%;">
+            ${m.mission_id || m.id ? `<span style="font-size:10px;color:#a0a6c0;">${m.mission_id || m.id}</span>` : ''}
+            <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
+              <select class="mission-status-select" data-mission-id="${mId}" style="font-size:10px;background:#1a1e2e;color:#a0a6c0;border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:2px 4px;cursor:pointer;">
+                ${opts}
+              </select>
+              <button class="mission-status-btn" data-mission-id="${mId}" style="font-size:10px;background:#2a3f6f;color:#e0e4ff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">Save</button>
+            </div>
+          </div>
         </div>`;
-      }).join('') + (active.length > 12 ? `<p style="font-size:10px;color:#a0a6c0;margin-top:6px;">+${active.length - 12} more</p>` : '');
+      }).join('') + (active.length > 15 ? `<p style="font-size:10px;color:#a0a6c0;margin-top:6px;">+${active.length - 15} more — <a href="mission-registry.html" style="color:#5b9af5;">Full Registry →</a></p>` : '');
+
+      el.querySelectorAll('.mission-status-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const missionId = btn.dataset.missionId;
+          const sel = el.querySelector(`.mission-status-select[data-mission-id="${missionId}"]`);
+          if (!sel) return;
+          const newStatus = sel.value;
+          btn.textContent = '…';
+          btn.disabled = true;
+          try {
+            await changeMissionStatus(missionId, newStatus);
+            btn.textContent = '✓';
+            btn.style.background = '#1e5c3a';
+            commandConsoleLoaded = false;
+            setTimeout(() => loadCommandConsole(), 800);
+          } catch (err) {
+            btn.textContent = '✗';
+            btn.style.background = '#5c1e1e';
+            console.error('[cmd-queue] status update failed:', err);
+            setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; btn.style.background = '#2a3f6f'; }, 2000);
+          }
+        });
+      });
+    }
+
+    async function changeMissionStatus(missionId, newStatus) {
+      const sep = `/api/v1/missions/${encodeURIComponent(missionId)}/status`.includes('?') ? '&' : '?';
+      const url = API_BASE + `/api/v1/missions/${encodeURIComponent(missionId)}/status` +
+        (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
+      const r = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, actor: 'Captain' }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ message: r.statusText }));
+        throw new Error(err.message || `HTTP ${r.status}`);
+      }
+      return r.json();
     }
 
     function renderCmdEscalations(data) {

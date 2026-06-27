@@ -151,6 +151,56 @@ function supabaseUpsert(table, payload, conflictColumn) {
   });
 }
 
+/**
+ * Raw HTTP PATCH against Supabase PostgREST.
+ * `filterPath` is the table + query string filter, e.g. "missions?id=eq.abc123"
+ */
+function supabasePatch(filterPath, payload) {
+  return new Promise((resolve, reject) => {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      return reject(new Error('Supabase credentials not configured'));
+    }
+    const body = JSON.stringify(payload);
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${filterPath}`);
+    const transport = url.protocol === 'https:' ? https : http;
+    const options = {
+      hostname: url.hostname,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname + url.search,
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Prefer': 'return=representation',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+    const req = transport.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          if (res.statusCode >= 400) {
+            const parsed = JSON.parse(data);
+            reject(new Error(`Supabase patch error ${res.statusCode}: ${parsed.message || data}`));
+          } else {
+            const parsed = data ? JSON.parse(data) : [];
+            resolve(Array.isArray(parsed) ? parsed[0] || null : parsed);
+          }
+        } catch (e) {
+          reject(new Error(`JSON parse error: ${e.message}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(8000, () => { req.destroy(new Error('Supabase request timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
 async function getCaptainsLogToday() {
   const today = new Date().toISOString().split('T')[0];
   const rows = await supabaseGet(`captains_log_entries?log_date=eq.${today}&limit=1`);
@@ -389,7 +439,7 @@ async function getHealthStatusSummary() {
 }
 
 module.exports = {
-  supabaseGet,
+  supabaseGet, supabasePatch,
   getDecisionRecords, getEscalations, getRecentEvents,
   getCaptainsLogToday, upsertCaptainsLogEntry, getCaptainsLogRecent, getCaptainsLogSummary,
   getHealthLogToday, getHealthLogLatest, computeHealthStatus, computeCapacityScore, getHealthStatusSummary, getHealthEventsToday,
