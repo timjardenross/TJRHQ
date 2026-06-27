@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { LCARSPanel } from '@/components/LCARSPanel';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ interface SearchResult {
 // ── Supabase search functions ─────────────────────────────────────────────────
 
 async function searchMissions(q: string): Promise<SearchResult[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('missions')
     .select('mission_id, title, status, domain, updated_at')
@@ -37,7 +37,7 @@ async function searchMissions(q: string): Promise<SearchResult[]> {
 }
 
 async function searchLog(q: string): Promise<SearchResult[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('captains_log_entries')
     .select('log_date, todays_intention, overall_note')
@@ -55,7 +55,7 @@ async function searchLog(q: string): Promise<SearchResult[]> {
 }
 
 async function searchCaptures(q: string): Promise<SearchResult[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('captured_items')
     .select('id, title, raw_text, item_type, processing_status, captured_at')
@@ -73,7 +73,7 @@ async function searchCaptures(q: string): Promise<SearchResult[]> {
 }
 
 async function searchEvents(q: string): Promise<SearchResult[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('mission_execution_events')
     .select('id, status, mission_id, created_at')

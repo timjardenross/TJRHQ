@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { DepartmentKey } from '@/lib/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ interface TimelineEvent {
 // ── Source fetchers (direct Supabase) ─────────────────────────────────────────
 
 async function fetchMissionTransitions(days: number): Promise<TimelineEvent[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
     .from('mission_state_transitions')
@@ -40,7 +40,7 @@ async function fetchMissionTransitions(days: number): Promise<TimelineEvent[]> {
 }
 
 async function fetchRecoveryPulses(days: number): Promise<TimelineEvent[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
     .from('recovery_pulses')
@@ -64,7 +64,7 @@ async function fetchRecoveryPulses(days: number): Promise<TimelineEvent[]> {
 }
 
 async function fetchLogEntries(days: number): Promise<TimelineEvent[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const { data } = await supabase
     .from('captains_log_entries')
@@ -83,7 +83,7 @@ async function fetchLogEntries(days: number): Promise<TimelineEvent[]> {
 }
 
 async function fetchCommanderEvents(days: number): Promise<TimelineEvent[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
     .from('mission_execution_events')
@@ -101,7 +101,7 @@ async function fetchCommanderEvents(days: number): Promise<TimelineEvent[]> {
 }
 
 async function fetchCaptures(days: number): Promise<TimelineEvent[]> {
-  if (!supabase) return [];
+  const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data } = await supabase
     .from('captured_items')
