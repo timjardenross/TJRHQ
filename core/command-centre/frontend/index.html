@@ -340,6 +340,74 @@
 
     .debug-mode { display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 1px solid #00ccff; border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace; font-size: 10px; color: #00dd00; max-width: 300px; max-height: 200px; overflow-y: auto; z-index: 1000; }
     .debug-mode.active { display: block; }
+
+    /* ── Notification Bell + Drawer ─────────────────────────── */
+    .notif-bell-btn {
+      position: relative; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 5px;
+      padding: 6px 10px; cursor: pointer; color: #a0a6c0;
+      font-size: 16px; line-height: 1; transition: all 0.15s; flex-shrink: 0;
+    }
+    .notif-bell-btn:hover { background: rgba(0,204,255,0.08); border-color: rgba(0,204,255,0.3); color: #00ccff; }
+    .notif-badge {
+      display: none; position: absolute; top: -5px; right: -5px;
+      background: #D94444; color: #fff; border-radius: 8px;
+      font-size: 9px; font-weight: 700; padding: 1px 5px; min-width: 16px; text-align: center;
+    }
+    .notif-badge.visible { display: block; }
+
+    .notif-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4); z-index: 900;
+    }
+    .notif-overlay.open { display: block; }
+    .notif-drawer {
+      position: fixed; top: 0; right: -400px; width: 380px; height: 100vh;
+      background: #0d1117; border-left: 1px solid rgba(0,204,255,0.2);
+      z-index: 901; transition: right 0.25s ease; display: flex; flex-direction: column;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
+    }
+    .notif-drawer.open { right: 0; }
+    .notif-drawer-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 16px; border-bottom: 1px solid rgba(0,204,255,0.15);
+      flex-shrink: 0;
+    }
+    .notif-drawer-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #00ccff; }
+    .notif-drawer-actions { display: flex; gap: 8px; align-items: center; }
+    .notif-mark-all-btn {
+      font-size: 10px; padding: 3px 8px; background: rgba(0,204,255,0.06);
+      border: 1px solid rgba(0,204,255,0.2); border-radius: 4px; color: #a0a6c0; cursor: pointer;
+    }
+    .notif-mark-all-btn:hover { color: #00ccff; border-color: rgba(0,204,255,0.4); }
+    .notif-close-btn {
+      background: none; border: none; color: #a0a6c0; font-size: 18px; cursor: pointer;
+      padding: 0 2px; line-height: 1;
+    }
+    .notif-close-btn:hover { color: #e0e6ff; }
+    .notif-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .notif-item {
+      padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor: default; transition: background 0.1s;
+    }
+    .notif-item:hover { background: rgba(255,255,255,0.02); }
+    .notif-item.unread { border-left: 2px solid #00ccff; padding-left: 14px; }
+    .notif-item.unread.sev-critical { border-left-color: #D94444; }
+    .notif-item.unread.sev-high     { border-left-color: #ffaa00; }
+    .notif-item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 3px; }
+    .notif-item-title { font-size: 12px; font-weight: 600; color: #e0e6ff; line-height: 1.3; }
+    .notif-item-sev {
+      font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+      text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    }
+    .notif-sev-critical { background: rgba(217,68,68,0.2); color: #D94444; }
+    .notif-sev-high     { background: rgba(255,170,0,0.2); color: #ffaa00; }
+    .notif-sev-medium   { background: rgba(0,204,255,0.1); color: #00ccff; }
+    .notif-sev-low      { background: rgba(255,255,255,0.05); color: #a0a6c0; }
+    .notif-item-detail { font-size: 11px; color: #a0a6c0; line-height: 1.45; }
+    .notif-item-ts { font-size: 10px; color: #5a6080; margin-top: 4px; }
+    .notif-empty { padding: 32px 16px; text-align: center; color: #5a6080; font-size: 12px; }
+    .notif-telegram-dot { font-size: 9px; color: #5a6080; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -362,6 +430,25 @@
       </div>
       <div class="status-item" id="last-update">
         <span>Last updated: —</span>
+      </div>
+      <button class="notif-bell-btn" id="notif-bell" onclick="toggleNotifDrawer()" title="Notifications">
+        🔔
+        <span class="notif-badge" id="notif-badge"></span>
+      </button>
+    </div>
+
+    <!-- NOTIFICATION DRAWER -->
+    <div class="notif-overlay" id="notif-overlay" onclick="closeNotifDrawer()"></div>
+    <div class="notif-drawer" id="notif-drawer">
+      <div class="notif-drawer-header">
+        <span class="notif-drawer-title">🔔 Notifications</span>
+        <div class="notif-drawer-actions">
+          <button class="notif-mark-all-btn" onclick="markAllNotifsRead()">Mark all read</button>
+          <button class="notif-close-btn" onclick="closeNotifDrawer()">✕</button>
+        </div>
+      </div>
+      <div class="notif-list" id="notif-list">
+        <div class="notif-empty">No notifications</div>
       </div>
     </div>
 
@@ -2358,9 +2445,126 @@
       if (e.key === 'Escape') closeCapture();
     });
 
+    // ── Notification Bell + Drawer ────────────────────────────────────────
+    let _notifPollTimer = null;
+
+    function _sevClass(sev) {
+      if (!sev) return 'notif-sev-low';
+      const s = sev.toLowerCase();
+      if (s === 'critical') return 'notif-sev-critical';
+      if (s === 'high')     return 'notif-sev-high';
+      if (s === 'medium')   return 'notif-sev-medium';
+      return 'notif-sev-low';
+    }
+
+    function _renderNotifList(notes) {
+      const el = document.getElementById('notif-list');
+      if (!el) return;
+      if (!notes || !notes.length) {
+        el.innerHTML = '<div class="notif-empty">All clear — no notifications</div>';
+        return;
+      }
+      el.innerHTML = notes.map(n => {
+        const unreadCls = n.read ? '' : `unread sev-${(n.severity||'').toLowerCase()}`;
+        const ts = (n.timestamp||'').slice(0,16).replace('T',' ');
+        const tgDot = n.telegram_sent ? '<div class="notif-telegram-dot">✈ sent to Telegram</div>' : '';
+        return `<div class="notif-item ${unreadCls}" data-notif-id="${n.id}">
+          <div class="notif-item-header">
+            <span class="notif-item-title">${n.title || ''}</span>
+            <span class="notif-item-sev ${_sevClass(n.severity)}">${n.severity || 'Low'}</span>
+          </div>
+          <div class="notif-item-detail">${n.detail || ''}</div>
+          <div class="notif-item-ts">${ts} UTC</div>
+          ${tgDot}
+        </div>`;
+      }).join('');
+
+      // Mark item as read on click
+      el.querySelectorAll('.notif-item').forEach(row => {
+        row.addEventListener('click', () => {
+          const id = parseInt(row.dataset.notifId);
+          if (!id) return;
+          fetchJSON(`/api/v1/notifications/${id}/read`, { method: 'POST' }).catch(() => {});
+          row.classList.remove('unread');
+          refreshNotifBadge();
+        });
+      });
+    }
+
+    function refreshNotifBadge() {
+      const unread = document.querySelectorAll('.notif-item.unread').length;
+      const badge = document.getElementById('notif-badge');
+      if (!badge) return;
+      if (unread > 0) {
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.classList.add('visible');
+      } else {
+        badge.classList.remove('visible');
+      }
+    }
+
+    async function pollNotifications() {
+      try {
+        const notes = await fetchJSON('/api/v1/notifications/unread');
+        const arr = Array.isArray(notes) ? notes : [];
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+          if (arr.length > 0) {
+            badge.textContent = arr.length > 99 ? '99+' : arr.length;
+            badge.classList.add('visible');
+          } else {
+            badge.classList.remove('visible');
+          }
+        }
+        // If drawer is open, refresh its contents
+        const drawer = document.getElementById('notif-drawer');
+        if (drawer && drawer.classList.contains('open')) {
+          const all = await fetchJSON('/api/v1/notifications/history?limit=50').catch(() => []);
+          _renderNotifList(Array.isArray(all) ? all : []);
+          refreshNotifBadge();
+        }
+      } catch (_) {}
+    }
+
+    async function openNotifDrawer() {
+      document.getElementById('notif-overlay').classList.add('open');
+      document.getElementById('notif-drawer').classList.add('open');
+      try {
+        const notes = await fetchJSON('/api/v1/notifications/history?limit=50');
+        _renderNotifList(Array.isArray(notes) ? notes : []);
+        refreshNotifBadge();
+      } catch(e) {
+        const el = document.getElementById('notif-list');
+        if (el) el.innerHTML = `<div class="notif-empty">Failed to load notifications</div>`;
+      }
+    }
+
+    function closeNotifDrawer() {
+      document.getElementById('notif-overlay').classList.remove('open');
+      document.getElementById('notif-drawer').classList.remove('open');
+    }
+
+    function toggleNotifDrawer() {
+      const drawer = document.getElementById('notif-drawer');
+      if (drawer.classList.contains('open')) closeNotifDrawer();
+      else openNotifDrawer();
+    }
+
+    async function markAllNotifsRead() {
+      await fetchJSON('/api/v1/notifications/read-all', { method: 'POST' }).catch(() => {});
+      document.querySelectorAll('.notif-item.unread').forEach(r => r.classList.remove('unread'));
+      const badge = document.getElementById('notif-badge');
+      if (badge) badge.classList.remove('visible');
+    }
+
     // ── Boot ─────────────────────────────────────────────────────────────
     // Fetch API key first, then load the Chair (landing page)
-    _initApiKey().then(() => loadChair());
+    _initApiKey().then(() => {
+      loadChair();
+      // Poll notifications every 60s
+      pollNotifications();
+      _notifPollTimer = setInterval(pollNotifications, 60000);
+    });
   </script>
 </body>
 </html>

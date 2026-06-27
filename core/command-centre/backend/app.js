@@ -36,6 +36,7 @@ const advisorRoutes = require('./api/advisors');
 const consoleRoutes = require('./api/console');
 const captureRoutes = require('./api/capture');
 const { errorHandler } = require('./middleware/error-handling');
+const notificationEngine = require('./services/notification-engine');
 
 // Initialize Express app
 const app = express();
@@ -199,6 +200,9 @@ app.use((req, res) => {
 
 // Global error handler (must be last)
 app.use(errorHandler);
+
+// Start notification engine (D-3C-04: Command Centre owns all push notifications)
+notificationEngine.start();
 
 // Start server
 const server = app.listen(PORT, () => {

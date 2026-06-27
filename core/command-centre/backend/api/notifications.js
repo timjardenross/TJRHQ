@@ -17,7 +17,8 @@ const router = express.Router();
 const { execFile } = require('child_process');
 const path = require('path');
 const { cacheManager } = require('../cache/cache-manager');
-const { asyncHandler, successResponse } = require('../middleware/error-handling');
+const { asyncHandler, successResponse, ApiError } = require('../middleware/error-handling');
+const notificationEngine = require('../services/notification-engine');
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../..');
 const SLACK_BOT = path.join(REPO_ROOT, 'slack-bot');
@@ -143,6 +144,43 @@ print(json.dumps({'resolved': ok, 'key': '${key}'}))
   cacheManager.invalidate('notifications:escalations:open');
   cacheManager.invalidate('notifications:metrics');
   res.json(successResponse(data));
+}));
+
+// ── In-app notification store endpoints ──────────────────────────────────────
+
+// GET /api/v1/notifications/unread
+router.get('/unread', asyncHandler(async (req, res) => {
+  const notes = notificationEngine.getUnread();
+  res.json(successResponse(notes, 200, { count: notes.length }));
+}));
+
+// GET /api/v1/notifications/history?limit=50
+router.get('/history', asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const notes = notificationEngine.getHistory(limit);
+  res.json(successResponse(notes, 200, { count: notes.length }));
+}));
+
+// POST /api/v1/notifications/:id/read
+router.post('/:id/read', asyncHandler(async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) throw new ApiError(400, 'id must be a number');
+  const found = notificationEngine.markRead(id);
+  if (!found) throw new ApiError(404, `Notification ${id} not found`);
+  res.json(successResponse({ id, read: true }));
+}));
+
+// POST /api/v1/notifications/read-all
+router.post('/read-all', asyncHandler(async (req, res) => {
+  notificationEngine.markAllRead();
+  res.json(successResponse({ ok: true }));
+}));
+
+// POST /api/v1/notifications/trigger  — manual evaluation cycle (for testing)
+router.post('/trigger', asyncHandler(async (req, res) => {
+  await notificationEngine.evaluate();
+  const notes = notificationEngine.getHistory(20);
+  res.json(successResponse({ triggered: true, recent: notes.slice(0, 5) }));
 }));
 
 module.exports = router;

@@ -718,9 +718,10 @@ def _job_morning_brief(client) -> None:
         _BRIEF_CHANNEL,
     )
 
-    # Post-brief async jobs
-    threading.Thread(target=_job_stale_missions,  args=(client,), daemon=True).start()
-    threading.Thread(target=_job_pain_escalation, args=(client,), daemon=True).start()
+    # Post-brief async notification jobs — RETIRED D-3C-04 (2026-06-27)
+    # Stale missions and pain escalation now handled by Command Centre notification engine.
+    # threading.Thread(target=_job_stale_missions,  args=(client,), daemon=True).start()
+    # threading.Thread(target=_job_pain_escalation, args=(client,), daemon=True).start()
 
 
 def _job_stale_missions(client) -> None:
@@ -1253,25 +1254,13 @@ def start_scheduler(client) -> None:
         replace_existing=True,
     )
 
-    # Mission escalation check — daily 09:00 (post-brief)  [M-20260615 Proactive Notifications]
-    scheduler.add_job(
-        _job_mission_escalation,
-        CronTrigger(hour=9, minute=0),
-        args=[client],
-        id="mission_escalation",
-        name="Mission Escalation Detector",
-        replace_existing=True,
-    )
+    # Mission escalation check — RETIRED D-3C-04 (2026-06-27)
+    # Owned by Command Centre notification engine (checkRepeatedEscalations + checkStagnantMissions).
+    # scheduler.add_job(_job_mission_escalation, ...)
 
-    # Health nudge — daily 20:30 (after shakedown, before quiet hours)  [M-20260615]
-    scheduler.add_job(
-        _job_health_nudge,
-        CronTrigger(hour=20, minute=30),
-        args=[client],
-        id="health_nudge",
-        name="Health Log Nudge",
-        replace_existing=True,
-    )
+    # Health nudge — RETIRED D-3C-04 (2026-06-27)
+    # Owned by Command Centre notification engine (checkHealthDecline + checkRecoveryGap).
+    # scheduler.add_job(_job_health_nudge, ...)
 
     # Forgotten decisions alert — Monday + Thursday 09:30  [M-20260615]
     scheduler.add_job(
