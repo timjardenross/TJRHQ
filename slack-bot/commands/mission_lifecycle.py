@@ -628,8 +628,15 @@ def handle_mission_close(
         from tools.supabase.client import CommanderSupabaseClient
         client = CommanderSupabaseClient()
         if client.is_enabled():
-            for mid_try in (mission_id, mission_id_full):
-                result = client._patch(f"missions?id=eq.{mid_try}", {"status": "Closed", "closing_note": note or None})
+            now_dt = datetime.now(timezone.utc)
+            patch_payload = {
+                "status": "Closed",
+                "updated_at": now_dt.strftime("%Y-%m-%dT%H:%M:%S"),  # timestamp without tz
+                "closed_at": now_dt.isoformat(),                       # timestamp with tz
+            }
+            mission_id_full_try = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
+            for mid_try in (mission_id_full_try, mission_id):
+                result = client._patch(f"missions?mission_id=eq.{mid_try}", patch_payload)
                 if result:
                     closed_in_db = True
                     break
