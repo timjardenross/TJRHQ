@@ -10,6 +10,7 @@ import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { MobileAlertDrawer } from '@/components/MobileAlertDrawer';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
+import ProactiveSignals from '@/components/ProactiveSignals';
 import {
   alerts,
   captainTimeline,
@@ -611,6 +612,9 @@ export default function CaptainsChairPage() {
 
         {/* ── MSN-0176: Captain approval queue — always visible (decisions don't wait for posture) ── */}
         <CaptainApprovalQueue />
+
+        {/* ── MSN-3B-001: Proactive intelligence signals ── */}
+        <ProactiveSignals />
 
         {/* ── Fleet section — collapses on FRAGILE/REST per D-055 ── */}
         <FleetStatusConditional posture={currentPosture}>
