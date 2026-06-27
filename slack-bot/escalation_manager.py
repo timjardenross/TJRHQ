@@ -204,7 +204,7 @@ def process_escalations(
                     "event_type":    "notified",
                     "severity":      new_severity,
                     "event_at":      now_str,
-                    "metadata":      json.dumps({"count": new_count, "severity": new_severity}),
+                    "metadata":      {"count": new_count, "severity": new_severity},
                 })
                 enriched = {
                     **escalation,
