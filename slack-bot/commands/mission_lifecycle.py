@@ -39,7 +39,14 @@ _REGISTRY   = _REPO_ROOT / "core" / "mission-control" / "registry" / "mission-in
 _ACTIVE_STATUSES = {"in_progress", "active", "in progress", "planned", "blocked", "design"}
 
 # Valid promotion targets for /mission-status <id> <status>
-_VALID_TRANSITIONS = {"Idea", "Planned", "Active", "Blocked", "Review", "Completed", "Closed"}
+# Must match missions_status_check constraint in Supabase
+_VALID_TRANSITIONS = {
+    "Idea", "Designed", "Approved for Engineering", "Implemented",
+    "Tested", "Awaiting Number One Review", "Validated",
+    "Awaiting XO Approval", "Awaiting Captain Approval", "Approved",
+    "Closed", "Blocked", "Archived", "Requires Rework",
+}
+# Multi-word statuses need special handling — exact match first, then prefix
 _VALID_TRANSITIONS_LOWER = {s.lower(): s for s in _VALID_TRANSITIONS}
 
 # Audit log directory for status transitions
@@ -421,7 +428,9 @@ def handle_mission_status(
       /mission-status <id> <new-status>  — promote or change lifecycle status
       /mission-status <id> <new-status> [note]
 
-    Valid statuses: Idea, Planned, Active, Blocked, Review, Completed, Closed
+    Valid statuses: Idea, Designed, Approved for Engineering, Implemented,
+    Tested, Awaiting Number One Review, Validated, Awaiting XO Approval,
+    Awaiting Captain Approval, Approved, Closed, Blocked, Archived, Requires Rework
     """
     parts = (text or "").strip().split(None, 2)
     if not parts:
@@ -429,7 +438,9 @@ def handle_mission_status(
             ":warning: Usage:\n"
             "  `/mission-status <id>` — show status\n"
             "  `/mission-status <id> <new-status> [note]` — transition status\n"
-            "  Valid statuses: Idea, Planned, Active, Blocked, Review, Completed, Closed"
+            "  Valid statuses: Idea, Designed, Approved, Closed, Blocked, Archived, "
+            "Implemented, Tested, Validated, Requires Rework\n"
+            "  (Multi-word: use quotes or exact spelling)"
         )
 
     mission_id = parts[0].upper()
@@ -503,14 +514,16 @@ def _handle_status_transition(
         if note:
             lines.append(f"*Note:* _{note}_")
         lines.append("")
-        if new_status == "Active":
-            lines.append("_Mission is now in the active work queue._")
-        elif new_status == "Planned":
-            lines.append("_Mission is now in the planning queue. Use `/build` when ready for engineering._")
-        elif new_status == "Closed":
+        if new_status == "Closed":
             lines.append("_Mission closed. Consider capturing a lesson with `/lesson-log`._")
+        elif new_status == "Archived":
+            lines.append("_Mission archived._")
         elif new_status == "Idea":
             lines.append("_Mission returned to Idea state. Number One will review fortnightly._")
+        elif new_status == "Approved":
+            lines.append("_Mission approved. Ready for engineering._")
+        elif new_status == "Implemented":
+            lines.append("_Mission implemented. Awaiting test validation._")
         return "\n".join(lines)
     else:
         # Supabase unavailable — audit was still written locally
