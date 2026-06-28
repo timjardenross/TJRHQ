@@ -36,18 +36,18 @@ const config: Config = {
         science: { DEFAULT: '#CC88FF', soft: '#D9A6FF' }, // Science Purple
         status: { DEFAULT: '#4CAF50', soft: '#81C784' }, // Status Green
 
-        // ── LCARS chrome / backgrounds — Voyager navy palette ─────────
-        space: '#070d1b',      // deep navy-black (Voyager dark)
-        panel: '#0c1627',      // dark navy panel
-        'panel-2': '#112038',  // mid navy panel
-        edge: '#1c2e4a',       // border / separator
+        // ── LCARS chrome / backgrounds — LCARS light palette ──────────
+        space: '#dce8f4',      // light blue-grey (body)
+        panel: '#eaf1f8',      // lighter panel / card surface
+        'panel-2': '#ccd8ec',  // slightly deeper panel variant
+        edge: '#8aadc4',       // border / separator
         lcars: {
           amber: '#FF9966',
           peach: '#FFCC99',
           lilac: '#9999FF',
           ice: '#99CCFF',
-          text: '#D8E4F0',     // slightly warmer off-white
-          muted: '#7A93B8'     // cooler blue-grey muted
+          text: '#0d1f33',     // dark navy text
+          muted: '#4a6b88'     // blue-grey muted text
         }
       },
       fontFamily: {
