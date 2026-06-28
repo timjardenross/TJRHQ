@@ -328,7 +328,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
         "*Ops*\n"
         "/dispatch — manual dispatch check\n"
-        "/brief — OR intelligence brief on demand\n"
+        "/brief — latest OR Intelligence Brief \\(risk, events, themes\\)\n"
+        "/daily \\[morning|eod|weekly\\] — Captain's daily operating picture\n"
         "/db\\_status — Supabase connectivity test\n"
         "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
         "*Proactive pushes \\(auto, no command needed\\)*\n"
@@ -540,22 +541,102 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
 
+_RISK_ICON = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}
+
+
 async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Captain's Daily Brief — current operational picture from Supabase. Usage: /brief [morning|eod|weekly]"""
+    """/brief — latest OR Intelligence Brief from intelligence_briefs table."""
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    await update.message.reply_text("⚙️ Fetching latest OR Intelligence Brief…")
+    try:
+        res = (
+            db.table("intelligence_briefs")
+            .select(
+                "brief_id,generated_at,period_start,period_end,overall_risk,"
+                "executive_snapshot,bottom_line,emerging_themes,forward_watch,"
+                "events_included,events_evaluated,sources_checked,narrative_available"
+            )
+            .order("generated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            await update.message.reply_text(
+                "No OR Intelligence Brief found. Run the scheduler to generate one:\n"
+                "<code>python -m intelligence.scheduler --once</code>",
+                parse_mode="HTML",
+            )
+            return
+
+        b = rows[0]
+        bid      = (b.get("brief_id") or "")[:8]
+        risk     = b.get("overall_risk") or "UNKNOWN"
+        risk_icon = _RISK_ICON.get(str(risk).upper(), "⚪")
+        p_start  = (b.get("period_start") or "")[:10]
+        p_end    = (b.get("period_end") or "")[:10]
+        gen_at   = (b.get("generated_at") or "")[:16].replace("T", " ")
+        snap     = b.get("executive_snapshot") or ""
+        bottom   = b.get("bottom_line") or ""
+        themes   = b.get("emerging_themes") or []
+        fw       = b.get("forward_watch")
+        ev_in    = b.get("events_included", 0)
+        ev_total = b.get("events_evaluated", 0)
+        sources  = b.get("sources_checked", 0)
+
+        lines = [
+            f"<b>🛡 OR Intelligence Brief — {bid}</b>",
+            f"{risk_icon} Risk: <b>{risk}</b>",
+            f"<i>Period {p_start} → {p_end} · Generated {gen_at} UTC</i>",
+            "",
+        ]
+
+        if bottom:
+            lines += ["<b>Bottom Line</b>", bottom[:600], ""]
+
+        if snap and snap != bottom:
+            lines += ["<b>Snapshot</b>", snap[:500], ""]
+
+        if themes:
+            lines.append("<b>Emerging Themes</b>")
+            for t in themes[:5]:
+                label = t if isinstance(t, str) else (t.get("theme") or t.get("title") or str(t))
+                lines.append(f"  • {str(label)[:100]}")
+            lines.append("")
+
+        if fw:
+            fw_text = fw if isinstance(fw, str) else json.dumps(fw)
+            lines += ["<b>Forward Watch</b>", str(fw_text)[:300], ""]
+
+        ev_suppressed = ev_total - ev_in if ev_total and ev_in else None
+        ev_line = f"Events: {ev_in} included"
+        if ev_suppressed is not None:
+            ev_line += f" · {ev_suppressed} suppressed"
+        ev_line += f" · {sources} sources checked"
+        lines.append(f"<i>{ev_line}</i>")
+
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+        log.info("[brief] OR brief %s delivered (risk=%s)", bid, risk)
+
+    except Exception as exc:
+        log.error("[brief] OR brief fetch failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Brief fetch failed: {str(exc)[:120]}")
+
+
+async def cmd_daily(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/daily [morning|eod|weekly] — Captain's Daily Operating Picture (ephemeral, time-aware)."""
     args = context.args or []
     brief_type = (args[0].lower() if args else None)
 
-    # Default: time-of-day aware selection
     if brief_type not in ("morning", "eod", "weekly", "midday"):
         hour = datetime.now(_TZ).hour
-        if hour < 11:
-            brief_type = "morning"
-        elif hour < 17:
-            brief_type = "morning"  # midday is conditional; return morning picture on demand
-        else:
-            brief_type = "eod"
+        brief_type = "morning" if hour < 17 else "eod"
 
-    await update.message.reply_text("⚙️ Generating brief…")
+    await update.message.reply_text("⚙️ Generating daily picture…")
     try:
         from intelligence.captains_brief import (
             generate_morning_brief, generate_eod_summary, generate_weekly_report,
@@ -567,10 +648,10 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             text = await asyncio.get_event_loop().run_in_executor(None, generate_morning_brief)
         await update.message.reply_text(text, parse_mode="HTML")
-        log.info("[brief] %s brief delivered", brief_type)
+        log.info("[daily] %s brief delivered", brief_type)
     except Exception as exc:
-        log.error("[brief] generation failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Brief generation failed: {str(exc)[:120]}")
+        log.error("[daily] generation failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Daily brief failed: {str(exc)[:120]}")
 
 
 # ── Mission read commands (MSN-0167) ─────────────────────────────────────────
@@ -1663,7 +1744,8 @@ async def _scheduled_dispatch(bot) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
-    ("brief",                "Daily brief  e.g. /brief  or  /brief eod"),
+    ("brief",                "Latest OR Intelligence Brief — risk, events, themes"),
+    ("daily",                "Captain's daily picture  e.g. /daily  or  /daily eod"),
     ("signals",              "Intelligence signals  e.g. /signals high  or  /signals cyber"),
     ("themes",               "Emerging themes from latest ORI brief"),
     ("source_status",        "Health of all 40+ intelligence collection sources"),
@@ -1735,6 +1817,7 @@ def main() -> None:
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
+    app.add_handler(CommandHandler("daily",           cmd_daily))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
