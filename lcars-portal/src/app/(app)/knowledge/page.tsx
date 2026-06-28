@@ -24,11 +24,12 @@ type LessonRecord = {
 };
 
 type BriefRecord = {
-  id: string;
-  title: string;
-  summary: string | null;
-  created_at: string;
-  brief_type: string | null;
+  brief_id: string;
+  executive_snapshot: string | null;
+  bottom_line: string | null;
+  overall_risk: string | null;
+  generated_at: string;
+  period_end: string | null;
 };
 
 type TabId = 'decisions' | 'lessons' | 'intelligence' | 'architecture' | 'all';
@@ -101,8 +102,8 @@ export default function KnowledgePage() {
         .limit(50),
       supabase
         .from('intelligence_briefs')
-        .select('id, title, summary, created_at, brief_type')
-        .order('created_at', { ascending: false })
+        .select('brief_id, executive_snapshot, bottom_line, overall_risk, generated_at, period_end')
+        .order('generated_at', { ascending: false })
         .limit(50),
     ]).then(([d, l, b]) => {
       setDecisions((d.data as DecisionRecord[]) ?? []);
@@ -126,7 +127,7 @@ export default function KnowledgePage() {
   });
 
   const filteredBriefs = briefs.filter((r) => {
-    if (q && !r.title?.toLowerCase().includes(q) && !r.summary?.toLowerCase().includes(q)) return false;
+    if (q && !r.executive_snapshot?.toLowerCase().includes(q) && !r.bottom_line?.toLowerCase().includes(q)) return false;
     return true;
   });
 
@@ -134,7 +135,11 @@ export default function KnowledgePage() {
     ...filteredDecisions.map((r) => ({ _source: 'decision' as const, ...r })),
     ...filteredLessons.map((r) => ({ _source: 'lesson' as const, ...r })),
     ...filteredBriefs.map((r) => ({ _source: 'brief' as const, ...r })),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  ].sort((a, b) => {
+    const aDate = ('created_at' in a ? a.created_at : (a as any).generated_at) ?? '';
+    const bDate = ('created_at' in b ? b.created_at : (b as any).generated_at) ?? '';
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
 
   const uniqueDomains = Array.from(new Set(lessons.map((l) => l.domain).filter(Boolean))) as string[];
 
@@ -322,18 +327,23 @@ export default function KnowledgePage() {
                 <p className="text-sm text-lcars-muted">No intelligence records found.</p>
               ) : (
                 filteredBriefs.map((r) => (
-                  <div key={r.id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
+                  <div key={r.brief_id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground">{r.title}</span>
-                      <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.created_at)}</span>
+                      <span className="text-sm font-medium text-foreground">ORI Brief — {r.brief_id.slice(0, 8)}</span>
+                      <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.generated_at)}</span>
                     </div>
-                    {r.brief_type && (
-                      <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science w-fit">
-                        {r.brief_type}
-                      </span>
-                    )}
-                    {r.summary && (
-                      <p className="text-xs text-lcars-muted">{snippet(r.summary, 150)}</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {r.overall_risk && (
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science w-fit">
+                          Risk: {r.overall_risk}
+                        </span>
+                      )}
+                      {r.period_end && (
+                        <span className="text-[9px] text-lcars-muted">Period to {r.period_end.slice(0, 10)}</span>
+                      )}
+                    </div>
+                    {(r.executive_snapshot || r.bottom_line) && (
+                      <p className="text-xs text-lcars-muted">{snippet(r.executive_snapshot ?? r.bottom_line, 150)}</p>
                     )}
                   </div>
                 ))
@@ -454,23 +464,23 @@ export default function KnowledgePage() {
                   // brief
                   const rec = r as { _source: 'brief' } & BriefRecord;
                   return (
-                    <div key={`b-${rec.id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
+                    <div key={`b-${rec.brief_id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-foreground">{rec.title}</span>
-                        <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
+                        <span className="text-sm font-medium text-foreground">ORI Brief — {rec.brief_id.slice(0, 8)}</span>
+                        <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.generated_at)}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
                         <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-medical text-medical">
                           Intelligence
                         </span>
-                        {rec.brief_type && (
+                        {rec.overall_risk && (
                           <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                            {rec.brief_type}
+                            Risk: {rec.overall_risk}
                           </span>
                         )}
                       </div>
-                      {rec.summary && (
-                        <p className="text-xs text-lcars-muted">{snippet(rec.summary, 150)}</p>
+                      {(rec.executive_snapshot || rec.bottom_line) && (
+                        <p className="text-xs text-lcars-muted">{snippet(rec.executive_snapshot ?? rec.bottom_line, 150)}</p>
                       )}
                     </div>
                   );

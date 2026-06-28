@@ -125,8 +125,9 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Chief of Staff',
     items: [
-      { href: '/captains-chair', label: 'Situation Room',  glyph: '01',  department: 'command',     description: 'What changed, what matters, what needs attention' },
-      { href: '/advisory-council', label: 'Advisory Council', glyph: 'AC',  department: 'command',     description: 'Consult, board, brief, picture, intelligence — unified' },
+      { href: '/captains-chair',   label: 'Situation Room',    glyph: '01', department: 'command',     description: 'What changed, what matters, what needs attention' },
+      { href: '/advisory-council', label: 'Advisory Council',  glyph: 'AC', department: 'command',     description: 'Consult, board, brief, picture, intelligence — unified' },
+      { href: '/capture',          label: 'Capture',           glyph: 'QC', department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
     ],
   },
   {
@@ -147,7 +148,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/missions',       label: 'Missions',        glyph: '02',  department: 'command',     description: 'Mission registry and status board' },
       { href: '/timeline',       label: 'Timeline',        glyph: '⏱',  department: 'science',     description: 'Unified operational timeline' },
-      { href: '/capture',        label: 'Capture',         glyph: 'QC',  department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
       { href: '/captains-log',   label: "Captain's Log",   glyph: '12',  department: 'command',     description: 'End-of-day structured log entry' },
     ],
   },

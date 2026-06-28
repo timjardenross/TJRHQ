@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,8 +12,9 @@
   body {
     @apply bg-space text-lcars-text font-lcars antialiased;
     background-image:
-      radial-gradient(circle at 12% -10%, rgba(255, 184, 28, 0.08), transparent 40%),
-      radial-gradient(circle at 90% 0%, rgba(0, 153, 255, 0.08), transparent 45%);
+      radial-gradient(circle at 15% 0%, rgba(0, 100, 180, 0.12), transparent 45%),
+      radial-gradient(circle at 85% 5%, rgba(0, 60, 120, 0.10), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(255, 152, 0, 0.05), transparent 50%);
     background-attachment: fixed;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
   }
@@ -21,7 +22,7 @@
   h1,
   h2,
   h3 {
-    @apply font-lcars uppercase tracking-[0.18em];
+    @apply font-sans font-semibold uppercase tracking-[0.12em];
   }
 }
 
@@ -47,10 +48,10 @@
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0e1f;
+  background: #070d1b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2f52;
+  background: #1c2e4a;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {

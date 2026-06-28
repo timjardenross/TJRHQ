@@ -36,23 +36,24 @@ const config: Config = {
         science: { DEFAULT: '#CC88FF', soft: '#D9A6FF' }, // Science Purple
         status: { DEFAULT: '#4CAF50', soft: '#81C784' }, // Status Green
 
-        // ── LCARS chrome / backgrounds ─────────────────────────────────
-        space: '#05070e',
-        panel: '#12162e',
-        'panel-2': '#1a1f3d',
-        edge: '#2a2f52',
+        // ── LCARS chrome / backgrounds — Voyager navy palette ─────────
+        space: '#070d1b',      // deep navy-black (Voyager dark)
+        panel: '#0c1627',      // dark navy panel
+        'panel-2': '#112038',  // mid navy panel
+        edge: '#1c2e4a',       // border / separator
         lcars: {
           amber: '#FF9966',
           peach: '#FFCC99',
           lilac: '#9999FF',
           ice: '#99CCFF',
-          text: '#D6E0FF',
-          muted: '#8A93C2'
+          text: '#D8E4F0',     // slightly warmer off-white
+          muted: '#7A93B8'     // cooler blue-grey muted
         }
       },
       fontFamily: {
-        lcars: ['"Antonio"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+        sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        lcars: ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
         lcars: '1.25rem'
