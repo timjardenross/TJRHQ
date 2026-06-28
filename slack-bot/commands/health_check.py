@@ -348,7 +348,7 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
     if sleep_hours is not None:    payload["sleep_hours"]                = sleep_hours
     if cpap_used is not None:      payload["cpap_used"]                  = cpap_used
     if cpap_hours is not None:     payload["cpap_hours"]                 = cpap_hours
-    if pain_score is not None:     payload["pain_score"]                 = pain_score
+    if pain_score is not None:     payload["pain_score"]                 = max(0, min(10, pain_score))
     if sitting_tolerance is not None: payload["sitting_tolerance_minutes"] = sitting_tolerance
     if work_location:              payload["work_location"]              = work_location
     if movement_notes:             payload["movement_notes"]             = movement_notes

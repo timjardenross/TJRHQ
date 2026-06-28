@@ -111,7 +111,7 @@ export default function HealthCheckInPage() {
     if (sleepHours)   payload.sleep_hours               = parseFloat(sleepHours);
     if (cpapUsed)     payload.cpap_used                 = cpapUsed === 'yes';
     if (cpapHours)    payload.cpap_hours                = parseFloat(cpapHours);
-    if (bodySignals)  payload.pain_score                = parseInt(bodySignals, 10);
+    if (bodySignals)  payload.pain_score                = Math.min(10, Math.max(0, parseInt(bodySignals, 10)));
     if (sittingTol)   payload.sitting_tolerance_minutes = parseInt(sittingTol, 10);
     if (notes)        payload.notes                     = notes;
 

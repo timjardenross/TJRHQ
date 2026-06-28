@@ -70,6 +70,32 @@ export async function GET() {
       decisionsOpenCount = recentDecisions.length;
     } catch { /* degrade gracefully */ }
 
+    // Top intelligence signals — high/medium risk, last 7 days, not suppressed
+    let topSignals: unknown[] = [];
+    try {
+      const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const { data: sigs } = await supabase
+        .from('intelligence_events')
+        .select('event_id,raw_title,event_type,customer_impact,banking_relevance,organisation,rank_score,collected_at,canonical_url')
+        .eq('suppressed', false)
+        .gte('collected_at', since)
+        .in('customer_impact', ['high', 'medium'])
+        .order('rank_score', { ascending: false })
+        .limit(5);
+      topSignals = sigs ?? [];
+      // Fall back to any recent events if no high/medium
+      if (topSignals.length === 0) {
+        const { data: fallback } = await supabase
+          .from('intelligence_events')
+          .select('event_id,raw_title,event_type,customer_impact,banking_relevance,organisation,rank_score,collected_at,canonical_url')
+          .eq('suppressed', false)
+          .gte('collected_at', since)
+          .order('rank_score', { ascending: false })
+          .limit(5);
+        topSignals = fallback ?? [];
+      }
+    } catch { /* degrade gracefully */ }
+
     // Recent state transitions (last 10 approvals/rejections)
     let recentTransitions: unknown[] = [];
     try {
@@ -101,6 +127,7 @@ export async function GET() {
         open_count: decisionsOpenCount,
         items:      recentDecisions,
       },
+      top_signals: topSignals,
       recent_transitions: recentTransitions,
       counters: counters
         ? { MSN: counters.MSN, next_MSN: `USS-TJR-MSN-${String(counters.MSN + 1).padStart(4, '0')}` }
@@ -126,6 +153,7 @@ export async function GET() {
         detail,
         missions: { active_count: 0, awaiting_approval_count: 0, blocked_count: 0, approved_count: 0, active: [], awaiting_approval: [], blocked: [], approved: [] },
         decisions: { open_count: 0, items: [] },
+        top_signals: [],
         recent_transitions: [],
         counters: null,
         next_actions: [],

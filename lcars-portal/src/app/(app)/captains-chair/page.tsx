@@ -14,6 +14,18 @@ interface MissionSummary {
   status: string;
 }
 
+interface IntelSignal {
+  event_id: string;
+  raw_title: string;
+  event_type: string | null;
+  customer_impact: string | null;
+  banking_relevance: string | null;
+  organisation: string | null;
+  rank_score: number | null;
+  collected_at: string;
+  canonical_url: string | null;
+}
+
 interface OperatingPicture {
   generated_at: string;
   missions: {
@@ -27,6 +39,7 @@ interface OperatingPicture {
   decisions: {
     open_count: number;
   };
+  top_signals: IntelSignal[];
   next_actions: string[];
 }
 
@@ -341,40 +354,50 @@ export default function CaptainsChairPage() {
           ) : null}
         </LCARSPanel>
 
-        {/* Col C: Intelligence Signals */}
-        <LCARSPanel title="Intelligence" accent="science" eyebrow="Signal Board">
+        {/* Col C: Signal Board */}
+        <LCARSPanel title="Signal Board" accent="science" eyebrow="Intelligence · Last 7 days">
           {opLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-5/6" />
             </div>
           ) : opError ? (
             <p className="text-sm text-lcars-muted italic">Unavailable</p>
           ) : op ? (
-            <div className="space-y-3">
-              {op.decisions.open_count > 0 ? (
-                <div className="rounded-lcars border border-science/30 bg-science/10 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Open decisions</p>
-                  <p className="font-lcars text-2xl font-bold text-science-on">{op.decisions.open_count}</p>
-                </div>
+            <div className="space-y-2">
+              {(op.top_signals ?? []).length === 0 ? (
+                <p className="text-sm text-lcars-muted">No signals this period.</p>
               ) : (
-                <div className="rounded-lcars border border-edge bg-panel-2/40 p-3">
-                  <p className="text-sm text-lcars-muted">No open decisions</p>
-                </div>
-              )}
-              {wellness?.insights?.llm_narrative && (
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Latest insight</p>
-                  <p className="text-xs text-lcars-text leading-relaxed line-clamp-3">
-                    {wellness.insights.llm_narrative}
-                  </p>
-                </div>
+                (op.top_signals ?? []).map((s) => {
+                  const impact = s.customer_impact ?? s.banking_relevance ?? '';
+                  const dot = impact === 'high' ? 'bg-red-400' : impact === 'medium' ? 'bg-yellow-400' : 'bg-edge';
+                  return (
+                    <div key={s.event_id} className="flex items-start gap-2">
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+                      <div className="min-w-0">
+                        {s.canonical_url ? (
+                          <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
+                             className="text-xs text-lcars-text leading-snug hover:text-science line-clamp-2">
+                            {s.raw_title}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-lcars-text leading-snug line-clamp-2">{s.raw_title}</p>
+                        )}
+                        <p className="text-[10px] text-lcars-muted mt-0.5">
+                          {s.event_type?.replace(/_/g, ' ')}
+                          {s.organisation ? ` · ${s.organisation}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
               )}
               <Link
-                href="/intelligence"
-                className="inline-block text-[11px] font-semibold text-science-on hover:underline"
+                href="/intelligence?tab=signals"
+                className="inline-block text-[11px] font-semibold text-science hover:underline pt-1"
               >
-                View intelligence →
+                View all signals →
               </Link>
             </div>
           ) : null}
