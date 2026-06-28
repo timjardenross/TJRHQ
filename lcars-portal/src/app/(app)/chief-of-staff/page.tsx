@@ -95,24 +95,133 @@ function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
   );
 }
 
-// ── Generic JSON card ──────────────────────────────────────────────────────────
+// ── Intelligence panel renderers ───────────────────────────────────────────────
 
-function JsonCard({ data }: { data: unknown }) {
-  if (data === null || data === undefined) return null;
-  if (typeof data !== 'object') {
-    return <p className="text-lcars-text/80 text-sm">{String(data)}</p>;
-  }
-  const obj = data as Record<string, unknown>;
+function TrendPill({ label, dir }: { label: string; dir: string }) {
+  const tone = dir === 'improving' ? 'text-medical border-medical/40 bg-medical/10'
+    : dir === 'worsening' ? 'text-operations border-operations/40 bg-operations/10'
+    : 'text-lcars-muted border-edge bg-panel/40';
+  const arrow = dir === 'improving' ? '↑' : dir === 'worsening' ? '↓' : '–';
   return (
-    <div className="rounded-lcars border border-edge bg-panel/40 px-3 py-2.5 text-sm space-y-1.5">
-      {Object.entries(obj).map(([k, v]) => (
-        <div key={k}>
-          <span className="text-[10px] uppercase tracking-widest text-lcars-muted">{k}: </span>
-          <span className="text-lcars-text/90">
-            {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')}
-          </span>
+    <span className={`inline-flex items-center gap-1 rounded-lcars border px-2 py-0.5 text-xs ${tone}`}>
+      {arrow} {label}
+    </span>
+  );
+}
+
+function AwarenessCard({ data }: { data: Record<string, unknown> }) {
+  const narrative = data.narrative as string | undefined;
+  const trends = (data.trends ?? {}) as Record<string, string>;
+  const improving = (data.improving ?? []) as string[];
+  const worsening = (data.worsening ?? []) as string[];
+  const priorities = (data.recovery_priorities ?? []) as string[];
+  return (
+    <div className="space-y-3">
+      {narrative && (
+        <p className="text-sm text-lcars-text/90 leading-relaxed border-l-2 border-science/50 pl-3">{narrative}</p>
+      )}
+      {Object.keys(trends).length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1.5">Trends</p>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(trends).map(([k, v]) => (
+              <TrendPill key={k} label={k.replace(/_/g, ' ')} dir={String(v)} />
+            ))}
+          </div>
+        </div>
+      )}
+      {(improving.length > 0 || worsening.length > 0) && (
+        <div className="grid grid-cols-2 gap-3">
+          {improving.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-medical mb-1">Improving</p>
+              <ul className="space-y-0.5">{improving.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↑ {s}</li>)}</ul>
+            </div>
+          )}
+          {worsening.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-operations mb-1">Needs attention</p>
+              <ul className="space-y-0.5">{worsening.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↓ {s}</li>)}</ul>
+            </div>
+          )}
+        </div>
+      )}
+      {priorities.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Recovery priorities</p>
+          <ul className="space-y-0.5">{priorities.map((p, i) => <li key={i} className="text-xs text-lcars-text/80">· {p}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SignalsCard({ data }: { data: Record<string, unknown> }) {
+  const headline = data.headline as string | undefined;
+  const note = data.note as string | undefined;
+  const attnRequired = data.attention_required as boolean | undefined;
+  const triggers = (data.triggers ?? []) as unknown[];
+  const opportunities = (data.opportunities ?? []) as unknown[];
+  const health = (data.advisory_health ?? {}) as Record<string, unknown>;
+  return (
+    <div className="space-y-3">
+      {headline && (
+        <p className={`text-sm font-semibold ${attnRequired ? 'text-operations' : 'text-lcars-text/90'}`}>
+          {attnRequired ? '▲ ' : '● '}{headline}
+        </p>
+      )}
+      {triggers.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-operations mb-1">Triggers</p>
+          <ul className="space-y-0.5">{triggers.map((t, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof t === 'string' ? t : JSON.stringify(t)}</li>)}</ul>
+        </div>
+      )}
+      {opportunities.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-science mb-1">Opportunities</p>
+          <ul className="space-y-0.5">{opportunities.map((o, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof o === 'string' ? o : JSON.stringify(o)}</li>)}</ul>
+        </div>
+      )}
+      {typeof health.narrative === 'string' && health.narrative && (
+        <p className="text-xs text-lcars-muted border-l border-edge pl-2">{health.narrative}</p>
+      )}
+      {note && <p className="text-[11px] text-lcars-muted italic">{note}</p>}
+    </div>
+  );
+}
+
+function OperationalCard({ data }: { data: Record<string, unknown> }) {
+  const bottomLine = data.bottom_line as string | undefined;
+  const note = data.note as string | undefined;
+  const sections = (data.sections ?? []) as Array<{ heading: string; items?: string[]; text?: string; suppressed?: number }>;
+  return (
+    <div className="space-y-3">
+      {bottomLine && (
+        <p className="text-sm font-semibold text-command border-l-2 border-command/50 pl-3">{bottomLine}</p>
+      )}
+      {sections.map((s, i) => (
+        <div key={i}>
+          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">{s.heading}</p>
+          {s.text && <p className="text-xs text-lcars-text/80">{s.text}</p>}
+          {s.items && s.items.length > 0 && (
+            <ul className="space-y-0.5">{s.items.map((item, j) => <li key={j} className="text-xs text-lcars-text/80">· {item}</li>)}</ul>
+          )}
         </div>
       ))}
+      {note && <p className="text-[11px] text-lcars-muted italic">{note}</p>}
+    </div>
+  );
+}
+
+function IntelResultCard({ action, data }: { action: string; data: unknown }) {
+  if (!data || typeof data !== 'object') return <p className="text-sm text-lcars-muted">No data available.</p>;
+  const obj = data as Record<string, unknown>;
+  if (action === 'awareness') return <AwarenessCard data={obj} />;
+  if (action === 'proactive') return <SignalsCard data={obj} />;
+  if (action === 'wellness') return <OperationalCard data={obj} />;
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/40 px-3 py-2.5 text-xs text-lcars-muted whitespace-pre-wrap">
+      {JSON.stringify(data, null, 2)}
     </div>
   );
 }
@@ -681,7 +790,7 @@ function IntelPanel({ action }: { action: string }) {
         <p className="text-lcars-muted text-sm py-6">No data available.</p>
       )}
       <div className="space-y-2 mt-2">
-        {items.map((item, i) => <JsonCard key={i} data={item} />)}
+        {items.map((item, i) => <IntelResultCard key={i} action={action} data={item} />)}
       </div>
       {!loading && (
         <button onClick={fetch_}
