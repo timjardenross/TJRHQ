@@ -36,6 +36,16 @@ interface WellnessData {
     sleep_hours: number | null;
     sleep_quality: string | null;
     energy: string | null;
+    mood: string | null;
+    nervous_system_state: string | null;
+    from_pulse?: boolean;
+  } | null;
+  pulse: {
+    energy: string | null;
+    mood: string | null;
+    stress: string | null;
+    pain_score: number | null;
+    captured_at: string;
   } | null;
   insights: {
     llm_narrative: string | null;
@@ -127,12 +137,12 @@ export default function CaptainsChairPage() {
     .filter(m => m.priority === 'P0' || m.priority === 'P1')
     .slice(0, 3);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   const energyVal = energyScore(wellness?.daily?.energy ?? null);
   const sleepHours = wellness?.daily?.sleep_hours ?? null;
-  const hasHealthLog = !!wellness?.daily;
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const isToday = wellness?.daily?.log_date === todayStr;
+  const hasHealthData = !!wellness?.daily || !!wellness?.pulse;
+  const isToday = wellness?.daily?.log_date === todayStr || !!wellness?.pulse;
+  const fromPulseOnly = !wellness?.daily?.sleep_hours && !!wellness?.pulse;
 
   return (
     <div className="flex flex-col gap-4">
@@ -220,24 +230,24 @@ export default function CaptainsChairPage() {
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
             </div>
-          ) : !hasHealthLog || !isToday ? (
+          ) : !hasHealthData || !isToday ? (
             <div className="space-y-2">
-              <p className="text-sm text-lcars-muted italic">No health log for today.</p>
-              <Link
-                href="/captains-log"
-                className="inline-block rounded-lcars border border-medical/40 px-3 py-1.5 text-xs font-semibold text-medical transition-colors hover:bg-medical/10"
-              >
-                Log now →
+              <p className="text-sm text-lcars-muted italic">No health data for today.</p>
+              <Link href="/medical" className="inline-block rounded-lcars border border-medical/40 px-3 py-1.5 text-xs font-semibold text-medical transition-colors hover:bg-medical/10">
+                Log recovery pulse →
               </Link>
             </div>
           ) : (
             <div className="space-y-3">
+              {fromPulseOnly && (
+                <p className="text-[10px] uppercase tracking-wider text-medical/70">
+                  ● From recovery pulse · {wellness?.pulse?.captured_at ? new Date(wellness.pulse.captured_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
+                </p>
+              )}
               {energyVal !== null && (
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Energy score</p>
-                  <p className={`font-lcars text-4xl font-bold ${scoreColour(energyVal)}`}>
-                    {energyVal}
-                  </p>
+                  <p className={`font-lcars text-4xl font-bold ${scoreColour(energyVal)}`}>{energyVal}</p>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-2">
@@ -253,6 +263,18 @@ export default function CaptainsChairPage() {
                     <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Energy</p>
                   </div>
                 )}
+                {wellness?.daily?.mood && (
+                  <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center">
+                    <p className="font-lcars text-sm font-bold text-lcars-text capitalize">{wellness.daily.mood}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Mood</p>
+                  </div>
+                )}
+                {wellness?.daily?.nervous_system_state && (
+                  <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center">
+                    <p className="font-lcars text-xs font-bold text-lcars-text capitalize">{wellness.daily.nervous_system_state}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">NS State</p>
+                  </div>
+                )}
                 {wellness?.daily?.sleep_quality && (
                   <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center col-span-2">
                     <p className="font-lcars text-sm font-bold text-lcars-text capitalize">{wellness.daily.sleep_quality}</p>
@@ -260,6 +282,9 @@ export default function CaptainsChairPage() {
                   </div>
                 )}
               </div>
+              {wellness?.pulse?.pain_score != null && wellness.pulse.pain_score > 0 && (
+                <p className="text-[11px] text-operations">⚠ Pain: {wellness.pulse.pain_score}/10</p>
+              )}
               {wellness?.insights?.risk_flags && wellness.insights.risk_flags.length > 0 && (
                 <div className="space-y-1">
                   {wellness.insights.risk_flags.slice(0, 2).map((flag, i) => (
