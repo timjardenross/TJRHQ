@@ -6,17 +6,11 @@ No stage should hand-roll Mistral response parsing or SDK calls.
 
 Required env vars:
     MISTRAL_API_KEY
-    MISTRAL_DECOMPOSITION_AGENT_ID   — task decomposition
     MISTRAL_RESEARCH_AGENT_ID        — individual task execution
-    MISTRAL_SUMMARY_AGENT_ID         — consolidation + recommendation
-    MISTRAL_CHALLENGE_AGENT_ID       — risk & challenge review
     MISTRAL_BRIEFING_AGENT_ID        — captain's brief
 
 Optional per-agent version overrides (default: 1):
-    MISTRAL_DECOMPOSITION_AGENT_VERSION
     MISTRAL_RESEARCH_AGENT_VERSION
-    MISTRAL_SUMMARY_AGENT_VERSION
-    MISTRAL_CHALLENGE_AGENT_VERSION
     MISTRAL_BRIEFING_AGENT_VERSION
 """
 
@@ -30,18 +24,12 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 # Canonical agent names used throughout the pipeline
-AGENT_DECOMPOSITION = "decomposition"
-AGENT_RESEARCH      = "research"
-AGENT_SUMMARY       = "summary"
-AGENT_CHALLENGE     = "challenge"
-AGENT_BRIEFING      = "briefing"
+AGENT_RESEARCH = "research"
+AGENT_BRIEFING = "briefing"
 
 _ENV_MAP = {
-    AGENT_DECOMPOSITION: ("MISTRAL_DECOMPOSITION_AGENT_ID", "MISTRAL_DECOMPOSITION_AGENT_VERSION", "2"),
-    AGENT_RESEARCH:      ("MISTRAL_RESEARCH_AGENT_ID",      "MISTRAL_RESEARCH_AGENT_VERSION",      "1"),
-    AGENT_SUMMARY:       ("MISTRAL_SUMMARY_AGENT_ID",       "MISTRAL_SUMMARY_AGENT_VERSION",       "0"),
-    AGENT_CHALLENGE:     ("MISTRAL_CHALLENGE_AGENT_ID",     "MISTRAL_CHALLENGE_AGENT_VERSION",     "0"),
-    AGENT_BRIEFING:      ("MISTRAL_BRIEFING_AGENT_ID",      "MISTRAL_BRIEFING_AGENT_VERSION",      "2"),
+    AGENT_RESEARCH: ("MISTRAL_RESEARCH_AGENT_ID", "MISTRAL_RESEARCH_AGENT_VERSION", "1"),
+    AGENT_BRIEFING: ("MISTRAL_BRIEFING_AGENT_ID", "MISTRAL_BRIEFING_AGENT_VERSION", "2"),
 }
 
 

@@ -160,41 +160,27 @@ def _summarise(rows: list[dict]) -> str:
 
 # ── LLM enhancement (optional) ────────────────────────────────────────────────
 
+_MEDICAL_OFFICER_SYSTEM = (
+    "You are the Medical Officer for Captain TJR aboard Starship Endeavour. "
+    "Your role is to interpret recovery data and provide compassionate, "
+    "recovery-first guidance. "
+    "The Captain has a chronic spinal condition and is in Stage 1 Stabilisation. "
+    "Standing principle: The Captain is not broken. Recovery is not repair. "
+    "The nervous system is doing its job. The conditions around it need to change, not the Captain. "
+    "Pain weight = 0 in the recovery formula — pain is a lagging indicator. "
+    "Never use phrases like 'below target', 'streak broken', or 'failed to meet threshold'. "
+    "Provide a brief, warm, medically-informed interpretation of the weekly data. "
+    "Keep it under 200 words. Use plain text, no markdown headers."
+)
+
+
 def _llm_synthesis(raw_summary: str) -> str | None:
-    """Attempt to enrich the summary via OpenAI. Returns None if unavailable."""
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return None
+    """Attempt to enrich the summary via Gemini. Returns None if unavailable."""
     try:
-        import openai  # type: ignore
-        openai.api_key = api_key
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are the Medical Officer for Captain TJR aboard Starship Endeavour. "
-                        "Your role is to interpret recovery data and provide compassionate, "
-                        "recovery-first guidance. "
-                        "The Captain has a chronic spinal condition and is in Stage 1 Stabilisation. "
-                        "Standing principle: The Captain is not broken. Recovery is not repair. "
-                        "The nervous system is doing its job. The conditions around it need to change, not the Captain. "
-                        "Pain weight = 0 in the recovery formula — pain is a lagging indicator. "
-                        "Never use phrases like 'below target', 'streak broken', or 'failed to meet threshold'. "
-                        "Provide a brief, warm, medically-informed interpretation of the weekly data. "
-                        "Keep it under 200 words. Use plain text, no markdown headers."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Weekly health data:\n\n{raw_summary}\n\nProvide a Medical Officer interpretation.",
-                },
-            ],
-            max_tokens=350,
-            temperature=0.4,
-        )
-        return response.choices[0].message.content.strip()
+        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        from llm import generate_with_gemini, LLMUnavailableError  # noqa: PLC0415
+        prompt = f"Weekly health data:\n\n{raw_summary}\n\nProvide a Medical Officer interpretation."
+        return generate_with_gemini(prompt=prompt, system_prompt=_MEDICAL_OFFICER_SYSTEM)
     except Exception as exc:
         log.warning("[health-brief] LLM synthesis unavailable: %s", exc)
         return None
