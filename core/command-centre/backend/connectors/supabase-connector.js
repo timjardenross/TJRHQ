@@ -439,7 +439,7 @@ async function getHealthStatusSummary() {
 }
 
 module.exports = {
-  supabaseGet, supabasePatch,
+  supabaseGet, supabasePatch, supabaseUpsert,
   getDecisionRecords, getEscalations, getRecentEvents,
   getCaptainsLogToday, upsertCaptainsLogEntry, getCaptainsLogRecent, getCaptainsLogSummary,
   getHealthLogToday, getHealthLogLatest, computeHealthStatus, computeCapacityScore, getHealthStatusSummary, getHealthEventsToday,

@@ -518,7 +518,7 @@ function CaptureRow({
                 type="button"
                 disabled={busy || item.ai_enrichment_status === 'queued'}
                 onClick={() => act(async () => {
-                  const resp = await fetch(`/api/capture/${item.id}/route?action=enrich`, { method: 'POST' });
+                  const resp = await fetch(`/api/capture/${item.id}?action=enrich`, { method: 'POST' });
                   const json = await resp.json();
                   return resp.ok ? { ok: true } : { ok: false, error: json?.error };
                 }, 'Enrichment queued')}

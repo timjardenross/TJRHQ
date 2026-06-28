@@ -2,16 +2,18 @@
 // POST /api/content/draft — creates a comms_content row from an intelligence signal.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+
+function serviceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const sb = await createSupabaseServerClient();
-
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const sb = serviceClient();
 
     const body = await req.json();
     const { event_id, title, pillar_key, suggested_angle, source_name, canonical_url } = body;

@@ -434,7 +434,7 @@ export async function promoteCaptureToMission(
   id: string,
 ): Promise<ActionResult & { mission_id?: string }> {
   try {
-    const resp = await fetch(`/api/capture/${id}/promote-mission`, { method: 'POST' });
+    const resp = await fetch(`/api/capture/${id}?action=promote-mission`, { method: 'POST' });
     const json = await resp.json();
     if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
     return { ok: true, mission_id: json?.data?.mission_id };
