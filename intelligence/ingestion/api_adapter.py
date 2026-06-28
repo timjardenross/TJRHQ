@@ -71,11 +71,42 @@ class APIAdapter(BaseSourceAdapter):
         incidents = data if isinstance(data, list) else data.get("incidents", [])
         items = []
         for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
-            title = inc.get("incident_title") or inc.get("name", "Salesforce incident")
-            summary = inc.get("incident_updates", [{}])[0].get("body", "") if inc.get("incident_updates") else ""
-            url = inc.get("shortlink") or inc.get("url")
-            created = self._parse_iso(inc.get("created_at") or inc.get("started_at"))
-            items.append(self._make_item(title, summary or None, url, created))
+            # Stable incident ID used to build canonical URL and anchor the dedup hash date
+            incident_id = (
+                inc.get("id") or inc.get("incident_id") or
+                inc.get("incidentId") or inc.get("slug") or ""
+            )
+
+            raw_title = inc.get("incident_title") or inc.get("name") or inc.get("title")
+            if not raw_title:
+                raw_title = f"Salesforce incident {incident_id}".strip() if incident_id else "Salesforce incident"
+
+            # Summary — try multiple field shapes the Trust API may use
+            summary = None
+            if inc.get("incident_updates"):
+                update = inc["incident_updates"][0]
+                summary = update.get("body") or update.get("message")
+            if not summary:
+                summary = (
+                    inc.get("message") or inc.get("description") or
+                    inc.get("body") or inc.get("summary")
+                )
+
+            # Canonical URL — prefer explicit field, else construct from incident ID
+            url = (
+                inc.get("incidentUrl") or inc.get("shortlink") or
+                inc.get("url") or inc.get("link")
+            )
+            if not url and incident_id:
+                url = f"https://status.salesforce.com/incidents/{incident_id}"
+
+            # Stable published date anchors the dedup hash so re-runs don't create duplicates
+            created = self._parse_iso(
+                inc.get("created_at") or inc.get("startTime") or
+                inc.get("started_at") or inc.get("createdAt")
+            )
+
+            items.append(self._make_item(raw_title, summary, url, created))
         return items
 
     def _parse_servicenow(self, data) -> list[IntelligenceItem]:
