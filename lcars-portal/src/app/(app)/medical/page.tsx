@@ -685,10 +685,9 @@ export default function MedicalPage() {
         ))}
       </div>
 
-      {/* Overview tab — all existing content */}
+      {/* Overview tab — high-focus data points only */}
       {activeTab === 'overview' && (
         <>
-          {/* Live data indicator */}
           <div className="flex justify-end text-[10px] uppercase tracking-wider text-lcars-muted">
             {isLoading ? (
               <span className="animate-pulse">Loading live data…</span>
@@ -697,32 +696,14 @@ export default function MedicalPage() {
             )}
           </div>
 
-          {/* Stage — no countdown, no progress bar */}
-          <StageDisplay stage={stageStatus} />
-
-          {/* D-055 Capacity Restoration Progress — live trend */}
-          <CapacityRestorationPanel rows={readinessTrend} />
+          {/* Today's posture — single top signal */}
+          <PostureSummary posture={posture} />
 
           {/* Life Participation — primary Stage 1 outcome measure */}
           <LifeParticipationHero lp={lifeParticipation} />
 
           {/* Four recovery indexes */}
           <RecoveryIndexes indexes={recoveryIndexes} />
-
-          {/* Posture pattern — Medical Bay only */}
-          <PosturePatternChart history={postureHistory} />
-
-          {/* Two-column: pattern summary + emotional load flag */}
-          <div className="grid gap-4 xl:grid-cols-2">
-            <WeeklyPatternSummaryPanel summary={weeklySummary} />
-            <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
-          </div>
-
-          {/* Wellness Intelligence — live from health_insights + health_daily_logs */}
-          <WellnessInsightPanel />
-
-          {/* Body context */}
-          <BodySignalsContextLive ctx={bodyContext} />
 
           {/* Quick log actions */}
           <div className="grid gap-3 sm:grid-cols-3">
@@ -748,12 +729,6 @@ export default function MedicalPage() {
               <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
             </Link>
           </div>
-
-          {/* Stage Progression card — full record on /stage-progression */}
-          <StageProgressionCard record={stageProgressionRecord} />
-
-          {/* Today's posture summary — links back to Captain's Chair for detail */}
-          <PostureSummary posture={posture} />
         </>
       )}
 
@@ -767,7 +742,9 @@ export default function MedicalPage() {
               Open Pulse Log →
             </Link>
           </div>
-          <p className="text-xs text-lcars-muted text-center">Pulse logs are recorded throughout the day and feed the recovery indexes above.</p>
+          {/* Body context lives here — more current than the daily log */}
+          <BodySignalsContextLive ctx={bodyContext} />
+          <p className="text-xs text-lcars-muted text-center">Pulse logs feed the recovery indexes on Overview.</p>
         </div>
       )}
 
@@ -782,43 +759,53 @@ export default function MedicalPage() {
         </div>
       )}
 
-      {/* Trends tab */}
+      {/* Trends tab — patterns, chart, emotional load */}
       {activeTab === 'trends' && (
-        <LCARSPanel title="30-Day Health Trends" accent="medical" eyebrow="health_daily_logs · last 30 entries">
-          {trendRows.length === 0 ? (
-            <p className="text-sm text-lcars-muted text-center py-8">No trend data available yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-edge">
-                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Date</th>
-                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Energy</th>
-                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Sleep</th>
-                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">NS State</th>
-                    <th className="text-left py-2 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Pain</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trendRows.map((row) => (
-                    <tr key={row.log_date} className="border-b border-edge/40 hover:bg-space/30">
-                      <td className="py-2 pr-4 font-mono text-lcars-muted">{row.log_date}</td>
-                      <td className={`py-2 pr-4 ${energyColour(row.energy_level)}`}>{row.energy_level ?? '—'}</td>
-                      <td className={`py-2 pr-4 ${energyColour(row.sleep_quality)}`}>{row.sleep_quality ?? '—'}</td>
-                      <td className={`py-2 pr-4 ${nsColour(row.nervous_system_state)}`}>{row.nervous_system_state ?? '—'}</td>
-                      <td className="py-2 text-lcars-text/80">{row.pain_level ?? '—'}</td>
+        <div className="flex flex-col gap-4">
+          <PosturePatternChart history={postureHistory} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <WeeklyPatternSummaryPanel summary={weeklySummary} />
+            <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
+          </div>
+          <WellnessInsightPanel />
+          <LCARSPanel title="30-Day Health Log" accent="medical" eyebrow="health_daily_logs · last 30 entries">
+            {trendRows.length === 0 ? (
+              <p className="text-sm text-lcars-muted text-center py-8">No trend data available yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-edge">
+                      <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Date</th>
+                      <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Energy</th>
+                      <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Sleep</th>
+                      <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">NS State</th>
+                      <th className="text-left py-2 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Pain</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </LCARSPanel>
+                  </thead>
+                  <tbody>
+                    {trendRows.map((row) => (
+                      <tr key={row.log_date} className="border-b border-edge/40 hover:bg-space/30">
+                        <td className="py-2 pr-4 font-mono text-lcars-muted">{row.log_date}</td>
+                        <td className={`py-2 pr-4 ${energyColour(row.energy_level)}`}>{row.energy_level ?? '—'}</td>
+                        <td className={`py-2 pr-4 ${energyColour(row.sleep_quality)}`}>{row.sleep_quality ?? '—'}</td>
+                        <td className={`py-2 pr-4 ${nsColour(row.nervous_system_state)}`}>{row.nervous_system_state ?? '—'}</td>
+                        <td className="py-2 text-lcars-text/80">{row.pain_level ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </LCARSPanel>
+        </div>
       )}
 
-      {/* Stage tab */}
+      {/* Stage tab — progression detail + capacity restoration */}
       {activeTab === 'stage' && (
         <div className="flex flex-col gap-4">
+          <StageDisplay stage={stageStatus} />
+          <CapacityRestorationPanel rows={readinessTrend} />
           <StageProgressionCard record={stageProgressionRecord} />
           <div className="rounded-lcars border border-edge bg-space/40 p-4">
             <p className="text-sm text-lcars-muted leading-relaxed mb-3">

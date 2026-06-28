@@ -6,7 +6,7 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type TopTab = 'consult' | 'board' | 'brief' | 'picture' | 'intelligence' | 'perspectives';
+type TopTab = 'consult' | 'board' | 'perspectives';
 type IntelTab = 'awareness' | 'proactive' | 'wellness';
 
 interface OfficerPerspective {
@@ -217,11 +217,13 @@ function IntelResultCard({ action, data }: { action: string; data: unknown }) {
 function TabBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={[
-        'rounded-lcars border px-4 py-1.5 font-lcars text-xs uppercase tracking-[0.15em] transition-colors',
-        active ? 'border-command bg-command/10 text-command' : 'border-edge text-lcars-muted hover:border-edge/60',
-      ].join(' ')}
+      className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
+        active
+          ? 'border-b-2 border-command text-command font-semibold -mb-px'
+          : 'text-lcars-muted hover:text-lcars-text'
+      }`}
     >
       {label}
     </button>
@@ -833,9 +835,6 @@ function PerspectivesMode() {
 const TOP_TABS: { id: TopTab; label: string }[] = [
   { id: 'consult',      label: 'Consult' },
   { id: 'board',        label: 'Board' },
-  { id: 'brief',        label: 'Daily Brief' },
-  { id: 'picture',      label: 'Picture' },
-  { id: 'intelligence', label: 'Intelligence' },
   { id: 'perspectives', label: 'Perspectives' },
 ];
 
@@ -854,15 +853,12 @@ export default function AdvisoryCouncilPage() {
       <ProactiveSignalsBanner />
 
       {/* Mode tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex border-b border-edge overflow-x-auto mb-4">
         {TOP_TABS.map((t) => <TabBtn key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />)}
       </div>
 
       {tab === 'consult'      && <ConsultMode />}
       {tab === 'board'        && <BoardMode />}
-      {tab === 'brief'        && <BriefMode />}
-      {tab === 'picture'      && <PictureMode />}
-      {tab === 'intelligence' && <IntelligenceMode />}
       {tab === 'perspectives' && <PerspectivesMode />}
     </div>
   );

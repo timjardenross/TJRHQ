@@ -402,19 +402,17 @@ export default function IntelligencePage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex border-b border-edge overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            aria-pressed={tab === t.key}
-            className={[
-              'rounded-lcars border px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors',
+            className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               tab === t.key
-                ? 'border-lcars-muted bg-panel/70 text-lcars-text'
-                : 'border-edge bg-panel/40 text-lcars-muted hover:border-lcars-muted',
-            ].join(' ')}
+                ? 'border-b-2 border-science text-science font-semibold -mb-px'
+                : 'text-lcars-muted hover:text-lcars-text'
+            }`}
           >
             {t.label}
           </button>

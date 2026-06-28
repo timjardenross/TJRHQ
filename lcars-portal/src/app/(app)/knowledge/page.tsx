@@ -1,38 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
-import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type DecisionRecord = {
   id: string;
-  title: string;
-  decision_type: string | null;
-  status: string | null;
+  decision_title: string;
+  decision_summary: string | null;
+  source: string | null;
+  route: string | null;
   created_at: string;
-  description: string | null;
 };
 
 type LessonRecord = {
   id: string;
   title: string;
-  lesson_type: string | null;
-  domain: string | null;
+  lesson_text: string | null;
+  context: string | null;
+  source: string | null;
+  mission_id: string | null;
   created_at: string;
-  description: string | null;
 };
 
-type BriefRecord = {
-  brief_id: string;
-  executive_snapshot: string | null;
-  bottom_line: string | null;
-  overall_risk: string | null;
-  generated_at: string;
-  period_end: string | null;
-};
-
-type TabId = 'decisions' | 'lessons' | 'intelligence' | 'architecture' | 'all';
+type TabId = 'decisions' | 'lessons' | 'architecture' | 'all';
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -50,37 +41,24 @@ function snippet(text: string | null, len: number): string {
   return text.length > len ? text.slice(0, len) + '…' : text;
 }
 
-function decisionTypeAccent(type: string | null): string {
-  switch (type?.toLowerCase()) {
-    case 'architectural': return 'border-engineering text-engineering';
-    case 'operational': return 'border-command text-command';
-    case 'strategic': return 'border-science text-science';
-    default: return 'border-medical text-medical';
-  }
-}
-
 const TABS: { id: TabId; label: string }[] = [
   { id: 'decisions', label: 'Decisions' },
   { id: 'lessons', label: 'Lessons' },
-  { id: 'intelligence', label: 'Intelligence' },
   { id: 'architecture', label: 'Architecture' },
   { id: 'all', label: 'All' },
 ];
 
 type AllRecord =
   | ({ _source: 'decision' } & DecisionRecord)
-  | ({ _source: 'lesson' } & LessonRecord)
-  | ({ _source: 'brief' } & BriefRecord);
+  | ({ _source: 'lesson' } & LessonRecord);
 
 export default function KnowledgePage() {
   const [activeTab, setActiveTab] = useState<TabId>('all');
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
-  const [briefs, setBriefs] = useState<BriefRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [domainFilter, setDomainFilter] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery), 200);
@@ -92,23 +70,17 @@ export default function KnowledgePage() {
     Promise.all([
       supabase
         .from('commander_decisions')
-        .select('id, title, decision_type, status, created_at, description')
+        .select('id, decision_title, decision_summary, source, route, created_at')
         .order('created_at', { ascending: false })
         .limit(50),
       supabase
         .from('lessons_learned')
-        .select('id, title, lesson_type, domain, created_at, description')
+        .select('id, title, lesson_text, context, source, created_at, mission_id')
         .order('created_at', { ascending: false })
         .limit(50),
-      supabase
-        .from('intelligence_briefs')
-        .select('brief_id, executive_snapshot, bottom_line, overall_risk, generated_at, period_end')
-        .order('generated_at', { ascending: false })
-        .limit(50),
-    ]).then(([d, l, b]) => {
+    ]).then(([d, l]) => {
       setDecisions((d.data as DecisionRecord[]) ?? []);
       setLessons((l.data as LessonRecord[]) ?? []);
-      setBriefs((b.data as BriefRecord[]) ?? []);
       setLoading(false);
     });
   }, []);
@@ -116,35 +88,21 @@ export default function KnowledgePage() {
   const q = debouncedQuery.toLowerCase();
 
   const filteredDecisions = decisions.filter((r) => {
-    if (q && !r.title?.toLowerCase().includes(q) && !r.description?.toLowerCase().includes(q)) return false;
+    if (q && !r.decision_title?.toLowerCase().includes(q) && !r.decision_summary?.toLowerCase().includes(q)) return false;
     return true;
   });
 
   const filteredLessons = lessons.filter((r) => {
-    if (q && !r.title?.toLowerCase().includes(q) && !r.description?.toLowerCase().includes(q) && !r.domain?.toLowerCase().includes(q)) return false;
-    if (domainFilter && r.domain !== domainFilter) return false;
-    return true;
-  });
-
-  const filteredBriefs = briefs.filter((r) => {
-    if (q && !r.executive_snapshot?.toLowerCase().includes(q) && !r.bottom_line?.toLowerCase().includes(q)) return false;
+    if (q && !r.title?.toLowerCase().includes(q) && !r.lesson_text?.toLowerCase().includes(q) && !r.context?.toLowerCase().includes(q)) return false;
     return true;
   });
 
   const allRecords: AllRecord[] = [
     ...filteredDecisions.map((r) => ({ _source: 'decision' as const, ...r })),
     ...filteredLessons.map((r) => ({ _source: 'lesson' as const, ...r })),
-    ...filteredBriefs.map((r) => ({ _source: 'brief' as const, ...r })),
-  ].sort((a, b) => {
-    const aDate = ('created_at' in a ? a.created_at : (a as any).generated_at) ?? '';
-    const bDate = ('created_at' in b ? b.created_at : (b as any).generated_at) ?? '';
-    return new Date(bDate).getTime() - new Date(aDate).getTime();
-  });
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const uniqueDomains = Array.from(new Set(lessons.map((l) => l.domain).filter(Boolean))) as string[];
-
-  const totalRecords = decisions.length + lessons.length + briefs.length;
-  const totalDomains = uniqueDomains.length;
+  const totalRecords = decisions.length + lessons.length;
 
   return (
     <div className="space-y-4">
@@ -161,49 +119,22 @@ export default function KnowledgePage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-foreground placeholder:text-lcars-muted focus:border-science focus:outline-none"
           />
-          {uniqueDomains.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setDomainFilter('')}
-                className={`text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 rounded border transition-colors ${
-                  domainFilter === ''
-                    ? 'bg-science text-space border-science'
-                    : 'border-edge text-lcars-muted hover:text-science hover:border-science'
-                }`}
-              >
-                All
-              </button>
-              {uniqueDomains.map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDomainFilter(domainFilter === d ? '' : d)}
-                  className={`text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 rounded border transition-colors ${
-                    domainFilter === d
-                      ? 'bg-science text-space border-science'
-                      : 'border-edge text-lcars-muted hover:text-science hover:border-science'
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          )}
           <p className="text-xs text-lcars-muted">
-            {loading ? 'Loading…' : `${totalRecords} records across ${totalDomains} domains`}
+            {loading ? 'Loading…' : `${totalRecords} records`}
           </p>
         </div>
       </LCARSPanel>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 flex-wrap">
+      {/* Tab bar — Health Centre style */}
+      <div className="flex border-b border-edge overflow-x-auto mb-4">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`text-xs px-3 py-1.5 rounded-lcars border transition-colors font-lcars uppercase tracking-[0.1em] ${
+            className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               activeTab === tab.id
-                ? 'bg-science text-space border-science'
-                : 'border-edge text-lcars-muted hover:text-science hover:border-science'
+                ? 'border-b-2 border-science text-science font-semibold -mb-px'
+                : 'text-lcars-muted hover:text-lcars-text'
             }`}
           >
             {tab.label}
@@ -225,23 +156,23 @@ export default function KnowledgePage() {
                 filteredDecisions.map((r) => (
                   <div key={r.id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground">{r.title}</span>
+                      <span className="text-sm font-medium text-foreground">{r.decision_title}</span>
                       <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      {r.decision_type && (
-                        <span className={`text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border ${decisionTypeAccent(r.decision_type)}`}>
-                          {r.decision_type}
+                      {r.route && (
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command">
+                          {r.route}
                         </span>
                       )}
-                      {r.status && (
+                      {r.source && (
                         <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
-                          {r.status}
+                          {r.source}
                         </span>
                       )}
                     </div>
-                    {r.description && (
-                      <p className="text-xs text-lcars-muted">{snippet(r.description, 100)}</p>
+                    {r.decision_summary && (
+                      <p className="text-xs text-lcars-muted">{snippet(r.decision_summary, 120)}</p>
                     )}
                   </div>
                 ))
@@ -254,44 +185,6 @@ export default function KnowledgePage() {
             <div className="space-y-2">
               {filteredLessons.length === 0 ? (
                 <p className="text-sm text-lcars-muted">No lesson records found.</p>
-              ) : domainFilter === '' ? (
-                // Group by domain
-                (() => {
-                  const grouped: Record<string, LessonRecord[]> = {};
-                  filteredLessons.forEach((r) => {
-                    const key = r.domain ?? 'Uncategorised';
-                    if (!grouped[key]) grouped[key] = [];
-                    grouped[key].push(r);
-                  });
-                  return Object.entries(grouped).map(([domain, items]) => (
-                    <div key={domain} className="space-y-1.5">
-                      <p className="text-[9px] uppercase tracking-[0.15em] text-science font-lcars">{domain}</p>
-                      {items.map((r) => (
-                        <div key={r.id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-sm font-medium text-foreground">{r.title}</span>
-                            <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.created_at)}</span>
-                          </div>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {r.lesson_type && (
-                              <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                                {r.lesson_type}
-                              </span>
-                            )}
-                            {r.domain && (
-                              <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
-                                {r.domain}
-                              </span>
-                            )}
-                          </div>
-                          {r.description && (
-                            <p className="text-xs text-lcars-muted">{snippet(r.description, 100)}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ));
-                })()
               ) : (
                 filteredLessons.map((r) => (
                   <div key={r.id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
@@ -300,50 +193,19 @@ export default function KnowledgePage() {
                       <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      {r.lesson_type && (
+                      {r.source && (
                         <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                          {r.lesson_type}
+                          {r.source}
                         </span>
                       )}
-                      {r.domain && (
+                      {r.mission_id && (
                         <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
-                          {r.domain}
+                          {r.mission_id}
                         </span>
                       )}
                     </div>
-                    {r.description && (
-                      <p className="text-xs text-lcars-muted">{snippet(r.description, 100)}</p>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* INTELLIGENCE */}
-          {activeTab === 'intelligence' && (
-            <div className="space-y-2">
-              {filteredBriefs.length === 0 ? (
-                <p className="text-sm text-lcars-muted">No intelligence records found.</p>
-              ) : (
-                filteredBriefs.map((r) => (
-                  <div key={r.brief_id} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground">ORI Brief — {r.brief_id.slice(0, 8)}</span>
-                      <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(r.generated_at)}</span>
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {r.overall_risk && (
-                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science w-fit">
-                          Risk: {r.overall_risk}
-                        </span>
-                      )}
-                      {r.period_end && (
-                        <span className="text-[9px] text-lcars-muted">Period to {r.period_end.slice(0, 10)}</span>
-                      )}
-                    </div>
-                    {(r.executive_snapshot || r.bottom_line) && (
-                      <p className="text-xs text-lcars-muted">{snippet(r.executive_snapshot ?? r.bottom_line, 150)}</p>
+                    {(r.lesson_text ?? r.context) && (
+                      <p className="text-xs text-lcars-muted">{snippet(r.lesson_text ?? r.context, 120)}</p>
                     )}
                   </div>
                 ))
@@ -408,79 +270,55 @@ export default function KnowledgePage() {
                     return (
                       <div key={`d-${rec.id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium text-foreground">{rec.title}</span>
+                          <span className="text-sm font-medium text-foreground">{rec.decision_title}</span>
                           <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
                           <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command">
                             Decision
                           </span>
-                          {rec.decision_type && (
-                            <span className={`text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border ${decisionTypeAccent(rec.decision_type)}`}>
-                              {rec.decision_type}
+                          {rec.route && (
+                            <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
+                              {rec.route}
                             </span>
                           )}
-                          {rec.status && (
+                          {rec.source && (
                             <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
-                              {rec.status}
+                              {rec.source}
                             </span>
                           )}
                         </div>
-                        {rec.description && (
-                          <p className="text-xs text-lcars-muted">{snippet(rec.description, 100)}</p>
+                        {rec.decision_summary && (
+                          <p className="text-xs text-lcars-muted">{snippet(rec.decision_summary, 100)}</p>
                         )}
                       </div>
                     );
                   }
-                  if (r._source === 'lesson') {
-                    const rec = r as { _source: 'lesson' } & LessonRecord;
-                    return (
-                      <div key={`l-${rec.id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium text-foreground">{rec.title}</span>
-                          <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
-                        </div>
-                        <div className="flex gap-1.5 flex-wrap">
-                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                            Lesson
-                          </span>
-                          {rec.lesson_type && (
-                            <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                              {rec.lesson_type}
-                            </span>
-                          )}
-                          {rec.domain && (
-                            <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
-                              {rec.domain}
-                            </span>
-                          )}
-                        </div>
-                        {rec.description && (
-                          <p className="text-xs text-lcars-muted">{snippet(rec.description, 100)}</p>
-                        )}
-                      </div>
-                    );
-                  }
-                  // brief
-                  const rec = r as { _source: 'brief' } & BriefRecord;
+                  // lesson
+                  const rec = r as { _source: 'lesson' } & LessonRecord;
                   return (
-                    <div key={`b-${rec.brief_id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
+                    <div key={`l-${rec.id}`} className="rounded-lcars border border-edge bg-panel/60 p-3 flex flex-col gap-1">
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm font-medium text-foreground">ORI Brief — {rec.brief_id.slice(0, 8)}</span>
-                        <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.generated_at)}</span>
+                        <span className="text-sm font-medium text-foreground">{rec.title}</span>
+                        <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-medical text-medical">
-                          Intelligence
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
+                          Lesson
                         </span>
-                        {rec.overall_risk && (
-                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
-                            Risk: {rec.overall_risk}
+                        {rec.source && (
+                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
+                            {rec.source}
+                          </span>
+                        )}
+                        {rec.mission_id && (
+                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
+                            {rec.mission_id}
                           </span>
                         )}
                       </div>
-                      {(rec.executive_snapshot || rec.bottom_line) && (
-                        <p className="text-xs text-lcars-muted">{snippet(rec.executive_snapshot ?? rec.bottom_line, 150)}</p>
+                      {(rec.lesson_text ?? rec.context) && (
+                        <p className="text-xs text-lcars-muted">{snippet(rec.lesson_text ?? rec.context, 100)}</p>
                       )}
                     </div>
                   );
