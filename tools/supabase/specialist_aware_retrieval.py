@@ -4,8 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 import time
 from typing import Any
+
+# Ensure tools/supabase/ is first so supabase_client resolves here, not core/health/.
+_TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
+if sys.path and sys.path[0] != _TOOLS_SUPABASE:
+    sys.path.insert(0, _TOOLS_SUPABASE)
 
 from retrieve_knowledge import get_permission, get_specialist, keyword_results, log_retrieval, semantic_results
 from specialist_router import RouteDecision, route_question

@@ -5,7 +5,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import sys
+from pathlib import Path
 from typing import Any
+
+# Ensure this file's own directory (tools/supabase/) is at the front of sys.path
+# so that `supabase_client` resolves to tools/supabase/supabase_client.py and not
+# core/health/supabase_client.py (which has the same module name but no SupabaseClient).
+_TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
+if sys.path and sys.path[0] != _TOOLS_SUPABASE:
+    sys.path.insert(0, _TOOLS_SUPABASE)
 
 from collaboration_router import CollaborationRoute
 from specialist_aware_retrieval import confidence_from_results, permission_allowed_types, retrieve_allowed_results, snippet
