@@ -241,6 +241,90 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   res.json(successResponse({ id, ...patch }, 200));
 }));
 
+// ── LLM enrichment helper ─────────────────────────────────────────────────────
+// Calls Ollama (or falls back cleanly). Returns suggestion object — never routes.
+
+async function _callEnrichmentLLM(title, rawText) {
+  const OLLAMA_BASE = (process.env.OLLAMA_BASE_URL || 'https://ollama.com').replace(/\/$/, '');
+  const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'glm-5.2';
+  const OLLAMA_KEY   = process.env.OLLAMA_API_KEY || '';
+
+  const text = (rawText || title || '').slice(0, 2000);
+  const systemPrompt = `You are a capture classification assistant for USS TJR command system.
+Classify the provided capture text and return ONLY a JSON object with these exact keys:
+{
+  "classification": "<reference|mission|personal|research|decision|unclassified>",
+  "importance": "<low|medium|high>",
+  "suggested_route": "<captain_log|missions_inbox|decision_queue|research_inbox|note|none>",
+  "confidence": <0.0-1.0>,
+  "reasoning": "<one sentence>"
+}
+Rules:
+- mission: something to build, fix, or ship
+- decision: outstanding choice requiring deliberate action
+- personal: health, body, energy, recovery, sleep
+- research: idea, hypothesis, thing to explore
+- reference: note, reminder, context, information
+- unclassified: unclear or ambiguous
+Return ONLY the JSON, no other text.`;
+
+  const payload = JSON.stringify({
+    model: OLLAMA_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: text },
+    ],
+    stream: false,
+  });
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (OLLAMA_KEY) headers['Authorization'] = `Bearer ${OLLAMA_KEY}`;
+
+  try {
+    const https = require('https');
+    const http  = require('http');
+    const url   = new URL(`${OLLAMA_BASE}/api/chat`);
+    const transport = url.protocol === 'https:' ? https : http;
+
+    const responseText = await new Promise((resolve, reject) => {
+      const req = transport.request({
+        hostname: url.hostname,
+        port:     url.port || (url.protocol === 'https:' ? 443 : 80),
+        path:     url.pathname,
+        method:   'POST',
+        headers:  { ...headers, 'Content-Length': Buffer.byteLength(payload) },
+      }, (res) => {
+        let data = '';
+        res.on('data', c => { data += c; });
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', reject);
+      req.setTimeout(20000, () => req.destroy(new Error('LLM timeout')));
+      req.write(payload);
+      req.end();
+    });
+
+    const body    = JSON.parse(responseText);
+    const content = (body?.message?.content || '').trim();
+    const json    = JSON.parse(content.replace(/^```json?\s*/i, '').replace(/```\s*$/, ''));
+
+    const VALID_CLASSES = ['reference','mission','personal','research','decision','unclassified'];
+    const VALID_IMP     = ['low','medium','high'];
+    return {
+      ok:             true,
+      classification: VALID_CLASSES.includes(json.classification) ? json.classification : 'unclassified',
+      importance:     VALID_IMP.includes(json.importance) ? json.importance : 'medium',
+      suggested_route: json.suggested_route || 'none',
+      confidence:     typeof json.confidence === 'number' ? Math.min(1, Math.max(0, json.confidence)) : 0.5,
+      reasoning:      (json.reasoning || '').slice(0, 300),
+      model:          OLLAMA_MODEL,
+    };
+  } catch (err) {
+    console.warn('[capture/enrich] LLM call failed:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── POST /api/v1/capture/:id/route ───────────────────────────────────────────
 // Manually route an existing pending capture to a classification target.
 // Body: { classification: string }
@@ -276,10 +360,106 @@ router.patch('/:id/dismiss', asyncHandler(async (req, res) => {
   const rows = await supabaseGet(`captured_items?id=eq.${encodeURIComponent(id)}&select=id&limit=1`);
   if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
   await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
-    processing_status: 'dismissed',
+    processing_status: 'dismissed',  // valid in 0031b; 'archived' is not
     review_status: 'actioned',
   });
   res.json(successResponse({ id, processing_status: 'dismissed' }, 200));
+}));
+
+// ── POST /api/v1/capture/:id/enrich ───────────────────────────────────────────
+// Trigger AI enrichment for a single capture. Calls Ollama to suggest
+// classification, importance, and routing. Never auto-routes — suggestions only.
+// Must be called explicitly; never triggered on page load.
+router.post('/:id/enrich', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const rows = await supabaseGet(
+    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,title,raw_text,classification,ai_enrichment_status,source_channel_id&limit=1`
+  );
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+  const item = rows[0];
+
+  if (item.ai_enrichment_status === 'enriched') {
+    return res.json(successResponse({ id, skipped: true, reason: 'Already enriched' }, 200));
+  }
+
+  // Mark queued immediately
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+    ai_enrichment_status: 'queued',
+  });
+
+  const enrichResult = await _callEnrichmentLLM(item.title, item.raw_text);
+
+  if (!enrichResult.ok) {
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+      ai_enrichment_status: 'failed',
+      summary: JSON.stringify({ ...JSON.parse(item.summary || '{}'), ai_error: enrichResult.error }),
+    });
+    return res.json(successResponse({ id, enriched: false, error: enrichResult.error }, 200));
+  }
+
+  const existingSummary = (() => { try { return JSON.parse(item.summary || '{}'); } catch { return {}; } })();
+  const updatedSummary = {
+    ...existingSummary,
+    ai_enrichment_status:        'enriched',
+    suggested_classification:    enrichResult.classification,
+    suggested_importance:        enrichResult.importance,
+    suggested_route:             enrichResult.suggested_route,
+    ai_confidence:               enrichResult.confidence,
+    ai_reasoning:                enrichResult.reasoning,
+    enrichment_model:            enrichResult.model,
+    enriched_at:                 new Date().toISOString(),
+  };
+
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+    ai_enrichment_status: 'enriched',
+    summary: JSON.stringify(updatedSummary),
+  });
+
+  res.json(successResponse({
+    id,
+    enriched: true,
+    suggestion: {
+      classification: enrichResult.classification,
+      importance:     enrichResult.importance,
+      suggested_route: enrichResult.suggested_route,
+      confidence:     enrichResult.confidence,
+    },
+  }, 200));
+}));
+
+// ── GET /api/v1/capture/analytics ─────────────────────────────────────────────
+// Counts for the analytics panel — today, this week, by source, by classification.
+router.get('/analytics', asyncHandler(async (req, res) => {
+  const today    = new Date().toISOString().slice(0, 10);
+  const weekAgo  = new Date(Date.now() - 7 * 86400000).toISOString();
+
+  const [allRows] = await Promise.all([
+    supabaseGet(
+      `captured_items?captured_by=eq.captain-tjr&captured_at=gte.${encodeURIComponent(weekAgo)}&select=captured_at,classification,source_channel_id,processing_status&limit=500`
+    ),
+  ]);
+
+  const rows = allRows || [];
+  const todayRows = rows.filter(r => (r.captured_at || '').startsWith(today));
+
+  const bySource = {};
+  const byClass  = {};
+  for (const r of rows) {
+    const ch = r.source_channel_id || 'unknown';
+    bySource[ch] = (bySource[ch] || 0) + 1;
+    const cl = r.classification || 'unclassified';
+    byClass[cl] = (byClass[cl] || 0) + 1;
+  }
+
+  const pending = rows.filter(r => r.processing_status === 'pending').length;
+
+  res.json(successResponse({
+    today:      todayRows.length,
+    this_week:  rows.length,
+    pending,
+    by_source:  bySource,
+    by_classification: byClass,
+  }, 200));
 }));
 
 // ── POST /api/v1/capture/:id/promote-mission ──────────────────────────────────

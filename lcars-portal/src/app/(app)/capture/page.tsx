@@ -9,7 +9,7 @@ import {
   captureItem,
   captureTypeMeta,
   fetchInboxCaptures,
-  fetchRecentCaptures,
+  fetchCaptureAnalytics,
   markCaptureReviewed,
   dismissCapture,
   archiveCapture,
@@ -21,6 +21,7 @@ import {
   type InboxCapture,
   type CaptureClassification,
   type CaptureImportance,
+  type CaptureAnalytics,
 } from '@/lib/capture';
 import { DEPARTMENTS } from '@/lib/departments';
 
@@ -356,10 +357,41 @@ function CaptureRow({
             />
           </div>
 
-          {/* AI enrichment placeholder */}
+          {/* AI enrichment — manual trigger only, never on page load */}
           <div className="mt-3 flex items-center gap-2 rounded border border-dashed border-edge px-3 py-2">
-            <span className="text-[10px] uppercase tracking-wide text-lcars-muted">AI enrichment</span>
-            <span className="text-[10px] text-lcars-muted/60">— coming soon. Manual actions only for now.</span>
+            {item.ai_enrichment_status === 'enriched' && item.summary ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] uppercase tracking-wide text-status">✦ AI suggestion</span>
+                {(item.summary.suggested_classification as string | undefined) && (
+                  <span className="text-[10px] text-lcars-muted">
+                    Classification: <span className="text-lcars-text">{item.summary.suggested_classification as string}</span>
+                    {item.summary.ai_confidence !== undefined && (
+                      <span className="ml-1 text-lcars-muted/70">({Math.round(Number(item.summary.ai_confidence) * 100)}% conf)</span>
+                    )}
+                  </span>
+                )}
+                {(item.summary.ai_reasoning as string | undefined) && (
+                  <span className="text-[10px] italic text-lcars-muted/80">{item.summary.ai_reasoning as string}</span>
+                )}
+              </div>
+            ) : (
+              <>
+                <span className="text-[10px] uppercase tracking-wide text-lcars-muted">AI enrichment</span>
+                <button
+                  type="button"
+                  disabled={busy || item.ai_enrichment_status === 'queued'}
+                  onClick={() => act(async () => {
+                    const resp = await fetch(`/api/capture/${item.id}/route?action=enrich`, { method: 'POST' });
+                    const json = await resp.json();
+                    return resp.ok ? { ok: true } : { ok: false, error: json?.error };
+                  }, 'Enrichment queued')}
+                  className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science hover:bg-science/20 disabled:opacity-40"
+                >
+                  {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
+                </button>
+                <span className="text-[10px] text-lcars-muted/50">Suggests classification + route</span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -394,6 +426,88 @@ function ActionBtn({
     >
       {label}
     </button>
+  );
+}
+
+// ── Analytics panel ───────────────────────────────────────────────────────────
+
+const CLASS_LABELS: Record<string, string> = {
+  mission: 'Mission', personal: 'Health', research: 'Idea', decision: 'Decision',
+  reference: 'Note', unclassified: 'Unclassified',
+};
+
+function CaptureAnalyticsPanel() {
+  const [stats, setStats] = useState<CaptureAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCaptureAnalytics().then(s => { setStats(s); setLoading(false); });
+  }, []);
+
+  if (loading) return (
+    <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Capture Analytics</p>
+      <p className="mt-2 text-xs text-lcars-muted/60">Loading…</p>
+    </div>
+  );
+
+  if (!stats) return null;
+
+  const topSources = Object.entries(stats.by_source)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const topClasses = Object.entries(stats.by_classification)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-3">
+      <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Capture Analytics — 7 days</p>
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Today" value={stats.today} tone="engineering" />
+        <Stat label="This week" value={stats.this_week} tone="command" />
+        <Stat label="Pending" value={stats.pending} tone={stats.pending > 0 ? 'operations' : 'status'} />
+      </div>
+      {topSources.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-[9px] uppercase tracking-[0.2em] text-lcars-muted/70">By source</p>
+          <div className="flex flex-wrap gap-2">
+            {topSources.map(([ch, n]) => (
+              <span key={ch} className="flex items-center gap-1 text-[10px] text-lcars-muted">
+                <span className="font-semibold text-lcars-text">{n}</span>
+                {SOURCE_BADGE[ch]?.label ?? ch}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {topClasses.length > 0 && (
+        <div className="mt-2">
+          <p className="mb-1.5 text-[9px] uppercase tracking-[0.2em] text-lcars-muted/70">By classification</p>
+          <div className="flex flex-wrap gap-2">
+            {topClasses.map(([cl, n]) => (
+              <span key={cl} className="flex items-center gap-1 text-[10px] text-lcars-muted">
+                <span className="font-semibold text-lcars-text">{n}</span>
+                {CLASS_LABELS[cl] ?? cl}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+  const textMap: Record<string, string> = {
+    engineering: 'text-engineering', command: 'text-command',
+    operations: 'text-operations', status: 'text-status',
+  };
+  return (
+    <div className="flex flex-col">
+      <span className={`text-xl font-bold ${textMap[tone] ?? 'text-lcars-text'}`}>{value}</span>
+      <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{label}</span>
+    </div>
   );
 }
 
@@ -597,6 +711,9 @@ export default function QuickCapturePage() {
           Need a full check-in? Open Medical Bay →
         </Link>
       )}
+
+      {/* ── Analytics ── */}
+      <CaptureAnalyticsPanel />
 
       {/* ── Source legend ── */}
       <div className="flex flex-wrap gap-2">

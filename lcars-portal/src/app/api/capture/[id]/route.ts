@@ -30,6 +30,8 @@ export async function POST(
   let ccPath: string;
   if (action === 'promote-mission') {
     ccPath = `/capture/${id}/promote-mission`;
+  } else if (action === 'enrich') {
+    ccPath = `/capture/${id}/enrich`;
   } else {
     ccPath = `/capture/${id}/route`;
   }

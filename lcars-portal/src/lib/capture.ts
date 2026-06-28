@@ -31,7 +31,7 @@ export type CaptureClassification =
 
 export type CaptureImportance = 'low' | 'medium' | 'high';
 
-export type ProcessingStatus = 'pending' | 'routed' | 'dismissed' | 'archived';
+export type ProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'routed' | 'dismissed';
 
 export type ReviewStatus = 'unreviewed' | 'reviewed' | 'actioned';
 
@@ -313,11 +313,13 @@ export async function dismissCapture(id: string): Promise<ActionResult> {
 }
 
 export async function archiveCapture(id: string): Promise<ActionResult> {
+  // 'archived' is not in the live 0031b constraint — use 'dismissed' + actioned review_status.
+  // The UI labels this "Archive" to distinguish intentional triage from a hard dismiss.
   try {
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase
       .from('captured_items')
-      .update({ processing_status: 'archived', review_status: 'actioned' })
+      .update({ processing_status: 'dismissed', review_status: 'actioned' })
       .eq('id', id);
     if (error) return { ok: false, error: error.message };
     return { ok: true };
@@ -358,6 +360,49 @@ export async function updateCaptureImportance(
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface CaptureAnalytics {
+  today: number;
+  this_week: number;
+  pending: number;
+  by_source: Record<string, number>;
+  by_classification: Record<string, number>;
+}
+
+export async function fetchCaptureAnalytics(): Promise<CaptureAnalytics | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const weekAgo  = new Date(Date.now() - 7 * 86400000).toISOString();
+    const today    = new Date().toISOString().slice(0, 10);
+
+    const { data, error } = await supabase
+      .from('captured_items')
+      .select('captured_at, classification, source_channel_id, processing_status')
+      .eq('captured_by', 'captain-tjr')
+      .gte('captured_at', weekAgo)
+      .limit(500);
+
+    if (error || !data) return null;
+
+    const todayCount = data.filter(r => (r.captured_at ?? '').startsWith(today)).length;
+    const pending    = data.filter(r => r.processing_status === 'pending').length;
+
+    const bySource: Record<string, number> = {};
+    const byClass:  Record<string, number> = {};
+    for (const r of data) {
+      const ch = r.source_channel_id ?? 'unknown';
+      bySource[ch] = (bySource[ch] ?? 0) + 1;
+      const cl = r.classification ?? 'unclassified';
+      byClass[cl] = (byClass[cl] ?? 0) + 1;
+    }
+
+    return { today: todayCount, this_week: data.length, pending, by_source: bySource, by_classification: byClass };
+  } catch {
+    return null;
   }
 }
 
