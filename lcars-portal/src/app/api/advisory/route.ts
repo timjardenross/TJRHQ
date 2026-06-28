@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import https from 'node:https';
 import path from 'node:path';
 
 /**
@@ -32,26 +33,47 @@ const NULLARY_ACTIONS = new Set([
   'opportunity-review', 'captains-picture', 'products',
 ]);
 
-async function tryHttpBackend(body: object): Promise<unknown> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (COMMAND_CENTRE_API_KEY) headers['X-Api-Key'] = COMMAND_CENTRE_API_KEY;
-    const res = await fetch(`${COMMAND_CENTRE_API_URL}/advisory`, {
+function tryHttpBackend(body: object): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const target = new URL(`${COMMAND_CENTRE_API_URL}/advisory`);
+    const payload = JSON.stringify(body);
+    const isHttps = target.protocol === 'https:';
+    const options: https.RequestOptions = {
+      hostname: target.hostname,
+      port: target.port || (isHttps ? 443 : 80),
+      path: target.pathname + target.search,
       method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        ...(COMMAND_CENTRE_API_KEY ? { 'X-Api-Key': COMMAND_CENTRE_API_KEY } : {}),
+      },
+      // Allow self-signed certs on the VM (bare-IP Caddy TLS)
+      ...(isHttps ? { agent: new https.Agent({ rejectUnauthorized: false }) } : {}),
+      timeout: 10_000,
+    };
+    const transport = isHttps ? https : require('node:http');
+    const req = (transport.request as typeof https.request)(options, (res) => {
+      if (res.statusCode && res.statusCode >= 400) {
+        reject(new Error(`HTTP backend returned ${res.statusCode}`));
+        return;
+      }
+      let raw = '';
+      res.on('data', (chunk: Buffer) => { raw += chunk; });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(raw) as Record<string, unknown>;
+          resolve(data.result ?? data);
+        } catch {
+          reject(new Error('Advisory backend returned non-JSON.'));
+        }
+      });
     });
-    if (!res.ok) {
-      throw new Error(`HTTP backend returned ${res.status}`);
-    }
-    const data = await res.json() as Record<string, unknown>;
-    return data.result ?? data;
-  } finally {
-    clearTimeout(timer);
-  }
+    req.on('timeout', () => { req.destroy(); reject(new Error('Advisory backend timeout.')); });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
 }
 
 function resolveRepoRoot(): string | null {
