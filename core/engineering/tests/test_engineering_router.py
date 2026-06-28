@@ -538,9 +538,9 @@ class TestMistralProvider:
         mock_client.chat.complete.return_value = MagicMock(
             choices=[MagicMock(message=MagicMock(content="response text"))]
         )
-        # Mistral is imported lazily inside call(), so patch at mistralai module level
+        # Mistral is a module-level name in mistral_batch; patch there (mistralai v2 is a namespace package)
         with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("mistralai.Mistral", return_value=mock_client):
+            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client):
                 text, model = mistral_batch.call("hello")
         assert text == "response text"
         assert model == mistral_batch.DEFAULT_MODEL
@@ -552,7 +552,7 @@ class TestMistralProvider:
             choices=[MagicMock(message=MagicMock(content="ok"))]
         )
         with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("mistralai.Mistral", return_value=mock_client):
+            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client):
                 text, model = mistral_batch.call("hello", model="mistral-large-2411")
         assert model == "mistral-large-2411"
         call_kwargs = mock_client.chat.complete.call_args

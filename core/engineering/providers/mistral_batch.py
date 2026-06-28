@@ -22,6 +22,11 @@ log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "mistral-small-2503"
 
+try:
+    from mistralai import Mistral
+except ImportError:
+    Mistral = None  # type: ignore[assignment,misc]
+
 
 def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
     """
@@ -30,6 +35,9 @@ def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
     Returns (response_text, model_used).
     Raises RuntimeError with a descriptive message on failure.
     """
+    if Mistral is None:
+        raise RuntimeError("mistralai SDK not installed. Run: pip install mistralai")
+
     api_key = os.getenv("MISTRAL_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError(
@@ -38,13 +46,6 @@ def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
         )
 
     resolved_model = model or os.getenv("MISTRAL_ENGINEERING_MODEL", DEFAULT_MODEL)
-
-    try:
-        from mistralai import Mistral
-    except ImportError as exc:
-        raise RuntimeError(
-            "mistralai SDK not installed. Run: pip install mistralai"
-        ) from exc
 
     client = Mistral(api_key=api_key)
 
