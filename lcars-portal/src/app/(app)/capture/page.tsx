@@ -249,6 +249,7 @@ function TypeChips({
 
 type InboxFilter =
   | 'all'
+  | 'routed'
   | 'portal'
   | 'telegram-voice'
   | 'mission'
@@ -258,20 +259,30 @@ type InboxFilter =
   | 'unclassified';
 
 const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [
-  { key: 'all',           label: 'All' },
-  { key: 'portal',        label: 'Portal' },
-  { key: 'telegram-voice', label: 'Telegram Voice' },
-  { key: 'mission',       label: 'Mission' },
-  { key: 'health',        label: 'Health' },
-  { key: 'research',      label: 'Idea/Research' },
-  { key: 'decision',      label: 'Decision' },
-  { key: 'unclassified',  label: 'Unclassified' },
+  { key: 'all',            label: 'Pending' },
+  { key: 'routed',         label: 'Routed / Done' },
+  { key: 'telegram-voice', label: 'Voice' },
+  { key: 'mission',        label: 'Mission' },
+  { key: 'health',         label: 'Health' },
+  { key: 'research',       label: 'Idea/Research' },
+  { key: 'decision',       label: 'Decision' },
+  { key: 'unclassified',   label: 'Unclassified' },
 ];
+
+const ROUTE_DEST: Record<string, { label: string; href: string }> = {
+  personal:  { label: 'Captain\'s Log', href: '/captains-log' },
+  reference: { label: 'Knowledge Hub',  href: '/knowledge' },
+  decision:  { label: 'Decisions',      href: '/knowledge?tab=decisions' },
+  mission:   { label: 'Missions',       href: '/missions' },
+  research:  { label: 'Knowledge Hub',  href: '/knowledge' },
+};
 
 function filterToQuery(f: InboxFilter): {
   source?: string;
   classification?: CaptureClassification;
+  statusFilter?: 'pending' | 'routed';
 } {
+  if (f === 'routed')         return { statusFilter: 'routed' };
   if (f === 'portal')         return { source: 'lcars-mobile-quick-capture' };
   if (f === 'telegram-voice') return { source: 'telegram-xo-voice-capture' };
   if (f === 'mission')        return { classification: 'mission' };
@@ -292,8 +303,10 @@ function CaptureRow({
   onRefresh: () => void;
 }) {
   const [expanded,            setExpanded]            = useState(false);
+  const [showFullContent,     setShowFullContent]     = useState(false);
   const [busy,                setBusy]                = useState(false);
   const [flash,               setFlash]               = useState<string | null>(null);
+  const [routedDest,          setRoutedDest]          = useState<{ label: string; href: string } | null>(null);
   const [err,                 setErr]                 = useState<string | null>(null);
   const [newClass,            setNewClass]            = useState<CaptureClassification>(item.classification ?? 'unclassified');
   const [newImp,              setNewImp]              = useState<CaptureImportance>(item.importance ?? 'medium');
@@ -315,7 +328,8 @@ function CaptureRow({
     }
   }, [onRefresh]);
 
-  const preview = (item.raw_text ?? item.title ?? '').slice(0, 160);
+  const fullContent = item.raw_text ?? item.title ?? '';
+  const preview = showFullContent ? fullContent : fullContent.slice(0, 300);
   const isVoice = item.source_channel_id === 'telegram-xo-voice-capture';
 
   return (
@@ -354,12 +368,28 @@ function CaptureRow({
       {/* ── Expanded detail + actions ── */}
       {expanded && (
         <div className="border-t border-edge px-4 pb-4 pt-3">
-          {preview && (
-            <p className="mb-3 whitespace-pre-wrap text-sm text-lcars-muted">{preview}</p>
+          {fullContent && (
+            <div className="mb-3">
+              <p className="whitespace-pre-wrap text-sm text-lcars-muted leading-relaxed">{preview}</p>
+              {fullContent.length > 300 && (
+                <button type="button" onClick={() => setShowFullContent((v) => !v)}
+                  className="mt-1 text-[10px] uppercase tracking-wider text-science hover:text-science/70 transition-colors">
+                  {showFullContent ? '▲ Show less' : `▼ Show full content (${fullContent.length} chars)`}
+                </button>
+              )}
+            </div>
           )}
 
           {flash && (
-            <p className="mb-2 text-xs text-status">✓ {flash}</p>
+            <div className="mb-2">
+              <p className="text-xs text-status">✓ {flash}</p>
+              {routedDest && (
+                <Link href={routedDest.href}
+                  className="mt-1 inline-block text-[10px] uppercase tracking-wider text-science hover:text-science/70 transition-colors">
+                  View in {routedDest.label} →
+                </Link>
+              )}
+            </div>
           )}
           {err && (
             <p className="mb-2 text-xs text-operations">{err}</p>
@@ -412,11 +442,12 @@ function CaptureRow({
             </div>
           </div>
 
-          {/* AI suggestion — shown when enriched and not dismissed */}
+          {/* AI enrichment — suggestion if pending, analysis summary if already actioned */}
           {expanded && item.ai_enrichment_status === 'enriched' && !suggestionDismissed && (
             <AiSuggestion
               summary={parsedSummary}
               onAccept={(cls) => {
+                setRoutedDest(ROUTE_DEST[cls] ?? null);
                 act(async () => {
                   const r1 = await updateCaptureClassification(item.id, cls as CaptureClassification);
                   if (!r1.ok) return r1;
@@ -425,6 +456,12 @@ function CaptureRow({
               }}
               onDismiss={() => setSuggestionDismissed(true)}
             />
+          )}
+          {expanded && item.ai_enrichment_status === 'enriched' && suggestionDismissed && parsedSummary?.ai_reasoning && (
+            <div className="mb-3 rounded border border-edge/50 bg-panel/30 px-3 py-2">
+              <p className="mb-1 text-[10px] uppercase tracking-wide text-lcars-muted">✦ AI Analysis</p>
+              <p className="text-[11px] text-lcars-muted/80 italic">{parsedSummary.ai_reasoning}</p>
+            </div>
           )}
 
           {/* Action buttons */}
@@ -437,19 +474,19 @@ function CaptureRow({
             />
             <ActionBtn
               disabled={busy}
-              onClick={() => act(() => routeCapture(item.id, 'personal'), 'Routed → Captain\'s Log')}
+              onClick={() => { setRoutedDest(ROUTE_DEST.personal); act(() => routeCapture(item.id, 'personal'), 'Routed → Captain\'s Log'); }}
               tone="medical"
               label="Route as Health log"
             />
             <ActionBtn
               disabled={busy}
-              onClick={() => act(() => routeCapture(item.id, 'reference'), 'Routed → Note')}
+              onClick={() => { setRoutedDest(ROUTE_DEST.reference); act(() => routeCapture(item.id, 'reference'), 'Routed → Note'); }}
               tone="command"
               label="Route as Note"
             />
             <ActionBtn
               disabled={busy}
-              onClick={() => act(() => routeCapture(item.id, 'decision'), 'Routed → Decision queue')}
+              onClick={() => { setRoutedDest(ROUTE_DEST.decision); act(() => routeCapture(item.id, 'decision'), 'Routed → Decision queue'); }}
               tone="operations"
               label="Route as Decision"
             />
@@ -623,7 +660,7 @@ function CaptureInbox() {
     setError(null);
     try {
       const opts = filterToQuery(filter);
-      const rows = await fetchInboxCaptures({ ...opts, limit: 50 });
+      const rows = await fetchInboxCaptures({ ...opts, limit: 100 });
       setItems(rows);
     } catch (e) {
       setError('Could not load inbox.');
@@ -673,10 +710,12 @@ function CaptureInbox() {
       )}
       {!loading && !error && items.length === 0 && (
         <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-8 text-center">
-          <p className="text-sm text-lcars-muted">No pending captures</p>
+          <p className="text-sm text-lcars-muted">{activeFilter === 'routed' ? 'No routed captures' : 'No pending captures'}</p>
           <p className="mt-1 text-[11px] text-lcars-muted/60">
             {activeFilter === 'all'
               ? 'All clear. Use the form above or Telegram to add a capture.'
+              : activeFilter === 'routed'
+              ? 'Items appear here after you route or review them.'
               : `No ${activeFilter} captures pending.`}
           </p>
         </div>

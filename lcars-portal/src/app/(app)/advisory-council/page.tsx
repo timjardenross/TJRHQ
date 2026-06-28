@@ -435,8 +435,8 @@ function ConsultMode() {
             <p className="text-lcars-text/60 text-xs max-w-sm">Use the <span className="text-command font-semibold">Board</span> tab for advisory via the intelligence runtime.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 h-full">
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          <div className="flex flex-col gap-3" style={{ height: 'calc(65vh - 130px)' }}>
+            <div className="overflow-y-auto space-y-3 pr-1" style={{ flex: '1 1 0', minHeight: 0 }}>
               {messages.length === 0 && !loading && (
                 <p className="text-lcars-muted text-sm text-center py-8">{activeAdvisor.label} standing by.</p>
               )}

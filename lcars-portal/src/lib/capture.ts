@@ -219,18 +219,22 @@ const INBOX_SELECT = [
   'source_channel_id', 'captured_by', 'captured_at', 'summary',
 ].join(', ');
 
-/** Inbox: all pending captures from ALL recognised sources, latest first. */
+/** Inbox: captures from ALL recognised sources, latest first. */
 export async function fetchInboxCaptures(opts?: {
   source?: string;
   classification?: CaptureClassification;
   limit?: number;
+  statusFilter?: 'pending' | 'routed';
 }): Promise<InboxCapture[]> {
   try {
     const supabase = createSupabaseBrowserClient();
+    const statuses = opts?.statusFilter === 'routed'
+      ? ['routed', 'reviewed', 'actioned', 'completed']
+      : ['pending'];
     let query = supabase
       .from('captured_items')
       .select(INBOX_SELECT)
-      .in('processing_status', ['pending'])
+      .in('processing_status', statuses)
       .in('source_channel_id', [...KNOWN_CHANNELS])
       .order('captured_at', { ascending: false })
       .limit(opts?.limit ?? 50);
