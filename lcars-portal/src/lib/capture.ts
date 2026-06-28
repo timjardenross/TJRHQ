@@ -21,7 +21,7 @@
 
 import { createSupabaseBrowserClient } from './supabase-browser';
 
-export type CaptureType = 'note' | 'mission' | 'health' | 'idea';
+export type CaptureType = 'note' | 'mission_idea' | 'health' | 'idea';
 
 export interface CaptureTypeMeta {
   key: CaptureType;
@@ -45,7 +45,7 @@ export const CAPTURE_TYPES: CaptureTypeMeta[] = [
     hint: 'A thought, reference, or thing to remember.',
   },
   {
-    key: 'mission',
+    key: 'mission_idea',
     label: 'Mission',
     glyph: '★',
     tone: 'engineering',
@@ -82,7 +82,7 @@ function deriveTitle(text: string, type: CaptureType): string {
   const clipped = firstLine.length > 90 ? `${firstLine.slice(0, 87)}…` : firstLine;
   const prefix: Record<CaptureType, string> = {
     note: '',
-    mission: 'Mission: ',
+    mission_idea: 'Mission: ',
     health: 'Health: ',
     idea: 'Idea: ',
   };
@@ -131,7 +131,7 @@ export async function captureItem(
     importance: meta.importance,
     processing_status: 'pending',
     review_status: 'unreviewed',
-    requires_review: type === 'mission',
+    requires_review: type === 'mission_idea',
   };
 
   try {
@@ -163,7 +163,7 @@ export async function fetchRecentCaptures(limit = 6): Promise<RecentCapture[]> {
     const { data, error } = await supabase
       .from('captured_items')
       .select('id, title, classification, captured_at, review_status')
-      .eq('source_channel_id', 'lcars-mobile-quick-capture')
+      .in('source_channel_id', ['lcars-mobile-quick-capture', 'telegram-xo-voice-capture'])
       .order('captured_at', { ascending: false })
       .limit(limit);
     if (error || !data) return [];

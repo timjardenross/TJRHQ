@@ -175,7 +175,7 @@ router.get('/recent', asyncHandler(async (req, res) => {
 router.get('/pending', asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const rows = await supabaseGet(
-    `captured_items?processing_status=in.(pending,pending_decision)&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
+    `captured_items?processing_status=eq.pending&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
   );
   res.json(successResponse(rows || [], 200, { count: (rows || []).length }));
 }));
