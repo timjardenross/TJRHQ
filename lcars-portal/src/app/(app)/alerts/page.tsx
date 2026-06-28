@@ -84,7 +84,7 @@ function NotificationControl() {
         ) : (
           <button
             onClick={enable}
-            className="rounded-lcars bg-operations px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] text-space hover:opacity-80"
+            className="rounded-lcars bg-operations px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] text-white hover:opacity-80"
           >
             Enable
           </button>

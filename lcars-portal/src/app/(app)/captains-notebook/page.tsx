@@ -437,7 +437,7 @@ export default function CaptainsNotebookPage() {
               type="button"
               onClick={handleCapture}
               disabled={capturing || !captureContent.trim()}
-              className="w-full rounded-lcars bg-command px-4 py-3.5 font-lcars text-base font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="w-full rounded-lcars bg-command px-4 py-3.5 font-lcars text-base font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
             >
               {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
             </button>
@@ -481,7 +481,7 @@ export default function CaptainsNotebookPage() {
               type="button"
               onClick={handleCapture}
               disabled={capturing || !captureContent.trim()}
-              className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
             >
               {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
             </button>

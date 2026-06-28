@@ -193,7 +193,7 @@ function AiSuggestion({
         <button
           type="button"
           onClick={() => onAccept(cls)}
-          className="rounded-lcars bg-science px-3 py-1 text-xs font-semibold text-space hover:opacity-80"
+          className="rounded-lcars bg-science px-3 py-1 text-xs font-semibold text-white hover:opacity-80"
         >
           Accept suggestion
         </button>
@@ -820,7 +820,7 @@ export default function QuickCapturePage() {
             type="button"
             onClick={submit}
             disabled={saving || !text.trim()}
-            className="w-full rounded-lcars bg-engineering px-4 py-3 font-lcars text-base font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+            className="w-full rounded-lcars bg-engineering px-4 py-3 font-lcars text-base font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {saving ? 'Capturing…' : `Capture ${meta.label}`}
           </button>

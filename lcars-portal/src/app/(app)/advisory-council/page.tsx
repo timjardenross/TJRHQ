@@ -222,7 +222,7 @@ function TabBtn({ label, glyph, active, onClick }: { label: string; glyph?: stri
       onClick={onClick}
       className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
         active
-          ? 'border-b-2 border-command text-command font-semibold -mb-px'
+          ? 'border-b-2 border-command text-command-on font-semibold -mb-px'
           : 'text-lcars-muted hover:text-lcars-text'
       }`}
     >
@@ -455,7 +455,7 @@ function ConsultMode() {
                     <div className={['rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed', isUser ? 'border-command/40 bg-command/10 text-lcars-text' : m.error ? 'border-operations/40 bg-operations/10 text-operations-on' : 'border-edge bg-panel/60 text-lcars-text/90'].join(' ')} style={{ maxWidth: '90%' }}>
                       {!isUser && !m.error && <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.accent}`}>{activeAdvisor.label}</p>}
                       {isUser ? <span className="whitespace-pre-wrap">{m.content}</span> : (
-                        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
@@ -467,7 +467,7 @@ function ConsultMode() {
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                   <div className="max-w-[90%] rounded-lcars border border-edge bg-panel/60 px-3.5 py-2.5 text-sm leading-relaxed text-lcars-text/90">
                     <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.accent}`}>{activeAdvisor.label}</p>
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1"><ReactMarkdown>{streamBuffer}</ReactMarkdown></div>
+                    <div className="prose prose-sm max-w-none prose-p:my-1"><ReactMarkdown>{streamBuffer}</ReactMarkdown></div>
                     <span className="inline-block w-1.5 h-3.5 bg-science animate-pulse ml-0.5 align-middle" />
                   </div>
                 </div>
@@ -496,7 +496,7 @@ function ConsultMode() {
                 placeholder={`Message ${activeAdvisor.label}…`} disabled={loading}
                 className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
               <button onClick={() => send(input)} disabled={loading || !input.trim()}
-                className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
+                className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
                 Send
               </button>
             </div>
@@ -614,7 +614,7 @@ function BoardMode() {
               placeholder={isScenario ? 'What would happen if…' : 'Bring a question to the Advisory Board…'} disabled={loading}
               className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
             <button onClick={submit} disabled={loading || !input.trim()}
-              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
+              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
               Convene
             </button>
           </div>
@@ -986,7 +986,7 @@ function PerspectivesMode() {
               rows={3} placeholder="What would these perspectives emphasise?" disabled={selected.size === 0 || anyLoading}
               className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
             <button onClick={() => convene()} disabled={selected.size === 0 || !input.trim() || anyLoading}
-              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
+              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
               Ask
             </button>
           </div>
@@ -1033,7 +1033,7 @@ function PerspectivesMode() {
                   {r.error && <p className="text-sm text-operations-on">{r.error}</p>}
                   {!r.loading && !r.error && !r.response && <p className="text-sm text-lcars-muted">No response.</p>}
                   {r.response && !r.loading && (
-                    <div className="prose prose-base prose-invert max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                    <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
                       <ReactMarkdown>{r.response}</ReactMarkdown>
                     </div>
                   )}

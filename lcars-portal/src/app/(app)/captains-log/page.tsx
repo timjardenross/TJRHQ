@@ -229,7 +229,7 @@ export default function CaptainsLogPage() {
       <button
         onClick={handleSubmit}
         disabled={saving}
-        className="w-full rounded-lcars bg-command px-4 py-3 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+        className="w-full rounded-lcars bg-command px-4 py-3 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
       >
         {saving ? 'Saving…' : 'Save Log Entry'}
       </button>

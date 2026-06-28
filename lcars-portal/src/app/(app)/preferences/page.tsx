@@ -99,7 +99,7 @@ export default function PreferencesPage() {
                 onClick={() => save('operatingMode', mode)}
                 className={`px-4 py-2 rounded-lcars font-lcars text-sm transition-colors ${
                   prefs.operatingMode === mode
-                    ? 'bg-science text-space'
+                    ? 'bg-science text-white'
                     : 'border border-edge text-lcars-text hover:border-science hover:text-science-on'
                 }`}
               >
@@ -195,7 +195,7 @@ export default function PreferencesPage() {
               onClick={() => save('defaultAdvisor', value)}
               className={`px-4 py-2 rounded-lcars font-lcars text-sm transition-colors ${
                 prefs.defaultAdvisor === value
-                  ? 'bg-science text-space'
+                  ? 'bg-science text-white'
                   : 'border border-edge text-lcars-text hover:border-science hover:text-science-on'
               }`}
             >

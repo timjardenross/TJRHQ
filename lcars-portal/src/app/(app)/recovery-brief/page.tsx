@@ -191,7 +191,7 @@ export default function RecoveryBriefPage() {
         </div>
         <Link
           href="/captains-log"
-          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
+          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-white hover:opacity-80 transition-opacity"
         >
           Log Today →
         </Link>

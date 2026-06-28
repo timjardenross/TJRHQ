@@ -195,7 +195,7 @@ export default function TimelinePage() {
                 onClick={() => setDays(d)}
                 className={`rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                   days === d
-                    ? 'bg-science text-space'
+                    ? 'bg-science text-white'
                     : 'text-lcars-muted hover:text-science-on'
                 }`}
               >

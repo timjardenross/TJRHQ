@@ -77,7 +77,7 @@ export default function LoginPage() {
               onClick={() => switchMode('password')}
               className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'password'
-                  ? 'bg-command text-space'
+                  ? 'bg-command text-white'
                   : 'text-lcars-muted hover:text-lcars-text'
               }`}
             >
@@ -87,7 +87,7 @@ export default function LoginPage() {
               onClick={() => switchMode('magic')}
               className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'magic'
-                  ? 'bg-command text-space'
+                  ? 'bg-command text-white'
                   : 'text-lcars-muted hover:text-lcars-text'
               }`}
             >
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim() || !password}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
@@ -166,7 +166,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Sending…' : 'Send Access Link'}
