@@ -527,10 +527,11 @@ class TestRouter:
 class TestMistralProvider:
     def test_raises_without_api_key(self):
         from core.engineering.providers import mistral_batch
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("MISTRAL_API_KEY", None)
-            with pytest.raises(RuntimeError, match="MISTRAL_API_KEY"):
-                mistral_batch.call("hello")
+        with patch("core.engineering.providers.mistral_batch.Mistral", MagicMock()):
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("MISTRAL_API_KEY", None)
+                with pytest.raises(RuntimeError, match="MISTRAL_API_KEY"):
+                    mistral_batch.call("hello")
 
     def test_uses_default_model(self):
         from core.engineering.providers import mistral_batch
