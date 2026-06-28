@@ -26,6 +26,25 @@ import type {
 
 // metadata must be in a server component — moved to layout or a wrapper.
 
+// ── Tab definitions ──────────────────────────────────────────────────────────
+
+const TABS = [
+  { key: 'overview',  label: 'Overview',  glyph: '●' },
+  { key: 'pulse',     label: 'Pulse',     glyph: '♥' },
+  { key: 'check-in',  label: 'Check-In',  glyph: '✚' },
+  { key: 'trends',    label: 'Trends',    glyph: '↗' },
+  { key: 'stage',     label: 'Stage',     glyph: '◈' },
+] as const;
+type Tab = typeof TABS[number]['key'];
+
+interface TrendRow {
+  log_date: string;
+  energy_level: string | null;
+  sleep_quality: string | null;
+  nervous_system_state: string | null;
+  pain_level: string | null;
+}
+
 // ── Posture band helpers ─────────────────────────────────────────────────────
 
 const POSTURE_TONE: Record<RecoveryPostureBand, StatusTone> = {
@@ -576,6 +595,26 @@ function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPo
   );
 }
 
+// ── NS state colour helper ────────────────────────────────────────────────────
+
+function nsColour(state: string | null): string {
+  if (!state) return 'text-lcars-muted';
+  const s = state.toLowerCase();
+  if (s === 'calm') return 'text-status';
+  if (s === 'activated') return 'text-command';
+  if (s === 'dysregulated') return 'text-operations';
+  return 'text-lcars-muted';
+}
+
+function energyColour(val: string | null): string {
+  if (!val) return 'text-lcars-muted';
+  const v = val.toLowerCase();
+  if (v === 'good' || v === 'high') return 'text-status';
+  if (v === 'moderate') return 'text-command';
+  if (v === 'poor' || v === 'low') return 'text-operations';
+  return 'text-lcars-muted';
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MedicalPage() {
@@ -591,7 +630,10 @@ export default function MedicalPage() {
     isLoading
   } = useROSData();
 
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [readinessTrend, setReadinessTrend] = useState<ReadinessTrendRow[]>([]);
+  const [trendRows, setTrendRows] = useState<TrendRow[]>([]);
+
   useEffect(() => {
     async function load() {
       try {
@@ -607,75 +649,187 @@ export default function MedicalPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'trends') return;
+    async function loadTrends() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase
+          .from('health_daily_logs')
+          .select('log_date, energy_level, sleep_quality, nervous_system_state, pain_level')
+          .order('log_date', { ascending: false })
+          .limit(30);
+        if (data?.length) setTrendRows(data as TrendRow[]);
+      } catch { /* fall through */ }
+    }
+    loadTrends();
+  }, [activeTab]);
+
   return (
     <div className="flex flex-col gap-4">
 
-      {/* Live data indicator */}
-      <div className="flex justify-end text-[10px] uppercase tracking-wider text-lcars-muted">
-        {isLoading ? (
-          <span className="animate-pulse">Loading live data…</span>
-        ) : (
-          <span>{isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}</span>
-        )}
+      {/* Tab bar */}
+      <div className="flex border-b border-edge mb-4 overflow-x-auto">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
+              activeTab === tab.key
+                ? 'border-b-2 border-medical text-medical font-semibold'
+                : 'text-lcars-muted hover:text-lcars-text'
+            }`}
+          >
+            {tab.glyph} {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Stage — no countdown, no progress bar */}
-      <StageDisplay stage={stageStatus} />
+      {/* Overview tab — all existing content */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Live data indicator */}
+          <div className="flex justify-end text-[10px] uppercase tracking-wider text-lcars-muted">
+            {isLoading ? (
+              <span className="animate-pulse">Loading live data…</span>
+            ) : (
+              <span>{isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}</span>
+            )}
+          </div>
 
-      {/* D-055 Capacity Restoration Progress — live trend */}
-      <CapacityRestorationPanel rows={readinessTrend} />
+          {/* Stage — no countdown, no progress bar */}
+          <StageDisplay stage={stageStatus} />
 
-      {/* Life Participation — primary Stage 1 outcome measure */}
-      <LifeParticipationHero lp={lifeParticipation} />
+          {/* D-055 Capacity Restoration Progress — live trend */}
+          <CapacityRestorationPanel rows={readinessTrend} />
 
-      {/* Four recovery indexes */}
-      <RecoveryIndexes indexes={recoveryIndexes} />
+          {/* Life Participation — primary Stage 1 outcome measure */}
+          <LifeParticipationHero lp={lifeParticipation} />
 
-      {/* Posture pattern — Medical Bay only */}
-      <PosturePatternChart history={postureHistory} />
+          {/* Four recovery indexes */}
+          <RecoveryIndexes indexes={recoveryIndexes} />
 
-      {/* Two-column: pattern summary + emotional load flag */}
-      <div className="grid gap-4 xl:grid-cols-2">
-        <WeeklyPatternSummaryPanel summary={weeklySummary} />
-        <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
-      </div>
+          {/* Posture pattern — Medical Bay only */}
+          <PosturePatternChart history={postureHistory} />
 
-      {/* Wellness Intelligence — live from health_insights + health_daily_logs */}
-      <WellnessInsightPanel />
+          {/* Two-column: pattern summary + emotional load flag */}
+          <div className="grid gap-4 xl:grid-cols-2">
+            <WeeklyPatternSummaryPanel summary={weeklySummary} />
+            <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
+          </div>
 
-      {/* Body context */}
-      <BodySignalsContextLive ctx={bodyContext} />
+          {/* Wellness Intelligence — live from health_insights + health_daily_logs */}
+          <WellnessInsightPanel />
 
-      {/* Quick log actions */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link
-          href="/medical/check-in"
-          className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
-        >
-          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical">Daily Check-In</p>
-          <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy · Mood</p>
-        </Link>
-        <Link
-          href="/medical/log-activity"
-          className="rounded-lcars border border-status/40 bg-status/5 px-4 py-3 text-center hover:bg-status/10 transition-colors"
-        >
-          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status">Log Activity</p>
-          <p className="text-[10px] text-lcars-muted mt-0.5">Walk · Physio · Stretch · more</p>
-        </Link>
-        <Link
-          href="/medical/log-weight"
-          className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
-        >
-          <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command">Log Weight</p>
-          <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
-        </Link>
-      </div>
+          {/* Body context */}
+          <BodySignalsContextLive ctx={bodyContext} />
 
-      {/* Stage Progression card — full record on /stage-progression */}
-      <StageProgressionCard record={stageProgressionRecord} />
+          {/* Quick log actions */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Link
+              href="/medical/check-in"
+              className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
+            >
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical">Daily Check-In</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy · Mood</p>
+            </Link>
+            <Link
+              href="/medical/log-activity"
+              className="rounded-lcars border border-status/40 bg-status/5 px-4 py-3 text-center hover:bg-status/10 transition-colors"
+            >
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status">Log Activity</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">Walk · Physio · Stretch · more</p>
+            </Link>
+            <Link
+              href="/medical/log-weight"
+              className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
+            >
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command">Log Weight</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
+            </Link>
+          </div>
 
-      {/* Today's posture summary — links back to Captain's Chair for detail */}
-      <PostureSummary posture={posture} />
+          {/* Stage Progression card — full record on /stage-progression */}
+          <StageProgressionCard record={stageProgressionRecord} />
+
+          {/* Today's posture summary — links back to Captain's Chair for detail */}
+          <PostureSummary posture={posture} />
+        </>
+      )}
+
+      {/* Pulse tab */}
+      {activeTab === 'pulse' && (
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lcars border border-medical/40 bg-medical/5 p-6 text-center">
+            <p className="font-lcars text-2xl font-bold text-medical mb-2">Daily Pulse Log</p>
+            <p className="text-sm text-lcars-muted mb-4">Record energy, pain, mood and nervous system state up to 4 times daily.</p>
+            <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-medical hover:bg-medical/30 transition-colors">
+              Open Pulse Log →
+            </Link>
+          </div>
+          <p className="text-xs text-lcars-muted text-center">Pulse logs are recorded throughout the day and feed the recovery indexes above.</p>
+        </div>
+      )}
+
+      {/* Check-In tab */}
+      {activeTab === 'check-in' && (
+        <div className="rounded-lcars border border-command/40 bg-command/5 p-6 text-center">
+          <p className="font-lcars text-2xl font-bold text-command mb-2">Daily Check-In</p>
+          <p className="text-sm text-lcars-muted mb-4">Sleep quality, nervous system baseline, energy, mood, pain, and intentions for today.</p>
+          <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-command hover:bg-command/30 transition-colors">
+            Open Daily Check-In →
+          </Link>
+        </div>
+      )}
+
+      {/* Trends tab */}
+      {activeTab === 'trends' && (
+        <LCARSPanel title="30-Day Health Trends" accent="medical" eyebrow="health_daily_logs · last 30 entries">
+          {trendRows.length === 0 ? (
+            <p className="text-sm text-lcars-muted text-center py-8">No trend data available yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-edge">
+                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Date</th>
+                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Energy</th>
+                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Sleep</th>
+                    <th className="text-left py-2 pr-4 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">NS State</th>
+                    <th className="text-left py-2 text-[10px] uppercase tracking-wider text-lcars-muted font-normal">Pain</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trendRows.map((row) => (
+                    <tr key={row.log_date} className="border-b border-edge/40 hover:bg-space/30">
+                      <td className="py-2 pr-4 font-mono text-lcars-muted">{row.log_date}</td>
+                      <td className={`py-2 pr-4 ${energyColour(row.energy_level)}`}>{row.energy_level ?? '—'}</td>
+                      <td className={`py-2 pr-4 ${energyColour(row.sleep_quality)}`}>{row.sleep_quality ?? '—'}</td>
+                      <td className={`py-2 pr-4 ${nsColour(row.nervous_system_state)}`}>{row.nervous_system_state ?? '—'}</td>
+                      <td className="py-2 text-lcars-text/80">{row.pain_level ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </LCARSPanel>
+      )}
+
+      {/* Stage tab */}
+      {activeTab === 'stage' && (
+        <div className="flex flex-col gap-4">
+          <StageProgressionCard record={stageProgressionRecord} />
+          <div className="rounded-lcars border border-edge bg-space/40 p-4">
+            <p className="text-sm text-lcars-muted leading-relaxed mb-3">
+              Stage tracking observes patterns over time. Transitions are recognised, not achieved.
+            </p>
+            <Link href="/human-systems" className="text-xs uppercase tracking-[0.15em] text-medical hover:text-medical/70 transition-colors">
+              Human Systems Framework →
+            </Link>
+          </div>
+        </div>
+      )}
 
     </div>
   );

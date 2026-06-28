@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { MissionCard } from '@/components/MissionCard';
-import { missions, missionSummary } from '@/lib/mockData';
 import { useROSData } from '@/lib/useROSData';
-import type { RecoveryPostureBand } from '@/lib/types';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Mission, RecoveryPostureBand } from '@/lib/types';
 
 // ── Capacity cost per priority ─────────────────────────────────────────────────
 
@@ -52,26 +52,64 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Canonical active-equivalent statuses matching Supabase CHECK constraint
+const ACTIVE_STATUSES = [
+  'Idea', 'Designed', 'Approved for Engineering', 'Implemented', 'Tested',
+  'Awaiting Number One Review', 'Validated', 'Requires Rework', 'Blocked',
+];
+const COMPLETED_STATUSES = ['Approved', 'Closed', 'Archived', 'Validated'];
+
 export default function MissionsPage() {
   const { posture: livePosture } = useROSData();
   const currentPosture = livePosture.posture ?? 'UNKNOWN';
 
   const [filter, setFilter] = useState<'all' | 'today'>('all');
+  const [liveMissions, setLiveMissions] = useState<Mission[]>([]);
+  const [liveSummary, setLiveSummary] = useState<{
+    total: number; active: number; in_progress: number;
+    blocked: number; completed: number; by_priority: Record<string, number>;
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const activeMissions = missions.filter(m =>
-    ['ACTIVE', 'IN_PROGRESS', 'ASSIGNED', 'BLOCKED'].includes(m.status)
-  );
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase
+          .from('missions')
+          .select('id, mission_id, title, status, priority, department, owner, specialist')
+          .order('priority', { ascending: true });
+        if (data) {
+          setLiveMissions(data as Mission[]);
+          const byPriority: Record<string, number> = {};
+          data.forEach(m => { if (m.priority) byPriority[m.priority] = (byPriority[m.priority] ?? 0) + 1; });
+          setLiveSummary({
+            total: data.length,
+            active: data.filter(m => ACTIVE_STATUSES.includes(m.status)).length,
+            in_progress: data.filter(m => m.status === 'Implemented' || m.status === 'Tested').length,
+            blocked: data.filter(m => m.status === 'Blocked').length,
+            completed: data.filter(m => COMPLETED_STATUSES.includes(m.status)).length,
+            by_priority: byPriority,
+          });
+        }
+      } catch (e) { console.error('missions fetch failed', e); }
+      finally { setIsLoading(false); }
+    }
+    load();
+  }, []);
 
+  const summary = liveSummary ?? { total: 0, active: 0, in_progress: 0, blocked: 0, completed: 0, by_priority: {} };
+  const activeMissions = liveMissions.filter(m => ACTIVE_STATUSES.includes(m.status));
   const displayMissions = filter === 'today'
     ? activeMissions.filter(m => isSuitableToday(m.priority, currentPosture))
-    : missions;
+    : liveMissions;
 
   const stats = [
-    { label: 'Total',       value: missionSummary.total,       tone: 'text-command' },
-    { label: 'Active',      value: missionSummary.active,      tone: 'text-medical' },
-    { label: 'In Progress', value: missionSummary.in_progress, tone: 'text-science' },
-    { label: 'Blocked',     value: missionSummary.blocked,     tone: 'text-operations' },
-    { label: 'Completed',   value: missionSummary.completed,   tone: 'text-status' }
+    { label: 'Total',       value: summary.total,       tone: 'text-command' },
+    { label: 'Active',      value: summary.active,      tone: 'text-medical' },
+    { label: 'In Progress', value: summary.in_progress, tone: 'text-science' },
+    { label: 'Blocked',     value: summary.blocked,     tone: 'text-operations' },
+    { label: 'Completed',   value: summary.completed,   tone: 'text-status' }
   ];
 
   const suitableCount = activeMissions.filter(m => isSuitableToday(m.priority, currentPosture)).length;
@@ -80,21 +118,27 @@ export default function MissionsPage() {
     <div className="flex flex-col gap-4">
 
       <LCARSPanel title="Mission Registry" accent="command" eyebrow="Mission Control">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-lcars border border-edge bg-panel-2/60 p-3 text-center">
-              <p className={`font-lcars text-2xl font-bold ${s.tone}`}>{s.value}</p>
-              <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
+        {isLoading ? (
+          <p className="text-sm text-lcars-muted italic">Loading missions…</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {stats.map((s) => (
+                <div key={s.label} className="rounded-lcars border border-edge bg-panel-2/60 p-3 text-center">
+                  <p className={`font-lcars text-2xl font-bold ${s.tone}`}>{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-lcars-muted">
-          {(['P0', 'P1', 'P2', 'P3'] as const).map((p) => (
-            <span key={p} className="rounded-md border border-edge px-2 py-1 font-mono">
-              {p}: {missionSummary.by_priority[p]}
-            </span>
-          ))}
-        </div>
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-lcars-muted">
+              {(['P0', 'P1', 'P2', 'P3'] as const).map((p) => (
+                <span key={p} className="rounded-md border border-edge px-2 py-1 font-mono">
+                  {p}: {summary.by_priority[p] ?? 0}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </LCARSPanel>
 
       {/* D-055 capacity filter */}
@@ -133,7 +177,9 @@ export default function MissionsPage() {
         eyebrow={filter === 'today' ? `${currentPosture} posture · capacity-matched` : 'Sorted by priority'}
         actions={filter === 'today' ? <StatusBadge label="Filtered" tone="medical" /> : undefined}
       >
-        {displayMissions.length === 0 ? (
+        {isLoading ? (
+          <p className="text-sm text-lcars-muted italic">Loading missions…</p>
+        ) : displayMissions.length === 0 ? (
           <p className="text-sm text-lcars-muted italic">No missions match the current filter.</p>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

@@ -18,18 +18,18 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Command overview and daily posture'
   },
   {
+    href: '/chief-of-staff',
+    label: 'Chief of Staff',
+    glyph: 'CoS',
+    department: 'command',
+    description: 'Chat, brief, advisors, intelligence — unified'
+  },
+  {
     href: '/operating-model',
     label: 'Operating Model',
     glyph: 'OM',
     department: 'command',
     description: 'Personal operating model — roles, priorities, capacity (MSN-3B-002)'
-  },
-  {
-    href: '/executive-staff',
-    label: 'Executive Staff',
-    glyph: 'ES',
-    department: 'science',
-    description: 'Unified executive staff console — XO, advisors, AI (MSN-3C-001)'
   },
   {
     href: '/automation-centre',
@@ -171,20 +171,8 @@ export const NAV_ITEMS: NavItem[] = [
     department: 'science',
     description: 'Work intelligence brief — OR pipeline'
   },
-  {
-    href: '/medical/pulse',
-    label: 'Recovery Pulse',
-    glyph: '11',
-    department: 'medical',
-    description: 'Log a recovery pulse — four per day'
-  },
-  {
-    href: '/medical/check-in',
-    label: 'Health Check-In',
-    glyph: '11b',
-    department: 'medical',
-    description: 'Log today\'s daily health check-in'
-  },
+  // /medical/pulse and /medical/check-in are sub-pages of Medical Bay — accessible
+  // via the Medical Bay page, not the primary nav rail.
   {
     href: '/captains-log',
     label: "Captain's Log",
@@ -203,3 +191,52 @@ export const NAV_ITEMS: NavItem[] = [
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
 export type NavHref = (typeof NAV_ITEMS)[number]['href'];
+
+export interface NavSection {
+  label: string;
+  items: NavItem[];
+  collapsed?: boolean; // System section starts collapsed
+}
+
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    label: 'Chief of Staff',
+    items: [
+      { href: '/captains-chair', label: 'Situation Room',  glyph: '01',  department: 'command',     description: 'What changed, what matters, what needs attention' },
+      { href: '/chief-of-staff', label: 'Chief of Staff',  glyph: 'CoS', department: 'command',     description: 'Chat, brief, advisors, intelligence — unified' },
+    ],
+  },
+  {
+    label: 'Health & Capacity',
+    items: [
+      { href: '/medical',        label: 'Health Centre',   glyph: '05',  department: 'medical',     description: 'Recovery indexes, pulse, check-in, trends' },
+      { href: '/recovery-brief', label: 'Recovery Brief',  glyph: '06',  department: 'medical',     description: 'Morning recovery-first brief' },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { href: '/intelligence',   label: 'Intelligence',    glyph: 'IC',  department: 'science',     description: 'Advisory signals, awareness, operational picture' },
+      { href: '/knowledge',      label: 'Knowledge',       glyph: 'KH',  department: 'science',     description: 'Decisions, lessons, architecture, articles' },
+    ],
+  },
+  {
+    label: 'Actions',
+    items: [
+      { href: '/missions',       label: 'Missions',        glyph: '02',  department: 'command',     description: 'Mission registry and status board' },
+      { href: '/timeline',       label: 'Timeline',        glyph: '⏱',  department: 'science',     description: 'Unified operational timeline' },
+      { href: '/capture',        label: 'Capture',         glyph: 'QC',  department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
+      { href: '/captains-log',   label: "Captain's Log",   glyph: '12',  department: 'command',     description: 'End-of-day structured log entry' },
+    ],
+  },
+  {
+    label: 'System',
+    collapsed: true,
+    items: [
+      { href: '/engineering',    label: 'Engineering',     glyph: '03',  department: 'engineering', description: 'Systems, queue, delivery' },
+      { href: '/operations',     label: 'Operations',      glyph: '08',  department: 'operations',  description: 'Service and integration status' },
+      { href: '/search',         label: 'Search',          glyph: '🔍', department: 'science',     description: 'Universal search' },
+      { href: '/preferences',    label: 'Preferences',     glyph: '⚙',  department: 'engineering', description: 'Settings and defaults' },
+    ],
+  },
+];

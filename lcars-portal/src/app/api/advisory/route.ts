@@ -5,6 +5,7 @@ import path from 'node:path';
 
 /**
  * Advisory Runtime endpoint — USS-TJR-MSN-0092 / MSN-0093 (Advisor Hub).
+ * MSN-PORT-006: HTTP backend first, Python CLI fallback.
  *
  * Reuse-first: invokes the shared Python advisory runtime (core/advisory/cli.py)
  * — the same engine used by Slack, Telegram and the XO/Number One adapters — and
@@ -20,7 +21,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const PY = process.env.PYTHON_BIN ?? 'python3';
-const TIMEOUT_MS = 90_000;
+const TIMEOUT_MS = 30_000;
+const COMMAND_CENTRE_API_URL = process.env.COMMAND_CENTRE_API_URL ?? 'http://localhost:5000/api/v1';
 const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 'temporal', 'episodic']);
 const NULLARY_ACTIONS = new Set([
   'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
@@ -28,6 +30,26 @@ const NULLARY_ACTIONS = new Set([
   'awareness', 'resilience-watch', 'wellness-insights', 'strategic-outlook',
   'opportunity-review', 'captains-picture', 'products',
 ]);
+
+async function tryHttpBackend(body: object): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${COMMAND_CENTRE_API_URL}/advisory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP backend returned ${res.status}`);
+    }
+    const data = await res.json() as Record<string, unknown>;
+    return data.result ?? data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function resolveRepoRoot(): string | null {
   const candidates = [
@@ -79,15 +101,8 @@ export async function POST(req: NextRequest) {
   }
 
   const action = (body.action ?? 'advice').toLowerCase();
-  const root = resolveRepoRoot();
-  if (!root) {
-    return NextResponse.json(
-      { error: 'Advisory runtime not found. Set USSTJROS_ROOT to the repository path.' },
-      { status: 503 },
-    );
-  }
 
-  // Build CLI args per action.
+  // Build CLI args per action (also used to validate inputs before any attempt).
   let args: string[];
   if (QUESTION_ACTIONS.has(action)) {
     const question = (body.question ?? '').trim();
@@ -110,6 +125,23 @@ export async function POST(req: NextRequest) {
     if (body.note) args.push('--note', body.note);
   } else {
     return NextResponse.json({ error: `Unknown action '${action}'.` }, { status: 400 });
+  }
+
+  // 1. Try HTTP backend first.
+  try {
+    const result = await tryHttpBackend(body);
+    return NextResponse.json({ action, result });
+  } catch (err) {
+    console.debug('[advisory] HTTP backend unavailable, falling back to CLI:', err instanceof Error ? err.message : err);
+  }
+
+  // 2. Fall back to Python CLI subprocess.
+  const root = resolveRepoRoot();
+  if (!root) {
+    return NextResponse.json(
+      { error: 'Advisory backend unavailable. Start the Command Centre or set COMMAND_CENTRE_API_URL.' },
+      { status: 503 },
+    );
   }
 
   try {

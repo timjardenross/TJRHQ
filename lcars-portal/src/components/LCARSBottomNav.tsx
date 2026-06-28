@@ -14,14 +14,11 @@ interface BottomTab {
 }
 
 const BOTTOM_TABS: BottomTab[] = [
-  { href: '/captains-chair', label: 'Home',          bg: 'bg-lcars-lilac',  glyph: '⌂'  },
-  { href: '/engineering',    label: 'Engineering',   bg: 'bg-engineering',  glyph: '⚙'  },
-  { href: '/medical',        label: 'Medical',       bg: 'bg-medical',      glyph: '✚'  },
-  { href: '/xo-brief',       label: 'Astrometrics',  bg: 'bg-science',      glyph: '✦'  },
-  { href: '/operations',     label: 'Operations',    bg: 'bg-operations',   glyph: '⊕'  },
-  { href: '/missions',       label: 'Missions',      bg: 'bg-command',      glyph: '★'  },
-  { href: '/number-one',     label: 'Systems',       bg: 'bg-status',       glyph: '⊞'  },
-  { href: '/knowledge-base', label: 'Logs',          bg: 'bg-lcars-lilac',  glyph: '≡'  },
+  { href: '/captains-chair', label: 'Situation',  bg: 'bg-command',     glyph: '⌂' },
+  { href: '/chief-of-staff', label: 'CoS',        bg: 'bg-science',     glyph: '✦' },
+  { href: '/medical',        label: 'Health',     bg: 'bg-medical',     glyph: '✚' },
+  { href: '/capture',        label: 'Capture',    bg: 'bg-engineering', glyph: '+' },
+  { href: '/missions',       label: 'Missions',   bg: 'bg-lcars-lilac', glyph: '★' },
 ];
 
 export function LCARSBottomNav() {

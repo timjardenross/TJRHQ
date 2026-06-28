@@ -9,8 +9,12 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { missions as mockMissions } from '@/lib/mockData';
 import type { Mission } from '@/lib/types';
 
+// Canonical Supabase status values (CHECK constraint on missions.status)
 const STATUS_OPTIONS = [
-  'ASSIGNED', 'IN_PROGRESS', 'REVIEW', 'ACTIVE', 'BLOCKED', 'COMPLETE', 'DEFERRED'
+  'Idea', 'Designed', 'Approved for Engineering', 'Implemented', 'Tested',
+  'Awaiting Number One Review', 'Validated', 'Awaiting XO Approval',
+  'Awaiting Captain Approval', 'Approved',
+  'Blocked', 'Requires Rework', 'Closed', 'Archived',
 ];
 
 function fmt(iso?: string | null) {

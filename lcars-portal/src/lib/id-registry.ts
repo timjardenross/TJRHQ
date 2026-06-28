@@ -64,7 +64,8 @@ export function appendToRegistry(
     const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
     const entry = `\n- ${missionId} | ${ts} | ${domain} | ${status} | ${title}\n`;
     fs.appendFileSync(REGISTRY_FILE, entry, 'utf8');
-  } catch {
+  } catch (err) {
     // Non-blocking — Supabase is the source of truth for LCARS missions
+    console.error('[id-registry] appendToRegistry failed:', err);
   }
 }
