@@ -18,7 +18,9 @@ const http  = require('http');
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const VALID_TYPES = ['note', 'mission', 'idea', 'health', 'decision'];
+const VALID_TYPES    = ['note', 'idea', 'health', 'decision', 'task', 'url', 'text_note', 'file', 'image', 'screenshot'];
+const VALID_SOURCES  = ['command_centre', 'portal_quick_capture', 'telegram_voice', 'channel_message', 'channel_file'];
+const DEFAULT_SOURCE = 'command_centre';
 
 function _post(table, body) {
   return new Promise((resolve, reject) => {
@@ -111,10 +113,8 @@ async function _routeCapture(capturedItemId, type, text, ts) {
   }
 
   if (type === 'decision') {
-    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(capturedItemId)}`, {
-      processing_status: 'pending_decision',
-    });
-    return { routed_to: 'pending_decision' };
+    // Decision items stay pending — human triages in LCARS Records tab.
+    return { routed_to: null };
   }
 
   // note: stays as pending — human triages via Records tab
@@ -124,10 +124,11 @@ async function _routeCapture(capturedItemId, type, text, ts) {
 // ── POST /api/v1/capture ─────────────────────────────────────────────────────
 // Body: { text: string, type: string, source?: string }
 router.post('/', asyncHandler(async (req, res) => {
-  const { text, type = 'note', source = 'command-centre' } = req.body || {};
+  const { text, type = 'note', source = DEFAULT_SOURCE } = req.body || {};
   if (!text || !text.trim()) throw new ApiError(400, 'text is required');
-  if (!VALID_TYPES.includes(type)) throw new ApiError(400, `type must be one of: ${VALID_TYPES.join(', ')}`);
+  if (!VALID_TYPES.includes(type))   throw new ApiError(400, `type must be one of: ${VALID_TYPES.join(', ')}`);
 
+  const canonicalSource = VALID_SOURCES.includes(source) ? source : DEFAULT_SOURCE;
   const trimmed = text.trim();
   const ts      = new Date().toISOString();
   const msgId   = `cc-${Date.now()}`;
@@ -136,8 +137,8 @@ router.post('/', asyncHandler(async (req, res) => {
     raw_text:          trimmed,
     title:             trimmed.slice(0, 120),
     item_type:         type,
-    source_type:       source,
-    source_channel_id: source,
+    source_type:       canonicalSource,
+    source_channel_id: canonicalSource,
     source_message_id: msgId,
     source_message_ts: ts,
     processing_status: 'pending',
@@ -164,7 +165,7 @@ router.post('/', asyncHandler(async (req, res) => {
 router.get('/recent', asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const rows = await supabaseGet(
-    `captured_items?source_type=eq.command-centre&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
+    `captured_items?source_type=in.(command_centre,portal_quick_capture)&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
   );
   res.json(successResponse(rows || [], 200, { count: (rows || []).length }));
 }));
