@@ -1211,9 +1211,9 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"Type: `{_escape(label)}`\n"
         f"Confidence: {conf_pct}%\n"
         f"Status: `needs\\_review`\n"
-        f"Duration: {round(duration, 1)}s\n"
+        f"Duration: {_escape(str(round(duration, 1)))}s\n"
         f"ID: `{short_id}…`\n\n"
-        f"*Preview:*\n_{_escape(preview)}_"
+        f"*Preview:*\n_{_escape_strict(preview)}_"
     )
     await thinking.edit_text(reply, parse_mode="MarkdownV2", reply_markup=keyboard)
     log.info("[voice] captured id=%s type=%s conf=%d%%", short_id, voice_type, conf_pct)
