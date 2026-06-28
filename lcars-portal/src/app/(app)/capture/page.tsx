@@ -519,9 +519,11 @@ function CaptureRow({
                 disabled={busy || item.ai_enrichment_status === 'queued'}
                 onClick={() => act(async () => {
                   const resp = await fetch(`/api/capture/${item.id}?action=enrich`, { method: 'POST' });
-                  const json = await resp.json();
-                  return resp.ok ? { ok: true } : { ok: false, error: json?.error };
-                }, 'Enrichment queued')}
+                  const json = await resp.json().catch(() => ({}));
+                  if (!resp.ok) return { ok: false, error: json?.error ?? 'Command Centre unreachable' };
+                  if (json?.data?.enriched === false) return { ok: false, error: json?.data?.error ?? 'Enrichment failed' };
+                  return { ok: true };
+                }, 'AI enrichment complete')}
                 className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science-on hover:bg-science/20 disabled:opacity-40"
               >
                 {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
