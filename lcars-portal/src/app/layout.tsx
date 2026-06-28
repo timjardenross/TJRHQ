@@ -3,11 +3,11 @@ import './globals.css';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
-  title: 'USS TJR — Command Centre',
+  title: 'Wellness Portal — LCARS Redesign',
   description:
-    "Starship Endeavour mobile Command Centre — Captain's Chair, Quick Capture, XO Chat, Engineering Queue, and Push Alerts.",
+    'Light-mode LCARS-inspired wellness portal with a warm, supportive coaching interface.',
   manifest: '/manifest.webmanifest',
-  applicationName: 'USS TJR Command Centre',
+  applicationName: 'Wellness Portal',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#05070e',
+  themeColor: '#fbf7ef',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover'

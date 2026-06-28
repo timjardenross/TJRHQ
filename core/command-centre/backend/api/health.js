@@ -44,24 +44,6 @@ function portCheck(host, port, timeoutMs = 2000) {
   });
 }
 
-// Slack Commander uses Socket Mode (no port) — detect via working directory
-function slackBotCheck(botDir) {
-  return new Promise((resolve) => {
-    // lsof shows cwd for Python processes; match any Python process running from slack-bot dir
-    exec(`lsof +d "${botDir}" 2>/dev/null | grep -q cwd && echo found`, { timeout: 4000 }, (err, stdout) => {
-      resolve(stdout && stdout.trim() === 'found' ? 'operational' : 'failed');
-    });
-  });
-}
-
-// Slack Commander uses Socket Mode (no port) — detect via working directory
-function slackBotCheck(botDir) {
-  return new Promise((resolve) => {
-    exec(`lsof +d "${botDir}" 2>/dev/null | grep -q cwd && echo found`, { timeout: 4000 }, (err, stdout) => {
-      resolve(stdout && stdout.trim() === 'found' ? 'operational' : 'failed');
-    });
-  });
-}
 
 function dockerCheck() {
   return new Promise((resolve) => {
@@ -92,11 +74,10 @@ router.get('/services', asyncHandler(async (req, res) => {
   const numberOneOutputPath = path.resolve(__dirname, '../../../../core/coordination/outputs/daily_brief.json');
 
   // Run all checks in parallel
-  const [supabaseStatus, dockerStatus, ollamaStatus, slackBotStatus, numberOneStatus] = await Promise.all([
+  const [supabaseStatus, dockerStatus, ollamaStatus, numberOneStatus] = await Promise.all([
     SUPABASE_URL ? httpCheck(`${SUPABASE_URL}/rest/v1/`) : Promise.resolve('unknown'),
     dockerCheck(),
     httpCheck('http://localhost:11434/api/tags'),
-    slackBotCheck(path.resolve(__dirname, '../../../../slack-bot')),
     Promise.resolve(fileAgeCheck(numberOneOutputPath, 86400)) // stale if >24h
   ]);
 
@@ -118,12 +99,6 @@ router.get('/services', asyncHandler(async (req, res) => {
       status: ollamaStatus,
       description: 'Local inference engine',
       criticalService: false
-    },
-    {
-      name: 'Slack Commander',
-      status: slackBotStatus,
-      description: 'Slack bot — Socket Mode (process check)',
-      criticalService: true
     },
     {
       name: 'Number One',

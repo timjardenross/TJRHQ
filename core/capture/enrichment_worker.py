@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-Capture Enrichment Worker — MSN-XXXX-D
-=======================================
+Capture Enrichment Worker — MSN-XXXX-D / MSN-0200-P2B
+=======================================================
 Picks up captured_items with ai_enrichment_status = 'not_enriched' and calls
 Ollama to suggest classification, importance, and routing.
 
-CRITICAL: This worker must NEVER auto-route or auto-create missions.
-          It only adds suggestions to the summary JSONB field.
-          The Captain/XO reviews suggestions in the LCARS Capture Inbox.
+HYBRID AUTO-ROUTE INVARIANTS (MSN-0200-P2B):
+  ALLOWED:  classification='personal' + confidence >= 0.85
+            → appends raw_text to today's captains_log_entries.overall_note
+            → marks processing_status='routed', review_status='actioned'
+            → sends Telegram XO confirmation
+  FORBIDDEN (hard invariant — never auto-route regardless of confidence):
+            mission | decision | research | project | build_request | unclassified
+            → these ALWAYS stay in the inbox for Captain review
 
 Usage:
     python enrichment_worker.py               # process up to 10 pending items
@@ -52,9 +57,17 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 OLLAMA_BASE  = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "glm-5.2")
 OLLAMA_KEY   = os.environ.get("OLLAMA_API_KEY", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 VALID_CLASSIFICATIONS = {"reference", "mission", "personal", "research", "decision", "unclassified"}
 VALID_IMPORTANCES     = {"low", "medium", "high"}
+
+# Hard invariant: these classifications NEVER auto-route regardless of confidence
+_NEVER_AUTO_ROUTE = {"mission", "decision", "research", "unclassified"}
+
+# Minimum confidence for personal auto-route
+AUTO_ROUTE_MIN_CONFIDENCE = 0.85
 
 SYSTEM_PROMPT = """You are a capture classification assistant for USS TJR personal command system.
 The Captain uses this system to log quick thoughts, voice notes, missions, health signals, and decisions.
@@ -156,6 +169,105 @@ def _call_llm(text: str) -> dict:
     }
 
 
+# ── Auto-route helpers (MSN-0200-P2B) ────────────────────────────────────────
+
+def _send_telegram_confirmation(text: str) -> None:
+    """Fire-and-forget Telegram message. Logs on failure; never raises."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        log.info("[auto-route] Telegram not configured — skipping confirmation")
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = json.dumps({
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text[:4096],
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }).encode()
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8):
+            pass
+        log.info("[auto-route] Telegram confirmation sent")
+    except Exception as exc:
+        log.warning("[auto-route] Telegram confirmation failed: %s", exc)
+
+
+def _sb_get_one(path: str) -> dict | None:
+    """Like _sb_get but returns first row or None."""
+    rows = _sb_get(path)
+    return rows[0] if rows else None
+
+
+def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) -> bool:
+    """
+    Auto-route a 'personal' capture by appending its text to today's Captain's Log.
+
+    Returns True if routing succeeded.
+    """
+    import datetime as _dt
+    item_id   = item["id"]
+    raw_text  = (item.get("raw_text") or item.get("title") or "").strip()
+    today     = _dt.date.today().isoformat()
+
+    log.info("[%s] Auto-routing personal capture → captains_log_entries", item_id[:8])
+
+    if dry_run:
+        print(f"[auto-route DRY RUN] Would append to captains_log_entries for {today}: {raw_text[:80]}")
+        return True
+
+    # Fetch today's log entry (may not exist yet)
+    log_entry = _sb_get_one(
+        f"captains_log_entries?log_date=eq.{today}&limit=1&select=id,overall_note"
+    )
+
+    if log_entry:
+        log_id = log_entry["id"]
+        existing_note = (log_entry.get("overall_note") or "").strip()
+        separator = "\n\n" if existing_note else ""
+        new_note = f"{existing_note}{separator}[Capture {_now()[:10]}] {raw_text}"
+        try:
+            _sb_patch("captains_log_entries", {"id": log_id}, {"overall_note": new_note})
+            log.info("[%s] Appended to captains_log_entries id=%s", item_id[:8], log_id)
+        except Exception as exc:
+            log.error("[%s] Failed to update captains_log_entries: %s", item_id[:8], exc)
+            return False
+    else:
+        # No log entry for today — skip captains_log append but still mark routed
+        # (Captain hasn't started their day log yet; the capture is preserved in captured_items)
+        log.info("[%s] No captains_log_entries for today — capture preserved in inbox only", item_id[:8])
+
+    # Mark captured_item as routed
+    try:
+        existing_summary = _safe_parse_summary(item.get("summary"))
+        updated_summary = {
+            **existing_summary,
+            "auto_routed":       True,
+            "auto_route_target": "captains_log_entries",
+            "auto_route_at":     _now(),
+        }
+        _sb_patch("captured_items", {"id": item_id}, {
+            "processing_status": "routed",
+            "review_status":     "actioned",
+            "summary":           json.dumps(updated_summary),
+        })
+    except Exception as exc:
+        log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
+        return False
+
+    # Telegram confirmation
+    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    confidence_pct = int(suggestion.get("confidence", 0) * 100)
+    _send_telegram_confirmation(
+        f"✅ <b>Capture auto-routed → Captain's Log</b>\n"
+        f"<i>{preview}</i>\n"
+        f"Confidence: {confidence_pct}% · <code>personal</code>"
+    )
+    return True
+
+
 # ── Core enrichment logic ─────────────────────────────────────────────────────
 
 def enrich_item(item: dict, dry_run: bool = False) -> bool:
@@ -208,6 +320,19 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
         "summary": json.dumps(updated_summary),
     })
     log.info("[%s] ✓ Enriched", item_id[:8])
+
+    # ── Hybrid auto-route (MSN-0200-P2B) ─────────────────────────────────────
+    classification = suggestion["classification"]
+    confidence     = suggestion["confidence"]
+
+    if classification in _NEVER_AUTO_ROUTE:
+        log.info("[%s] classification=%s — inbox only (hard invariant)", item_id[:8], classification)
+    elif classification == "personal" and confidence >= AUTO_ROUTE_MIN_CONFIDENCE:
+        _auto_route_personal(item, suggestion, dry_run=dry_run)
+    else:
+        log.info("[%s] classification=%s confidence=%.2f — below threshold, inbox only",
+                 item_id[:8], classification, confidence)
+
     return True
 
 

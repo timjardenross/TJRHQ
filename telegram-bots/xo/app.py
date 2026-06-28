@@ -540,39 +540,36 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
 
 async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Generate an OR intelligence brief on demand and write it to Supabase."""
-    await update.message.reply_text(
-        "⚙️ Generating OR intelligence brief\\.\\.\\. this may take 30\\-60 seconds\\.",
-        parse_mode="MarkdownV2",
-    )
+    """Captain's Daily Brief — current operational picture from Supabase. Usage: /brief [morning|eod|weekly]"""
+    args = context.args or []
+    brief_type = (args[0].lower() if args else None)
+
+    # Default: time-of-day aware selection
+    if brief_type not in ("morning", "eod", "weekly", "midday"):
+        hour = datetime.now(_TZ).hour
+        if hour < 11:
+            brief_type = "morning"
+        elif hour < 17:
+            brief_type = "morning"  # midday is conditional; return morning picture on demand
+        else:
+            brief_type = "eod"
+
+    await update.message.reply_text("⚙️ Generating brief…")
     try:
-        from intelligence.scheduler import run_once
-        import asyncio
-        brief = await asyncio.get_event_loop().run_in_executor(None, run_once)
-        risk_icon = {"GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}.get(brief.overall_risk, "⚪")
-        lines = [
-            f"*OR Intelligence Brief — {_escape(brief.brief_id[:8])}*\n",
-            f"{risk_icon} Risk: *{_escape(brief.overall_risk)}*",
-        ]
-        if brief.bottom_line:
-            lines.append(f"\n*Bottom Line*\n{_escape(brief.bottom_line)}")
-        if brief.executive_snapshot:
-            lines.append(f"\n*Snapshot*\n{_escape(brief.executive_snapshot)}")
-        lines.append(f"\n_Events: {brief.events_included} included · {brief.events_suppressed} suppressed_")
-        lines.append("_LCARS Astrometrics updated\\._")
-        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
-        log.info("[brief] generated brief_id=%s risk=%s", brief.brief_id, brief.overall_risk)
-    except ImportError:
-        await update.message.reply_text(
-            "⚠️ Intelligence module not available in this environment\\.",
-            parse_mode="MarkdownV2",
+        from intelligence.captains_brief import (
+            generate_morning_brief, generate_eod_summary, generate_weekly_report,
         )
+        if brief_type == "eod":
+            text = await asyncio.get_event_loop().run_in_executor(None, generate_eod_summary)
+        elif brief_type == "weekly":
+            text = await asyncio.get_event_loop().run_in_executor(None, generate_weekly_report)
+        else:
+            text = await asyncio.get_event_loop().run_in_executor(None, generate_morning_brief)
+        await update.message.reply_text(text, parse_mode="HTML")
+        log.info("[brief] %s brief delivered", brief_type)
     except Exception as exc:
         log.error("[brief] generation failed: %s", exc)
-        await update.message.reply_text(
-            f"⚠️ Brief generation failed: `{_escape(str(exc))}`",
-            parse_mode="MarkdownV2",
-        )
+        await update.message.reply_text(f"⚠️ Brief generation failed: {str(exc)[:120]}")
 
 
 # ── Mission read commands (MSN-0167) ─────────────────────────────────────────
@@ -984,66 +981,143 @@ async def cmd_handoff_engineering(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def cmd_operating_picture(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show Captain's Operating Picture. Usage: /operating_picture"""
-    if not LCARS_PORTAL_URL:
-        await update.message.reply_text(
-            "⚠️ `LCARS_PORTAL_URL` not configured — operating picture unavailable\\.",
-            parse_mode="MarkdownV2",
-        )
-        return
+    """Captain's Operating Picture — synthesised executive view. Usage: /operating_picture"""
+    await update.message.reply_text("⚙️ Building operating picture…")
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=_bot_headers()) as client:
-            resp = await client.get(f"{LCARS_PORTAL_URL}/api/operating-picture")
-        if resp.status_code != 200:
-            await update.message.reply_text(
-                f"⚠️ Operating picture unavailable \\(`{resp.status_code}`\\)\\.",
-                parse_mode="MarkdownV2",
-            )
-            return
-        data      = resp.json()
-        missions  = data.get("missions", {})
-        decisions = data.get("decisions", {})
-        actions   = data.get("next_actions", [])
-        recent    = data.get("recent_transitions", [])
-        counters  = data.get("counters") or {}
+        from core.intelligence.operating_picture import get_operating_picture
+        data = await asyncio.get_event_loop().run_in_executor(None, get_operating_picture)
+
+        flags    = data.get("attention_flags", [])
+        health   = data.get("health", {})
+        missions = data.get("missions", {})
+        intel    = data.get("intelligence", {})
+        summary  = data.get("situation_summary", "")
+
+        _risk_icon = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
+        _cap_icon  = lambda s: "🟢" if s and int(s) >= 70 else ("🟡" if s and int(s) >= 40 else "🔴")
 
         lines = [
-            "*Captain's Operating Picture*\n",
-            f"Active: `{missions.get('active_count', 0)}`",
-            f"Awaiting approval: `{missions.get('awaiting_approval_count', 0)}`",
-            f"Blocked: `{missions.get('blocked_count', 0)}`",
-            f"Approved: `{missions.get('approved_count', 0)}`",
-            f"Open decisions: `{decisions.get('open_count', 0)}`",
+            "<b>🎯 CAPTAIN'S OPERATING PICTURE</b>",
+            f"<i>{summary}</i>",
+            "",
         ]
 
-        if counters.get("next_MSN"):
-            lines.append(f"Next ID: `{_escape_strict(counters['next_MSN'])}`")
+        # Health
+        cap = health.get("capacity_score")
+        if cap is not None:
+            try:
+                icon = _cap_icon(cap)
+            except Exception:
+                icon = "⚪"
+            pain  = health.get("pain_score", "?")
+            sleep = health.get("sleep_hours", "?")
+            lines += [
+                "<b>⚡ HEALTH</b>",
+                f"  {icon} Capacity <b>{cap}</b>  · Pain {pain}  · Sleep {sleep}h",
+                "",
+            ]
 
-        if actions:
-            lines.append("\n*Next Actions:*")
-            for i, action in enumerate(actions[:5], 1):
-                lines.append(f"{i}\\. {_escape_strict(str(action))}")
+        # Missions
+        total   = missions.get("total_active", 0)
+        blocked = missions.get("blocked_count", 0)
+        p0p1    = missions.get("high_priority", [])
+        lines += [
+            "<b>🎯 MISSIONS</b>",
+            f"  Active: {total}  · Blocked: {blocked}  · P0/P1: {len(p0p1)}",
+        ]
+        for m in p0p1[:3]:
+            lines.append(f"  🔥 {m.get('title', '—')} [{m.get('status', '?')}]")
+        for m in (missions.get("blocked", []))[:2]:
+            lines.append(f"  🚧 {m.get('title', '—')}")
+        lines.append("")
 
-        if recent:
-            lines.append("\n*Recent Decisions:*")
-            for t in recent[:3]:
-                mid  = _escape_strict(str(t.get("mission_id", ""))[-4:])
-                to_s = _escape_strict(str(t.get("to_state", "")))
-                lines.append(f"• `{mid}` → {to_s}")
+        # Intelligence
+        signals = intel.get("signals_24h", {})
+        hi = signals.get("high", 0)
+        md = signals.get("medium", 0)
+        if hi or md:
+            lines += [
+                "<b>📡 INTELLIGENCE (24h)</b>",
+                f"  🔴 {hi} high  · 🟡 {md} medium signals",
+            ]
+            for s in (signals.get("top_signals") or [])[:3]:
+                lines.append(f"  {_risk_icon.get(s.get('risk_rating'), '⚪')} {s.get('raw_title', '—')[:70]}")
+            lines.append("")
 
-        # Degraded data warning
-        if "error" in data:
-            lines.append(f"\n⚠️ _Partial data: {_escape_strict(str(data['error'])[:60])}_")
+        # Attention flags
+        high_flags = [f for f in flags if f.get("severity") in ("high",)]
+        if high_flags:
+            lines.append("<b>🚨 ATTENTION REQUIRED</b>")
+            for f in high_flags[:3]:
+                lines.append(f"  • {f.get('message', '')}")
 
-        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+        log.info("[operating-picture] delivered: flags=%d", len(flags))
 
     except Exception as exc:
         log.error("[operating-picture] failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Operating picture failed: {str(exc)[:120]}")
+
+
+# ── Advisory CLI (MSN-0200-P3A) ──────────────────────────────────────────────
+
+_ADVISORY_PERSONAS = {"xo", "cmo", "cto", "cdo", "strategic", "staff-briefing"}
+
+async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Invoke advisory CLI. Usage: /advise [persona] <question>
+    Personas: xo (default), cmo, cto, cdo, strategic, staff-briefing"""
+    args = context.args or []
+    if not args:
         await update.message.reply_text(
-            f"⚠️ Operating picture failed: `{_escape_strict(str(exc)[:80])}`",
-            parse_mode="MarkdownV2",
+            "Usage: /advise [persona] &lt;question&gt;\n"
+            "Personas: xo · cmo · cto · cdo · strategic · staff-briefing\n"
+            "Example: /advise cmo What does my pain pattern suggest?",
+            parse_mode="HTML",
         )
+        return
+
+    # Detect optional persona as first arg
+    persona = "xo"
+    if args[0].lower() in _ADVISORY_PERSONAS:
+        persona = args[0].lower()
+        question_parts = args[1:]
+    else:
+        question_parts = args
+
+    question = " ".join(question_parts).strip()
+    if not question:
+        await update.message.reply_text("Please include a question after the persona name.")
+        return
+
+    await update.message.reply_text(f"⚙️ Consulting {persona.upper()} advisor…")
+
+    try:
+        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
+        if not advisory_cli.exists():
+            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
+            return
+
+        def _run_advisory() -> str:
+            result = subprocess.run(
+                [sys.executable, str(advisory_cli), "--persona", persona, "--question", question],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=str(_REPO_ROOT),
+            )
+            return (result.stdout or result.stderr or "No response.").strip()
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _run_advisory)
+        # Trim to Telegram limit, preserve HTML where safe
+        text = f"<b>{persona.upper()} Advisory Response</b>\n\n{response[:3800]}"
+        await update.message.reply_text(text, parse_mode="HTML")
+        log.info("[advise] persona=%s question=%s…", persona, question[:40])
+
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text("⚠️ Advisory response timed out (60s).")
+    except Exception as exc:
+        log.error("[advise] failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
 
 
 # ── Free-text conversation ────────────────────────────────────────────────────
@@ -1299,31 +1373,79 @@ class _BotAdapter:
 
 # ── Scheduled dispatch (XO only) ──────────────────────────────────────────────
 
-async def _scheduled_morning_brief(bot) -> None:
-    """07:00 — Wellness & Recovery Officer Daily Brief (insight-over-metrics)."""
-    log.info("[scheduler] morning wellness brief")
-    try:
-        db   = _get_supabase()
-        snap = get_wellness_snapshot(db)
-        brief = await generate_wellness_brief_async(snap, generate_async)
+# Shared state for midday conditional check
+_morning_brief_sent_at: str | None = None
 
-        today = datetime.now(_TZ).strftime("%a %d %b")
-        msg = (
-            f"🌅 *Daily Wellness Brief — {_escape(today)}*\n\n"
-            f"{_escape(brief)}\n\n"
-            f"Recovery: `{_escape(_bar(snap.recovery_confidence))}` {snap.recovery_confidence}% · "
-            f"{snap.pulses_completed}/4 pulses"
-        )
-        await bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text=msg,
-            parse_mode="MarkdownV2",
-        )
-        log.info("[scheduler] morning brief sent, conf=%s%%", snap.recovery_confidence)
+
+async def _scheduled_morning_brief(bot) -> None:
+    """07:00 AEST — Captain's Morning Brief (MSN-0200-P3B)."""
+    global _morning_brief_sent_at
+    log.info("[scheduler] morning brief")
+    try:
+        from intelligence.captains_brief import generate_morning_brief
+        text = await asyncio.get_event_loop().run_in_executor(None, generate_morning_brief)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
+        _morning_brief_sent_at = datetime.now(_TZ).isoformat()
+        log.info("[scheduler] morning brief sent")
     except Exception as exc:
         log.error("[scheduler] morning brief failed: %s", exc)
-        # fall back to standard dispatch on error
-        await _scheduled_dispatch(bot)
+
+
+async def _scheduled_midday_check(bot) -> None:
+    """12:30 AEST — Conditional midday update: only delivers if new signals found (MSN-0200-P3B)."""
+    log.info("[scheduler] midday signal check")
+    try:
+        from intelligence.captains_brief import check_midday_signals, generate_midday_update
+        from datetime import timezone as _utc
+
+        since = _morning_brief_sent_at
+        if not since:
+            # Morning brief timestamp unknown — use 06:00 UTC as baseline
+            today = datetime.now(_utc.utc).strftime("%Y-%m-%dT06:00:00Z")
+            since = today
+
+        def _check():
+            return check_midday_signals(since)
+
+        signals = await asyncio.get_event_loop().run_in_executor(None, _check)
+        if not signals:
+            log.info("[scheduler] midday check: no new signals — suppressing brief")
+            return
+
+        log.info("[scheduler] midday check: %d new signals — delivering update", len(signals))
+
+        def _gen():
+            return generate_midday_update(signals)
+
+        text = await asyncio.get_event_loop().run_in_executor(None, _gen)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
+        log.info("[scheduler] midday update sent")
+    except Exception as exc:
+        log.error("[scheduler] midday check failed: %s", exc)
+
+
+async def _scheduled_eod_brief(bot) -> None:
+    """18:00 AEST — End-of-Day Summary (MSN-0200-P3B)."""
+    log.info("[scheduler] EOD brief")
+    try:
+        from intelligence.captains_brief import generate_eod_summary
+        text = await asyncio.get_event_loop().run_in_executor(None, generate_eod_summary)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
+        log.info("[scheduler] EOD brief sent")
+    except Exception as exc:
+        log.error("[scheduler] EOD brief failed: %s", exc)
+
+
+async def _scheduled_weekly_brief(bot) -> None:
+    """Monday 07:00 AEST — Weekly Intelligence Report (MSN-0200-P3B)."""
+    log.info("[scheduler] weekly brief")
+    try:
+        from intelligence.captains_brief import generate_weekly_report
+        text = await asyncio.get_event_loop().run_in_executor(None, generate_weekly_report)
+        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
+        log.info("[scheduler] weekly brief sent")
+    except Exception as exc:
+        log.error("[scheduler] weekly brief failed: %s", exc)
 
 
 async def _scheduled_dispatch(bot) -> None:
@@ -1339,23 +1461,24 @@ async def _scheduled_dispatch(bot) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
-    ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
-    ("mission_list",    "List missions  e.g. /mission_list active"),
-    ("mission_status",  "Mission detail  e.g. /mission_status 0167"),
-    ("mission_create",   "Create mission  e.g. /mission_create Build ops dashboard"),
+    ("brief",                "Daily brief  e.g. /brief  or  /brief eod"),
+    ("operating_picture",    "Captain's operating picture — what do I need to know?"),
+    ("advise",               "Advisory query  e.g. /advise cmo Pain pattern this week"),
+    ("recovery_status",      "Today's confidence bar + pulse ledger"),
+    ("recovery_pulse",       "Log a pulse inline (energy → mood → stress)"),
+    ("mission_list",         "List missions  e.g. /mission_list active"),
+    ("mission_status",       "Mission detail  e.g. /mission_status 0167"),
+    ("mission_create",       "Create mission  e.g. /mission_create Build ops dashboard"),
     ("captain_approve",      "Approve mission  e.g. /captain_approve 0175"),
     ("captain_reject",       "Reject mission   e.g. /captain_reject 0175 Scope too broad"),
     ("mission_submit",       "Submit for Captain approval  e.g. /mission_submit 0178"),
     ("handoff_engineering",  "Hand off to Engineering  e.g. /handoff_engineering 0181"),
-    ("operating_picture",    "Captain's operating picture"),
-    ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
-    ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
-    ("brief",           "OR intelligence brief on demand"),
-    ("dispatch",        "Manual XO dispatch check"),
-    ("db_status",       "Supabase connectivity test"),
-    ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
-    ("help",            "Full command reference + proactive schedule"),
+    ("log_activity",         "Log activity  e.g. /log_activity walk 30 light"),
+    ("log_weight",           "Log weight  e.g. /log_weight 82.5"),
+    ("dispatch",             "Manual XO dispatch check"),
+    ("db_status",            "Supabase connectivity test"),
+    ("restart_bots",         "Restart starfleet services  e.g. /restart_bots all"),
+    ("help",                 "Full command reference + proactive schedule"),
 ]
 
 
@@ -1366,12 +1489,18 @@ async def _post_init(app) -> None:
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
 
     bot = app.bot
-    scheduler = AsyncIOScheduler(timezone="Australia/Brisbane")
-    scheduler.add_job(_scheduled_morning_brief, CronTrigger(hour=7,  minute=0),  id="morning", args=[bot])
-    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=12, minute=30), id="midday",  args=[bot])
-    scheduler.add_job(_scheduled_dispatch,      CronTrigger(hour=21, minute=0),  id="evening", args=[bot])
+    tz  = "Australia/Brisbane"
+    scheduler = AsyncIOScheduler(timezone=tz)
+    # Mon 07:00 — weekly brief (registered first so it takes priority over daily morning on Mondays)
+    scheduler.add_job(_scheduled_weekly_brief,  CronTrigger(day_of_week="mon", hour=7,  minute=0,  timezone=tz), id="weekly",  args=[bot])
+    # Tue-Sun 07:00 — morning brief
+    scheduler.add_job(_scheduled_morning_brief, CronTrigger(day_of_week="tue-sun", hour=7, minute=0, timezone=tz), id="morning", args=[bot])
+    # 12:30 — conditional midday check
+    scheduler.add_job(_scheduled_midday_check,  CronTrigger(hour=12, minute=30, timezone=tz), id="midday",  args=[bot])
+    # 18:00 — EOD summary
+    scheduler.add_job(_scheduled_eod_brief,     CronTrigger(hour=18, minute=0,  timezone=tz), id="eod",     args=[bot])
     scheduler.start()
-    log.info("[startup] Scheduler started")
+    log.info("[startup] Scheduler started — morning 07:00 (Tue-Sun), weekly Mon 07:00, midday 12:30, EOD 18:00")
 
 
 def main() -> None:
@@ -1392,6 +1521,7 @@ def main() -> None:
     app.add_handler(CommandHandler("mission_submit",      cmd_mission_submit))
     app.add_handler(CommandHandler("handoff_engineering", cmd_handoff_engineering))
     app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
+    app.add_handler(CommandHandler("advise",              cmd_advise))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))

@@ -28,13 +28,12 @@ const PAGES: { href: string; label: string }[] = [
   { href: '/missions', label: 'Missions' },
   { href: '/captains-log', label: "Captain's Log" },
   { href: '/medical', label: 'Medical' },
-  { href: '/recovery-brief', label: 'Recovery Brief' },
   { href: '/intelligence', label: 'Intelligence' },
-  { href: '/executive-staff', label: 'Executive Staff' },
+  { href: '/chief-of-staff', label: 'Chief of Staff' },
   { href: '/timeline', label: 'Timeline' },
   { href: '/search', label: 'Search' },
   { href: '/knowledge', label: 'Knowledge' },
-  { href: '/operating-model', label: 'Operating Model' },
+  { href: '/capture', label: 'Quick Capture' },
 ];
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {

@@ -77,8 +77,8 @@ export function MobileOperatingPicture() {
           </p>
         )}
         <div className="mt-2 flex gap-2">
-          <Link href="/recovery-brief" className="flex-1 rounded-lcars border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
-            Recovery brief
+          <Link href="/medical" className="flex-1 rounded-lcars border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
+            Health centre
           </Link>
           <Link href="/capture" className="flex-1 rounded-lcars border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
             Quick capture
@@ -130,11 +130,11 @@ export function MobileOperatingPicture() {
 
       {/* ── Blocked work ── */}
       {blocked.length > 0 && (
-        <Link href="/engineering-queue" className="block rounded-lcars border border-operations/40 bg-operations/5 p-4">
+        <div className="rounded-lcars border border-operations/40 bg-operations/5 p-4">
           <p className="text-[10px] uppercase tracking-[0.3em] text-operations">Blocked / failed</p>
           <p className="mt-1 text-sm font-semibold text-operations">{blocked.length} item{blocked.length === 1 ? '' : 's'} need clearing</p>
-          <p className="text-[11px] uppercase tracking-[0.15em] text-lcars-muted">Open engineering queue →</p>
-        </Link>
+          <p className="text-[11px] uppercase tracking-[0.15em] text-lcars-muted">Review via XO →</p>
+        </div>
       )}
     </div>
   );

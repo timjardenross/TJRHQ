@@ -25,6 +25,30 @@ import {
 } from '@/lib/capture';
 import { DEPARTMENTS } from '@/lib/departments';
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface ParsedSummary {
+  suggested_classification?: string;
+  ai_confidence?: number;
+  ai_reasoning?: string;
+  ai_enrichment_status?: string;
+  enriched_at?: string;
+  // voice metadata fields (also present in summary)
+  capture_origin?: string;
+  duration_s?: number;
+  transcription_model?: string;
+  confidence?: number;
+  [key: string]: unknown;
+}
+
+function parseSummary(raw: Record<string, unknown> | string | null | undefined): ParsedSummary | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) as ParsedSummary; } catch { return null; }
+  }
+  return raw as ParsedSummary;
+}
+
 // ── Small utilities ───────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
@@ -77,7 +101,7 @@ function ClassBadge({ classification }: { classification: string | null | undefi
   );
 }
 
-function AiBadge({ status }: { status: string | null | undefined }) {
+function AiBadge({ status, summary }: { status: string | null | undefined; summary?: ParsedSummary | null }) {
   const s = status ?? 'not_enriched';
   const map: Record<string, { label: string; cls: string }> = {
     not_enriched: { label: 'Not enriched',       cls: 'text-lcars-muted border-edge bg-transparent' },
@@ -86,9 +110,12 @@ function AiBadge({ status }: { status: string | null | undefined }) {
     failed:       { label: 'Enrichment failed',  cls: 'text-operations border-operations/40 bg-operations/10' },
   };
   const { label, cls } = map[s] ?? map.not_enriched;
+  const confPct = s === 'enriched' && summary?.ai_confidence != null
+    ? ` ${Math.round(Number(summary.ai_confidence) * 100)}%`
+    : '';
   return (
     <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${cls}`}>
-      ✦ {label}
+      ✦ {s === 'enriched' ? `AI ✓${confPct}` : label}
     </span>
   );
 }
@@ -107,6 +134,77 @@ function VoiceMeta({ summary }: { summary: Record<string, unknown> | null }) {
       {dur !== undefined && <span>⏱ {dur.toFixed(1)}s</span>}
       {model && <span>Model: {model}</span>}
       {conf !== undefined && <span>Conf: {(conf * 100).toFixed(0)}%</span>}
+    </div>
+  );
+}
+
+// ── AI suggestion panel ───────────────────────────────────────────────────────
+
+function AiSuggestion({
+  summary,
+  onAccept,
+  onDismiss,
+}: {
+  summary: ParsedSummary | null;
+  onAccept: (cls: string) => void;
+  onDismiss: () => void;
+}) {
+  if (!summary?.suggested_classification) return null;
+  if (summary.ai_enrichment_status !== 'enriched') return null;
+
+  const cls = summary.suggested_classification;
+  const conf = summary.ai_confidence != null ? Number(summary.ai_confidence) : null;
+  const confPct = conf != null ? Math.round(conf * 100) : null;
+  const barColour =
+    conf == null ? 'bg-edge'
+    : conf >= 0.85 ? 'bg-science'
+    : conf >= 0.6  ? 'bg-operations'
+    : 'bg-edge';
+
+  return (
+    <div className="mb-3 rounded-lcars border border-science/40 bg-science/5 px-3 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-science">✦ AI Suggestion</span>
+        {confPct != null && (
+          <span className="text-[10px] text-lcars-muted">{confPct}% confidence</span>
+        )}
+      </div>
+
+      {/* Confidence bar */}
+      {conf != null && (
+        <div className="mb-2 h-1 w-full overflow-hidden rounded bg-edge/40">
+          <div
+            className={`h-full rounded transition-all ${barColour}`}
+            style={{ width: `${Math.round(conf * 100)}%` }}
+          />
+        </div>
+      )}
+
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-[10px] text-lcars-muted">Classification:</span>
+        <ClassBadge classification={cls} />
+      </div>
+
+      {summary.ai_reasoning && (
+        <p className="mb-3 text-[11px] italic text-lcars-muted/80">{summary.ai_reasoning}</p>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onAccept(cls)}
+          className="rounded-lcars bg-science px-3 py-1 text-xs font-semibold text-space hover:opacity-80"
+        >
+          Accept suggestion
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-xs text-lcars-muted hover:text-lcars-text"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }
@@ -193,12 +291,15 @@ function CaptureRow({
   item: InboxCapture;
   onRefresh: () => void;
 }) {
-  const [expanded,  setExpanded]  = useState(false);
-  const [busy,      setBusy]      = useState(false);
-  const [flash,     setFlash]     = useState<string | null>(null);
-  const [err,       setErr]       = useState<string | null>(null);
-  const [newClass,  setNewClass]  = useState<CaptureClassification>(item.classification ?? 'unclassified');
-  const [newImp,    setNewImp]    = useState<CaptureImportance>(item.importance ?? 'medium');
+  const [expanded,            setExpanded]            = useState(false);
+  const [busy,                setBusy]                = useState(false);
+  const [flash,               setFlash]               = useState<string | null>(null);
+  const [err,                 setErr]                 = useState<string | null>(null);
+  const [newClass,            setNewClass]            = useState<CaptureClassification>(item.classification ?? 'unclassified');
+  const [newImp,              setNewImp]              = useState<CaptureImportance>(item.importance ?? 'medium');
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+
+  const parsedSummary = parseSummary(item.summary as Record<string, unknown> | string | null);
 
   const act = useCallback(async (fn: () => Promise<{ ok: boolean; error?: string; mission_id?: string }>, label: string) => {
     setBusy(true);
@@ -229,8 +330,8 @@ function CaptureRow({
           <p className="truncate text-sm font-semibold text-lcars-text">
             {item.title ?? '(untitled)'}
           </p>
-          {isVoice && item.summary && (
-            <VoiceMeta summary={item.summary} />
+          {isVoice && parsedSummary && (
+            <VoiceMeta summary={parsedSummary} />
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <SourceBadge channelId={item.source_channel_id} />
@@ -243,7 +344,7 @@ function CaptureRow({
             {item.requires_review && (
               <span className="text-[10px] uppercase tracking-wide text-command">⚑ Review</span>
             )}
-            <AiBadge status={item.ai_enrichment_status} />
+            <AiBadge status={item.ai_enrichment_status} summary={parsedSummary} />
             <span className="ml-auto shrink-0 text-[10px] text-lcars-muted">{fmtDate(item.captured_at)}</span>
           </div>
         </div>
@@ -311,6 +412,21 @@ function CaptureRow({
             </div>
           </div>
 
+          {/* AI suggestion — shown when enriched and not dismissed */}
+          {expanded && item.ai_enrichment_status === 'enriched' && !suggestionDismissed && (
+            <AiSuggestion
+              summary={parsedSummary}
+              onAccept={(cls) => {
+                act(async () => {
+                  const r1 = await updateCaptureClassification(item.id, cls as CaptureClassification);
+                  if (!r1.ok) return r1;
+                  return markCaptureReviewed(item.id);
+                }, `AI suggestion accepted — ${cls}`);
+              }}
+              onDismiss={() => setSuggestionDismissed(true)}
+            />
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             <ActionBtn
@@ -357,42 +473,25 @@ function CaptureRow({
             />
           </div>
 
-          {/* AI enrichment — manual trigger only, never on page load */}
-          <div className="mt-3 flex items-center gap-2 rounded border border-dashed border-edge px-3 py-2">
-            {item.ai_enrichment_status === 'enriched' && item.summary ? (
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] uppercase tracking-wide text-status">✦ AI suggestion</span>
-                {(item.summary.suggested_classification as string | undefined) && (
-                  <span className="text-[10px] text-lcars-muted">
-                    Classification: <span className="text-lcars-text">{item.summary.suggested_classification as string}</span>
-                    {item.summary.ai_confidence !== undefined && (
-                      <span className="ml-1 text-lcars-muted/70">({Math.round(Number(item.summary.ai_confidence) * 100)}% conf)</span>
-                    )}
-                  </span>
-                )}
-                {(item.summary.ai_reasoning as string | undefined) && (
-                  <span className="text-[10px] italic text-lcars-muted/80">{item.summary.ai_reasoning as string}</span>
-                )}
-              </div>
-            ) : (
-              <>
-                <span className="text-[10px] uppercase tracking-wide text-lcars-muted">AI enrichment</span>
-                <button
-                  type="button"
-                  disabled={busy || item.ai_enrichment_status === 'queued'}
-                  onClick={() => act(async () => {
-                    const resp = await fetch(`/api/capture/${item.id}/route?action=enrich`, { method: 'POST' });
-                    const json = await resp.json();
-                    return resp.ok ? { ok: true } : { ok: false, error: json?.error };
-                  }, 'Enrichment queued')}
-                  className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science hover:bg-science/20 disabled:opacity-40"
-                >
-                  {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
-                </button>
-                <span className="text-[10px] text-lcars-muted/50">Suggests classification + route</span>
-              </>
-            )}
-          </div>
+          {/* AI enrichment trigger — only shown when not yet enriched */}
+          {item.ai_enrichment_status !== 'enriched' && (
+            <div className="mt-3 flex items-center gap-2 rounded border border-dashed border-edge px-3 py-2">
+              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">AI enrichment</span>
+              <button
+                type="button"
+                disabled={busy || item.ai_enrichment_status === 'queued'}
+                onClick={() => act(async () => {
+                  const resp = await fetch(`/api/capture/${item.id}/route?action=enrich`, { method: 'POST' });
+                  const json = await resp.json();
+                  return resp.ok ? { ok: true } : { ok: false, error: json?.error };
+                }, 'Enrichment queued')}
+                className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science hover:bg-science/20 disabled:opacity-40"
+              >
+                {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
+              </button>
+              <span className="text-[10px] text-lcars-muted/50">Suggests classification + route</span>
+            </div>
+          )}
         </div>
       )}
     </li>

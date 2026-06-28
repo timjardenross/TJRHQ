@@ -89,10 +89,12 @@ def _start_scheduler() -> None:
         log.error("APScheduler not installed. Run: pip install apscheduler")
         sys.exit(1)
 
+    from datetime import datetime, timezone
+
     scheduler = BlockingScheduler()
     tz = _resolve_tz(SCHEDULE_TZ)
 
-    # ── Fortnightly full brief generation (existing) ──────────────────────────
+    # ── Fortnightly full ORI brief generation ──────────────────────────────────
     parts = SCHEDULE_CRON.split()
     brief_trigger = CronTrigger(
         minute=parts[0], hour=parts[1],
@@ -100,12 +102,12 @@ def _start_scheduler() -> None:
     )
 
     def _brief_job():
-        log.info("Scheduled brief generation triggered by APScheduler")
+        log.info("Scheduled ORI brief generation triggered")
         try:
             brief = run_once(trigger="scheduled")
-            log.info("Scheduled brief complete: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
+            log.info("ORI brief complete: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
         except Exception as exc:
-            log.error("Scheduled brief generation failed: %s", exc)
+            log.error("ORI brief generation failed: %s", exc)
 
     scheduler.add_job(_brief_job, brief_trigger, id="or_intelligence_brief", replace_existing=True)
 
@@ -118,27 +120,176 @@ def _start_scheduler() -> None:
     )
 
     def _github_job():
-        log.info("Daily ORI GitHub sync triggered by APScheduler (%s)", SCHEDULE_TZ)
+        log.info("Daily ORI GitHub sync triggered (%s)", SCHEDULE_TZ)
         try:
             run_github_sync()
             if DAILY_BRIEF_AFTER_SYNC:
                 brief = run_once(trigger="scheduled")
-                log.info("Post-sync brief complete: %s risk=%s",
-                         brief.brief_id[:8], brief.overall_risk)
+                log.info("Post-sync brief: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
         except Exception as exc:
-            log.error("Daily ORI GitHub sync failed: %s", exc)
+            log.error("ORI GitHub sync failed: %s", exc)
 
     scheduler.add_job(_github_job, github_trigger, id="ori_github_sync", replace_existing=True)
 
-    log.info("OR Intelligence Scheduler started. Brief cron: %s (UTC) | "
-             "GitHub sync cron: %s (%s)%s",
-             SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ,
-             " + daily brief" if DAILY_BRIEF_AFTER_SYNC else "")
+    # ── MSN-0200: Captain's Daily Briefs ─────────────────────────────────────────
+    # Morning brief — 07:00 AEST daily
+    scheduler.add_job(
+        _morning_brief_job,
+        CronTrigger(hour=7, minute=0, timezone=tz),
+        id="captains_morning_brief",
+        replace_existing=True,
+    )
+
+    # Midday check — 12:30 AEST daily (conditional: only delivers if new signals)
+    scheduler.add_job(
+        _midday_check_job,
+        CronTrigger(hour=12, minute=30, timezone=tz),
+        id="captains_midday_check",
+        replace_existing=True,
+    )
+
+    # EOD summary — 18:00 AEST daily
+    scheduler.add_job(
+        _eod_brief_job,
+        CronTrigger(hour=18, minute=0, timezone=tz),
+        id="captains_eod_brief",
+        replace_existing=True,
+    )
+
+    # Weekly report — Monday 07:00 AEST (replaces morning brief that day)
+    scheduler.add_job(
+        _weekly_brief_job,
+        CronTrigger(day_of_week="mon", hour=7, minute=0, timezone=tz),
+        id="captains_weekly_brief",
+        replace_existing=True,
+    )
+
+    # ── MSN-0200-P1F: Daily collection from all 30+ registered sources ──────────
+    # 06:00 AEST daily — runs before morning brief (07:00) to pre-populate intelligence_events
+    scheduler.add_job(
+        _daily_collection_job,
+        CronTrigger(hour=6, minute=0, timezone=tz),
+        id="daily_source_collection",
+        replace_existing=True,
+    )
+
+    log.info(
+        "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
+        "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
+        "Daily collection: 06:00 (%s)",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ,
+    )
 
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
         log.info("Scheduler stopped")
+
+
+# ── Captain's Brief jobs (MSN-0200) ──────────────────────────────────────────
+
+# Shared state for midday conditional check
+_morning_brief_sent_at: str | None = None
+
+
+def _morning_brief_job() -> None:
+    global _morning_brief_sent_at
+    from datetime import datetime, timezone
+    from intelligence.captains_brief import send_brief
+
+    log.info("Captain's morning brief job triggered")
+    try:
+        ok = send_brief("morning")
+        if ok:
+            _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
+            log.info("Morning brief delivered")
+        else:
+            log.warning("Morning brief delivery failed")
+    except Exception as exc:
+        log.error("Morning brief job failed: %s", exc)
+
+
+def _midday_check_job() -> None:
+    from intelligence.captains_brief import check_midday_signals, send_brief
+
+    log.info("Midday signal check triggered")
+    try:
+        since = _morning_brief_sent_at
+        if not since:
+            # If morning brief timestamp unknown, use 06:00 UTC as baseline
+            from datetime import datetime, timezone
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%dT06:00:00Z")
+            since = today
+        signals = check_midday_signals(since)
+        if signals:
+            log.info("Midday check: %d new signals — delivering update", len(signals))
+            send_brief("midday", signals=signals)
+        else:
+            log.info("Midday check: no new significant signals — suppressing brief")
+    except Exception as exc:
+        log.error("Midday check job failed: %s", exc)
+
+
+def _eod_brief_job() -> None:
+    from intelligence.captains_brief import send_brief
+
+    log.info("EOD brief job triggered")
+    try:
+        ok = send_brief("eod")
+        log.info("EOD brief %s", "delivered" if ok else "delivery failed")
+    except Exception as exc:
+        log.error("EOD brief job failed: %s", exc)
+
+
+def _weekly_brief_job() -> None:
+    from intelligence.captains_brief import send_brief
+
+    log.info("Weekly brief job triggered")
+    try:
+        ok = send_brief("weekly")
+        log.info("Weekly brief %s", "delivered" if ok else "delivery failed")
+    except Exception as exc:
+        log.error("Weekly brief job failed: %s", exc)
+
+
+def _daily_collection_job() -> None:
+    """MSN-0200-P1F: Daily collection from all active sources in intelligence_source_registry.
+
+    Runs at 06:00 AEST — collects from all 30+ registered sources (ACSC, BOM/Weatherzone,
+    VicEmergency, Azure, AWS, ABC News, regulatory feeds, etc.) and writes new events to
+    intelligence_events. Deduplication via dedup_hash prevents re-insertion of known items.
+    No LLM synthesis — that runs fortnightly via _brief_job().
+    """
+    log.info("Daily source collection triggered")
+    try:
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence.intelligence_store import IntelligenceStore
+
+        store = IntelligenceStore()
+        items, health_records = collect_all()
+
+        # Persist health check results
+        for h in health_records:
+            try:
+                store.save_source_health(h)
+            except Exception as exc:
+                log.warning("Source health save failed (%s): %s", h.source_name, exc)
+
+        # Persist collected items (dedup is handled inside save_items)
+        saved = 0
+        for item in items:
+            try:
+                store.save_item(item)
+                saved += 1
+            except Exception as exc:
+                log.debug("Item save skipped (likely dedup): %s", exc)
+
+        log.info(
+            "Daily collection complete: sources_checked=%d items_collected=%d items_saved=%d",
+            len(health_records), len(items), saved,
+        )
+    except Exception as exc:
+        log.error("Daily collection job failed: %s", exc)
 
 
 if __name__ == "__main__":

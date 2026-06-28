@@ -14,18 +14,27 @@ to outputs/:
 
 Also coordinates readiness history persistence (WP5) on every run.
 
+For daily scheduled runs, use run_daily_intelligence() which also persists
+key findings as intelligence_events rows in Supabase.
+
 Usage:
     python3 intelligence_reporter.py            # run all reports
     python3 intelligence_reporter.py --dry-run  # compute but don't write
     python3 intelligence_reporter.py --report <name>  # single report
+    python3 intelligence_reporter.py --daily    # run all + persist events
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import sys
 import traceback
-from datetime import datetime
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -201,9 +210,249 @@ _REPORTS: dict[str, tuple[str, Any]] = {
 # Public API
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Intelligence event extraction (MSN-0200-P1B)
+# ---------------------------------------------------------------------------
+
+def _extract_events_from_report(name: str, data: dict) -> list[dict]:
+    """
+    Convert a domain report's output into a list of intelligence_event dicts.
+    Returns [] if data has status=error or no meaningful findings.
+    """
+    if data.get("status") == "error":
+        return []
+
+    today_date = datetime.now(timezone.utc).date().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    def _make_event(title: str, risk: str) -> dict:
+        rank = {"HIGH": 0.8, "MEDIUM": 0.5, "LOW": 0.2}.get(risk, 0.2)
+        dedup_src = f"{name}:{title}:{today_date}"
+        dedup_hash = hashlib.sha256(dedup_src.encode()).hexdigest()[:48]
+        return {
+            "raw_title": title,
+            "event_type": "domain_insight",
+            "geography": "internal",
+            "risk_rating": risk,
+            "rank_score": rank,
+            "collected_at": now_iso,
+            "suppressed": False,
+            "source_type": "intelligence_reporter",
+            "dedup_hash": dedup_hash,
+        }
+
+    events: list[dict] = []
+
+    if name == "decision_effectiveness":
+        for finding in data.get("findings", []):
+            score = finding.get("score", 1.0)
+            if score < 0.6:
+                risk = "HIGH"
+            elif score < 0.8:
+                risk = "MEDIUM"
+            else:
+                risk = "LOW"
+            title = finding.get("title") or finding.get("description") or f"Decision score {score:.2f}"
+            events.append(_make_event(title, risk))
+
+    elif name == "mission_intelligence":
+        blocked = data.get("blocked_missions_count", 0)
+        if isinstance(blocked, int) and blocked > 2:
+            events.append(_make_event(f"{blocked} missions blocked", "HIGH"))
+        elif isinstance(blocked, int) and blocked > 0:
+            events.append(_make_event(f"{blocked} mission(s) blocked", "MEDIUM"))
+
+        avg_cycle = data.get("avg_cycle_time_days")
+        if isinstance(avg_cycle, (int, float)) and avg_cycle > 14:
+            events.append(_make_event(f"Avg mission cycle time {avg_cycle:.1f} days", "MEDIUM"))
+
+    elif name == "health_performance_correlation":
+        for finding in data.get("findings", []):
+            corr = finding.get("correlation", finding.get("value", 0.0))
+            title = finding.get("title") or finding.get("description") or f"Correlation {corr:.2f}"
+            if isinstance(corr, (int, float)) and corr < -0.3:
+                events.append(_make_event(title, "HIGH"))
+            elif isinstance(corr, (int, float)) and -0.3 <= corr < 0:
+                events.append(_make_event(title, "MEDIUM"))
+            elif isinstance(corr, (int, float)):
+                events.append(_make_event(title, "LOW"))
+
+    elif name == "knowledge_utilisation":
+        rate = data.get("utilisation_rate", data.get("utilization_rate"))
+        if isinstance(rate, (int, float)) and rate < 0.30:
+            events.append(_make_event(f"Knowledge utilisation rate {rate*100:.0f}%", "MEDIUM"))
+
+    elif name == "readiness_trend":
+        direction = data.get("trend_direction", "")
+        if direction == "declining":
+            events.append(_make_event("Readiness trend is declining", "HIGH"))
+        elif direction == "flat":
+            events.append(_make_event("Readiness trend is flat", "MEDIUM"))
+        # "improving" → no event needed (LOW, skip noise)
+
+    elif name == "operating_patterns":
+        anomalies = data.get("anomalies", [])
+        if anomalies:
+            events.append(_make_event(f"{len(anomalies)} operating pattern anomaly/anomalies detected", "MEDIUM"))
+
+    return events
+
+
+def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
+    """
+    Insert intelligence_events rows to Supabase, skipping dedup_hash collisions
+    from today. Returns count of events actually inserted.
+    Uses urllib only — no SDK required.
+    """
+    if not events:
+        return 0
+
+    if dry_run:
+        print(f"[DRY RUN] Would insert {len(events)} intelligence_events to Supabase")
+        return 0
+
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+    if not url or not key:
+        # Fallback: check via supabase_client
+        try:
+            from supabase_client import is_configured
+            if not is_configured():
+                print("[reporter] Supabase not configured — skipping event persistence")
+                return 0
+        except Exception:
+            print("[reporter] Supabase not configured — skipping event persistence")
+            return 0
+
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    # Deduplicate against existing rows inserted today
+    today = datetime.now(timezone.utc).date().isoformat()
+    hashes = [e["dedup_hash"] for e in events]
+    hash_list = ",".join(hashes)
+    check_url = (
+        f"{url}/rest/v1/intelligence_events"
+        f"?dedup_hash=in.({urllib.parse.quote(hash_list)})"
+        f"&collected_at=gte.{today}T00:00:00Z"
+        f"&select=dedup_hash"
+    )
+
+    existing_hashes: set[str] = set()
+    try:
+        req = urllib.request.Request(check_url, headers={**headers, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            rows = json.loads(resp.read())
+            existing_hashes = {r["dedup_hash"] for r in rows}
+    except Exception as e:
+        print(f"[reporter] Warning: could not check existing events (will attempt insert anyway): {e}")
+
+    new_events = [e for e in events if e["dedup_hash"] not in existing_hashes]
+    if not new_events:
+        print("[reporter] All intelligence events already persisted today — skipping")
+        return 0
+
+    # Core fields only (graceful degradation if table schema is minimal)
+    _CORE_FIELDS = {"raw_title", "event_type", "geography", "risk_rating", "rank_score", "collected_at", "suppressed"}
+    _FULL_FIELDS = _CORE_FIELDS | {"source_type", "dedup_hash"}
+
+    def _do_insert(payload: list[dict]) -> int:
+        post_url = f"{url}/rest/v1/intelligence_events"
+        body = json.dumps(payload).encode()
+        req = urllib.request.Request(
+            post_url,
+            data=body,
+            headers={**headers, "Prefer": "return=minimal"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read()
+        return len(payload)
+
+    # Try with full fields first, fall back to core fields on 400
+    full_payload = [{k: v for k, v in e.items() if k in _FULL_FIELDS} for e in new_events]
+    try:
+        count = _do_insert(full_payload)
+        print(f"[reporter] Persisted {count} intelligence_events to Supabase")
+        return count
+    except urllib.error.HTTPError as e:
+        if e.code == 400:
+            print(f"[reporter] Full-field insert failed (400) — retrying with core fields only")
+            core_payload = [{k: v for k, v in e_.items() if k in _CORE_FIELDS} for e_ in new_events]
+            try:
+                count = _do_insert(core_payload)
+                print(f"[reporter] Persisted {count} intelligence_events (core fields) to Supabase")
+                return count
+            except Exception as e2:
+                print(f"[reporter] Warning: intelligence_events insert failed: {e2}")
+                return 0
+        else:
+            print(f"[reporter] Warning: intelligence_events insert failed (HTTP {e.code}): {e}")
+            return 0
+    except Exception as e:
+        print(f"[reporter] Warning: intelligence_events insert failed: {e}")
+        return 0
+
+
+def run_daily_intelligence(dry_run: bool = False) -> dict[str, Any]:
+    """
+    Run all 6 intelligence reports AND persist key findings as intelligence_events
+    rows in Supabase. This is the entry point for the daily intelligence scheduler.
+
+    Args:
+        dry_run: If True, compute and extract events but do not write files or insert rows.
+
+    Returns:
+        dict with status, reports_ok, events_persisted, generated_at.
+    """
+    summary = run_all_reports(dry_run=dry_run, persist_readiness=True)
+
+    # Load each report's data to extract events
+    all_events: list[dict] = []
+    for key in _REPORTS:
+        if dry_run:
+            # In dry-run, re-generate to get data (already printed above)
+            try:
+                _, generator = _REPORTS[key]
+                data = generator()
+            except Exception:
+                data = {}
+        else:
+            report_path = _OUTPUTS_DIR / f"{key}.json"
+            try:
+                data = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
+            except Exception:
+                data = {}
+        events = _extract_events_from_report(key, data)
+        all_events.extend(events)
+
+    events_persisted = _sb_post_events(all_events, dry_run=dry_run)
+
+    # MSN-0200-P1F Wave 2: External domains are fetched separately by the scheduler
+    # at 06:00 AEST (before morning brief) via _external_domains_job() in scheduler.py.
+    # To run manually alongside daily intelligence:
+    #   from core.intelligence.external_domains import run_all_sources
+    #   run_all_sources(dry_run=dry_run)
+
+    return {
+        "status": "ok",
+        "reports_ok": summary.get("reports_ok", 0),
+        "events_extracted": len(all_events),
+        "events_persisted": events_persisted,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def run_all_reports(dry_run: bool = False, persist_readiness: bool = True) -> dict[str, Any]:
     """
     Generate all six intelligence reports and write them to outputs/.
+
+    For daily scheduled runs that also persist Supabase intelligence_events,
+    call run_daily_intelligence() instead.
 
     Args:
         dry_run:           If True, compute but do not write files.
@@ -272,14 +521,19 @@ def run_single_report(name: str, dry_run: bool = False) -> dict[str, Any]:
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Intelligence Reporter — Starship Endeavour")
-    parser.add_argument("--dry-run",  action="store_true", help="Compute without writing files")
+    parser.add_argument("--dry-run",  action="store_true", help="Compute without writing files or inserting rows")
     parser.add_argument("--report",   type=str, help=f"Single report name: {', '.join(_REPORTS)}")
     parser.add_argument("--no-readiness-persist", action="store_true",
                         help="Skip readiness history persistence")
+    parser.add_argument("--daily", action="store_true",
+                        help="Run all reports AND persist intelligence_events to Supabase")
     args = parser.parse_args()
 
     if args.report:
         run_single_report(args.report, dry_run=args.dry_run)
+    elif args.daily:
+        result = run_daily_intelligence(dry_run=args.dry_run)
+        print(f"Daily intelligence complete — {result['events_persisted']} events persisted")
     else:
         run_all_reports(
             dry_run=args.dry_run,

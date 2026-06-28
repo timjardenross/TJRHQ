@@ -1,465 +1,385 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { StatusBadge } from '@/components/StatusBadge';
-import { ROSPanels } from '@/components/ROSPanels';
-import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
-import { MobileAlertDrawer } from '@/components/MobileAlertDrawer';
-import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
-import ProactiveSignals from '@/components/ProactiveSignals';
-import { useROSData } from '@/lib/useROSData';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { toneClasses } from '@/lib/departments';
-import { alerts, decisionsAwaitingApproval } from '@/lib/mockData';
-import type { RecoveryPostureBand } from '@/lib/types';
+import { LCARSPanel } from '@/components/LCARSPanel';
+import { fetchInboxCaptures } from '@/lib/capture';
 
-// Suppress unused import warning — toneClasses kept per spec
-void toneClasses;
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-// ── Shared micro-components ───────────────────────────────────────────────────
-
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <div className="mb-3 flex items-center justify-between">
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-lcars-muted">{title}</h2>
-      {action}
-    </div>
-  );
-}
-
-function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-lcars border border-edge bg-panel/60 p-3 ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-// ── Posture tone map ──────────────────────────────────────────────────────────
-
-const POSTURE_TONE: Record<RecoveryPostureBand, { text: string; border: string; bg: string }> = {
-  STRONG:  { text: 'text-status',      border: 'border-status',     bg: 'bg-status/10' },
-  STABLE:  { text: 'text-command',     border: 'border-command',    bg: 'bg-command/10' },
-  FRAGILE: { text: 'text-operations',  border: 'border-operations', bg: 'bg-operations/10' },
-  REST:    { text: 'text-medical',     border: 'border-medical',    bg: 'bg-medical/10' },
-  UNKNOWN: { text: 'text-lcars-muted', border: 'border-edge',       bg: 'bg-edge/10' },
-};
-
-// ── Captain Capacity Headline ─────────────────────────────────────────────────
-
-function CapacityHeadline({
-  posture,
-  postureMessage,
-  capacityMessage,
-}: {
-  posture: RecoveryPostureBand;
-  postureMessage: string;
-  capacityMessage: string;
-}) {
-  const c = POSTURE_TONE[posture];
-  const capacityLabel: Record<RecoveryPostureBand, string> = {
-    STRONG:  'High',
-    STABLE:  'Moderate',
-    FRAGILE: 'Low',
-    REST:    'Minimal — rest priority',
-    UNKNOWN: 'Unknown',
-  };
-  return (
-    <div className={`rounded-lcars border ${c.border} ${c.bg} p-4`}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted mb-1">
-            Captain Capacity — D-055
-          </p>
-          <div className="flex items-baseline gap-3">
-            <p className={`font-lcars text-3xl font-bold ${c.text}`}>{capacityLabel[posture]}</p>
-            <StatusBadge label={posture} tone={
-              posture === 'STRONG'  ? 'status'     :
-              posture === 'STABLE'  ? 'command'    :
-              posture === 'FRAGILE' ? 'operations' :
-              posture === 'REST'    ? 'medical'    : 'neutral'
-            } />
-          </div>
-          <p className="text-xs text-lcars-text/80 mt-2 leading-relaxed max-w-prose">
-            {postureMessage || capacityMessage}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 shrink-0">
-          <Link
-            href="/recovery-brief"
-            className="rounded-lcars border border-medical/40 bg-medical/5 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-medical hover:border-medical/70 transition-colors text-center"
-          >
-            Recovery Brief →
-          </Link>
-          <Link
-            href="/captains-log"
-            className="rounded-lcars border border-edge px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:border-command hover:text-command transition-colors text-center"
-          >
-            Log Today →
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Fleet Status Conditional ──────────────────────────────────────────────────
-
-function FleetStatusConditional({
-  posture,
-  children,
-}: {
-  posture: RecoveryPostureBand;
-  children: React.ReactNode;
-}) {
-  const isProtected = posture === 'FRAGILE' || posture === 'REST';
-  const c = POSTURE_TONE[posture];
-
-  if (!isProtected) {
-    return <>{children}</>;
-  }
-
-  return (
-    <Panel>
-      <SectionHeader title="Mission Detail" />
-      <p className="mb-3 text-[11px] leading-relaxed text-lcars-text/80">
-        Recovery posture is{' '}
-        <span className={`font-semibold ${c.text}`}>{posture}</span>{' '}
-        today. The nervous system benefits from reduced ambient load.
-        Mission detail is available when you need it.
-      </p>
-      <details className="group">
-        <summary className="w-full cursor-pointer rounded border border-edge bg-panel-2/60 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-lcars-text">
-          View Active Missions
-        </summary>
-        <div className="mt-3 flex flex-col gap-4">
-          {children}
-        </div>
-      </details>
-    </Panel>
-  );
-}
-
-// ── Priority Overview ─────────────────────────────────────────────────────────
-
-function PriorityOverview() {
-  const alertCount    = alerts.filter((a) => a.level !== 'nominal').length;
-  const decisionCount = decisionsAwaitingApproval.length;
-  return (
-    <Panel>
-      <SectionHeader title="Priority Overview" />
-      <ul className="flex flex-col gap-2">
-        <li className="flex items-center justify-between gap-3 rounded-md border border-edge bg-panel-2/60 p-2">
-          <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Decisions awaiting approval</span>
-          <span className="font-lcars text-xl font-bold text-command">{decisionCount}</span>
-        </li>
-        <li className="flex items-center justify-between gap-3 rounded-md border border-edge bg-panel-2/60 p-2">
-          <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Alerts requiring attention</span>
-          <span className="font-lcars text-xl font-bold text-operations">{alertCount}</span>
-        </li>
-      </ul>
-    </Panel>
-  );
-}
-
-// ── Requires Attention ────────────────────────────────────────────────────────
-
-function RequiresAttention() {
-  const activeAlerts = alerts.filter((a) => a.level !== 'nominal');
-  const LEVEL: Record<string, { dot: string; text: string }> = {
-    critical: { dot: 'bg-operations', text: 'text-operations' },
-    warning:  { dot: 'bg-command',    text: 'text-command' },
-    info:     { dot: 'bg-medical',    text: 'text-medical' },
-    nominal:  { dot: 'bg-status',     text: 'text-status' },
-  };
-
-  const isEmpty = activeAlerts.length === 0 && decisionsAwaitingApproval.length === 0;
-
-  return (
-    <Panel>
-      <SectionHeader
-        title="Requires Attention"
-        action={activeAlerts.length > 0
-          ? <span className="h-3 w-3 animate-pulse rounded-full bg-operations" />
-          : undefined}
-      />
-      {isEmpty ? (
-        <p className="text-[11px] text-lcars-muted">No attention items — all clear.</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {activeAlerts.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {activeAlerts.map((a) => {
-                const s = LEVEL[a.level] ?? LEVEL['info'];
-                return (
-                  <li key={a.id} className="rounded-md border border-edge bg-panel-2/60 p-2">
-                    <Link
-                      href={(a as { href?: string }).href ?? '/alerts'}
-                      className="flex items-start gap-2 hover:opacity-80 transition-opacity"
-                    >
-                      <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
-                      <div>
-                        <p className={`text-[11px] font-bold uppercase ${s.text}`}>{a.title}</p>
-                        <p className="text-[10px] text-lcars-muted">{(a as { detail?: string }).detail ?? ''}</p>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {decisionsAwaitingApproval.length > 0 && (
-            <ol className="flex flex-col gap-2">
-              {decisionsAwaitingApproval.map((d) => (
-                <li key={d.id}>
-                  <Link
-                    href="/advisory"
-                    className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-2 hover:border-command/60 transition-colors"
-                  >
-                    <span className="shrink-0 font-mono text-xs font-bold text-command">{d.id}</span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-lcars-text">{d.title}</p>
-                      <p className="text-[10px] text-lcars-muted">{d.detail}</p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-// ── CoS Brief Snippet ─────────────────────────────────────────────────────────
-
-function CoSBriefSnippet() {
-  const alertCount    = alerts.filter((a) => a.level !== 'nominal').length;
-  const decisionCount = decisionsAwaitingApproval.length;
-  return (
-    <Panel className="border-command/30">
-      <p className="text-[9px] uppercase tracking-[0.3em] text-lcars-muted mb-0.5">Chief of Staff</p>
-      <SectionHeader title="Ask a question or get your daily brief" />
-      <p className="text-[11px] text-lcars-text/80 mb-3">
-        {decisionCount} decision{decisionCount !== 1 ? 's' : ''} awaiting approval
-        {alertCount > 0 ? ` · ${alertCount} active alert${alertCount !== 1 ? 's' : ''}` : ''}.
-      </p>
-      <Link
-        href="/chief-of-staff"
-        className="block w-full rounded-lcars border border-command/40 bg-command/10 py-2 text-center text-[10px] uppercase tracking-[0.2em] text-command hover:border-command/70 hover:bg-command/20 transition-colors"
-      >
-        Open Chief of Staff →
-      </Link>
-    </Panel>
-  );
-}
-
-// ── Live Missions ─────────────────────────────────────────────────────────────
-
-interface Mission {
-  id: string;
+interface MissionSummary {
+  mission_id: string;
   title: string;
+  priority: string | null;
   status: string;
-  priority: number | null;
 }
 
-function LiveMissions() {
-  const [missions, setMissions] = useState<Mission[] | null>(null);
-  const [error, setError]       = useState(false);
-
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase
-      .from('missions')
-      .select('id, title, status, priority')
-      .in('status', [
-        'Idea', 'Designed', 'Approved for Engineering', 'Implemented',
-        'Tested', 'Awaiting Number One Review', 'Validated', 'Requires Rework', 'Blocked',
-      ])
-      .order('priority', { ascending: true })
-      .limit(3)
-      .then(({ data, error: err }) => {
-        if (err || !data) { setError(true); return; }
-        setMissions(data as Mission[]);
-      });
-  }, []);
-
-  return (
-    <Panel>
-      <SectionHeader
-        title="Live Missions"
-        action={
-          <Link href="/missions" className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
-            View All →
-          </Link>
-        }
-      />
-      {missions === null && !error ? (
-        <p className="text-[10px] text-lcars-muted">Loading…</p>
-      ) : error || (missions ?? []).length === 0 ? (
-        <div>
-          <p className="text-[11px] text-lcars-muted mb-2">No active missions.</p>
-          <Link href="/missions" className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
-            View All Missions →
-          </Link>
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {(missions ?? []).map((m) => (
-            <li key={m.id}>
-              <Link
-                href={`/missions/${m.id}`}
-                className="flex items-center justify-between gap-2 rounded-md border border-edge bg-panel-2/60 p-2 hover:border-command/50 transition-colors"
-              >
-                <p className="text-[11px] font-medium text-lcars-text truncate">{m.title}</p>
-                <span className="shrink-0 text-[9px] uppercase tracking-wide text-lcars-muted">{m.status}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
-  );
+interface OperatingPicture {
+  generated_at: string;
+  missions: {
+    active_count: number;
+    blocked_count: number;
+    awaiting_approval_count: number;
+    active: MissionSummary[];
+    blocked: MissionSummary[];
+    awaiting_approval: MissionSummary[];
+  };
+  decisions: {
+    open_count: number;
+  };
+  next_actions: string[];
 }
 
-// ── Notebook Widget ───────────────────────────────────────────────────────────
-
-interface NbNote {
-  id: string;
-  title: string | null;
-  raw_content: string;
-  status: string;
-  created_at: string;
-  recommended_route: string | null;
-  strategic_alignment_score: number | null;
-  routed_entity_type: string | null;
-  routed_to_id: string | null;
+interface WellnessData {
+  daily: {
+    log_date: string;
+    sleep_hours: number | null;
+    sleep_quality: string | null;
+    energy: string | null;
+  } | null;
+  insights: {
+    llm_narrative: string | null;
+    risk_flags: string[] | null;
+  } | null;
 }
 
-function NotebookWidget() {
-  const [readyCount, setReadyCount]         = useState<number | null>(null);
-  const [capturedCount, setCapturedCount]   = useState<number | null>(null);
-  const [topOpportunity, setTopOpportunity] = useState<NbNote | null>(null);
-  const [recentRouted, setRecentRouted]     = useState<NbNote[]>([]);
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase
-      .from('intelligence_notes')
-      .select('id, title, raw_content, status, created_at, recommended_route, strategic_alignment_score, routed_entity_type, routed_to_id')
-      .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING', 'ROUTED'])
-      .order('created_at', { ascending: false })
-      .limit(100)
-      .then(({ data }) => {
-        if (!data) return;
-        const ready    = data.filter((n) => n.status === 'READY_FOR_ROUTING');
-        const captured = data.filter((n) => n.status === 'CAPTURED');
-        const routed   = data.filter((n) => n.status === 'ROUTED' && n.routed_to_id);
-        setReadyCount(ready.length);
-        setCapturedCount(captured.length);
-        const top = ready.sort((a, b) =>
-          (b.strategic_alignment_score ?? 0) - (a.strategic_alignment_score ?? 0)
-        )[0] ?? null;
-        setTopOpportunity(top as NbNote | null);
-        setRecentRouted(routed.slice(0, 3) as NbNote[]);
-      });
-  }, []);
+const PRIORITY_EMOJI: Record<string, string> = { P0: '🔥', P1: '⚡', P2: '•', P3: '·' };
 
-  const hasAction = (readyCount ?? 0) > 0;
+function energyScore(energy: string | null): number | null {
+  if (!energy) return null;
+  const map: Record<string, number> = { high: 90, good: 75, moderate: 60, low: 40, depleted: 20 };
+  return map[energy.toLowerCase()] ?? null;
+}
 
-  function noteTitle(n: NbNote) {
-    return n.title || n.raw_content.slice(0, 48) + (n.raw_content.length > 48 ? '…' : '');
-  }
+function scoreColour(score: number): string {
+  if (score >= 70) return 'text-science';
+  if (score >= 40) return 'text-operations';
+  return 'text-destructive';
+}
 
-  return (
-    <Panel className={hasAction ? 'border-command/40' : ''}>
-      <SectionHeader
-        title="Captain's Notebook"
-        action={
-          <Link href="/captains-notebook" className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
-            Open →
-          </Link>
-        }
-      />
-      {readyCount === null ? (
-        <p className="text-[10px] text-lcars-muted">Loading…</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${hasAction ? 'bg-command animate-pulse' : 'bg-edge'}`} />
-              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Ready for routing</span>
-            </div>
-            <span className={`font-mono text-sm font-bold ${hasAction ? 'text-command' : 'text-lcars-muted'}`}>{readyCount}</span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-edge" />
-              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">Pending triage</span>
-            </div>
-            <span className="font-mono text-sm font-bold text-lcars-muted">{capturedCount}</span>
-          </div>
-          {topOpportunity && (
-            <div className="mt-1 rounded border border-command/20 bg-command/5 px-2 py-1.5">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-command mb-0.5">Top opportunity</p>
-              <p className="text-[10px] text-lcars-text truncate">{noteTitle(topOpportunity)}</p>
-              {topOpportunity.recommended_route && (
-                <p className="text-[9px] text-lcars-muted">→ {topOpportunity.recommended_route}</p>
-              )}
-            </div>
-          )}
-          {recentRouted.length > 0 && (
-            <div className="mt-1">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-status mb-1">Recent conversions</p>
-              {recentRouted.map((n) => (
-                <p key={n.id} className="text-[9px] text-lcars-muted/80 truncate">
-                  ✓ {noteTitle(n)}{n.routed_entity_type ? ` → ${n.routed_entity_type.replace(/_/g, ' ')}` : ''}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </Panel>
-  );
+function sleepColour(hours: number | null): string {
+  if (!hours) return 'text-lcars-muted';
+  if (hours >= 7) return 'text-science';
+  if (hours >= 5.5) return 'text-operations';
+  return 'text-destructive';
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-panel-2/60 ${className ?? 'h-4 w-full'}`} />;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CaptainsChairPage() {
-  const { posture, isLoading } = useROSData();
-  const currentPosture: RecoveryPostureBand = posture.posture ?? 'UNKNOWN';
+  const [op, setOp] = useState<OperatingPicture | null>(null);
+  const [wellness, setWellness] = useState<WellnessData | null>(null);
+  const [inboxCount, setInboxCount] = useState<number | null>(null);
+  const [opLoading, setOpLoading] = useState(true);
+  const [wellnessLoading, setWellnessLoading] = useState(true);
+  const [opError, setOpError] = useState(false);
+
+  const fetchOp = useCallback(async () => {
+    setOpLoading(true);
+    setOpError(false);
+    try {
+      const res = await fetch('/api/operating-picture');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: OperatingPicture = await res.json();
+      setOp(data);
+    } catch {
+      setOpError(true);
+    } finally {
+      setOpLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOp();
+
+    // Wellness
+    (async () => {
+      try {
+        const res = await fetch('/api/wellness');
+        if (res.ok) setWellness(await res.json());
+      } catch { /* degrade gracefully */ }
+      finally { setWellnessLoading(false); }
+    })();
+
+    // Capture inbox count
+    (async () => {
+      try {
+        const items = await fetchInboxCaptures({ limit: 100 });
+        setInboxCount(items.length);
+      } catch {
+        setInboxCount(0);
+      }
+    })();
+  }, [fetchOp]);
+
+  // ── Derived values ──────────────────────────────────────────────────────────
+
+  const activeMissions = op?.missions.active ?? [];
+  const highPriority = activeMissions
+    .filter(m => m.priority === 'P0' || m.priority === 'P1')
+    .slice(0, 3);
+
+  const energyVal = energyScore(wellness?.daily?.energy ?? null);
+  const sleepHours = wellness?.daily?.sleep_hours ?? null;
+  const hasHealthLog = !!wellness?.daily;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isToday = wellness?.daily?.log_date === todayStr;
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Mobile-only panels */}
-      <MobileOperatingPicture />
-      <MobileAlertDrawer />
 
-      {/* D-055: Capacity leads the page */}
-      {!isLoading && (
-        <CapacityHeadline
-          posture={currentPosture}
-          postureMessage={posture.posture_message ?? ''}
-          capacityMessage={posture.capacity_message ?? ''}
-        />
-      )}
+      {/* ── Section 1: Operating Picture ───────────────────────────────────── */}
+      <LCARSPanel
+        title="Operating Picture"
+        accent="command"
+        eyebrow="MSN-3C · Captain's Chair"
+        actions={
+          <button
+            onClick={fetchOp}
+            disabled={opLoading}
+            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-wider text-lcars-muted transition-colors hover:border-command hover:text-command disabled:opacity-40"
+          >
+            {opLoading ? 'Loading…' : 'Refresh'}
+          </button>
+        }
+      >
+        {opLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-6 w-24" />
+            </div>
+          </div>
+        ) : opError ? (
+          <p className="text-sm text-lcars-muted italic">Operating picture unavailable.</p>
+        ) : op ? (
+          <div className="space-y-3">
+            {op.next_actions.length > 0 && (
+              <p className="font-semibold text-lcars-text leading-relaxed">
+                {op.next_actions[0]}
+              </p>
+            )}
+            {op.next_actions.length > 1 && (
+              <ul className="space-y-1">
+                {op.next_actions.slice(1).map((a, i) => (
+                  <li key={i} className="text-sm text-lcars-muted">— {a}</li>
+                ))}
+              </ul>
+            )}
+            {op.next_actions.length === 0 && (
+              <p className="text-sm text-lcars-muted italic">No flags. System nominal.</p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {op.missions.blocked_count > 0 && (
+                <span className="rounded-full border border-destructive/40 bg-destructive/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive">
+                  {op.missions.blocked_count} blocked
+                </span>
+              )}
+              {op.missions.awaiting_approval_count > 0 && (
+                <span className="rounded-full border border-operations/40 bg-operations/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-operations">
+                  {op.missions.awaiting_approval_count} awaiting approval
+                </span>
+              )}
+              {op.decisions.open_count > 0 && (
+                <span className="rounded-full border border-science/40 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science">
+                  {op.decisions.open_count} open decisions
+                </span>
+              )}
+              {op.missions.blocked_count === 0 && op.missions.awaiting_approval_count === 0 && op.decisions.open_count === 0 && (
+                <span className="rounded-full border border-science/30 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science">
+                  All clear
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-lcars-muted">
+              Generated {new Date(op.generated_at).toLocaleTimeString()}
+            </p>
+          </div>
+        ) : null}
+      </LCARSPanel>
 
-      {/* Fleet section — collapses on FRAGILE/REST */}
-      <FleetStatusConditional posture={currentPosture}>
-        <ROSPanels />
-        <CaptainApprovalQueue />
-        <ProactiveSignals />
-        <PriorityOverview />
-        <RequiresAttention />
-        <CoSBriefSnippet />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <LiveMissions />
-          <NotebookWidget />
+      {/* ── Section 2: Three-column grid ───────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+        {/* Col A: Health Today */}
+        <LCARSPanel title="Health Today" accent="medical" eyebrow="Human Systems">
+          {wellnessLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-12 w-20" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : !hasHealthLog || !isToday ? (
+            <div className="space-y-2">
+              <p className="text-sm text-lcars-muted italic">No health log for today.</p>
+              <Link
+                href="/captains-log"
+                className="inline-block rounded-lcars border border-medical/40 px-3 py-1.5 text-xs font-semibold text-medical transition-colors hover:bg-medical/10"
+              >
+                Log now →
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {energyVal !== null && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Energy score</p>
+                  <p className={`font-lcars text-4xl font-bold ${scoreColour(energyVal)}`}>
+                    {energyVal}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {sleepHours !== null && (
+                  <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center">
+                    <p className={`font-lcars text-xl font-bold ${sleepColour(sleepHours)}`}>{sleepHours}h</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Sleep</p>
+                  </div>
+                )}
+                {wellness?.daily?.energy && (
+                  <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center">
+                    <p className="font-lcars text-sm font-bold text-lcars-text capitalize">{wellness.daily.energy}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Energy</p>
+                  </div>
+                )}
+                {wellness?.daily?.sleep_quality && (
+                  <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center col-span-2">
+                    <p className="font-lcars text-sm font-bold text-lcars-text capitalize">{wellness.daily.sleep_quality}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Sleep quality</p>
+                  </div>
+                )}
+              </div>
+              {wellness?.insights?.risk_flags && wellness.insights.risk_flags.length > 0 && (
+                <div className="space-y-1">
+                  {wellness.insights.risk_flags.slice(0, 2).map((flag, i) => (
+                    <p key={i} className="text-[11px] text-operations">⚠ {flag}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </LCARSPanel>
+
+        {/* Col B: Active Missions */}
+        <LCARSPanel title="Active Missions" accent="command" eyebrow="Operations">
+          {opLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-16" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : opError ? (
+            <p className="text-sm text-lcars-muted italic">Unavailable</p>
+          ) : op ? (
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <div className="rounded-lcars border border-edge bg-panel-2/40 p-3 text-center flex-1">
+                  <p className="font-lcars text-3xl font-bold text-command">{op.missions.active_count}</p>
+                  <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Active</p>
+                </div>
+                {op.missions.blocked_count > 0 && (
+                  <div className="rounded-lcars border border-destructive/40 bg-destructive/10 p-3 text-center flex-1">
+                    <p className="font-lcars text-3xl font-bold text-destructive">{op.missions.blocked_count}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Blocked</p>
+                  </div>
+                )}
+              </div>
+              {highPriority.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted">High priority</p>
+                  {highPriority.map(m => (
+                    <div key={m.mission_id} className="flex items-start gap-2 text-xs">
+                      <span className="shrink-0">{PRIORITY_EMOJI[m.priority ?? 'P3'] ?? '·'}</span>
+                      <span className="text-lcars-text line-clamp-2">{m.title}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link
+                href="/missions"
+                className="inline-block text-[11px] font-semibold text-command hover:underline"
+              >
+                View all missions →
+              </Link>
+            </div>
+          ) : null}
+        </LCARSPanel>
+
+        {/* Col C: Intelligence Signals */}
+        <LCARSPanel title="Intelligence" accent="science" eyebrow="Signal Board">
+          {opLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : opError ? (
+            <p className="text-sm text-lcars-muted italic">Unavailable</p>
+          ) : op ? (
+            <div className="space-y-3">
+              {op.decisions.open_count > 0 ? (
+                <div className="rounded-lcars border border-science/30 bg-science/10 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Open decisions</p>
+                  <p className="font-lcars text-2xl font-bold text-science">{op.decisions.open_count}</p>
+                </div>
+              ) : (
+                <div className="rounded-lcars border border-edge bg-panel-2/40 p-3">
+                  <p className="text-sm text-lcars-muted">No open decisions</p>
+                </div>
+              )}
+              {wellness?.insights?.llm_narrative && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Latest insight</p>
+                  <p className="text-xs text-lcars-text leading-relaxed line-clamp-3">
+                    {wellness.insights.llm_narrative}
+                  </p>
+                </div>
+              )}
+              <Link
+                href="/intelligence"
+                className="inline-block text-[11px] font-semibold text-science hover:underline"
+              >
+                View intelligence →
+              </Link>
+            </div>
+          ) : null}
+        </LCARSPanel>
+
+      </div>
+
+      {/* ── Section 3: Capture Inbox ────────────────────────────────────────── */}
+      <div className="rounded-lcars border border-edge bg-panel/60 px-4 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">📥</span>
+          {inboxCount === null ? (
+            <Skeleton className="h-4 w-40" />
+          ) : inboxCount === 0 ? (
+            <p className="text-sm text-lcars-muted">Inbox clear</p>
+          ) : (
+            <p className="text-sm text-lcars-text font-semibold">
+              <span className="text-operations font-bold">{inboxCount}</span>{' '}
+              item{inboxCount !== 1 ? 's' : ''} pending review
+            </p>
+          )}
         </div>
-      </FleetStatusConditional>
+        <Link
+          href="/capture"
+          className="rounded-lcars border border-edge px-3 py-1.5 text-[11px] uppercase tracking-wide text-lcars-muted transition-colors hover:border-command hover:text-command"
+        >
+          Open capture →
+        </Link>
+      </div>
+
     </div>
   );
 }

@@ -141,4 +141,56 @@ router.post('/generate', async (req, res) => {
   }
 });
 
+// ── GET /operating-picture ─────────────────────────────────────────────────────
+// MSN-0200 P1E: synthesised executive operating picture
+// Cache TTL: 5 min (fast enough for Telegram /operating_picture command)
+const { cacheManager } = require('../cache/cache-manager');
+const { spawnSync } = require('child_process');
+
+router.get('/operating-picture', async (req, res) => {
+  const cacheKey = 'intelligence:operating-picture';
+  const { value, isStale } = cacheManager.get(cacheKey);
+  if (value && !isStale) {
+    return res.json({ status: 'ok', source: 'cache', ...value });
+  }
+
+  const path = require('path');
+  const REPO_ROOT = path.join(__dirname, '../../../../');
+  const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
+
+  const result = spawnSync(
+    PYTHON_BIN,
+    ['-c', `
+import sys, json
+sys.path.insert(0, '${REPO_ROOT}')
+sys.path.insert(0, '${path.join(REPO_ROOT, 'core/intelligence')}')
+from operating_picture import get_operating_picture
+print(json.dumps(get_operating_picture(), default=str))
+`],
+    {
+      cwd: REPO_ROOT,
+      timeout: 15000,
+      encoding: 'utf8',
+      env: { ...process.env, PYTHONPATH: REPO_ROOT },
+    }
+  );
+
+  if (result.error || result.status !== 0) {
+    // Return stale cache if available rather than hard fail
+    if (value) return res.json({ status: 'STALE', source: 'stale_cache', ...value });
+    return fail(res, 503, 'Operating picture unavailable', result.stderr?.slice(0, 300));
+  }
+
+  let picture;
+  try {
+    picture = JSON.parse(result.stdout);
+  } catch (e) {
+    if (value) return res.json({ status: 'STALE', source: 'stale_cache', ...value });
+    return fail(res, 500, 'Operating picture parse failed', e.message);
+  }
+
+  cacheManager.set(cacheKey, picture, 300); // 5 min TTL
+  return res.json({ status: 'ok', source: isStale ? 'refreshed' : 'live', ...picture });
+});
+
 module.exports = router;
