@@ -57,31 +57,21 @@ _RULES: list[tuple[str, str, float]] = [
      "mission_idea", 0.78),
 ]
 
-# voice_type → captured_items.item_type (existing Supabase enum)
-_ITEM_TYPE_MAP: dict[str, str] = {
-    "thing_to_do":       "note",
-    "note":              "note",
-    "mission_idea":      "idea",
-    "decision":          "decision",
-    "recovery_pulse":    "health",
-    "content_idea":      "idea",
-    "operational_alert": "note",
-    "knowledge_record":  "note",
-    "unknown":           "note",
+# voice_type → captured_items envelope metadata.
+# item_type is always 'text_note' (canonical portal value).
+# classification must be one of: reference | mission | personal | research | decision | unclassified
+_CAPTURE_META: dict[str, dict] = {
+    "thing_to_do":       {"classification": "reference",    "importance": "medium", "requires_review": True},
+    "mission_idea":      {"classification": "mission",      "importance": "high",   "requires_review": True},
+    "recovery_pulse":    {"classification": "personal",     "importance": "medium", "requires_review": False},
+    "content_idea":      {"classification": "research",     "importance": "medium", "requires_review": True},
+    "decision":          {"classification": "decision",     "importance": "high",   "requires_review": True},
+    "note":              {"classification": "reference",    "importance": "medium", "requires_review": True},
+    "operational_alert": {"classification": "reference",    "importance": "medium", "requires_review": True},
+    "knowledge_record":  {"classification": "reference",    "importance": "medium", "requires_review": True},
+    "unknown":           {"classification": "unclassified", "importance": "medium", "requires_review": True},
 }
-
-# voice_type → captured_items.classification
-_CLASSIFICATION_MAP: dict[str, str] = {
-    "thing_to_do":       "personal",
-    "note":              "reference",
-    "mission_idea":      "research",
-    "decision":          "decision",
-    "recovery_pulse":    "personal",
-    "content_idea":      "research",
-    "operational_alert": "reference",
-    "knowledge_record":  "reference",
-    "unknown":           "unclassified",
-}
+_DEFAULT_META: dict = {"classification": "unclassified", "importance": "medium", "requires_review": True}
 
 # Human-readable labels for Telegram reply
 _VOICE_TYPE_LABEL: dict[str, str] = {
@@ -152,39 +142,49 @@ def save_capture(
     chat_id: int,
     message_id: int,
     duration: float,
+    audio_path: str = "",
 ) -> dict:
     """
-    Insert a captured_items row. Never routes — always lands pending/unreviewed.
+    Insert a captured_items row using the canonical portal envelope.
+    Never routes — always lands pending/unreviewed.
     Returns the inserted row from Supabase.
     """
-    now = datetime.now(_TZ).isoformat()
-    item_type = _ITEM_TYPE_MAP.get(voice_type, "note")
-    classification = _CLASSIFICATION_MAP.get(voice_type, "unclassified")
-    label = _VOICE_TYPE_LABEL.get(voice_type, "Note")
-    title = f"[{label}] {transcript[:100]}"
+    now = datetime.now(_TZ)
+    now_iso = now.isoformat()
+    now_ms = str(int(now.timestamp() * 1000))
+
+    meta = _CAPTURE_META.get(voice_type, _DEFAULT_META)
+
+    # Title: "Voice: <first 90 chars of transcript>"
+    clipped = transcript[:90]
+    title = f"Voice: {clipped}"
 
     row = {
         "id":                str(uuid.uuid4()),
-        "raw_text":          transcript,
-        "title":             title[:120],
-        "item_type":         item_type,
-        "source_type":       "telegram_voice",
-        "source_channel_id": "telegram_voice",
+        "captured_by":       "captain-tjr",
+        "captured_at":       now_iso,
+        "source_type":       "channel_message",         # canonical — matches portal constraint
+        "source_channel_id": "telegram-xo-voice-capture",
         "source_message_id": str(message_id),
-        "source_message_ts": now,
-        "source_user_id":    str(chat_id),
-        "classification":    classification,
-        "importance":        "medium",
-        "requires_review":   True,
+        "source_message_ts": now_ms,
+        "item_type":         "text_note",               # canonical — matches portal envelope
+        "title":             title[:200],
+        "raw_text":          transcript[:10240],
+        "classification":    meta["classification"],
+        "importance":        meta["importance"],
+        "requires_review":   meta["requires_review"],
         "processing_status": "pending",
         "review_status":     "unreviewed",
-        "captured_at":       now,
-        # Summary stores voice metadata as compact JSON for LCARS display
+        # Voice-specific metadata in summary JSON (not polluting main columns)
         "summary": json.dumps({
+            "capture_origin":      "telegram_voice",
             "voice_type":          voice_type,
             "confidence":          round(confidence, 2),
             "duration_s":          round(duration, 1),
             "transcription_model": "faster-whisper-base",
+            "telegram_message_id": str(message_id),
+            "telegram_user_id":    str(chat_id),
+            "audio_file":          audio_path,
         }),
     }
 
@@ -226,14 +226,14 @@ def handle_capture_from_voice(
     # Step 3: Write to Supabase (no auto-routing)
     saved = save_capture(
         supabase, transcript, voice_type, confidence,
-        chat_id, message_id, duration,
+        chat_id, message_id, duration, audio_path,
     )
 
     return {
         "ok":         True,
         "capture_id": saved["id"],
         "voice_type": voice_type,
-        "item_type":  _ITEM_TYPE_MAP.get(voice_type, "note"),
+        "item_type":  "text_note",
         "confidence": confidence,
         "status":     "needs_review",
         "transcript": transcript,

@@ -24,7 +24,7 @@ from telegram_bots.xo.voice_capture import (
     save_capture,
     transcribe_audio,
     voice_type_label,
-    _ITEM_TYPE_MAP,
+    _CAPTURE_META,
 )
 
 PASS = "PASS"
@@ -74,17 +74,68 @@ def test_classification_confidence():
     check("unknown type has lowest confidence (≤0.55)", low_conf <= 0.55)
 
 
-# ── Test 3: item_type mapping — no direct mission type from voice ─────────────
+# ── Test 3: canonical envelope — item_type always text_note ─────────────────
 
-def test_no_auto_mission_creation():
-    print("\n── No auto-mission creation ─────────────────────────────────────")
-    check("mission_idea maps to 'idea' not 'mission'", _ITEM_TYPE_MAP["mission_idea"] == "idea")
-    check("content_idea maps to 'idea' not 'mission'", _ITEM_TYPE_MAP["content_idea"] == "idea")
-    check("'mission' type is NOT a valid voice_type in _ITEM_TYPE_MAP",
-          "mission" not in _ITEM_TYPE_MAP)
-    # voice capture NEVER produces item_type='mission' (which would auto-approve)
-    for voice_type, item_type in _ITEM_TYPE_MAP.items():
-        check(f"voice_type '{voice_type}' never maps to 'mission'", item_type != "mission")
+def test_canonical_envelope():
+    print("\n── Canonical captured_items envelope ────────────────────────────")
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.insert.return_value.execute.return_value.data = [{
+        "id": "env-test-1234",
+    }]
+
+    for voice_type in ["thing_to_do", "mission_idea", "recovery_pulse", "content_idea", "decision", "unknown"]:
+        save_capture(mock_supabase, "test transcript", voice_type, 0.85, 643108092, 9999, 5.0)
+        payload = mock_supabase.table.return_value.insert.call_args[0][0]
+
+        check(f"[{voice_type}] source_type = 'channel_message'",
+              payload.get("source_type") == "channel_message")
+        check(f"[{voice_type}] item_type = 'text_note'",
+              payload.get("item_type") == "text_note")
+        check(f"[{voice_type}] source_channel_id = 'telegram-xo-voice-capture'",
+              payload.get("source_channel_id") == "telegram-xo-voice-capture")
+        check(f"[{voice_type}] processing_status = 'pending'",
+              payload.get("processing_status") == "pending")
+        check(f"[{voice_type}] review_status = 'unreviewed'",
+              payload.get("review_status") == "unreviewed")
+        check(f"[{voice_type}] title starts with 'Voice: '",
+              payload.get("title", "").startswith("Voice: "))
+        check(f"[{voice_type}] captured_by = 'captain-tjr'",
+              payload.get("captured_by") == "captain-tjr")
+
+        # Verify voice metadata is in summary, not top-level columns
+        summary = json.loads(payload.get("summary", "{}"))
+        check(f"[{voice_type}] summary.capture_origin = 'telegram_voice'",
+              summary.get("capture_origin") == "telegram_voice")
+        check(f"[{voice_type}] summary.voice_type = '{voice_type}'",
+              summary.get("voice_type") == voice_type)
+
+        # No invalid enum values in top-level columns
+        INVALID_ITEM_TYPES = {"note", "idea", "health", "decision", "task"}
+        INVALID_SOURCE_TYPES = {"telegram_voice", "command_centre", "portal_quick_capture"}
+        check(f"[{voice_type}] item_type not in invalid set",
+              payload.get("item_type") not in INVALID_ITEM_TYPES)
+        check(f"[{voice_type}] source_type not in invalid set",
+              payload.get("source_type") not in INVALID_SOURCE_TYPES)
+
+
+def test_classification_mapping():
+    print("\n── Classification mapping ───────────────────────────────────────")
+    cases = [
+        ("thing_to_do",   "reference", "medium", True),
+        ("mission_idea",  "mission",   "high",   True),
+        ("recovery_pulse","personal",  "medium",  False),
+        ("content_idea",  "research",  "medium",  True),
+        ("decision",      "decision",  "high",   True),
+        ("unknown",       "unclassified", "medium", True),
+    ]
+    for voice_type, exp_class, exp_imp, exp_review in cases:
+        meta = _CAPTURE_META.get(voice_type, {})
+        check(f"[{voice_type}] classification = '{exp_class}'",
+              meta.get("classification") == exp_class)
+        check(f"[{voice_type}] importance = '{exp_imp}'",
+              meta.get("importance") == exp_imp)
+        check(f"[{voice_type}] requires_review = {exp_review}",
+              meta.get("requires_review") == exp_review)
 
 
 # ── Test 4: transcribe_audio failure path ────────────────────────────────────
@@ -137,21 +188,30 @@ def test_save_capture_record():
 
     # Verify the row sent to Supabase
     insert_payload = mock_supabase.table.return_value.insert.call_args[0][0]
-    check("source_type = 'telegram_voice'", insert_payload.get("source_type") == "telegram_voice")
-    check("item_type = 'note' for thing_to_do", insert_payload.get("item_type") == "note")
+    check("source_type = 'channel_message'", insert_payload.get("source_type") == "channel_message")
+    check("source_channel_id = 'telegram-xo-voice-capture'",
+          insert_payload.get("source_channel_id") == "telegram-xo-voice-capture")
+    check("item_type = 'text_note' (canonical portal value)",
+          insert_payload.get("item_type") == "text_note")
     check("processing_status = 'pending'", insert_payload.get("processing_status") == "pending")
     check("review_status = 'unreviewed'", insert_payload.get("review_status") == "unreviewed")
     check("requires_review = True", insert_payload.get("requires_review") is True)
+    check("captured_by = 'captain-tjr'", insert_payload.get("captured_by") == "captain-tjr")
     check("source_message_id = '9001'", insert_payload.get("source_message_id") == "9001")
+    check("title starts with 'Voice: '", insert_payload.get("title", "").startswith("Voice: "))
     check("has raw_text", bool(insert_payload.get("raw_text")))
     check("has captured_at", bool(insert_payload.get("captured_at")))
 
-    # Verify summary contains voice metadata
+    # Verify summary contains voice metadata (voice-specific fields live here)
     summary = json.loads(insert_payload.get("summary", "{}"))
+    check("summary.capture_origin = 'telegram_voice'",
+          summary.get("capture_origin") == "telegram_voice")
     check("summary.voice_type = 'thing_to_do'", summary.get("voice_type") == "thing_to_do")
     check("summary.confidence present", "confidence" in summary)
     check("summary.transcription_model = 'faster-whisper-base'",
           summary.get("transcription_model") == "faster-whisper-base")
+    check("summary.telegram_message_id = '9001'",
+          summary.get("telegram_message_id") == "9001")
 
     check("returned saved row id", saved["id"] == "test-uuid-1234")
 
@@ -180,7 +240,7 @@ def test_handle_capture_success():
     check("pipeline returns ok=True", result.get("ok") is True)
     check("capture_id is set", bool(result.get("capture_id")))
     check("voice_type = 'mission_idea'", result.get("voice_type") == "mission_idea")
-    check("item_type = 'idea' (not 'mission')", result.get("item_type") == "idea")
+    check("item_type = 'text_note' (canonical portal value)", result.get("item_type") == "text_note")
     check("status = 'needs_review'", result.get("status") == "needs_review")
     check("transcript returned", "briefing" in result.get("transcript", ""))
     check("confidence in [0,1]", 0.0 <= result.get("confidence", -1) <= 1.0)
@@ -221,7 +281,8 @@ def main():
 
     test_classification_rules()
     test_classification_confidence()
-    test_no_auto_mission_creation()
+    test_canonical_envelope()
+    test_classification_mapping()
     test_transcription_failure()
     test_save_capture_record()
     test_handle_capture_success()

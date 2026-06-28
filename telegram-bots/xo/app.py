@@ -1250,8 +1250,11 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
             await query.edit_message_text("🗑 Capture dismissed\\.", parse_mode="MarkdownV2")
 
         elif action == "promote":
-            db.table("captured_items").update({"item_type": "idea"}) \
-              .eq("id", capture_id).execute()
+            db.table("captured_items").update({
+                "classification": "mission",
+                "importance":     "high",
+                "requires_review": True,
+            }).eq("id", capture_id).execute()
             await query.edit_message_text(
                 "🚀 Marked as *Mission Idea*\\.\n"
                 "Review in LCARS Portal → Capture Inbox to promote to active mission\\.",
@@ -1259,8 +1262,10 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
             )
 
         elif action == "note":
-            db.table("captured_items").update({"item_type": "note"}) \
-              .eq("id", capture_id).execute()
+            db.table("captured_items").update({
+                "classification": "reference",
+                "importance":     "medium",
+            }).eq("id", capture_id).execute()
             await query.edit_message_text(
                 "📋 Saved as *Note*\\. In LCARS Portal → Capture Inbox\\.",
                 parse_mode="MarkdownV2",
