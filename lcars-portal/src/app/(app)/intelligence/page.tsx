@@ -8,14 +8,15 @@ import { useEffect, useState, type ReactNode } from 'react';
  * Tabs: Latest Brief | Signals | Themes | Sources | Archive | Daily Briefs
  */
 
-type Tab = 'latest' | 'signals' | 'themes' | 'archive' | 'daily_briefs';
+type Tab = 'latest' | 'signals' | 'themes' | 'archive' | 'daily_briefs' | 'content_signals';
 
 const TABS: { key: Tab; label: string; glyph: string }[] = [
-  { key: 'latest',       label: 'Latest Brief', glyph: '●' },
-  { key: 'signals',      label: 'Signals',      glyph: '◈' },
-  { key: 'themes',       label: 'Themes',       glyph: '↗' },
-  { key: 'archive',      label: 'ORI Archive',  glyph: '▣' },
-  { key: 'daily_briefs', label: 'Daily Briefs', glyph: '☀' },
+  { key: 'latest',          label: 'Latest Brief',    glyph: '●' },
+  { key: 'signals',         label: 'Signals',         glyph: '◈' },
+  { key: 'themes',          label: 'Themes',          glyph: '↗' },
+  { key: 'archive',         label: 'ORI Archive',     glyph: '▣' },
+  { key: 'daily_briefs',    label: 'Daily Briefs',    glyph: '☀' },
+  { key: 'content_signals', label: 'Content',         glyph: '✍' },
 ];
 
 const RISK_COLOUR: Record<string, string> = {
@@ -326,6 +327,217 @@ function DailyBriefsView({ d }: { d: any }) {
   );
 }
 
+// ── Content Signals tab (MSN-0202) ────────────────────────────────────────────
+
+const PILLAR_COLOUR: Record<string, string> = {
+  operational_resilience:        'text-red-400 border-red-400/30 bg-red-400/5',
+  business_continuity:           'text-orange-400 border-orange-400/30 bg-orange-400/5',
+  human_performance:             'text-blue-400 border-blue-400/30 bg-blue-400/5',
+  wellness_sustainable_performance: 'text-green-400 border-green-400/30 bg-green-400/5',
+  ai_augmented_leadership:       'text-purple-400 border-purple-400/30 bg-purple-400/5',
+  personal_operating_systems:    'text-lcars-muted border-lcars-muted/30 bg-lcars-muted/5',
+  future_of_work:                'text-yellow-400 border-yellow-400/30 bg-yellow-400/5',
+  decision_quality_governance:   'text-science border-science/30 bg-science/5',
+};
+
+function PillarBadge({ pillarKey, pillarName }: { pillarKey: string; pillarName: string }) {
+  const cls = PILLAR_COLOUR[pillarKey] ?? 'text-lcars-muted border-lcars-muted/30 bg-lcars-muted/5';
+  return (
+    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {pillarName || pillarKey}
+    </span>
+  );
+}
+
+function RequestDraftButton({ signal }: { signal: any }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [msg, setMsg] = useState('');
+
+  async function handleRequest() {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/content/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: signal.event_id,
+          title: signal.raw_title,
+          pillar_key: signal.pillar_key,
+          suggested_angle: signal.suggested_angle,
+          source_name: signal.source_name,
+          canonical_url: signal.canonical_url,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setStatus('done');
+      setMsg('Added to pipeline as opportunity');
+    } catch (err) {
+      setStatus('error');
+      setMsg(err instanceof Error ? err.message : 'Failed');
+    }
+  }
+
+  if (status === 'done') return <span className="text-xs text-green-400">✓ {msg}</span>;
+  if (status === 'error') return <span className="text-xs text-red-400">✗ {msg}</span>;
+
+  return (
+    <button
+      type="button"
+      onClick={handleRequest}
+      disabled={status === 'loading'}
+      className="text-xs border border-science/40 rounded px-2 py-0.5 text-science hover:bg-science/10 disabled:opacity-50 transition-colors"
+    >
+      {status === 'loading' ? 'Adding…' : '+ Request draft'}
+    </button>
+  );
+}
+
+function ContentSignalCard({ s }: { s: any }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/30">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-start gap-2 p-3 text-left hover:bg-panel/50 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm leading-snug text-lcars-text">{s.raw_title}</p>
+          <div className="flex flex-wrap gap-2 mt-1.5 items-center">
+            {s.pillar_key && <PillarBadge pillarKey={s.pillar_key} pillarName={s.pillar_name} />}
+            {s.captain_focus && (
+              <span className="text-[10px] font-medium text-amber-400 border border-amber-400/30 bg-amber-400/5 rounded px-1.5 py-0.5">
+                ★ Captain Focus
+              </span>
+            )}
+            <span className="text-[10px] text-lcars-muted">
+              Score {Number(s.rank_score ?? 0).toFixed(1)}
+            </span>
+            <span className="text-[10px] text-lcars-muted">
+              via {s.source_name}
+            </span>
+            <span className="text-[10px] text-lcars-muted">
+              {(s.collected_at ?? '').slice(0, 10)}
+            </span>
+          </div>
+          {!open && s.suggested_angle && (
+            <p className="text-xs text-lcars-muted/70 mt-1 italic line-clamp-1">{s.suggested_angle}</p>
+          )}
+        </div>
+        <span className="text-[10px] text-lcars-muted shrink-0 mt-1">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-edge/50 px-4 py-3 space-y-2 text-sm">
+          {s.suggested_angle && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Suggested Angle</p>
+              <p className="text-xs text-lcars-text italic">{s.suggested_angle}</p>
+            </div>
+          )}
+          {s.raw_summary && (
+            <p className="text-xs text-lcars-text/80 leading-relaxed">{s.raw_summary}</p>
+          )}
+          <div className="flex items-center gap-4 text-xs text-lcars-muted">
+            <span>Relevance {(Number(s.content_relevance ?? 0) * 100).toFixed(0)}%</span>
+          </div>
+          <div className="flex gap-3 items-center flex-wrap">
+            {s.canonical_url && (
+              <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
+                 className="text-xs text-science hover:underline">
+                View source ↗
+              </a>
+            )}
+            <RequestDraftButton signal={s} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PillarCard({ p }: { p: any }) {
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/30 p-3">
+      <div className="flex items-center justify-between mb-1">
+        <PillarBadge pillarKey={p.pillar_key} pillarName={p.pillar_name} />
+        <span className="text-[10px] text-lcars-muted">{p.signal_count} signal{p.signal_count !== 1 ? 's' : ''}</span>
+      </div>
+      {p.top_signal_title && (
+        <p className="text-xs text-lcars-text/80 line-clamp-2 mt-1">{p.top_signal_title}</p>
+      )}
+      <p className="text-[10px] text-lcars-muted mt-1">
+        Avg relevance {(Number(p.avg_relevance ?? 0) * 100).toFixed(0)}%
+      </p>
+    </div>
+  );
+}
+
+function ContentSignalsView({ d }: { d: any }) {
+  const signals: any[]   = d.signals ?? [];
+  const byPillar: any[]  = d.by_pillar ?? [];
+  const pipeline: Record<string, number> = d.pipeline ?? {};
+  const captainCount: number = d.captain_focus_count ?? 0;
+
+  if (!signals.length && !byPillar.length) {
+    return (
+      <div className="text-sm text-lcars-muted space-y-2">
+        <p>No content signals scored yet.</p>
+        <p className="text-xs">
+          Run <code className="bg-panel/60 px-1 rounded">content_intelligence_service.score_and_persist()</code> to score recent intelligence events for content relevance.
+        </p>
+      </div>
+    );
+  }
+
+  const pipelineStatuses = ['opportunity', 'draft', 'review', 'approved', 'ready_to_publish', 'published'];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Summary header */}
+      <div className="flex gap-4 flex-wrap text-xs text-lcars-muted">
+        <span>Top {signals.length} signals</span>
+        {captainCount > 0 && <span className="text-amber-400">★ {captainCount} captain-focus</span>}
+        <span>{byPillar.length} pillars active</span>
+      </div>
+
+      {/* Pipeline snapshot */}
+      {Object.keys(pipeline).length > 0 && (
+        <div className="rounded-lcars border border-edge bg-panel/20 p-3">
+          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-2">Content Pipeline</p>
+          <div className="flex flex-wrap gap-3">
+            {pipelineStatuses.map(s => pipeline[s] != null ? (
+              <span key={s} className="text-xs text-lcars-text">
+                <span className="text-lcars-muted capitalize">{s.replace(/_/g, ' ')}</span>
+                {' '}{pipeline[s]}
+              </span>
+            ) : null)}
+          </div>
+        </div>
+      )}
+
+      {/* Pillar breakdown */}
+      {byPillar.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-2">By Pillar</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {byPillar.map((p, i) => <PillarCard key={p.pillar_key ?? i} p={p} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Top signals ranked list */}
+      <div>
+        <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-2">Top Signals This Week</p>
+        <div className="flex flex-col gap-2">
+          {signals.map((s, i) => <ContentSignalCard key={s.event_id ?? i} s={s} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntelligencePage() {
@@ -337,6 +549,8 @@ export default function IntelligencePage() {
   // Signal filter state
   const [signalDays, setSignalDays] = useState('7');
   const [signalRisk, setSignalRisk] = useState('');
+  const [contentDays, setContentDays] = useState('7');
+  const [contentPillar, setContentPillar] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -350,6 +564,11 @@ export default function IntelligencePage() {
       if (signalRisk) params.risk = signalRisk;
     }
     if (tab === 'daily_briefs') params.days = '14';
+    if (tab === 'content_signals') {
+      params.days  = contentDays;
+      params.limit = '10';
+      if (contentPillar) params.pillar = contentPillar;
+    }
 
     fetchIntel(params)
       .then(r => !cancelled && setData(r as Record<string, unknown>))
@@ -357,7 +576,7 @@ export default function IntelligencePage() {
       .finally(() => !cancelled && setLoading(false));
 
     return () => { cancelled = true; };
-  }, [tab, signalDays, signalRisk]);
+  }, [tab, signalDays, signalRisk, contentDays, contentPillar]);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
@@ -386,6 +605,37 @@ export default function IntelligencePage() {
           </button>
         ))}
       </div>
+
+      {/* Content signals filters */}
+      {tab === 'content_signals' && (
+        <div className="flex gap-3 flex-wrap">
+          <select
+            value={contentDays}
+            onChange={e => setContentDays(e.target.value)}
+            className="rounded-lcars border border-edge bg-panel/40 px-3 py-1 text-sm text-lcars-text"
+          >
+            <option value="3">Last 3 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+          <select
+            value={contentPillar}
+            onChange={e => setContentPillar(e.target.value)}
+            className="rounded-lcars border border-edge bg-panel/40 px-3 py-1 text-sm text-lcars-text"
+          >
+            <option value="">All pillars</option>
+            <option value="operational_resilience">Operational Resilience</option>
+            <option value="business_continuity">Business Continuity</option>
+            <option value="human_performance">Human Performance</option>
+            <option value="wellness_sustainable_performance">Wellness</option>
+            <option value="ai_augmented_leadership">AI-Augmented Leadership</option>
+            <option value="personal_operating_systems">Personal OS</option>
+            <option value="future_of_work">Future of Work</option>
+            <option value="decision_quality_governance">Decision Quality</option>
+          </select>
+        </div>
+      )}
 
       {/* Signal filters */}
       {tab === 'signals' && (
@@ -418,11 +668,12 @@ export default function IntelligencePage() {
         <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
-      {!loading && data && tab === 'latest'       && <LatestBrief    d={data} />}
-      {!loading && data && tab === 'signals'      && <SignalsView     d={data} />}
-      {!loading && data && tab === 'themes'       && <ThemesView      d={data} />}
-      {!loading && data && tab === 'archive'      && <ArchiveView     d={data} />}
-      {!loading && data && tab === 'daily_briefs' && <DailyBriefsView d={data} />}
+      {!loading && data && tab === 'latest'          && <LatestBrief       d={data} />}
+      {!loading && data && tab === 'signals'         && <SignalsView        d={data} />}
+      {!loading && data && tab === 'themes'          && <ThemesView         d={data} />}
+      {!loading && data && tab === 'archive'         && <ArchiveView        d={data} />}
+      {!loading && data && tab === 'daily_briefs'    && <DailyBriefsView    d={data} />}
+      {!loading && data && tab === 'content_signals' && <ContentSignalsView d={data} />}
     </div>
   );
 }

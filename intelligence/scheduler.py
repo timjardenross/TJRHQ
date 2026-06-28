@@ -13,6 +13,7 @@ Default: "0 6 1,15 * *"  (1st and 15th of each month at 06:00 UTC)
 import argparse
 import json
 import logging
+import os
 import sys
 
 from intelligence.brief.brief_generator import BriefGenerator
@@ -173,6 +174,20 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── MSN-0202: Content Intelligence scoring (opt-in) ──────────────────────
+    # Runs at 06:15 AEST (15 min after daily collection) to score new events.
+    # Gated by CONTENT_INTEL_PUSH_ENABLED=1 env var.
+    if os.environ.get("CONTENT_INTEL_PUSH_ENABLED") == "1":
+        scheduler.add_job(
+            _content_scoring_job,
+            CronTrigger(hour=6, minute=15, timezone=tz),
+            id="content_intelligence_scoring",
+            replace_existing=True,
+        )
+        log.info("Content intelligence scoring job registered (06:15 %s)", SCHEDULE_TZ)
+    else:
+        log.info("Content intelligence scoring disabled (set CONTENT_INTEL_PUSH_ENABLED=1 to enable)")
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
@@ -290,6 +305,23 @@ def _daily_collection_job() -> None:
         )
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)
+
+
+def _content_scoring_job() -> None:
+    """MSN-0202: Score recent intelligence_events for content relevance.
+
+    Runs at 06:15 AEST daily (after daily collection at 06:00).
+    Idempotent — safe to re-run; upserts on event_id_text.
+    Gated by CONTENT_INTEL_PUSH_ENABLED=1.
+    """
+    log.info("Content intelligence scoring job triggered")
+    try:
+        from intelligence.content_intelligence_service import ContentIntelligenceService
+        svc = ContentIntelligenceService()
+        written = svc.score_and_persist(days=7)
+        log.info("Content intelligence scoring complete: %d signals written", written)
+    except Exception as exc:
+        log.error("Content intelligence scoring failed: %s", exc)
 
 
 if __name__ == "__main__":

@@ -24,7 +24,8 @@ const REGISTRY: Record<string, PerspectiveMeta> = {
   'nooyi':           { label: 'Indra Nooyi',           category: 'business'   },
   'ardern':          { label: 'Jacinda Ardern',        category: 'politics'   },
   'ginsburg':        { label: 'Ruth Bader Ginsburg',   category: 'politics'   },
-  'thich-nhat-hanh': { label: 'Thich Nhat Hanh',      category: 'philosophy' },
+  'thich-nhat-hanh':      { label: 'Thich Nhat Hanh',      category: 'philosophy' },
+  'editorial-strategist': { label: 'Editorial Strategist', category: 'content'   },
 };
 
 export async function GET(request: NextRequest) {

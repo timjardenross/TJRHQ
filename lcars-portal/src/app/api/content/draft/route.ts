@@ -1,0 +1,54 @@
+// MSN-0202: Content draft request endpoint.
+// POST /api/content/draft — creates a comms_content row from an intelligence signal.
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+
+export async function POST(req: NextRequest) {
+  try {
+    const sb = await createSupabaseServerClient();
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { event_id, title, pillar_key, suggested_angle, source_name, canonical_url } = body;
+
+    if (!event_id || !title) {
+      return NextResponse.json({ error: 'event_id and title are required' }, { status: 400 });
+    }
+
+    const truncatedTitle = String(title).slice(0, 200);
+    const notes = [
+      suggested_angle ? `Signal: ${suggested_angle}` : null,
+      source_name ? `Source: ${source_name}` : null,
+      canonical_url ? `URL: ${canonical_url}` : null,
+    ]
+      .filter(Boolean)
+      .join('. ');
+
+    const { data, error } = await sb
+      .from('comms_content')
+      .insert({
+        title: truncatedTitle,
+        pillar: pillar_key ?? null,
+        source_kind: 'intelligence_signal',
+        source_ref: event_id,
+        signal_source_id: event_id,
+        status: 'opportunity',
+        classification: 'publishable',
+        notes: notes || null,
+      })
+      .select('id')
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, content_id: data.id });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
