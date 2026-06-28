@@ -242,15 +242,19 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 }));
 
 // ── LLM enrichment helper ─────────────────────────────────────────────────────
-// Calls Ollama (or falls back cleanly). Returns suggestion object — never routes.
+// Uses Gemini 2.5 Flash (same model as the rest of the backend).
+// Returns a suggestion object — never routes autonomously.
 
 async function _callEnrichmentLLM(title, rawText) {
-  const OLLAMA_BASE = (process.env.OLLAMA_BASE_URL || 'https://ollama.com').replace(/\/$/, '');
-  const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'glm-5.2';
-  const OLLAMA_KEY   = process.env.OLLAMA_API_KEY || '';
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn('[capture/enrich] GEMINI_API_KEY not set — enrichment unavailable');
+    return { ok: false, error: 'GEMINI_API_KEY not configured' };
+  }
 
   const text = (rawText || title || '').slice(0, 2000);
-  const systemPrompt = `You are a capture classification assistant for USS TJR command system.
+
+  const prompt = `You are a capture classification assistant for USS TJR command system.
 Classify the provided capture text and return ONLY a JSON object with these exact keys:
 {
   "classification": "<reference|mission|personal|research|decision|unclassified>",
@@ -266,61 +270,64 @@ Rules:
 - research: idea, hypothesis, thing to explore
 - reference: note, reminder, context, information
 - unclassified: unclear or ambiguous
-Return ONLY the JSON, no other text.`;
+Return ONLY the JSON, no other text.
 
+Capture text:
+${text}`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const payload = JSON.stringify({
-    model: OLLAMA_MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user',   content: text },
-    ],
-    stream: false,
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
   });
-
-  const headers = { 'Content-Type': 'application/json' };
-  if (OLLAMA_KEY) headers['Authorization'] = `Bearer ${OLLAMA_KEY}`;
 
   try {
     const https = require('https');
-    const http  = require('http');
-    const url   = new URL(`${OLLAMA_BASE}/api/chat`);
-    const transport = url.protocol === 'https:' ? https : http;
-
     const responseText = await new Promise((resolve, reject) => {
-      const req = transport.request({
-        hostname: url.hostname,
-        port:     url.port || (url.protocol === 'https:' ? 443 : 80),
-        path:     url.pathname,
-        method:   'POST',
-        headers:  { ...headers, 'Content-Length': Buffer.byteLength(payload) },
+      const u = new URL(url);
+      const req = https.request({
+        hostname: u.hostname,
+        port: 443,
+        path: u.pathname + u.search,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
       }, (res) => {
         let data = '';
         res.on('data', c => { data += c; });
         res.on('end', () => resolve(data));
       });
       req.on('error', reject);
-      req.setTimeout(20000, () => req.destroy(new Error('LLM timeout')));
+      req.setTimeout(30000, () => req.destroy(new Error('Gemini timeout')));
       req.write(payload);
       req.end();
     });
 
-    const body    = JSON.parse(responseText);
-    const content = (body?.message?.content || '').trim();
-    const json    = JSON.parse(content.replace(/^```json?\s*/i, '').replace(/```\s*$/, ''));
+    const body = JSON.parse(responseText);
+    // Gemini 2.5 Flash may return thinking + text parts; join non-thought text parts
+    const parts = body?.candidates?.[0]?.content?.parts ?? [];
+    const content = parts
+      .filter(p => !p.thought)
+      .map(p => p.text || '')
+      .join('')
+      .trim();
 
-    const VALID_CLASSES = ['reference','mission','personal','research','decision','unclassified'];
-    const VALID_IMP     = ['low','medium','high'];
+    if (!content) throw new Error('Gemini returned no content');
+
+    const json = JSON.parse(content.replace(/^```json?\s*/i, '').replace(/```\s*$/, ''));
+
+    const VALID_CLASSES = ['reference', 'mission', 'personal', 'research', 'decision', 'unclassified'];
+    const VALID_IMP     = ['low', 'medium', 'high'];
     return {
-      ok:             true,
-      classification: VALID_CLASSES.includes(json.classification) ? json.classification : 'unclassified',
-      importance:     VALID_IMP.includes(json.importance) ? json.importance : 'medium',
+      ok:              true,
+      classification:  VALID_CLASSES.includes(json.classification) ? json.classification : 'unclassified',
+      importance:      VALID_IMP.includes(json.importance) ? json.importance : 'medium',
       suggested_route: json.suggested_route || 'none',
-      confidence:     typeof json.confidence === 'number' ? Math.min(1, Math.max(0, json.confidence)) : 0.5,
-      reasoning:      (json.reasoning || '').slice(0, 300),
-      model:          OLLAMA_MODEL,
+      confidence:      typeof json.confidence === 'number' ? Math.min(1, Math.max(0, json.confidence)) : 0.5,
+      reasoning:       (json.reasoning || '').slice(0, 300),
+      model:           'gemini-2.5-flash',
     };
   } catch (err) {
-    console.warn('[capture/enrich] LLM call failed:', err.message);
+    console.warn('[capture/enrich] Gemini call failed:', err.message);
     return { ok: false, error: err.message };
   }
 }
