@@ -37,6 +37,10 @@ class APIAdapter(BaseSourceAdapter):
         if data is None:
             raise RuntimeError(f"No data returned from {endpoint}")
 
+        # RSS/Atom detected inline — already parsed, return directly
+        if isinstance(data, dict) and "__feed_items__" in data:
+            return data["__feed_items__"]
+
         # Dispatch to source-specific parser
         source_id = self.source.source_id
         if "TECH-004" in source_id or "salesforce" in self.source.source_name.lower():
@@ -52,18 +56,85 @@ class APIAdapter(BaseSourceAdapter):
 
     # ─── Fetcher ──────────────────────────────────────────────────────────────
 
+    _RSS_CONTENT_TYPES = frozenset({
+        "application/rss+xml", "application/atom+xml",
+        "application/xml", "text/xml",
+    })
+
     def _fetch_json(self, url: str) -> Optional[object]:
+        """Fetch JSON from url. If the response is RSS/XML, parse as a feed instead."""
+        # Strip fragment — HTTP does not transmit fragments; feedparser may also choke on them
+        clean_url = url.split("#")[0]
         req = urllib.request.Request(
-            url,
-            headers={"User-Agent": _UA, "Accept": "application/json"},
+            clean_url,
+            headers={"User-Agent": _UA, "Accept": "application/json, application/xml;q=0.9, */*;q=0.8"},
         )
         try:
             with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
-                return json.loads(resp.read())
+                raw = resp.read()
+                ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                if ct in self._RSS_CONTENT_TYPES or raw.lstrip()[:5] in (b"<?xml", b"<rss ", b"<feed"):
+                    return self._parse_feed_bytes(raw, clean_url)
+                return json.loads(raw)
         except urllib.error.HTTPError as exc:
-            raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
+            raise RuntimeError(f"HTTP {exc.code} from {clean_url}") from exc
         except Exception as exc:
             raise RuntimeError(f"Request failed: {exc}") from exc
+
+    def _parse_feed_bytes(self, raw: bytes, url: str) -> list[IntelligenceItem]:
+        """Parse raw RSS/Atom bytes directly and return IntelligenceItems (bypasses JSON path)."""
+        try:
+            import feedparser
+        except ImportError:
+            raise RuntimeError("feedparser not installed — run: pip install feedparser")
+        import re
+
+        feed = feedparser.parse(raw)
+        if feed.get("bozo") and not feed.entries:
+            exc = feed.get("bozo_exception")
+            raise RuntimeError(f"Feed parse error: {exc}")
+
+        from intelligence.config import MAX_ITEMS_PER_SOURCE as _MAX
+        items = []
+        for entry in feed.entries[:_MAX]:
+            title = (entry.get("title") or "").strip()
+            if not title:
+                continue
+            # Summary — strip HTML tags
+            summary = None
+            for field in ("summary", "description", "content"):
+                val = entry.get(field)
+                if val:
+                    if isinstance(val, list):
+                        val = val[0].get("value", "") if val else ""
+                    val = re.sub(r"<[^>]+>", " ", str(val))
+                    val = " ".join(val.split())
+                    summary = val[:1000] or None
+                    break
+            link = entry.get("link") or entry.get("id") or url
+            published = self._parse_date_from_entry(entry)
+            items.append(self._make_item(title, summary, link, published))
+        # Return sentinel so collect() knows we already have items
+        return {"__feed_items__": items}
+
+    def _parse_date_from_entry(self, entry) -> Optional[datetime]:
+        import time as _time
+        for field in ("published_parsed", "updated_parsed"):
+            val = entry.get(field)
+            if val:
+                try:
+                    return datetime.fromtimestamp(_time.mktime(val), tz=timezone.utc)
+                except Exception:
+                    pass
+        from email.utils import parsedate_to_datetime
+        for field in ("published", "updated"):
+            val = entry.get(field)
+            if val:
+                try:
+                    return parsedate_to_datetime(val)
+                except Exception:
+                    pass
+        return None
 
     # ─── Source-specific parsers ──────────────────────────────────────────────
 

@@ -2,6 +2,11 @@
 RSS/Atom adapter — uses feedparser.
 Handles both RSS 2.0 and Atom 1.0.
 Used for: AWS, GCP, Azure, BOM, ABC, Reuters, Bloomberg, BBC, AFR, RBA, etc.
+
+Feed URL resolution order:
+  1. source.rss_url          (preferred — explicit RSS/Atom endpoint)
+  2. source.api_endpoint     (fallback — some sources store feed URL here)
+  3. source.url              (last resort — home page, feedparser may still find a feed)
 """
 
 import logging
@@ -16,11 +21,17 @@ from intelligence.models import IntelligenceItem, SourceRecord
 log = logging.getLogger(__name__)
 
 
+def _strip_fragment(url: str) -> str:
+    """Remove URL fragment (#...) — HTTP clients ignore it and feedparser may choke."""
+    return url.split("#")[0] if url else url
+
+
 class RSSAdapter(BaseSourceAdapter):
 
     def __init__(self, source: SourceRecord):
         super().__init__(source)
-        self._feed_url = source.rss_url or source.url
+        raw = source.rss_url or source.api_endpoint or source.url
+        self._feed_url = _strip_fragment(raw) if raw else raw
 
     def collect(self) -> list[IntelligenceItem]:
         try:
