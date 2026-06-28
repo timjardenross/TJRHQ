@@ -1128,6 +1128,149 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
 
+# ── Voice-to-Capture ──────────────────────────────────────────────────────────
+
+async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle voice messages — transcribe locally and write to capture inbox."""
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        return
+
+    msg = update.message
+    if not msg or not msg.voice:
+        return
+
+    db = _get_supabase()
+    if not db:
+        await msg.reply_text("⚠️ Supabase unavailable — voice capture requires database connectivity.")
+        return
+
+    # Import here to avoid circular deps at module load
+    from telegram_bots.xo import voice_capture as vc
+
+    # Ensure temp dir exists
+    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Download voice note
+    audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
+    thinking = await msg.reply_text("🎙 Transcribing…")
+    try:
+        tg_file = await msg.voice.get_file()
+        await tg_file.download_to_drive(audio_path)
+    except Exception as exc:
+        log.error("[voice] download failed: %s", exc)
+        await thinking.edit_text(f"⚠️ Could not download voice file: {exc}")
+        return
+
+    # Run full pipeline
+    try:
+        result = vc.handle_capture_from_voice(
+            db, audio_path,
+            chat_id=update.effective_chat.id,
+            message_id=msg.message_id,
+        )
+    except Exception as exc:
+        log.error("[voice] pipeline error: %s", exc)
+        await thinking.edit_text(f"⚠️ Capture failed: {exc}")
+        return
+    finally:
+        import os
+        try:
+            os.unlink(audio_path)
+        except OSError:
+            pass
+
+    if not result.get("ok"):
+        err = _escape(result.get("error", "Unknown error"))
+        await thinking.edit_text(f"⚠️ Voice capture failed: {err}", parse_mode="MarkdownV2")
+        return
+
+    transcript  = result["transcript"]
+    voice_type  = result["voice_type"]
+    confidence  = result["confidence"]
+    capture_id  = result["capture_id"]
+    duration    = result.get("duration", 0.0)
+    label       = vc.voice_type_label(voice_type)
+    short_id    = str(capture_id)[:8]
+    preview     = transcript[:300]
+    conf_pct    = int(confidence * 100)
+
+    # Inline action buttons
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Confirm", callback_data=f"vc|confirm|{capture_id}"),
+            InlineKeyboardButton("🗑 Dismiss",  callback_data=f"vc|dismiss|{capture_id}"),
+        ],
+        [
+            InlineKeyboardButton("🚀 → Mission", callback_data=f"vc|promote|{capture_id}"),
+            InlineKeyboardButton("📋 → Note",    callback_data=f"vc|note|{capture_id}"),
+        ],
+    ])
+
+    reply = (
+        f"🎙 *Voice captured\\.*\n\n"
+        f"Type: `{_escape(label)}`\n"
+        f"Confidence: {conf_pct}%\n"
+        f"Status: `needs\\_review`\n"
+        f"Duration: {round(duration, 1)}s\n"
+        f"ID: `{short_id}…`\n\n"
+        f"*Preview:*\n_{_escape(preview)}_"
+    )
+    await thinking.edit_text(reply, parse_mode="MarkdownV2", reply_markup=keyboard)
+    log.info("[voice] captured id=%s type=%s conf=%d%%", short_id, voice_type, conf_pct)
+
+
+async def handle_voice_capture_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle inline button presses on voice capture confirmations."""
+    query = update.callback_query
+    await query.answer()
+
+    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+        return
+
+    parts = query.data.split("|")  # vc|action|capture_id
+    if len(parts) != 3:
+        return
+    _, action, capture_id = parts
+
+    db = _get_supabase()
+    if not db:
+        await query.edit_message_text("⚠️ Supabase unavailable.")
+        return
+
+    try:
+        if action == "confirm":
+            await query.edit_message_text(
+                f"✅ Capture confirmed\\.\nIn LCARS Portal → Capture Inbox for review\\.",
+                parse_mode="MarkdownV2",
+            )
+
+        elif action == "dismiss":
+            db.table("captured_items").update({"processing_status": "dismissed"}) \
+              .eq("id", capture_id).execute()
+            await query.edit_message_text("🗑 Capture dismissed\\.", parse_mode="MarkdownV2")
+
+        elif action == "promote":
+            db.table("captured_items").update({"item_type": "idea"}) \
+              .eq("id", capture_id).execute()
+            await query.edit_message_text(
+                "🚀 Marked as *Mission Idea*\\.\n"
+                "Review in LCARS Portal → Capture Inbox to promote to active mission\\.",
+                parse_mode="MarkdownV2",
+            )
+
+        elif action == "note":
+            db.table("captured_items").update({"item_type": "note"}) \
+              .eq("id", capture_id).execute()
+            await query.edit_message_text(
+                "📋 Saved as *Note*\\. In LCARS Portal → Capture Inbox\\.",
+                parse_mode="MarkdownV2",
+            )
+
+    except Exception as exc:
+        log.error("[voice-cb] %s failed: %s", action, exc)
+        await query.edit_message_text(f"⚠️ Action failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+
+
 # ── Telegram adapter ──────────────────────────────────────────────────────────
 
 class _BotAdapter:
@@ -1250,7 +1393,9 @@ def main() -> None:
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
-    app.add_handler(CallbackQueryHandler(handle_pulse_callback, pattern=r"^pl\|"))
+    app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
+    app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
+    app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
     log.info("XO Bot polling…")
