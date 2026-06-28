@@ -123,10 +123,7 @@ class TestCheckStartupHealth:
     def test_all_configured(self):
         env = {
             "MISTRAL_API_KEY": "key123",
-            "MISTRAL_DECOMPOSITION_AGENT_ID": "ag_aaa",
             "MISTRAL_RESEARCH_AGENT_ID": "ag_bbb",
-            "MISTRAL_SUMMARY_AGENT_ID": "ag_ccc",
-            "MISTRAL_CHALLENGE_AGENT_ID": "ag_ddd",
             "MISTRAL_BRIEFING_AGENT_ID": "ag_eee",
         }
         with patch.dict(os.environ, env, clear=False):
@@ -134,15 +131,12 @@ class TestCheckStartupHealth:
         assert report["api_key_configured"] is True
         assert report["missing"] == []
         assert report["duplicated"] == []
-        assert len(report["agents"]) == 5
+        assert len(report["agents"]) == 2
 
     def test_missing_research_agent_id_appears_in_report(self):
         env = {
             "MISTRAL_API_KEY": "key123",
-            "MISTRAL_DECOMPOSITION_AGENT_ID": "ag_aaa",
             "MISTRAL_RESEARCH_AGENT_ID": "",  # missing
-            "MISTRAL_SUMMARY_AGENT_ID": "ag_ccc",
-            "MISTRAL_CHALLENGE_AGENT_ID": "ag_ddd",
             "MISTRAL_BRIEFING_AGENT_ID": "ag_eee",
         }
         with patch.dict(os.environ, env, clear=False):
@@ -152,11 +146,8 @@ class TestCheckStartupHealth:
     def test_duplicate_agent_ids_detected(self):
         env = {
             "MISTRAL_API_KEY": "key",
-            "MISTRAL_DECOMPOSITION_AGENT_ID": "ag_shared",
-            "MISTRAL_RESEARCH_AGENT_ID": "ag_unique",
-            "MISTRAL_SUMMARY_AGENT_ID": "ag_shared",  # duplicate
-            "MISTRAL_CHALLENGE_AGENT_ID": "ag_other",
-            "MISTRAL_BRIEFING_AGENT_ID": "ag_other2",
+            "MISTRAL_RESEARCH_AGENT_ID": "ag_shared",
+            "MISTRAL_BRIEFING_AGENT_ID": "ag_shared",  # duplicate
         }
         with patch.dict(os.environ, env, clear=False):
             report = self.mac.check_startup_health()
@@ -246,15 +237,12 @@ class TestCallAgent:
 
 # ─── Mistral-first decomposition (research_orchestration) ────────────────────
 
-class TestOrchestrationDecompositionMistralFirst:
-    """Verify decomposition uses Mistral before Ollama."""
+class TestOrchestrationResearchMistralFirst:
+    """Verify research stage uses Mistral before Ollama."""
 
-    def test_decomposition_uses_mistral_agent(self):
-        sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
-        import importlib.util
-
-        # Patch mistralai and the delegator
-        fake_response = _make_v1_response('["task A","task B"]')
+    def test_research_uses_mistral_agent(self):
+        # Patch mistralai SDK
+        fake_response = _make_v1_response("research findings on the topic")
         fake_client = MagicMock()
         fake_client.beta.conversations.start.return_value = fake_response
         fake_mistral_module = MagicMock()
@@ -263,15 +251,14 @@ class TestOrchestrationDecompositionMistralFirst:
         with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
             with patch.dict(os.environ, {
                 "MISTRAL_API_KEY": "key",
-                "MISTRAL_DECOMPOSITION_AGENT_ID": "ag_decomp",
-                "MISTRAL_DECOMPOSITION_AGENT_VERSION": "2",
+                "MISTRAL_RESEARCH_AGENT_ID": "ag_research_001",
+                "MISTRAL_RESEARCH_AGENT_VERSION": "1",
             }):
                 import mistral_agent_client as mac
-                # Reset module so env is re-read
-                result = mac.call_agent("decompose", "decomposition", "research question")
+                result = mac.call_agent("execute", "research", "research question")
 
         assert result is not None
-        assert "task" in result.lower() or "[" in result
+        assert "research" in result.lower()
 
 
 # ─── _call_stage (orchestration fallback) ────────────────────────────────────
@@ -447,26 +434,26 @@ class TestStructuredLogging:
 
         env = {
             "MISTRAL_API_KEY": "key",
-            "MISTRAL_SUMMARY_AGENT_ID": "ag_sum_abc12345",
-            "MISTRAL_SUMMARY_AGENT_VERSION": "0",
+            "MISTRAL_BRIEFING_AGENT_ID": "ag_brief_abc12345",
+            "MISTRAL_BRIEFING_AGENT_VERSION": "2",
         }
         with caplog.at_level(logging.INFO, logger="mistral_agent_client"):
             with patch.dict(os.environ, env):
                 with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                    mac.call_agent("consolidate", "summary", "prompt", mission_id="MSN-42")
+                    mac.call_agent("brief", "briefing", "prompt", mission_id="MSN-42")
 
         log_text = " ".join(caplog.messages)
-        assert "stage=consolidate" in log_text
+        assert "stage=brief" in log_text
         assert "provider=mistral_agent" in log_text
         assert "status=success" in log_text
 
     def test_log_on_missing_agent_id_warns(self, caplog):
         import mistral_agent_client as mac
-        env = {"MISTRAL_API_KEY": "key", "MISTRAL_SUMMARY_AGENT_ID": ""}
+        env = {"MISTRAL_API_KEY": "key", "MISTRAL_BRIEFING_AGENT_ID": ""}
 
         with caplog.at_level(logging.WARNING, logger="mistral_agent_client"):
             with patch.dict(os.environ, env):
-                mac.call_agent("consolidate", "summary", "prompt")
+                mac.call_agent("brief", "briefing", "prompt")
 
         log_text = " ".join(caplog.messages)
         assert "no_agent_id" in log_text or "status=failed" in log_text

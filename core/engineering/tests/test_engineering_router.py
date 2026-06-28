@@ -763,3 +763,121 @@ class TestValidateResponse:
                     resp = engineering_router.route(req)
         assert resp.warnings is not None
         assert any("POSSIBLE_HALLUCINATION" in w for w in resp.warnings)
+
+
+# ─── Model Router provider unit tests ────────────────────────────────────────
+
+class TestModelRouterProvider:
+    def test_connectivity_check_returns_tuple(self):
+        from core.engineering.providers import model_router
+        ok, msg = model_router.check_connectivity()
+        assert isinstance(ok, bool)
+        assert isinstance(msg, str)
+
+    def test_raises_when_not_reachable(self):
+        from core.engineering.providers import model_router
+        with patch("core.engineering.providers.model_router.check_connectivity",
+                   return_value=(False, "connection refused")):
+            with pytest.raises(RuntimeError, match="connectivity check failed"):
+                model_router.call("hello")
+
+    def test_call_success_response_key(self):
+        from core.engineering.providers import model_router
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"response": "plan from router"}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("core.engineering.providers.model_router.check_connectivity",
+                   return_value=(True, "ok")):
+            with patch("urllib.request.urlopen", return_value=mock_resp):
+                text, model = model_router.call("hello")
+        assert text == "plan from router"
+
+    def test_call_success_content_key(self):
+        from core.engineering.providers import model_router
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"content": "plan via content key"}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("core.engineering.providers.model_router.check_connectivity",
+                   return_value=(True, "ok")):
+            with patch("urllib.request.urlopen", return_value=mock_resp):
+                text, _ = model_router.call("hello")
+        assert text == "plan via content key"
+
+    def test_raises_on_empty_response(self):
+        from core.engineering.providers import model_router
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"response": ""}).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("core.engineering.providers.model_router.check_connectivity",
+                   return_value=(True, "ok")):
+            with patch("urllib.request.urlopen", return_value=mock_resp):
+                with pytest.raises(RuntimeError, match="empty response"):
+                    model_router.call("hello")
+
+    def test_model_label_from_response(self):
+        from core.engineering.providers import model_router
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "response": "output text",
+            "model": "qwen3-coder:30b",
+        }).encode()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        with patch("core.engineering.providers.model_router.check_connectivity",
+                   return_value=(True, "ok")):
+            with patch("urllib.request.urlopen", return_value=mock_resp):
+                _, model = model_router.call("hello")
+        assert model == "qwen3-coder:30b"
+
+    def test_custom_router_url_from_env(self):
+        from core.engineering.providers import model_router
+        with patch.dict(os.environ, {"MODEL_ROUTER_URL": "http://10.0.0.5:8891"}):
+            assert model_router._base_url() == "http://10.0.0.5:8891"
+
+
+# ─── Router backend=router integration test ───────────────────────────────────
+
+class TestRouterBackendRouter:
+    def test_router_backend_success(self, tmp_path):
+        req = RouterRequest(
+            mission_id="USS-TJR-MSN-0048",
+            mode=ExecutionMode.PLAN,
+            backend=Backend.ROUTER,
+            model=None,
+            mission_context=_make_context(),
+        )
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+            with patch("core.engineering.providers.model_router.call",
+                       return_value=("Plan via router", "qwen3-coder:30b")):
+                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+                    resp = engineering_router.route(req)
+        assert resp.success is True
+        assert resp.backend == "router"
+        assert resp.output_text == "Plan via router"
+        assert "Model Router" in resp.provider_label
+
+    def test_router_backend_failure_captured(self, tmp_path):
+        req = RouterRequest(
+            mission_id="USS-TJR-MSN-0048",
+            mode=ExecutionMode.PLAN,
+            backend=Backend.ROUTER,
+            model=None,
+            mission_context=_make_context(),
+        )
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+            with patch("core.engineering.providers.model_router.call",
+                       side_effect=RuntimeError("Model Router connectivity check failed")):
+                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+                    resp = engineering_router.route(req)
+        assert resp.success is False
+        assert "Model Router" in resp.error
+
+    def test_router_is_default_backend_in_cli(self):
+        args = engineering_router._parse_args(["--mission-id", "USS-TJR-MSN-0048"])
+        assert args.backend == "router"
+
+    def test_backend_enum_has_router(self):
+        assert Backend.ROUTER.value == "router"

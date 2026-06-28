@@ -21,6 +21,7 @@ class ExecutionMode(str, Enum):
 
 
 class Backend(str, Enum):
+    ROUTER = "router"     # Model Router :8891 — single gateway (preferred)
     MISTRAL = "mistral"
     VM_OLLAMA = "vm-ollama"
     GEMINI = "gemini"

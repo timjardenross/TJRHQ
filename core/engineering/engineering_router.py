@@ -59,7 +59,7 @@ from core.engineering.schemas import (
     RouterResponse,
 )
 from core.engineering import output_writer, prompt_builder
-from core.engineering.providers import gemini, glm, kimi, mistral_batch, qwen, vm_ollama
+from core.engineering.providers import gemini, glm, kimi, mistral_batch, model_router, qwen, vm_ollama
 
 log = logging.getLogger(__name__)
 
@@ -113,7 +113,10 @@ def route(req: RouterRequest) -> RouterResponse:
     timestamp = RouterResponse.now_utc()
 
     try:
-        if req.backend == Backend.MISTRAL:
+        if req.backend == Backend.ROUTER:
+            text, model_used = model_router.call(prompt, model=req.model)
+            provider_label = f"Model Router ({model_used})"
+        elif req.backend == Backend.MISTRAL:
             text, model_used = mistral_batch.call(prompt, model=req.model)
             provider_label = f"Mistral ({model_used})"
         elif req.backend == Backend.VM_OLLAMA:
@@ -238,8 +241,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--mission-id", required=False, help="Mission ID from work_queue.json")
     parser.add_argument(
-        "--backend", choices=["mistral", "vm-ollama", "gemini", "glm", "kimi", "qwen"],
-        default="mistral", help="Execution backend (default: mistral)"
+        "--backend", choices=["router", "mistral", "vm-ollama", "gemini", "glm", "kimi", "qwen"],
+        default="router", help="Execution backend (default: router — Model Router :8891)"
     )
     parser.add_argument(
         "--mode", choices=["plan", "patch", "review"], default="plan",
@@ -249,6 +252,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--model", default=None,
         help=(
             "Model override. "
+            "router: ignored (Model Router selects model) | "
             "mistral: e.g. mistral-small-2503 | "
             "vm-ollama: e.g. qwen2.5-coder:7b | "
             "gemini: e.g. gemini-2.5-flash"
@@ -287,7 +291,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.connectivity_check:
         backend = args.backend
-        if backend == "gemini":
+        if backend == "router":
+            ok, msg = model_router.check_connectivity()
+        elif backend == "gemini":
             ok, msg = gemini.check_connectivity()
         elif backend == "glm":
             ok, msg = glm.check_connectivity()
