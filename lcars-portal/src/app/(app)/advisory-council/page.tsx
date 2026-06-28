@@ -777,9 +777,19 @@ function IntelligenceMode() {
 
 // ── Perspectives mode (MSN-0204) ───────────────────────────────────────────────
 
-interface Perspective { name: string; label: string }
-interface PerspectiveResponse { perspective: Perspective; content: string; response: string; loading: boolean; error: string | null; elapsed?: number }
+interface Perspective { name: string; label: string; category: string }
+interface PerspectiveResponse { perspective: Perspective; content: string; response: string; loading: boolean; error: string | null }
 interface PerspectiveSession { id: string; ts: number; question: string; responses: { label: string; response: string }[] }
+
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'politics',   label: 'Politics & Leadership' },
+  { key: 'business',   label: 'Business & Innovation' },
+  { key: 'strategy',   label: 'Strategy' },
+  { key: 'philosophy', label: 'Philosophy & Mindfulness' },
+  { key: 'resilience', label: 'Human Resilience' },
+  { key: 'science',    label: 'Science & Systems' },
+  { key: 'command',    label: 'Command' },
+];
 
 const LS_PERSPECTIVES_LOG = 'lcars-perspectives-log';
 
@@ -821,16 +831,24 @@ function useElapsed(active: boolean) {
   return elapsed;
 }
 
+type SelectionMode = 'individual' | 'category' | 'all';
+type ResponseMode = 'individual' | 'synthesised';
+
 function PerspectivesMode() {
   const [available, setAvailable] = useState<Perspective[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('individual');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [responseMode, setResponseMode] = useState<ResponseMode>('individual');
   const [input, setInput] = useState('');
   const [responses, setResponses] = useState<PerspectiveResponse[]>([]);
+  const [synthesis, setSynthesis] = useState<string>('');
+  const [synthesising, setSynthesising] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [anyLoading, setAnyLoading] = useState(false);
   const [log, setLog] = useState<PerspectiveSession[]>([]);
   const [showLog, setShowLog] = useState(false);
-  const elapsed = useElapsed(anyLoading);
+  const elapsed = useElapsed(anyLoading || synthesising);
 
   useEffect(() => {
     fetch('/api/perspectives')
@@ -843,13 +861,39 @@ function PerspectivesMode() {
     } catch { /* ignore */ }
   }, []);
 
-  const saveLog = (sessions: PerspectiveSession[]) => {
-    setLog(sessions);
-    try { localStorage.setItem(LS_PERSPECTIVES_LOG, JSON.stringify(sessions.slice(-50))); } catch { /* ignore */ }
-  };
+  // Derive the active selection based on mode
+  const activeNames: string[] = (() => {
+    if (selectionMode === 'all') return available.map((p) => p.name);
+    if (selectionMode === 'category' && activeCategory) return available.filter((p) => p.category === activeCategory).map((p) => p.name);
+    return [...selected];
+  })();
 
   const toggleSelect = (name: string) => {
+    setSelectionMode('individual');
+    setActiveCategory(null);
     setSelected((prev) => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; });
+  };
+
+  const selectCategory = (key: string) => {
+    if (selectionMode === 'category' && activeCategory === key) {
+      setSelectionMode('individual');
+      setActiveCategory(null);
+    } else {
+      setSelectionMode('category');
+      setActiveCategory(key);
+      setSelected(new Set());
+    }
+  };
+
+  const selectAll = () => {
+    if (selectionMode === 'all') {
+      setSelectionMode('individual');
+      setSelected(new Set());
+    } else {
+      setSelectionMode('all');
+      setActiveCategory(null);
+      setSelected(new Set());
+    }
   };
 
   const askPerspective = async (p: Perspective, trimmed: string, idx: number) => {
@@ -872,12 +916,12 @@ function PerspectivesMode() {
   const convene = async (overrideNames?: string[]) => {
     const trimmed = input.trim();
     if (!trimmed) return;
-    const names = overrideNames ?? [...selected];
+    const names = overrideNames ?? activeNames;
     if (names.length === 0) return;
     const chosen = available.filter((p) => names.includes(p.name));
 
+    setSynthesis('');
     setResponses((prev) => {
-      // If re-running specific ones, reset just those slots; otherwise reset all
       if (overrideNames) {
         return prev.map((r) => names.includes(r.perspective.name) ? { ...r, response: '', loading: true, error: null } : r);
       }
@@ -892,7 +936,7 @@ function PerspectivesMode() {
 
     setAnyLoading(false);
 
-    // Save to log
+    // Save to log and optionally synthesise
     setResponses((current) => {
       const completed = current.filter((r) => r.response && !r.loading);
       if (completed.length > 0) {
@@ -903,6 +947,20 @@ function PerspectivesMode() {
         };
         setLog((prev) => { const next = [session, ...prev].slice(0, 50); try { localStorage.setItem(LS_PERSPECTIVES_LOG, JSON.stringify(next)); } catch { /**/ } return next; });
         savePerspectiveCapture(trimmed, sessionResponses);
+
+        // Synthesise if requested and more than one response
+        if (responseMode === 'synthesised' && completed.length > 1 && !overrideNames) {
+          setSynthesising(true);
+          fetch('/api/perspectives', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: trimmed, responses: sessionResponses }),
+          })
+            .then((r) => r.json())
+            .then((d: { synthesis?: string }) => { setSynthesis(d.synthesis ?? ''); })
+            .catch(() => { setSynthesis('Synthesis unavailable.'); })
+            .finally(() => setSynthesising(false));
+        }
       }
       return current;
     });
@@ -922,6 +980,7 @@ function PerspectivesMode() {
 
   const hasActive = responses.length > 0;
   const totalLoading = responses.filter((r) => r.loading).length;
+  const selectionCount = activeNames.length;
 
   return (
     <LCARSPanel title="Distinguished Perspectives" accent="science"
@@ -960,15 +1019,41 @@ function PerspectivesMode() {
           </div>
         )}
 
-        <div className="space-y-3">
-          {loadingList ? (
-            <p className="text-lcars-muted text-sm">Loading perspectives…</p>
-          ) : (
+        {loadingList ? (
+          <p className="text-lcars-muted text-sm">Loading perspectives…</p>
+        ) : (
+          <div className="space-y-3">
+
+            {/* Selection mode row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Select by</span>
+              {/* Category chips */}
+              {CATEGORIES.map((cat) => {
+                const isActive = selectionMode === 'category' && activeCategory === cat.key;
+                const count = available.filter((p) => p.category === cat.key).length;
+                if (count === 0) return null;
+                return (
+                  <button key={cat.key} onClick={() => selectCategory(cat.key)}
+                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${isActive ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40 hover:text-lcars-text'}`}>
+                    {cat.label} <span className="opacity-60">({count})</span>
+                  </button>
+                );
+              })}
+              {/* All button */}
+              <button onClick={selectAll}
+                className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${selectionMode === 'all' ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40 hover:text-lcars-text'}`}>
+                All ({available.length})
+              </button>
+            </div>
+
+            {/* Individual figure chips */}
             <div>
-              <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted mb-2">Select perspectives</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted mb-2">
+                {selectionMode === 'individual' ? 'Or pick individual voices' : `Active: ${selectionCount} voice${selectionCount !== 1 ? 's' : ''}`}
+              </p>
               <div className="flex flex-wrap gap-2">
                 {available.map((p) => {
-                  const isOn = selected.has(p.name);
+                  const isOn = selectionMode === 'all' || (selectionMode === 'category' && p.category === activeCategory) || selected.has(p.name);
                   return (
                     <button key={p.name} onClick={() => toggleSelect(p.name)}
                       className={`rounded-lcars border px-3 py-1.5 text-xs font-lcars uppercase tracking-wider transition-colors ${isOn ? 'border-science bg-science/10 text-science-on' : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
@@ -978,43 +1063,70 @@ function PerspectivesMode() {
                 })}
               </div>
             </div>
-          )}
 
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); convene(); } }}
-              rows={3} placeholder="What would these perspectives emphasise?" disabled={selected.size === 0 || anyLoading}
-              className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
-            <button onClick={() => convene()} disabled={selected.size === 0 || !input.trim() || anyLoading}
-              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
-              Ask
-            </button>
+            {/* Response mode toggle */}
+            {selectionCount > 1 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Response</span>
+                {(['individual', 'synthesised'] as ResponseMode[]).map((m) => (
+                  <button key={m} onClick={() => setResponseMode(m)}
+                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${responseMode === m ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40'}`}>
+                    {m === 'individual' ? 'Individual voices' : 'Group synthesis'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Input + Ask */}
+            <div className="flex items-end gap-2">
+              <textarea value={input} onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); convene(); } }}
+                rows={3} placeholder="What would these perspectives say about…?" disabled={selectionCount === 0 || anyLoading}
+                className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
+              <button onClick={() => convene()} disabled={selectionCount === 0 || !input.trim() || anyLoading}
+                className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+                Ask
+              </button>
+            </div>
+            {selectionCount === 0 && !anyLoading && <p className="text-[10px] text-lcars-muted">Select voices above — by category, all, or individually.</p>}
           </div>
-          {selected.size === 0 && !anyLoading && <p className="text-[10px] text-lcars-muted">Select at least one perspective above.</p>}
-        </div>
+        )}
 
-        {/* Loading state with timer */}
-        {anyLoading && (
+        {/* Loading state */}
+        {(anyLoading || synthesising) && (
           <div className="flex items-center gap-3 py-2">
             {[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}
             <span className="text-lcars-muted text-sm">
-              Gathering {totalLoading} perspective{totalLoading !== 1 ? 's' : ''}…
+              {synthesising ? 'Synthesising panel response…' : `Gathering ${totalLoading} perspective${totalLoading !== 1 ? 's' : ''}…`}
             </span>
             <span className="text-[10px] text-lcars-muted font-mono ml-auto">{elapsed}s</span>
           </div>
         )}
 
-        {/* Full-width stacked responses */}
+        {/* Group synthesis result */}
+        {synthesis && !synthesising && (
+          <div className="rounded-lcars border border-science/40 bg-science/5">
+            <div className="px-4 py-2.5 border-b border-science/30">
+              <p className="text-[11px] uppercase tracking-widest text-science-on font-semibold">Panel Synthesis</p>
+            </div>
+            <div className="px-5 py-4">
+              <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2">
+                <ReactMarkdown>{synthesis}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Individual responses */}
         {hasActive && (
           <div className="space-y-4">
+            {responseMode === 'synthesised' && synthesis && (
+              <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Individual voices</p>
+            )}
             {responses.map((r, i) => (
               <div key={i} className="rounded-lcars border border-edge bg-panel/50">
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-edge/50">
-                  <button
-                    onClick={() => toggleSelect(r.perspective.name)}
-                    className="text-[11px] uppercase tracking-widest text-science-on font-semibold hover:text-science-on/70 transition-colors">
-                    {r.perspective.label}
-                  </button>
+                  <span className="text-[11px] uppercase tracking-widest text-science-on font-semibold">{r.perspective.label}</span>
                   <div className="flex items-center gap-2">
                     {r.response && !r.loading && (
                       <button onClick={() => convene([r.perspective.name])} disabled={anyLoading || !input.trim()}
