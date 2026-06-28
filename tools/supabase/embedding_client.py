@@ -10,7 +10,6 @@ import urllib.request
 from typing import Any
 
 
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_PROVIDER = "mistral"
 DEFAULT_OLLAMA_MODEL = "nomic-embed-text"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
@@ -37,14 +36,7 @@ class EmbeddingClient:
             if not self.api_key:
                 raise EmbeddingError("Set MISTRAL_API_KEY before generating Mistral embeddings.")
             return
-        if self.provider == "openai":
-            self.api_key = os.environ.get("OPENAI_API_KEY", "")
-            self.model = os.environ.get("OPENAI_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
-            self.base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-            if not self.api_key:
-                raise EmbeddingError("Set OPENAI_API_KEY before generating OpenAI embeddings.")
-            return
-        raise EmbeddingError("Set EMBEDDING_PROVIDER to 'mistral', 'ollama', or 'openai'.")
+        raise EmbeddingError("Set EMBEDDING_PROVIDER to 'mistral' or 'ollama'.")
 
     def create(self, inputs: list[str]) -> list[list[float]]:
         if self.provider == "ollama":

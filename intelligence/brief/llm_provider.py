@@ -2,15 +2,15 @@
 LLM provider chain for OR Intelligence brief narrative generation.
 Used ONLY for executive narrative sections (not classification/ranking).
 
-Provider order:
-  1. Mistral 4-stage pipeline
+Provider order (MSN-0209 — local-first):
+  0. Model Router :8891/api/model/intelligence-brief (local, preferred — 80% of briefs)
+  1. Mistral 4-stage pipeline (cloud + web search — for enriched runs when router unavailable)
        Stage 1 — Research Scout   : synthesise raw events into research package
-       Stage 2 — Risk/Challenge   : stress-test findings, surface blind spots
-       Stage 3 — Summary Officer  : compress research + challenge into clean package
-       Stage 4 — Briefing Officer : produce final executive brief JSON
-  2. Gemini 2.5 Flash             (single-shot fallback)
-  3. Mistral Small                (single-shot fallback)
-  4. Ollama qwen3:8b              (local fallback)
+       Stage 2 — TAO              : challenge + compress (web search OFF)
+       Stage 3 — Briefing Officer : produce final executive brief JSON
+  2. Gemini 2.5 Flash             (cloud overflow)
+  3. Mistral Small                (cloud overflow)
+  4. Ollama qwen3:8b              (local last resort)
 
 If all LLM providers fail:
   - Events are still collected, classified, ranked, and persisted
@@ -30,7 +30,7 @@ from intelligence.config import (
     MISTRAL_RESEARCH_AGENT_ID, MISTRAL_RESEARCH_AGENT_VERSION,
     MISTRAL_TAO_AGENT_ID, MISTRAL_TAO_AGENT_VERSION,
     MISTRAL_BRIEFING_AGENT_ID, MISTRAL_BRIEFING_AGENT_VERSION,
-    OLLAMA_BASE_URL, OLLAMA_MODEL,
+    MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
 
 log = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class LLMProvider:
         Returns (text, provider_name) or (None, None) if all fail.
         """
         providers = [
+            ("model-router",            self._model_router),
             ("mistral-4stage-pipeline", self._mistral_pipeline),
             ("gemini-2.5-flash",        self._gemini),
             ("mistral-small",           self._mistral),
@@ -71,6 +72,31 @@ class LLMProvider:
 
         log.warning("All LLM providers failed — narrative will be unavailable")
         return None, None
+
+    # ─── Model Router (tier-0 — local, preferred) ────────────────────────────
+
+    def _model_router(self, prompt: str) -> Optional[str]:
+        """
+        Call Model Router :8891/api/model/intelligence-brief.
+        Logs WARNING when falling through so the Captain can see local vs cloud usage.
+        """
+        url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/intelligence-brief"
+        body = json.dumps({"prompt": prompt}).encode()
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read())
+        except Exception as exc:
+            raise RuntimeError(f"Model Router unavailable: {exc}") from exc
+
+        text = (data.get("response") or data.get("content") or "").strip()
+        if not text:
+            raise RuntimeError("Model Router returned an empty response")
+        return text
 
     # ─── 4-Stage Mistral Pipeline ─────────────────────────────────────────────
 
