@@ -1,11 +1,17 @@
 /**
  * Quick Capture API — /api/v1/capture/*
  *
- * Routes captured items to appropriate systems based on type:
- *   idea/mission → creates missions row + captured_item_links
- *   health       → appends to today's captains_log_entries.overall_note
- *   decision     → marks pending_decision for human triage in Records
- *   note         → stays pending
+ * Canonical contract (MSN-XXXX 0031):
+ *   source_type       = 'channel_message'          (always)
+ *   item_type         = 'text_note'                (always for text submissions)
+ *   source_channel_id = 'command-centre-api-capture'
+ *   classification    = reference|mission|personal|research|decision|unclassified
+ *   importance        = low|medium|high
+ *   processing_status = 'pending'
+ *   review_status     = 'unreviewed'
+ *
+ * Routing is review-first: capture → pending → human review → route.
+ * No auto-mission creation from capture alone.
  */
 
 const express = require('express');
@@ -18,9 +24,26 @@ const http  = require('http');
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const VALID_TYPES    = ['note', 'idea', 'health', 'decision', 'task', 'url', 'text_note', 'file', 'image', 'screenshot'];
-const VALID_SOURCES  = ['command_centre', 'portal_quick_capture', 'telegram_voice', 'channel_message', 'channel_file'];
-const DEFAULT_SOURCE = 'command_centre';
+// Canonical classification values
+const VALID_CLASSIFICATIONS = ['reference', 'mission', 'personal', 'research', 'decision', 'unclassified'];
+
+// Map user-supplied type hint → classification + importance
+const TYPE_TO_CLASSIFICATION = {
+  note:     { classification: 'reference',     importance: 'low' },
+  idea:     { classification: 'research',      importance: 'medium' },
+  mission:  { classification: 'mission',       importance: 'high' },
+  health:   { classification: 'personal',      importance: 'medium' },
+  decision: { classification: 'decision',      importance: 'high' },
+};
+
+// Recognised source channels
+const KNOWN_CHANNELS = [
+  'lcars-mobile-quick-capture',
+  'telegram-xo-voice-capture',
+  'telegram-xo-text-capture',
+  'portal-floating-capture',
+  'command-centre-api-capture',
+];
 
 function _post(table, body) {
   return new Promise((resolve, reject) => {
@@ -58,162 +81,251 @@ function _post(table, body) {
   });
 }
 
-// Route a saved captured item to the appropriate downstream table.
-// Best-effort — a routing failure does not fail the capture response.
-async function _routeCapture(capturedItemId, type, text, ts) {
+// Route a saved capture to the appropriate downstream table.
+// Review-first: does NOT auto-create approved missions.
+// health → appends a lightweight note to captains_log_entries.
+// mission/decision → marks requires_review = true, human triages via inbox.
+// All others → stay pending for human review.
+async function _routeCapture(capturedItemId, classification, text, ts) {
   const crypto = require('crypto');
 
-  if (type === 'idea' || type === 'mission') {
-    const shortTs = ts.slice(0, 10).replace(/-/g, '');
-    const suffix  = Date.now().toString(36).slice(-4).toUpperCase();
-    const missionId = `QC-${shortTs}-${suffix}`;
-    const status = type === 'idea' ? 'Idea' : 'Approved for Engineering';
-
-    await supabaseUpsert('missions', {
-      id:         crypto.randomUUID(),
-      mission_id: missionId,
-      title:      text.slice(0, 200),
-      status,
-      domain:     'Command',
-      created_at: ts,
-      updated_at: ts,
-    }, 'mission_id');
-
-    await _post('captured_item_links', {
-      captured_item_id: capturedItemId,
-      link_type:        'related_mission',
-      mission_id:       missionId,
-      link_confidence:  1.0,
-      created_by:       'command-centre',
-      is_automatic:     true,
-    });
-
-    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(capturedItemId)}`, {
-      processing_status: 'routed',
-    });
-
-    return { routed_to: 'missions', mission_id: missionId, mission_status: status };
-  }
-
-  if (type === 'health') {
+  if (classification === 'personal') {
     const today = ts.slice(0, 10);
     let existing = null;
     try { existing = await getCaptainsLogToday(); } catch (_) {}
     const prevNote = existing?.overall_note || '';
     const newNote  = prevNote
-      ? `${prevNote}\n\n[Quick Capture ${ts.slice(0, 16)}] ${text}`
-      : `[Quick Capture ${ts.slice(0, 16)}] ${text}`;
+      ? `${prevNote}\n\n[Capture ${ts.slice(0, 16)}] ${text}`
+      : `[Capture ${ts.slice(0, 16)}] ${text}`;
     await upsertCaptainsLogEntry({ log_date: today, overall_note: newNote });
 
     await supabasePatch(`captured_items?id=eq.${encodeURIComponent(capturedItemId)}`, {
       processing_status: 'routed',
+      review_status: 'actioned',
+      routed_to_table: 'captains_log_entries',
     });
 
     return { routed_to: 'captains_log', log_date: today };
   }
 
-  if (type === 'decision') {
-    // Decision items stay pending — human triages in LCARS Records tab.
-    return { routed_to: null };
+  if (classification === 'mission') {
+    // Flag for Captain review — do NOT auto-create mission
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(capturedItemId)}`, {
+      requires_review: true,
+    });
+    return { routed_to: 'pending_captain_review', note: 'Mission candidate — requires Captain promotion' };
   }
 
-  // note: stays as pending — human triages via Records tab
+  if (classification === 'decision') {
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(capturedItemId)}`, {
+      requires_review: true,
+    });
+    return { routed_to: 'pending_decision', note: 'Decision capture — requires Captain triage' };
+  }
+
+  // reference / research / unclassified → stays pending for human triage
   return { routed_to: null };
 }
 
-// ── POST /api/v1/capture ─────────────────────────────────────────────────────
-// Body: { text: string, type: string, source?: string }
+// ── POST /api/v1/capture ──────────────────────────────────────────────────────
+// Body: { text: string, type?: string, source_channel_id?: string }
 router.post('/', asyncHandler(async (req, res) => {
-  const { text, type = 'note', source = DEFAULT_SOURCE } = req.body || {};
+  const { text, type = 'note', source_channel_id } = req.body || {};
   if (!text || !text.trim()) throw new ApiError(400, 'text is required');
-  if (!VALID_TYPES.includes(type))   throw new ApiError(400, `type must be one of: ${VALID_TYPES.join(', ')}`);
 
-  const canonicalSource = VALID_SOURCES.includes(source) ? source : DEFAULT_SOURCE;
   const trimmed = text.trim();
   const ts      = new Date().toISOString();
   const msgId   = `cc-${Date.now()}`;
 
+  const typeMap = TYPE_TO_CLASSIFICATION[type] || TYPE_TO_CLASSIFICATION.note;
+  const channelId = (source_channel_id && KNOWN_CHANNELS.includes(source_channel_id))
+    ? source_channel_id
+    : 'command-centre-api-capture';
+
   const item = {
-    raw_text:          trimmed,
-    title:             trimmed.slice(0, 120),
-    item_type:         type,
-    source_type:       canonicalSource,
-    source_channel_id: canonicalSource,
-    source_message_id: msgId,
-    source_message_ts: ts,
-    processing_status: 'pending',
-    captured_at:       ts,
+    raw_text:             trimmed,
+    title:                trimmed.slice(0, 120),
+    item_type:            'text_note',
+    source_type:          'channel_message',
+    source_channel_id:    channelId,
+    source_message_id:    msgId,
+    source_message_ts:    ts,
+    classification:       typeMap.classification,
+    importance:           typeMap.importance,
+    processing_status:    'pending',
+    review_status:        'unreviewed',
+    requires_review:      typeMap.classification === 'mission' || typeMap.classification === 'decision',
+    ai_enrichment_status: 'not_enriched',
+    captured_by:          'captain-tjr',
+    captured_at:          ts,
   };
 
   const result = await _post('captured_items', item);
   const saved  = Array.isArray(result) ? result[0] : result;
 
-  // Route async (best-effort) — don't block or fail the response
   let routing = { routed_to: null };
   if (saved && saved.id) {
     try {
-      routing = await _routeCapture(saved.id, type, trimmed, ts);
+      routing = await _routeCapture(saved.id, typeMap.classification, trimmed, ts);
     } catch (err) {
       console.warn('[capture] routing failed (non-blocking):', err.message);
     }
   }
 
-  res.json(successResponse(saved, 201, { type, source, routing }));
+  res.json(successResponse(saved, 201, { classification: typeMap.classification, routing }));
 }));
 
-// ── GET /api/v1/capture/recent ───────────────────────────────────────────────
+// ── GET /api/v1/capture/inbox ─────────────────────────────────────────────────
+// Unified inbox: all pending+unreviewed captures across all recognised sources.
+router.get('/inbox', asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const source = req.query.source; // optional filter
+  const classification = req.query.classification; // optional filter
+
+  let qs = `captured_items?processing_status=in.(pending)&review_status=in.(unreviewed,reviewed)`;
+  qs += `&select=id,title,raw_text,item_type,classification,importance,processing_status,review_status,requires_review,ai_enrichment_status,source_channel_id,captured_by,captured_at,summary`;
+  if (source && KNOWN_CHANNELS.includes(source)) {
+    qs += `&source_channel_id=eq.${encodeURIComponent(source)}`;
+  }
+  if (classification && VALID_CLASSIFICATIONS.includes(classification)) {
+    qs += `&classification=eq.${encodeURIComponent(classification)}`;
+  }
+  qs += `&order=captured_at.desc&limit=${limit}`;
+
+  const rows = await supabaseGet(qs);
+  res.json(successResponse(rows || [], 200, {
+    count: (rows || []).length,
+    known_channels: KNOWN_CHANNELS,
+  }));
+}));
+
+// ── GET /api/v1/capture/recent ────────────────────────────────────────────────
+// Last N captures from ALL recognised sources (not just portal).
 router.get('/recent', asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 50);
   const rows = await supabaseGet(
-    `captured_items?source_type=in.(command_centre,portal_quick_capture)&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
+    `captured_items?captured_by=eq.captain-tjr&select=id,title,raw_text,item_type,classification,importance,processing_status,review_status,source_channel_id,captured_at&order=captured_at.desc&limit=${limit}`
   );
   res.json(successResponse(rows || [], 200, { count: (rows || []).length }));
 }));
 
-// ── GET /api/v1/capture/pending ──────────────────────────────────────────────
-// Pending items for human triage (Records tab)
+// ── GET /api/v1/capture/pending ───────────────────────────────────────────────
+// Pending items for human triage.
 router.get('/pending', asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const rows = await supabaseGet(
-    `captured_items?processing_status=eq.pending&select=id,title,raw_text,item_type,processing_status,captured_at&order=captured_at.desc&limit=${limit}`
+    `captured_items?processing_status=eq.pending&select=id,title,raw_text,item_type,classification,importance,processing_status,review_status,requires_review,ai_enrichment_status,source_channel_id,captured_at&order=captured_at.desc&limit=${limit}`
   );
   res.json(successResponse(rows || [], 200, { count: (rows || []).length }));
 }));
 
-// ── POST /api/v1/capture/:id/route ──────────────────────────────────────────
-// Manually route an existing pending capture to a target type.
-// Body: { type: 'mission'|'idea'|'health'|'decision'|'note' }
-router.post('/:id/route', asyncHandler(async (req, res) => {
+// ── PATCH /api/v1/capture/:id ─────────────────────────────────────────────────
+// Update classification, importance, review_status, or ai_enrichment_status.
+router.patch('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { type } = req.body || {};
-  if (!type || !VALID_TYPES.includes(type)) {
-    throw new ApiError(400, `type must be one of: ${VALID_TYPES.join(', ')}`);
+  const allowed = ['classification', 'importance', 'review_status', 'ai_enrichment_status', 'requires_review'];
+  const patch = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) patch[key] = req.body[key];
+  }
+  if (!Object.keys(patch).length) throw new ApiError(400, `Patchable fields: ${allowed.join(', ')}`);
+
+  if (patch.classification && !VALID_CLASSIFICATIONS.includes(patch.classification)) {
+    throw new ApiError(400, `classification must be one of: ${VALID_CLASSIFICATIONS.join(', ')}`);
   }
 
-  // Fetch the item
+  const rows = await supabaseGet(`captured_items?id=eq.${encodeURIComponent(id)}&select=id&limit=1`);
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, patch);
+  res.json(successResponse({ id, ...patch }, 200));
+}));
+
+// ── POST /api/v1/capture/:id/route ───────────────────────────────────────────
+// Manually route an existing pending capture to a classification target.
+// Body: { classification: string }
+router.post('/:id/route', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { classification } = req.body || {};
+  if (!classification || !VALID_CLASSIFICATIONS.includes(classification)) {
+    throw new ApiError(400, `classification must be one of: ${VALID_CLASSIFICATIONS.join(', ')}`);
+  }
+
   const rows = await supabaseGet(
-    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,raw_text,item_type,processing_status,captured_at&limit=1`
+    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,raw_text,title,classification,captured_at&limit=1`
   );
   if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
   const item = rows[0];
 
-  // Update item_type if changing routing target
-  if (item.item_type !== type) {
-    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, { item_type: type });
+  if (item.classification !== classification) {
+    await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, { classification });
   }
 
-  const routing = await _routeCapture(id, type, item.raw_text || item.title || '', item.captured_at || new Date().toISOString());
-  res.json(successResponse({ id, type, routing }, 200, { source: 'manual_route' }));
+  const routing = await _routeCapture(
+    id,
+    classification,
+    item.raw_text || item.title || '',
+    item.captured_at || new Date().toISOString(),
+  );
+  res.json(successResponse({ id, classification, routing }, 200, { source: 'manual_route' }));
 }));
 
-// ── PATCH /api/v1/capture/:id/dismiss ───────────────────────────────────────
-// Dismiss a pending capture — marks it as dismissed without routing.
+// ── PATCH /api/v1/capture/:id/dismiss ────────────────────────────────────────
 router.patch('/:id/dismiss', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const rows = await supabaseGet(`captured_items?id=eq.${encodeURIComponent(id)}&select=id&limit=1`);
   if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
-  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, { processing_status: 'dismissed' });
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+    processing_status: 'dismissed',
+    review_status: 'actioned',
+  });
   res.json(successResponse({ id, processing_status: 'dismissed' }, 200));
 }));
+
+// ── POST /api/v1/capture/:id/promote-mission ──────────────────────────────────
+// Promote a capture to a mission candidate (Idea status) in the missions table.
+// Does NOT auto-approve. Creates Idea status mission for Captain review.
+router.post('/:id/promote-mission', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const rows = await supabaseGet(
+    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,raw_text,title,captured_at&limit=1`
+  );
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+  const item = rows[0];
+
+  const crypto = require('crypto');
+  const ts     = new Date().toISOString();
+  const suffix = ts.slice(2, 10).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
+  const missionId = `MC-${suffix}`;
+
+  await supabaseUpsert('missions', {
+    id:          crypto.randomUUID(),
+    mission_id:  missionId,
+    title:       (item.title || item.raw_text || 'Untitled capture').slice(0, 200),
+    status:      'Idea',
+    domain:      'Command',
+    created_at:  ts,
+    updated_at:  ts,
+    description: `Promoted from Capture Inbox. Source capture ID: ${id}`,
+  }, 'mission_id');
+
+  await supabasePatch(`captured_items?id=eq.${encodeURIComponent(id)}`, {
+    processing_status:   'routed',
+    review_status:       'actioned',
+    routed_to_table:     'missions',
+    classification:      'mission',
+  });
+
+  res.json(successResponse({
+    id,
+    mission_id: missionId,
+    mission_status: 'Idea',
+    note: 'Mission candidate created — Captain review required before activation',
+  }, 201));
+}));
+
+// ── Export known channels (for portal/test consumers) ─────────────────────────
+router.KNOWN_CHANNELS = KNOWN_CHANNELS;
+router.VALID_CLASSIFICATIONS = VALID_CLASSIFICATIONS;
 
 module.exports = router;

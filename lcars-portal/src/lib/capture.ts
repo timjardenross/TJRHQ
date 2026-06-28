@@ -1,38 +1,78 @@
 'use client';
 
 /**
- * Quick Capture — mobile capture flow (MSN-IOS-001 WP3).
+ * Capture library — MSN-XXXX Unified Capture Pipeline
  *
- * Reuse-first: writes into the EXISTING Captain's Inbox capture registry
- * (`captured_items`, MSN-DISCOVERY-001). No new capture backend is created.
- * The optional type selector maps onto the registry's existing `classification`
- * field, so downstream governance/triage (which already reads captured_items)
- * routes the item into the right workflow:
+ * Canonical contract (0031):
+ *   source_type       = 'channel_message'        (always)
+ *   item_type         = 'text_note'              (text captures)
+ *   source_channel_id = one of KNOWN_CHANNELS
+ *   classification    = reference|mission|personal|research|decision|unclassified
+ *   importance        = low|medium|high
+ *   processing_status = pending|routed|dismissed|archived
+ *   review_status     = unreviewed|reviewed|actioned
  *
- *   note    → classification 'reference'  (kept for context)
- *   idea    → classification 'research'   (feeds research / roadmap triage)
- *   mission → classification 'mission'    (promoted to build/mission pipeline)
- *   health  → classification 'personal'   (surfaced to Medical, non-destructive)
- *
- * Health log note: a *structured* check-in still writes health_daily_logs via
- * the existing /medical/check-in page. Quick Capture only records a lightweight
- * health note, so it never clobbers the day's structured upsert.
+ * Capture is review-first. No auto-mission creation from capture alone.
  */
 
 import { createSupabaseBrowserClient } from './supabase-browser';
 
-export type CaptureType = 'note' | 'mission_idea' | 'health' | 'idea';
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type CaptureType = 'note' | 'mission' | 'health' | 'idea' | 'decision';
+
+export type CaptureClassification =
+  | 'reference'
+  | 'mission'
+  | 'personal'
+  | 'research'
+  | 'decision'
+  | 'unclassified';
+
+export type CaptureImportance = 'low' | 'medium' | 'high';
+
+export type ProcessingStatus = 'pending' | 'routed' | 'dismissed' | 'archived';
+
+export type ReviewStatus = 'unreviewed' | 'reviewed' | 'actioned';
+
+export type AiEnrichmentStatus = 'not_enriched' | 'queued' | 'enriched' | 'failed';
 
 export interface CaptureTypeMeta {
   key: CaptureType;
   label: string;
   glyph: string;
-  /** Tailwind tone used for the chip + accent. */
-  tone: 'command' | 'engineering' | 'medical' | 'science';
-  classification: 'reference' | 'mission' | 'personal' | 'research';
-  importance: 'low' | 'medium' | 'high';
+  tone: 'command' | 'engineering' | 'medical' | 'science' | 'operations';
+  classification: CaptureClassification;
+  importance: CaptureImportance;
   hint: string;
 }
+
+// ── Recognised source channels ────────────────────────────────────────────────
+
+export const KNOWN_CHANNELS = [
+  'lcars-mobile-quick-capture',
+  'telegram-xo-voice-capture',
+  'telegram-xo-text-capture',
+  'portal-floating-capture',
+  'command-centre-api-capture',
+] as const;
+
+export type KnownChannel = (typeof KNOWN_CHANNELS)[number];
+
+export const SOURCE_BADGE: Record<string, { label: string; tone: string }> = {
+  'lcars-mobile-quick-capture':  { label: 'Portal',        tone: 'engineering' },
+  'telegram-xo-voice-capture':   { label: 'Telegram Voice', tone: 'science' },
+  'telegram-xo-text-capture':    { label: 'Telegram Text',  tone: 'science' },
+  'portal-floating-capture':     { label: 'Float Capture',  tone: 'command' },
+  'command-centre-api-capture':  { label: 'Command Centre', tone: 'operations' },
+};
+
+export function sourceBadge(channelId: string | null | undefined) {
+  if (!channelId) return { label: 'Unknown', tone: 'command' };
+  return SOURCE_BADGE[channelId] ?? { label: channelId, tone: 'command' };
+}
+
+// ── Capture type metadata ─────────────────────────────────────────────────────
 
 export const CAPTURE_TYPES: CaptureTypeMeta[] = [
   {
@@ -45,13 +85,13 @@ export const CAPTURE_TYPES: CaptureTypeMeta[] = [
     hint: 'A thought, reference, or thing to remember.',
   },
   {
-    key: 'mission_idea',
+    key: 'mission',
     label: 'Mission',
     glyph: '★',
     tone: 'engineering',
     classification: 'mission',
     importance: 'high',
-    hint: 'Something to build, fix, or get done. Routes to Engineering triage.',
+    hint: 'Something to build, fix, or get done. Queued for Captain review.',
   },
   {
     key: 'health',
@@ -71,6 +111,15 @@ export const CAPTURE_TYPES: CaptureTypeMeta[] = [
     importance: 'medium',
     hint: 'Something to explore later. Feeds research / roadmap triage.',
   },
+  {
+    key: 'decision',
+    label: 'Decision',
+    glyph: '⚖',
+    tone: 'operations',
+    classification: 'decision',
+    importance: 'high',
+    hint: 'A decision point or outstanding choice that needs Captain attention.',
+  },
 ];
 
 export function captureTypeMeta(type: CaptureType): CaptureTypeMeta {
@@ -82,12 +131,15 @@ function deriveTitle(text: string, type: CaptureType): string {
   const clipped = firstLine.length > 90 ? `${firstLine.slice(0, 87)}…` : firstLine;
   const prefix: Record<CaptureType, string> = {
     note: '',
-    mission_idea: 'Mission: ',
+    mission: 'Mission: ',
     health: 'Health: ',
     idea: 'Idea: ',
+    decision: 'Decision: ',
   };
   return `${prefix[type]}${clipped || 'Untitled capture'}`.slice(0, 200);
 }
+
+// ── Write — submit a new capture ──────────────────────────────────────────────
 
 export interface CaptureResult {
   ok: boolean;
@@ -95,10 +147,6 @@ export interface CaptureResult {
   error?: string;
 }
 
-/**
- * Persist a captured item to the existing captured_items registry.
- * Returns {ok:false,error} on any failure so the UI can surface it.
- */
 export async function captureItem(
   text: string,
   type: CaptureType,
@@ -108,30 +156,28 @@ export async function captureItem(
   if (!body) return { ok: false, error: 'Nothing to capture.' };
 
   const meta = captureTypeMeta(type);
-  const now = new Date();
-  // captured_items enforces NOT NULL source_* fields + a constrained
-  // source_type. We synthesise a stable web-origin envelope; source_message_id
-  // is uniquely indexed so a UUID guarantees idempotent inserts.
-  const id =
+  const now  = new Date();
+  const id   =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `${now.getTime()}-${Math.random().toString(36).slice(2)}`;
 
   const payload: Record<string, unknown> = {
-    captured_by: capturedBy ?? 'captain-tjr',
-    captured_at: now.toISOString(),
-    source_type: 'channel_message',
-    source_channel_id: 'lcars-mobile-quick-capture',
-    source_message_id: id,
-    source_message_ts: String(now.getTime()),
-    item_type: 'text_note',
-    title: deriveTitle(body, type),
-    raw_text: body.slice(0, 10240),
-    classification: meta.classification,
-    importance: meta.importance,
-    processing_status: 'pending',
-    review_status: 'unreviewed',
-    requires_review: type === 'mission_idea',
+    captured_by:          capturedBy ?? 'captain-tjr',
+    captured_at:          now.toISOString(),
+    source_type:          'channel_message',
+    source_channel_id:    'lcars-mobile-quick-capture',
+    source_message_id:    id,
+    source_message_ts:    String(now.getTime()),
+    item_type:            'text_note',
+    title:                deriveTitle(body, type),
+    raw_text:             body.slice(0, 10240),
+    classification:       meta.classification,
+    importance:           meta.importance,
+    processing_status:    'pending',
+    review_status:        'unreviewed',
+    requires_review:      type === 'mission' || type === 'decision',
+    ai_enrichment_status: 'not_enriched',
   };
 
   try {
@@ -148,11 +194,68 @@ export async function captureItem(
   }
 }
 
-/** Recent captures for the "just captured" feed. Empty on any failure. */
+// ── Read — fetch captures for the inbox ───────────────────────────────────────
+
+export interface InboxCapture {
+  id: string;
+  title: string | null;
+  raw_text: string | null;
+  item_type: string | null;
+  classification: CaptureClassification | null;
+  importance: CaptureImportance | null;
+  processing_status: ProcessingStatus | null;
+  review_status: ReviewStatus | null;
+  requires_review: boolean | null;
+  ai_enrichment_status: AiEnrichmentStatus | null;
+  source_channel_id: string | null;
+  captured_by: string | null;
+  captured_at: string;
+  summary: Record<string, unknown> | null;
+}
+
+const INBOX_SELECT = [
+  'id', 'title', 'raw_text', 'item_type', 'classification', 'importance',
+  'processing_status', 'review_status', 'requires_review', 'ai_enrichment_status',
+  'source_channel_id', 'captured_by', 'captured_at', 'summary',
+].join(', ');
+
+/** Inbox: all pending captures from ALL recognised sources, latest first. */
+export async function fetchInboxCaptures(opts?: {
+  source?: string;
+  classification?: CaptureClassification;
+  limit?: number;
+}): Promise<InboxCapture[]> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    let query = supabase
+      .from('captured_items')
+      .select(INBOX_SELECT)
+      .in('processing_status', ['pending'])
+      .in('source_channel_id', [...KNOWN_CHANNELS])
+      .order('captured_at', { ascending: false })
+      .limit(opts?.limit ?? 50);
+
+    if (opts?.source && KNOWN_CHANNELS.includes(opts.source as KnownChannel)) {
+      query = query.eq('source_channel_id', opts.source);
+    }
+    if (opts?.classification) {
+      query = query.eq('classification', opts.classification);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return (data as unknown) as InboxCapture[];
+  } catch {
+    return [];
+  }
+}
+
+/** Legacy: recent captures from the portal quick-capture form only. */
 export interface RecentCapture {
   id: string;
-  title: string;
+  title: string | null;
   classification: string | null;
+  source_channel_id: string | null;
   captured_at: string;
   review_status: string | null;
 }
@@ -162,13 +265,131 @@ export async function fetchRecentCaptures(limit = 6): Promise<RecentCapture[]> {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
       .from('captured_items')
-      .select('id, title, classification, captured_at, review_status')
-      .in('source_channel_id', ['lcars-mobile-quick-capture', 'telegram-xo-voice-capture'])
+      .select('id, title, classification, source_channel_id, captured_at, review_status')
+      .in('source_channel_id', [...KNOWN_CHANNELS])
+      .eq('captured_by', 'captain-tjr')
       .order('captured_at', { ascending: false })
       .limit(limit);
     if (error || !data) return [];
     return data as RecentCapture[];
   } catch {
     return [];
+  }
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+export interface ActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function markCaptureReviewed(id: string): Promise<ActionResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('captured_items')
+      .update({ review_status: 'reviewed' })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+export async function dismissCapture(id: string): Promise<ActionResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('captured_items')
+      .update({ processing_status: 'dismissed', review_status: 'actioned' })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+export async function archiveCapture(id: string): Promise<ActionResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('captured_items')
+      .update({ processing_status: 'archived', review_status: 'actioned' })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+export async function updateCaptureClassification(
+  id: string,
+  classification: CaptureClassification,
+): Promise<ActionResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const requiresReview = classification === 'mission' || classification === 'decision';
+    const { error } = await supabase
+      .from('captured_items')
+      .update({ classification, requires_review: requiresReview })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+export async function updateCaptureImportance(
+  id: string,
+  importance: CaptureImportance,
+): Promise<ActionResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('captured_items')
+      .update({ importance })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+  }
+}
+
+/** Route capture via Command Centre backend (for complex routing). */
+export async function routeCapture(
+  id: string,
+  classification: CaptureClassification,
+): Promise<ActionResult & { routing?: Record<string, unknown> }> {
+  try {
+    const resp = await fetch(`/api/capture/${id}/route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classification }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
+    return { ok: true, routing: json?.data?.routing };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Route failed.' };
+  }
+}
+
+/** Promote capture to a mission candidate (Idea status) — requires Captain review to activate. */
+export async function promoteCaptureToMission(
+  id: string,
+): Promise<ActionResult & { mission_id?: string }> {
+  try {
+    const resp = await fetch(`/api/capture/${id}/promote-mission`, { method: 'POST' });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
+    return { ok: true, mission_id: json?.data?.mission_id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Promote failed.' };
   }
 }
