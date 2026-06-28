@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { LCARSPanel } from '@/components/LCARSPanel';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -383,8 +384,15 @@ function ConsultMode() {
           try { const p = JSON.parse(payload) as { token?: string }; if (p.token) { acc += p.token; setStreamBuffer(acc); } } catch { /* skip */ }
         }
       }
-      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: acc || '(no response)' }] }));
+      const finalContent = acc || '(no response)';
+      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: finalContent }] }));
       setStreamBuffer('');
+      // Persist to Supabase (best-effort)
+      fetch('/api/advisory-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'consult', advisor_id: activeAdvisor.id, question: trimmed, response: finalContent }),
+      }).catch(() => { /* best-effort */ });
     } catch (err) {
       const e = err as Error;
       if (e.message.includes('fetch') || e.message.includes('ECONNREFUSED')) {
@@ -531,6 +539,12 @@ function BoardMode() {
       setSummary(result);
       const session: BoardSession = { id: Date.now().toString(), ts: Date.now(), question, result };
       setLog((prev) => { const next = [session, ...prev].slice(0, 30); try { localStorage.setItem(LS_BOARD_LOG, JSON.stringify(next)); } catch { /**/ } return next; });
+      // Persist to Supabase (best-effort)
+      fetch('/api/advisory-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'board', question, result }),
+      }).catch(() => { /* best-effort */ });
     } catch (err) { setError((err as Error).message); }
     finally { setLoading(false); }
   };
@@ -769,6 +783,33 @@ interface PerspectiveSession { id: string; ts: number; question: string; respons
 
 const LS_PERSPECTIVES_LOG = 'lcars-perspectives-log';
 
+async function savePerspectiveCapture(question: string, responses: { label: string; response: string }[]) {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const raw = [`Question: ${question}\n`];
+    responses.forEach((r) => { raw.push(`\n### ${r.label}\n${r.response}`); });
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const now = new Date();
+    await supabase.from('captured_items').insert({
+      captured_by:          'captain-tjr',
+      captured_at:          now.toISOString(),
+      source_type:          'channel_message',
+      source_channel_id:    'portal-floating-capture',
+      source_message_id:    id,
+      source_message_ts:    String(now.getTime()),
+      item_type:            'text_note',
+      title:                `Advisory Perspectives: ${question.slice(0, 80)}${question.length > 80 ? '…' : ''}`,
+      raw_text:             raw.join('').slice(0, 10240),
+      classification:       'reference',
+      importance:           'medium',
+      processing_status:    'routed',
+      review_status:        'reviewed',
+      requires_review:      false,
+      ai_enrichment_status: 'not_enriched',
+    });
+  } catch { /* best-effort — never block UI */ }
+}
+
 function useElapsed(active: boolean) {
   const [elapsed, setElapsed] = useState(0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -855,11 +896,13 @@ function PerspectivesMode() {
     setResponses((current) => {
       const completed = current.filter((r) => r.response && !r.loading);
       if (completed.length > 0) {
+        const sessionResponses = completed.map((r) => ({ label: r.perspective.label, response: r.response }));
         const session: PerspectiveSession = {
           id: Date.now().toString(), ts: Date.now(), question: trimmed,
-          responses: completed.map((r) => ({ label: r.perspective.label, response: r.response })),
+          responses: sessionResponses,
         };
         setLog((prev) => { const next = [session, ...prev].slice(0, 50); try { localStorage.setItem(LS_PERSPECTIVES_LOG, JSON.stringify(next)); } catch { /**/ } return next; });
+        savePerspectiveCapture(trimmed, sessionResponses);
       }
       return current;
     });
