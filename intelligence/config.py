@@ -32,6 +32,7 @@ GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
+MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8080")
 
 # Mistral Agents — OR Intelligence pipeline
 # Stage 1: Endeavour Research Scout  → synthesise raw events into research package

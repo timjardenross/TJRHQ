@@ -27,6 +27,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -69,11 +70,10 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return None
     url = f"{_SUPABASE_URL}/rest/v1/{table}"
-    headers = _headers()
-    prefer = "return=representation,resolution=merge-duplicates"
     if on_conflict:
-        prefer += f",on_conflict={on_conflict}"
-    headers["Prefer"] = prefer
+        url += f"?on_conflict={urllib.parse.quote(on_conflict)}"
+    headers = _headers()
+    headers["Prefer"] = "return=representation,resolution=merge-duplicates"
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
@@ -158,16 +158,13 @@ def _load_active_mission_keywords() -> list[str]:
     Returns a flat list of keywords for captain_focus scoring.
     Falls back to empty list gracefully.
     """
-    rows = _get("missions?select=title,tags&status=eq.active&limit=20")
+    rows = _get("missions?select=title&status=eq.active&limit=20")
     keywords: list[str] = []
     for r in rows:
         if r.get("title"):
-            # Extract meaningful words (4+ chars) from mission title
             import re
             words = re.findall(r"\w{4,}", r["title"].lower())
             keywords.extend(words)
-        if r.get("tags") and isinstance(r["tags"], list):
-            keywords.extend([t.lower() for t in r["tags"]])
     return list(set(keywords))
 
 
@@ -189,7 +186,7 @@ class ContentIntelligenceService:
 
         Returns count of signals written.
         """
-        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(days=days)).isoformat())
         events = _get(
             f"intelligence_events"
             f"?collected_at=gte.{since}"
@@ -228,6 +225,7 @@ class ContentIntelligenceService:
         written = 0
         for cs, rs in ranked:
             row = {
+                "event_id": str(uuid.uuid4()),
                 "event_id_text": cs.event_id_text,
                 "source_name": cs.source_name,
                 "pillar_key": cs.pillar_key,
@@ -259,7 +257,7 @@ class ContentIntelligenceService:
         Joins content_signals with intelligence_events for title/url/source.
         Falls back gracefully if DB unavailable.
         """
-        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(days=days)).isoformat())
 
         # Build filter
         filters = (
@@ -306,7 +304,7 @@ class ContentIntelligenceService:
             f"&suppressed=eq.false"
             f"&select=event_id"
             f"&limit=1000"
-        )
+        )  # since is already URL-encoded
         total_evaluated = len(total_rows)
 
         # Build signal objects
