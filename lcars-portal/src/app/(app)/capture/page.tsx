@@ -572,7 +572,22 @@ const CLASS_LABELS: Record<string, string> = {
   reference: 'Note', unclassified: 'Unclassified',
 };
 
-function CaptureAnalyticsPanel() {
+// Maps source channel key → InboxFilter key
+const SOURCE_TO_FILTER: Record<string, InboxFilter> = {
+  'lcars-mobile-quick-capture': 'portal',
+  'telegram-xo-voice-capture':  'telegram-voice',
+};
+
+// Maps classification key → InboxFilter key
+const CLASS_TO_FILTER: Record<string, InboxFilter> = {
+  mission:       'mission',
+  personal:      'health',
+  research:      'research',
+  decision:      'decision',
+  unclassified:  'unclassified',
+};
+
+function CaptureAnalyticsPanel({ onFilter }: { onFilter: (f: InboxFilter) => void }) {
   const [stats, setStats] = useState<CaptureAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -600,20 +615,36 @@ function CaptureAnalyticsPanel() {
     <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-3">
       <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Capture Analytics — 7 days</p>
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Today" value={stats.today} tone="engineering" />
+        <Stat label="Today"     value={stats.today}    tone="engineering" />
         <Stat label="This week" value={stats.this_week} tone="command" />
-        <Stat label="Pending" value={stats.pending} tone={stats.pending > 0 ? 'operations' : 'status'} />
+        <Stat
+          label="Pending"
+          value={stats.pending}
+          tone={stats.pending > 0 ? 'operations' : 'status'}
+          onClick={() => onFilter('all')}
+        />
       </div>
       {topSources.length > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-[9px] uppercase tracking-[0.2em] text-lcars-muted/70">By source</p>
           <div className="flex flex-wrap gap-2">
-            {topSources.map(([ch, n]) => (
-              <span key={ch} className="flex items-center gap-1 text-[10px] text-lcars-muted">
-                <span className="font-semibold text-lcars-text">{n}</span>
-                {SOURCE_BADGE[ch]?.label ?? ch}
-              </span>
-            ))}
+            {topSources.map(([ch, n]) => {
+              const filter = SOURCE_TO_FILTER[ch];
+              return (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => filter && onFilter(filter)}
+                  className={[
+                    'flex items-center gap-1 text-[10px] transition-opacity',
+                    filter ? 'cursor-pointer text-lcars-muted hover:text-lcars-text hover:opacity-80' : 'cursor-default text-lcars-muted',
+                  ].join(' ')}
+                >
+                  <span className="font-semibold text-lcars-text">{n}</span>
+                  {SOURCE_BADGE[ch]?.label ?? ch}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -621,12 +652,23 @@ function CaptureAnalyticsPanel() {
         <div className="mt-2">
           <p className="mb-1.5 text-[9px] uppercase tracking-[0.2em] text-lcars-muted/70">By classification</p>
           <div className="flex flex-wrap gap-2">
-            {topClasses.map(([cl, n]) => (
-              <span key={cl} className="flex items-center gap-1 text-[10px] text-lcars-muted">
-                <span className="font-semibold text-lcars-text">{n}</span>
-                {CLASS_LABELS[cl] ?? cl}
-              </span>
-            ))}
+            {topClasses.map(([cl, n]) => {
+              const filter = CLASS_TO_FILTER[cl];
+              return (
+                <button
+                  key={cl}
+                  type="button"
+                  onClick={() => filter && onFilter(filter)}
+                  className={[
+                    'flex items-center gap-1 text-[10px] transition-opacity',
+                    filter ? 'cursor-pointer text-lcars-muted hover:text-lcars-text hover:opacity-80' : 'cursor-default text-lcars-muted',
+                  ].join(' ')}
+                >
+                  <span className="font-semibold text-lcars-text">{n}</span>
+                  {CLASS_LABELS[cl] ?? cl}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -634,23 +676,31 @@ function CaptureAnalyticsPanel() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Stat({ label, value, tone, onClick }: { label: string; value: number; tone: string; onClick?: () => void }) {
   const textMap: Record<string, string> = {
     engineering: 'text-engineering-on', command: 'text-command-on',
     operations: 'text-operations-on', status: 'text-status-on',
   };
   return (
-    <div className="flex flex-col">
+    <div
+      className={`flex flex-col ${onClick ? 'cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+      onClick={onClick}
+    >
       <span className={`text-xl font-bold ${textMap[tone] ?? 'text-lcars-text'}`}>{value}</span>
-      <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{label}</span>
+      <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{label}{onClick ? ' ↓' : ''}</span>
     </div>
   );
 }
 
 // ── Inbox section ─────────────────────────────────────────────────────────────
 
-function CaptureInbox() {
-  const [activeFilter, setActiveFilter] = useState<InboxFilter>('all');
+function CaptureInbox({
+  activeFilter,
+  onFilterChange,
+}: {
+  activeFilter: InboxFilter;
+  onFilterChange: (f: InboxFilter) => void;
+}) {
   const [items,  setItems]  = useState<InboxCapture[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,  setError]  = useState<string | null>(null);
@@ -688,7 +738,7 @@ function CaptureInbox() {
           <button
             key={f.key}
             type="button"
-            onClick={() => setActiveFilter(f.key)}
+            onClick={() => onFilterChange(f.key)}
             className={[
               'rounded border px-3 py-1 text-xs font-medium transition-colors',
               activeFilter === f.key
@@ -734,18 +784,25 @@ function CaptureInbox() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function QuickCapturePage() {
-  const [text,      setText]      = useState('');
-  const [type,      setType]      = useState<CaptureType>('note');
-  const [showTypes, setShowTypes] = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [flash,     setFlash]     = useState<string | null>(null);
-  const [error,     setError]     = useState<string | null>(null);
-  const [inboxKey,  setInboxKey]  = useState(0);
+  const [text,         setText]        = useState('');
+  const [type,         setType]        = useState<CaptureType>('note');
+  const [showTypes,    setShowTypes]   = useState(false);
+  const [saving,       setSaving]      = useState(false);
+  const [flash,        setFlash]       = useState<string | null>(null);
+  const [error,        setError]       = useState<string | null>(null);
+  const [inboxKey,     setInboxKey]    = useState(0);
+  const [inboxFilter,  setInboxFilter] = useState<InboxFilter>('all');
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inboxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  function applyFilter(f: InboxFilter) {
+    setInboxFilter(f);
+    setTimeout(() => inboxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
 
   async function submit() {
     const body = text.trim();
@@ -851,7 +908,7 @@ export default function QuickCapturePage() {
       )}
 
       {/* ── Analytics ── */}
-      <CaptureAnalyticsPanel />
+      <CaptureAnalyticsPanel onFilter={applyFilter} />
 
       {/* ── Source legend ── */}
       <div className="flex flex-wrap gap-2">
@@ -864,8 +921,8 @@ export default function QuickCapturePage() {
       </div>
 
       {/* ── Capture Inbox ── */}
-      <div key={inboxKey}>
-        <CaptureInbox />
+      <div key={inboxKey} ref={inboxRef}>
+        <CaptureInbox activeFilter={inboxFilter} onFilterChange={setInboxFilter} />
       </div>
     </div>
   );
