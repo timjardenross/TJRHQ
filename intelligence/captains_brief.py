@@ -105,6 +105,33 @@ def _get_todays_health() -> Optional[dict]:
     return rows[0] if rows else None
 
 
+def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None) -> None:
+    """Persist a generated brief to captains_daily_briefs for historical retrieval."""
+    if not _SUPABASE_URL or not _SUPABASE_KEY:
+        return
+    url = f"{_SUPABASE_URL}/rest/v1/captains_daily_briefs"
+    headers = {
+        "apikey": _SUPABASE_KEY,
+        "Authorization": f"Bearer {_SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+    payload = json.dumps({
+        "brief_type":      brief_type,
+        "brief_date":      date.today().isoformat(),
+        "brief_text":      text[:8000],
+        "signals_count":   signals_count,
+        "health_snapshot": health or {},
+    }).encode()
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=8):
+            pass
+        log.info("[brief-persist] %s brief stored", brief_type)
+    except Exception as exc:
+        log.warning("[brief-persist] failed to persist %s brief: %s", brief_type, exc)
+
+
 def _get_new_signals_since(since_iso: str) -> list[dict]:
     return _sb_get(
         "intelligence_events",
@@ -329,6 +356,7 @@ def generate_weekly_report() -> str:
 
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
+    signals: list[dict] = []
     if brief_type == "morning":
         text = generate_morning_brief()
     elif brief_type == "midday":
@@ -344,6 +372,7 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
+    _persist_brief(brief_type, text, signals_count=len(signals), health=_get_todays_health())
     return _send_telegram(text)
 
 

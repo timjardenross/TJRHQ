@@ -12,6 +12,7 @@ Env:  telegram-bots/xo/.env
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import subprocess
@@ -1059,6 +1060,207 @@ async def cmd_operating_picture(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(f"⚠️ Operating picture failed: {str(exc)[:120]}")
 
 
+# ── Intelligence query commands (MSN-0201) ───────────────────────────────────
+
+async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/signals [today|high|cyber|all] — top intelligence events from the last 24-48h"""
+    args = context.args or []
+    filt = (args[0].lower() if args else "today")
+
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        from datetime import timezone as _utczone
+        # Time window
+        hours = 48 if filt == "all" else 24
+        since = (datetime.now(_utczone.utc) - __import__("datetime").timedelta(hours=hours)).isoformat()
+
+        query = (
+            db.table("intelligence_events")
+            .select("raw_title,event_type,geography,risk_rating,rank_score,collected_at")
+            .eq("suppressed", False)
+            .gte("collected_at", since)
+        )
+        if filt == "high":
+            query = query.eq("risk_rating", "HIGH")
+        elif filt == "cyber":
+            query = query.ilike("event_type", "%cyber%")
+        elif filt == "today":
+            pass  # already scoped to 24h
+        # else "all" → 48h, no extra filter
+
+        res = query.order("rank_score", desc=True).limit(8).execute()
+        rows = res.data or []
+
+        if not rows:
+            label = _escape_strict(filt)
+            await update.message.reply_text(
+                f"No signals found for filter \\`{label}\\` in the last {hours}h\\.",
+                parse_mode="MarkdownV2",
+            )
+            return
+
+        _RISK = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
+        header = f"*📡 Intelligence Signals — {_escape_strict(filt.upper())}* \\({len(rows)}\\)\n"
+        lines = [header]
+        for r in rows:
+            icon  = _RISK.get(r.get("risk_rating", ""), "⚪")
+            title = _escape_strict((r.get("raw_title") or "—")[:80])
+            geo   = _escape_strict(r.get("geography") or "")
+            et    = _escape_strict(r.get("event_type") or "")
+            meta  = f" · _{geo}_{' · ' + et if et else ''}" if geo or et else ""
+            lines.append(f"{icon} {title}{meta}")
+
+        await update.message.reply_text("\n\n".join(lines), parse_mode="MarkdownV2")
+        log.info("[signals] filter=%s rows=%d", filt, len(rows))
+
+    except Exception as exc:
+        log.error("[signals] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Signals query failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
+async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/themes — emerging themes from the latest ORI intelligence brief"""
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        res = (
+            db.table("intelligence_briefs")
+            .select("brief_id,generated_at,overall_risk,emerging_themes,forward_watch,executive_snapshot,period_start,period_end")
+            .order("generated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            await update.message.reply_text("No ORI brief found\\.", parse_mode="MarkdownV2")
+            return
+
+        row    = rows[0]
+        brief_id = (row.get("brief_id") or "")[:8]
+        period   = f"{(row.get('period_start') or '')[:10]} → {(row.get('period_end') or '')[:10]}"
+        risk     = row.get("overall_risk", "?")
+        snap     = row.get("executive_snapshot") or row.get("bottom_line") or ""
+        themes   = row.get("emerging_themes") or []
+        fw       = row.get("forward_watch")
+
+        _RISK = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}
+        risk_icon = _RISK.get(str(risk).upper(), "⚪")
+
+        lines = [
+            f"*📈 Emerging Themes* — `{brief_id}` \\| {risk_icon} {_escape_strict(str(risk))}",
+            f"_{_escape_strict(period)}_",
+        ]
+
+        if snap:
+            lines += ["", f"_{_escape_strict(snap[:300])}_"]
+
+        if themes:
+            lines.append("\n*Themes:*")
+            for t in themes[:6]:
+                label = t if isinstance(t, str) else (t.get("theme") or t.get("title") or str(t))
+                lines.append(f"  • {_escape_strict(str(label)[:100])}")
+
+        if fw:
+            fw_text = fw if isinstance(fw, str) else json.dumps(fw)[:200]
+            lines += ["", f"*👁 Forward Watch:* {_escape_strict(fw_text[:250])}"]
+
+        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+        log.info("[themes] brief_id=%s", brief_id)
+
+    except Exception as exc:
+        log.error("[themes] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Themes query failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
+async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/source_status — health of intelligence collection sources"""
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
+        return
+
+    try:
+        # Latest health check per source (using a window via order+distinct would need RPC;
+        # instead fetch most recent 100 rows and de-dup in Python — fast enough at 40-50 sources)
+        res = (
+            db.table("intelligence_source_health")
+            .select("source_id,checked_at,status,items_retrieved,error_message")
+            .order("checked_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+        rows = res.data or []
+
+        # De-dup to latest per source_id
+        seen: dict[str, dict] = {}
+        for r in rows:
+            sid = r.get("source_id") or ""
+            if sid not in seen:
+                seen[sid] = r
+
+        # Fetch source names
+        src_res = (
+            db.table("intelligence_source_registry")
+            .select("source_id,source_name,category")
+            .eq("active", True)
+            .execute()
+        )
+        name_map = {r["source_id"]: r for r in (src_res.data or [])}
+
+        _STATUS_ICON = {"ok": "✅", "stale": "🟡", "failed": "❌", "degraded": "⚠️", "skipped": "⏭"}
+        buckets: dict[str, list[str]] = {"failed": [], "degraded": [], "stale": [], "ok": [], "skipped": []}
+
+        for sid, h in seen.items():
+            st = (h.get("status") or "unknown").lower()
+            src_name = name_map.get(sid, {}).get("source_name", sid[:12]) or sid[:12]
+            icon = _STATUS_ICON.get(st, "❓")
+            items = h.get("items_retrieved")
+            detail = f"{icon} {_escape_strict(src_name)}"
+            if items is not None:
+                detail += f" \\({items}\\)"
+            buckets.setdefault(st, []).append(detail)
+
+        total = len(seen)
+        ok    = len(buckets.get("ok", []))
+        fail  = len(buckets.get("failed", []))
+        stale = len(buckets.get("stale", []))
+
+        lines = [
+            f"*📡 Source Health* — {total} sources",
+            f"✅ {ok} ok  ·  🟡 {stale} stale  ·  ❌ {fail} failed",
+        ]
+
+        if buckets.get("failed"):
+            lines += ["", "*Failed:*"]
+            lines += buckets["failed"][:6]
+        if buckets.get("stale"):
+            lines += ["", "*Stale:*"]
+            lines += buckets["stale"][:4]
+
+        await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
+        log.info("[source-status] total=%d ok=%d fail=%d", total, ok, fail)
+
+    except Exception as exc:
+        log.error("[source-status] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Source status query failed: `{_escape_strict(str(exc)[:80])}`",
+            parse_mode="MarkdownV2",
+        )
+
+
 # ── Advisory CLI (MSN-0200-P3A) ──────────────────────────────────────────────
 
 _ADVISORY_PERSONAS = {"xo", "cmo", "cto", "cdo", "strategic", "staff-briefing"}
@@ -1462,6 +1664,9 @@ async def _scheduled_dispatch(bot) -> None:
 
 _BOT_COMMANDS = [
     ("brief",                "Daily brief  e.g. /brief  or  /brief eod"),
+    ("signals",              "Intelligence signals  e.g. /signals high  or  /signals cyber"),
+    ("themes",               "Emerging themes from latest ORI brief"),
+    ("source_status",        "Health of all 40+ intelligence collection sources"),
     ("operating_picture",    "Captain's operating picture — what do I need to know?"),
     ("advise",               "Advisory query  e.g. /advise cmo Pain pattern this week"),
     ("recovery_status",      "Today's confidence bar + pulse ledger"),
@@ -1520,6 +1725,9 @@ def main() -> None:
     app.add_handler(CommandHandler("captain_reject",      cmd_captain_reject))
     app.add_handler(CommandHandler("mission_submit",      cmd_mission_submit))
     app.add_handler(CommandHandler("handoff_engineering", cmd_handoff_engineering))
+    app.add_handler(CommandHandler("signals",              cmd_signals))
+    app.add_handler(CommandHandler("themes",              cmd_themes))
+    app.add_handler(CommandHandler("source_status",       cmd_source_status))
     app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
     app.add_handler(CommandHandler("advise",              cmd_advise))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
