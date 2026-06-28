@@ -418,9 +418,9 @@ function ConsultMode() {
   const groups = COUNCIL.reduce<Record<string, CouncilAdvisor[]>>((acc, a) => { (acc[a.group] = acc[a.group] ?? []).push(a); return acc; }, {});
 
   return (
-    <div style={{ display: 'flex', gap: '1rem', height: '65vh' }}>
+    <div className="flex flex-col lg:flex-row gap-4 lg:h-[65vh]">
       {/* Sidebar */}
-      <div className="flex flex-col gap-3 w-44 shrink-0 pt-1 overflow-y-auto">
+      <div className="flex flex-col gap-3 w-full lg:w-44 shrink-0 pt-1 overflow-y-auto">
         {Object.entries(groups).map(([group, advisors]) => (
           <div key={group}>
             <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted mb-1 px-1">{group}</p>

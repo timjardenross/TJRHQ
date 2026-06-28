@@ -263,7 +263,7 @@ export default function CaptainsChairPage() {
                   <p className={`font-lcars text-4xl font-bold ${scoreColour(energyVal)}`}>{energyVal}</p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {sleepHours !== null && (
                   <div className="rounded-lcars border border-edge bg-panel-2/40 p-2 text-center">
                     <p className={`font-lcars text-xl font-bold ${sleepColour(sleepHours)}`}>{sleepHours}h</p>
@@ -406,7 +406,7 @@ export default function CaptainsChairPage() {
       </div>
 
       {/* ── Section 3: Capture Inbox ────────────────────────────────────────── */}
-      <div className="rounded-lcars border border-edge bg-panel/60 px-4 py-3 flex items-center justify-between gap-4">
+      <div className="rounded-lcars border border-edge bg-panel/60 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <span className="text-xl">📥</span>
           {inboxCount === null ? (

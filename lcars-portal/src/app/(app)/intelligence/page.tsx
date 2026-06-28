@@ -148,7 +148,7 @@ function SignalCard({ s }: { s: any }) {
           {s.raw_summary && (
             <p className="text-lcars-text/90 leading-relaxed">{s.raw_summary}</p>
           )}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
             {s.sector            && <span className="text-lcars-muted">Sector <span className="text-lcars-text ml-1">{s.sector}</span></span>}
             {s.banking_relevance && <span className="text-lcars-muted">Banking rel. <span className="text-lcars-text ml-1 capitalize">{s.banking_relevance}</span></span>}
             {s.customer_impact   && <span className="text-lcars-muted">Customer impact <span className="text-lcars-text ml-1 capitalize">{s.customer_impact}</span></span>}

@@ -614,7 +614,7 @@ function CaptureAnalyticsPanel({ onFilter }: { onFilter: (f: InboxFilter) => voi
   return (
     <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-3">
       <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Capture Analytics — 7 days</p>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="Today"     value={stats.today}    tone="engineering" />
         <Stat label="This week" value={stats.this_week} tone="command" />
         <Stat

@@ -25,7 +25,7 @@ interface Tab {
 const TABS: Tab[] = [
   { href: '/captains-chair', label: 'Chair', glyph: '★', active: 'text-command' },
   { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },
-  { href: '/chief-of-staff', label: 'XO', glyph: '✦', active: 'text-science' },
+  { href: '/advisory-council', label: 'Advisory', glyph: '✦', active: 'text-science' },
   { href: '/intelligence', label: 'Intel', glyph: 'IC', active: 'text-science' },
   { href: '/alerts', label: 'Alerts', glyph: '◆', active: 'text-operations' },
 ];

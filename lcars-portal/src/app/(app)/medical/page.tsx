@@ -317,7 +317,7 @@ function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary 
               const c = toneClasses(b.tone);
               return (
                 <div key={b.label} className="flex items-center gap-2">
-                  <span className={`w-14 shrink-0 text-[10px] uppercase tracking-wide ${c.text}`}>
+                  <span className={`w-10 shrink-0 text-[10px] uppercase tracking-wide ${c.text}`}>
                     {b.label}
                   </span>
                   <div className="flex-1 h-2 rounded-full bg-edge/40 overflow-hidden">
@@ -435,7 +435,7 @@ function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
               const dot = r.readiness_status ? (STATUS_DOT[r.readiness_status.toLowerCase()] ?? 'bg-edge') : 'bg-edge';
               return (
                 <div key={r.assessment_date} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 text-[10px] text-lcars-muted font-mono">
+                  <span className="w-12 shrink-0 text-[10px] text-lcars-muted font-mono">
                     {r.assessment_date.slice(5)}
                   </span>
                   <div className="flex-1 h-2.5 rounded-full bg-edge/30 overflow-hidden">

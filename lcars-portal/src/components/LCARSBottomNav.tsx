@@ -15,7 +15,7 @@ interface BottomTab {
 
 const BOTTOM_TABS: BottomTab[] = [
   { href: '/captains-chair', label: 'Situation',  bg: 'bg-command',     glyph: '⌂' },
-  { href: '/chief-of-staff', label: 'CoS',        bg: 'bg-science',     glyph: '✦' },
+  { href: '/advisory-council', label: 'Advisory',  bg: 'bg-science',     glyph: '✦' },
   { href: '/medical',        label: 'Health',     bg: 'bg-medical',     glyph: '✚' },
   { href: '/capture',        label: 'Capture',    bg: 'bg-engineering', glyph: '+' },
   { href: '/missions',       label: 'Missions',   bg: 'bg-lcars-lilac', glyph: '★' },
