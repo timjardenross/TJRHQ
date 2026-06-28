@@ -12,12 +12,12 @@ interface LiveData {
 }
 
 const DOMAINS = [
-  { icon: '🏥', name: 'Health', description: 'Recovery-led operations. Pain management, CPAP adherence, fatigue mapping.', priority: 'P0', accent: 'text-medical' },
-  { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P1', accent: 'text-command' },
-  { icon: '🚀', name: 'USS TJR', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1', accent: 'text-command' },
-  { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2', accent: 'text-science' },
-  { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2', accent: 'text-science' },
-  { icon: '🎯', name: 'Personal', description: 'Identity, values, long-term vision.', priority: 'P3', accent: 'text-operations' },
+  { icon: '🏥', name: 'Health', description: 'Recovery-led operations. Pain management, CPAP adherence, fatigue mapping.', priority: 'P0', accent: 'text-medical-on' },
+  { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P1', accent: 'text-command-on' },
+  { icon: '🚀', name: 'USS TJR', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1', accent: 'text-command-on' },
+  { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2', accent: 'text-science-on' },
+  { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2', accent: 'text-science-on' },
+  { icon: '🎯', name: 'Personal', description: 'Identity, values, long-term vision.', priority: 'P3', accent: 'text-operations-on' },
 ];
 
 const PRINCIPLES = [
@@ -30,17 +30,17 @@ const PRINCIPLES = [
 ];
 
 const SCHEDULE = [
-  { label: 'Peak performance', time: 'Morning (0800–1200)', accent: 'text-engineering' },
-  { label: 'Managed capacity', time: 'Afternoon (1200–1600)', accent: 'text-science' },
-  { label: 'Wind-down', time: 'Evening (1600–2000)', accent: 'text-operations' },
-  { label: 'Recovery priority', time: 'Deep sleep, CPAP compliance, pain management', accent: 'text-medical' },
+  { label: 'Peak performance', time: 'Morning (0800–1200)', accent: 'text-engineering-on' },
+  { label: 'Managed capacity', time: 'Afternoon (1200–1600)', accent: 'text-science-on' },
+  { label: 'Wind-down', time: 'Evening (1600–2000)', accent: 'text-operations-on' },
+  { label: 'Recovery priority', time: 'Deep sleep, CPAP compliance, pain management', accent: 'text-medical-on' },
 ];
 
 function priorityColor(p: string) {
-  if (p === 'P0') return 'text-medical bg-medical/10 border border-medical/30';
-  if (p === 'P1') return 'text-command bg-command/10 border border-command/30';
-  if (p === 'P2') return 'text-science bg-science/10 border border-science/30';
-  return 'text-operations bg-operations/10 border border-operations/30';
+  if (p === 'P0') return 'text-medical-on bg-medical/10 border border-medical/30';
+  if (p === 'P1') return 'text-command-on bg-command/10 border border-command/30';
+  if (p === 'P2') return 'text-science-on bg-science/10 border border-science/30';
+  return 'text-operations-on bg-operations/10 border border-operations/30';
 }
 
 export default function OperatingModelPage() {
@@ -97,19 +97,19 @@ export default function OperatingModelPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Active Missions</div>
-            <div className="font-lcars text-3xl text-command">
+            <div className="font-lcars text-3xl text-command-on">
               {loading ? '—' : activeMissionsCount ?? '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Capacity Rating</div>
-            <div className="font-lcars text-3xl text-science">
+            <div className="font-lcars text-3xl text-science-on">
               {loading ? '—' : lastLog?.captain_capacity_rating != null ? `${lastLog.captain_capacity_rating}/10` : '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Last Recovery</div>
-            <div className="font-lcars text-2xl text-medical truncate">
+            <div className="font-lcars text-2xl text-medical-on truncate">
               {loading ? '—' : lastPulse?.pulse_type ?? '—'}
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function OperatingModelPage() {
         <ol className="space-y-3">
           {PRINCIPLES.map((p) => (
             <li key={p.num} className="flex gap-4 items-start bg-panel border border-edge rounded-lcars px-4 py-3">
-              <span className="font-lcars text-medical text-xl w-6 shrink-0">{p.num}</span>
+              <span className="font-lcars text-medical-on text-xl w-6 shrink-0">{p.num}</span>
               <div>
                 <div className="font-lcars text-foreground text-sm">{p.title}</div>
                 <div className="text-lcars-muted text-sm mt-0.5">{p.body}</div>
@@ -194,15 +194,15 @@ export default function OperatingModelPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Pain</span>
-                  <span className="text-medical text-sm font-lcars">{lastPulse.pain_score != null ? `${lastPulse.pain_score}/10` : '—'}</span>
+                  <span className="text-medical-on text-sm font-lcars">{lastPulse.pain_score != null ? `${lastPulse.pain_score}/10` : '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Energy</span>
-                  <span className="text-engineering text-sm font-lcars">{lastPulse.energy != null ? `${lastPulse.energy}/10` : '—'}</span>
+                  <span className="text-engineering-on text-sm font-lcars">{lastPulse.energy != null ? `${lastPulse.energy}/10` : '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Mood</span>
-                  <span className="text-science text-sm font-lcars">{lastPulse.mood != null ? `${lastPulse.mood}/10` : '—'}</span>
+                  <span className="text-science-on text-sm font-lcars">{lastPulse.mood != null ? `${lastPulse.mood}/10` : '—'}</span>
                 </div>
                 {lastPulse.captured_at && (
                   <div className="text-lcars-muted text-xs pt-1 border-t border-edge">

@@ -136,7 +136,7 @@ export default function AutomationCentrePage() {
                       {retired ? (
                         <span className="text-lcars-muted text-xs">Retired</span>
                       ) : (
-                        <span className="text-operations text-xs font-medium">Active</span>
+                        <span className="text-operations-on text-xs font-medium">Active</span>
                       )}
                     </td>
                   </tr>
@@ -174,7 +174,7 @@ export default function AutomationCentrePage() {
                 <span className={`inline-block w-2 h-2 rounded-full ${ch.status === 'Active' ? 'bg-operations' : 'bg-science'}`} />
               </div>
               <p className="text-lcars-muted text-xs mb-2">{ch.description}</p>
-              <span className={`text-xs font-medium ${ch.status === 'Active' ? 'text-operations' : 'text-science'}`}>
+              <span className={`text-xs font-medium ${ch.status === 'Active' ? 'text-operations-on' : 'text-science-on'}`}>
                 {ch.status}
               </span>
             </div>

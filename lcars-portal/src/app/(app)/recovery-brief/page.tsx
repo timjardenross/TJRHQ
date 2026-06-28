@@ -116,7 +116,7 @@ export default function RecoveryBriefPage() {
           <div className="mt-3 flex flex-wrap gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Best window</p>
-              <p className="font-lcars text-lg font-semibold text-command">{brief.best_window}</p>
+              <p className="font-lcars text-lg font-semibold text-command-on">{brief.best_window}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Afternoon</p>
@@ -142,7 +142,7 @@ export default function RecoveryBriefPage() {
               key={i}
               className="flex gap-3 rounded-lcars border border-edge bg-space/40 p-3 text-sm text-lcars-text/90 leading-relaxed"
             >
-              <span className="font-lcars text-medical shrink-0 mt-0.5">{i + 1}.</span>
+              <span className="font-lcars text-medical-on shrink-0 mt-0.5">{i + 1}.</span>
               {item}
             </li>
           ))}
@@ -175,7 +175,7 @@ export default function RecoveryBriefPage() {
         </div>
         <Link
           href="/captains-chair"
-          className="mt-2 block text-xs text-command hover:opacity-70"
+          className="mt-2 block text-xs text-command-on hover:opacity-70"
         >
           Full mission detail and fleet status → Captain&apos;s Chair
         </Link>

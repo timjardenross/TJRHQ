@@ -32,7 +32,7 @@ function SelectField<T extends string>({
             onClick={() => onChange(opt.value)}
             className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
               value === opt.value
-                ? 'border-command bg-command/20 text-command'
+                ? 'border-command bg-command/20 text-command-on'
                 : 'border-edge bg-space/40 text-lcars-muted hover:border-command/50'
             }`}
           >
@@ -133,9 +133,9 @@ export default function HealthCheckInPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-status bg-status/10">
-          <span className="font-lcars text-2xl text-status">✓</span>
+          <span className="font-lcars text-2xl text-status-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-status">Check-in logged</p>
+        <p className="font-lcars text-lg font-bold text-status-on">Check-in logged</p>
         <p className="text-sm text-lcars-muted">Returning to Medical Bay…</p>
       </div>
     );
@@ -275,7 +275,7 @@ export default function HealthCheckInPage() {
       </LCARSPanel>
 
       {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </p>
       )}

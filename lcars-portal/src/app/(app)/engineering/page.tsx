@@ -142,9 +142,9 @@ function CognitiveLoadPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; job
         <>
           {/* Score hero */}
           <div className="mb-4 flex items-center gap-4 rounded-lcars border border-engineering/40 bg-engineering/5 px-5 py-4">
-            <span className="font-lcars text-5xl font-bold text-engineering">{score}</span>
+            <span className="font-lcars text-5xl font-bold text-engineering-on">{score}</span>
             <div>
-              <p className="font-lcars text-sm font-semibold uppercase tracking-wider text-engineering">{label}</p>
+              <p className="font-lcars text-sm font-semibold uppercase tracking-wider text-engineering-on">{label}</p>
               <p className="text-xs text-lcars-muted mt-0.5">out of 100</p>
             </div>
             <div className="flex-1 ml-4">
@@ -162,7 +162,7 @@ function CognitiveLoadPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; job
             {signals.map((s) => (
               <div key={s.label} className="rounded-lcars border border-edge bg-space/40 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
-                <p className="font-lcars text-lg font-bold text-engineering mt-0.5">{s.value}</p>
+                <p className="font-lcars text-lg font-bold text-engineering-on mt-0.5">{s.value}</p>
                 <p className="text-[10px] text-lcars-muted mt-0.5">{s.contribution}</p>
               </div>
             ))}
@@ -200,7 +200,7 @@ function BuildInbox({ requests }: { requests: BuildRequest[] }) {
                   <button
                     type="button"
                     onClick={() => setExpanded(isOpen ? null : r.request_id)}
-                    className="rounded-md border border-edge px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:border-command hover:text-command transition-colors"
+                    className="rounded-md border border-edge px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:border-command hover:text-command-on transition-colors"
                   >
                     {isOpen ? 'Less' : 'More'}
                   </button>
@@ -232,17 +232,17 @@ function AgentPerformancePanel({ perfs }: { perfs: AgentPerf[] }) {
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Tasks</p>
-          <p className="font-lcars text-xl font-bold text-engineering mt-0.5">{perfs.length}</p>
+          <p className="font-lcars text-xl font-bold text-engineering-on mt-0.5">{perfs.length}</p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Success rate</p>
-          <p className="font-lcars text-xl font-bold text-status mt-0.5">
+          <p className="font-lcars text-xl font-bold text-status-on mt-0.5">
             {Math.round((successCount / perfs.length) * 100)}%
           </p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Total cost</p>
-          <p className="font-lcars text-xl font-bold text-command mt-0.5">
+          <p className="font-lcars text-xl font-bold text-command-on mt-0.5">
             ${totalCost.toFixed(3)}
           </p>
         </div>
@@ -293,9 +293,9 @@ function BatchJobsPanel({ jobs }: { jobs: BatchJob[] }) {
               {j.total_requests != null && (
                 <div className="mt-2 flex gap-3 text-[10px] text-lcars-muted">
                   <span>{j.total_requests} total</span>
-                  <span className="text-status">{j.succeeded_requests ?? 0} ok</span>
+                  <span className="text-status-on">{j.succeeded_requests ?? 0} ok</span>
                   {(j.failed_requests ?? 0) > 0 && (
-                    <span className="text-operations">{j.failed_requests} failed</span>
+                    <span className="text-operations-on">{j.failed_requests} failed</span>
                   )}
                   {pct != null && <span className="ml-auto">{pct}%</span>}
                 </div>

@@ -133,7 +133,7 @@ export default function KnowledgePage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               activeTab === tab.id
-                ? 'border-b-2 border-science text-science font-semibold -mb-px'
+                ? 'border-b-2 border-science text-science-on font-semibold -mb-px'
                 : 'text-lcars-muted hover:text-lcars-text'
             }`}
           >
@@ -161,7 +161,7 @@ export default function KnowledgePage() {
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.route && (
-                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command">
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command-on">
                           {r.route}
                         </span>
                       )}
@@ -194,7 +194,7 @@ export default function KnowledgePage() {
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.source && (
-                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science-on">
                           {r.source}
                         </span>
                       )}
@@ -216,7 +216,7 @@ export default function KnowledgePage() {
           {/* ARCHITECTURE */}
           {activeTab === 'architecture' && (
             <div className="rounded-lcars border border-engineering bg-panel/60 p-4 space-y-3">
-              <p className="text-[9px] uppercase tracking-[0.15em] text-engineering font-lcars">ADR Registry</p>
+              <p className="text-[9px] uppercase tracking-[0.15em] text-engineering-on font-lcars">ADR Registry</p>
               <p className="text-xs text-lcars-muted">
                 Architecture Decision Records — query the Engineering tab for full detail and status.
               </p>
@@ -250,7 +250,7 @@ export default function KnowledgePage() {
                   'ADR-026 — MSN numbering and phase gate convention',
                 ].map((adr) => (
                   <div key={adr} className="flex gap-2">
-                    <span className="text-engineering shrink-0">&rsaquo;</span>
+                    <span className="text-engineering-on shrink-0">&rsaquo;</span>
                     <span>{adr}</span>
                   </div>
                 ))}
@@ -274,7 +274,7 @@ export default function KnowledgePage() {
                           <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
-                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command">
+                          <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-command text-command-on">
                             Decision
                           </span>
                           {rec.route && (
@@ -303,7 +303,7 @@ export default function KnowledgePage() {
                         <span className="text-[9px] text-lcars-muted shrink-0">{relativeTime(rec.created_at)}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science">
+                        <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-science text-science-on">
                           Lesson
                         </span>
                         {rec.source && (

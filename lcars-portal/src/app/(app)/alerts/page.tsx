@@ -12,9 +12,9 @@ import {
 } from '@/lib/notifications';
 
 const SEVERITY_STYLE: Record<AlertSeverity, { border: string; text: string; dot: string; label: string }> = {
-  critical: { border: 'border-operations/50', text: 'text-operations', dot: 'bg-operations', label: 'Critical' },
-  high: { border: 'border-command/50', text: 'text-command', dot: 'bg-command', label: 'High' },
-  warning: { border: 'border-medical/50', text: 'text-medical', dot: 'bg-medical', label: 'Notice' },
+  critical: { border: 'border-operations/50', text: 'text-operations-on', dot: 'bg-operations', label: 'Critical' },
+  high: { border: 'border-command/50', text: 'text-command-on', dot: 'bg-command', label: 'High' },
+  warning: { border: 'border-medical/50', text: 'text-medical-on', dot: 'bg-medical', label: 'Notice' },
 };
 
 function AlertCard({ alert }: { alert: MobileAlert }) {
@@ -77,7 +77,7 @@ function NotificationControl() {
         {perm === 'granted' ? (
           <button
             onClick={toggle}
-            className={`rounded-lcars border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] ${enabled ? 'border-status/50 bg-status/10 text-status' : 'border-edge text-lcars-muted'}`}
+            className={`rounded-lcars border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.15em] ${enabled ? 'border-status/50 bg-status/10 text-status-on' : 'border-edge text-lcars-muted'}`}
           >
             {enabled ? 'On' : 'Off'}
           </button>
@@ -103,7 +103,7 @@ export default function AlertsPage() {
       <header className="flex items-end justify-between gap-2">
         <div>
           <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Push Alerts</p>
-          <h1 className="font-lcars text-2xl font-bold text-operations">What needs you</h1>
+          <h1 className="font-lcars text-2xl font-bold text-operations-on">What needs you</h1>
         </div>
         <button onClick={refresh} className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-lcars-text">
           Refresh
@@ -116,7 +116,7 @@ export default function AlertsPage() {
         <p className="text-sm text-lcars-muted italic">Checking…</p>
       ) : alerts.length === 0 ? (
         <div className="rounded-lcars border border-status/40 bg-status/5 p-6 text-center">
-          <p className="font-lcars text-lg font-bold text-status">All clear</p>
+          <p className="font-lcars text-lg font-bold text-status-on">All clear</p>
           <p className="mt-1 text-sm text-lcars-muted">
             Nothing needs your decision, nothing has escalated, nothing is blocked. You’ll only see an alert here when it genuinely matters.
           </p>

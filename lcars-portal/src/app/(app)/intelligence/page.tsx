@@ -410,7 +410,7 @@ export default function IntelligencePage() {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               tab === t.key
-                ? 'border-b-2 border-science text-science font-semibold -mb-px'
+                ? 'border-b-2 border-science text-science-on font-semibold -mb-px'
                 : 'text-lcars-muted hover:text-lcars-text'
             }`}
           >

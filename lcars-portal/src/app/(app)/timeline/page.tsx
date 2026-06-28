@@ -196,7 +196,7 @@ export default function TimelinePage() {
                 className={`rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                   days === d
                     ? 'bg-science text-space'
-                    : 'text-lcars-muted hover:text-science'
+                    : 'text-lcars-muted hover:text-science-on'
                 }`}
               >
                 {d}d
@@ -211,8 +211,8 @@ export default function TimelinePage() {
             onClick={() => setFilter('')}
             className={`rounded-lcars border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
               filter === ''
-                ? 'border-science/60 bg-science/10 text-science'
-                : 'border-edge text-lcars-muted hover:text-science hover:border-science/40'
+                ? 'border-science/60 bg-science/10 text-science-on'
+                : 'border-edge text-lcars-muted hover:text-science-on hover:border-science/40'
             }`}
           >
             All
@@ -223,8 +223,8 @@ export default function TimelinePage() {
               onClick={() => setFilter(s === filter ? '' : s)}
               className={`rounded-lcars border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 filter === s
-                  ? 'border-science/60 bg-science/10 text-science'
-                  : 'border-edge text-lcars-muted hover:text-science hover:border-science/40'
+                  ? 'border-science/60 bg-science/10 text-science-on'
+                  : 'border-edge text-lcars-muted hover:text-science-on hover:border-science/40'
               }`}
             >
               {SOURCE_META[s].glyph} {SOURCE_META[s].label}

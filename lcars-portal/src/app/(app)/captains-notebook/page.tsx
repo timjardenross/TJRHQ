@@ -100,7 +100,7 @@ function ArtefactLink({ entityType, artefactId }: { entityType: string | null; a
   return base ? (
     <Link
       href={base}
-      className="text-xs text-lcars-text font-mono hover:text-status underline underline-offset-2"
+      className="text-xs text-lcars-text font-mono hover:text-status-on underline underline-offset-2"
     >
       {artefactId}
     </Link>
@@ -151,12 +151,12 @@ function NoteCard({
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge label={statusLabel(note.status)} tone={statusTone(note.status)} />
             {note.classification && (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-science border border-science/30 rounded px-1.5 py-0.5">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-science-on border border-science/30 rounded px-1.5 py-0.5">
                 {note.classification}
               </span>
             )}
             {canRoute && (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-command">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-command-on">
                 {routeLabel(note.recommended_route)}
               </span>
             )}
@@ -197,7 +197,7 @@ function NoteCard({
               <div className="flex flex-col gap-1.5">
                 {Object.entries(note.officer_findings).map(([officer, finding]) => (
                   <div key={officer} className="rounded border border-science/20 bg-science/5 px-2 py-1.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-science mb-0.5">{officer}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-science-on mb-0.5">{officer}</p>
                     <p className="text-xs text-lcars-text/80">
                       {typeof finding === 'object' && finding !== null
                         ? (finding as Record<string, unknown>).recommendation as string ?? JSON.stringify(finding)
@@ -214,7 +214,7 @@ function NoteCard({
               {note.strategic_alignment_score !== null && (
                 <div className="rounded border border-edge bg-panel/60 px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Strategic</p>
-                  <p className="font-lcars text-base font-bold text-command">
+                  <p className="font-lcars text-base font-bold text-command-on">
                     {Math.round(note.strategic_alignment_score * 100)}
                   </p>
                 </div>
@@ -222,7 +222,7 @@ function NoteCard({
               {note.confidence_score !== null && (
                 <div className="rounded border border-edge bg-panel/60 px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Confidence</p>
-                  <p className="font-lcars text-base font-bold text-science">
+                  <p className="font-lcars text-base font-bold text-science-on">
                     {Math.round(note.confidence_score * 100)}
                   </p>
                 </div>
@@ -235,7 +235,7 @@ function NoteCard({
               <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted mb-1">Artefact Created</p>
               <div className="rounded border border-status/20 bg-status/5 px-2 py-1.5 flex flex-col gap-0.5">
                 {note.routed_entity_type && (
-                  <p className="text-[10px] uppercase tracking-wider text-status font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-status-on font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
                 )}
                 <ArtefactLink entityType={note.routed_entity_type} artefactId={note.routed_to_id} />
                 {note.routed_by && (
@@ -252,7 +252,7 @@ function NoteCard({
                   type="button"
                   onClick={onApproveRoute}
                   disabled={routing}
-                  className="rounded-lcars border border-command bg-command/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-command hover:bg-command/20 transition-colors disabled:opacity-40"
+                  className="rounded-lcars border border-command bg-command/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-command-on hover:bg-command/20 transition-colors disabled:opacity-40"
                 >
                   {routing ? 'Routing…' : `Approve ${routeLabel(note.recommended_route)}`}
                 </button>
@@ -393,7 +393,7 @@ export default function CaptainsNotebookPage() {
         <p className="text-xs text-lcars-muted leading-relaxed">
           Capture rough thoughts. The Officer Corps refines them — classifying, scoring, and routing to the right action.
           {readyCount > 0 && (
-            <span className="ml-2 font-semibold text-command">
+            <span className="ml-2 font-semibold text-command-on">
               {readyCount} note{readyCount !== 1 ? 's' : ''} ready for routing.
             </span>
           )}
@@ -409,7 +409,7 @@ export default function CaptainsNotebookPage() {
           <button
             type="button"
             onClick={() => setQuickMode(!quickMode)}
-            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command transition-colors"
+            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command-on transition-colors"
           >
             {quickMode ? 'Full form' : 'Quick mode'}
           </button>
@@ -432,7 +432,7 @@ export default function CaptainsNotebookPage() {
                 }
               }}
             />
-            {captureError && <p className="text-xs text-operations">{captureError}</p>}
+            {captureError && <p className="text-xs text-operations-on">{captureError}</p>}
             <button
               type="button"
               onClick={handleCapture}
@@ -476,7 +476,7 @@ export default function CaptainsNotebookPage() {
                 className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
               />
             </div>
-            {captureError && <p className="text-xs text-operations">{captureError}</p>}
+            {captureError && <p className="text-xs text-operations-on">{captureError}</p>}
             <button
               type="button"
               onClick={handleCapture}
@@ -498,7 +498,7 @@ export default function CaptainsNotebookPage() {
           <button
             type="button"
             onClick={loadNotes}
-            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command transition-colors"
+            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command-on transition-colors"
           >
             Refresh
           </button>
@@ -518,7 +518,7 @@ export default function CaptainsNotebookPage() {
                 className={[
                   'rounded-lcars border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] transition-colors',
                   filter === tab.key
-                    ? 'border-command bg-command/10 text-command'
+                    ? 'border-command bg-command/10 text-command-on'
                     : 'border-edge text-lcars-muted hover:border-lcars-muted'
                 ].join(' ')}
               >

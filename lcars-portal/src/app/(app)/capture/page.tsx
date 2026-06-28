@@ -60,11 +60,11 @@ function fmtDate(iso: string) {
 // ── Source badge chip ─────────────────────────────────────────────────────────
 
 const TONE_TEXT: Record<string, string> = {
-  engineering: 'text-engineering border-engineering/50 bg-engineering/10',
-  science:     'text-science border-science/50 bg-science/10',
-  command:     'text-command border-command/50 bg-command/10',
-  operations:  'text-operations border-operations/50 bg-operations/10',
-  medical:     'text-medical border-medical/50 bg-medical/10',
+  engineering: 'text-engineering-on border-engineering/50 bg-engineering/10',
+  science:     'text-science-on border-science/50 bg-science/10',
+  command:     'text-command-on border-command/50 bg-command/10',
+  operations:  'text-operations-on border-operations/50 bg-operations/10',
+  medical:     'text-medical-on border-medical/50 bg-medical/10',
 };
 
 function SourceBadge({ channelId }: { channelId: string | null | undefined }) {
@@ -83,11 +83,11 @@ function SourceBadge({ channelId }: { channelId: string | null | undefined }) {
 function ClassBadge({ classification }: { classification: string | null | undefined }) {
   if (!classification) return null;
   const map: Record<string, string> = {
-    mission:       'text-engineering border-engineering/40 bg-engineering/10',
-    personal:      'text-medical border-medical/40 bg-medical/10',
-    research:      'text-science border-science/40 bg-science/10',
-    decision:      'text-operations border-operations/40 bg-operations/10',
-    reference:     'text-command border-command/40 bg-command/10',
+    mission:       'text-engineering-on border-engineering/40 bg-engineering/10',
+    personal:      'text-medical-on border-medical/40 bg-medical/10',
+    research:      'text-science-on border-science/40 bg-science/10',
+    decision:      'text-operations-on border-operations/40 bg-operations/10',
+    reference:     'text-command-on border-command/40 bg-command/10',
     unclassified:  'text-lcars-muted border-edge bg-edge/20',
   };
   const label: Record<string, string> = {
@@ -105,9 +105,9 @@ function AiBadge({ status, summary }: { status: string | null | undefined; summa
   const s = status ?? 'not_enriched';
   const map: Record<string, { label: string; cls: string }> = {
     not_enriched: { label: 'Not enriched',       cls: 'text-lcars-muted border-edge bg-transparent' },
-    queued:       { label: 'Enrichment queued',  cls: 'text-command border-command/40 bg-command/10' },
-    enriched:     { label: 'Enriched',           cls: 'text-status border-status/40 bg-status/10' },
-    failed:       { label: 'Enrichment failed',  cls: 'text-operations border-operations/40 bg-operations/10' },
+    queued:       { label: 'Enrichment queued',  cls: 'text-command-on border-command/40 bg-command/10' },
+    enriched:     { label: 'Enriched',           cls: 'text-status-on border-status/40 bg-status/10' },
+    failed:       { label: 'Enrichment failed',  cls: 'text-operations-on border-operations/40 bg-operations/10' },
   };
   const { label, cls } = map[s] ?? map.not_enriched;
   const confPct = s === 'enriched' && summary?.ai_confidence != null
@@ -164,7 +164,7 @@ function AiSuggestion({
   return (
     <div className="mb-3 rounded-lcars border border-science/40 bg-science/5 px-3 py-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-science">✦ AI Suggestion</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-science-on">✦ AI Suggestion</span>
         {confPct != null && (
           <span className="text-[10px] text-lcars-muted">{confPct}% confidence</span>
         )}
@@ -356,7 +356,7 @@ function CaptureRow({
               </span>
             )}
             {item.requires_review && (
-              <span className="text-[10px] uppercase tracking-wide text-command">⚑ Review</span>
+              <span className="text-[10px] uppercase tracking-wide text-command-on">⚑ Review</span>
             )}
             <AiBadge status={item.ai_enrichment_status} summary={parsedSummary} />
             <span className="ml-auto shrink-0 text-[10px] text-lcars-muted">{fmtDate(item.captured_at)}</span>
@@ -373,7 +373,7 @@ function CaptureRow({
               <p className="whitespace-pre-wrap text-sm text-lcars-muted leading-relaxed">{preview}</p>
               {fullContent.length > 300 && (
                 <button type="button" onClick={() => setShowFullContent((v) => !v)}
-                  className="mt-1 text-[10px] uppercase tracking-wider text-science hover:text-science/70 transition-colors">
+                  className="mt-1 text-[10px] uppercase tracking-wider text-science-on hover:text-science-on/70 transition-colors">
                   {showFullContent ? '▲ Show less' : `▼ Show full content (${fullContent.length} chars)`}
                 </button>
               )}
@@ -382,17 +382,17 @@ function CaptureRow({
 
           {flash && (
             <div className="mb-2">
-              <p className="text-xs text-status">✓ {flash}</p>
+              <p className="text-xs text-status-on">✓ {flash}</p>
               {routedDest && (
                 <Link href={routedDest.href}
-                  className="mt-1 inline-block text-[10px] uppercase tracking-wider text-science hover:text-science/70 transition-colors">
+                  className="mt-1 inline-block text-[10px] uppercase tracking-wider text-science-on hover:text-science-on/70 transition-colors">
                   View in {routedDest.label} →
                 </Link>
               )}
             </div>
           )}
           {err && (
-            <p className="mb-2 text-xs text-operations">{err}</p>
+            <p className="mb-2 text-xs text-operations-on">{err}</p>
           )}
 
           {/* Classification + Importance pickers */}
@@ -435,7 +435,7 @@ function CaptureRow({
                   if (!r1.ok) return r1;
                   return updateCaptureImportance(item.id, newImp);
                 }, 'Classification updated')}
-                className="rounded border border-command/50 bg-command/10 px-3 py-1 text-xs text-command hover:bg-command/20 disabled:opacity-40"
+                className="rounded border border-command/50 bg-command/10 px-3 py-1 text-xs text-command-on hover:bg-command/20 disabled:opacity-40"
               >
                 Save changes
               </button>
@@ -522,7 +522,7 @@ function CaptureRow({
                   const json = await resp.json();
                   return resp.ok ? { ok: true } : { ok: false, error: json?.error };
                 }, 'Enrichment queued')}
-                className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science hover:bg-science/20 disabled:opacity-40"
+                className="rounded border border-science/40 bg-science/10 px-2 py-0.5 text-[10px] text-science-on hover:bg-science/20 disabled:opacity-40"
               >
                 {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
               </button>
@@ -537,11 +537,11 @@ function CaptureRow({
 
 type BtnTone = 'status' | 'medical' | 'command' | 'operations' | 'engineering' | 'muted';
 const BTN_TONE: Record<BtnTone, string> = {
-  status:      'border-status/50 bg-status/10 text-status hover:bg-status/20',
-  medical:     'border-medical/50 bg-medical/10 text-medical hover:bg-medical/20',
-  command:     'border-command/50 bg-command/10 text-command hover:bg-command/20',
-  operations:  'border-operations/50 bg-operations/10 text-operations hover:bg-operations/20',
-  engineering: 'border-engineering/60 bg-engineering/15 text-engineering hover:bg-engineering/25',
+  status:      'border-status/50 bg-status/10 text-status-on hover:bg-status/20',
+  medical:     'border-medical/50 bg-medical/10 text-medical-on hover:bg-medical/20',
+  command:     'border-command/50 bg-command/10 text-command-on hover:bg-command/20',
+  operations:  'border-operations/50 bg-operations/10 text-operations-on hover:bg-operations/20',
+  engineering: 'border-engineering/60 bg-engineering/15 text-engineering-on hover:bg-engineering/25',
   muted:       'border-edge bg-edge/20 text-lcars-muted hover:bg-edge/40',
 };
 
@@ -636,8 +636,8 @@ function CaptureAnalyticsPanel() {
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   const textMap: Record<string, string> = {
-    engineering: 'text-engineering', command: 'text-command',
-    operations: 'text-operations', status: 'text-status',
+    engineering: 'text-engineering-on', command: 'text-command-on',
+    operations: 'text-operations-on', status: 'text-status-on',
   };
   return (
     <div className="flex flex-col">
@@ -692,7 +692,7 @@ function CaptureInbox() {
             className={[
               'rounded border px-3 py-1 text-xs font-medium transition-colors',
               activeFilter === f.key
-                ? 'border-engineering bg-engineering/15 text-engineering'
+                ? 'border-engineering bg-engineering/15 text-engineering-on'
                 : 'border-edge bg-space/40 text-lcars-muted hover:border-edge/80',
             ].join(' ')}
           >
@@ -706,7 +706,7 @@ function CaptureInbox() {
         <p className="py-4 text-center text-xs uppercase tracking-[0.2em] text-lcars-muted">Loading…</p>
       )}
       {error && !loading && (
-        <p className="rounded border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">{error}</p>
+        <p className="rounded border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">{error}</p>
       )}
       {!loading && !error && items.length === 0 && (
         <div className="rounded-lcars border border-edge bg-panel/30 px-4 py-8 text-center">
@@ -782,7 +782,7 @@ export default function QuickCapturePage() {
       {/* ── Header ── */}
       <header>
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Quick Capture</p>
-        <h1 className="font-lcars text-2xl font-bold text-engineering">Capture it. Move on.</h1>
+        <h1 className="font-lcars text-2xl font-bold text-engineering-on">Capture it. Move on.</h1>
         <p className="mt-1 text-sm text-lcars-muted">
           One box. Text, voice, or Telegram — everything lands here for review.
         </p>
@@ -805,9 +805,9 @@ export default function QuickCapturePage() {
             <button
               type="button"
               onClick={() => setShowTypes(true)}
-              className="self-start text-xs uppercase tracking-[0.15em] text-lcars-muted hover:text-engineering"
+              className="self-start text-xs uppercase tracking-[0.15em] text-lcars-muted hover:text-engineering-on"
             >
-              Type: <span className="text-engineering">{meta.label}</span> · change ▾
+              Type: <span className="text-engineering-on">{meta.label}</span> · change ▾
             </button>
           ) : (
             <div className="flex flex-col gap-2">
@@ -831,12 +831,12 @@ export default function QuickCapturePage() {
       </div>
 
       {flash && (
-        <div className="rounded-lcars border border-status/50 bg-status/10 px-4 py-3 text-sm font-semibold text-status">
+        <div className="rounded-lcars border border-status/50 bg-status/10 px-4 py-3 text-sm font-semibold text-status-on">
           ✓ {flash} — added to the Capture Inbox.
         </div>
       )}
       {error && (
-        <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </div>
       )}
@@ -844,7 +844,7 @@ export default function QuickCapturePage() {
       {type === 'health' && (
         <Link
           href="/medical/check-in"
-          className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center text-xs uppercase tracking-[0.15em] text-medical hover:border-medical/70"
+          className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center text-xs uppercase tracking-[0.15em] text-medical-on hover:border-medical/70"
         >
           Need a full check-in? Open Medical Bay →
         </Link>

@@ -48,19 +48,19 @@ function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
     <div className="space-y-3 text-sm">
       {(data.executive_summary || data.bottom_line) && (
         <div className="rounded-lcars border border-command/30 bg-command/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-command">Summary</p>
+          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-command-on">Summary</p>
           <p className="text-lcars-text leading-relaxed">{String(data.executive_summary ?? data.bottom_line ?? '')}</p>
         </div>
       )}
       {data.recommendation && (
         <div className="rounded-lcars border border-science/30 bg-science/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-science">Recommendation</p>
+          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-science-on">Recommendation</p>
           <p className="text-lcars-text leading-relaxed">{String(data.recommendation)}</p>
         </div>
       )}
       {Array.isArray(data.risks_and_challenges) && data.risks_and_challenges.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-operations">Risks</p>
+          <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-operations-on">Risks</p>
           <ul className="space-y-1">
             {data.risks_and_challenges.map((r, i) => (
               <li key={i} className="flex gap-2 text-lcars-text/80">
@@ -90,7 +90,7 @@ function OperationalCard({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {bottomLine && (
-        <p className="text-sm font-semibold text-command border-l-2 border-command/50 pl-3">{bottomLine}</p>
+        <p className="text-sm font-semibold text-command-on border-l-2 border-command/50 pl-3">{bottomLine}</p>
       )}
       {sections.map((s, i) => (
         <div key={i}>
@@ -112,8 +112,8 @@ function OperationalCard({ data }: { data: Record<string, unknown> }) {
 // ── Intelligence panel renderers ───────────────────────────────────────────────
 
 function TrendPill({ label, dir }: { label: string; dir: string }) {
-  const tone = dir === 'improving' ? 'text-medical border-medical/40 bg-medical/10'
-    : dir === 'worsening' ? 'text-operations border-operations/40 bg-operations/10'
+  const tone = dir === 'improving' ? 'text-medical-on border-medical/40 bg-medical/10'
+    : dir === 'worsening' ? 'text-operations-on border-operations/40 bg-operations/10'
     : 'text-lcars-muted border-edge bg-panel/40';
   const arrow = dir === 'improving' ? '↑' : dir === 'worsening' ? '↓' : '–';
   return (
@@ -144,13 +144,13 @@ function AwarenessCard({ data }: { data: Record<string, unknown> }) {
         <div className="grid grid-cols-2 gap-3">
           {improving.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-medical mb-1">Improving</p>
+              <p className="text-[10px] uppercase tracking-widest text-medical-on mb-1">Improving</p>
               <ul className="space-y-0.5">{improving.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↑ {s}</li>)}</ul>
             </div>
           )}
           {worsening.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-operations mb-1">Needs attention</p>
+              <p className="text-[10px] uppercase tracking-widest text-operations-on mb-1">Needs attention</p>
               <ul className="space-y-0.5">{worsening.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↓ {s}</li>)}</ul>
             </div>
           )}
@@ -176,19 +176,19 @@ function SignalsCard({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {headline && (
-        <p className={`text-sm font-semibold ${attnRequired ? 'text-operations' : 'text-lcars-text/90'}`}>
+        <p className={`text-sm font-semibold ${attnRequired ? 'text-operations-on' : 'text-lcars-text/90'}`}>
           {attnRequired ? '▲ ' : '● '}{headline}
         </p>
       )}
       {triggers.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-operations mb-1">Triggers</p>
+          <p className="text-[10px] uppercase tracking-widest text-operations-on mb-1">Triggers</p>
           <ul className="space-y-0.5">{triggers.map((t, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof t === 'string' ? t : JSON.stringify(t)}</li>)}</ul>
         </div>
       )}
       {opportunities.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-science mb-1">Opportunities</p>
+          <p className="text-[10px] uppercase tracking-widest text-science-on mb-1">Opportunities</p>
           <ul className="space-y-0.5">{opportunities.map((o, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof o === 'string' ? o : JSON.stringify(o)}</li>)}</ul>
         </div>
       )}
@@ -222,7 +222,7 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
       onClick={onClick}
       className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
         active
-          ? 'border-b-2 border-command text-command font-semibold -mb-px'
+          ? 'border-b-2 border-command text-command-on font-semibold -mb-px'
           : 'text-lcars-muted hover:text-lcars-text'
       }`}
     >
@@ -261,12 +261,12 @@ function ProactiveSignalsBanner() {
     <div className={`rounded-lcars border px-3 py-2.5 flex items-start gap-3 text-sm ${
       isUrgent ? 'border-operations/50 bg-operations/10' : 'border-science/30 bg-science/5'
     }`}>
-      <span className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-operations' : 'text-science'}`}>
+      <span className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-operations-on' : 'text-science-on'}`}>
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="flex-1 min-w-0">
         {signals.headline && (
-          <p className={`text-xs font-semibold ${isUrgent ? 'text-operations' : 'text-science'}`}>{signals.headline}</p>
+          <p className={`text-xs font-semibold ${isUrgent ? 'text-operations-on' : 'text-science-on'}`}>{signals.headline}</p>
         )}
         {triggerList.length > 0 && (
           <p className="text-[11px] text-lcars-muted mt-0.5">{triggerList.slice(0, 2).join(' · ')}{triggerList.length > 2 ? ` +${triggerList.length - 2} more` : ''}</p>
@@ -293,22 +293,22 @@ interface CouncilAdvisor {
 
 const COUNCIL: CouncilAdvisor[] = [
   // Command
-  { id: 'xo',               label: 'XO',               subtitle: 'Executive Officer',        accent: 'text-command',    group: 'Command', useXoEndpoint: true },
-  { id: 'chief_engineer',   label: 'Chief Engineer',   subtitle: 'Architecture & Engineering', accent: 'text-engineering', group: 'Command' },
-  { id: 'research_officer', label: 'Research Officer', subtitle: 'Intelligence & Analysis',   accent: 'text-science',    group: 'Command' },
+  { id: 'xo',               label: 'XO',               subtitle: 'Executive Officer',        accent: 'text-command-on',    group: 'Command', useXoEndpoint: true },
+  { id: 'chief_engineer',   label: 'Chief Engineer',   subtitle: 'Architecture & Engineering', accent: 'text-engineering-on', group: 'Command' },
+  { id: 'research_officer', label: 'Research Officer', subtitle: 'Intelligence & Analysis',   accent: 'text-science-on',    group: 'Command' },
   // Operations
-  { id: 'number_one',       label: 'Number One',       subtitle: 'Priorities & Sequencing',  accent: 'text-operations', group: 'Operations' },
+  { id: 'number_one',       label: 'Number One',       subtitle: 'Priorities & Sequencing',  accent: 'text-operations-on', group: 'Operations' },
   // Wellness
-  { id: 'medical_officer',  label: 'Medical Officer',  subtitle: 'Capacity & Health',         accent: 'text-medical',    group: 'Wellness' },
-  { id: 'recovery_officer', label: 'Recovery Officer', subtitle: 'Directive 055 Compliance',  accent: 'text-medical',    group: 'Wellness' },
-  { id: 'wellness_advisor', label: 'Wellness Advisor', subtitle: 'Whole-Person Wellbeing',    accent: 'text-medical',    group: 'Wellness' },
-  { id: 'recovery_coach',   label: 'Recovery Coach',   subtitle: 'Protocol Optimisation',     accent: 'text-medical',    group: 'Wellness' },
-  { id: 'performance_coach',label: 'Perf. Coach',      subtitle: 'Capacity Windows',          accent: 'text-medical',    group: 'Wellness' },
+  { id: 'medical_officer',  label: 'Medical Officer',  subtitle: 'Capacity & Health',         accent: 'text-medical-on',    group: 'Wellness' },
+  { id: 'recovery_officer', label: 'Recovery Officer', subtitle: 'Directive 055 Compliance',  accent: 'text-medical-on',    group: 'Wellness' },
+  { id: 'wellness_advisor', label: 'Wellness Advisor', subtitle: 'Whole-Person Wellbeing',    accent: 'text-medical-on',    group: 'Wellness' },
+  { id: 'recovery_coach',   label: 'Recovery Coach',   subtitle: 'Protocol Optimisation',     accent: 'text-medical-on',    group: 'Wellness' },
+  { id: 'performance_coach',label: 'Perf. Coach',      subtitle: 'Capacity Windows',          accent: 'text-medical-on',    group: 'Wellness' },
   // Operational Resilience
-  { id: 'or_advisor',       label: 'OR Advisor',       subtitle: 'Operational Resilience',    accent: 'text-operations', group: 'Resilience' },
-  { id: 'bc_advisor',       label: 'BC Advisor',       subtitle: 'Business Continuity',       accent: 'text-operations', group: 'Resilience' },
-  { id: 'crisis_advisor',   label: 'Crisis Advisor',   subtitle: 'Crisis Management',         accent: 'text-operations', group: 'Resilience' },
-  { id: 'executive_risk_advisor', label: 'Risk Advisor', subtitle: 'Executive Risk',          accent: 'text-operations', group: 'Resilience' },
+  { id: 'or_advisor',       label: 'OR Advisor',       subtitle: 'Operational Resilience',    accent: 'text-operations-on', group: 'Resilience' },
+  { id: 'bc_advisor',       label: 'BC Advisor',       subtitle: 'Business Continuity',       accent: 'text-operations-on', group: 'Resilience' },
+  { id: 'crisis_advisor',   label: 'Crisis Advisor',   subtitle: 'Crisis Management',         accent: 'text-operations-on', group: 'Resilience' },
+  { id: 'executive_risk_advisor', label: 'Risk Advisor', subtitle: 'Executive Risk',          accent: 'text-operations-on', group: 'Resilience' },
 ];
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
@@ -433,14 +433,14 @@ function ConsultMode() {
       <LCARSPanel title={`${activeAdvisor.label} — ${activeAdvisor.subtitle}`} accent="command" className="flex-1 min-w-0"
         actions={messages.length > 0 ? (
           <button onClick={clearThread} disabled={loading}
-            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-operations transition-colors disabled:opacity-40">
+            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-operations-on transition-colors disabled:opacity-40">
             Clear
           </button>
         ) : undefined}>
         {isOffline ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
             <p className="text-lcars-muted text-sm">{activeAdvisor.label} is offline (AI model not configured).</p>
-            <p className="text-lcars-text/60 text-xs max-w-sm">Use the <span className="text-command font-semibold">Board</span> tab for advisory via the intelligence runtime.</p>
+            <p className="text-lcars-text/60 text-xs max-w-sm">Use the <span className="text-command-on font-semibold">Board</span> tab for advisory via the intelligence runtime.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -452,10 +452,10 @@ function ConsultMode() {
                 const isUser = m.role === 'user';
                 return (
                   <div key={m.id} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-                    <div className={['rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed', isUser ? 'border-command/40 bg-command/10 text-lcars-text' : m.error ? 'border-operations/40 bg-operations/10 text-operations' : 'border-edge bg-panel/60 text-lcars-text/90'].join(' ')} style={{ maxWidth: '90%' }}>
+                    <div className={['rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed', isUser ? 'border-command/40 bg-command/10 text-lcars-text' : m.error ? 'border-operations/40 bg-operations/10 text-operations-on' : 'border-edge bg-panel/60 text-lcars-text/90'].join(' ')} style={{ maxWidth: '90%' }}>
                       {!isUser && !m.error && <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.accent}`}>{activeAdvisor.label}</p>}
                       {isUser ? <span className="whitespace-pre-wrap">{m.content}</span> : (
-                        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
@@ -486,7 +486,7 @@ function ConsultMode() {
             <div className="flex flex-wrap gap-1.5">
               {QUICK_PROMPTS.map((p) => (
                 <button key={p} onClick={() => send(p)} disabled={loading}
-                  className="rounded-lcars border border-edge px-2.5 py-1 text-[10px] uppercase tracking-wider text-lcars-muted hover:border-science hover:text-science transition-colors disabled:opacity-40">
+                  className="rounded-lcars border border-edge px-2.5 py-1 text-[10px] uppercase tracking-wider text-lcars-muted hover:border-science hover:text-science-on transition-colors disabled:opacity-40">
                   {p}
                 </button>
               ))}
@@ -568,10 +568,10 @@ function BoardMode() {
       actions={
         log.length > 0 ? (
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowLog((v) => !v)} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+            <button onClick={() => setShowLog((v) => !v)} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
               {showLog ? 'Hide Log' : `Log (${log.length})`}
             </button>
-            <button onClick={exportLog} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+            <button onClick={exportLog} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
               Export ↓
             </button>
           </div>
@@ -589,7 +589,7 @@ function BoardMode() {
                   <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()}</p>
                 </div>
                 <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); }}
-                  className="shrink-0 text-[9px] text-science hover:text-science/70 uppercase tracking-widest">View</button>
+                  className="shrink-0 text-[9px] text-science-on hover:text-science-on/70 uppercase tracking-widest">View</button>
               </div>
             ))}
           </div>
@@ -602,12 +602,12 @@ function BoardMode() {
               const isActive = m === 'Scenario' ? isScenario : !isScenario;
               return (
                 <button key={m} onClick={() => setIsScenario(m === 'Scenario')}
-                  className={`rounded-lcars border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors ${isActive ? (m === 'Scenario' ? 'border-science bg-science/10 text-science' : 'border-command bg-command/10 text-command') : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
+                  className={`rounded-lcars border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors ${isActive ? (m === 'Scenario' ? 'border-science bg-science/10 text-science-on' : 'border-command bg-command/10 text-command-on') : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
                   {m}
                 </button>
               );
             })}
-            {isScenario && <span className="text-[10px] text-science/70 italic">What would happen if…</span>}
+            {isScenario && <span className="text-[10px] text-science-on/70 italic">What would happen if…</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
@@ -628,9 +628,9 @@ function BoardMode() {
           </div>
         )}
         {error && (
-          <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+          <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
             <p className="font-semibold mb-1">Advisory runtime offline</p>
-            <p className="text-operations/80 text-xs">{error}</p>
+            <p className="text-operations-on/80 text-xs">{error}</p>
           </div>
         )}
         {summary && !loading && (
@@ -642,9 +642,9 @@ function BoardMode() {
                 <div className="space-y-2">
                   {perspectives.map((op, i) => {
                     const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase());
-                    const accentClass = advisor?.accent ?? 'text-science';
+                    const accentClass = advisor?.accent ?? 'text-science-on';
                     const stance = op.stance ?? '';
-                    const stanceColor = stance === 'supports' ? 'text-medical' : stance === 'cautions' ? 'text-operations' : 'text-lcars-muted';
+                    const stanceColor = stance === 'supports' ? 'text-medical-on' : stance === 'cautions' ? 'text-operations-on' : 'text-lcars-muted';
                     return (
                       <div key={i} className="rounded-lcars border border-edge bg-panel/50 px-4 py-3 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
@@ -688,9 +688,9 @@ function BriefMode() {
 
   return (
     <LCARSPanel title="Daily Brief" accent="science"
-      actions={<button onClick={fetchBrief} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors disabled:opacity-40">Refresh</button>}>
+      actions={<button onClick={fetchBrief} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors disabled:opacity-40">Refresh</button>}>
       {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-lcars-muted text-sm">Fetching brief…</span></div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations"><p className="font-semibold mb-1">Intelligence runtime offline</p><p className="text-operations/80 text-xs">{error}</p></div>}
+      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold mb-1">Intelligence runtime offline</p><p className="text-operations-on/80 text-xs">{error}</p></div>}
       {result && !loading && <AdvisoryBlock data={result} />}
     </LCARSPanel>
   );
@@ -718,9 +718,9 @@ function PictureMode() {
 
   return (
     <LCARSPanel title="Operating Picture" accent="command"
-      actions={<button onClick={fetchPicture} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-command transition-colors disabled:opacity-40">Refresh</button>}>
+      actions={<button onClick={fetchPicture} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-command-on transition-colors disabled:opacity-40">Refresh</button>}>
       {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-command" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-lcars-muted text-sm">Assembling operating picture…</span></div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations"><p className="font-semibold mb-1">Advisory runtime offline</p><p className="text-operations/80 text-xs">{error}</p></div>}
+      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold mb-1">Advisory runtime offline</p><p className="text-operations-on/80 text-xs">{error}</p></div>}
       {result && !loading && <OperationalCard data={result} />}
     </LCARSPanel>
   );
@@ -756,10 +756,10 @@ function IntelPanel({ action }: { action: string }) {
   return (
     <div>
       {loading && <div className="flex items-center gap-3 py-6">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}</div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations"><p className="font-semibold">Intelligence runtime offline</p><p className="text-xs mt-1 text-operations/80">{error}</p></div>}
+      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold">Intelligence runtime offline</p><p className="text-xs mt-1 text-operations-on/80">{error}</p></div>}
       {!loading && !error && items.length === 0 && <p className="text-lcars-muted text-sm py-6">No data available.</p>}
       <div className="space-y-2 mt-2">{items.map((item, i) => <IntelResultCard key={i} action={action} data={item} />)}</div>
-      {!loading && <button onClick={fetch_} className="mt-3 rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">Refresh</button>}
+      {!loading && <button onClick={fetch_} className="mt-3 rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">Refresh</button>}
     </div>
   );
 }
@@ -930,11 +930,11 @@ function PerspectivesMode() {
           {log.length > 0 && (
             <>
               <button onClick={() => setShowLog((v) => !v)}
-                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
                 {showLog ? 'Hide Log' : `Log (${log.length})`}
               </button>
               <button onClick={exportSession}
-                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
                 Export ↓
               </button>
             </>
@@ -952,7 +952,7 @@ function PerspectivesMode() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-xs text-lcars-text/80 flex-1">{s.question}</p>
                   <button onClick={() => { setInput(s.question); setShowLog(false); }}
-                    className="shrink-0 text-[9px] text-science hover:text-science/70 uppercase tracking-widest">Re-ask</button>
+                    className="shrink-0 text-[9px] text-science-on hover:text-science-on/70 uppercase tracking-widest">Re-ask</button>
                 </div>
                 <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
               </div>
@@ -971,7 +971,7 @@ function PerspectivesMode() {
                   const isOn = selected.has(p.name);
                   return (
                     <button key={p.name} onClick={() => toggleSelect(p.name)}
-                      className={`rounded-lcars border px-3 py-1.5 text-xs font-lcars uppercase tracking-wider transition-colors ${isOn ? 'border-science bg-science/10 text-science' : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
+                      className={`rounded-lcars border px-3 py-1.5 text-xs font-lcars uppercase tracking-wider transition-colors ${isOn ? 'border-science bg-science/10 text-science-on' : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
                       {p.label}
                     </button>
                   );
@@ -1012,13 +1012,13 @@ function PerspectivesMode() {
                 <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-edge/50">
                   <button
                     onClick={() => toggleSelect(r.perspective.name)}
-                    className="text-[11px] uppercase tracking-widest text-science font-semibold hover:text-science/70 transition-colors">
+                    className="text-[11px] uppercase tracking-widest text-science-on font-semibold hover:text-science-on/70 transition-colors">
                     {r.perspective.label}
                   </button>
                   <div className="flex items-center gap-2">
                     {r.response && !r.loading && (
                       <button onClick={() => convene([r.perspective.name])} disabled={anyLoading || !input.trim()}
-                        className="text-[9px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors disabled:opacity-40">
+                        className="text-[9px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors disabled:opacity-40">
                         ↺ Regenerate
                       </button>
                     )}
@@ -1030,10 +1030,10 @@ function PerspectivesMode() {
                   </div>
                 </div>
                 <div className="px-5 py-4">
-                  {r.error && <p className="text-sm text-operations">{r.error}</p>}
+                  {r.error && <p className="text-sm text-operations-on">{r.error}</p>}
                   {!r.loading && !r.error && !r.response && <p className="text-sm text-lcars-muted">No response.</p>}
                   {r.response && !r.loading && (
-                    <div className="prose prose-base prose-invert max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                    <div className="prose prose-base prose-invert max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
                       <ReactMarkdown>{r.response}</ReactMarkdown>
                     </div>
                   )}

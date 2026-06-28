@@ -15,7 +15,7 @@ export default function DeliveryPage() {
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">
           MSN-EDO-001 · Engineering & Delivery
         </p>
-        <h1 className="font-lcars text-2xl font-bold text-engineering">Delivery</h1>
+        <h1 className="font-lcars text-2xl font-bold text-engineering-on">Delivery</h1>
         <p className="mt-1 max-w-2xl text-sm text-lcars-text/80 leading-relaxed">
           The Engineering & Delivery Officer keeps delivery visible, measured, and reuse-first —
           from request to operational capability, with the pipeline instrumented so bottlenecks

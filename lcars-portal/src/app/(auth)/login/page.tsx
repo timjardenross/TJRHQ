@@ -101,7 +101,7 @@ export default function LoginPage() {
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-lcars text-lg font-bold text-command">
+              <h2 className="mb-4 font-lcars text-lg font-bold text-command-on">
                 Captain Access
               </h2>
               <div className="flex flex-col gap-3">
@@ -134,7 +134,7 @@ export default function LoginPage() {
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-operations">{error}</p>
+                  <p role="alert" className="text-xs text-operations-on">{error}</p>
                 )}
               </div>
             </form>
@@ -146,7 +146,7 @@ export default function LoginPage() {
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-lcars text-lg font-bold text-command">
+              <h2 className="mb-4 font-lcars text-lg font-bold text-command-on">
                 Captain Access
               </h2>
               <p className="mb-4 text-sm text-lcars-text/80">
@@ -172,7 +172,7 @@ export default function LoginPage() {
                   {loading ? 'Sending…' : 'Send Access Link'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-operations">{error}</p>
+                  <p role="alert" className="text-xs text-operations-on">{error}</p>
                 )}
               </div>
             </form>
@@ -182,11 +182,11 @@ export default function LoginPage() {
           {mode === 'magic' && sent && (
             <div className="text-center" role="status" aria-live="polite">
               <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-status bg-status/10" aria-hidden="true">
-                <span className="font-lcars text-xl text-status">✓</span>
+                <span className="font-lcars text-xl text-status-on">✓</span>
               </div>
-              <h2 className="mb-2 font-lcars text-lg font-bold text-status">Link sent</h2>
+              <h2 className="mb-2 font-lcars text-lg font-bold text-status-on">Link sent</h2>
               <p className="text-sm text-lcars-text/80">
-                Check <span className="text-command">{email}</span> for your access link. It expires in 1 hour.
+                Check <span className="text-command-on">{email}</span> for your access link. It expires in 1 hour.
               </p>
               <p className="mt-3 text-xs text-lcars-muted">
                 You may close this tab and click the link in your email.

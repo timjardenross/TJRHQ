@@ -81,7 +81,7 @@ export default function PreferencesPage() {
         <div className="flex items-center justify-between py-2">
           <p className="text-lcars-muted text-sm">Changes are saved automatically.</p>
           <span
-            className={`text-sm font-lcars text-science transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}
+            className={`text-sm font-lcars text-science-on transition-opacity duration-300 ${saved ? 'opacity-100' : 'opacity-0'}`}
           >
             Preferences saved
           </span>
@@ -100,7 +100,7 @@ export default function PreferencesPage() {
                 className={`px-4 py-2 rounded-lcars font-lcars text-sm transition-colors ${
                   prefs.operatingMode === mode
                     ? 'bg-science text-space'
-                    : 'border border-edge text-lcars-text hover:border-science hover:text-science'
+                    : 'border border-edge text-lcars-text hover:border-science hover:text-science-on'
                 }`}
               >
                 {mode}
@@ -196,7 +196,7 @@ export default function PreferencesPage() {
               className={`px-4 py-2 rounded-lcars font-lcars text-sm transition-colors ${
                 prefs.defaultAdvisor === value
                   ? 'bg-science text-space'
-                  : 'border border-edge text-lcars-text hover:border-science hover:text-science'
+                  : 'border border-edge text-lcars-text hover:border-science hover:text-science-on'
               }`}
             >
               {label}

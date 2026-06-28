@@ -214,7 +214,7 @@ export default function SearchPage() {
                 >
                   <span className="text-base shrink-0 mt-0.5">{TYPE_GLYPH[r.type] ?? '•'}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground group-hover:text-science truncate">{r.title}</p>
+                    <p className="text-sm font-medium text-foreground group-hover:text-science-on truncate">{r.title}</p>
                     {r.detail && <p className="text-xs text-lcars-muted truncate mt-0.5">{r.detail}</p>}
                   </div>
                   <span className="text-[10px] text-lcars-muted shrink-0 mt-1">{relTs(r.timestamp)}</span>

@@ -35,9 +35,9 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
 
   return (
     <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3 flex gap-3 items-start">
-      <span className="text-operations shrink-0">▲</span>
+      <span className="text-operations-on shrink-0">▲</span>
       <div>
-        <p className="text-sm font-semibold text-operations">
+        <p className="text-sm font-semibold text-operations-on">
           Overcommitment risk — {activeCount} active missions on a {posture} posture day
         </p>
         <p className="text-xs text-lcars-muted mt-0.5">
@@ -105,11 +105,11 @@ export default function MissionsPage() {
     : liveMissions;
 
   const stats = [
-    { label: 'Total',       value: summary.total,       tone: 'text-command' },
-    { label: 'Active',      value: summary.active,      tone: 'text-medical' },
-    { label: 'In Progress', value: summary.in_progress, tone: 'text-science' },
-    { label: 'Blocked',     value: summary.blocked,     tone: 'text-operations' },
-    { label: 'Completed',   value: summary.completed,   tone: 'text-status' }
+    { label: 'Total',       value: summary.total,       tone: 'text-command-on' },
+    { label: 'Active',      value: summary.active,      tone: 'text-medical-on' },
+    { label: 'In Progress', value: summary.in_progress, tone: 'text-science-on' },
+    { label: 'Blocked',     value: summary.blocked,     tone: 'text-operations-on' },
+    { label: 'Completed',   value: summary.completed,   tone: 'text-status-on' }
   ];
 
   const suitableCount = activeMissions.filter(m => isSuitableToday(m.priority, currentPosture)).length;
@@ -144,7 +144,7 @@ export default function MissionsPage() {
       {/* D-055 capacity filter */}
       <div className="rounded-lcars border border-edge bg-panel/40 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">D-055 · Today&apos;s posture: <span className="text-medical">{currentPosture}</span></p>
+          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">D-055 · Today&apos;s posture: <span className="text-medical-on">{currentPosture}</span></p>
           <p className="text-xs text-lcars-text/80">
             {suitableCount} of {activeMissions.length} active missions suitable for today&apos;s capacity.
           </p>
@@ -153,7 +153,7 @@ export default function MissionsPage() {
           <button
             onClick={() => setFilter('all')}
             className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filter === 'all' ? 'border-command bg-command/20 text-command' : 'border-edge text-lcars-muted hover:border-edge/80'
+              filter === 'all' ? 'border-command bg-command/20 text-command-on' : 'border-edge text-lcars-muted hover:border-edge/80'
             }`}
           >
             All missions
@@ -161,7 +161,7 @@ export default function MissionsPage() {
           <button
             onClick={() => setFilter('today')}
             className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filter === 'today' ? 'border-medical bg-medical/20 text-medical' : 'border-edge text-lcars-muted hover:border-edge/80'
+              filter === 'today' ? 'border-medical bg-medical/20 text-medical-on' : 'border-edge text-lcars-muted hover:border-edge/80'
             }`}
           >
             Suitable today ({suitableCount})

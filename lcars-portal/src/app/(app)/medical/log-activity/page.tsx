@@ -73,9 +73,9 @@ export default function LogActivityPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-status bg-status/10">
-          <span className="font-lcars text-2xl text-status">✓</span>
+          <span className="font-lcars text-2xl text-status-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-status">Activity logged</p>
+        <p className="font-lcars text-lg font-bold text-status-on">Activity logged</p>
         <p className="text-sm text-lcars-muted">Returning to Medical Bay…</p>
       </div>
     );
@@ -100,7 +100,7 @@ export default function LogActivityPage() {
               onClick={() => setActivityType(opt.value)}
               className={`rounded-lcars border p-3 text-left transition-colors ${
                 activityType === opt.value
-                  ? 'border-status bg-status/10 text-status'
+                  ? 'border-status bg-status/10 text-status-on'
                   : 'border-edge bg-space/40 text-lcars-muted hover:border-status/40'
               }`}
             >
@@ -121,11 +121,11 @@ export default function LogActivityPage() {
               onClick={() => setIntensity(intensity === opt.value ? null : opt.value)}
               className={`rounded-lcars border px-4 py-3 text-left transition-colors ${
                 intensity === opt.value
-                  ? 'border-command bg-command/10 text-command'
+                  ? 'border-command bg-command/10 text-command-on'
                   : 'border-edge bg-space/40 hover:border-command/40'
               }`}
             >
-              <span className={`text-xs font-bold uppercase tracking-wider ${intensity === opt.value ? 'text-command' : 'text-lcars-muted'}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider ${intensity === opt.value ? 'text-command-on' : 'text-lcars-muted'}`}>
                 {opt.label}
               </span>
               <span className="ml-3 text-xs text-lcars-muted/80">{opt.note}</span>
@@ -162,7 +162,7 @@ export default function LogActivityPage() {
       </LCARSPanel>
 
       {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </p>
       )}

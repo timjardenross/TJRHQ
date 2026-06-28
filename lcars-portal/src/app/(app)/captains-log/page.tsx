@@ -16,9 +16,9 @@ function RAGField({
   onChange: (v: RAGStatus) => void;
 }) {
   const options: { value: RAGStatus; cls: string }[] = [
-    { value: 'Green', cls: 'border-status bg-status/20 text-status' },
-    { value: 'Amber', cls: 'border-command bg-command/20 text-command' },
-    { value: 'Red',   cls: 'border-operations bg-operations/20 text-operations' },
+    { value: 'Green', cls: 'border-status bg-status/20 text-status-on' },
+    { value: 'Amber', cls: 'border-command bg-command/20 text-command-on' },
+    { value: 'Red',   cls: 'border-operations bg-operations/20 text-operations-on' },
   ];
   return (
     <div className="flex flex-col gap-1">
@@ -123,9 +123,9 @@ export default function CaptainsLogPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-status bg-status/10">
-          <span className="font-lcars text-2xl text-status">✓</span>
+          <span className="font-lcars text-2xl text-status-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-status">Log entry saved</p>
+        <p className="font-lcars text-lg font-bold text-status-on">Log entry saved</p>
         <p className="text-sm text-lcars-muted">Returning to Captain&apos;s Chair…</p>
       </div>
     );
@@ -221,7 +221,7 @@ export default function CaptainsLogPage() {
       </LCARSPanel>
 
       {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </p>
       )}

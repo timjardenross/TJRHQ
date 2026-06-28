@@ -29,7 +29,7 @@ const PULSES: {
     label: 'Morning Readiness',
     time: 'Morning',
     purpose: 'Mission planning · Daily posture determination',
-    tone: 'border-status/40 bg-status/5 text-status',
+    tone: 'border-status/40 bg-status/5 text-status-on',
     fields: ['energy', 'mood', 'readiness', 'pain', 'notes'],
   },
   {
@@ -37,7 +37,7 @@ const PULSES: {
     label: 'Midday Status',
     time: 'Midday',
     purpose: 'Course correction · Workload protection',
-    tone: 'border-command/40 bg-command/5 text-command',
+    tone: 'border-command/40 bg-command/5 text-command-on',
     fields: ['stress', 'readiness', 'pain', 'notes'],
   },
   {
@@ -45,7 +45,7 @@ const PULSES: {
     label: 'End of Workday',
     time: 'End of day',
     purpose: 'Transition to recovery mode',
-    tone: 'border-operations/40 bg-operations/5 text-operations',
+    tone: 'border-operations/40 bg-operations/5 text-operations-on',
     fields: ['energy', 'stress', 'readiness', 'pain', 'notes'],
   },
   {
@@ -53,7 +53,7 @@ const PULSES: {
     label: 'Evening Recovery',
     time: 'Evening',
     purpose: 'Recovery completion loop',
-    tone: 'border-medical/40 bg-medical/5 text-medical',
+    tone: 'border-medical/40 bg-medical/5 text-medical-on',
     fields: ['mood', 'stress', 'readiness', 'notes'],
   },
 ];
@@ -81,7 +81,7 @@ function SegmentField<T extends string>({
             onClick={() => onChange(opt.value)}
             className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
               value === opt.value
-                ? 'border-medical bg-medical/20 text-medical'
+                ? 'border-medical bg-medical/20 text-medical-on'
                 : 'border-edge bg-space/40 text-lcars-muted hover:border-medical/40'
             }`}
           >
@@ -225,7 +225,7 @@ function PulseForm({
       )}
 
       {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </p>
       )}
@@ -283,9 +283,9 @@ export default function RecoveryPulsePage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-medical bg-medical/10">
-          <span className="font-lcars text-2xl text-medical">✓</span>
+          <span className="font-lcars text-2xl text-medical-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-medical">{savedLabel} logged</p>
+        <p className="font-lcars text-lg font-bold text-medical-on">{savedLabel} logged</p>
         <p className="text-sm text-lcars-muted">Returning to Medical Bay…</p>
       </div>
     );
@@ -342,7 +342,7 @@ export default function RecoveryPulsePage() {
           actions={<StatusBadge label={activePulse.time} tone="medical" />}
         >
           {error && (
-            <p className="mb-4 rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+            <p className="mb-4 rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
               {error}
             </p>
           )}

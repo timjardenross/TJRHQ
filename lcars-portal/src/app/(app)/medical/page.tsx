@@ -142,7 +142,7 @@ function LifeParticipationHero({ lp }: { lp: LifeParticipationScore }) {
             key={s.label}
             className="rounded-lcars border border-edge bg-space/40 p-3 flex items-start gap-2"
           >
-            <span className={`mt-0.5 text-xs ${s.met ? 'text-status' : 'text-lcars-muted'}`}>
+            <span className={`mt-0.5 text-xs ${s.met ? 'text-status-on' : 'text-lcars-muted'}`}>
               {s.met ? '●' : '○'}
             </span>
             <div>
@@ -344,7 +344,7 @@ function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary 
         <div className="flex flex-col gap-3">
           <div className="rounded-lcars border border-edge bg-space/40 p-4">
             <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Last 30 days</p>
-            <p className="font-lcars text-lg font-semibold text-command">
+            <p className="font-lcars text-lg font-semibold text-command-on">
               {period_30d.stable_or_strong} / {period_30d.total_recorded}
             </p>
             <p className="text-xs text-lcars-muted">days stable or strong (of recorded)</p>
@@ -401,7 +401,7 @@ function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Latest score</p>
-          <p className="font-lcars text-3xl font-bold text-medical mt-0.5">
+          <p className="font-lcars text-3xl font-bold text-medical-on mt-0.5">
             {latest.readiness_score ?? '—'}
           </p>
           {latest.readiness_status && (
@@ -413,13 +413,13 @@ function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Avg ({rows.length})</p>
-          <p className="font-lcars text-3xl font-bold text-command mt-0.5">
+          <p className="font-lcars text-3xl font-bold text-command-on mt-0.5">
             {isNaN(avgScore) ? '—' : Math.round(avgScore)}
           </p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Sleep latest</p>
-          <p className="font-lcars text-3xl font-bold text-science mt-0.5">
+          <p className="font-lcars text-3xl font-bold text-science-on mt-0.5">
             {latest.sleep_hours != null ? `${latest.sleep_hours}h` : '—'}
           </p>
         </div>
@@ -509,7 +509,7 @@ function MedicalGuidance({ guidance }: { guidance: string[] }) {
       <ol className="flex flex-col gap-2">
         {guidance.map((item, i) => (
           <li key={i} className="flex gap-3 rounded-lcars border border-edge bg-space/40 p-3 text-sm text-lcars-text/90 leading-relaxed">
-            <span className="font-lcars text-medical shrink-0">{i + 1}.</span>
+            <span className="font-lcars text-medical-on shrink-0">{i + 1}.</span>
             {item}
           </li>
         ))}
@@ -533,7 +533,7 @@ function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
       actions={
         <Link
           href="/stage-progression"
-          className="text-[10px] uppercase tracking-[0.15em] text-medical hover:text-medical/70"
+          className="text-[10px] uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70"
         >
           Full Record →
         </Link>
@@ -542,7 +542,7 @@ function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
       <div className="flex flex-col gap-3">
         <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Current stage</p>
-          <p className="font-lcars text-lg font-semibold text-medical mt-0.5">
+          <p className="font-lcars text-lg font-semibold text-medical-on mt-0.5">
             {record.current_stage_label}
           </p>
           <p className="text-xs text-lcars-muted mt-1">
@@ -553,14 +553,14 @@ function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="rounded-lcars border border-edge bg-space/40 p-3">
             <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stage 2 criteria</p>
-            <p className="font-lcars text-lg font-semibold text-command mt-0.5">
+            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
               {metCount} / {total}
             </p>
             <p className="text-xs text-lcars-muted">criteria met or partial</p>
           </div>
           <div className="rounded-lcars border border-edge bg-space/40 p-3">
             <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stability signal</p>
-            <p className="font-lcars text-lg font-semibold text-command mt-0.5">
+            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
               {stable_or_strong} / {threshold}
             </p>
             <p className="text-xs text-lcars-muted">of {threshold} days needed ({total_recorded} recorded)</p>
@@ -600,18 +600,18 @@ function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPo
 function nsColour(state: string | null): string {
   if (!state) return 'text-lcars-muted';
   const s = state.toLowerCase();
-  if (s === 'calm') return 'text-status';
-  if (s === 'activated') return 'text-command';
-  if (s === 'dysregulated') return 'text-operations';
+  if (s === 'calm') return 'text-status-on';
+  if (s === 'activated') return 'text-command-on';
+  if (s === 'dysregulated') return 'text-operations-on';
   return 'text-lcars-muted';
 }
 
 function energyColour(val: string | null): string {
   if (!val) return 'text-lcars-muted';
   const v = val.toLowerCase();
-  if (v === 'good' || v === 'high') return 'text-status';
-  if (v === 'moderate') return 'text-command';
-  if (v === 'poor' || v === 'low') return 'text-operations';
+  if (v === 'good' || v === 'high') return 'text-status-on';
+  if (v === 'moderate') return 'text-command-on';
+  if (v === 'poor' || v === 'low') return 'text-operations-on';
   return 'text-lcars-muted';
 }
 
@@ -676,7 +676,7 @@ export default function MedicalPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               activeTab === tab.key
-                ? 'border-b-2 border-medical text-medical font-semibold'
+                ? 'border-b-2 border-medical text-medical-on font-semibold'
                 : 'text-lcars-muted hover:text-lcars-text'
             }`}
           >
@@ -711,21 +711,21 @@ export default function MedicalPage() {
               href="/medical/check-in"
               className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical">Daily Check-In</p>
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical-on">Daily Check-In</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy · Mood</p>
             </Link>
             <Link
               href="/medical/log-activity"
               className="rounded-lcars border border-status/40 bg-status/5 px-4 py-3 text-center hover:bg-status/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status">Log Activity</p>
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status-on">Log Activity</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">Walk · Physio · Stretch · more</p>
             </Link>
             <Link
               href="/medical/log-weight"
               className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command">Log Weight</p>
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command-on">Log Weight</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
             </Link>
           </div>
@@ -736,9 +736,9 @@ export default function MedicalPage() {
       {activeTab === 'pulse' && (
         <div className="flex flex-col gap-4">
           <div className="rounded-lcars border border-medical/40 bg-medical/5 p-6 text-center">
-            <p className="font-lcars text-2xl font-bold text-medical mb-2">Daily Pulse Log</p>
+            <p className="font-lcars text-2xl font-bold text-medical-on mb-2">Daily Pulse Log</p>
             <p className="text-sm text-lcars-muted mb-4">Record energy, pain, mood and nervous system state up to 4 times daily.</p>
-            <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-medical hover:bg-medical/30 transition-colors">
+            <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-medical-on hover:bg-medical/30 transition-colors">
               Open Pulse Log →
             </Link>
           </div>
@@ -751,9 +751,9 @@ export default function MedicalPage() {
       {/* Check-In tab */}
       {activeTab === 'check-in' && (
         <div className="rounded-lcars border border-command/40 bg-command/5 p-6 text-center">
-          <p className="font-lcars text-2xl font-bold text-command mb-2">Daily Check-In</p>
+          <p className="font-lcars text-2xl font-bold text-command-on mb-2">Daily Check-In</p>
           <p className="text-sm text-lcars-muted mb-4">Sleep quality, nervous system baseline, energy, mood, pain, and intentions for today.</p>
-          <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-command hover:bg-command/30 transition-colors">
+          <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-command-on hover:bg-command/30 transition-colors">
             Open Daily Check-In →
           </Link>
         </div>
@@ -811,7 +811,7 @@ export default function MedicalPage() {
             <p className="text-sm text-lcars-muted leading-relaxed mb-3">
               Stage tracking observes patterns over time. Transitions are recognised, not achieved.
             </p>
-            <Link href="/human-systems" className="text-xs uppercase tracking-[0.15em] text-medical hover:text-medical/70 transition-colors">
+            <Link href="/human-systems" className="text-xs uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70 transition-colors">
               Human Systems Framework →
             </Link>
           </div>

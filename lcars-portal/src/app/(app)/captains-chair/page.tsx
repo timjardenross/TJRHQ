@@ -64,15 +64,15 @@ function energyScore(energy: string | null): number | null {
 }
 
 function scoreColour(score: number): string {
-  if (score >= 70) return 'text-science';
-  if (score >= 40) return 'text-operations';
+  if (score >= 70) return 'text-science-on';
+  if (score >= 40) return 'text-operations-on';
   return 'text-destructive';
 }
 
 function sleepColour(hours: number | null): string {
   if (!hours) return 'text-lcars-muted';
-  if (hours >= 7) return 'text-science';
-  if (hours >= 5.5) return 'text-operations';
+  if (hours >= 7) return 'text-science-on';
+  if (hours >= 5.5) return 'text-operations-on';
   return 'text-destructive';
 }
 
@@ -156,7 +156,7 @@ export default function CaptainsChairPage() {
           <button
             onClick={fetchOp}
             disabled={opLoading}
-            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-wider text-lcars-muted transition-colors hover:border-command hover:text-command disabled:opacity-40"
+            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-wider text-lcars-muted transition-colors hover:border-command hover:text-command-on disabled:opacity-40"
           >
             {opLoading ? 'Loading…' : 'Refresh'}
           </button>
@@ -197,17 +197,17 @@ export default function CaptainsChairPage() {
                 </span>
               )}
               {op.missions.awaiting_approval_count > 0 && (
-                <span className="rounded-full border border-operations/40 bg-operations/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-operations">
+                <span className="rounded-full border border-operations/40 bg-operations/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-operations-on">
                   {op.missions.awaiting_approval_count} awaiting approval
                 </span>
               )}
               {op.decisions.open_count > 0 && (
-                <span className="rounded-full border border-science/40 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science">
+                <span className="rounded-full border border-science/40 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science-on">
                   {op.decisions.open_count} open decisions
                 </span>
               )}
               {op.missions.blocked_count === 0 && op.missions.awaiting_approval_count === 0 && op.decisions.open_count === 0 && (
-                <span className="rounded-full border border-science/30 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science">
+                <span className="rounded-full border border-science/30 bg-science/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-science-on">
                   All clear
                 </span>
               )}
@@ -233,14 +233,14 @@ export default function CaptainsChairPage() {
           ) : !hasHealthData || !isToday ? (
             <div className="space-y-2">
               <p className="text-sm text-lcars-muted italic">No health data for today.</p>
-              <Link href="/medical" className="inline-block rounded-lcars border border-medical/40 px-3 py-1.5 text-xs font-semibold text-medical transition-colors hover:bg-medical/10">
+              <Link href="/medical" className="inline-block rounded-lcars border border-medical/40 px-3 py-1.5 text-xs font-semibold text-medical-on transition-colors hover:bg-medical/10">
                 Log recovery pulse →
               </Link>
             </div>
           ) : (
             <div className="space-y-3">
               {fromPulseOnly && (
-                <p className="text-[10px] uppercase tracking-wider text-medical/70">
+                <p className="text-[10px] uppercase tracking-wider text-medical-on/70">
                   ● From recovery pulse · {wellness?.pulse?.captured_at ? new Date(wellness.pulse.captured_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
                 </p>
               )}
@@ -283,12 +283,12 @@ export default function CaptainsChairPage() {
                 )}
               </div>
               {wellness?.pulse?.pain_score != null && wellness.pulse.pain_score > 0 && (
-                <p className="text-[11px] text-operations">⚠ Pain: {wellness.pulse.pain_score}/10</p>
+                <p className="text-[11px] text-operations-on">⚠ Pain: {wellness.pulse.pain_score}/10</p>
               )}
               {wellness?.insights?.risk_flags && wellness.insights.risk_flags.length > 0 && (
                 <div className="space-y-1">
                   {wellness.insights.risk_flags.slice(0, 2).map((flag, i) => (
-                    <p key={i} className="text-[11px] text-operations">⚠ {flag}</p>
+                    <p key={i} className="text-[11px] text-operations-on">⚠ {flag}</p>
                   ))}
                 </div>
               )}
@@ -310,7 +310,7 @@ export default function CaptainsChairPage() {
             <div className="space-y-3">
               <div className="flex gap-3">
                 <div className="rounded-lcars border border-edge bg-panel-2/40 p-3 text-center flex-1">
-                  <p className="font-lcars text-3xl font-bold text-command">{op.missions.active_count}</p>
+                  <p className="font-lcars text-3xl font-bold text-command-on">{op.missions.active_count}</p>
                   <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Active</p>
                 </div>
                 {op.missions.blocked_count > 0 && (
@@ -333,7 +333,7 @@ export default function CaptainsChairPage() {
               )}
               <Link
                 href="/missions"
-                className="inline-block text-[11px] font-semibold text-command hover:underline"
+                className="inline-block text-[11px] font-semibold text-command-on hover:underline"
               >
                 View all missions →
               </Link>
@@ -355,7 +355,7 @@ export default function CaptainsChairPage() {
               {op.decisions.open_count > 0 ? (
                 <div className="rounded-lcars border border-science/30 bg-science/10 p-3">
                   <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Open decisions</p>
-                  <p className="font-lcars text-2xl font-bold text-science">{op.decisions.open_count}</p>
+                  <p className="font-lcars text-2xl font-bold text-science-on">{op.decisions.open_count}</p>
                 </div>
               ) : (
                 <div className="rounded-lcars border border-edge bg-panel-2/40 p-3">
@@ -372,7 +372,7 @@ export default function CaptainsChairPage() {
               )}
               <Link
                 href="/intelligence"
-                className="inline-block text-[11px] font-semibold text-science hover:underline"
+                className="inline-block text-[11px] font-semibold text-science-on hover:underline"
               >
                 View intelligence →
               </Link>
@@ -392,14 +392,14 @@ export default function CaptainsChairPage() {
             <p className="text-sm text-lcars-muted">Inbox clear</p>
           ) : (
             <p className="text-sm text-lcars-text font-semibold">
-              <span className="text-operations font-bold">{inboxCount}</span>{' '}
+              <span className="text-operations-on font-bold">{inboxCount}</span>{' '}
               item{inboxCount !== 1 ? 's' : ''} pending review
             </p>
           )}
         </div>
         <Link
           href="/capture"
-          className="rounded-lcars border border-edge px-3 py-1.5 text-[11px] uppercase tracking-wide text-lcars-muted transition-colors hover:border-command hover:text-command"
+          className="rounded-lcars border border-edge px-3 py-1.5 text-[11px] uppercase tracking-wide text-lcars-muted transition-colors hover:border-command hover:text-command-on"
         >
           Open capture →
         </Link>

@@ -74,27 +74,27 @@ function MissionLoadPanel({ posture, missions }: { posture: RecoveryPostureBand;
       <div className="grid gap-3 sm:grid-cols-3 text-center mb-4">
         <div className="rounded-lcars border border-edge bg-space/40 p-3">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Active</p>
-          <p className="font-lcars text-2xl font-bold text-command mt-0.5">
+          <p className="font-lcars text-2xl font-bold text-command-on mt-0.5">
             {missions.filter(m => ['ACTIVE','IN_PROGRESS','ASSIGNED'].includes(m.status)).length}
           </p>
         </div>
         <div className="rounded-lcars border border-operations/40 bg-operations/5 p-3">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Blocked</p>
-          <p className="font-lcars text-2xl font-bold text-operations mt-0.5">{blocked.length}</p>
+          <p className="font-lcars text-2xl font-bold text-operations-on mt-0.5">{blocked.length}</p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Today&apos;s posture</p>
-          <p className="font-lcars text-lg font-bold text-medical mt-0.5">{posture}</p>
+          <p className="font-lcars text-lg font-bold text-medical-on mt-0.5">{posture}</p>
         </div>
       </div>
 
       {blocked.length > 0 && (
         <div className="mb-4">
-          <p className="text-[10px] uppercase tracking-wider text-operations mb-2">Blocked — require action</p>
+          <p className="text-[10px] uppercase tracking-wider text-operations-on mb-2">Blocked — require action</p>
           <div className="flex flex-col gap-2">
             {blocked.map(m => (
               <div key={m.mission_id} className="flex items-center gap-3 rounded-lcars border border-operations/40 bg-operations/5 px-4 py-2">
-                <span className="text-operations text-xs">▲</span>
+                <span className="text-operations-on text-xs">▲</span>
                 <span className="font-mono text-[10px] text-lcars-muted shrink-0">{m.mission_id}</span>
                 <span className="text-sm text-lcars-text/90 min-w-0 truncate">{m.title}</span>
               </div>
@@ -195,7 +195,7 @@ function CommandOverview({ decisions }: { decisions: Decision[] }) {
                     <button
                       type="button"
                       onClick={() => setExpanded(isOpen ? null : d.id)}
-                      className="rounded-md border border-edge px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:border-command hover:text-command transition-colors"
+                      className="rounded-md border border-edge px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:border-command hover:text-command-on transition-colors"
                     >
                       {isOpen ? 'Less' : 'More'}
                     </button>

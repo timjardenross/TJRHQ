@@ -90,9 +90,9 @@ export default function LogWeightPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-command bg-command/10">
-          <span className="font-lcars text-2xl text-command">✓</span>
+          <span className="font-lcars text-2xl text-command-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-command">Weight logged</p>
+        <p className="font-lcars text-lg font-bold text-command-on">Weight logged</p>
         <p className="text-sm text-lcars-muted">Returning to Medical Bay…</p>
       </div>
     );
@@ -106,7 +106,7 @@ export default function LogWeightPage() {
           same conditions each time, for consistent data.
         </p>
         {already !== null && (
-          <p className="mt-2 text-xs text-command">
+          <p className="mt-2 text-xs text-command-on">
             Today already logged: {already} kg — submitting will update it.
           </p>
         )}
@@ -141,7 +141,7 @@ export default function LogWeightPage() {
       </LCARSPanel>
 
       {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations">
+        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
           {error}
         </p>
       )}
@@ -162,7 +162,7 @@ export default function LogWeightPage() {
             {avgW !== null && (
               <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Avg</p>
-                <p className="font-lcars text-lg font-bold text-command mt-0.5">{avgW.toFixed(1)}</p>
+                <p className="font-lcars text-lg font-bold text-command-on mt-0.5">{avgW.toFixed(1)}</p>
                 <p className="text-[10px] text-lcars-muted">kg</p>
               </div>
             )}
@@ -176,7 +176,7 @@ export default function LogWeightPage() {
             {range !== null && (
               <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Change</p>
-                <p className={`font-lcars text-lg font-bold mt-0.5 ${parseFloat(range) < 0 ? 'text-status' : parseFloat(range) > 0 ? 'text-operations' : 'text-lcars-muted'}`}>
+                <p className={`font-lcars text-lg font-bold mt-0.5 ${parseFloat(range) < 0 ? 'text-status-on' : parseFloat(range) > 0 ? 'text-operations-on' : 'text-lcars-muted'}`}>
                   {parseFloat(range) > 0 ? '+' : ''}{range}
                 </p>
                 <p className="text-[10px] text-lcars-muted">kg vs 30d ago</p>
