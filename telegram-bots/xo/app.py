@@ -1741,31 +1741,122 @@ async def _scheduled_dispatch(bot) -> None:
         log.error("[scheduler] dispatch failed: %s", exc)
 
 
+async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quick capture: /note <content>  — writes to captured_items as a reference."""
+    content = " ".join(context.args or []).strip()
+    if not content:
+        await update.message.reply_text(
+            "Usage: /note &lt;content&gt;\nExample: /note Follow up on sleep tracker calibration",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        db = _get_supabase()
+        db.table("captured_items").insert({
+            "source": "telegram-xo-note",
+            "classification": "reference",
+            "raw_content": content,
+            "processing_status": "pending",
+        }).execute()
+        await update.message.reply_text(
+            f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
+            parse_mode="HTML",
+        )
+        log.info("[note] captured %d chars", len(content))
+    except Exception as exc:
+        log.error("[note] failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Capture failed: {str(exc)[:120]}")
+
+
+async def cmd_advisor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Multi-officer advisory: /advisor <question>  — routes to staff-briefing panel."""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage: /advisor &lt;question&gt;\nExample: /advisor What should I focus on this week?",
+            parse_mode="HTML",
+        )
+        return
+
+    question = " ".join(args).strip()
+    await update.message.reply_text("⚙️ Convening advisory panel…")
+
+    try:
+        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
+        if not advisory_cli.exists():
+            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
+            return
+
+        def _run() -> str:
+            result = subprocess.run(
+                [sys.executable, str(advisory_cli), "--persona", "staff-briefing", "--question", question],
+                capture_output=True, text=True, timeout=90, cwd=str(_REPO_ROOT),
+            )
+            return (result.stdout or result.stderr or "No response.").strip()
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _run)
+        text = f"<b>Advisory Panel</b>\n\n{response[:3800]}"
+        await update.message.reply_text(text, parse_mode="HTML")
+        log.info("[advisor] question=%s…", question[:40])
+
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text("⚠️ Advisory response timed out (90s).")
+    except Exception as exc:
+        log.error("[advisor] failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
+
+
+async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Red-team / challenge advisory: /challenge <question>  — adversarial review."""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage: /challenge &lt;question or plan&gt;\nExample: /challenge My plan to take 2 weeks off next month",
+            parse_mode="HTML",
+        )
+        return
+
+    question = " ".join(args).strip()
+    await update.message.reply_text("⚙️ Running red-team challenge…")
+
+    try:
+        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
+        if not advisory_cli.exists():
+            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
+            return
+
+        def _run() -> str:
+            result = subprocess.run(
+                [sys.executable, str(advisory_cli), "--action", "challenge", "--question", question],
+                capture_output=True, text=True, timeout=90, cwd=str(_REPO_ROOT),
+            )
+            return (result.stdout or result.stderr or "No response.").strip()
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _run)
+        text = f"<b>Challenge Assessment</b>\n\n{response[:3800]}"
+        await update.message.reply_text(text, parse_mode="HTML")
+        log.info("[challenge] question=%s…", question[:40])
+
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text("⚠️ Challenge timed out (90s).")
+    except Exception as exc:
+        log.error("[challenge] failed: %s", exc)
+        await update.message.reply_text(f"⚠️ Challenge failed: {str(exc)[:120]}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
-    ("brief",                "Latest OR Intelligence Brief — risk, events, themes"),
-    ("daily",                "Captain's daily picture  e.g. /daily  or  /daily eod"),
-    ("signals",              "Intelligence signals  e.g. /signals high  or  /signals cyber"),
-    ("themes",               "Emerging themes from latest ORI brief"),
-    ("source_status",        "Health of all 40+ intelligence collection sources"),
-    ("operating_picture",    "Captain's operating picture — what do I need to know?"),
-    ("advise",               "Advisory query  e.g. /advise cmo Pain pattern this week"),
-    ("recovery_status",      "Today's confidence bar + pulse ledger"),
-    ("recovery_pulse",       "Log a pulse inline (energy → mood → stress)"),
-    ("mission_list",         "List missions  e.g. /mission_list active"),
-    ("mission_status",       "Mission detail  e.g. /mission_status 0167"),
-    ("mission_create",       "Create mission  e.g. /mission_create Build ops dashboard"),
-    ("captain_approve",      "Approve mission  e.g. /captain_approve 0175"),
-    ("captain_reject",       "Reject mission   e.g. /captain_reject 0175 Scope too broad"),
-    ("mission_submit",       "Submit for Captain approval  e.g. /mission_submit 0178"),
-    ("handoff_engineering",  "Hand off to Engineering  e.g. /handoff_engineering 0181"),
-    ("log_activity",         "Log activity  e.g. /log_activity walk 30 light"),
-    ("log_weight",           "Log weight  e.g. /log_weight 82.5"),
-    ("dispatch",             "Manual XO dispatch check"),
-    ("db_status",            "Supabase connectivity test"),
-    ("restart_bots",         "Restart starfleet services  e.g. /restart_bots all"),
-    ("help",                 "Full command reference + proactive schedule"),
+    ("start",          "XO introduction and quick-start"),
+    ("help",           "Full command reference + proactive schedule"),
+    ("brief",          "Latest OR Intelligence Brief — risk, events, themes"),
+    ("daily",          "Captain's daily picture  e.g. /daily  or  /daily eod"),
+    ("missions",       "Active missions  e.g. /missions active  or  /missions blocked"),
+    ("note",           "Quick capture  e.g. /note Follow up on sleep tracker"),
+    ("advisor",        "Multi-officer advisory panel  e.g. /advisor What to focus on this week?"),
+    ("challenge",      "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
+    ("recovery_pulse", "Log a pulse inline (energy → mood → stress)"),
 ]
 
 
@@ -1812,6 +1903,10 @@ def main() -> None:
     app.add_handler(CommandHandler("source_status",       cmd_source_status))
     app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
     app.add_handler(CommandHandler("advise",              cmd_advise))
+    app.add_handler(CommandHandler("advisor",             cmd_advisor))
+    app.add_handler(CommandHandler("challenge",           cmd_challenge))
+    app.add_handler(CommandHandler("note",                cmd_note))
+    app.add_handler(CommandHandler("missions",            cmd_mission_list))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
     app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
