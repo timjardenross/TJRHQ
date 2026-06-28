@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+"""
+Starship Endeavour Model Router — on-call Ollama crew dispatcher.
+
+Routes requests to local Ollama models with explicit keep_alive values.
+No model stays loaded all day — each task type specifies its own keep_alive.
+
+Endpoints:
+    POST /api/model/classify-capture    gemma3:4b      keep_alive 2m
+    POST /api/model/summarise-note      gemma3:4b      keep_alive 2m
+    POST /api/model/intelligence-brief  mistral-small  keep_alive 10m
+    POST /api/model/xo-response         mistral-small  keep_alive 15m
+    POST /api/model/embed               nomic-embed    keep_alive 1m
+    POST /api/model/escalate            mistral-small  keep_alive 15m
+    GET  /api/model/status              Ollama status + loaded models
+    GET  /api/model/recent-calls        Last N calls from log
+
+Port: MODEL_ROUTER_PORT (default 8891)
+Ollama: OLLAMA_BASE_URL (default http://localhost:11434)
+
+No external dependencies — stdlib only.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import Any
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [model-router] %(levelname)s %(message)s",
+)
+log = logging.getLogger("model-router")
+
+_PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))
+_HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
+_OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+_LOG_FILE = Path(__file__).parent / "call_log.jsonl"
+_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
+
+# ── Model catalogue ──────────────────────────────────────────────────────────
+
+MODEL_MID   = "gemma4:12b"          # fast classifier / XO chat / summariser
+MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
+MODEL_EMBED = "nomic-embed-text"      # embeddings
+MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
+MODEL_CODE  = "qwen3-coder:30b"       # engineering review (if installed)
+
+# keep_alive values per task type
+TASK_POLICY: dict[str, dict[str, Any]] = {
+    "classify-capture":      {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
+    "summarise-note":        {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
+    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
+    "intelligence-brief":    {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
+    "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
+    "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
+    "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
+}
+
+# Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
+# Narrow and intent-based: matches things the Captain is actually asking to do,
+# not words that naturally appear in classification tags/summaries.
+ESCALATION_TRIGGERS = [
+    "build request",
+    "build this",
+    "please build",
+    "please implement",
+    "operational resilience",
+    "is this a risk",
+    "health risk",
+    "mission critical",
+    "generate report",
+    "low confidence",
+    "not sure what",
+    "needs research",
+    "requires investigation",
+]
+
+
+# ── Ollama client ─────────────────────────────────────────────────────────────
+
+def _ollama_generate(model: str, prompt: str, keep_alive: str, timeout: int) -> dict[str, Any]:
+    """POST /api/generate. Returns parsed response dict."""
+    url = f"{_OLLAMA_BASE}/api/generate"
+    payload = json.dumps({
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "keep_alive": keep_alive,
+        "options": {"temperature": 0.2},
+    }).encode()
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) -> dict[str, Any]:
+    """POST /api/embed. Returns parsed response dict."""
+    url = f"{_OLLAMA_BASE}/api/embed"
+    payload = json.dumps({
+        "model": model,
+        "input": input_text,
+        "keep_alive": keep_alive,
+    }).encode()
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _ollama_status() -> dict[str, Any]:
+    """GET /api/ps — loaded models. Returns dict."""
+    try:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def _ollama_tags() -> dict[str, Any]:
+    """GET /api/tags — available models."""
+    try:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+# ── Call log ──────────────────────────────────────────────────────────────────
+
+def _log_call(entry: dict[str, Any]) -> None:
+    try:
+        with _LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        log.warning("call log write failed: %s", exc)
+
+
+def _recent_calls(n: int = 20) -> list[dict[str, Any]]:
+    if not _LOG_FILE.exists():
+        return []
+    lines = _LOG_FILE.read_text(encoding="utf-8").splitlines()
+    out = []
+    for ln in reversed(lines[-_LOG_LIMIT:]):
+        try:
+            out.append(json.loads(ln))
+        except json.JSONDecodeError:
+            pass
+        if len(out) >= n:
+            break
+    return out
+
+
+# ── Routing logic ─────────────────────────────────────────────────────────────
+
+def _check_escalation_needed(prompt: str, response_text: str) -> tuple[bool, str]:
+    """Return (should_escalate, reason). Checks prompt only — not the model response.
+    Avoids false-positives from classification tags like 'develop', 'report', 'research'."""
+    prompt_lower = prompt.lower()
+    for trigger in ESCALATION_TRIGGERS:
+        if trigger in prompt_lower:
+            return True, f"trigger:{trigger.strip()}"
+    return False, ""
+
+
+def _available_model_names() -> set[str]:
+    """Return set of installed model names (without :latest normalisation)."""
+    tags = _ollama_tags()
+    names: set[str] = set()
+    for m in tags.get("models", []):
+        n = m.get("name", "")
+        names.add(n)
+        names.add(n.split(":")[0])  # bare name match too
+    return names
+
+
+def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
+    """Execute routing policy and return result dict."""
+    policy = TASK_POLICY.get(task_type)
+    if not policy:
+        return {"success": False, "error": f"unknown task_type: {task_type}"}
+
+    # engineering-review: prefer qwen3-coder:30b, fall back to glm-5.2:cloud
+    if task_type == "engineering-review":
+        available = _available_model_names()
+        if MODEL_CODE not in available and MODEL_CODE.split(":")[0] not in available:
+            log.info("engineering-review: %s not installed, falling back to %s", MODEL_CODE, MODEL_CLOUD)
+            policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
+
+    model = policy["model"]
+    keep_alive = policy["keep_alive"]
+    timeout = policy["timeout"]
+    escalated = False
+    escalation_reason = ""
+
+    t0 = time.time()
+    try:
+        if task_type == "embed":
+            raw = _ollama_embed(model, prompt, keep_alive, timeout)
+            response_text = ""
+            embeddings = raw.get("embeddings", raw.get("embedding", []))
+            token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
+        else:
+            raw = _ollama_generate(model, prompt, keep_alive, timeout)
+            response_text = raw.get("response", "").strip()
+            embeddings = None
+            token_info = {
+                "prompt_eval_count": raw.get("prompt_eval_count"),
+                "eval_count": raw.get("eval_count"),
+            }
+
+            # Escalation: classify-capture escalates to large model if triggers detected
+            if task_type == "classify-capture" and not extra.get("skip_escalation"):
+                needs_esc, reason = _check_escalation_needed(prompt, response_text)
+                if needs_esc:
+                    esc_policy = TASK_POLICY["intelligence-brief"]  # use large model
+                    esc_raw = _ollama_generate(
+                        esc_policy["model"], prompt,
+                        esc_policy["keep_alive"], esc_policy["timeout"]
+                    )
+                    response_text = esc_raw.get("response", "").strip()
+                    model = esc_policy["model"]
+                    keep_alive = esc_policy["keep_alive"]
+                    escalated = True
+                    escalation_reason = reason
+                    token_info = {
+                        "prompt_eval_count": esc_raw.get("prompt_eval_count"),
+                        "eval_count": esc_raw.get("eval_count"),
+                    }
+
+        duration_ms = int((time.time() - t0) * 1000)
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "task_type": task_type,
+            "model": model,
+            "keep_alive": keep_alive,
+            "duration_ms": duration_ms,
+            "escalated": escalated,
+            "escalation_reason": escalation_reason,
+            "token_info": token_info,
+            "prompt_len": len(prompt),
+            "response_len": len(response_text),
+            "success": True,
+        }
+        _log_call(entry)
+        log.info("task=%s model=%s duration_ms=%d escalated=%s", task_type, model, duration_ms, escalated)
+
+        result = {
+            "success": True,
+            "task_type": task_type,
+            "model": model,
+            "keep_alive": keep_alive,
+            "response": response_text,
+            "duration_ms": duration_ms,
+            "escalated": escalated,
+            "escalation_reason": escalation_reason if escalation_reason else None,
+            "token_info": token_info,
+        }
+        if embeddings is not None:
+            result["embeddings"] = embeddings
+        return result
+
+    except urllib.error.URLError as exc:
+        duration_ms = int((time.time() - t0) * 1000)
+        _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
+                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
+        log.error("task=%s model=%s error=%s", task_type, model, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
+    except Exception as exc:
+        duration_ms = int((time.time() - t0) * 1000)
+        _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
+                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
+        log.error("task=%s model=%s unexpected=%s", task_type, model, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
+
+
+# ── HTTP handler ──────────────────────────────────────────────────────────────
+
+class RouterHandler(BaseHTTPRequestHandler):
+    def log_message(self, fmt: str, *args: object) -> None:
+        log.debug(fmt, *args)
+
+    def _send_json(self, code: int, body: dict | list) -> None:
+        payload = json.dumps(body, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _read_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        if not length:
+            return {}
+        try:
+            return json.loads(self.rfile.read(length).decode())
+        except json.JSONDecodeError:
+            return {}
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path == "/api/model/status":
+            self._handle_status()
+        elif self.path.startswith("/api/model/recent-calls"):
+            self._handle_recent_calls()
+        elif self.path == "/health":
+            self._send_json(200, {"status": "ok", "port": _PORT})
+        else:
+            self._send_json(404, {"error": "not found"})
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = self.path.rstrip("/")
+        route_map = {
+            "/api/model/classify-capture":     "classify-capture",
+            "/api/model/summarise-note":       "summarise-note",
+            "/api/model/intelligence-brief":   "intelligence-brief",
+            "/api/model/intelligence-signals": "intelligence-signals",
+            "/api/model/xo-response":          "xo-response",
+            "/api/model/embed":                "embed",
+            "/api/model/escalate":             "escalate",
+            "/api/model/fallback-complex":     "fallback-complex",
+            "/api/model/engineering-review":   "engineering-review",
+        }
+        task_type = route_map.get(path)
+        if task_type is None:
+            self._send_json(404, {"error": f"unknown route: {path}"})
+            return
+        body = self._read_body()
+        prompt = body.get("prompt", "")
+        if not prompt:
+            self._send_json(400, {"error": "prompt is required"})
+            return
+        result = _run_task(task_type, prompt, body)
+        code = 200 if result.get("success") else 500
+        self._send_json(code, result)
+
+    def _handle_status(self) -> None:
+        ps = _ollama_status()
+        tags = _ollama_tags()
+        loaded = []
+        for m in ps.get("models", []):
+            loaded.append({
+                "name": m.get("name"),
+                "size_vram": m.get("size_vram"),
+                "expires_at": m.get("expires_at"),
+            })
+        available = [m.get("name") for m in tags.get("models", [])]
+        calls = _recent_calls(5)
+        avg_ms = None
+        if calls:
+            times = [c.get("duration_ms", 0) for c in calls if c.get("success")]
+            avg_ms = int(sum(times) / len(times)) if times else None
+        failed = sum(1 for c in calls if not c.get("success"))
+        self._send_json(200, {
+            "ollama_url": _OLLAMA_BASE,
+            "ollama_reachable": "error" not in ps,
+            "loaded_models": loaded,
+            "available_models": available,
+            "router_port": _PORT,
+            "log_file": str(_LOG_FILE),
+            "recent_avg_ms": avg_ms,
+            "recent_failed": failed,
+        })
+
+    def _handle_recent_calls(self) -> None:
+        import urllib.parse
+        qs = urllib.parse.urlparse(self.path).query
+        params = dict(urllib.parse.parse_qsl(qs))
+        n = int(params.get("n", 20))
+        self._send_json(200, {"calls": _recent_calls(n)})
+
+
+# ── Entrypoint ────────────────────────────────────────────────────────────────
+
+def main() -> int:
+    # Load .env from repo root or slack-bot
+    _load_dotenv()
+    log.info("Model Router starting on %s:%d", _HOST, _PORT)
+    log.info("Ollama base: %s", _OLLAMA_BASE)
+    log.info("Call log: %s", _LOG_FILE)
+    server = HTTPServer((_HOST, _PORT), RouterHandler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def _load_dotenv() -> None:
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    for candidate in [repo_root / ".env", repo_root / "slack-bot" / ".env"]:
+        if candidate.exists():
+            try:
+                for line in candidate.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, _, v = line.partition("=")
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())
