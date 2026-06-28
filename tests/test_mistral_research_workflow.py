@@ -238,11 +238,12 @@ class TestCallAgent:
 # ─── Mistral-first decomposition (research_orchestration) ────────────────────
 
 class TestOrchestrationResearchMistralFirst:
-    """Verify research stage uses Mistral before Ollama."""
+    """Verify research execution uses Mistral Research Scout agent."""
 
     def test_research_uses_mistral_agent(self):
-        # Patch mistralai SDK
-        fake_response = _make_v1_response("research findings on the topic")
+        import mistral_agent_client as mac
+
+        fake_response = _make_v1_response('["task A","task B"]')
         fake_client = MagicMock()
         fake_client.beta.conversations.start.return_value = fake_response
         fake_mistral_module = MagicMock()
@@ -251,14 +252,13 @@ class TestOrchestrationResearchMistralFirst:
         with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
             with patch.dict(os.environ, {
                 "MISTRAL_API_KEY": "key",
-                "MISTRAL_RESEARCH_AGENT_ID": "ag_research_001",
-                "MISTRAL_RESEARCH_AGENT_VERSION": "1",
+                "MISTRAL_RESEARCH_AGENT_ID": "ag_research_scout",
+                "MISTRAL_RESEARCH_AGENT_VERSION": "23",
             }):
-                import mistral_agent_client as mac
                 result = mac.call_agent("execute", "research", "research question")
 
         assert result is not None
-        assert "research" in result.lower()
+        assert "task" in result.lower() or "[" in result
 
 
 # ─── _call_stage (orchestration fallback) ────────────────────────────────────
@@ -440,10 +440,10 @@ class TestStructuredLogging:
         with caplog.at_level(logging.INFO, logger="mistral_agent_client"):
             with patch.dict(os.environ, env):
                 with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                    mac.call_agent("brief", "briefing", "prompt", mission_id="MSN-42")
+                    mac.call_agent("consolidate", "briefing", "prompt", mission_id="MSN-42")
 
         log_text = " ".join(caplog.messages)
-        assert "stage=brief" in log_text
+        assert "stage=consolidate" in log_text
         assert "provider=mistral_agent" in log_text
         assert "status=success" in log_text
 
@@ -453,7 +453,7 @@ class TestStructuredLogging:
 
         with caplog.at_level(logging.WARNING, logger="mistral_agent_client"):
             with patch.dict(os.environ, env):
-                mac.call_agent("brief", "briefing", "prompt")
+                mac.call_agent("consolidate", "briefing", "prompt")
 
         log_text = " ".join(caplog.messages)
         assert "no_agent_id" in log_text or "status=failed" in log_text

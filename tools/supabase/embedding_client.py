@@ -41,7 +41,6 @@ class EmbeddingClient:
     def create(self, inputs: list[str]) -> list[list[float]]:
         if self.provider == "ollama":
             return [self._create_ollama(text) for text in inputs]
-        # mistral and openai both use the OpenAI-compatible /embeddings endpoint
         return self._create_openai(inputs)
 
     def _create_ollama(self, text: str) -> list[float]:

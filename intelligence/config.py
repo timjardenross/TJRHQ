@@ -28,15 +28,14 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 # 1. Mistral Research Agent (Endeavour Research Scout)
 # 2. Gemini 2.5 Flash  3. Mistral Small  4. Ollama qwen3:8b  5. Rule-based
 
-GEMINI_API_KEY      = os.getenv("GEMINI_API_KEY", "")
-MISTRAL_API_KEY     = os.getenv("MISTRAL_API_KEY", "")
-OLLAMA_BASE_URL     = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL        = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
-MODEL_ROUTER_URL    = os.getenv("MODEL_ROUTER_URL", "http://127.0.0.1:8891")
+GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
+MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
+OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
 
-# Mistral Agents — 2-stage OR Intelligence pipeline
-# Stage 1: Research Scout  → synthesise raw events into research package
-# Stage 2: Briefing Officer → produce final executive brief JSON
+# Mistral Agents — OR Intelligence pipeline
+# Stage 1: Endeavour Research Scout  → synthesise raw events into research package
+# Stage 2: TAO / Briefing Officer    → challenge + compress → executive brief JSON
 MISTRAL_RESEARCH_AGENT_ID      = os.getenv("MISTRAL_RESEARCH_AGENT_ID", "")
 MISTRAL_RESEARCH_AGENT_VERSION = os.getenv("MISTRAL_RESEARCH_AGENT_VERSION", "1")
 

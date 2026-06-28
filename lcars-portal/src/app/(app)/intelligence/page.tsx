@@ -10,12 +10,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 type Tab = 'latest' | 'signals' | 'themes' | 'archive' | 'daily_briefs';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'latest',       label: 'Latest Brief' },
-  { key: 'signals',      label: 'Signals' },
-  { key: 'themes',       label: 'Themes' },
-  { key: 'archive',      label: 'ORI Archive' },
-  { key: 'daily_briefs', label: 'Daily Briefs' },
+const TABS: { key: Tab; label: string; glyph: string }[] = [
+  { key: 'latest',       label: 'Latest Brief', glyph: '●' },
+  { key: 'signals',      label: 'Signals',      glyph: '◈' },
+  { key: 'themes',       label: 'Themes',       glyph: '↗' },
+  { key: 'archive',      label: 'ORI Archive',  glyph: '▣' },
+  { key: 'daily_briefs', label: 'Daily Briefs', glyph: '☀' },
 ];
 
 const RISK_COLOUR: Record<string, string> = {
@@ -378,11 +378,11 @@ export default function IntelligencePage() {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
               tab === t.key
-                ? 'border-b-2 border-science text-science-on font-semibold -mb-px'
+                ? 'border-b-2 border-science text-science font-semibold -mb-px'
                 : 'text-lcars-muted hover:text-lcars-text'
             }`}
           >
-            {t.label}
+            {t.glyph} {t.label}
           </button>
         ))}
       </div>

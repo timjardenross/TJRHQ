@@ -1,13 +1,14 @@
 """Shared LLM module for Telegram bots.
 
-Tier 1: Model Router :8891/api/model/xo-response (local, preferred)
-Tier 2: Ollama Cloud glm-5.2 (cloud overflow — explicit fallback, never silent)
+Routing (MSN-0206):
+    Tier 1 — Model Router  :8891/api/model/xo-response  (gemma4:12b local)
+    Tier 2 — Ollama Cloud  glm-5.2 (controlled overflow, logged)
 
 Configure via env vars in each bot's .env:
-    MODEL_ROUTER_URL — default http://127.0.0.1:8891
-    OLLAMA_BASE_URL  — default https://ollama.com
-    OLLAMA_MODEL     — default glm-5.2
-    OLLAMA_API_KEY   — Ollama cloud API key (required for cloud; never commit)
+    MODEL_ROUTER_URL  — default http://127.0.0.1:8891
+    OLLAMA_BASE_URL   — default https://ollama.com (cloud fallback only)
+    OLLAMA_MODEL      — default glm-5.2
+    OLLAMA_API_KEY    — Ollama cloud API key (required for cloud tier)
 """
 
 from __future__ import annotations
@@ -21,11 +22,11 @@ import urllib.request
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_ROUTER_URL  = "http://127.0.0.1:8891"
-_DEFAULT_CLOUD_URL   = "https://ollama.com"
-_DEFAULT_CLOUD_MODEL = "glm-5.2"
-_ROUTER_TIMEOUT      = 20
-_CLOUD_TIMEOUT       = 30
+_DEFAULT_ROUTER_URL = "http://127.0.0.1:8891"
+_DEFAULT_CLOUD_URL  = "https://ollama.com"
+_DEFAULT_MODEL      = "glm-5.2"
+_ROUTER_TIMEOUT     = 20
+_CLOUD_TIMEOUT      = 30
 
 
 def _router_url() -> str:
@@ -37,7 +38,7 @@ def _cloud_base_url() -> str:
 
 
 def _cloud_model() -> str:
-    return os.getenv("OLLAMA_MODEL", _DEFAULT_CLOUD_MODEL)
+    return os.getenv("OLLAMA_MODEL", _DEFAULT_MODEL)
 
 
 def _cloud_api_key() -> str:
@@ -45,10 +46,11 @@ def _cloud_api_key() -> str:
 
 
 def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
-    """Call Model Router tier-1. Returns None on any failure."""
+    """Call Model Router /api/model/xo-response. Returns text or None."""
     payload: dict = {"prompt": prompt}
     if system_prompt:
         payload["system_prompt"] = system_prompt
+
     req = urllib.request.Request(
         f"{_router_url()}/api/model/xo-response",
         data=json.dumps(payload).encode(),
@@ -59,45 +61,52 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
         with urllib.request.urlopen(req, timeout=_ROUTER_TIMEOUT) as resp:
             body = json.loads(resp.read())
         content = (body.get("response") or body.get("content") or "").strip()
-        return content or None
+        if content:
+            log.debug("[llm] router tier-1 ok")
+            return content
+        return None
     except Exception as exc:
-        log.warning("[llm] Model Router unavailable: %s", exc)
+        log.warning("[llm] router unavailable: %s", exc)
         return None
 
 
 def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
-    """Call Ollama Cloud glm-5.2 as explicit overflow. Logs WARNING on every use."""
+    """Call Ollama Cloud (glm-5.2) as controlled overflow. Returns text or None."""
+    key = _cloud_api_key()
+    if not key:
+        log.warning("[llm] cloud fallback skipped — OLLAMA_API_KEY not set")
+        return None
+
     messages: list[dict] = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
     payload = {"model": _cloud_model(), "messages": messages, "stream": False}
-    headers = {"Content-Type": "application/json"}
-    key = _cloud_api_key()
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-
     req = urllib.request.Request(
         f"{_cloud_base_url()}/api/chat",
         data=json.dumps(payload).encode(),
         method="POST",
-        headers=headers,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=_CLOUD_TIMEOUT) as resp:
             body = json.loads(resp.read())
         content = (body.get("message") or {}).get("content", "").strip()
         if content:
-            log.warning("[llm] Serving via Ollama Cloud overflow (router unavailable)")
-        return content or None
+            log.warning("[llm] degraded to cloud tier-2 (router unavailable)")
+            return content
+        return None
     except Exception as exc:
-        log.warning("[llm] Ollama Cloud call failed: %s", exc)
+        log.warning("[llm] cloud fallback failed: %s", exc)
         return None
 
 
 def generate(prompt: str, system_prompt: str | None = None) -> str | None:
-    """Blocking generation. Tries router first, then cloud overflow. Returns None if both fail."""
+    """Return text from Model Router (tier-1) or Ollama Cloud (tier-2). None if both fail."""
     result = _call_router(prompt, system_prompt)
     if result:
         return result

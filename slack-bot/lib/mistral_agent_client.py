@@ -6,8 +6,8 @@ No stage should hand-roll Mistral response parsing or SDK calls.
 
 Required env vars:
     MISTRAL_API_KEY
-    MISTRAL_RESEARCH_AGENT_ID        — individual task execution
-    MISTRAL_BRIEFING_AGENT_ID        — captain's brief
+    MISTRAL_RESEARCH_AGENT_ID        — Endeavour Research Scout (task execution)
+    MISTRAL_BRIEFING_AGENT_ID        — Captain's Brief / TAO
 
 Optional per-agent version overrides (default: 1):
     MISTRAL_RESEARCH_AGENT_VERSION

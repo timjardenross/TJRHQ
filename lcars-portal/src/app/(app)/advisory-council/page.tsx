@@ -215,18 +215,18 @@ function IntelResultCard({ action, data }: { action: string; data: unknown }) {
 
 // ── Tab button ─────────────────────────────────────────────────────────────────
 
-function TabBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function TabBtn({ label, glyph, active, onClick }: { label: string; glyph?: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
         active
-          ? 'border-b-2 border-command text-command-on font-semibold -mb-px'
+          ? 'border-b-2 border-command text-command font-semibold -mb-px'
           : 'text-lcars-muted hover:text-lcars-text'
       }`}
     >
-      {label}
+      {glyph ? `${glyph} ${label}` : label}
     </button>
   );
 }
@@ -728,10 +728,10 @@ function PictureMode() {
 
 // ── Intelligence mode ──────────────────────────────────────────────────────────
 
-const INTEL_TABS: { id: IntelTab; label: string; action: string }[] = [
-  { id: 'awareness', label: 'Awareness', action: 'awareness' },
-  { id: 'proactive', label: 'Signals', action: 'proactive' },
-  { id: 'wellness', label: 'Operational', action: 'wellness' },
+const INTEL_TABS: { id: IntelTab; label: string; action: string; glyph: string }[] = [
+  { id: 'awareness', label: 'Awareness',   action: 'awareness', glyph: '●' },
+  { id: 'proactive', label: 'Signals',     action: 'proactive', glyph: '◈' },
+  { id: 'wellness',  label: 'Operational', action: 'wellness',  glyph: '↗' },
 ];
 
 function IntelPanel({ action }: { action: string }) {
@@ -769,7 +769,7 @@ function IntelligenceMode() {
   const active = INTEL_TABS.find((t) => t.id === tab)!;
   return (
     <LCARSPanel title="Intelligence" accent="science">
-      <div className="flex gap-2 mb-4">{INTEL_TABS.map((t) => <TabBtn key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />)}</div>
+      <div className="flex border-b border-edge mb-4">{INTEL_TABS.map((t) => <TabBtn key={t.id} label={t.label} glyph={t.glyph} active={tab === t.id} onClick={() => setTab(t.id)} />)}</div>
       <IntelPanel key={active.id} action={active.action} />
     </LCARSPanel>
   );
@@ -1049,10 +1049,10 @@ function PerspectivesMode() {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-const TOP_TABS: { id: TopTab; label: string }[] = [
-  { id: 'consult',      label: 'Consult' },
-  { id: 'board',        label: 'Board' },
-  { id: 'perspectives', label: 'Perspectives' },
+const TOP_TABS: { id: TopTab; label: string; glyph: string }[] = [
+  { id: 'consult',      label: 'Consult',      glyph: '●' },
+  { id: 'board',        label: 'Board',        glyph: '◈' },
+  { id: 'perspectives', label: 'Perspectives', glyph: '↗' },
 ];
 
 export default function AdvisoryCouncilPage() {
@@ -1071,7 +1071,7 @@ export default function AdvisoryCouncilPage() {
 
       {/* Mode tabs */}
       <div className="flex border-b border-edge overflow-x-auto mb-4">
-        {TOP_TABS.map((t) => <TabBtn key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />)}
+        {TOP_TABS.map((t) => <TabBtn key={t.id} label={t.label} glyph={t.glyph} active={tab === t.id} onClick={() => setTab(t.id)} />)}
       </div>
 
       {tab === 'consult'      && <ConsultMode />}

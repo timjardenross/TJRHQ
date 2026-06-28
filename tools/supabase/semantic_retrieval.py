@@ -34,15 +34,15 @@ class RetrievalResult:
 
 
 _FALLBACK_ORDER = {
-    # Primary → fallback. Mistral is the preferred cloud provider; Ollama is local backup.
+    # Primary → fallback. During Mistral-corpus phase, mistral is primary, ollama is backup.
+    # Once the corpus is re-embedded with nomic-embed-text, swap EMBEDDING_PROVIDER to
+    # 'ollama' in .env and this chain becomes ollama → mistral automatically.
     "mistral": "ollama",
     "ollama": "mistral",
-    "openai": "ollama",
 }
 
 _PROVIDER_KEY_CHECK = {
     "mistral": "MISTRAL_API_KEY",
-    "openai": "OPENAI_API_KEY",
     "ollama": None,  # no API key required
 }
 
