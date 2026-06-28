@@ -66,7 +66,7 @@ export function LCARSNav() {
                           <span
                             className={[
                               'flex h-8 w-8 shrink-0 items-center justify-center rounded-md font-mono text-xs font-bold',
-                              active ? dept.bg + ' text-space' : 'bg-edge/60 text-lcars-muted'
+                              active ? dept.bg + ' text-white' : 'bg-edge/40 text-lcars-muted'
                             ].join(' ')}
                           >
                             {item.glyph}

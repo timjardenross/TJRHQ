@@ -24,17 +24,26 @@ const config: Config = {
     // Department text / border (dynamic composition in departments.ts)
     'text-engineering',
     'border-engineering',
+    // Dark-on-light readable text variants
+    'text-command-on',
+    'text-engineering-on',
+    'text-operations-on',
+    'text-medical-on',
+    'text-science-on',
+    'text-status-on',
   ],
   theme: {
     extend: {
       colors: {
         // ── Department colours (mission spec) ──────────────────────────
-        command: { DEFAULT: '#FFB81C', soft: '#FFD700' }, // Command Gold
-        engineering: { DEFAULT: '#FF9800', soft: '#FFA726' }, // Engineering Orange
-        operations: { DEFAULT: '#F44336', soft: '#FF6E63' }, // Operations Red
-        medical: { DEFAULT: '#0099FF', soft: '#4FC3F7' }, // Medical Blue
-        science: { DEFAULT: '#CC88FF', soft: '#D9A6FF' }, // Science Purple
-        status: { DEFAULT: '#4CAF50', soft: '#81C784' }, // Status Green
+        // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
+        // on: darker shade, readable as text on the light #dce8f4 background
+        command:     { DEFAULT: '#FFB81C', soft: '#FFD700', on: '#7A4D00' }, // Command Gold
+        engineering: { DEFAULT: '#FF9800', soft: '#FFA726', on: '#8A3C00' }, // Engineering Orange
+        operations:  { DEFAULT: '#F44336', soft: '#FF6E63', on: '#B71C1C' }, // Operations Red
+        medical:     { DEFAULT: '#0099FF', soft: '#4FC3F7', on: '#005299' }, // Medical Blue
+        science:     { DEFAULT: '#CC88FF', soft: '#D9A6FF', on: '#5B2AAA' }, // Science Purple
+        status:      { DEFAULT: '#4CAF50', soft: '#81C784', on: '#1B5E20' }, // Status Green
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────
         space: '#dce8f4',      // light blue-grey (body)
@@ -44,10 +53,10 @@ const config: Config = {
         lcars: {
           amber: '#FF9966',
           peach: '#FFCC99',
-          lilac: '#9999FF',
-          ice: '#99CCFF',
+          lilac: '#6644CC',    // darkened lilac — readable on light bg
+          ice: '#1A6EA8',      // darkened ice — readable on light bg
           text: '#0d1f33',     // dark navy text
-          muted: '#4a6b88'     // blue-grey muted text
+          muted: '#3a5a78'     // strengthened blue-grey muted
         }
       },
       fontFamily: {

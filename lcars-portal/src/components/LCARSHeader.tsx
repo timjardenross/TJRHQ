@@ -30,7 +30,7 @@ export function LCARSHeader({
         {/* Page title + ship identity */}
         <div className="flex flex-1 flex-col justify-center min-w-0">
           {pageTitle && (
-            <h1 className="text-xl font-bold text-command md:text-2xl uppercase tracking-widest">
+            <h1 className="text-xl font-bold text-command-on md:text-2xl uppercase tracking-widest">
               {pageTitle}
             </h1>
           )}

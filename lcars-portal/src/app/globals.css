@@ -38,7 +38,7 @@
 
   /* Subtle scanline / readout treatment for mono data */
   .lcars-readout {
-    @apply font-mono text-sm text-lcars-ice;
+    @apply font-mono text-sm text-lcars-muted;
   }
 }
 
