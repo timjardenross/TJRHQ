@@ -12,7 +12,6 @@ from mission_logger import (
     ensure_missions_dir,
     generate_mission_id,
     redact_secrets,
-    update_mission_index,
     _supabase_insert_mission,
 )
 from mission_registry import VALID_STATUSES, extract_mission_id, get_mission, mission_file_for
@@ -267,7 +266,6 @@ def create_mission_execution_record(user_text: str) -> dict:
 
     content = render_mission_record(mission_id, timestamp, plan, status="Active", marker="Execution Plan Created")
     mission_file_for(mission_id).write_text(content, encoding="utf-8")
-    update_mission_index(mission_id, plan["mission_type"], "Active", title)
     _supabase_insert_mission(mission_id, title, plan["mission_type"], "Active")
 
     return {
