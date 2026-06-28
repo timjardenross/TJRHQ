@@ -986,11 +986,11 @@ function PerspectivesMode() {
                     )}
                   </div>
                 </div>
-                <div className="px-4 py-3">
+                <div className="px-5 py-4">
                   {r.error && <p className="text-sm text-operations">{r.error}</p>}
                   {!r.loading && !r.error && !r.response && <p className="text-sm text-lcars-muted">No response.</p>}
                   {r.response && !r.loading && (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1.5 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded text-sm leading-relaxed">
+                    <div className="prose prose-base prose-invert max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
                       <ReactMarkdown>{r.response}</ReactMarkdown>
                     </div>
                   )}
