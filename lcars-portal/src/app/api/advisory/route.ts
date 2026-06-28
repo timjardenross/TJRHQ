@@ -23,6 +23,7 @@ export const dynamic = 'force-dynamic';
 const PY = process.env.PYTHON_BIN ?? 'python3';
 const TIMEOUT_MS = 30_000;
 const COMMAND_CENTRE_API_URL = process.env.COMMAND_CENTRE_API_URL ?? 'http://localhost:5000/api/v1';
+const COMMAND_CENTRE_API_KEY = process.env.COMMAND_CENTRE_API_KEY ?? '';
 const QUESTION_ACTIONS = new Set(['advice', 'challenge', 'lessons', 'evidence', 'temporal', 'episodic']);
 const NULLARY_ACTIONS = new Set([
   'metrics', 'calibration', 'advisory-health', 'patterns', 'signals', 'timeline', 'proactive',
@@ -35,9 +36,11 @@ async function tryHttpBackend(body: object): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (COMMAND_CENTRE_API_KEY) headers['X-Api-Key'] = COMMAND_CENTRE_API_KEY;
     const res = await fetch(`${COMMAND_CENTRE_API_URL}/advisory`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
