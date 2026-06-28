@@ -484,9 +484,9 @@ function ConsultMode() {
               ))}
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={2}
+              <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
                 placeholder={`Message ${activeAdvisor.label}…`} disabled={loading}
-                className="flex-1 resize-none rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50" />
+                className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
               <button onClick={() => send(input)} disabled={loading || !input.trim()}
                 className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
                 Send
@@ -501,12 +501,22 @@ function ConsultMode() {
 
 // ── Board mode ─────────────────────────────────────────────────────────────────
 
+interface BoardSession { id: string; ts: number; question: string; result: AdvisoryResult }
+const LS_BOARD_LOG = 'lcars-board-log';
+
 function BoardMode() {
   const [input, setInput] = useState('');
   const [isScenario, setIsScenario] = useState(false);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<AdvisoryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [log, setLog] = useState<BoardSession[]>([]);
+  const [showLog, setShowLog] = useState(false);
+  const elapsed = useElapsed(loading);
+
+  useEffect(() => {
+    try { const raw = localStorage.getItem(LS_BOARD_LOG); if (raw) setLog(JSON.parse(raw) as BoardSession[]); } catch { /* ignore */ }
+  }, []);
 
   const submit = async () => {
     const trimmed = input.trim();
@@ -517,16 +527,60 @@ function BoardMode() {
       const res = await fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'advice', question }) });
       const data = (await res.json()) as { result?: AdvisoryResult; error?: string };
       if (data.error) { setError(data.error); return; }
-      setSummary(data.result ?? (data as unknown as AdvisoryResult));
+      const result = data.result ?? (data as unknown as AdvisoryResult);
+      setSummary(result);
+      const session: BoardSession = { id: Date.now().toString(), ts: Date.now(), question, result };
+      setLog((prev) => { const next = [session, ...prev].slice(0, 30); try { localStorage.setItem(LS_BOARD_LOG, JSON.stringify(next)); } catch { /**/ } return next; });
     } catch (err) { setError((err as Error).message); }
     finally { setLoading(false); }
+  };
+
+  const exportLog = () => {
+    const lines = [`# Advisory Board Export\n`];
+    log.forEach((s) => {
+      lines.push(`## ${new Date(s.ts).toLocaleString()}\n**Question:** ${s.question}\n`);
+      if (s.result.executive_summary) lines.push(`**Summary:** ${s.result.executive_summary}\n`);
+      if (s.result.recommendation) lines.push(`**Recommendation:** ${s.result.recommendation}\n`);
+      lines.push('---\n');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'board-export.md'; a.click();
   };
 
   const perspectives = summary?.officer_perspectives ?? [];
 
   return (
-    <LCARSPanel title="Advisory Board" accent="science">
+    <LCARSPanel title="Advisory Board" accent="science"
+      actions={
+        log.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowLog((v) => !v)} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+              {showLog ? 'Hide Log' : `Log (${log.length})`}
+            </button>
+            <button onClick={exportLog} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+              Export ↓
+            </button>
+          </div>
+        ) : undefined
+      }>
       <div className="space-y-4">
+
+        {showLog && log.length > 0 && (
+          <div className="rounded-lcars border border-edge bg-panel/40 p-3 space-y-2 max-h-56 overflow-y-auto">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Session History</p>
+            {log.map((s) => (
+              <div key={s.id} className="flex items-start justify-between gap-2 border-b border-edge/40 pb-2 last:border-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-lcars-text/80 truncate">{s.question}</p>
+                  <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()}</p>
+                </div>
+                <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); }}
+                  className="shrink-0 text-[9px] text-science hover:text-science/70 uppercase tracking-widest">View</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-xs text-lcars-muted uppercase tracking-wider">Mode</span>
@@ -542,9 +596,9 @@ function BoardMode() {
             {isScenario && <span className="text-[10px] text-science/70 italic">What would happen if…</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={2}
+            <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
               placeholder={isScenario ? 'What would happen if…' : 'Bring a question to the Advisory Board…'} disabled={loading}
-              className="flex-1 resize-none rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50" />
+              className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
             <button onClick={submit} disabled={loading || !input.trim()}
               className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
               Convene
@@ -556,6 +610,7 @@ function BoardMode() {
           <div className="flex items-center gap-3 py-4">
             {[0, 1, 2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i * 150}ms` }} />)}
             <span className="text-lcars-muted text-sm">Convening Advisory Board…</span>
+            <span className="text-[10px] text-lcars-muted font-mono ml-auto">{elapsed}s</span>
           </div>
         )}
         {error && (
@@ -570,19 +625,19 @@ function BoardMode() {
             {perspectives.length > 0 && (
               <div>
                 <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Officer Perspectives</p>
-                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+                <div className="space-y-2">
                   {perspectives.map((op, i) => {
                     const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase());
                     const accentClass = advisor?.accent ?? 'text-science';
                     const stance = op.stance ?? '';
                     const stanceColor = stance === 'supports' ? 'text-medical' : stance === 'cautions' ? 'text-operations' : 'text-lcars-muted';
                     return (
-                      <div key={i} className="rounded-lcars border border-edge bg-panel/50 px-3 py-2.5 space-y-1.5">
+                      <div key={i} className="rounded-lcars border border-edge bg-panel/50 px-4 py-3 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className={`text-[10px] uppercase tracking-wider font-semibold ${accentClass}`}>{op.officer}</p>
+                          <p className={`text-[11px] uppercase tracking-wider font-semibold ${accentClass}`}>{op.officer}</p>
                           {stance && <span className={`text-[9px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
                         </div>
-                        <p className="text-xs text-lcars-text/85 leading-relaxed">{op.recommendation}</p>
+                        <p className="text-sm text-lcars-text/85 leading-relaxed">{op.recommendation}</p>
                         {op.confidence !== undefined && <p className="text-[9px] text-lcars-muted">Confidence: {op.confidence}%</p>}
                       </div>
                     );
@@ -709,7 +764,21 @@ function IntelligenceMode() {
 // ── Perspectives mode (MSN-0204) ───────────────────────────────────────────────
 
 interface Perspective { name: string; label: string }
-interface PerspectiveResponse { perspective: Perspective; content: string; response: string; loading: boolean; error: string | null }
+interface PerspectiveResponse { perspective: Perspective; content: string; response: string; loading: boolean; error: string | null; elapsed?: number }
+interface PerspectiveSession { id: string; ts: number; question: string; responses: { label: string; response: string }[] }
+
+const LS_PERSPECTIVES_LOG = 'lcars-perspectives-log';
+
+function useElapsed(active: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (active) { setElapsed(0); ref.current = setInterval(() => setElapsed((s) => s + 1), 1000); }
+    else { if (ref.current) clearInterval(ref.current); }
+    return () => { if (ref.current) clearInterval(ref.current); };
+  }, [active]);
+  return elapsed;
+}
 
 function PerspectivesMode() {
   const [available, setAvailable] = useState<Perspective[]>([]);
@@ -717,61 +786,137 @@ function PerspectivesMode() {
   const [input, setInput] = useState('');
   const [responses, setResponses] = useState<PerspectiveResponse[]>([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [anyLoading, setAnyLoading] = useState(false);
+  const [log, setLog] = useState<PerspectiveSession[]>([]);
+  const [showLog, setShowLog] = useState(false);
+  const elapsed = useElapsed(anyLoading);
 
   useEffect(() => {
     fetch('/api/perspectives')
       .then((r) => r.json())
       .then((d: { perspectives?: Perspective[] }) => { setAvailable(d.perspectives ?? []); setLoadingList(false); })
       .catch(() => setLoadingList(false));
+    try {
+      const raw = localStorage.getItem(LS_PERSPECTIVES_LOG);
+      if (raw) setLog(JSON.parse(raw) as PerspectiveSession[]);
+    } catch { /* ignore */ }
   }, []);
 
+  const saveLog = (sessions: PerspectiveSession[]) => {
+    setLog(sessions);
+    try { localStorage.setItem(LS_PERSPECTIVES_LOG, JSON.stringify(sessions.slice(-50))); } catch { /* ignore */ }
+  };
+
   const toggleSelect = (name: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
+    setSelected((prev) => { const next = new Set(prev); next.has(name) ? next.delete(name) : next.add(name); return next; });
+  };
+
+  const askPerspective = async (p: Perspective, trimmed: string, idx: number) => {
+    try {
+      const contentRes = await fetch(`/api/perspectives?name=${p.name}`);
+      const contentData = (await contentRes.json()) as { content?: string; error?: string };
+      if (contentData.error || !contentData.content) throw new Error(contentData.error ?? 'No content');
+      const chatRes = await fetch('/api/ai/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: trimmed }], systemPrompt: contentData.content, stream: false }),
+      });
+      const chatData = (await chatRes.json()) as { content?: string; error?: string };
+      if (chatData.error) throw new Error(chatData.error);
+      setResponses((prev) => prev.map((r, i) => i === idx ? { ...r, response: chatData.content ?? '', loading: false } : r));
+    } catch (err) {
+      setResponses((prev) => prev.map((r, i) => i === idx ? { ...r, loading: false, error: (err as Error).message } : r));
+    }
+  };
+
+  const convene = async (overrideNames?: string[]) => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    const names = overrideNames ?? [...selected];
+    if (names.length === 0) return;
+    const chosen = available.filter((p) => names.includes(p.name));
+
+    setResponses((prev) => {
+      // If re-running specific ones, reset just those slots; otherwise reset all
+      if (overrideNames) {
+        return prev.map((r) => names.includes(r.perspective.name) ? { ...r, response: '', loading: true, error: null } : r);
+      }
+      return chosen.map((p) => ({ perspective: p, content: '', response: '', loading: true, error: null }));
+    });
+    setAnyLoading(true);
+
+    await Promise.all(chosen.map((p, i) => {
+      const idx = overrideNames ? responses.findIndex((r) => r.perspective.name === p.name) : i;
+      return askPerspective(p, trimmed, idx);
+    }));
+
+    setAnyLoading(false);
+
+    // Save to log
+    setResponses((current) => {
+      const completed = current.filter((r) => r.response && !r.loading);
+      if (completed.length > 0) {
+        const session: PerspectiveSession = {
+          id: Date.now().toString(), ts: Date.now(), question: trimmed,
+          responses: completed.map((r) => ({ label: r.perspective.label, response: r.response })),
+        };
+        setLog((prev) => { const next = [session, ...prev].slice(0, 50); try { localStorage.setItem(LS_PERSPECTIVES_LOG, JSON.stringify(next)); } catch { /**/ } return next; });
+      }
+      return current;
     });
   };
 
-  const convene = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || selected.size === 0) return;
-    const chosen = available.filter((p) => selected.has(p.name));
-
-    // Initialise response slots
-    setResponses(chosen.map((p) => ({ perspective: p, content: '', response: '', loading: true, error: null })));
-
-    // Fetch content for each perspective then call /api/ai/chat
-    await Promise.all(chosen.map(async (p, idx) => {
-      try {
-        const contentRes = await fetch(`/api/perspectives?name=${p.name}`);
-        const contentData = (await contentRes.json()) as { content?: string; error?: string };
-        if (contentData.error || !contentData.content) throw new Error(contentData.error ?? 'No content');
-
-        const chatRes = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: trimmed }],
-            systemPrompt: contentData.content,
-            stream: false,
-          }),
-        });
-        const chatData = (await chatRes.json()) as { content?: string; error?: string };
-        if (chatData.error) throw new Error(chatData.error);
-
-        setResponses((prev) => prev.map((r, i) => i === idx ? { ...r, response: chatData.content ?? '', loading: false } : r));
-      } catch (err) {
-        setResponses((prev) => prev.map((r, i) => i === idx ? { ...r, loading: false, error: (err as Error).message } : r));
-      }
-    }));
+  const exportSession = () => {
+    const lines: string[] = [`# Advisory Perspectives Export\n`];
+    log.forEach((s) => {
+      lines.push(`## ${new Date(s.ts).toLocaleString()}`);
+      lines.push(`**Question:** ${s.question}\n`);
+      s.responses.forEach((r) => { lines.push(`### ${r.label}\n${r.response}\n`); });
+      lines.push('---\n');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'perspectives-export.md'; a.click();
   };
 
   const hasActive = responses.length > 0;
+  const totalLoading = responses.filter((r) => r.loading).length;
 
   return (
-    <LCARSPanel title="Distinguished Perspectives" accent="science">
+    <LCARSPanel title="Distinguished Perspectives" accent="science"
+      actions={
+        <div className="flex items-center gap-2">
+          {log.length > 0 && (
+            <>
+              <button onClick={() => setShowLog((v) => !v)}
+                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+                {showLog ? 'Hide Log' : `Log (${log.length})`}
+              </button>
+              <button onClick={exportSession}
+                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors">
+                Export ↓
+              </button>
+            </>
+          )}
+        </div>
+      }>
       <div className="space-y-4">
+
+        {/* Session log */}
+        {showLog && log.length > 0 && (
+          <div className="rounded-lcars border border-edge bg-panel/40 p-3 space-y-3 max-h-64 overflow-y-auto">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Session History</p>
+            {log.map((s) => (
+              <div key={s.id} className="space-y-1 border-b border-edge/40 pb-2 last:border-0">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs text-lcars-text/80 flex-1">{s.question}</p>
+                  <button onClick={() => { setInput(s.question); setShowLog(false); }}
+                    className="shrink-0 text-[9px] text-science hover:text-science/70 uppercase tracking-widest">Re-ask</button>
+                </div>
+                <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3">
           {loadingList ? (
             <p className="text-lcars-muted text-sm">Loading perspectives…</p>
@@ -795,32 +940,61 @@ function PerspectivesMode() {
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             <textarea value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); convene(); } }}
-              rows={2} placeholder="What would these perspectives emphasise?" disabled={selected.size === 0}
-              className="flex-1 resize-none rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50" />
-            <button onClick={convene} disabled={selected.size === 0 || !input.trim()}
+              rows={3} placeholder="What would these perspectives emphasise?" disabled={selected.size === 0 || anyLoading}
+              className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
+            <button onClick={() => convene()} disabled={selected.size === 0 || !input.trim() || anyLoading}
               className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-space transition-opacity hover:opacity-80 disabled:opacity-40">
               Ask
             </button>
           </div>
-          {selected.size === 0 && <p className="text-[10px] text-lcars-muted">Select at least one perspective above.</p>}
+          {selected.size === 0 && !anyLoading && <p className="text-[10px] text-lcars-muted">Select at least one perspective above.</p>}
         </div>
 
+        {/* Loading state with timer */}
+        {anyLoading && (
+          <div className="flex items-center gap-3 py-2">
+            {[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}
+            <span className="text-lcars-muted text-sm">
+              Gathering {totalLoading} perspective{totalLoading !== 1 ? 's' : ''}…
+            </span>
+            <span className="text-[10px] text-lcars-muted font-mono ml-auto">{elapsed}s</span>
+          </div>
+        )}
+
+        {/* Full-width stacked responses */}
         {hasActive && (
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          <div className="space-y-4">
             {responses.map((r, i) => (
-              <div key={i} className="rounded-lcars border border-edge bg-panel/50 px-3 py-3 space-y-2">
-                <p className="text-[10px] uppercase tracking-widest text-science font-semibold">{r.perspective.label}</p>
-                {r.loading && (
+              <div key={i} className="rounded-lcars border border-edge bg-panel/50">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-edge/50">
+                  <button
+                    onClick={() => toggleSelect(r.perspective.name)}
+                    className="text-[11px] uppercase tracking-widest text-science font-semibold hover:text-science/70 transition-colors">
+                    {r.perspective.label}
+                  </button>
                   <div className="flex items-center gap-2">
-                    {[0,1,2].map((j) => <span key={j} className="h-1.5 w-1.5 animate-pulse rounded-full bg-science" style={{ animationDelay: `${j*150}ms` }} />)}
+                    {r.response && !r.loading && (
+                      <button onClick={() => convene([r.perspective.name])} disabled={anyLoading || !input.trim()}
+                        className="text-[9px] uppercase tracking-widest text-lcars-muted hover:text-science transition-colors disabled:opacity-40">
+                        ↺ Regenerate
+                      </button>
+                    )}
+                    {r.loading && (
+                      <div className="flex items-center gap-1.5">
+                        {[0,1,2].map((j) => <span key={j} className="h-1.5 w-1.5 animate-pulse rounded-full bg-science" style={{ animationDelay: `${j*150}ms` }} />)}
+                      </div>
+                    )}
                   </div>
-                )}
-                {r.error && <p className="text-xs text-operations">{r.error}</p>}
-                {r.response && !r.loading && (
-                  <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command text-xs">
-                    <ReactMarkdown>{r.response}</ReactMarkdown>
-                  </div>
-                )}
+                </div>
+                <div className="px-4 py-3">
+                  {r.error && <p className="text-sm text-operations">{r.error}</p>}
+                  {!r.loading && !r.error && !r.response && <p className="text-sm text-lcars-muted">No response.</p>}
+                  {r.response && !r.loading && (
+                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-1.5 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command prose-code:bg-space/60 prose-code:px-1 prose-code:rounded text-sm leading-relaxed">
+                      <ReactMarkdown>{r.response}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
