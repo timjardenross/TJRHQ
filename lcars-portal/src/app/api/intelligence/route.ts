@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
         const ev = eventMap[s.event_id_text] ?? {};
         return {
           ...s,
+          event_id: s.event_id_text,
           raw_title: ev.raw_title ?? '(no title)',
           raw_summary: ev.raw_summary ?? null,
           canonical_url: ev.canonical_url ?? null,
