@@ -101,37 +101,50 @@ function LatestBrief({ d }: { d: any }) {
   );
 }
 
+function deriveRisk(s: any): string {
+  const ci = s.customer_impact ?? '';
+  const br = s.banking_relevance ?? '';
+  if (ci === 'high' || br === 'high') return 'HIGH';
+  if (ci === 'medium' || br === 'medium') return 'MEDIUM';
+  if (ci === 'low' || br === 'low') return 'LOW';
+  return '';
+}
+
 function SignalsView({ d }: { d: any }) {
   const signals: any[] = d.signals ?? [];
   if (!signals.length) return <p className="text-sm text-lcars-muted">No signals found for this period.</p>;
   return (
     <div className="flex flex-col gap-2">
-      {signals.map((s, i) => (
-        <div key={i} className="rounded-lcars border border-edge bg-panel/30 p-3">
-          <div className="flex items-start gap-2">
-            <span>{RISK_ICON[s.risk_rating] ?? '⚪'}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm leading-snug">
-                {s.canonical_url ? (
-                  <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
-                     className="hover:underline text-lcars-text">
-                    {s.raw_title}
-                  </a>
-                ) : s.raw_title}
-              </p>
-              {s.raw_summary && (
-                <p className="text-xs text-lcars-muted mt-1 line-clamp-2">{s.raw_summary}</p>
-              )}
-              <div className="flex gap-3 mt-1 text-xs text-lcars-muted flex-wrap">
-                {s.event_type && <span>{s.event_type}</span>}
-                {s.geography  && <span>📍 {s.geography}</span>}
-                {s.rank_score != null && <span>Score {s.rank_score}</span>}
-                <span>{(s.collected_at ?? '').slice(0, 10)}</span>
+      {signals.map((s, i) => {
+        const risk = deriveRisk(s);
+        return (
+          <div key={i} className="rounded-lcars border border-edge bg-panel/30 p-3">
+            <div className="flex items-start gap-2">
+              <span>{RISK_ICON[risk] ?? '⚪'}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm leading-snug">
+                  {s.canonical_url ? (
+                    <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
+                       className="hover:underline text-lcars-text">
+                      {s.raw_title}
+                    </a>
+                  ) : s.raw_title}
+                </p>
+                {s.raw_summary && (
+                  <p className="text-xs text-lcars-muted mt-1 line-clamp-2">{s.raw_summary}</p>
+                )}
+                <div className="flex gap-3 mt-1 text-xs text-lcars-muted flex-wrap">
+                  {s.event_type && <span>{s.event_type}</span>}
+                  {s.geography  && <span>📍 {s.geography}</span>}
+                  {risk         && <span className={RISK_COLOUR[risk]}>{risk}</span>}
+                  {s.rank_score != null && <span>Score {s.rank_score}</span>}
+                  <span>{(s.collected_at ?? '').slice(0, 10)}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -180,6 +193,16 @@ function ThemesView({ d }: { d: any }) {
 function SourcesView({ d }: { d: any }) {
   const sources: any[] = d.sources ?? [];
   const sum = d.summary ?? {};
+
+  if (!sources.length) {
+    return (
+      <Card title="Sources">
+        <p className="text-lcars-muted">No intelligence sources registered yet.</p>
+        <p className="text-xs text-lcars-muted mt-1">Sources are populated automatically when the intelligence collector runs. Check <code>intelligence/collectors/</code> and ensure the source registry is seeded.</p>
+      </Card>
+    );
+  }
+
   const failed = sources.filter(s => s.health?.status === 'failed');
   const stale  = sources.filter(s => s.health?.status === 'stale');
   const ok     = sources.filter(s => s.health?.status === 'ok');
@@ -241,24 +264,62 @@ function SourcesView({ d }: { d: any }) {
 
 function ArchiveView({ d }: { d: any }) {
   const briefs: any[] = d.briefs ?? [];
+  const [expanded, setExpanded] = useState<string | null>(null);
   if (!briefs.length) return <p className="text-sm text-lcars-muted">No briefs in archive.</p>;
   return (
     <div className="flex flex-col gap-2">
-      {briefs.map((b, i) => (
-        <div key={i} className="rounded-lcars border border-edge bg-panel/30 p-3 flex items-center justify-between">
-          <div>
-            <span className="font-mono text-xs text-lcars-muted">{(b.brief_id ?? '').slice(0, 8)}</span>
-            <span className="ml-2 text-sm">
-              {(b.period_start ?? '').slice(0, 10)} → {(b.period_end ?? '').slice(0, 10)}
-            </span>
+      {briefs.map((b, i) => {
+        const id = b.brief_id ?? String(i);
+        const isOpen = expanded === id;
+        return (
+          <div key={id} className="rounded-lcars border border-edge bg-panel/30">
+            <button
+              type="button"
+              onClick={() => setExpanded(isOpen ? null : id)}
+              className="w-full flex items-center justify-between p-3 text-left hover:bg-panel/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lcars-muted text-xs">{isOpen ? '▼' : '▶'}</span>
+                <span className="font-mono text-xs text-lcars-muted">{id.slice(0, 8)}</span>
+                <span className="text-sm text-lcars-text">
+                  {(b.period_start ?? '').slice(0, 10)} → {(b.period_end ?? '').slice(0, 10)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-lcars-muted">
+                <RiskBadge risk={b.overall_risk} />
+                <span>{b.events_included ?? 0} events</span>
+                <span>{b.narrative_available ? '✍️' : '📊'}</span>
+                <span className="text-lcars-muted">{(b.generated_at ?? '').slice(0, 10)}</span>
+              </div>
+            </button>
+            {isOpen && (
+              <div className="border-t border-edge px-4 py-3 text-sm text-lcars-text space-y-2">
+                {b.executive_snapshot && <p>{b.executive_snapshot}</p>}
+                {b.bottom_line && <p className="italic text-lcars-muted">{b.bottom_line}</p>}
+                {b.emerging_themes && Array.isArray(b.emerging_themes) && b.emerging_themes.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-lcars-muted mb-1">Emerging Themes</p>
+                    <ul className="list-disc pl-5 space-y-0.5 text-xs">
+                      {b.emerging_themes.slice(0, 5).map((t: any, ti: number) => (
+                        <li key={ti}>{typeof t === 'string' ? t : (t.theme ?? t.title ?? JSON.stringify(t))}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {b.forward_watch && (
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-lcars-muted mb-1">Forward Watch</p>
+                    <p className="text-xs">{typeof b.forward_watch === 'string' ? b.forward_watch : JSON.stringify(b.forward_watch)}</p>
+                  </div>
+                )}
+                <p className="text-xs text-lcars-muted pt-1">
+                  {b.sources_checked ?? 0} sources · {b.provider_used ?? '—'}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-lcars-muted">
-            <RiskBadge risk={b.overall_risk} />
-            <span>{b.events_included ?? 0} events</span>
-            <span>{b.narrative_available ? '✍️' : '📊'}</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

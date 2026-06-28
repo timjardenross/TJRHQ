@@ -39,14 +39,16 @@ export async function GET(req: NextRequest) {
     // ── Intelligence signals (events) ────────────────────────────────────────
     if (view === 'signals') {
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      // risk_rating is not a DB column — risk is derived from customer_impact/banking_relevance
       let query = sb
         .from('intelligence_events')
-        .select('event_id,raw_title,raw_summary,event_type,geography,risk_rating,rank_score,collected_at,canonical_url,customer_impact,banking_relevance,cps230_relevance')
+        .select('event_id,raw_title,raw_summary,event_type,geography,rank_score,collected_at,canonical_url,customer_impact,banking_relevance,cps230_relevance')
         .eq('suppressed', false)
         .gte('collected_at', since)
         .order('rank_score', { ascending: false })
         .limit(limit);
-      if (risk)  query = query.eq('risk_rating', risk.toUpperCase());
+      // Map UI risk filter (HIGH/MEDIUM/LOW) → customer_impact (high/medium/low)
+      if (risk)  query = query.eq('customer_impact', risk.toLowerCase());
       if (type)  query = query.ilike('event_type', `%${type}%`);
       const { data, error } = await query;
       if (error) throw error;
@@ -83,7 +85,7 @@ export async function GET(req: NextRequest) {
     if (view === 'archive') {
       const { data, error } = await sb
         .from('intelligence_briefs')
-        .select('brief_id,generated_at,period_start,period_end,overall_risk,events_included,narrative_available,sources_checked,provider_used')
+        .select('brief_id,generated_at,period_start,period_end,overall_risk,events_included,narrative_available,sources_checked,provider_used,executive_snapshot,bottom_line,emerging_themes,forward_watch')
         .order('generated_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
