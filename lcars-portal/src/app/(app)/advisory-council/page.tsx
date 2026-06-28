@@ -309,6 +309,14 @@ const COUNCIL: CouncilAdvisor[] = [
   { id: 'bc_advisor',       label: 'BC Advisor',       subtitle: 'Business Continuity',       accent: 'text-operations-on', group: 'Resilience' },
   { id: 'crisis_advisor',   label: 'Crisis Advisor',   subtitle: 'Crisis Management',         accent: 'text-operations-on', group: 'Resilience' },
   { id: 'executive_risk_advisor', label: 'Risk Advisor', subtitle: 'Executive Risk',          accent: 'text-operations-on', group: 'Resilience' },
+
+  // ── Advisory Board — Independent Strategic Council ──────────────────────────
+  { id: 'strategist',            label: 'Strategist',    subtitle: 'Long-Range Strategy',   accent: 'text-science-on',     group: 'Advisory Board' },
+  { id: 'challenger',            label: 'Challenger',    subtitle: "Devil's Advocate",       accent: 'text-alert-on',       group: 'Advisory Board' },
+  { id: 'operator',              label: 'Operator',      subtitle: 'Execution Reality',      accent: 'text-engineering-on', group: 'Advisory Board' },
+  { id: 'external_lens',         label: 'Ext. Lens',     subtitle: 'Market & World View',    accent: 'text-science-on',     group: 'Advisory Board' },
+  { id: 'commercial_realist',    label: 'Commercial',    subtitle: 'Commercial Viability',   accent: 'text-command-on',     group: 'Advisory Board' },
+  { id: 'human_systems_advisor', label: 'Human Systems', subtitle: 'People & Culture',       accent: 'text-medical-on',     group: 'Advisory Board' },
 ];
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
