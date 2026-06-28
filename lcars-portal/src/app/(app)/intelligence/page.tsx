@@ -8,13 +8,12 @@ import { useEffect, useState, type ReactNode } from 'react';
  * Tabs: Latest Brief | Signals | Themes | Sources | Archive | Daily Briefs
  */
 
-type Tab = 'latest' | 'signals' | 'themes' | 'sources' | 'archive' | 'daily_briefs';
+type Tab = 'latest' | 'signals' | 'themes' | 'archive' | 'daily_briefs';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'latest',       label: 'Latest Brief' },
   { key: 'signals',      label: 'Signals' },
   { key: 'themes',       label: 'Themes' },
-  { key: 'sources',      label: 'Sources' },
   { key: 'archive',      label: 'ORI Archive' },
   { key: 'daily_briefs', label: 'Daily Briefs' },
 ];
@@ -25,7 +24,6 @@ const RISK_COLOUR: Record<string, string> = {
   LOW:    'text-green-400',
 };
 const RISK_ICON: Record<string, string> = { HIGH: '🔴', MEDIUM: '🟡', LOW: '🟢' };
-const STATUS_ICON: Record<string, string> = { ok: '✅', stale: '🟡', failed: '❌', degraded: '⚠️', skipped: '⏭' };
 
 async function fetchIntel(params: Record<string, string>): Promise<unknown> {
   const qs = new URLSearchParams(params).toString();
@@ -110,41 +108,82 @@ function deriveRisk(s: any): string {
   return '';
 }
 
+function SignalCard({ s }: { s: any }) {
+  const [open, setOpen] = useState(false);
+  const risk = deriveRisk(s);
+  const themes: string[] = Array.isArray(s.resilience_themes)
+    ? s.resilience_themes
+    : typeof s.resilience_themes === 'object' && s.resilience_themes
+      ? Object.values(s.resilience_themes as Record<string, string>)
+      : [];
+
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/30">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-start gap-2 p-3 text-left hover:bg-panel/50 transition-colors"
+      >
+        <span className="mt-0.5 shrink-0">{RISK_ICON[risk] ?? '⚪'}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm leading-snug text-lcars-text">{s.raw_title}</p>
+          {!open && s.raw_summary && (
+            <p className="text-xs text-lcars-muted mt-1 line-clamp-2">{s.raw_summary}</p>
+          )}
+          <div className="flex gap-3 mt-1 text-xs text-lcars-muted flex-wrap">
+            {s.event_type && <span className="capitalize">{s.event_type.replace(/_/g,' ')}</span>}
+            {s.organisation && <span>🏢 {s.organisation}</span>}
+            {s.geography  && <span>📍 {s.geography}</span>}
+            {risk         && <span className={RISK_COLOUR[risk]}>{risk}</span>}
+            {s.rank_score != null && <span>Score {Number(s.rank_score).toFixed(1)}</span>}
+            <span>{(s.collected_at ?? '').slice(0, 10)}</span>
+          </div>
+        </div>
+        <span className="text-[10px] text-lcars-muted shrink-0 mt-1">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-edge/50 px-4 py-3 space-y-3 text-sm">
+          {s.raw_summary && (
+            <p className="text-lcars-text/90 leading-relaxed">{s.raw_summary}</p>
+          )}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+            {s.sector            && <span className="text-lcars-muted">Sector <span className="text-lcars-text ml-1">{s.sector}</span></span>}
+            {s.banking_relevance && <span className="text-lcars-muted">Banking rel. <span className="text-lcars-text ml-1 capitalize">{s.banking_relevance}</span></span>}
+            {s.customer_impact   && <span className="text-lcars-muted">Customer impact <span className="text-lcars-text ml-1 capitalize">{s.customer_impact}</span></span>}
+            {s.executive_relevance && <span className="text-lcars-muted">Exec relevance <span className="text-lcars-text ml-1 capitalize">{s.executive_relevance}</span></span>}
+            {s.cps230_relevance  && <span className="text-science">CPS 230 relevant</span>}
+            {s.dependency_risk   && <span className="text-operations">Dependency risk</span>}
+            {s.source_ref        && <span className="text-lcars-muted col-span-2">Source <span className="text-lcars-text ml-1">{s.source_ref}</span></span>}
+          </div>
+          {themes.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Resilience Themes</p>
+              <div className="flex flex-wrap gap-1.5">
+                {themes.map((t, i) => (
+                  <span key={i} className="rounded-lcars border border-science/30 bg-science/5 px-2 py-0.5 text-xs text-science">{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {s.canonical_url && (
+            <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
+               className="inline-block text-xs text-science hover:underline">
+              View source ↗
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SignalsView({ d }: { d: any }) {
   const signals: any[] = d.signals ?? [];
   if (!signals.length) return <p className="text-sm text-lcars-muted">No signals found for this period.</p>;
   return (
     <div className="flex flex-col gap-2">
-      {signals.map((s, i) => {
-        const risk = deriveRisk(s);
-        return (
-          <div key={i} className="rounded-lcars border border-edge bg-panel/30 p-3">
-            <div className="flex items-start gap-2">
-              <span>{RISK_ICON[risk] ?? '⚪'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm leading-snug">
-                  {s.canonical_url ? (
-                    <a href={s.canonical_url} target="_blank" rel="noopener noreferrer"
-                       className="hover:underline text-lcars-text">
-                      {s.raw_title}
-                    </a>
-                  ) : s.raw_title}
-                </p>
-                {s.raw_summary && (
-                  <p className="text-xs text-lcars-muted mt-1 line-clamp-2">{s.raw_summary}</p>
-                )}
-                <div className="flex gap-3 mt-1 text-xs text-lcars-muted flex-wrap">
-                  {s.event_type && <span>{s.event_type}</span>}
-                  {s.geography  && <span>📍 {s.geography}</span>}
-                  {risk         && <span className={RISK_COLOUR[risk]}>{risk}</span>}
-                  {s.rank_score != null && <span>Score {s.rank_score}</span>}
-                  <span>{(s.collected_at ?? '').slice(0, 10)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {signals.map((s, i) => <SignalCard key={s.event_id ?? i} s={s} />)}
     </div>
   );
 }
@@ -190,77 +229,6 @@ function ThemesView({ d }: { d: any }) {
   );
 }
 
-function SourcesView({ d }: { d: any }) {
-  const sources: any[] = d.sources ?? [];
-  const sum = d.summary ?? {};
-
-  if (!sources.length) {
-    return (
-      <Card title="Sources">
-        <p className="text-lcars-muted">No intelligence sources registered yet.</p>
-        <p className="text-xs text-lcars-muted mt-1">Sources are populated automatically when the intelligence collector runs. Check <code>intelligence/collectors/</code> and ensure the source registry is seeded.</p>
-      </Card>
-    );
-  }
-
-  const failed = sources.filter(s => s.health?.status === 'failed');
-  const stale  = sources.filter(s => s.health?.status === 'stale');
-  const ok     = sources.filter(s => s.health?.status === 'ok');
-  const other  = sources.filter(s => !['ok','failed','stale'].includes(s.health?.status ?? ''));
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Card title="Summary">
-        <div className="flex gap-6 text-sm">
-          <span>✅ {sum.ok ?? 0} ok</span>
-          <span>🟡 {sum.stale ?? 0} stale</span>
-          <span>❌ {sum.failed ?? 0} failed</span>
-          <span className="text-lcars-muted">{sum.total ?? 0} total</span>
-        </div>
-      </Card>
-      {failed.length > 0 && (
-        <Card title="Failed Sources">
-          <ul className="space-y-1">
-            {failed.map((s, i) => (
-              <li key={i} className="text-red-400">
-                ❌ <strong>{s.source_name}</strong>
-                {s.health?.error_message && <span className="text-xs ml-2 text-lcars-muted">{s.health.error_message.slice(0, 80)}</span>}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-      {stale.length > 0 && (
-        <Card title="Stale Sources">
-          <ul className="space-y-1">
-            {stale.map((s, i) => (
-              <li key={i} className="text-yellow-400">
-                🟡 <strong>{s.source_name}</strong>
-                <span className="text-xs ml-2 text-lcars-muted">{(s.health?.checked_at ?? '').slice(0, 10)}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-      <Card title={`All Sources (${sources.length})`}>
-        <div className="grid gap-1 sm:grid-cols-2">
-          {[...ok, ...other].map((s, i) => {
-            const st = s.health?.status ?? 'unknown';
-            const icon = STATUS_ICON[st] ?? '❓';
-            const items = s.health?.items_retrieved;
-            return (
-              <div key={i} className="text-xs flex items-center gap-1">
-                <span>{icon}</span>
-                <span className="truncate">{s.source_name}</span>
-                {items != null && <span className="text-lcars-muted shrink-0">({items})</span>}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-    </div>
-  );
-}
 
 function ArchiveView({ d }: { d: any }) {
   const briefs: any[] = d.briefs ?? [];
@@ -450,11 +418,10 @@ export default function IntelligencePage() {
         <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
-      {!loading && data && tab === 'latest'       && <LatestBrief   d={data} />}
-      {!loading && data && tab === 'signals'      && <SignalsView    d={data} />}
-      {!loading && data && tab === 'themes'       && <ThemesView     d={data} />}
-      {!loading && data && tab === 'sources'      && <SourcesView    d={data} />}
-      {!loading && data && tab === 'archive'      && <ArchiveView    d={data} />}
+      {!loading && data && tab === 'latest'       && <LatestBrief    d={data} />}
+      {!loading && data && tab === 'signals'      && <SignalsView     d={data} />}
+      {!loading && data && tab === 'themes'       && <ThemesView      d={data} />}
+      {!loading && data && tab === 'archive'      && <ArchiveView     d={data} />}
       {!loading && data && tab === 'daily_briefs' && <DailyBriefsView d={data} />}
     </div>
   );
