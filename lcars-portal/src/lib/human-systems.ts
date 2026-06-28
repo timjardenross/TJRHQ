@@ -259,8 +259,52 @@ function daysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+export interface RecoveryPulse {
+  log_date: string;
+  pulse_type: string;
+  captured_at: string;
+  energy: string | null;
+  mood: string | null;
+  stress: string | null;
+  readiness: string | null;
+  pain_score: number | null;
+  notes: string | null;
+}
+
+/** Map stress → nervous_system_state for capacity scoring. */
+function stressToNsState(stress: string | null): string | null {
+  if (!stress) return null;
+  return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
+}
+
+/** Map readiness → captain_capacity_rating. */
+function readinessToCapacity(readiness: string | null): string | null {
+  if (!readiness) return null;
+  return ({ high: 'green', moderate: 'amber', low: 'red' } as Record<string, string>)[readiness] ?? null;
+}
+
+/**
+ * Merge a Captain's Log row with the most-recent pulse for that day.
+ * Pulse wins on energy/mood/pain/nervous_system_state — they are more current.
+ * Log wins on sleep_hours/movement_completed/sitting_tolerance — pulses don't carry these.
+ */
+function mergeWithPulse(log: HealthRow | null, pulse: RecoveryPulse | null): HealthRow | null {
+  if (!pulse && !log) return null;
+  if (!pulse) return log;
+  const base: HealthRow = log ?? { log_date: pulse.log_date };
+  return {
+    ...base,
+    energy: pulse.energy ?? base.energy,
+    mood: pulse.mood ?? base.mood,
+    pain_score: pulse.pain_score ?? base.pain_score,
+    nervous_system_state: stressToNsState(pulse.stress) ?? base.nervous_system_state,
+    captain_capacity_rating: readinessToCapacity(pulse.readiness) ?? base.captain_capacity_rating,
+    notes: pulse.notes ?? base.notes,
+  };
+}
+
 /** Fetch recent rows from human_systems_daily. Returns [] when unavailable. */
-export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
+async function fetchLogRows(days: number): Promise<HealthRow[]> {
   if (!supabase) return [];
   try {
     const { data, error } = await supabase
@@ -273,6 +317,53 @@ export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
   } catch {
     return [];
   }
+}
+
+/** Fetch recent recovery pulses — most recent per day returned. */
+async function fetchPulseRows(days: number): Promise<RecoveryPulse[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('recovery_pulses')
+      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes')
+      .gte('log_date', daysAgo(days))
+      .order('captured_at', { ascending: false });
+    if (error || !data) return [];
+    return data as RecoveryPulse[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Merge log rows with pulse data.
+ * Priority: recovery_pulses (real-time) take precedence over log fields for
+ * energy/mood/pain/stress. Log provides sleep, movement, sitting tolerance.
+ * Days with pulses but no log still produce a usable row.
+ */
+export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
+  const [logRows, pulseRows] = await Promise.all([fetchLogRows(days), fetchPulseRows(days)]);
+
+  // Latest pulse per day (pulses already ordered desc by captured_at)
+  const latestPulseByDate = new Map<string, RecoveryPulse>();
+  for (const p of pulseRows) {
+    if (!latestPulseByDate.has(p.log_date)) {
+      latestPulseByDate.set(p.log_date, p);
+    }
+  }
+
+  // All dates represented across both sources
+  const allDates = new Set<string>([
+    ...logRows.map((r) => String(r.log_date)),
+    ...latestPulseByDate.keys(),
+  ]);
+
+  const logByDate = new Map(logRows.map((r) => [String(r.log_date), r]));
+
+  return Array.from(allDates)
+    .sort((a, b) => b.localeCompare(a)) // newest first
+    .map((date) => mergeWithPulse(logByDate.get(date) ?? null, latestPulseByDate.get(date) ?? null))
+    .filter((r): r is HealthRow => r !== null);
 }
 
 // ── HSF-002 decision layer (compact mirror of decision.py) ────────────────────
