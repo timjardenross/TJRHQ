@@ -126,17 +126,20 @@ class ContentSignalBundle:
 
 # ── Source registry lookup ────────────────────────────────────────────────────
 
-def _load_source_useful_life() -> dict[str, int]:
-    """Returns {source_id: useful_life_days} from intelligence_source_registry."""
+def _load_source_metadata() -> dict[str, dict]:
+    """Returns {source_id: {useful_life, category}} from intelligence_source_registry."""
     rows = _get(
         "intelligence_source_registry"
-        "?select=source_id,useful_life_days,terms_reviewed,content_source"
+        "?select=source_id,useful_life_days,category,terms_reviewed,content_source"
         "&active=eq.true"
     )
-    result: dict[str, int] = {}
+    result: dict[str, dict] = {}
     for r in rows:
         life = r.get("useful_life_days")
-        result[r["source_id"]] = int(life) if life else 14
+        result[r["source_id"]] = {
+            "useful_life": int(life) if life else 14,
+            "category": r.get("category") or "",
+        }
     return result
 
 
@@ -197,7 +200,7 @@ class ContentIntelligenceService:
             log.info("content_intelligence_service: no events found for last %d days", days)
             return 0
 
-        source_useful_life = _load_source_useful_life()
+        source_meta = _load_source_metadata()
         approved_sources = _load_approved_source_ids()
         mission_keywords = _load_active_mission_keywords()
 
@@ -207,12 +210,10 @@ class ContentIntelligenceService:
 
         for event in events:
             source_id = event.get("source_id", "")
-            # Source governance gate: only score events from terms_reviewed sources
-            # (all existing ORI sources default to terms_reviewed=false until reviewed)
-            # In MVP, we score all non-suppressed events; governance gate applies to
-            # future content-specific sources only.
-            useful_life = source_useful_life.get(source_id, 14)
-            result = score_for_content(event, mission_keywords, useful_life)
+            meta = source_meta.get(source_id, {})
+            useful_life = meta.get("useful_life", 14)
+            source_category = meta.get("category", "")
+            result = score_for_content(event, mission_keywords, useful_life, source_category=source_category)
             if result is not None:
                 scoreable.append(result)
                 ori_rank_map[result.event_id_text] = float(event.get("rank_score") or 0.0)

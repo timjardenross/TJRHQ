@@ -63,6 +63,7 @@ def score_for_content(
     event: dict,
     active_mission_keywords: Optional[list[str]] = None,
     useful_life_days: int = 14,
+    source_category: str = "",
 ) -> Optional[ContentScore]:
     """
     Score a single intelligence_events row for content relevance.
@@ -80,10 +81,9 @@ def score_for_content(
     # ── Pillar classification ──────────────────────────────────────────────────
     pillar, pillar_score = classify_pillar(text)
 
-    # Wellness is for personally-authored content only. External intelligence
-    # events should never drive it — too many false positives from tech/ops
-    # sources that mention health/recovery tangentially.
-    if pillar.key == "wellness_sustainable_performance":
+    # Wellness signals only come from sources explicitly tagged category='wellness'.
+    # General OR/tech sources produce too many false positives on health keywords.
+    if pillar.key == "wellness_sustainable_performance" and source_category != "wellness":
         return None
 
     # ── Content relevance ──────────────────────────────────────────────────────
