@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 
 /**
  * Intelligence Centre — MSN-0201 rewire.
@@ -505,7 +506,12 @@ function ContentSignalsView({ d }: { d: any }) {
       {/* Pipeline snapshot */}
       {Object.keys(pipeline).length > 0 && (
         <div className="rounded-lcars border border-edge bg-panel/20 p-3">
-          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-2">Content Pipeline</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] uppercase tracking-widest text-lcars-muted">Content Pipeline</p>
+            <Link href="/content" className="text-[10px] uppercase tracking-wide text-science-on hover:text-science-on/70 transition-colors">
+              Manage pipeline →
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-3">
             {pipelineStatuses.map(s => pipeline[s] != null ? (
               <span key={s} className="text-xs text-lcars-text">
