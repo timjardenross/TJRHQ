@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
     const sb = serviceClient();
 
     const body = await req.json();
-    const { event_id, title, pillar_key, suggested_angle, source_name, canonical_url } = body;
+    const { event_id, title, pillar_key, suggested_angle, source_name, canonical_url, notes: rawNotes } = body;
 
-    if (!event_id || !title) {
-      return NextResponse.json({ error: 'event_id and title are required' }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 });
     }
 
     const truncatedTitle = String(title).slice(0, 200);
-    const notes = [
+    const notes = rawNotes ?? [
       suggested_angle ? `Signal: ${suggested_angle}` : null,
       source_name ? `Source: ${source_name}` : null,
       canonical_url ? `URL: ${canonical_url}` : null,
@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
       .insert({
         title: truncatedTitle,
         pillar: pillar_key ?? null,
-        source_kind: 'intelligence_signal',
-        source_ref: event_id,
-        signal_source_id: event_id,
+        source_kind: event_id ? 'intelligence_signal' : 'capture',
+        source_ref: event_id ?? null,
+        signal_source_id: event_id ?? null,
         status: 'opportunity',
         classification: 'publishable',
         notes: notes || null,

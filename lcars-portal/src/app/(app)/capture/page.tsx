@@ -791,6 +791,7 @@ export default function QuickCapturePage() {
   const [showTypes,    setShowTypes]   = useState(false);
   const [saving,       setSaving]      = useState(false);
   const [flash,        setFlash]       = useState<string | null>(null);
+  const [commsCapture, setCommsCapture] = useState(false);
   const [error,        setError]       = useState<string | null>(null);
   const [inboxKey,     setInboxKey]    = useState(0);
   const [inboxFilter,  setInboxFilter] = useState<InboxFilter>('all');
@@ -818,13 +819,15 @@ export default function QuickCapturePage() {
       return;
     }
     const meta = captureTypeMeta(type);
-    setFlash(`${meta.label} captured`);
+    const isComms = type === 'comms';
+    setCommsCapture(isComms);
+    setFlash(isComms ? 'Added to content pipeline' : `${meta.label} captured`);
     setText('');
     setType('note');
     setShowTypes(false);
-    setInboxKey((k) => k + 1);
+    if (!isComms) setInboxKey((k) => k + 1);
     inputRef.current?.focus();
-    setTimeout(() => setFlash(null), 2200);
+    setTimeout(() => { setFlash(null); setCommsCapture(false); }, 2200);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -891,7 +894,10 @@ export default function QuickCapturePage() {
 
       {flash && (
         <div className="rounded-lcars border border-status/50 bg-status/10 px-4 py-3 text-sm font-semibold text-status-on">
-          ✓ {flash} — added to the Capture Inbox.
+          ✓ {flash}
+          {commsCapture ? (
+            <> — <Link href="/content" className="underline text-science-on">view in Content Pipeline →</Link></>
+          ) : ' — added to the Capture Inbox.'}
         </div>
       )}
       {error && (
