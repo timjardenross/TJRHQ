@@ -67,6 +67,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Advisory signals, awareness, operational picture'
   },
   {
+    href: '/comms',
+    label: 'Communications',
+    glyph: 'CP',
+    department: 'command',
+    description: 'Content pipeline — from signal to published thought-leadership'
+  },
+  {
     href: '/alerts',
     label: 'Push Alerts',
     glyph: '!!',
@@ -141,6 +148,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/intelligence',   label: 'Intelligence',    glyph: 'IC',  department: 'science',     description: 'Advisory signals, awareness, operational picture' },
       { href: '/knowledge',      label: 'Knowledge',       glyph: 'KH',  department: 'science',     description: 'Decisions, lessons, architecture, articles' },
+      { href: '/comms',          label: 'Communications',  glyph: 'CP',  department: 'command',     description: 'Content pipeline — from signal to published thought-leadership' },
     ],
   },
   {
