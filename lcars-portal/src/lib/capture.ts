@@ -19,7 +19,7 @@ import { createSupabaseBrowserClient } from './supabase-browser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type CaptureType = 'note' | 'mission' | 'health' | 'idea' | 'decision';
+export type CaptureType = 'note' | 'mission' | 'health' | 'idea' | 'decision' | 'comms';
 
 export type CaptureClassification =
   | 'reference'
@@ -120,6 +120,15 @@ export const CAPTURE_TYPES: CaptureTypeMeta[] = [
     importance: 'high',
     hint: 'A decision point or outstanding choice that needs Captain attention.',
   },
+  {
+    key: 'comms',
+    label: 'Comms',
+    glyph: '✉',
+    tone: 'command',
+    classification: 'reference',
+    importance: 'medium',
+    hint: 'A content idea or topic for the communications pipeline. Queued as an opportunity for AI drafting.',
+  },
 ];
 
 export function captureTypeMeta(type: CaptureType): CaptureTypeMeta {
@@ -135,6 +144,7 @@ function deriveTitle(text: string, type: CaptureType): string {
     health: 'Health: ',
     idea: 'Idea: ',
     decision: 'Decision: ',
+    comms: '',
   };
   return `${prefix[type]}${clipped || 'Untitled capture'}`.slice(0, 200);
 }
@@ -154,6 +164,22 @@ export async function captureItem(
 ): Promise<CaptureResult> {
   const body = text.trim();
   if (!body) return { ok: false, error: 'Nothing to capture.' };
+
+  if (type === 'comms') {
+    try {
+      const title = deriveTitle(body, type);
+      const resp = await fetch('/api/content/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, notes: body.slice(0, 1000) }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) return { ok: false, error: json?.error ?? 'Failed to add to content pipeline' };
+      return { ok: true, id: json.content_id };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Failed.' };
+    }
+  }
 
   const meta = captureTypeMeta(type);
   const now  = new Date();
