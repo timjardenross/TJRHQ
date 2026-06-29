@@ -27,7 +27,6 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -225,7 +224,7 @@ class ContentIntelligenceService:
         written = 0
         for cs, rs in ranked:
             row = {
-                "event_id": str(uuid.uuid4()),
+                "event_id": cs.event_id_text,  # actual intelligence_events.event_id (cast to uuid by PG)
                 "event_id_text": cs.event_id_text,
                 "source_name": cs.source_name,
                 "pillar_key": cs.pillar_key,
@@ -234,6 +233,10 @@ class ContentIntelligenceService:
                 "captain_focus": cs.captain_focus,
                 "rank_score": rs,
                 "suggested_angle": cs.suggested_angle,
+                "raw_title": cs.raw_title or None,
+                "raw_summary": cs.raw_summary or None,
+                "canonical_url": cs.canonical_url or None,
+                "collected_at": cs.collected_at or None,
             }
             result = _post("content_signals", row, on_conflict="event_id_text")
             if result:
@@ -307,7 +310,7 @@ class ContentIntelligenceService:
         )  # since is already URL-encoded
         total_evaluated = len(total_rows)
 
-        # Build signal objects
+        # Build signal objects — prefer live join data, fall back to stored copies
         signals: list[ContentSignal] = []
         for r in signal_rows:
             eid = r.get("event_id_text", "")
@@ -316,14 +319,14 @@ class ContentIntelligenceService:
                 event_id=eid,
                 raw_title=ev.get("raw_title") or r.get("raw_title") or "(no title)",
                 source_name=r.get("source_name", ""),
-                canonical_url=ev.get("canonical_url"),
+                canonical_url=ev.get("canonical_url") or r.get("canonical_url"),
                 pillar_key=r.get("pillar_key", ""),
                 pillar_name=r.get("pillar_name", ""),
                 content_relevance=float(r.get("content_relevance") or 0.0),
                 rank_score=float(r.get("rank_score") or 0.0),
                 captain_focus=bool(r.get("captain_focus", False)),
                 suggested_angle=r.get("suggested_angle", ""),
-                collected_at=ev.get("collected_at") or r.get("scored_at", ""),
+                collected_at=ev.get("collected_at") or r.get("collected_at") or r.get("scored_at", ""),
                 useful_life_days=14,
             ))
 
@@ -360,7 +363,7 @@ def _summarise_by_pillar(
             pillar_key=pk,
             pillar_name=rows[0].get("pillar_name", pk),
             signal_count=len(rows),
-            top_signal_title=top_ev.get("raw_title") or top.get("raw_title") or "",
+            top_signal_title=top_ev.get("raw_title") or top.get("raw_title") or top.get("event_id_text", "") or "",
             avg_relevance=round(
                 sum(float(r.get("content_relevance") or 0.0) for r in rows) / len(rows), 3
             ),
