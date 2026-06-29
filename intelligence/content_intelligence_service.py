@@ -127,10 +127,10 @@ class ContentSignalBundle:
 # ── Source registry lookup ────────────────────────────────────────────────────
 
 def _load_source_metadata() -> dict[str, dict]:
-    """Returns {source_id: {useful_life, category}} from intelligence_source_registry."""
+    """Returns {source_id: {useful_life, category, source_name}} from intelligence_source_registry."""
     rows = _get(
         "intelligence_source_registry"
-        "?select=source_id,useful_life_days,category,terms_reviewed,content_source"
+        "?select=source_id,source_name,useful_life_days,category,terms_reviewed,content_source"
         "&active=eq.true"
     )
     result: dict[str, dict] = {}
@@ -139,6 +139,7 @@ def _load_source_metadata() -> dict[str, dict]:
         result[r["source_id"]] = {
             "useful_life": int(life) if life else 14,
             "category": r.get("category") or "",
+            "source_name": r.get("source_name") or "",
         }
     return result
 
@@ -213,6 +214,9 @@ class ContentIntelligenceService:
             meta = source_meta.get(source_id, {})
             useful_life = meta.get("useful_life", 14)
             source_category = meta.get("category", "")
+            # intelligence_events has no source_name column — inject from registry
+            if not event.get("source_name") and meta.get("source_name"):
+                event = {**event, "source_name": meta["source_name"]}
             result = score_for_content(event, mission_keywords, useful_life, source_category=source_category)
             if result is not None:
                 scoreable.append(result)
