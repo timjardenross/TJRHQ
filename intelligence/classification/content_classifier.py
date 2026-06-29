@@ -80,6 +80,12 @@ def score_for_content(
     # ── Pillar classification ──────────────────────────────────────────────────
     pillar, pillar_score = classify_pillar(text)
 
+    # Wellness is for personally-authored content only. External intelligence
+    # events should never drive it — too many false positives from tech/ops
+    # sources that mention health/recovery tangentially.
+    if pillar.key == "wellness_sustainable_performance":
+        return None
+
     # ── Content relevance ──────────────────────────────────────────────────────
     # Base: pillar match strength (0–5 typical, cap at 1.0)
     relevance = min(1.0, pillar_score * 0.20)
@@ -99,8 +105,10 @@ def score_for_content(
     elif rank_score > 40:
         relevance = min(1.0, relevance + 0.05)
 
-    # Minimum threshold: skip events with no meaningful pillar alignment
-    if relevance < 0.15 and pillar_score == 0:
+    # Require actual pillar keyword alignment — source weight alone should not
+    # qualify an event. Without this, earthquake data and road-name records from
+    # non-OR sources can slip through on source confidence weight alone.
+    if pillar_score == 0:
         return None
 
     # ── Captain focus ─────────────────────────────────────────────────────────
