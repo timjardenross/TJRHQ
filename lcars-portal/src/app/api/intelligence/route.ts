@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
 
       let sigQuery = sb
         .from('content_signals')
-        .select('event_id_text,source_name,pillar_key,pillar_name,content_relevance,rank_score,captain_focus,suggested_angle,scored_at,suppressed')
+        .select('event_id_text,source_name,pillar_key,pillar_name,content_relevance,rank_score,captain_focus,suggested_angle,scored_at,suppressed,raw_title,raw_summary,canonical_url,collected_at')
         .eq('suppressed', false)
         .gte('scored_at', since)
         .order('rank_score', { ascending: false })
@@ -123,14 +123,17 @@ export async function GET(req: NextRequest) {
       if (sigErr) throw sigErr;
       const signals = sigData ?? [];
 
-      // Join intelligence_events for title/url/collected_at
+      // Join intelligence_events for live title/url/collected_at — stored copies are the fallback
       const eventIds = signals.map((s: any) => s.event_id_text).filter(Boolean);
       let eventMap: Record<string, any> = {};
       if (eventIds.length > 0) {
-        const { data: evData } = await sb
+        const { data: evData, error: evErr } = await sb
           .from('intelligence_events')
           .select('event_id,raw_title,raw_summary,canonical_url,collected_at,source_name')
           .in('event_id', eventIds);
+        if (evErr) {
+          console.warn('[intelligence/content_signals] event join failed:', evErr.message);
+        }
         for (const e of evData ?? []) {
           eventMap[e.event_id] = e;
         }
@@ -141,10 +144,11 @@ export async function GET(req: NextRequest) {
         return {
           ...s,
           event_id: s.event_id_text,
-          raw_title: ev.raw_title ?? '(no title)',
-          raw_summary: ev.raw_summary ?? null,
-          canonical_url: ev.canonical_url ?? null,
-          collected_at: ev.collected_at ?? s.scored_at,
+          // live join preferred; stored copy is the resilient fallback
+          raw_title: ev.raw_title ?? s.raw_title ?? '(no title)',
+          raw_summary: ev.raw_summary ?? s.raw_summary ?? null,
+          canonical_url: ev.canonical_url ?? s.canonical_url ?? null,
+          collected_at: ev.collected_at ?? s.collected_at ?? s.scored_at,
         };
       });
 
@@ -162,7 +166,7 @@ export async function GET(req: NextRequest) {
           pillar_name: g.name,
           signal_count: g.signals.length,
           avg_relevance: +(g.signals.reduce((acc: number, x: any) => acc + (x.content_relevance ?? 0), 0) / g.signals.length).toFixed(3),
-          top_signal_title: eventMap[g.signals[0]?.event_id_text]?.raw_title ?? '',
+          top_signal_title: eventMap[g.signals[0]?.event_id_text]?.raw_title ?? g.signals[0]?.raw_title ?? '',
         }));
 
       // Pipeline snapshot
