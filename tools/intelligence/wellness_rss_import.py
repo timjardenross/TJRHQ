@@ -55,7 +55,7 @@ def _item_to_ranked_event(item: IntelligenceItem) -> RankedEvent:
         collected_at=item.collected_at,
         dedup_hash=_dedup_hash(item),
         # OR classification defaults — wellness articles have low OR relevance
-        event_type="content",
+        event_type="other",
         geography="GLOBAL",
         sector="general",
         operational_relevance=0.2,
