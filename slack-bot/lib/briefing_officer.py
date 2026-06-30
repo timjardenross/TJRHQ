@@ -52,7 +52,7 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
 
         briefing_prompt = _build_briefing_prompt(research_package)
 
-        from lib.mistral_agent_client import call_agent, AGENT_BRIEFING
+        from mistral_agent_client import call_agent, AGENT_BRIEFING
         brief = call_agent(
             stage="brief",
             agent_name=AGENT_BRIEFING,
@@ -66,14 +66,6 @@ def generate_captains_brief(research_package: Dict[str, Any]) -> Optional[str]:
         else:
             log.warning("[briefing-officer] Empty response from Mistral agent")
             return None
-
-    except urllib.error.HTTPError as e:
-        log.warning(f"[briefing-officer] HTTP {e.code}: {e.reason}")
-        return None
-
-    except urllib.error.URLError as e:
-        log.warning(f"[briefing-officer] Connection failed: {e}")
-        return None
 
     except Exception as e:
         log.error(f"[briefing-officer] FAILED - {type(e).__name__}: {e}", exc_info=True)

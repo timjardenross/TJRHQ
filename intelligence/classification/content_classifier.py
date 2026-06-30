@@ -63,6 +63,7 @@ def score_for_content(
     event: dict,
     active_mission_keywords: Optional[list[str]] = None,
     useful_life_days: int = 14,
+    source_category: str = "",
 ) -> Optional[ContentScore]:
     """
     Score a single intelligence_events row for content relevance.
@@ -79,6 +80,11 @@ def score_for_content(
 
     # ── Pillar classification ──────────────────────────────────────────────────
     pillar, pillar_score = classify_pillar(text)
+
+    # Wellness signals only come from sources explicitly tagged category='wellness'.
+    # General OR/tech sources produce too many false positives on health keywords.
+    if pillar.key == "wellness_sustainable_performance" and source_category != "wellness":
+        return None
 
     # ── Content relevance ──────────────────────────────────────────────────────
     # Base: pillar match strength (0–5 typical, cap at 1.0)
@@ -99,8 +105,10 @@ def score_for_content(
     elif rank_score > 40:
         relevance = min(1.0, relevance + 0.05)
 
-    # Minimum threshold: skip events with no meaningful pillar alignment
-    if relevance < 0.15 and pillar_score == 0:
+    # Require actual pillar keyword alignment — source weight alone should not
+    # qualify an event. Without this, earthquake data and road-name records from
+    # non-OR sources can slip through on source confidence weight alone.
+    if pillar_score == 0:
         return None
 
     # ── Captain focus ─────────────────────────────────────────────────────────

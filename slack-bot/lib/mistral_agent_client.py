@@ -24,12 +24,18 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 # Canonical agent names used throughout the pipeline
-AGENT_RESEARCH = "research"
-AGENT_BRIEFING = "briefing"
+AGENT_RESEARCH     = "research"
+AGENT_BRIEFING     = "briefing"
+AGENT_DECOMPOSITION = "decomposition"  # alias → research agent
+AGENT_SUMMARY      = "summary"         # alias → briefing agent
+AGENT_CHALLENGE    = "challenge"       # alias → research agent
 
 _ENV_MAP = {
-    AGENT_RESEARCH: ("MISTRAL_RESEARCH_AGENT_ID", "MISTRAL_RESEARCH_AGENT_VERSION", "1"),
-    AGENT_BRIEFING: ("MISTRAL_BRIEFING_AGENT_ID", "MISTRAL_BRIEFING_AGENT_VERSION", "2"),
+    AGENT_RESEARCH:      ("MISTRAL_RESEARCH_AGENT_ID",  "MISTRAL_RESEARCH_AGENT_VERSION",  "1"),
+    AGENT_BRIEFING:      ("MISTRAL_BRIEFING_AGENT_ID",  "MISTRAL_BRIEFING_AGENT_VERSION",  "2"),
+    AGENT_DECOMPOSITION: ("MISTRAL_RESEARCH_AGENT_ID",  "MISTRAL_RESEARCH_AGENT_VERSION",  "1"),
+    AGENT_SUMMARY:       ("MISTRAL_BRIEFING_AGENT_ID",  "MISTRAL_BRIEFING_AGENT_VERSION",  "2"),
+    AGENT_CHALLENGE:     ("MISTRAL_RESEARCH_AGENT_ID",  "MISTRAL_RESEARCH_AGENT_VERSION",  "1"),
 }
 
 

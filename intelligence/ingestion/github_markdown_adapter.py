@@ -177,10 +177,20 @@ class GitHubMarkdownAdapter(BaseSourceAdapter):
                 published = datetime.combine(
                     parsed.brief_date, datetime.min.time(), tzinfo=timezone.utc
                 )
+            # Build a meaningful summary from the brief's context sections.
+            # Executive Summary + Implications/Actions give the "so what" for each bullet.
+            summary_lines = parsed.sections.get("summary", [])
+            implications = parsed.implications_text().strip()
+            context_parts = [" ".join(summary_lines).strip()]
+            if implications:
+                context_parts.append(implications)
+            brief_context = " | ".join(p for p in context_parts if p) or \
+                f"Daily OR Brief {parsed.brief_date}"
+
             for cand in parsed.candidate_items():
                 items.append(self._make_item(
                     raw_title=cand["text"],
-                    raw_summary=f"Daily OR Brief {parsed.brief_date} · {cand['section']}",
+                    raw_summary=brief_context,
                     canonical_url=blob_url,
                     published_at=published,
                 ))
