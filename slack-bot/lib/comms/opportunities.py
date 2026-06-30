@@ -46,6 +46,8 @@ _SENSITIVE = ("credential", "password", "secret", "rls", "vulnerab",
 _BASE_IMPACT = {
     "mission": 0.55, "decision": 0.45, "lesson": 0.6, "capability": 0.5,
     "research": 0.65, "ADR": 0.4, "resilience": 0.5, "objective": 0.45,
+    # MSN-0078: real, evidence-backed outcomes are strong content assets.
+    "outcome": 0.62,
 }
 
 # Default content format per source kind (WP4 formats).
@@ -53,7 +55,21 @@ _DEFAULT_FORMAT = {
     "mission": "case_study", "decision": "leadership_lesson", "lesson": "lessons_learned",
     "capability": "behind_the_scenes", "research": "insight_article",
     "ADR": "framework_explanation", "resilience": "industry_commentary",
-    "objective": "executive_insight",
+    "objective": "executive_insight", "outcome": "lessons_learned",
+}
+
+# MSN-0078 WP4: outcome content_classification → suggested COMMS format.
+# (operational_resilience→work/LinkedIn/leadership; leadership→leadership note/
+#  LinkedIn; coaching/wellness/personal_story→reflective lessons; etc.)
+_OUTCOME_CLASS_FORMAT = {
+    "linkedin": "linkedin_post",
+    "leadership": "executive_insight",
+    "operational_resilience": "industry_commentary",
+    "coaching": "lessons_learned",
+    "wellness": "lessons_learned",
+    "personal_learning": "lessons_learned",
+    "personal_story": "lessons_learned",
+    "internal_work": "executive_insight",
 }
 
 
@@ -69,6 +85,9 @@ class ContentOpportunity:
     suggested_format: str
     classification: str
     score: float
+    # MSN-0079: the underlying outcome content_classification (sensitivity routing).
+    # None for the 8 Command-Memory sources; set for outcome-sourced opportunities.
+    content_classification: str | None = None
 
     @property
     def is_publishable(self) -> bool:
@@ -115,6 +134,30 @@ def build_opportunity(source_kind: str, *, ref: str, title: str, body: str,
     )
 
 
+# ── Outcome → opportunity mapping (MSN-0078 bridge; pure) ─────────────────────
+
+def outcome_opportunities(candidates: list[dict]) -> list["ContentOpportunity"]:
+    """Pure: map outcome_records content candidates → ContentOpportunity.
+
+    Each candidate is a dict from outcome_capture.get_content_candidates(): it has
+    already been filtered (medium/high content_potential; not_for_publication and
+    internal/personal_story excluded by default). The reusable insight is the
+    publishable nugget; content_classification picks a suggested format.
+    """
+    out: list[ContentOpportunity] = []
+    for r in candidates or []:
+        body = (r.get("reusable_insight") or r.get("outcome_summary") or "").strip()
+        ref = str(r.get("source_id") or r.get("outcome_id") or "")
+        opp = build_opportunity("outcome", ref=ref, title=str(r.get("title") or ""), body=body)
+        cls = r.get("content_classification")
+        fmt = _OUTCOME_CLASS_FORMAT.get(cls or "")
+        if fmt:
+            opp.suggested_format = fmt
+        opp.content_classification = cls
+        out.append(opp)
+    return out
+
+
 # ── Supabase access (graceful) ────────────────────────────────────────────────
 
 def _client():
@@ -137,10 +180,23 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
     Reuses the same Command Memory tables the Knowledge Officer reads — no new
     store. Each source contributes its strongest assets, scored and pillar-mapped.
     """
+    out: list[ContentOpportunity] = []
+
+    # Outcomes → real, evidence-backed content (MSN-0078 bridge, read-only).
+    # Independent of the Command Memory client: outcome_capture has its own graceful
+    # client and already excludes not_for_publication and internal/personal_story.
+    try:
+        out += outcome_opportunities(_gather_outcome_candidates(limit_per_source))
+    except Exception:  # pragma: no cover
+        pass
+
     c = _client()
     if c is None:
-        return []
-    out: list[ContentOpportunity] = []
+        # No Command Memory client — return outcome-derived opportunities only.
+        if publishable_only:
+            out = [o for o in out if o.is_publishable]
+        out.sort(key=lambda o: -o.score)
+        return out
 
     def add(kind, ref, title, body, quality=None):
         try:
@@ -209,3 +265,17 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
         out = [o for o in out if o.is_publishable]
     out.sort(key=lambda o: -o.score)
     return out
+
+
+def _gather_outcome_candidates(limit: int) -> list[dict]:
+    """Fetch content-worthy outcome candidates (read-only, graceful). [] when offline."""
+    try:
+        import sys
+        kp = str(_REPO_ROOT / "core" / "knowledge")
+        if kp not in sys.path:
+            sys.path.insert(0, kp)
+        from outcome_capture import get_content_candidates  # type: ignore
+        return get_content_candidates(limit=limit)
+    except Exception as exc:  # pragma: no cover
+        log.debug("[comms.opportunities] outcome candidates unavailable: %s", exc)
+        return []

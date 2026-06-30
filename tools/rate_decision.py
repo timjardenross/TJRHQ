@@ -94,6 +94,17 @@ def _find_d_decision(decision_id: str) -> str | None:
     return None
 
 
+def _outcome_followup(decision_id: str) -> None:
+    """MSN-0079 WP2: after a decision is resolved/rated, request a fuller outcome
+    record (what happened / learned / reusable / content potential). Never invents
+    a lesson — only prompts. Non-blocking, no network."""
+    print(
+        "  📝 Outcome capture (optional): record what actually happened —\n"
+        f"     `python3 tools/record_outcome.py record --source-type decision "
+        f"--source-id {decision_id} --title \"...\" --status <worked|partial|failed>`"
+    )
+
+
 def _rate_governance(decision_id: str, quality: int, notes: str) -> None:
     """Append a governance decision rating to decision-outcomes.jsonl."""
     existing = [r for r in _load_ratings() if r.get("decision_id") == decision_id]
@@ -109,6 +120,7 @@ def _rate_governance(decision_id: str, quality: int, notes: str) -> None:
     if existing:
         print(f"  ℹ  Previous rating for {decision_id} exists — new rating appended (ledger keeps history)")
     print(f"  ✅ {decision_id} rated {quality}/5 — {QUALITY_LABELS[quality]}")
+    _outcome_followup(decision_id)
 
 
 def _rate_supabase(uuid: str, quality: int, notes: str) -> None:
@@ -125,6 +137,7 @@ def _rate_supabase(uuid: str, quality: int, notes: str) -> None:
     try:
         supabase_upsert("decisions", row, on_conflict="id")
         print(f"  ✅ Decision {uuid[:8]}... rated {quality}/5 — {QUALITY_LABELS[quality]}")
+        _outcome_followup(uuid)
     except Exception as exc:
         print(f"  ❌ Supabase update failed: {exc}")
         sys.exit(1)

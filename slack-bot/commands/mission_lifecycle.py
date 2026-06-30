@@ -419,6 +419,25 @@ def handle_mission_status(
     return f":x: Mission `{mission_id}` not found. Use `/mission-list` to see active missions."
 
 
+def _closure_outcome_prompt(mission_id: str, title: str) -> Optional[str]:
+    """MSN-0079 WP1: surface an outcome-capture request when a mission closes.
+
+    Delegates to outcome_capture.closure_prompt (which never invents a lesson and
+    returns None if an outcome already exists). Graceful: any failure → None, so a
+    closure is never blocked by the hook.
+    """
+    try:
+        import sys
+        from pathlib import Path
+        kp = str(Path(__file__).resolve().parents[2] / "core" / "knowledge")
+        if kp not in sys.path:
+            sys.path.insert(0, kp)
+        from outcome_capture import closure_prompt  # type: ignore
+        return closure_prompt("mission", mission_id, title)
+    except Exception:  # pragma: no cover
+        return None
+
+
 def _handle_status_transition(
     mission_id: str,
     mission_id_full: str,
@@ -429,9 +448,14 @@ def _handle_status_transition(
     """Execute a lifecycle status transition and write audit record."""
     # Fetch current status for audit trail
     from_status = "Unknown"
-    db_row = _supabase_get_mission(mission_id)
-    if db_row:
-        from_status = db_row.get("status", "Unknown")
+    mission_title = ""
+    db_missions = _supabase_missions()
+    for m in db_missions:
+        mid = (m.get("id") or m.get("mission_id") or "").upper()
+        if mid in (mission_id, mission_id_full):
+            from_status = m.get("status", "Unknown")
+            mission_title = m.get("title", "") or ""
+            break
 
     # Apply the transition
     updated = _supabase_update_mission_status(mission_id, new_status)
@@ -453,8 +477,16 @@ def _handle_status_transition(
         if note:
             lines.append(f"*Note:* _{note}_")
         lines.append("")
-        if new_status == "Closed":
+        if new_status == "Active":
+            lines.append("_Mission is now in the active work queue._")
+        elif new_status == "Planned":
+            lines.append("_Mission is now in the planning queue. Use `/build` when ready for engineering._")
+        elif new_status in ("Closed", "Completed"):
             lines.append("_Mission closed. Consider capturing a lesson with `/lesson-log`._")
+            # MSN-0079 WP1: request outcome capture if none exists. Never invents a lesson.
+            prompt = _closure_outcome_prompt(mission_id, mission_title)
+            if prompt:
+                lines += ["", prompt]
         elif new_status == "Archived":
             lines.append("_Mission archived._")
         elif new_status == "Idea":

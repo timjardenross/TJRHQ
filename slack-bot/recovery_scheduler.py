@@ -1,11 +1,7 @@
 """D-055 — Proactive recovery dispatch for Slack.
 
-RETIRED — D-3C-04 (2026-06-27): Command Centre notification engine owns all
-autonomous push notifications. Recovery gap detection now runs in
-core/command-centre/backend/services/notification-engine.js (checkRecoveryGap).
-Telegram delivery handled by core/command-centre/backend/connectors/telegram-connector.js.
-
-This module is kept for reference. start_recovery_scheduler() is a no-op.
+Fires at 3 windows per day (matching Telegram). Sends DMs only for L2/L3
+escalations — Telegram handles L0/L1 friendly reminders.
 
 Env vars:
     CAPTAIN_SLACK_USER_ID — Slack user ID to DM (U0123ABCDE)
@@ -86,7 +82,7 @@ def _dispatch_check(slack_client: Any) -> None:
         missing = row.get("pulses_missing", 0)
         msg = (
             f":large_orange_circle: *Recovery Officer — Confidence Low*\n\n"
-            f"Recovery confidence: `{bar}` {conf}%  ·  {pulses}/4 pulses\n"
+            f"Recovery confidence: `{bar}` {conf}%  ·  {pulses}/3 pulses\n"
             f"{missing} pulse{'s' if missing != 1 else ''} remaining today.\n\n"
             f"</recovery-pulse|Log a pulse>"
         )
@@ -102,5 +98,9 @@ def start_recovery_scheduler(slack_client: Any) -> BackgroundScheduler:
     """RETIRED — D-3C-04. Returns an inert scheduler. See notification-engine.js."""
     log.info("[recovery-scheduler] RETIRED (D-3C-04) — recovery gap notifications owned by Command Centre")
     scheduler = BackgroundScheduler(timezone="Australia/Brisbane")
+    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=7,  minute=0),  id="rec_morning")
+    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=12, minute=30), id="rec_midday")
+    scheduler.add_job(lambda: _dispatch_check(slack_client), CronTrigger(hour=20, minute=0),  id="rec_evening")
     scheduler.start()
+    log.info("[recovery-scheduler] Running — L2/L3 dispatch at 07:00, 12:30, 20:00 AEST")
     return scheduler

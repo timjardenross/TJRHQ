@@ -1225,7 +1225,7 @@ if app:
 
     @app.command("/recovery-pulse")
     def handle_recovery_pulse_slash(ack, command, client):
-        """/recovery-pulse — open recovery pulse modal (4 pulses per day)."""
+        """/recovery-pulse — open recovery pulse modal (3 pulses per day)."""
         ack()
         trigger_id = command.get("trigger_id")
         user_id = command.get("user_id", "")

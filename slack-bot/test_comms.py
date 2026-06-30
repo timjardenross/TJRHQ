@@ -293,5 +293,198 @@ class TestPortfolioStore(unittest.TestCase):
             self.assertEqual(portfolio.pipeline_summary(), {})
 
 
+# ── MSN-0078 outcome → content bridge ─────────────────────────────────────────
+
+class TestOutcomeBridge(unittest.TestCase):
+    def test_maps_classification_to_format(self):
+        cands = [
+            {"source_id": "MSN-9", "title": "Shipped under pressure",
+             "reusable_insight": "ship small to ship at all",
+             "content_classification": "linkedin"},
+            {"source_id": "D-3", "title": "Chose local-first",
+             "reusable_insight": "default local, escalate on quota",
+             "content_classification": "leadership"},
+        ]
+        opps = opp.outcome_opportunities(cands)
+        self.assertEqual(len(opps), 2)
+        self.assertEqual(opps[0].source_kind, "outcome")
+        self.assertEqual(opps[0].suggested_format, "linkedin_post")
+        self.assertEqual(opps[1].suggested_format, "executive_insight")
+        # The reusable insight becomes the body/excerpt.
+        self.assertIn("ship small", opps[0].excerpt)
+
+    def test_empty_and_offline_safe(self):
+        self.assertEqual(opp.outcome_opportunities([]), [])
+        # The gather helper degrades to [] when outcome_capture is unavailable.
+        with patch.object(opp, "_gather_outcome_candidates", return_value=[]):
+            # Should not raise; outcomes simply contribute nothing.
+            self.assertEqual(opp.outcome_opportunities(opp._gather_outcome_candidates(5)), [])
+
+    def test_gather_includes_outcomes_even_when_command_memory_offline(self):
+        # The bridge is independent of the Command Memory client: with _client None
+        # but outcome candidates present, outcomes still surface.
+        cand = [{"source_id": "MSN-1", "title": "Resilience win",
+                 "reusable_insight": "design continuity early",
+                 "content_classification": "operational_resilience"}]
+        with patch.object(opp, "_client", return_value=None), \
+             patch.object(opp, "_gather_outcome_candidates", return_value=cand):
+            items = opp.gather_opportunities(publishable_only=False)
+        self.assertTrue(any(o.source_kind == "outcome" for o in items))
+        outcome_items = [o for o in items if o.source_kind == "outcome"]
+        self.assertEqual(outcome_items[0].suggested_format, "industry_commentary")
+
+
+# ── MSN-0079 sensitive-content approval gate + review/metrics ─────────────────
+
+def _sensitive_opp(cls="personal_story"):
+    o = opp.build_opportunity("outcome", ref="MSN-9", title="Recovery under pressure",
+                              body="a personal story about leading through pain")
+    o.content_classification = cls
+    return o
+
+
+class TestSensitiveApprovalGate(unittest.TestCase):
+    def test_draft_blocks_sensitive_without_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities",
+                          return_value=[_sensitive_opp("personal_story")]):
+            out = comms_cmd.handle_comms("draft 1")
+        self.assertIn("approval required", out.lower())
+        self.assertIn("confirm", out.lower())
+
+    def test_draft_allows_sensitive_with_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities",
+                          return_value=[_sensitive_opp("coaching")]), \
+             patch.object(comms_cmd.drafting, "generate_draft",
+                          return_value=("scaffold", "*Draft scaffold — Lessons Learned*")), \
+             patch.object(comms_cmd.portfolio, "record_content", lambda **k: True):
+            out = comms_cmd.handle_comms("draft 1 confirm")
+        self.assertIn("Draft scaffold", out)
+
+    def test_non_sensitive_draft_needs_no_confirm(self):
+        with patch.object(comms_cmd.opp, "gather_opportunities", return_value=[_opp()]), \
+             patch.object(comms_cmd.drafting, "generate_draft",
+                          return_value=("scaffold", "*Draft scaffold — Case Study*")), \
+             patch.object(comms_cmd.portfolio, "record_content", lambda **k: True):
+            out = comms_cmd.handle_comms("draft 1")
+        self.assertIn("Draft scaffold", out)
+
+    def test_pending_lists_sensitive(self):
+        cands = [{"title": "Burnout lesson", "content_classification": "personal_story",
+                  "source_type": "note", "source_id": "N-1"}]
+        with patch.object(comms_cmd, "get_content_candidates", return_value=cands):
+            out = comms_cmd.handle_comms("pending")
+        self.assertIn("Burnout lesson", out)
+        self.assertIn("approval", out.lower())
+
+    def test_pending_empty_safe(self):
+        with patch.object(comms_cmd, "get_content_candidates", return_value=[]):
+            out = comms_cmd.handle_comms("pending")
+        self.assertIn("Nothing pending", out)
+
+
+# ── MSN-0082 Leadership Intelligence Brief ────────────────────────────────────
+
+from lib.comms import leadership  # noqa: E402
+
+
+class TestLeadershipBrief(unittest.TestCase):
+    def test_compose_groups_leadership_and_lessons(self):
+        cands = [
+            {"title": "Decided local-first AI", "content_classification": "leadership",
+             "reusable_insight": "default local; escalate on quota",
+             "source_type": "decision", "source_id": "D-3"},
+            {"title": "Continuity drill", "content_classification": "operational_resilience",
+             "reusable_insight": "design continuity before you need it",
+             "source_type": "mission", "source_id": "MSN-9"},
+            {"title": "Should not show", "content_classification": "linkedin",
+             "reusable_insight": "x", "source_type": "note", "source_id": "N-1"},
+        ]
+        lessons = [{"lesson_id": "LL-1", "title": "Ship small", "future_guidance": "reduce batch size"}]
+        out = leadership.compose_leadership_brief(cands, lessons)
+        self.assertIn("Weekly Leadership Insight", out)
+        self.assertIn("internal", out.lower())
+        self.assertIn("Decided local-first AI", out)
+        self.assertIn("Continuity drill", out)
+        self.assertNotIn("Should not show", out)   # non-leadership class excluded
+        self.assertIn("Ship small", out)            # reusable leadership lesson
+
+    def test_empty_graceful(self):
+        out = leadership.compose_leadership_brief([], [])
+        self.assertIn("No leadership insights", out)
+
+    def test_command_routes_leadership(self):
+        outs = [{"title": "Resilience win", "content_classification": "operational_resilience",
+                 "reusable_insight": "design continuity before you need it", "source_type": "mission",
+                 "source_id": "MSN-1", "confidence": 4}]
+        with patch.object(comms_cmd, "leadership_outcomes", return_value=outs), \
+             patch.object(comms_cmd, "list_lessons", return_value=[]):
+            out = comms_cmd.handle_comms("leadership")
+        self.assertIn("Leadership Insight", out)
+        self.assertIn("Resilience win", out)
+
+
+# ── MSN-0085 Leadership Intelligence Products ─────────────────────────────────
+
+def _lo(title, cls, insight, conf=4, tags=None):
+    return {"title": title, "content_classification": cls, "reusable_insight": insight,
+            "confidence": conf, "reuse_tags": tags or [], "source_type": "mission",
+            "source_id": title[:6]}
+
+
+class TestLeadershipProducts(unittest.TestCase):
+    def setUp(self):
+        self.outs = [
+            _lo("Local-first AI", "leadership", "default local; reuse existing before building new", 5),
+            _lo("Idea status", "leadership", "audit existing lifecycle states rather than a separate store", 4),
+            _lo("RLS catch", "operational_resilience", "verify/validate RLS before applying a migration", 5),
+            _lo("Validation gate", "operational_resilience", "a validation gate caught 3 bugs before release", 4),
+        ]
+
+    def test_derive_themes_freq_and_confidence(self):
+        themes = leadership.derive_themes(self.outs)
+        names = {t["theme"] for t in themes}
+        self.assertIn("Reuse before build", names)
+        self.assertIn("Validation before deployment", names)
+        for t in themes:
+            self.assertIn(t["confidence"], ("HIGH", "MEDIUM", "LOW"))
+            self.assertGreaterEqual(t["frequency"], 1)
+
+    def test_evidence_weighted_recommendations(self):
+        recs = leadership.evidence_weighted_recommendations(self.outs, min_evidence=2)
+        self.assertTrue(recs)
+        r = recs[0]
+        self.assertIn("recommendation", r)
+        self.assertGreaterEqual(r["evidence"], 2)
+        self.assertIn(r["confidence"], ("HIGH", "MEDIUM", "LOW"))
+
+    def test_leadership_insight_sections(self):
+        out = leadership.compose_leadership_insight(self.outs, [])
+        self.assertIn("Leadership Insight", out)
+        self.assertIn("What changed", out)
+        self.assertIn("What leaders should know", out)
+        self.assertIn("Emerging patterns", out)
+        self.assertIn("Recommended actions", out)
+        self.assertIn("confidence", out.lower())
+
+    def test_resilience_brief_internal_only(self):
+        out = leadership.compose_operational_resilience_brief(self.outs, [])
+        self.assertIn("Operational Resilience Brief", out)
+        self.assertIn("not published", out.lower())
+        self.assertIn("RLS catch", out)
+
+    def test_empty_graceful(self):
+        self.assertIn("No leadership", leadership.compose_leadership_insight([], []))
+        self.assertIn("No operational-resilience", leadership.compose_operational_resilience_brief([], []))
+        self.assertIn("No themes", leadership.compose_themes([]))
+
+    def test_command_routes_resilience_and_themes(self):
+        with patch.object(comms_cmd, "leadership_outcomes", return_value=self.outs), \
+             patch.object(comms_cmd, "list_lessons", return_value=[]):
+            r = comms_cmd.handle_comms("resilience")
+            t = comms_cmd.handle_comms("patterns")
+        self.assertIn("Operational Resilience Brief", r)
+        self.assertIn("Leadership Themes", t)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

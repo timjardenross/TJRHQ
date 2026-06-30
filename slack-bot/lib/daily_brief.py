@@ -22,6 +22,7 @@ _OFFICER = {
     "knowledge": "Knowledge",
     "strategy": "Strategic Command (XO)",
     "comms": "Communications & Presence Officer",
+    "learning": "Knowledge / Learning Loop",
 }
 
 _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢", "UNKNOWN": "⚪"}
@@ -39,6 +40,7 @@ def compose_daily_brief(
     knowledge=None,               # list[intel.knowledge.KnowledgeHit] | None (WP3)
     strategy=None,                 # strategy.objectives.StrategicSnapshot | None (SPC-001 WP4)
     comms=None,                    # list[comms.ContentOpportunity] | None (COMMS-001 WP5)
+    learning=None,                 # outcome_capture.LearningSnapshot | None (MSN-0076 WP5)
     date_str: str | None = None,
 ) -> str:
     """Compose the single daily operating picture. Pure."""
@@ -134,6 +136,32 @@ def compose_daily_brief(
                 f"📡 *Presence ({_OFFICER['comms']}):* {len(pub)} publishable "
                 f"opportunity(ies) — top: {top.title} (_{top.pillar_name}_) · `/comms weekly`"
             )
+
+    # MSN-0076/0080 WP3: outcome & learning loop — one concise line, never overloaded.
+    if learning is not None and getattr(learning, "has_signal", False):
+        bits: list[str] = []
+        uncap = getattr(learning, "uncaptured_count", 0)
+        if uncap:
+            overdue = getattr(learning, "overdue_count", 0)
+            bits.append(f"{uncap} item(s) missing outcomes"
+                        + (f" ({overdue} overdue)" if overdue else ""))
+        if getattr(learning, "content_worthy_count", 0):
+            bits.append(f"{learning.content_worthy_count} content-worthy")
+        if getattr(learning, "reusable_count", 0):
+            bits.append(f"{learning.reusable_count} reusable insight(s)")
+        if getattr(learning, "sensitive_pending", 0):
+            bits.append(f"{learning.sensitive_pending} sensitive pending approval")
+        recent = list(getattr(learning, "recent_lessons", []) or [])
+        health = getattr(learning, "health", "") or ""
+        health_tag = f" {_RISK_EMOJI.get(health.upper(), '')}".rstrip() if health and health != "UNKNOWN" else ""
+        if bits or recent:
+            line = f"🧠 *Learning ({_OFFICER['learning']}){health_tag}:* " + (" · ".join(bits) if bits else "")
+            if recent:
+                top = recent[0]
+                title = (top.get("title") if isinstance(top, dict) else str(top)) or ""
+                line += f"{' · ' if bits else ''}latest: {title[:60]}"
+            lines.append(line.rstrip())
+            lines.append("   • `python3 tools/record_outcome.py status`")
 
     lines += [
         "",
