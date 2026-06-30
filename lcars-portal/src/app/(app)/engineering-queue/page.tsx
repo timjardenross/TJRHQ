@@ -18,7 +18,7 @@ function NextActionHero({ item }: { item: QueueItem | null }) {
     return (
       <div className="rounded-lcars border border-status/40 bg-status/5 p-4">
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Next engineering action</p>
-        <p className="mt-1 font-lcars text-lg font-bold text-status-on">Queue is clear</p>
+        <p className="mt-1 font-lcars text-lg font-bold text-status">Queue is clear</p>
         <p className="text-xs text-lcars-muted">Nothing is waiting on a decision right now.</p>
       </div>
     );
@@ -26,7 +26,7 @@ function NextActionHero({ item }: { item: QueueItem | null }) {
   return (
     <div className="rounded-lcars border border-engineering/50 bg-engineering/5 p-4">
       <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Next engineering action</p>
-      <p className="mt-1 font-lcars text-lg font-bold text-engineering-on leading-snug">{item.nextAction}</p>
+      <p className="mt-1 font-lcars text-lg font-bold text-engineering leading-snug">{item.nextAction}</p>
       <p className="mt-1 text-sm text-lcars-text/80">{item.title}</p>
       <div className="mt-2">
         <StatusBadge label={LIFECYCLE_LABEL[item.lifecycle]} tone={LIFECYCLE_TONE[item.lifecycle]} />
@@ -39,13 +39,13 @@ function Blockers({ data }: { data: EngineeringQueueData }) {
   if (!data.blockers.length) return null;
   return (
     <div className="rounded-lcars border border-operations/40 bg-operations/10 p-4">
-      <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-operations-on">Blockers</p>
+      <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-operations">Blockers</p>
       <ul className="flex flex-col gap-2">
         {data.blockers.map((b, i) => (
           <li key={i} className="flex items-start gap-2 text-sm">
             <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-operations" />
             <div>
-              <p className="font-semibold text-operations-on">{b.title}</p>
+              <p className="font-semibold text-operations">{b.title}</p>
               <p className="text-xs text-lcars-muted">{b.detail}</p>
             </div>
           </li>
@@ -68,22 +68,22 @@ function ItemCard({ item, onDecision }: { item: QueueItem; onDecision: (i: Queue
         {item.priority && <span className="rounded border border-edge px-1.5 py-0.5 font-mono">{item.priority.toUpperCase()}</span>}
         {item.ageDays != null && <span>{item.ageDays}d old</span>}
         {item.prUrl && (
-          <a href={item.prUrl} target="_blank" rel="noreferrer" className="text-medical-on hover:underline">PR ↗</a>
+          <a href={item.prUrl} target="_blank" rel="noreferrer" className="text-medical hover:underline">PR ↗</a>
         )}
         <span className="font-mono lowercase">{item.rawStatus}</span>
       </div>
-      <p className="mt-2 text-xs text-engineering-on/90">→ {item.nextAction}</p>
+      <p className="mt-2 text-xs text-engineering/90">→ {item.nextAction}</p>
       {canReview && (
         <div className="mt-3 flex gap-2">
           <button
             onClick={() => onDecision(item, 'approved')}
-            className="flex-1 rounded-lcars border border-status/50 bg-status/10 py-2 text-xs font-bold uppercase tracking-[0.15em] text-status-on hover:bg-status/20"
+            className="flex-1 rounded-lcars border border-status/50 bg-status/10 py-2 text-xs font-bold uppercase tracking-[0.15em] text-status hover:bg-status/20"
           >
             Approve
           </button>
           <button
             onClick={() => onDecision(item, 'rejected')}
-            className="flex-1 rounded-lcars border border-operations/50 bg-operations/10 py-2 text-xs font-bold uppercase tracking-[0.15em] text-operations-on hover:bg-operations/20"
+            className="flex-1 rounded-lcars border border-operations/50 bg-operations/10 py-2 text-xs font-bold uppercase tracking-[0.15em] text-operations hover:bg-operations/20"
           >
             Reject
           </button>
@@ -123,7 +123,7 @@ export default function EngineeringQueuePage() {
     <div className="mx-auto flex max-w-[640px] flex-col gap-4">
       <header>
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Engineering</p>
-        <h1 className="font-lcars text-2xl font-bold text-engineering-on">Engineering Queue</h1>
+        <h1 className="font-lcars text-2xl font-bold text-engineering">Engineering Queue</h1>
         <p className="text-xs text-lcars-muted">
           {loading ? 'Loading…' : data?.isLive ? '● Live · build inbox + delivery' : '○ No engineering data'}
         </p>
@@ -137,7 +137,7 @@ export default function EngineeringQueuePage() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilter('all')}
-            className={`shrink-0 rounded-lcars border px-3 py-1.5 text-xs font-semibold ${filter === 'all' ? 'border-engineering bg-engineering/20 text-engineering-on' : 'border-edge text-lcars-muted'}`}
+            className={`shrink-0 rounded-lcars border px-3 py-1.5 text-xs font-semibold ${filter === 'all' ? 'border-engineering bg-engineering/20 text-engineering' : 'border-edge text-lcars-muted'}`}
           >
             All ({items.filter((i) => i.lifecycle !== 'rejected').length})
           </button>
@@ -145,7 +145,7 @@ export default function EngineeringQueuePage() {
             <button
               key={lc}
               onClick={() => setFilter(lc)}
-              className={`shrink-0 rounded-lcars border px-3 py-1.5 text-xs font-semibold ${filter === lc ? 'border-engineering bg-engineering/20 text-engineering-on' : 'border-edge text-lcars-muted'}`}
+              className={`shrink-0 rounded-lcars border px-3 py-1.5 text-xs font-semibold ${filter === lc ? 'border-engineering bg-engineering/20 text-engineering' : 'border-edge text-lcars-muted'}`}
             >
               {LIFECYCLE_LABEL[lc]} ({data.counts[lc]})
             </button>
@@ -154,7 +154,7 @@ export default function EngineeringQueuePage() {
       )}
 
       {flash && (
-        <div className="rounded-lcars border border-command/40 bg-command/10 px-4 py-2.5 text-xs text-command-on">{flash}</div>
+        <div className="rounded-lcars border border-command/40 bg-command/10 px-4 py-2.5 text-xs text-command">{flash}</div>
       )}
 
       {/* Items */}

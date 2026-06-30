@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, timezone
+from datetime import timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -23,6 +23,8 @@ log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+
+from lib.tz import today_brisbane_iso
 
 def _make_supabase():
     try:
@@ -39,7 +41,7 @@ MODAL_CALLBACK_ID = "health_check_modal"
 
 def build_health_check_modal() -> dict:
     """Return the Block Kit view dict for the daily health check-in modal."""
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
     return {
         "type": "modal",
         "callback_id": MODAL_CALLBACK_ID,
@@ -306,7 +308,7 @@ def _extract(values: dict, block_id: str) -> str | None:
 
 def handle_health_check_submit(values: dict, user_id: str, client) -> None:
     """Write check-in to health_daily_logs and DM confirmation to user."""
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
 
     # ── Parse modal values ────────────────────────────────────────────────────
     def _int(val: str | None) -> int | None:

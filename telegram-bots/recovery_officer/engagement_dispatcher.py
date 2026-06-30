@@ -29,6 +29,14 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+
+def _brisbane_today() -> str:
+    """Return today's date string in Australia/Brisbane time."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
+    except Exception:
+        return date.today().isoformat()
 from pathlib import Path
 from typing import Any
 
@@ -76,8 +84,12 @@ class RecoveryStatus:
     def escalation_level(self) -> int:
         """0=none, 1=friendly reminder, 2=RO notification, 3=critical."""
         if self.recovery_confidence == 0 and self.pulses_completed == 0:
-            # No data at all
-            hour = datetime.now().hour
+            # Use Brisbane local time — UTC wall-clock gives wrong "afternoon" signal
+            try:
+                from zoneinfo import ZoneInfo
+                hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
+            except Exception:
+                hour = datetime.now().hour
             if hour >= 14:
                 return 3  # Afternoon with zero pulses — critical
             if hour >= 9:
@@ -181,7 +193,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
     ])
 
     lines = [
-        f"📡 *Recovery Pulse — {date.today().isoformat()}*",
+        f"📡 *Recovery Pulse — {_brisbane_today()}*",
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses: {done_str}  ({status.pulses_completed}/4 complete)",
@@ -199,7 +211,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
 
 def build_escalation_message(status: RecoveryStatus, level: int) -> str:
     """Build an escalation message for L2 or L3 scenarios."""
-    today = date.today().isoformat()
+    today = _brisbane_today()
 
     if level == 3:
         header = "🔴 *Recovery Officer — Critical Alert*"
@@ -231,7 +243,7 @@ def build_escalation_message(status: RecoveryStatus, level: int) -> str:
 
 def build_daily_summary(status: RecoveryStatus) -> str:
     """Build an end-of-day confidence summary message."""
-    today = date.today().isoformat()
+    today = _brisbane_today()
     done_str = " ".join([
         "✅" if status.morning_done    else "❌",
         "✅" if status.midday_done     else "❌",

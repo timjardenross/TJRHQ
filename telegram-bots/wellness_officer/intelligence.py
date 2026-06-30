@@ -13,8 +13,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Any
+
+try:
+    from zoneinfo import ZoneInfo as _ZI
+    def _today_brisbane() -> str:
+        return datetime.now(_ZI("Australia/Brisbane")).date().isoformat()
+except Exception:
+    from datetime import timezone, timedelta
+    def _today_brisbane() -> str:  # type: ignore[misc]
+        return datetime.now(timezone(timedelta(hours=10))).date().isoformat()
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +106,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         return WellnessSnapshot()
 
     snap = WellnessSnapshot()
-    today = date.today().isoformat()
+    today = _today_brisbane()
 
     # ── 1. Recovery confidence ────────────────────────────────────────────────
     try:
@@ -105,7 +114,11 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         if res.data:
             r = res.data[0]
             from datetime import datetime
-            hour = datetime.now().hour
+            try:
+                from zoneinfo import ZoneInfo
+                hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
+            except Exception:
+                hour = datetime.now().hour
             conf   = r.get("recovery_confidence", 0)
             pulses = r.get("pulses_completed", 0)
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +24,8 @@ log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+
+from lib.tz import today_brisbane_iso
 
 
 def _make_supabase():
@@ -68,7 +70,7 @@ def _suggested_pulse_type() -> str:
 
 def build_recovery_pulse_modal(pulse_type: str | None = None) -> dict:
     """Return Block Kit view dict for the recovery pulse modal."""
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
     suggested = pulse_type or _suggested_pulse_type()
     meta = _PULSE_META[suggested]
 
@@ -256,7 +258,7 @@ def _float(val: str | None) -> float | None:
 
 def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> None:
     """Write pulse to recovery_pulses and DM confirmation to user."""
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
 
     pulse_type = _extract(values, "pulse_type") or _suggested_pulse_type()
     energy     = _extract(values, "energy")
@@ -345,7 +347,7 @@ def _get_confidence_line(db: Any, today: str) -> str | None:
 def send_confidence_summary(user_id: str, client: Any) -> None:
     """DM today's recovery confidence snapshot. Called by /recovery-status."""
     db = _make_supabase()
-    today = date.today().isoformat()
+    today = today_brisbane_iso()
     confidence_text = _get_confidence_line(db, today) or "No recovery pulse data logged today."
     try:
         client.chat_postMessage(

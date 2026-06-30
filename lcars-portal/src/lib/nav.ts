@@ -60,6 +60,20 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Capture a note, mission, health log or idea'
   },
   {
+    href: '/xo',
+    label: 'XO Chat',
+    glyph: 'XO',
+    department: 'science',
+    description: 'Ask, route, clarify — intent into next action (MVP)'
+  },
+  {
+    href: '/engineering-queue',
+    label: 'Engineering Queue',
+    glyph: 'EQ',
+    department: 'engineering',
+    description: 'Triage, review, approve and unblock (MVP)'
+  },
+  {
     href: '/intelligence',
     label: 'Intelligence',
     glyph: 'IC',

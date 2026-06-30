@@ -97,7 +97,7 @@ export default function MissionDetailPage() {
   return (
     <div className="flex flex-col gap-4">
 
-      <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command-on">
+      <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command">
         ← Mission Registry
       </Link>
 
@@ -109,7 +109,7 @@ export default function MissionDetailPage() {
         )}
         <div className="mt-3 flex flex-wrap gap-3">
           {mission.priority && (
-            <span className="rounded border border-edge px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-command-on">
+            <span className="rounded border border-edge px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-command">
               {mission.priority}
             </span>
           )}
@@ -152,7 +152,7 @@ export default function MissionDetailPage() {
                   href={mission.pr_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-mono text-science-on hover:underline break-all"
+                  className="text-xs font-mono text-science hover:underline break-all"
                 >
                   {mission.pr_url}
                 </a>
@@ -174,7 +174,7 @@ export default function MissionDetailPage() {
                   onClick={() => setNewStatus(s)}
                   className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     newStatus === s
-                      ? 'border-command bg-command/20 text-command-on'
+                      ? 'border-command bg-command/20 text-command'
                       : 'border-edge bg-space/40 text-lcars-muted hover:border-command/50'
                   }`}
                 >
@@ -195,12 +195,12 @@ export default function MissionDetailPage() {
             />
           </div>
 
-          {error && <p className="text-xs text-operations-on">{error}</p>}
+          {error && <p className="text-xs text-operations">{error}</p>}
 
           <button
             onClick={handleSave}
             disabled={saving || (newStatus === mission.status && !note)}
-            className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+            className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Update Mission'}
           </button>

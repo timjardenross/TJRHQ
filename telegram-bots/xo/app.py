@@ -2071,8 +2071,8 @@ _BOT_COMMANDS = [
     ("advisor",         "Multi-officer advisory panel  e.g. /advisor What to focus on this week?"),
     ("challenge",       "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
     # Health & recovery
+    ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("recovery_pulse",  "Log a pulse inline (energy → mood → stress)"),
     ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
     ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
     # System
@@ -2147,7 +2147,6 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
-
 
     log.info("XO Bot polling…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

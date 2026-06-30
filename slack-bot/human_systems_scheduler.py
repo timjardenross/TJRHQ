@@ -45,11 +45,13 @@ if str(_BOT_DIR) not in sys.path:
 from lib.human_systems import push, delivery, memory, decision, mission_load, framework  # noqa: E402
 from commands.human_systems import _fetch_rows, _today_row, _delivery_context  # noqa: E402
 
-JOBS = ("morning", "evening", "weekly", "degradation", "comms_weekly")
+JOBS = ("morning", "midday", "eod", "evening", "weekly", "degradation", "comms_weekly")
 
 # Cron defaults (interpreted in HS_SCHEDULE_TZ, default the Captain's local tz).
 _CRON_DEFAULTS = {
     "morning": ("HS_MORNING_CRON", "0 7 * * *"),
+    "midday":  ("HS_MIDDAY_CRON",  "0 12 * * *"),
+    "eod":     ("HS_EOD_CRON",     "30 17 * * 1-5"),   # weekdays only, 5:30pm
     "evening": ("HS_EVENING_CRON", "0 20 * * *"),
     "weekly": ("HS_WEEKLY_CRON", "0 8 * * 1"),
     "degradation": ("HS_DEGRADATION_CRON", "0 15 * * *"),
@@ -58,9 +60,11 @@ _CRON_DEFAULTS = {
 }
 
 _JOB_DOMAIN = {
-    "morning": "resilience",
-    "evening": "medical",
-    "weekly": "resilience",
+    "morning":     "resilience",
+    "midday":      "resilience",
+    "eod":         "resilience",
+    "evening":     "medical",
+    "weekly":      "resilience",
     "degradation": "resilience",
     "comms_weekly": "communications",
 }
@@ -76,6 +80,10 @@ def _build_message(job: str):
             kind="readiness", output_class="action",
             title="Captain's Daily Operating Picture", body=body, severity="info", raw=True,
         )
+    if job == "midday":
+        return push.midday_capacity_check(_today_row(_fetch_rows(days=2)))
+    if job == "eod":
+        return push.end_of_workday_transition(_today_row(_fetch_rows(days=2)))
     if job == "evening":
         return push.evening_recovery_reflection(_today_row(_fetch_rows(days=2)))
     if job == "weekly":
