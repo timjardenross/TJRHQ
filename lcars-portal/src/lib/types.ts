@@ -377,3 +377,178 @@ export interface RecoveryBrief {
   decisions_note: string;
   fleet_summary: string;
 }
+
+/**
+ * USS-TJR-MSN-0205C/D: VM document processing pipeline + Captain approval
+ * queue. Mirrors processing_documents (migrations 0042, 0043).
+ */
+export type ProcessingStatus =
+  | 'received'
+  | 'extracted'
+  | 'ocr_required'
+  | 'ocr_complete'
+  | 'classified'
+  | 'summarised'
+  | 'embedded'
+  | 'failed'
+  | 'awaiting_review'
+  | 'excluded'; // USS-TJR-MSN-0206B: Content Eligibility Engine terminal state
+
+export type DocumentCategory =
+  | 'Financial'
+  | 'Legal'
+  | 'Health'
+  | 'Correspondence'
+  | 'Reference'
+  | 'Identity'
+  | 'Property'
+  | 'Photo'
+  | 'Administrative'
+  | 'Other';
+
+export type DocumentSensitivity = 'standard' | 'sensitive' | 'restricted';
+
+export type MemoryRecommendation =
+  | 'recommend_full'
+  | 'recommend_summary_only'
+  | 'recommend_metadata_only'
+  | 'recommend_reject'
+  | 'needs_review';
+
+export type ReviewDecision =
+  | 'approved_metadata'
+  | 'approved_summary'
+  | 'approved_chunks'
+  | 'rejected'
+  | 'needs_review';
+
+/** USS-TJR-MSN-0206B: Content Eligibility Engine exclusion reason codes. */
+export type ExclusionReason =
+  | 'recreational_content'
+  | 'unsupported_media'
+  | 'temporary_document';
+
+/**
+ * USS-TJR-MSN-0206J-1: the CURRENT review workflow state — distinct from
+ * `review_decision`, which is a point-in-time decision label. Only
+ * 'resolved' and 'rejected' are terminal; 'awaiting_followup' (a
+ * 'needs_review' decision) stays open for a later decision.
+ */
+export type ReviewStatus = 'awaiting_followup' | 'resolved' | 'rejected';
+
+/** One entry in a document's append-only review_history. */
+export interface ReviewHistoryEntry {
+  decision: ReviewDecision;
+  decided_by: string;
+  reason: string | null;
+  at: string;
+  memory_document_id: string | null;
+  note?: string; // present on entries backfilled retrospectively by migration 0047
+}
+
+export interface ProcessingLogEntry {
+  event: string;
+  detail: string | null;
+  at: string;
+}
+
+export interface ProcessingDocument {
+  id: string;
+  source_name: string;
+  source_path: string;
+  filename: string;
+  file_type: string;
+  size_bytes: number | null;
+  status: ProcessingStatus;
+  extracted_text: string | null;
+  ocr_used: boolean;
+  ocr_engine: string | null;
+  category: DocumentCategory | null;
+  tags: string[];
+  summary: string | null;
+  sensitivity: DocumentSensitivity;
+  memory_recommendation: MemoryRecommendation | null;
+  chunk_count: number;
+  failure_reason: string | null;
+  exclusion_reason: ExclusionReason | null;
+  processing_log: ProcessingLogEntry[];
+  metadata: Record<string, unknown>;
+  memory_document_id: string | null;
+  review_decision: ReviewDecision | null;
+  review_decided_at: string | null;
+  review_decided_by: string | null;
+  review_reason: string | null;
+  review_status: ReviewStatus | null;
+  review_history: ReviewHistoryEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProcessingChunk {
+  id: string;
+  document_id: string;
+  chunk_index: number;
+  chunk_text: string;
+  embedding_model: string | null;
+  embedded_at: string | null;
+  created_at: string;
+}
+
+export interface KnowledgeLibraryStats {
+  total_documents: number;
+  in_progress: number; // still moving through the processing pipeline, not yet at a terminal status
+  ocr_required: number;
+  failed_documents: number;
+  needs_your_review: number; // status='awaiting_review' AND review_decision IS NULL — actually on the Captain
+  memory_approved: number;
+  needs_followup: number; // USS-TJR-MSN-0206J-1: review_status = 'awaiting_followup'
+  rejected: number;
+}
+
+/**
+ * USS-TJR-MSN-0206D: Knowledge Lifecycle Management. Retention
+ * classification lives on knowledge_documents (Command Memory, durable),
+ * not processing_documents (pre-approval staging) — assigned automatically
+ * at approval time (src/lib/retentionPolicy.ts), 'Archived' is the one
+ * value never auto-assigned.
+ */
+export type RetentionPolicy = 'Permanent' | 'Long-Term' | 'Temporary' | 'Expiring' | 'Archived';
+export type ArchiveStatus = 'active' | 'archived';
+
+/**
+ * USS-TJR-MSN-0206J-2: Command Memory's own 8-value category taxonomy —
+ * deliberately distinct from `DocumentCategory` (the 10-value classifier
+ * taxonomy on processing_documents, tuned for the AI classifier's output).
+ * Assigned at approval time by src/lib/categoryPropagation.ts.
+ */
+export type MemoryCategory =
+  | 'Health'
+  | 'Financial'
+  | 'Legal'
+  | 'Reference'
+  | 'Property'
+  | 'Operational Resilience'
+  | 'Learning'
+  | 'Other';
+
+/** Lifecycle-relevant subset of a knowledge_documents row (list/report view). */
+export interface KnowledgeMemoryDocument {
+  id: string;
+  title: string;
+  document_type: string;
+  category: MemoryCategory | null;
+  tags: string[];
+  retention_policy: RetentionPolicy | null;
+  expiry_date: string | null;
+  archive_status: ArchiveStatus;
+  review_due_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RetentionSummary {
+  by_policy: Record<string, number>;
+  by_archive_status: Record<string, number>;
+  overdue_for_review: number;
+  by_category: Record<string, number>; // USS-TJR-MSN-0206J-2
+}

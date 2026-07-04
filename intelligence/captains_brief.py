@@ -105,6 +105,38 @@ def _get_todays_health() -> Optional[dict]:
     return rows[0] if rows else None
 
 
+def _get_recovery_status() -> Optional[dict]:
+    rows = _sb_get("recovery_confidence_today", "limit=1")
+    return rows[0] if rows else None
+
+
+def _get_knowledge_platform_summary() -> dict:
+    """USS-TJR-MSN-0207A: counts from the document processing pipeline
+    (processing_documents). Each query fetches only `id` and takes len() —
+    fine at this table's current scale (tens of rows), matching how other
+    fetchers in this module read full rows rather than requesting a
+    PostgREST exact count header."""
+    awaiting_review = len(_sb_get(
+        "processing_documents",
+        "status=eq.awaiting_review&review_decision=is.null&select=id",
+    ))
+    needs_followup = len(_sb_get(
+        "processing_documents", "review_status=eq.awaiting_followup&select=id",
+    ))
+    failed = len(_sb_get("processing_documents", "status=eq.failed&select=id"))
+    permanently_failed = len(_sb_get(
+        "processing_documents", "status=eq.permanently_failed&select=id",
+    ))
+    excluded = len(_sb_get("processing_documents", "status=eq.excluded&select=id"))
+    return {
+        "awaiting_review": awaiting_review,
+        "needs_followup": needs_followup,
+        "failed": failed,
+        "permanently_failed": permanently_failed,
+        "excluded": excluded,
+    }
+
+
 def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None) -> None:
     """Persist a generated brief to captains_daily_briefs for historical retrieval."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
@@ -176,6 +208,15 @@ def _cap_emoji(score) -> str:
     return "🟢" if s >= 70 else "🟡" if s >= 40 else "🔴"
 
 
+def _confidence_bar(pct) -> str:
+    try:
+        p = int(pct)
+    except (TypeError, ValueError):
+        p = 0
+    filled = max(0, min(10, p // 10))
+    return "█" * filled + "░" * (10 - filled)
+
+
 def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
@@ -187,6 +228,7 @@ def generate_morning_brief() -> str:
     brief = _get_latest_ori_brief()
     missions = _get_active_missions(limit=5)
     health = _get_todays_health()
+    recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
 
     lines = [
@@ -207,10 +249,30 @@ def generate_morning_brief() -> str:
             f"  ·  Energy {energy}  ·  Sleep {sleep}h",
             "",
         ]
+    elif recovery and recovery.get("pulses_completed", 0) > 0:
+        conf = recovery.get("recovery_confidence", 0)
+        signals_str = [
+            s for s in (
+                f"Energy {recovery['latest_energy'].capitalize()}"
+                if recovery.get("latest_energy") else None,
+                f"NS {recovery['latest_nervous_system'].capitalize()}"
+                if recovery.get("latest_nervous_system") else None,
+                f"Body {recovery['latest_body_signals'].capitalize()}"
+                if recovery.get("latest_body_signals") else None,
+            )
+            if s
+        ]
+        lines += [
+            "<b>⚡ CAPACITY</b>",
+            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>",
+        ]
+        if signals_str:
+            lines.append(f"  {' · '.join(signals_str)}")
+        lines.append("")
     else:
         lines += [
             "<b>⚡ CAPACITY</b>",
-            "  No health log yet — /health to log your morning pulse",
+            "  No pulse logged yet — /recovery_pulse to log your morning pulse",
             "",
         ]
 
@@ -267,6 +329,7 @@ def generate_eod_summary() -> str:
     now = _now_aest()
     missions = _get_active_missions(limit=8)
     health = _get_todays_health()
+    recovery = _get_recovery_status()
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
@@ -283,6 +346,32 @@ def generate_eod_summary() -> str:
             "",
         ]
 
+    if recovery:
+        conf = recovery.get("recovery_confidence", 0)
+        done = [
+            "✅" if recovery.get("morning_done") else "❌",
+            "✅" if recovery.get("midday_done") else "❌",
+            "✅" if recovery.get("end_of_day_done") else "❌",
+            "✅" if recovery.get("evening_done") else "❌",
+        ]
+        lines += [
+            "<b>🔋 RECOVERY PULSES</b>",
+            f"  <code>{_confidence_bar(conf)}</code> {conf}%  ·  {' '.join(done)}",
+            "  <i>AM · Mid · EOD · PM</i>",
+        ]
+        signals = [
+            s for s in (
+                f"NS {recovery['latest_nervous_system'].capitalize()}"
+                if recovery.get("latest_nervous_system") else None,
+                f"Body {recovery['latest_body_signals'].capitalize()}"
+                if recovery.get("latest_body_signals") else None,
+            )
+            if s
+        ]
+        if signals:
+            lines.append(f"  {' · '.join(signals)}")
+        lines.append("")
+
     if missions:
         lines.append("<b>🎯 MISSIONS</b>")
         for m in missions:
@@ -298,6 +387,52 @@ def generate_eod_summary() -> str:
         "",
         "🤖 <i>XO · Starship Endeavour</i>",
     ]
+    return "\n".join(lines)
+
+
+def generate_knowledge_ops_brief() -> str:
+    """USS-TJR-MSN-0207A: daily digest of the document processing pipeline
+    (mac-collector -> vm-transfer -> vm-processing -> Knowledge Library
+    approval). Telegram-only per Captain's direction — no Slack routing
+    for this pipeline's notifications."""
+    now = _now_aest()
+    kp = _get_knowledge_platform_summary()
+
+    lines = [
+        f"<b>📚 KNOWLEDGE PLATFORM — {now.strftime('%A %d %B')}</b>",
+        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        "",
+    ]
+
+    needs_attention = kp["failed"] > 0 or kp["permanently_failed"] > 0
+    nothing_pending = (
+        kp["awaiting_review"] == 0 and kp["needs_followup"] == 0 and not needs_attention
+    )
+
+    if nothing_pending:
+        lines += ["✅ All caught up — nothing awaiting your attention.", ""]
+    else:
+        lines.append("<b>🗂 REVIEW QUEUE</b>")
+        lines.append(f"  📥 Awaiting review: <b>{kp['awaiting_review']}</b>")
+        lines.append(f"  🔁 Needs follow-up: <b>{kp['needs_followup']}</b>")
+        lines.append("")
+
+        if needs_attention:
+            lines.append("<b>⚠️ ACTION NEEDED</b>")
+            if kp["failed"] > 0:
+                lines.append(f"  ❌ Failed (retriable): <b>{kp['failed']}</b>")
+            if kp["permanently_failed"] > 0:
+                lines.append(
+                    f"  🛑 Permanently failed: <b>{kp['permanently_failed']}</b>"
+                    "  — worker.py override to force another attempt"
+                )
+            lines.append("")
+
+    if kp["excluded"] > 0:
+        lines.append(f"<i>🚫 {kp['excluded']} document(s) excluded (content eligibility)</i>")
+        lines.append("")
+
+    lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
 
@@ -369,6 +504,8 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         text = generate_eod_summary()
     elif brief_type == "weekly":
         text = generate_weekly_report()
+    elif brief_type == "knowledge_ops":
+        text = generate_knowledge_ops_brief()
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False

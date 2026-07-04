@@ -1,0 +1,54 @@
+# USS-TJR-MSN-0205A — Mac File Collector Agent
+# Copy this file to config.yaml and adjust paths/rules for this machine.
+# Never commit config.yaml if it contains machine-specific personal paths you
+# don't want tracked — config.yaml is gitignored by default (see .gitignore entry
+# added alongside this file).
+
+sources:
+  - name: onedrive
+    path: "~/Library/CloudStorage/OneDrive-Personal"
+    enabled: true
+  - name: icloud
+    path: "~/Library/Mobile Documents/com~apple~CloudDocs"
+    enabled: true
+
+ignore:
+  # fnmatch-style glob patterns, matched against the file's path relative to
+  # its source root (posix separators) AND against the bare filename.
+  # Append "/**" to a pattern to ignore an entire directory subtree.
+  patterns:
+    - ".DS_Store"
+    - "._*"                # macOS AppleDouble resource forks
+    - "*.tmp"
+    - "*.temp"
+    - "~$*"                 # Office lock files
+    - "*.icloud"            # iCloud placeholder stubs (not yet downloaded)
+    - ".git/**"
+    - ".Trash*/**"
+    - "node_modules/**"
+    - "__pycache__/**"
+    - "*.pyc"
+
+  # Files larger than this are skipped and reported, not hashed/tracked.
+  max_file_size_mb: 500
+
+  # Skip dotfiles and dotdirs not already matched above (in addition to
+  # patterns). Set to false to track hidden files.
+  ignore_hidden: true
+
+  # Cloud-only placeholders (OneDrive Files On-Demand, iCloud Drive — files
+  # whose directory entry exists locally but whose content hasn't actually
+  # been downloaded) are excluded from hashing/tracking by default and
+  # reported separately as cloud_only_files. Set to true to hash/track them
+  # anyway — this is a deliberate override, since hashing a placeholder will
+  # likely trigger an OS-level download of its real content.
+  include_cloud_only: false
+
+database:
+  # Path to the local SQLite tracking database (relative paths are resolved
+  # relative to this config file's directory).
+  path: "./collector.db"
+
+manifest:
+  # Default output directory for `export-manifest` when --output is omitted.
+  output_dir: "./manifests"

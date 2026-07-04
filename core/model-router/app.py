@@ -8,6 +8,8 @@ No model stays loaded all day — each task type specifies its own keep_alive.
 Endpoints:
     POST /api/model/classify-capture    gemma3:4b      keep_alive 2m
     POST /api/model/summarise-note      gemma3:4b      keep_alive 2m
+    POST /api/model/classify-document   gemma3:4b      keep_alive 5m   (MSN-0205C)
+    POST /api/model/summarise-document  gemma3:4b      keep_alive 5m   (MSN-0205C)
     POST /api/model/intelligence-brief  mistral-small  keep_alive 10m
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
@@ -48,7 +50,7 @@ _LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
-MODEL_MID   = "gemma4:12b"          # fast classifier / XO chat / summariser
+MODEL_MID   = "gemma3:4b"           # fast classifier / XO chat / summariser
 MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
 MODEL_EMBED = "nomic-embed-text"      # embeddings
 MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
@@ -58,6 +60,13 @@ MODEL_CODE  = "qwen3-coder:30b"       # engineering review (if installed)
 TASK_POLICY: dict[str, dict[str, Any]] = {
     "classify-capture":      {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
     "summarise-note":        {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
+    # MSN-0205C: document processing pipeline. Deliberately separate task
+    # types from classify-capture/summarise-note (not aliases) — capture
+    # classification has its own escalation-trigger logic keyed to
+    # task_type == "classify-capture" that document prompts should not
+    # inherit, and separate task types keep the call log distinguishable.
+    "classify-document":     {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
+    "summarise-document":    {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
     "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
     "intelligence-brief":    {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
@@ -329,6 +338,8 @@ class RouterHandler(BaseHTTPRequestHandler):
         route_map = {
             "/api/model/classify-capture":     "classify-capture",
             "/api/model/summarise-note":       "summarise-note",
+            "/api/model/classify-document":    "classify-document",
+            "/api/model/summarise-document":   "summarise-document",
             "/api/model/intelligence-brief":   "intelligence-brief",
             "/api/model/intelligence-signals": "intelligence-signals",
             "/api/model/xo-response":          "xo-response",

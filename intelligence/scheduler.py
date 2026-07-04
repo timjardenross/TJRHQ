@@ -165,6 +165,16 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── USS-TJR-MSN-0207A: Knowledge Platform daily digest ──────────────────────
+    # 08:00 AEST — after the morning brief, before midday. Telegram only per
+    # Captain's explicit direction (no Slack routing for this pipeline).
+    scheduler.add_job(
+        _knowledge_ops_brief_job,
+        CronTrigger(hour=8, minute=0, timezone=tz),
+        id="knowledge_ops_brief",
+        replace_existing=True,
+    )
+
     # ── MSN-0200-P1F: Daily collection from all 30+ registered sources ──────────
     # 06:00 AEST daily — runs before morning brief (07:00) to pre-populate intelligence_events
     scheduler.add_job(
@@ -267,41 +277,86 @@ def _weekly_brief_job() -> None:
         log.error("Weekly brief job failed: %s", exc)
 
 
+def _knowledge_ops_brief_job() -> None:
+    """USS-TJR-MSN-0207A: daily Knowledge Platform digest (review queue,
+    failed/permanently-failed documents needing intervention, exclusions).
+    Telegram only — no Slack routing for this pipeline's notifications."""
+    from intelligence.captains_brief import send_brief
+
+    log.info("Knowledge Platform brief job triggered")
+    try:
+        ok = send_brief("knowledge_ops")
+        log.info("Knowledge Platform brief %s", "delivered" if ok else "delivery failed")
+    except Exception as exc:
+        log.error("Knowledge Platform brief job failed: %s", exc)
+
+
 def _daily_collection_job() -> None:
     """MSN-0200-P1F: Daily collection from all active sources in intelligence_source_registry.
 
     Runs at 06:00 AEST — collects from all 30+ registered sources (ACSC, BOM/Weatherzone,
-    VicEmergency, Azure, AWS, ABC News, regulatory feeds, etc.) and writes new events to
-    intelligence_events. Deduplication via dedup_hash prevents re-insertion of known items.
+    VicEmergency, Azure, AWS, ABC News, regulatory feeds, etc.), classifies + ranks each
+    item, and writes new events to intelligence_events. Deduplication (by dedup_hash,
+    canonical_url, and title+date) mirrors BriefGenerator.generate()'s pipeline — this
+    job intentionally reuses that same collect -> classify -> filter -> rank -> save_event
+    sequence rather than a bespoke one, since intelligence_store has no IntelligenceStore
+    class / save_item() method (that combination never existed and silently crashed this
+    job on every run since it was introduced).
     No LLM synthesis — that runs fortnightly via _brief_job().
     """
     log.info("Daily source collection triggered")
     try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
-        from intelligence.persistence.intelligence_store import IntelligenceStore
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
 
-        store = IntelligenceStore()
         items, health_records = collect_all()
 
-        # Persist health check results
-        for h in health_records:
-            try:
-                store.save_source_health(h)
-            except Exception as exc:
-                log.warning("Source health save failed (%s): %s", h.source_name, exc)
-
-        # Persist collected items (dedup is handled inside save_items)
-        saved = 0
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
         for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        for event in ranked:
             try:
-                store.save_item(item)
-                saved += 1
+                if store.save_event(event):
+                    saved += 1
             except Exception as exc:
-                log.debug("Item save skipped (likely dedup): %s", exc)
+                log.warning("Event save failed (%s): %s", event.raw_title[:60], exc)
 
         log.info(
-            "Daily collection complete: sources_checked=%d items_collected=%d items_saved=%d",
-            len(health_records), len(items), saved,
+            "Daily collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
         )
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)

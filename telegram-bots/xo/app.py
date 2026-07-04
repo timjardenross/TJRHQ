@@ -39,6 +39,14 @@ SUPABASE_KEY       = os.environ.get("SUPABASE_KEY", "")
 # MSN-0172: LCARS portal base URL for POST /api/missions (no trailing slash)
 LCARS_PORTAL_URL   = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
 LCARS_API_SECRET   = os.environ.get("LCARS_API_SECRET", "")
+# USS-TJR-MSN-0207C: intelligence/scheduler.py is the single owner of
+# scheduled Captain's Brief jobs (morning/midday/eod/weekly) — this bot's
+# own copy of that schedule (registered unconditionally in _post_init
+# below, MSN-0200-P3B) was found to be running in parallel with it,
+# producing duplicate Telegram messages every day (see MSN-0207B). OFF by
+# default; set to "1" only for local testing when intelligence/scheduler.py's
+# daemon is not running and you need this bot to stand in for it temporarily.
+XO_SCHEDULED_BRIEFS_ENABLED = os.environ.get("XO_SCHEDULED_BRIEFS_ENABLED", "0") == "1"
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -2093,17 +2101,29 @@ async def _post_init(app) -> None:
 
     bot = app.bot
     tz  = "Australia/Brisbane"
-    scheduler = AsyncIOScheduler(timezone=tz)
-    # Mon 07:00 — weekly brief (registered first so it takes priority over daily morning on Mondays)
-    scheduler.add_job(_scheduled_weekly_brief,  CronTrigger(day_of_week="mon", hour=7,  minute=0,  timezone=tz), id="weekly",  args=[bot])
-    # Tue-Sun 07:00 — morning brief
-    scheduler.add_job(_scheduled_morning_brief, CronTrigger(day_of_week="tue-sun", hour=7, minute=0, timezone=tz), id="morning", args=[bot])
-    # 12:30 — conditional midday check
-    scheduler.add_job(_scheduled_midday_check,  CronTrigger(hour=12, minute=30, timezone=tz), id="midday",  args=[bot])
-    # 18:00 — EOD summary
-    scheduler.add_job(_scheduled_eod_brief,     CronTrigger(hour=18, minute=0,  timezone=tz), id="eod",     args=[bot])
-    scheduler.start()
-    log.info("[startup] Scheduler started — morning 07:00 (Tue-Sun), weekly Mon 07:00, midday 12:30, EOD 18:00")
+
+    # USS-TJR-MSN-0207C: intelligence/scheduler.py owns this schedule now —
+    # see MSN-0207B for how this bot's identical, unconditionally-registered
+    # copy of it caused duplicate Telegram briefs in production. Nothing
+    # else runs on this scheduler instance (dispatch checks etc. are
+    # triggered elsewhere), so when disabled there is simply no scheduler
+    # to start.
+    if XO_SCHEDULED_BRIEFS_ENABLED:
+        scheduler = AsyncIOScheduler(timezone=tz)
+        # Mon 07:00 — weekly brief (registered first so it takes priority over daily morning on Mondays)
+        scheduler.add_job(_scheduled_weekly_brief,  CronTrigger(day_of_week="mon", hour=7,  minute=0,  timezone=tz), id="weekly",  args=[bot])
+        # Tue-Sun 07:00 — morning brief
+        scheduler.add_job(_scheduled_morning_brief, CronTrigger(day_of_week="tue-sun", hour=7, minute=0, timezone=tz), id="morning", args=[bot])
+        # 12:30 — conditional midday check
+        scheduler.add_job(_scheduled_midday_check,  CronTrigger(hour=12, minute=30, timezone=tz), id="midday",  args=[bot])
+        # 18:00 — EOD summary
+        scheduler.add_job(_scheduled_eod_brief,     CronTrigger(hour=18, minute=0,  timezone=tz), id="eod",     args=[bot])
+        scheduler.start()
+        log.info("[startup] Scheduler started — morning 07:00 (Tue-Sun), weekly Mon 07:00, midday 12:30, EOD 18:00 "
+                 "(XO_SCHEDULED_BRIEFS_ENABLED=1 — this bot is standing in for intelligence/scheduler.py)")
+    else:
+        log.info("[startup] Scheduled Captain's Brief jobs disabled in this bot (owned by intelligence/scheduler.py — "
+                 "see MSN-0207C). Set XO_SCHEDULED_BRIEFS_ENABLED=1 to re-enable here if that daemon is down.")
 
 
 def main() -> None:

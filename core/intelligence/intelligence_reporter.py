@@ -164,7 +164,20 @@ def _fetch_todays_health_entry() -> dict[str, Any] | None:
         from datetime import date
         today = date.today().isoformat()
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
-        return rows[0] if rows else None
+        if rows:
+            return rows[0]
+
+        # Fall back to today's recovery pulse telemetry when no captains_log_entries
+        # row exists — the Captain may have logged via /recovery_pulse instead.
+        pulses = supabase_get("recovery_confidence_today?select=*&limit=1")
+        if pulses and pulses[0].get("pulses_completed", 0) > 0:
+            row = pulses[0]
+            return {
+                "energy": row.get("latest_energy"),
+                "nervous_system": row.get("latest_nervous_system"),
+                "body_signals": row.get("latest_body_signals"),
+            }
+        return None
     except Exception:
         return None
 

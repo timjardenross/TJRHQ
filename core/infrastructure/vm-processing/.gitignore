@@ -1,0 +1,5 @@
+config.yaml
+ocr-work/
+__pycache__/
+*.pyc
+.venv/

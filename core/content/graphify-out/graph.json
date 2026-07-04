@@ -1,0 +1,534 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "__init__.py",
+      "file_type": "code",
+      "source_file": "__init__.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "init",
+      "community": 4,
+      "norm_label": "__init__.py"
+    },
+    {
+      "label": "draft_worker.py",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "draft_worker",
+      "community": 0,
+      "norm_label": "draft_worker.py"
+    },
+    {
+      "label": "_sb_headers()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L65",
+      "_origin": "ast",
+      "id": "draft_worker_sb_headers",
+      "community": 0,
+      "norm_label": "_sb_headers()"
+    },
+    {
+      "label": "_sb_get()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L73",
+      "_origin": "ast",
+      "id": "draft_worker_sb_get",
+      "community": 0,
+      "norm_label": "_sb_get()"
+    },
+    {
+      "label": "_sb_patch()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L84",
+      "_origin": "ast",
+      "id": "draft_worker_sb_patch",
+      "community": 0,
+      "norm_label": "_sb_patch()"
+    },
+    {
+      "label": "fetch_pending()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L101",
+      "_origin": "ast",
+      "id": "draft_worker_fetch_pending",
+      "community": 0,
+      "norm_label": "fetch_pending()"
+    },
+    {
+      "label": "_build_research_topic()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L118",
+      "_origin": "ast",
+      "id": "draft_worker_build_research_topic",
+      "community": 2,
+      "norm_label": "_build_research_topic()"
+    },
+    {
+      "label": "run_research()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L133",
+      "_origin": "ast",
+      "id": "draft_worker_run_research",
+      "community": 2,
+      "norm_label": "run_research()"
+    },
+    {
+      "label": "_build_writing_prompt()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L173",
+      "_origin": "ast",
+      "id": "draft_worker_build_writing_prompt",
+      "community": 1,
+      "norm_label": "_build_writing_prompt()"
+    },
+    {
+      "label": "_call_mistral_agent()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L198",
+      "_origin": "ast",
+      "id": "draft_worker_call_mistral_agent",
+      "community": 1,
+      "norm_label": "_call_mistral_agent()"
+    },
+    {
+      "label": "_call_mistral_direct()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L228",
+      "_origin": "ast",
+      "id": "draft_worker_call_mistral_direct",
+      "community": 1,
+      "norm_label": "_call_mistral_direct()"
+    },
+    {
+      "label": "_call_mistral_batch_provider()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L259",
+      "_origin": "ast",
+      "id": "draft_worker_call_mistral_batch_provider",
+      "community": 3,
+      "norm_label": "_call_mistral_batch_provider()"
+    },
+    {
+      "label": "run_writing_pass()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L270",
+      "_origin": "ast",
+      "id": "draft_worker_run_writing_pass",
+      "community": 1,
+      "norm_label": "run_writing_pass()"
+    },
+    {
+      "label": "process_item()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L298",
+      "_origin": "ast",
+      "id": "draft_worker_process_item",
+      "community": 0,
+      "norm_label": "process_item()"
+    },
+    {
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "draft_worker.py",
+      "source_location": "L330",
+      "_origin": "ast",
+      "id": "draft_worker_main",
+      "community": 0,
+      "norm_label": "main()"
+    },
+    {
+      "label": "Run Pass 1 via ResearchOrchestrator. Returns consolidated_findings or None.",
+      "file_type": "rationale",
+      "source_file": "draft_worker.py",
+      "source_location": "L134",
+      "_origin": "ast",
+      "id": "draft_worker_rationale_134",
+      "community": 2,
+      "norm_label": "run pass 1 via researchorchestrator. returns consolidated_findings or none."
+    },
+    {
+      "label": "Call Briefing Officer via Mistral conversations API.",
+      "file_type": "rationale",
+      "source_file": "draft_worker.py",
+      "source_location": "L199",
+      "_origin": "ast",
+      "id": "draft_worker_rationale_199",
+      "community": 1,
+      "norm_label": "call briefing officer via mistral conversations api."
+    },
+    {
+      "label": "Fallback: mistral-small via chat completions.",
+      "file_type": "rationale",
+      "source_file": "draft_worker.py",
+      "source_location": "L229",
+      "_origin": "ast",
+      "id": "draft_worker_rationale_229",
+      "community": 1,
+      "norm_label": "fallback: mistral-small via chat completions."
+    },
+    {
+      "label": "Last resort: mistral_batch.call() from engineering provider.",
+      "file_type": "rationale",
+      "source_file": "draft_worker.py",
+      "source_location": "L260",
+      "_origin": "ast",
+      "id": "draft_worker_rationale_260",
+      "community": 3,
+      "norm_label": "last resort: mistral_batch.call() from engineering provider."
+    },
+    {
+      "label": "Run Pass 2 \u2014 Briefing Officer \u2192 direct \u2192 batch fallback. Returns draft body or N",
+      "file_type": "rationale",
+      "source_file": "draft_worker.py",
+      "source_location": "L271",
+      "_origin": "ast",
+      "id": "draft_worker_rationale_271",
+      "community": 1,
+      "norm_label": "run pass 2 \u2014 briefing officer \u2192 direct \u2192 batch fallback. returns draft body or n"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L118",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L173",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_build_writing_prompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L198",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_call_mistral_agent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L259",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_call_mistral_batch_provider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L228",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_call_mistral_direct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_fetch_pending",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L330",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L298",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_process_item",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_run_research",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L270",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_run_writing_pass",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_sb_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_sb_headers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L84",
+      "weight": 1.0,
+      "source": "draft_worker",
+      "target": "draft_worker_sb_patch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "draft_worker_sb_get",
+      "target": "draft_worker_sb_headers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L93",
+      "weight": 1.0,
+      "source": "draft_worker_sb_patch",
+      "target": "draft_worker_sb_headers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L111",
+      "weight": 1.0,
+      "source": "draft_worker_fetch_pending",
+      "target": "draft_worker_sb_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L321",
+      "weight": 1.0,
+      "source": "draft_worker_process_item",
+      "target": "draft_worker_sb_patch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L337",
+      "weight": 1.0,
+      "source": "draft_worker_main",
+      "target": "draft_worker_fetch_pending",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "draft_worker_run_research",
+      "target": "draft_worker_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L302",
+      "weight": 1.0,
+      "source": "draft_worker_process_item",
+      "target": "draft_worker_run_research",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L134",
+      "weight": 1.0,
+      "source": "draft_worker_rationale_134",
+      "target": "draft_worker_run_research",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L272",
+      "weight": 1.0,
+      "source": "draft_worker_run_writing_pass",
+      "target": "draft_worker_build_writing_prompt",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L199",
+      "weight": 1.0,
+      "source": "draft_worker_rationale_199",
+      "target": "draft_worker_call_mistral_agent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L275",
+      "weight": 1.0,
+      "source": "draft_worker_run_writing_pass",
+      "target": "draft_worker_call_mistral_agent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L229",
+      "weight": 1.0,
+      "source": "draft_worker_rationale_229",
+      "target": "draft_worker_call_mistral_direct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L281",
+      "weight": 1.0,
+      "source": "draft_worker_run_writing_pass",
+      "target": "draft_worker_call_mistral_direct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L260",
+      "weight": 1.0,
+      "source": "draft_worker_rationale_260",
+      "target": "draft_worker_call_mistral_batch_provider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L287",
+      "weight": 1.0,
+      "source": "draft_worker_run_writing_pass",
+      "target": "draft_worker_call_mistral_batch_provider",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L307",
+      "weight": 1.0,
+      "source": "draft_worker_process_item",
+      "target": "draft_worker_run_writing_pass",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L271",
+      "weight": 1.0,
+      "source": "draft_worker_rationale_271",
+      "target": "draft_worker_run_writing_pass",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "draft_worker.py",
+      "source_location": "L345",
+      "weight": 1.0,
+      "source": "draft_worker_main",
+      "target": "draft_worker_process_item",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "554fd179c02b40ca2893e1fd0acb2a69c6e485cb"
+}

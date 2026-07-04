@@ -212,7 +212,7 @@ def _format_brief(data: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def _check_health_logged_today() -> bool:
-    """Return True if a health check-in entry exists for today."""
+    """Return True if a health check-in or recovery pulse exists for today."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         from supabase_client import supabase_get, is_configured
@@ -220,7 +220,10 @@ def _check_health_logged_today() -> bool:
             return False
         today = _today_iso()
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
-        return bool(rows)
+        if rows:
+            return True
+        pulses = supabase_get("recovery_confidence_today?select=pulses_completed&limit=1")
+        return bool(pulses and pulses[0].get("pulses_completed", 0) > 0)
     except Exception:
         return False
 

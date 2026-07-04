@@ -17,7 +17,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
@@ -33,6 +33,17 @@ class APIAdapter(BaseSourceAdapter):
 
     def collect(self) -> list[IntelligenceItem]:
         endpoint = self.source.api_endpoint or self.source.url
+        name = self.source.source_name.lower()
+
+        # NVD returns results oldest-first with no server-side sort option — unbounded
+        # fetch + MAX_ITEMS_PER_SOURCE would always return the same ~20 CVEs from 1999.
+        # Window the query to recent publications instead.
+        if "nvd" in name or "nist cve" in name:
+            end = datetime.now(timezone.utc).replace(microsecond=0)
+            start = end - timedelta(days=8)
+            fmt = lambda dt: dt.strftime("%Y-%m-%dT%H:%M:%S.000")
+            endpoint = f"{endpoint}?pubStartDate={fmt(start)}&pubEndDate={fmt(end)}"
+
         data = self._fetch_json(endpoint)
         if data is None:
             raise RuntimeError(f"No data returned from {endpoint}")
@@ -43,14 +54,22 @@ class APIAdapter(BaseSourceAdapter):
 
         # Dispatch to source-specific parser
         source_id = self.source.source_id
-        if "TECH-004" in source_id or "salesforce" in self.source.source_name.lower():
+        if "TECH-004" in source_id or "salesforce" in name:
             return self._parse_salesforce(data)
-        if "TECH-005" in source_id or "servicenow" in self.source.source_name.lower():
+        if "TECH-005" in source_id or "servicenow" in name:
             return self._parse_servicenow(data)
-        if "AU-CI-001" in source_id or "aemo" in self.source.source_name.lower():
+        if "AU-CI-001" in source_id or "aemo" in name:
             return self._parse_aemo(data)
-        if "AU-EM-005" in source_id or "geoscience" in self.source.source_name.lower():
+        if "AU-EM-005" in source_id or "geoscience" in name:
             return self._parse_geoscience(data)
+        if "cisa" in name and "exploited" in name:
+            return self._parse_cisa_kev(data)
+        if "nvd" in name or "nist cve" in name:
+            return self._parse_nvd(data)
+        if "msrc" in name or "microsoft security response" in name:
+            return self._parse_msrc(data)
+        if "miro" in name:
+            return self._parse_statuspage_incidents(data)
 
         return self._parse_generic(data)
 
@@ -149,19 +168,28 @@ class APIAdapter(BaseSourceAdapter):
             )
 
             raw_title = inc.get("incident_title") or inc.get("name") or inc.get("title")
+            if not raw_title and incident_id:
+                svc = ", ".join(inc.get("serviceKeys") or [])
+                raw_title = f"Salesforce {inc.get('type', 'incident')}" + (f" — {svc}" if svc else "")
             if not raw_title:
                 raw_title = f"Salesforce incident {incident_id}".strip() if incident_id else "Salesforce incident"
 
-            # Summary — try multiple field shapes the Trust API may use
+            # Summary — try multiple field shapes the Trust API may use.
+            # NOTE: top-level `message` is a structured object ({rootCause, actionPlan,
+            # pathToResolution}) in the live API, not text — narrative text lives in
+            # IncidentEvents[].message. Only accept string values here.
             summary = None
-            if inc.get("incident_updates"):
-                update = inc["incident_updates"][0]
+            events = inc.get("IncidentEvents") or inc.get("incident_updates")
+            if events:
+                update = events[0]
                 summary = update.get("body") or update.get("message")
-            if not summary:
-                summary = (
-                    inc.get("message") or inc.get("description") or
-                    inc.get("body") or inc.get("summary")
-                )
+            if not isinstance(summary, str) or not summary:
+                summary = None
+                for key in ("description", "body", "summary"):
+                    val = inc.get(key)
+                    if isinstance(val, str) and val:
+                        summary = val
+                        break
 
             # Canonical URL — prefer explicit field, else construct from incident ID
             url = (
@@ -218,6 +246,59 @@ class APIAdapter(BaseSourceAdapter):
             summary = f"Depth: {props.get('depth', '?')}km | Status: {props.get('status', '?')}"
             url = props.get("url") or self.source.url
             published = datetime.fromtimestamp(props["time"] / 1000, tz=timezone.utc) if props.get("time") else None
+            items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_cisa_kev(self, data) -> list[IntelligenceItem]:
+        vulns = data.get("vulnerabilities", [])
+        items = []
+        for v in vulns[:MAX_ITEMS_PER_SOURCE]:
+            cve_id = v.get("cveID", "")
+            title = f"{cve_id}: {v.get('vulnerabilityName', '')}".strip(": ")
+            summary = v.get("shortDescription")
+            url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
+            published = self._parse_iso(v.get("dateAdded"))
+            items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_nvd(self, data) -> list[IntelligenceItem]:
+        vulns = data.get("vulnerabilities", [])
+        items = []
+        for v in vulns[:MAX_ITEMS_PER_SOURCE]:
+            cve = v.get("cve", {})
+            cve_id = cve.get("id", "")
+            desc = next(
+                (d.get("value") for d in cve.get("descriptions", []) if d.get("lang") == "en"),
+                None,
+            )
+            url = f"https://nvd.nist.gov/vuln/detail/{cve_id}" if cve_id else self.source.url
+            published = self._parse_iso(cve.get("published"))
+            items.append(self._make_item(cve_id or "NVD CVE", desc, url, published))
+        return items
+
+    def _parse_msrc(self, data) -> list[IntelligenceItem]:
+        updates = data.get("value", [])
+        # No server-side sort/filter available (both throw on this API) — sort client-side
+        # by CurrentReleaseDate so MAX_ITEMS_PER_SOURCE keeps the most recently touched bulletins.
+        updates = sorted(updates, key=lambda u: u.get("CurrentReleaseDate") or "", reverse=True)
+        items = []
+        for u in updates[:MAX_ITEMS_PER_SOURCE]:
+            title = u.get("DocumentTitle") or u.get("Alias") or "MSRC Security Update"
+            url = u.get("CvrfUrl") or self.source.url
+            published = self._parse_iso(u.get("CurrentReleaseDate") or u.get("InitialReleaseDate"))
+            items.append(self._make_item(title, None, url, published))
+        return items
+
+    def _parse_statuspage_incidents(self, data) -> list[IntelligenceItem]:
+        """Generic Statuspage.io `/api/v2/incidents.json` shape."""
+        incidents = data.get("incidents", [])
+        items = []
+        for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+            title = f"{self.source.source_name}: {inc.get('name', 'Incident')} ({inc.get('status', '')})"
+            updates = inc.get("incident_updates") or []
+            summary = updates[0].get("body") if updates else None
+            url = inc.get("shortlink") or self.source.url
+            published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))
         return items
 

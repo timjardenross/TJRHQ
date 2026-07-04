@@ -218,7 +218,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     # ── 5. 7-day pulse history (pattern analysis) ────────────────────────────
     try:
         from datetime import timedelta
-        seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("recovery_pulses")
             .select("log_date,pulse_type,energy,nervous_system,body_signals")
@@ -247,7 +247,7 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     # ── 6. 7-day confidence trend (from health_daily_logs) ───────────────────
     try:
         from datetime import timedelta
-        seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
+        seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
         res = (
             supabase_client.table("health_daily_logs")
             .select("log_date,energy")

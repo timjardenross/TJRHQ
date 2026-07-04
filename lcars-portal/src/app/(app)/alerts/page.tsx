@@ -58,7 +58,7 @@ function NotificationControl() {
   if (perm === 'unsupported') {
     return (
       <div className="rounded-lcars border border-edge bg-panel/40 p-3 text-xs text-lcars-muted">
-        Web notifications aren't supported here. Install to the Home Screen (Share → Add to Home Screen) on iOS 16.4+ to enable banner alerts.
+        Web notifications aren&apos;t supported here. Install to the Home Screen (Share → Add to Home Screen) on iOS 16.4+ to enable banner alerts.
       </div>
     );
   }
@@ -118,7 +118,7 @@ export default function AlertsPage() {
         <div className="rounded-lcars border border-status/40 bg-status/5 p-6 text-center">
           <p className="font-lcars text-lg font-bold text-status">All clear</p>
           <p className="mt-1 text-sm text-lcars-muted">
-            Nothing needs your decision, nothing has escalated, nothing is blocked. You'll only see an alert here when it genuinely matters.
+            Nothing needs your decision, nothing has escalated, nothing is blocked. You&apos;ll only see an alert here when it genuinely matters.
           </p>
         </div>
       ) : (

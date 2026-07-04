@@ -28,3 +28,9 @@ google-generativeai>=0.8.0
 # Supabase client: research-metrics persistence + Command Memory / working memory.
 supabase>=2.0.0
 apscheduler>=3.10.0
+# intelligence/ RSS + scrape adapters (feedparser: ~25 RSS sources; beautifulsoup4:
+# ~15 scrape sources incl. APRA/ASIC/ACSC) — never declared here, so every
+# RSS/scrape source in intelligence_source_registry failed collection with
+# "not installed" (confirmed via intelligence_source_health) until this line was added.
+feedparser>=6.0.0
+beautifulsoup4>=4.12.0

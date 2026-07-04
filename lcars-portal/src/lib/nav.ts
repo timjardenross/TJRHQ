@@ -32,6 +32,13 @@ export const NAV_ITEMS: NavItem[] = [
     description: 'Decisions, lessons, intelligence, architecture records'
   },
   {
+    href: '/knowledge-library',
+    label: 'Knowledge Library',
+    glyph: 'KL',
+    department: 'science',
+    description: 'Browse VM-processed documents; approve into Command Memory'
+  },
+  {
     href: '/preferences',
     label: 'Preferences',
     glyph: '⚙',
@@ -160,9 +167,10 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Intelligence',
     items: [
-      { href: '/intelligence',   label: 'Intelligence',    glyph: 'IC',  department: 'science',     description: 'Advisory signals, awareness, operational picture' },
-      { href: '/knowledge',      label: 'Knowledge',       glyph: 'KH',  department: 'science',     description: 'Decisions, lessons, architecture, articles' },
-      { href: '/comms',          label: 'Communications',  glyph: 'CP',  department: 'command',     description: 'Content pipeline — from signal to published thought-leadership' },
+      { href: '/intelligence',      label: 'Intelligence',      glyph: 'IC',  department: 'science',     description: 'Advisory signals, awareness, operational picture' },
+      { href: '/knowledge',         label: 'Knowledge',         glyph: 'KH',  department: 'science',     description: 'Decisions, lessons, architecture, articles' },
+      { href: '/knowledge-library', label: 'Knowledge Library', glyph: 'KL',  department: 'science',     description: 'VM-processed documents; approve into Command Memory' },
+      { href: '/comms',             label: 'Communications',    glyph: 'CP',  department: 'command',     description: 'Content pipeline — from signal to published thought-leadership' },
     ],
   },
   {

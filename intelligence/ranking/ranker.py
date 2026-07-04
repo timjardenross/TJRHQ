@@ -31,9 +31,15 @@ from intelligence.models import ClassifiedEvent, RankedEvent
 _PRIORITY_SCORES = {1: 1.0, 2: 0.80, 3: 0.55, 4: 0.30, 5: 0.10}
 
 # Categories that publish general news — cap their final score so they don't
-# outrank primary regulatory/cyber/infrastructure sources on keyword coincidences
+# outrank primary regulatory/cyber/infrastructure sources on keyword coincidences.
+# Loosened 2026-07-04 (Captain: "extra articles fine if quality's good") — media
+# sources already score low on source_priority (rank 4 -> 0.30, vs 1.0 for primary
+# regulatory/cyber sources), so a media item's realistic ceiling pre-cap is ~72-73;
+# 80 lets well-corroborated, high-impact media stories compete for top-events
+# placement instead of being flattened to the same ~55, while still sitting below
+# genuine critical regulatory/cyber alerts (which routinely score 85-100).
 _MEDIA_CATEGORIES = {"media"}
-_MEDIA_SCORE_CAP = 55.0  # out of 100 — below any genuine regulatory/cyber event
+_MEDIA_SCORE_CAP = 80.0  # out of 100
 
 
 def _recency_decay(collected_at: Optional[datetime]) -> float:

@@ -75,10 +75,11 @@ export default function MissionsPage() {
     async function load() {
       try {
         const supabase = createSupabaseBrowserClient();
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('missions')
-          .select('id, mission_id, title, status, priority, department, owner, specialist')
+          .select('id, mission_id, title, status, priority')
           .order('priority', { ascending: true });
+        if (error) throw error;
         if (data) {
           setLiveMissions(data as Mission[]);
           const byPriority: Record<string, number> = {};

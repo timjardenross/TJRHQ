@@ -1,0 +1,44 @@
+[Unit]
+# USS-TJR-MSN-0207C: formal supervision for intelligence/scheduler.py — the
+# single owner of scheduled Captain's Brief jobs (morning/midday/eod/weekly)
+# plus the daily source collection and MSN-0207A's Knowledge Platform
+# digest. Before this unit existed, this process had been confirmed running
+# in production (MSN-0207B — 5+ consecutive days of on-schedule briefs in
+# captains_daily_briefs) via an undocumented mechanism (no systemd/cron/
+# docker unit anywhere in the repo) — almost certainly a manual nohup/tmux
+# session with zero auto-restart protection. This unit closes that gap.
+#
+# DEPLOYED 2026-07-03, confirmed live (PID recorded in the MSN-0207C
+# deployment record) — the two details below were corrected against the
+# real VM at deploy time and are no longer assumptions:
+#   - EnvironmentFile is slack-bot/.env, not the repo-root .env — the
+#     repo-root file is missing ~22 vars this process actually needs
+#     (Supabase key, Telegram token/chat id, LLM provider config,
+#     CONTENT_INTEL_PUSH_ENABLED). slack-bot/.venv's own .env has them.
+#   - The other long-running Telegram-facing daemon this unit's shape
+#     matches is deployed as tg-xo.service in production, not
+#     xo-bot.service (this repo's deploy/xo-bot.service file predates
+#     that rename and was never updated — noted here rather than silently
+#     assumed correct).
+#
+# This is a long-running daemon (APScheduler BlockingScheduler — it never
+# exits under normal operation), not a discrete job — Type=simple, not
+# oneshot, matching tg-xo.service's pattern rather than
+# delivery-reconciler's or capture-enrichment's oneshot+timer pattern.
+Description=USS TJR Intelligence Scheduler — Captain's Brief (single owner, MSN-0207C)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+EnvironmentFile=/opt/starship-endeavour/slack-bot/.env
+ExecStart=/opt/starship-endeavour/slack-bot/.venv/bin/python -m intelligence.scheduler
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=intelligence-scheduler
+
+[Install]
+WantedBy=multi-user.target
