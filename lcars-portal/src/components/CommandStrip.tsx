@@ -12,6 +12,7 @@
 import { useCommandCentre } from '@/lib/useCommandCentre';
 import { toneClasses } from '@/lib/departments';
 import { DataSourceIndicator } from './DataSourceIndicator';
+import { RecommendationCard } from './RecommendationCard';
 
 const TREND_GLYPH = { up: '▲', down: '▼', steady: '▬' } as const;
 
@@ -36,23 +37,7 @@ export function CommandStrip() {
   return (
     <section className="flex flex-col gap-4">
       {/* Recommended Action — the single highest-value next step (WP1) */}
-      <Panel className="border-command/40 bg-command/5">
-        <Header title="Recommended Action" live={isLive} />
-        {recommendedAction ? (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-semibold leading-snug text-lcars-text">{recommendedAction.action}</p>
-            <p className="text-[11px] text-lcars-text/70">{recommendedAction.why}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-wide">
-              <span className="text-command">{recommendedAction.sourceOfficer}</span>
-              <span className="text-lcars-muted">Confidence · {recommendedAction.confidence}</span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[11px] text-lcars-muted">
-            {isLoading ? 'Reading the daily operating picture…' : 'No recommendation available — run the daily brief.'}
-          </p>
-        )}
-      </Panel>
+      <RecommendationCard recommendation={recommendedAction} isLoading={isLoading} isLive={isLive} />
 
       {/* Ship Status overview — readiness across domains (WP1) */}
       <Panel>

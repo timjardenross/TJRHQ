@@ -6,6 +6,7 @@ import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { toneClasses } from '@/lib/departments';
 import type { RecoveryPostureBand } from '@/lib/types';
+import { RecommendationCard } from './RecommendationCard';
 
 /**
  * MobileOperatingPicture — the iPhone-first daily operating picture (WP2).
@@ -88,11 +89,7 @@ export function MobileOperatingPicture() {
 
       {/* ── Top priority (recommended action) ── */}
       {cc.recommendedAction && (
-        <div className="rounded-lcars border border-command/40 bg-command/5 p-4">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Top priority</p>
-          <p className="mt-1 text-sm font-semibold text-command leading-snug">{cc.recommendedAction.action}</p>
-          <p className="mt-1 text-[11px] text-lcars-muted">{cc.recommendedAction.sourceOfficer} · {cc.recommendedAction.confidence}</p>
-        </div>
+        <RecommendationCard recommendation={cc.recommendedAction} title="Top priority" compact />
       )}
 
       {/* ── Escalations ── */}
