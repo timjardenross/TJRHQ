@@ -50,11 +50,11 @@ _LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
-MODEL_MID   = "gemma3:4b"           # fast classifier / XO chat / summariser
+MODEL_MID   = "gemma3:4b"          # fast classifier / XO chat / summariser
 MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
 MODEL_EMBED = "nomic-embed-text"      # embeddings
 MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
-MODEL_CODE  = "qwen3-coder:30b"       # engineering review (if installed)
+MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 
 # keep_alive values per task type
 TASK_POLICY: dict[str, dict[str, Any]] = {
