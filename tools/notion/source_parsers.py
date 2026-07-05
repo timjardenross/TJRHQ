@@ -151,6 +151,10 @@ def domains_for_specialist(name: str) -> list[str]:
         "QA & Test Officer": ["Testing", "Quality", "Validation"],
         "Knowledge Officer": ["Knowledge Assets", "Documentation", "Institutional Memory"],
         "UX Design Officer": ["User Experience", "Accessibility", "Workflow Design"],
+        # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+        # Officer" (same specialist, same registry ID). Same domain list,
+        # legacy key kept as a permanent alias per MSN-0064 precedent.
+        "Design Officer": ["User Experience", "Accessibility", "Workflow Design"],
     }
     return mapping.get(name, ["Unknown"])
 
@@ -160,7 +164,16 @@ def department_for_specialist(name: str) -> str:
         return "Engineering"
     if "Knowledge" in name:
         return "Knowledge"
-    if "UX" in name or "Designer" in name:
+    # MSN-0312: "Design Officer" (canonical) does not contain the substring
+    # "UX", so it must also be matched on "Design" directly or it would
+    # silently fall through to "Future Crew". Checked against every other
+    # specialist name in this function/registry (Chief of Staff/Engineer,
+    # Coder Agent, Knowledge Officer, QA & Test Officer, Research/Medical/
+    # Operations Officer, "Product Designer" future-crew entry) — only
+    # "Product Designer" contains "Design", and it already matches via
+    # "Designer" today, so adding this substring introduces no new
+    # mis-classification.
+    if "UX" in name or "Designer" in name or "Design" in name:
         return "Design"
     if "Staff" in name:
         return "Operations"

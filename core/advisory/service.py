@@ -64,10 +64,12 @@ OFFICERS: list[dict[str, str]] = [
      "focus": "Priorities, mission sequencing, dependencies, governance."},
     {"key": "knowledge-officer", "title": "Knowledge Manager",
      "focus": "Source of truth, documentation, retrieval, traceability."},
-    {"key": "ux-design-officer", "title": "UX Design Officer",
+    {"key": "ux-design-officer", "title": "Design Officer",
      "focus": "Workflow clarity, accessibility, Captain experience."},
     {"key": "code-reviewer", "title": "Code Review Specialist",
      "focus": "Quality, testability, maintainability, regression risk."},
+    {"key": "visual-design-officer", "title": "Visual Design Officer",
+     "focus": "Visual language, brand consistency, mock-ups and graphic assets."},
 ]
 
 

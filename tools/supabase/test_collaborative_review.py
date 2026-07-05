@@ -24,6 +24,9 @@ def main() -> int:
     assert_reviewer("How should we plan mission priority?", "Chief of Staff", "Chief Engineer")
     assert_reviewer("Where should Notion sync sit in the architecture?", "Knowledge Manager", "Chief of Staff")
     assert_reviewer("How should the dashboard workflow work?", "UX Design Officer", "Chief Engineer")
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design Officer"
+    # (same specialist, same registry ID). Verify the alias resolves identically.
+    assert_reviewer("How should the dashboard workflow work?", "Design Officer", "Chief Engineer")
     assert_reviewer("Who should review this implementation?", "Code Review Specialist", "Chief Engineer")
 
     before = set(LOG_DIR.glob("*.json")) if LOG_DIR.exists() else set()

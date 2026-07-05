@@ -10,7 +10,11 @@ CASES = [
     ("Who manages mission prioritisation?", "Chief of Staff"),
     ("Where is Supabase used?", "Chief Engineer"),
     ("How should this knowledge be documented?", "Knowledge Manager"),
-    ("How should the dashboard workflow work?", "UX Design Officer"),
+    # MSN-0312: "Design Officer" is now canonical (was "UX Design Officer") —
+    # both names still resolve via specialist_router, but "Design Officer" is
+    # the first-listed/canonical block in specialist-retrieval-registry.txt,
+    # so that's what a name-agnostic routing query now returns.
+    ("How should the dashboard workflow work?", "Design Officer"),
     ("Who should review this implementation?", "Code Review Specialist"),
 ]
 

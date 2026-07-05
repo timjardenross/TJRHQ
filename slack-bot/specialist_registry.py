@@ -34,6 +34,8 @@ MISSION_KEYWORDS = {
     "UX Officer": ["ux", "user experience", "usability", "accessibility", "interaction", "friction"],
     "Knowledge Architect": ["information architecture", "taxonomy", "navigation", "findability", "knowledge model"],
     "Product Designer": ["product", "feature", "product design", "scope", "acceptance criteria"],
+    "Design Officer": ["ux", "user experience", "usability", "accessibility", "interaction", "information architecture", "design system", "friction"],
+    "Visual Design Officer": ["visual design", "brand", "mockup", "mock-up", "graphic", "iconography", "visual consistency", "image generation"],
 }
 
 TITLE_ALIASES = {
@@ -42,6 +44,14 @@ TITLE_ALIASES = {
     "engineer": "Chief Engineer",
     "ux officer": "UX Officer",
     "ia": "Knowledge Architect",
+    # MSN-0312: "visual design officer" must be checked before "design officer"/
+    # "ux design officer" — it contains "design officer" as a word-bounded
+    # substring, so a shorter-first lookup order would misresolve it to the
+    # wrong specialist. find_specialist_by_name() iterates this dict in
+    # insertion order and returns on first match, so order here is load-bearing.
+    "visual design officer": "Visual Design Officer",
+    "ux design officer": "Design Officer",
+    "design officer": "Design Officer",
 }
 
 

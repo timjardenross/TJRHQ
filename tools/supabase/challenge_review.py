@@ -149,7 +149,9 @@ def _base_adjustment(reviewer: str, primary: SpecialistOutput) -> str:
         return "Proceed only after architecture, validation path and implementation risk are explicit."
     if reviewer == "Knowledge Manager":
         return "Proceed only if source-of-truth and documentation placement are explicit."
-    if reviewer == "UX Design Officer":
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+    # Officer" (same specialist); match either name.
+    if reviewer in ("UX Design Officer", "Design Officer"):
         return "Proceed only if the workflow is understandable and low-friction for Captain TJR."
     if reviewer == "Code Review Specialist":
         return "Proceed only if testability and maintainability are addressed."

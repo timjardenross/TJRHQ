@@ -19,6 +19,9 @@ OUTPUT_FORMAT_FILES = {
     "Chief of Staff": "chief-of-staff-output-format.txt",
     "Code Review Specialist": "code-review-specialist-output-format.txt",
     "Knowledge Manager": "knowledge-manager-output-format.txt",
+    # MSN-0312: "Design Officer" (canonical) and "UX Design Officer" (legacy alias)
+    # are the same specialist retitled; both map to the same output format file.
+    "Design Officer": "ux-design-officer-output-format.txt",
     "UX Design Officer": "ux-design-officer-output-format.txt",
 }
 

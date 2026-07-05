@@ -24,12 +24,22 @@ SUPPORT_RULES = {
     "Chief Engineer": ["Knowledge Manager", "Code Review Specialist"],
     "Knowledge Manager": ["Chief of Staff"],
     "UX Design Officer": ["Chief Engineer", "Knowledge Manager"],
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design Officer"
+    # (same specialist). Kept as a duplicate key, not a rename, so that either
+    # name resolves the identical support list when it appears as primary_role.
+    "Design Officer": ["Chief Engineer", "Knowledge Manager"],
     "Code Review Specialist": ["Chief Engineer"],
 }
 
 CONCEPT_ROUTES = {
     "voice core": ("Chief Engineer", "Voice Core is an architecture/implementation capability"),
     "command centre": ("Knowledge Manager", "Command Centre is an operational visibility/knowledge workspace"),
+    # MSN-0312: intentionally left as "UX Design Officer" (not duplicated/renamed).
+    # This is a routing *target value*, not a lookup key — downstream code
+    # (specialist_executor.py, challenge_review.py, commander_synthesis.py) now
+    # accepts either name, so leaving this literal untouched preserves today's
+    # exact behavior for this concept route without introducing a second,
+    # ambiguous "notion command centre" entry.
     "notion command centre": ("UX Design Officer", "Notion Command Centre also requires workflow and dashboard design"),
 }
 

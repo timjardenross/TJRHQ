@@ -673,7 +673,12 @@ def commander_recommendation(
 def tradeoffs(outputs: list[SpecialistOutput]) -> list[str]:
     specialists = {output.specialist for output in outputs}
     items = []
-    if "Chief Engineer" in specialists and "UX Design Officer" in specialists:
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design Officer"
+    # (same specialist); check for either name so this fires regardless of
+    # which one is present in the specialists collection.
+    if "Chief Engineer" in specialists and any(
+        name in specialists for name in ("UX Design Officer", "Design Officer")
+    ):
         items.append("- Technical completeness must be balanced against workflow simplicity.")
     if "Chief of Staff" in specialists and "Chief Engineer" in specialists:
         items.append("- Mission sequencing may constrain the ideal engineering order.")

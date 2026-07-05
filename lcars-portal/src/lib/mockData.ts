@@ -185,7 +185,7 @@ export const missions: Mission[] = [
     priority: 'P1',
     status: 'IN_PROGRESS',
     owner: 'Captain TJR',
-    specialist: 'UX Design Officer',
+    specialist: 'Design Officer',
     reference: 'PORTAL-P1',
     department: 'command'
   },
@@ -404,12 +404,21 @@ export const crew: CrewMember[] = [
   },
   {
     id: 'USS-TJR-009',
-    name: 'UX Design Officer',
+    name: 'Design Officer',
     role: 'Experience & interface',
     department: 'science',
     status: 'On duty',
     tone: 'science',
     focus: 'LCARS portal Phase 1 layout and components.'
+  },
+  {
+    id: 'USS-TJR-013',
+    name: 'Visual Design Officer',
+    role: 'Visual language & brand',
+    department: 'science',
+    status: 'On duty',
+    tone: 'science',
+    focus: 'Visual consistency, brand governance, mock-up and graphic asset production.'
   }
 ];
 
@@ -552,7 +561,7 @@ export const knowledgeArticles: KnowledgeArticle[] = [
     id: 'ADR-0002',
     title: 'LCARS Portal Architecture',
     category: 'Architecture Decision Record',
-    owner: 'UX Design Officer',
+    owner: 'Design Officer',
     updated: '2026-06-18',
     excerpt: 'Next.js 14 app router, Tailwind CSS, Phase 1 mock data, Phase 2 live API.',
     department: 'command'

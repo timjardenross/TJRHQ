@@ -33,6 +33,12 @@ CREW = {
     "Medical Officer",
     "Research Officer",       # future crew — may not yet be active
     "UX Design Officer",
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+    # Officer" (same specialist, same registry ID). Added as a permanent
+    # alias member so it is a valid crew name if it ever appears in a
+    # supporting/lead list, per MSN-0064 precedent (preserve ids as aliases,
+    # no historical rewrite).
+    "Design Officer",
     "Operations Officer",     # future crew
 }
 
@@ -58,6 +64,15 @@ _DOMAIN_ASSIGNMENTS: list[tuple[str | None, str, str, list[str]]] = [
     ("strategic",      "knowledge",         "Knowledge Officer",["Chief of Staff"]),
     ("strategic",      "ux",                "UX Design Officer",["Chief Engineer"]),
     ("strategic",      "experience",        "UX Design Officer",["Chief Engineer"]),
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+    # Officer" (same specialist). This table is a first-match-wins keyword
+    # lookup, so duplicating the "ux"/"experience" rows above with the same
+    # keyword would only create unreachable dead rows (the earlier row always
+    # wins) — not a real alias. Instead, a distinct, non-overlapping keyword
+    # ("design") is added so questions that name the role directly resolve to
+    # the canonical name, without touching or risking the existing
+    # "UX Design Officer" rows above.
+    ("strategic",      "design",            "Design Officer",   ["Chief Engineer"]),
     ("strategic",      "mission",           "Chief of Staff",   ["Chief Engineer"]),
     ("strategic",      "roadmap",           "Chief of Staff",   ["Chief Engineer"]),
     ("strategic",      "automation",        "Coder Agent",      ["Chief Engineer", "QA & Test Officer"]),

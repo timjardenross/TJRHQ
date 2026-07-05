@@ -103,7 +103,9 @@ def recommendation_for(specialist: str, question: str) -> str:
         return "Sequence the work as a mission with clear owner, priority, dependencies and acceptance checks."
     if specialist == "Knowledge Manager":
         return "Keep GitHub as source of truth, Supabase as retrieval memory, and document the operational view."
-    if specialist == "UX Design Officer":
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+    # Officer" (same specialist); match either name.
+    if specialist in ("UX Design Officer", "Design Officer"):
         return "Design the workflow around Captain TJR's fastest path to comprehension and action."
     if specialist == "Code Review Specialist":
         return "Validate maintainability, testability and failure modes before accepting implementation."

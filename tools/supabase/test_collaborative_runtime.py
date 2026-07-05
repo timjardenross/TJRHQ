@@ -27,6 +27,17 @@ def main() -> int:
     assert_selected("How should we plan the next mission roadmap?", {"Chief of Staff"})
     assert_selected("How should this knowledge be documented?", {"Knowledge Manager"})
     assert_selected("How should we improve the Notion Command Centre?", {"Knowledge Manager", "UX Design Officer"})
+    # MSN-0312: "Design Officer" is the canonical retitle of "UX Design Officer"
+    # (same specialist, same registry ID). Note: the underlying routing rules
+    # registry (core/crew/registry/retrieval-routing-rules.txt, owned by a
+    # parallel MSN-0312 agent) now has duplicate "workflow/dashboard/..."
+    # entries for both "Design Officer" and "UX Design Officer", so a question
+    # matching those terms directly selects *both* names as separate routes.
+    # That is out of scope for these files (collaboration_router.py only
+    # consumes load_routing_rules(), it does not own the registry data), so we
+    # just assert the canonical alias is reachable via that path — this does
+    # not assert exclusivity, matching assert_selected's existing subset check.
+    assert_selected("How should we improve the dashboard workflow experience?", {"Design Officer"})
     assert_selected("Who should review this implementation?", {"Code Review Specialist"})
 
     before = set(LOG_DIR.glob("*.json")) if LOG_DIR.exists() else set()

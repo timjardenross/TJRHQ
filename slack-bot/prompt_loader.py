@@ -120,6 +120,18 @@ SPECIALISTS = {
             "specialists/knowledge-packs/Health-Escalation-Guidelines.md",
         ],
     },
+    "design_officer": {
+        "title": "Design Officer",
+        "charter": "specialists/core-crew/UX-Design-Officer.md",
+        "knowledge": [
+            "specialists/knowledge-packs/UX-Design-Officer-Knowledge.md",
+        ],
+    },
+    "visual_design_officer": {
+        "title": "Visual Design Officer",
+        "charter": "specialists/core-crew/Visual-Design-Officer.md",
+        "knowledge": [],
+    },
 }
 
 

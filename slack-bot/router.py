@@ -204,6 +204,18 @@ _SIGNALS: dict[str, list[tuple[str, int]]] = {
         ("interaction", 10),
         ("navigation", 10),
     ],
+    "Design Officer": [
+        ("ux", 18),
+        ("user experience", 20),
+        ("usability", 18),
+        ("accessibility", 15),
+        ("workflow", 15),
+        ("dashboard", 15),
+        ("interface", 12),
+        ("friction", 12),
+        ("interaction", 10),
+        ("navigation", 10),
+    ],
 }
 
 _MIN_CONFIDENCE = 10
@@ -252,7 +264,7 @@ def _domain(specialists: list[str]) -> str:
         return "Command"
     if "Knowledge Officer" in specialists:
         return "Knowledge"
-    if "UX Design Officer" in specialists:
+    if "UX Design Officer" in specialists or "Design Officer" in specialists:
         return "Design"
     if "QA & Test Officer" in specialists:
         return "Quality"

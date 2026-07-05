@@ -119,13 +119,19 @@ def assign_execution_team(mission_type: str, user_text: str) -> dict:
     if "ux officer" in text and "UX Design Officer" in profiles:
         explicit_team.append("UX Design Officer")
 
+    if "design officer" in text:
+        if "Design Officer" in profiles:
+            explicit_team.append("Design Officer")
+        if "UX Design Officer" in profiles:
+            explicit_team.append("UX Design Officer")
+
     if explicit_team:
         owner = explicit_team[0]
         specialists = dedupe(explicit_team)
         return {"owner": owner, "specialists": specialists}
 
     teams = {
-        "Product / UX Mission": ["Operations Officer", "Knowledge Officer", "Chief Engineer", "UX Design Officer"],
+        "Product / UX Mission": ["Operations Officer", "Knowledge Officer", "Chief Engineer", "UX Design Officer", "Design Officer"],
         "Technical Planning": ["Chief Engineer", "Research Officer", "Knowledge Officer"],
         "Health / Product Review": ["Medical Officer", "Research Officer", "Knowledge Officer"],
         "Research Mission": ["Research Officer", "Knowledge Officer", "Chief of Staff"],

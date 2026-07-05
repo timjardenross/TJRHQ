@@ -263,6 +263,9 @@ def _assignee_hint(lead: str) -> str:
         "Knowledge Officer":  "knowledge-officer (configure in .env)",
         "QA & Test Officer":  "qa-officer (configure in .env)",
         "UX Design Officer":  "ux-officer (configure in .env)",
+        # MSN-0312: "Design Officer" is the canonical retitle of "UX Design
+        # Officer" (same specialist, same registry ID); same assignee hint.
+        "Design Officer":     "ux-officer (configure in .env)",
         "Research Officer":   "research-officer (configure in .env)",
     }
     return _MAP.get(lead, "TBD — assign manually")
