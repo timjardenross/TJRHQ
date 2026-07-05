@@ -96,9 +96,7 @@ def transition_task(
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
-        raw = client.raw_client
-        if raw is None:
-            log.info("[task-engine] Supabase raw client unavailable; transition not applied")
+        if not client.is_enabled():
             return False
 
         now = datetime.now(timezone.utc).isoformat()
@@ -108,9 +106,9 @@ def transition_task(
         if new_status in _TERMINAL_STATUSES:
             update["completed_at"] = now
         if new_status == "failed":
-            current = raw.table("tasks").select("attempts").eq("task_id", task_id).limit(1).execute()
-            attempts = (current.data or [{}])[0].get("attempts", 0)
-            update["attempts"] = (attempts or 0) + 1
+            rows = client.get(f"tasks?task_id=eq.{task_id}&select=attempts")
+            attempts = (rows[0].get("attempts") if rows else 0) or 0
+            update["attempts"] = attempts + 1
         if error is not None:
             update["last_error"] = error
         if confidence is not None:
@@ -118,7 +116,9 @@ def transition_task(
         if delegated_to is not None:
             update["delegated_to"] = delegated_to
 
-        raw.table("tasks").update(update).eq("task_id", task_id).execute()
+        ok = client._patch(f"tasks?task_id=eq.{task_id}", update)
+        if not ok:
+            return False
         _log_task_event(
             client, task_id,
             "delegated" if delegated_to is not None else "status_changed",
@@ -141,14 +141,27 @@ def get_task(task_id: str) -> Optional[dict[str, Any]]:
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
-        raw = client.raw_client
-        if raw is None:
-            return None
-        result = raw.table("tasks").select("*").eq("task_id", task_id).limit(1).execute()
-        rows = list(result.data or [])
+        rows = client.get(f"tasks?task_id=eq.{task_id}&select=*")
         return rows[0] if rows else None
     except Exception as exc:
         log.warning("[task-engine] get_task failed (non-blocking): %s", exc)
+        return None
+
+
+def get_task_by_idempotency_key(idempotency_key: str) -> Optional[dict[str, Any]]:
+    """Fetch a task by its idempotency_key. Returns None on any failure or if
+    no task with that key exists. For adopters that don't want to thread a
+    task_id through their own call chain — vm-transfer-style callers can
+    correlate purely on their own natural key (e.g. source_path)."""
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+        import urllib.parse
+
+        client = CommanderSupabaseClient()
+        rows = client.get(f"tasks?idempotency_key=eq.{urllib.parse.quote(idempotency_key, safe='')}&select=*")
+        return rows[0] if rows else None
+    except Exception as exc:
+        log.warning("[task-engine] get_task_by_idempotency_key failed (non-blocking): %s", exc)
         return None
 
 
@@ -158,11 +171,7 @@ def get_child_tasks(parent_task_id: str) -> list[dict[str, Any]]:
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
-        raw = client.raw_client
-        if raw is None:
-            return []
-        result = raw.table("tasks").select("*").eq("parent_task_id", parent_task_id).execute()
-        return list(result.data or [])
+        return client.get(f"tasks?parent_task_id=eq.{parent_task_id}&select=*")
     except Exception as exc:
         log.warning("[task-engine] get_child_tasks failed (non-blocking): %s", exc)
         return []
@@ -174,17 +183,7 @@ def get_task_history(task_id: str) -> list[dict[str, Any]]:
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
-        raw = client.raw_client
-        if raw is None:
-            return []
-        result = (
-            raw.table("task_events")
-            .select("*")
-            .eq("task_id", task_id)
-            .order("occurred_at", desc=False)
-            .execute()
-        )
-        return list(result.data or [])
+        return client.get(f"task_events?task_id=eq.{task_id}&select=*&order=occurred_at.asc")
     except Exception as exc:
         log.warning("[task-engine] get_task_history failed (non-blocking): %s", exc)
         return []
@@ -202,6 +201,7 @@ __all__ = [
     "transition_task",
     "complete_task",
     "get_task",
+    "get_task_by_idempotency_key",
     "get_child_tasks",
     "get_task_history",
 ]

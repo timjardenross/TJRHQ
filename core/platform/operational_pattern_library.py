@@ -211,4 +211,48 @@ def seed_initial_patterns() -> int:
     return count
 
 
-__all__ = ["add_pattern", "get_patterns", "seed_initial_patterns"]
+# ── Pattern proposal process (SUOC Wave 3, MSN-0210K Workstream E) ──────────
+#
+# Deliberately manual, not automated. At mission close-out, ask:
+#
+#   1. Did this mission do something a future mission will need to repeat
+#      (not just "did anything happen")?
+#   2. Is the reusable part a PROCESS/APPROACH, not a one-off fact? (a fixed
+#      bug is a fact; "how we found the bug class" is a pattern)
+#   3. Can it be stated as a when_to_use + steps that another engineer could
+#      follow without having lived through this mission?
+#   4. Does it genuinely differ from all existing patterns in get_patterns()
+#      — check first, don't duplicate a near-miss of an existing one?
+#
+# If all 4 are yes, call add_pattern() with the mission's own findings, cite
+# the mission in source_missions, and set confidence based on how many times
+# the approach has actually been used successfully (a pattern used once is
+# lower-confidence than one that's now recurred across 3+ missions).
+#
+# Full automation (auto-generating patterns from mission text) is explicitly
+# NOT built here — pattern extraction requires judgment about what's
+# genuinely reusable vs. incidental, which a human/reviewing engineer should
+# make at close-out, not a heuristic.
+
+def propose_dual_write_adoption_pattern() -> bool:
+    """One-time proposal call (see criteria above) — not invoked at import
+    time. Called once from MSN-0210K's own close-out; safe to call again
+    (upsert on pattern_name)."""
+    return add_pattern(
+        pattern_name="Dual-Write Production Adoption",
+        pattern_category="convergence",
+        description="Migrate a live production system onto a new shared platform primitive by adding calls alongside its existing logic, never replacing it — and verify in the exact runtime environment the production service actually uses, not a convenient one.",
+        when_to_use="Any time an existing live service (a systemd-managed worker, a scheduled job) is being adopted onto a newly-built platform capability.",
+        steps=[
+            "Find the single chokepoint the existing system already funnels all its state changes through (e.g. one shared '_patch_and_return'-style function) — wire the new primitive there once, not at every call site",
+            "Use the existing system's own natural unique key (a file path, a source ID) as the new primitive's idempotency key — don't invent a new correlation ID or add a new column to the existing table",
+            "Test in the exact venv/dependency set the production service actually runs under, not whichever venv is most convenient — a library call that works in one environment can silently no-op in another with a thinner dependency set",
+            "Wrap every new call in try/except that only logs, never raises — a new primitive's outage must never affect the existing system's own behaviour",
+            "Do not manually restart/kill a running production process to force your change to take effect — let its next natural scheduled cycle pick it up, and verify via the data it produces afterward",
+        ],
+        source_missions=["MSN-0210K (SUOC Platform Convergence Program Part 1)"],
+        confidence=80,
+    )
+
+
+__all__ = ["add_pattern", "get_patterns", "seed_initial_patterns", "propose_dual_write_adoption_pattern"]

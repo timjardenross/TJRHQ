@@ -128,6 +128,11 @@ def _recall_platform_state(filters: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _recall_officer_context(officer: Optional[str]) -> list[dict[str, Any]]:
+    """Returns the full OfficerContext as one dict, wrapped in a single-element
+    list for interface consistency with every other recall() route. Every field
+    and computed property of OfficerContext is preserved — adopters must not
+    lose has_context/context_summary/etc. by going through this route instead
+    of calling retrieve_officer_context() directly."""
     if not officer:
         return []
     import sys
@@ -138,7 +143,17 @@ def _recall_officer_context(officer: Optional[str]) -> list[dict[str, Any]]:
     from lib.officers.officer_context import retrieve_officer_context
 
     ctx = retrieve_officer_context(officer)
-    return [{"officer": ctx.officer, "relevant_memories": ctx.relevant_memories}]
+    return [{
+        "officer": ctx.officer,
+        "relevant_memories": ctx.relevant_memories,
+        "recent_decisions": ctx.recent_decisions,
+        "active_missions": ctx.active_missions,
+        "strategic_anchors": ctx.strategic_anchors,
+        "patterns": ctx.patterns,
+        "retrieved_at": ctx.retrieved_at,
+        "has_context": ctx.has_context,
+        "context_summary": ctx.context_summary,
+    }]
 
 
 __all__ = ["MemoryType", "recall"]

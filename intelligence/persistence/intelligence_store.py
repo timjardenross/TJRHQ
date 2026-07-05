@@ -53,6 +53,24 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         return None
 
 
+def _publish_core_event(event_type: str, **kwargs) -> None:
+    """SUOC Wave 3/MSN-0210K: thin-index mirror into the shared Event Bus
+    (core_events). Best-effort, non-blocking — never raises, never affects
+    intelligence_events/intelligence_briefs persistence, which remains the
+    real source of truth for this domain exactly as before."""
+    try:
+        import sys
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.event_bus import publish_event
+        publish_event(event_type, domain="operational-resilience-intelligence", source="intelligence_store", **kwargs)
+    except Exception:
+        pass
+
+
 def _get(path: str) -> list:
     if not SUPABASE_URL or not SUPABASE_KEY:
         return []
@@ -106,6 +124,12 @@ def save_source_health(health: SourceHealth) -> None:
         "error_message": health.error_message,
         "http_status": health.http_status,
     })
+    if health.status == "failed":
+        _publish_core_event(
+            "intelligence.source.failed",
+            linked_entities=[health.source_id],
+            recommended_action=health.error_message,
+        )
 
 
 def load_latest_source_health() -> list[dict]:
@@ -194,7 +218,15 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
         })
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
-        return result.get("event_id")
+        event_id = result.get("event_id")
+        _publish_core_event(
+            "intelligence.signal.ranked",
+            importance=round(row["rank_score"]),
+            confidence=round(row["confidence"] * 100),
+            relevance=round(row["operational_relevance"] * 100),
+            linked_entities=[event_id] if event_id else [],
+        )
+        return event_id
     return None
 
 
@@ -314,7 +346,13 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
     }
     result = _post("intelligence_briefs", row)
     if result:
-        return result.get("brief_id")
+        brief_id = result.get("brief_id")
+        _publish_core_event(
+            "intelligence.brief.generated",
+            confidence=round(brief.confidence * 100) if brief.confidence else None,
+            linked_documents=[brief_id] if brief_id else [],
+        )
+        return brief_id
     return None
 
 

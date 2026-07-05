@@ -78,6 +78,60 @@ NON_TERMINAL_STATUSES = (
 )
 TERMINAL_STATUSES = ("failed", "awaiting_review", "excluded", "permanently_failed")
 
+# SUOC Wave 3 / MSN-0210K: additive Task Engine dual-write. processing_documents
+# remains the sole source of truth for this worker's own behaviour — these
+# calls only mirror status into the shared Task Engine (tasks/task_events) so
+# it's visible cross-platform. Every call is best-effort and non-blocking; a
+# Task Engine failure must never affect document processing.
+_TASK_ENGINE_STATUS_MAP = {
+    "received": "in_progress", "extracted": "in_progress", "ocr_required": "in_progress",
+    "ocr_complete": "in_progress", "classified": "in_progress", "summarised": "in_progress",
+    "embedded": "in_progress", "retry_pending": "in_progress", "retrying": "in_progress",
+    "awaiting_review": "completed", "failed": "failed", "permanently_failed": "failed",
+    "excluded": "cancelled",
+}
+
+
+_REPO_ROOT = _HERE.parents[2]  # .../vm-processing -> infrastructure -> core -> repo root
+
+
+def _task_engine_create(source_path: str, source_name: str, filename: str) -> None:
+    """Best-effort, non-blocking: mirror a newly-scanned document into the
+    shared Task Engine. Never raises — a Task Engine outage must never stop
+    scan() from tracking the document in processing_documents."""
+    try:
+        if str(_REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(_REPO_ROOT))
+        from core.platform.task_engine import create_task
+        create_task(
+            "engineering", domain="vm-processing", owner="vm-processing-worker",
+            idempotency_key=source_path,
+            metadata={"source_name": source_name, "filename": filename},
+        )
+    except Exception:
+        pass
+
+
+def _task_engine_transition(source_path: str | None, status: str, failure_reason: str | None) -> None:
+    """Best-effort, non-blocking: mirror a status change onto the matching
+    Task Engine task (correlated by idempotency_key=source_path). Never
+    raises — see _task_engine_create."""
+    if not source_path:
+        return
+    try:
+        if str(_REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(_REPO_ROOT))
+        from core.platform.task_engine import get_task_by_idempotency_key, transition_task
+        new_status = _TASK_ENGINE_STATUS_MAP.get(status)
+        if new_status is None:
+            return
+        task = get_task_by_idempotency_key(source_path)
+        if task is None:
+            return
+        transition_task(task["task_id"], new_status, error=failure_reason)
+    except Exception:
+        pass
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -136,6 +190,7 @@ class ProcessingWorker:
                 "size_bytes": path.stat().st_size,
                 "status": "received",
             })
+            _task_engine_create(source_path, source_name, path.name)
             new_count += 1
         return {"new": new_count, "skipped": skipped_count, "root_missing": False}
 
@@ -460,7 +515,10 @@ class ProcessingWorker:
 
     def _patch_and_return(self, current: dict, update: dict) -> dict:
         self.db.patch("processing_documents", {"id": current["id"]}, update)
-        return {**current, **update}
+        merged = {**current, **update}
+        if "status" in update:
+            _task_engine_transition(merged.get("source_path"), update["status"], update.get("failure_reason"))
+        return merged
 
     # -- status -----------------------------------------------------------
 

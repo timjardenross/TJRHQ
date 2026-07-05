@@ -84,9 +84,10 @@ class OfficerCycleResult:
 def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
     """Research Officer: process intelligence signals from ORI and investigations."""
     try:
-        from lib.officers.officer_context import retrieve_officer_context
-        oc = retrieve_officer_context("research")
-        if not oc.has_context and not getattr(ctx, "high_confidence_findings", []):
+        from core.platform.unified_memory import MemoryType, recall
+        results = recall(MemoryType.OFFICER_CONTEXT, officer="research")
+        oc = results[0] if results else {"has_context": False, "relevant_memories": []}
+        if not oc["has_context"] and not getattr(ctx, "high_confidence_findings", []):
             return
 
         findings = getattr(ctx, "high_confidence_findings", [])
@@ -97,7 +98,7 @@ def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
                 "type": "intelligence_scan",
                 "findings": len(findings),
                 "ori_risk": ori_risk,
-                "context_memories": len(oc.relevant_memories),
+                "context_memories": len(oc["relevant_memories"]),
             }
             result.officer_signals.append(signal)
             log.info("[officer_cycle] Research scan: %d finding(s), ORI=%s", len(findings), ori_risk)
