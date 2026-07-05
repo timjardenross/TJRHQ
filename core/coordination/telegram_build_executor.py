@@ -129,6 +129,24 @@ def _finish(client: SupabaseClient, request_id: str, status: str, note: str) -> 
     except SupabaseError as exc:  # non-fatal: the work is done; this is bookkeeping
         log.warning("Could not stamp marker %s → %s: %s", request_id, status, exc)
 
+    # SUOC Wave 2 (MSN-0210F, Item B): records the execution outcome of an
+    # already-approved build request. The actual "Captain typed /approve"
+    # moment happens upstream of this file (this module only fetches and
+    # executes rows already at status=approved) — flagged separately for a
+    # follow-up if that specific moment needs its own audit record too.
+    try:
+        from core.platform.audit_service import record_audit_event
+        record_audit_event(
+            category="approval",
+            actor="telegram-build-executor",
+            action="engineer_approved_build",
+            outcome=status,
+            details={"request_id": request_id, "note": note[:500]},
+            mission_id=request_id,
+        )
+    except Exception as exc:
+        log.warning("Audit event recording failed (non-blocking): %s", exc)
+
 
 # ─── BREQ → handoff ────────────────────────────────────────────────────────────
 

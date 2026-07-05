@@ -154,6 +154,29 @@ def advance(
     # Audit log
     _log_transition(content_id, title, current_state, new_state, trigger, actor)
 
+    # SUOC Wave 2 (MSN-0210F, Item B): general audit trail for Captain
+    # approval decisions — this used to only reach the decisions table via
+    # _log_transition above; audit_events is the dedicated, non-overloaded
+    # record for approval-category events.
+    if trigger in CAPTAIN_ONLY_TRIGGERS:
+        try:
+            from core.platform.audit_service import record_audit_event
+            record_audit_event(
+                category="approval",
+                actor=actor,
+                action=trigger,
+                outcome="approved",
+                details={
+                    "content_id": content_id,
+                    "title": title,
+                    "old_state": current_state,
+                    "new_state": new_state,
+                },
+                mission_id=content_id,
+            )
+        except Exception as exc:
+            log.warning("[comms.pipeline] Audit event recording failed (non-blocking): %s", exc)
+
     # SUOC Wave 1: feed Captain approval decisions into the learning loop
     if trigger in CAPTAIN_ONLY_TRIGGERS:
         try:

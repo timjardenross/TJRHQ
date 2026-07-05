@@ -71,6 +71,12 @@ from telegram_bots.llm import generate_async
 from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
 from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
 
+# SUOC Wave 2 (MSN-0210F, Item C): canonical chat-ID allowlist gate.
+# TELEGRAM_CHAT_ID is passed as bootstrap_captain_chat_id — a fallback
+# only, kept for exact behavioural parity when TELEGRAM_ALLOWED_CHAT_IDS
+# is unset; the long-term authority model is the explicit env allowlist.
+from core.platform.telegram_access import is_allowed as _chat_is_allowed
+
 # ── Telegram ──────────────────────────────────────────────────────────────────
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -516,7 +522,7 @@ _RESTARTABLE_SERVICES = {
 
 async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
     arg = (context.args[0].lower() if context.args else "all")
@@ -841,7 +847,7 @@ async def cmd_learning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     Reuses outcome_capture.learning_status() + leadership_outcomes() — no duplicate
     logic, no new storage. Internal only; nothing published."""
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
         return
     oc = _load_learning()
@@ -1512,7 +1518,7 @@ def _load_narrative():
 async def cmd_captain(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """MSN-0087 WP6/WP7: narrative intelligence — what changed, why it matters, what
     needs attention, and advisory recommendations. Evidence-backed; advisory only."""
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
         return
     nv = _load_narrative()
@@ -1543,7 +1549,7 @@ def _parse_oc_cb(data: str) -> dict:
 
 async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """MSN-0087 WP4: consolidated 'Captain Attention' queue with quick outcome actions."""
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
         return
     nv = _load_narrative()
@@ -1707,7 +1713,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle voice messages — transcribe locally and write to capture inbox."""
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
     msg = update.message
@@ -1799,7 +1805,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
     query = update.callback_query
     await query.answer()
 
-    if update.effective_chat.id != TELEGRAM_CHAT_ID:
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
     parts = query.data.split("|")  # vc|action|capture_id

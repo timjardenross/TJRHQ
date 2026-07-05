@@ -19,8 +19,20 @@ export async function POST(
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* empty body ok */ }
 
-  const source  = typeof body.source  === 'string' ? body.source.trim()  : 'API';
-  const officer = typeof body.officer === 'string' ? body.officer.trim() : 'Captain';
+  const source = typeof body.source === 'string' ? body.source.trim() : 'API';
+
+  // SUOC Wave 2 (MSN-0210F, Item D): audit-integrity fix only — `officer` was
+  // previously an arbitrary string from the request body with no validation,
+  // flowing straight into mission_state_transitions.actor. This does NOT gate
+  // the handoff itself (eligibility is decided by HANDOFF_ELIGIBLE above); it
+  // only stops the audit label from being spoofed to an arbitrary value.
+  // Historical actor values include both officer titles ("Captain") and
+  // automated process identifiers ("edo-pilot", "edo-execute") — a strict
+  // enum would reject legitimate automation labels, so this validates shape
+  // (identifier-like, bounded length) rather than matching a fixed list.
+  const OFFICER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$/;
+  const officerRaw = typeof body.officer === 'string' ? body.officer.trim() : 'Captain';
+  const officer = OFFICER_PATTERN.test(officerRaw) ? officerRaw : 'Captain';
 
   try {
     const supabase = await createSupabaseServerClient();
