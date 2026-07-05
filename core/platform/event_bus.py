@@ -37,6 +37,7 @@ def publish_event(
     importance: Optional[int] = None,
     confidence: Optional[int] = None,
     relevance: Optional[int] = None,
+    time_sensitivity: Optional[int] = None,
     linked_entities: Optional[list[str]] = None,
     linked_missions: Optional[list[str]] = None,
     linked_documents: Optional[list[str]] = None,
@@ -48,7 +49,9 @@ def publish_event(
         event_type: e.g. 'mission.approved', 'research.completed', 'task.created'
         domain: which Intelligence Domain / Platform Capability, or 'system'
         source: originating module name
-        importance/confidence/relevance: 0-100, all optional
+        importance/confidence/relevance/time_sensitivity: 0-100, all optional.
+            time_sensitivity added MSN-0308 — how time-critical this event is,
+            independent of importance; absent means no signal, not zero.
         linked_entities/missions/documents: lists of reference strings
         recommended_action: optional free-text or structured-action reference
 
@@ -72,6 +75,7 @@ def publish_event(
                 "source": source,
                 "importance": importance,
                 "confidence": confidence,
+                "time_sensitivity": time_sensitivity,
                 "relevance": relevance,
                 "linked_entities": linked_entities or [],
                 "linked_missions": linked_missions or [],

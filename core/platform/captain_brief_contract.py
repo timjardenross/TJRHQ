@@ -93,6 +93,39 @@ class CaptainBrief:
     never_interrupt_count: int = 0  # count only, for completeness/audit — never shown to the Captain
 
 
+def recommendation_from_event(event: dict[str, Any]) -> Optional[Recommendation]:
+    """MSN-0308: adapter from `core_events.recommended_action` (free text,
+    written by every domain today per MSN-0302 §8) to a `Recommendation`
+    object, so `assemble_captain_brief()` can surface something even
+    though zero domains populate the structured fields yet (MSN-0307
+    finding). Deliberately minimal — wraps the existing text as-is, adds
+    no inference, no new domain emitter changes required. A domain that
+    starts emitting a real `Recommendation` later simply won't need this
+    adapter for its own events; this is a bridge, not a replacement for
+    domains adopting the structured form themselves.
+    """
+    text = event.get("recommended_action")
+    if not text:
+        return None
+    return Recommendation(description=text)
+
+
+def recommendations_from_events(events: list[dict[str, Any]]) -> dict[str, Recommendation]:
+    """Batch form of `recommendation_from_event`, keyed by `event_id` —
+    the exact shape `assemble_captain_brief()`'s `recommendations` param
+    expects. Events with no `event_id` or no `recommended_action` are
+    simply absent from the result, not an error."""
+    result: dict[str, Recommendation] = {}
+    for event in events:
+        event_id = event.get("event_id")
+        if not event_id:
+            continue
+        rec = recommendation_from_event(event)
+        if rec is not None:
+            result[event_id] = rec
+    return result
+
+
 def assemble_captain_brief(
     decisions: list[AttentionDecision],
     *,
@@ -148,4 +181,6 @@ __all__ = [
     "CaptainBriefItem",
     "CaptainBrief",
     "assemble_captain_brief",
+    "recommendation_from_event",
+    "recommendations_from_events",
 ]
