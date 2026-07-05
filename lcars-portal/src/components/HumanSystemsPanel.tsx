@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
+import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import {
   loadHumanSystems,
   BAND_TONE,
@@ -60,12 +61,7 @@ export function HumanSystemsPanel() {
       title="Human Systems"
       accent="medical"
       eyebrow="Capacity & Decision Support Officer"
-      actions={
-        <StatusBadge
-          label={isLive ? 'Live' : 'No data'}
-          tone={isLive ? 'status' : 'neutral'}
-        />
-      }
+      actions={<DataSourceIndicator live={isLive} />}
     >
       {/* Escalation banner always first (doctrine §6). */}
       {snapshot.escalation && (

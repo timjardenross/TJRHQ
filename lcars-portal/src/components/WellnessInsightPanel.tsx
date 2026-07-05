@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LCARSPanel } from './LCARSPanel';
-import { StatusBadge } from './StatusBadge';
+import { DataSourceIndicator } from './DataSourceIndicator';
 
 interface HealthInsights {
   insight_date:         string | null;
@@ -69,15 +69,7 @@ export function WellnessInsightPanel() {
       title="Wellness Intelligence"
       accent="medical"
       eyebrow={date ? `Health Insights · ${date}` : 'Health Insights · Wellness & Recovery Officer'}
-      actions={
-        loading ? (
-          <span className="text-[10px] uppercase tracking-wider text-lcars-muted animate-pulse">Loading…</span>
-        ) : hasData ? (
-          <StatusBadge label="Live" tone="medical" />
-        ) : (
-          <StatusBadge label="No data" tone="neutral" />
-        )
-      }
+      actions={<DataSourceIndicator live={hasData} loading={loading} />}
     >
       {loading && (
         <p className="text-xs text-lcars-muted animate-pulse">Fetching health intelligence…</p>

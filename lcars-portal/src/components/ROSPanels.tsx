@@ -12,6 +12,7 @@ import { useROSData } from '@/lib/useROSData';
 import { toneClasses } from '@/lib/departments';
 import { StatusBadge } from './StatusBadge';
 import { LCARSPanel } from './LCARSPanel';
+import { DataSourceIndicator } from './DataSourceIndicator';
 import type {
   BodyContext,
   MissionLoadGuidanceData,
@@ -162,21 +163,6 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
   );
 }
 
-// ── Live data indicator ───────────────────────────────────────────────────────
-
-function DataSourceBadge({ isLive, isLoading }: { isLive: boolean; isLoading: boolean }) {
-  if (isLoading) return (
-    <div className="text-[10px] uppercase tracking-wider text-lcars-muted animate-pulse">
-      Loading live data…
-    </div>
-  );
-  return (
-    <div className="text-[10px] uppercase tracking-wider text-lcars-muted">
-      {isLive ? '● Live · Supabase' : '○ Mock data — no check-in today'}
-    </div>
-  );
-}
-
 // ── Exported composite ───────────────────────────────────────────────────────
 
 export function ROSPanels() {
@@ -185,7 +171,14 @@ export function ROSPanels() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
-        <DataSourceBadge isLive={isLive} isLoading={isLoading} />
+        <DataSourceIndicator
+          live={isLive}
+          loading={isLoading}
+          variant="inline"
+          liveLabel="Live · Supabase"
+          mockLabel="Mock data — no check-in today"
+          loadingLabel="Loading live data…"
+        />
       </div>
       <RecoveryPostureBlock posture={posture} />
       <BodyContextBlock ctx={bodyContext} />

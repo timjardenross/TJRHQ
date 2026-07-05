@@ -11,6 +11,7 @@
 
 import { useCommandCentre } from '@/lib/useCommandCentre';
 import { toneClasses } from '@/lib/departments';
+import { DataSourceIndicator } from './DataSourceIndicator';
 
 const TREND_GLYPH = { up: '▲', down: '▼', steady: '▬' } as const;
 
@@ -24,7 +25,7 @@ function Header({ title, live }: { title: string; live?: boolean }) {
   return (
     <div className="mb-2 flex items-center justify-between">
       <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-lcars-muted">{title}</h2>
-      {live && <span className="h-2 w-2 animate-pulse rounded-full bg-status" />}
+      {live !== undefined && <DataSourceIndicator live={live} variant="inline" />}
     </div>
   );
 }

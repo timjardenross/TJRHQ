@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
+import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { loadDelivery, OPEN_STATES, STATE_TONE, type DeliveryData } from '@/lib/delivery';
 
 const SEV_TONE = { critical: 'operations', high: 'operations', medium: 'command', low: 'neutral' } as const;
@@ -41,7 +42,7 @@ export function DeliveryPanel() {
       title="Delivery"
       accent="engineering"
       eyebrow="Engineering & Delivery Officer"
-      actions={<StatusBadge label={isLive ? 'Live' : 'No data'} tone={isLive ? 'status' : 'neutral'} />}
+      actions={<DataSourceIndicator live={isLive} />}
     >
       {/* Metrics strip */}
       {metrics && (
