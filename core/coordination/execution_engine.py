@@ -109,20 +109,28 @@ class NumberOneExecutionEngine:
         Assigns owner, sets review date, logs to Command Memory.
         ADR-0003 implementation.
         """
+        # SUOC Wave 2: delegates the check+audit sequence to the shared
+        # authority_enforcement.AuthorityContext instead of duplicating it
+        # inline (this used to reimplement can_officer + audit_authority_action
+        # directly). AuthorityContext raises AuthorityError on denial where
+        # this method returns None — caught below to preserve that exact
+        # external behaviour; everything else (fail-open on any other
+        # exception, audited approved=True when captain_override applies)
+        # is unchanged.
         try:
-            from core.governance.authority_validator import can_officer, audit_authority_action
+            from core.governance.authority_enforcement import AuthorityContext
+            from core.governance.authority_validator import AuthorityError
 
-            approved, reason = can_officer("number_one", "assign_mission_owner")
-            audit_authority_action(
-                officer="number_one",
-                action="assign_mission_owner",
-                approved=approved or self.captain_override,
-                reason=reason,
-                mission_id=mission_id,
-                captain_override=self.captain_override,
-            )
-            if not approved and not self.captain_override:
-                log.warning("[exec-engine] Assignment blocked by authority gate: %s", reason)
+            try:
+                with AuthorityContext(
+                    officer="number_one",
+                    action="assign_mission_owner",
+                    captain_override=self.captain_override,
+                    mission_id=mission_id,
+                ):
+                    pass
+            except AuthorityError as exc:
+                log.warning("[exec-engine] Assignment blocked by authority gate: %s", exc.reason)
                 return None
         except Exception as exc:
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
