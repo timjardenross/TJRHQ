@@ -137,6 +137,13 @@ export const NAV_ITEMS: NavItem[] = [
     glyph: '16',
     department: 'command',
     description: 'Intelligence intake — capture, triage, route'
+  },
+  {
+    href: '/captains-brief',
+    label: "Captain's Brief",
+    glyph: 'CB',
+    department: 'command',
+    description: 'Cross-domain intelligence brief — priorities, confidence, warnings'
   }
 ];
 
@@ -155,6 +162,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/captains-chair',   label: 'Situation Room',    glyph: '01', department: 'command',     description: 'What changed, what matters, what needs attention' },
       { href: '/advisory-council', label: 'Advisory Council',  glyph: 'AC', department: 'command',     description: 'Consult, board, brief, picture, intelligence — unified' },
+      { href: '/captains-brief',   label: "Captain's Brief",   glyph: 'CB', department: 'command',     description: 'Cross-domain intelligence brief — priorities, confidence, warnings' },
       { href: '/capture',          label: 'Capture',           glyph: 'QC', department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
     ],
   },
