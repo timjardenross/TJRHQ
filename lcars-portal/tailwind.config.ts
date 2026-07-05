@@ -43,7 +43,23 @@ const config: Config = {
         operations:  { DEFAULT: '#F44336', soft: '#FF6E63', on: '#B71C1C' }, // Operations Red
         medical:     { DEFAULT: '#0099FF', soft: '#4FC3F7', on: '#005299' }, // Medical Blue
         science:     { DEFAULT: '#CC88FF', soft: '#D9A6FF', on: '#5B2AAA' }, // Science Purple
-        status:      { DEFAULT: '#4CAF50', soft: '#81C784', on: '#1B5E20' }, // Status Green
+        status:      { DEFAULT: '#4CAF50', soft: '#81C784', on: '#1B5E20' }, // Status Green (legacy — see `state` below)
+
+        // ── Operational state colours (MSN-0315 Phase 1A) ──────────────
+        // Independent of department identity colour — per the ratified rule
+        // "operational status colours are sacred, never overridden by
+        // department colour" (revived from archive/.../STARFLEET-DESIGN-STANDARD.md
+        // §2, carried forward by MSN-0310 §4.2). Consumers (StatusBadge etc.)
+        // are migrated onto these in Phase 1B — not touched here.
+        // Values below are contrast-validated (>=3:1 DEFAULT, >=4.5:1 "on")
+        // against all three live backgrounds; see
+        // lcars-portal/docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        state: {
+          ok:      { DEFAULT: '#278A44', soft: '#cfe8d5', on: '#1B5E20' }, // Healthy / Operational
+          warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required
+          crit:    { DEFAULT: '#C43030', soft: '#f8dcdc', on: '#7A1616' }, // Critical / Action Required
+          unknown: { DEFAULT: '#5A6690', soft: '#dfe2ee', on: '#33395C' }, // Unknown / No Data
+        },
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────
         space: '#dce8f4',      // light blue-grey (body)
