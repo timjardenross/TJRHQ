@@ -155,29 +155,81 @@ def record_build_lifecycle_event(
                 "batch_claimed": "In Progress",
                 "batch_advanced": "Completed" if status in {"DELIVERED", "APPROVED_FOR_ENGINEERING"} else "In Progress",
             }.get(event_type, "Pending")
+            # Two separate downstream vocabularies, neither of which is
+            # Pending/In Progress/Completed above — verified against the live
+            # schema 2026-07-05:
+            #   decision_outcomes.outcome_status: CHECK-constrained to
+            #     success/partial/failed only.
+            #   quality_scores (via QualityScoring._calculate_score):
+            #     Implemented/Modified/Deferred/Rejected/Unknown.
+            decision_outcomes_status = (
+                "success" if status in {"DELIVERED", "APPROVED_FOR_ENGINEERING"}
+                else "failed" if status == "FAILED"
+                else "partial"
+            )
+            quality_outcome_status = (
+                "Implemented" if status in {"DELIVERED", "APPROVED_FOR_ENGINEERING"}
+                else "Rejected" if status == "FAILED"
+                else "Unknown"
+            )
+
+            # decision_outcomes.decision_id FKs to commander_decisions(id) (uuid),
+            # NOT decision_records(id) (text) — verified against the live schema
+            # 2026-07-05 (see reports/USS-TJR-MSN-0210-SUOC-Transition-Architecture.md).
+            # This insert previously targeted the wrong parent/columns entirely
+            # (implementation_notes/outcome_timestamp don't exist on this table,
+            # and outcome_id/decision_id here are bigint/uuid, not the OUT-.../
+            # DEC-... text ids generated above) and was silently failing.
+            commander_decision_id = str(uuid4())
+            cd_result = client.insert(
+                "commander_decisions",
+                {
+                    "id": commander_decision_id,
+                    "decision_title": f"{mission_title} {event_type}",
+                    "decision_summary": memory_text,
+                    "source": "build-learning-loop",
+                    "channel_id": channel_id,
+                    "user_id": user_id or approver_user_id,
+                    "thread_ts": thread_ts,
+                    "route": "/build",
+                    "confidence": 0.9,
+                    "status": outcome_status,
+                    "metadata": payload["metadata"],
+                },
+            )
+            if not cd_result.ok:
+                log.warning("[build-learning-loop] commander_decisions write failed: %s", cd_result.error)
+                return
+
             outcome_payload = {
-                "id": outcome_id,
-                "decision_id": decision_id,
-                "outcome_status": outcome_status,
-                "implementation_notes": notes or memory_text,
-                "outcome_timestamp": datetime.utcnow().isoformat(),
+                "decision_id": commander_decision_id,
+                "mission_id": source_record,
+                "outcome_status": decision_outcomes_status,
+                "outcome_notes": notes or memory_text,
+                "evaluation_date": datetime.utcnow().isoformat(),
+                "evaluator": user_id or approver_user_id or "unknown",
             }
-            outcome_result = client.insert("decision_outcomes", outcome_payload)
-            if outcome_result.ok:
-                try:
-                    quality_scoring = QualityScoring(client)
-                    feedback_loops = FeedbackLoops(client)
-                    quality_scoring.score_outcome(
-                        outcome_id=outcome_id,
-                        decision_id=decision_id,
-                        outcome_status=outcome_status,
-                        implementation_notes=notes or memory_text,
-                        provider_name=None,
-                        model_name=None,
-                        provider_route="/build",
-                        feedback_loops=feedback_loops,
-                    )
-                except Exception as exc:
-                    log.warning("[build-learning-loop] scoring/feedback skipped: %s", exc)
+            outcome_result = client.insert("decision_outcomes", outcome_payload, returning=True)
+            if outcome_result.ok and outcome_result.data:
+                outcome_bigint_id = outcome_result.data[0].get("id")
+                raw = client.raw_client
+                if raw is not None and outcome_bigint_id is not None:
+                    try:
+                        quality_scoring = QualityScoring(raw)
+                        feedback_loops = FeedbackLoops(raw)
+                        quality_scoring.score_outcome(
+                            outcome_id=outcome_bigint_id,
+                            decision_id=decision_id,
+                            outcome_status=quality_outcome_status,
+                            implementation_notes=notes or memory_text,
+                            provider_name=None,
+                            model_name=None,
+                            provider_route="/build",
+                            feedback_loops=feedback_loops,
+                        )
+                    except Exception as exc:
+                        log.warning("[build-learning-loop] scoring/feedback skipped: %s", exc)
+            else:
+                log.warning("[build-learning-loop] decision_outcomes write failed: %s", outcome_result.error)
     except Exception as exc:
         log.warning("[build-learning-loop] decision/outcome chain write failed: %s", exc)

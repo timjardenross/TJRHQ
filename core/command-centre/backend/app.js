@@ -59,11 +59,30 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Optional API key authentication (D-007 security baseline).
-// Set BACKEND_API_KEY in .env to enforce. If unset, auth is skipped (dev mode).
+// Set BACKEND_API_KEY in .env to enforce.
+// SUOC Wave 1 (MSN-0210E): an unset key used to silently skip auth on every
+// request regardless of environment ("dev mode by default"). It now only
+// skips in non-production; a production process with no key configured
+// fails closed instead, since that combination is a misconfiguration, not
+// an intentional dev mode.
 const _apiKey = process.env.BACKEND_API_KEY;
+const _isProduction = process.env.NODE_ENV === 'production';
+if (!_apiKey) {
+  if (_isProduction) {
+    console.error('[SECURITY] BACKEND_API_KEY is not set in a production environment — ' +
+      'all non-public API requests will be rejected until it is configured.');
+  } else {
+    console.warn('[dev-mode] BACKEND_API_KEY not set — API auth is disabled (non-production only).');
+  }
+}
 app.use((req, res, next) => {
-  if (!_apiKey) return next(); // dev mode: no key configured
   if (req.path === '/health' || req.path === '/api/config') return next(); // public endpoints
+  if (!_apiKey) {
+    if (_isProduction) {
+      return res.status(503).json({ error: 'misconfigured', message: 'BACKEND_API_KEY is not configured' });
+    }
+    return next(); // dev mode: no key configured, non-production only
+  }
   const provided = req.headers['x-api-key'] || req.query.api_key;
   if (provided !== _apiKey) {
     return res.status(401).json({ error: 'unauthorised', message: 'Valid X-Api-Key header required' });

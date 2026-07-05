@@ -34,9 +34,18 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Allow bot requests carrying the shared secret
+  // Allow bot requests carrying the shared secret — API routes only.
+  // SUOC Wave 1 (MSN-0210E): this previously bypassed auth for the entire
+  // app surface (any page, not just API calls) for any request holding a
+  // valid secret. Scoped to /api/* so a leaked/shared bot secret grants
+  // programmatic access only, not full authenticated-UI browsing.
   const botSecret = request.headers.get('x-bot-secret');
-  if (botSecret && process.env.BOT_API_SECRET && botSecret === process.env.BOT_API_SECRET) {
+  if (
+    pathname.startsWith('/api/') &&
+    botSecret &&
+    process.env.BOT_API_SECRET &&
+    botSecret === process.env.BOT_API_SECRET
+  ) {
     return supabaseResponse;
   }
 

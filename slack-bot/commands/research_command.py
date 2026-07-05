@@ -480,6 +480,7 @@ def _execute_research_mission(
     if result.status != "error":
         _queue_mission_logging(result, user_id)
         _persist_research_memory(result, user_id)
+        _record_research_learning_loop(result, user_id)
         log_memory_metric(
             source="research",
             action="new_research_completed",
@@ -830,6 +831,28 @@ def _queue_mission_logging_reuse(
     except Exception as e:
         log.warning("[research-reuse] Failed to log reuse event: %s", e)
         # Non-blocking: reuse already delivered to user; metrics logging is auxiliary
+
+
+def _record_research_learning_loop(result, user_id: str | None) -> None:
+    """Feed a completed research mission into the MSN-0060B learning loop (SUOC Wave 1)."""
+    try:
+        from lib.research_learning_loop import record_research_lifecycle_event
+    except ImportError as exc:
+        log.warning("[research] Learning loop unavailable (missing dependency: %s) — skipped", exc)
+        return
+
+    try:
+        record_research_lifecycle_event(
+            mission_id=result.mission_id,
+            research_topic=result.research_topic or "",
+            recommendation=result.recommendation or "",
+            confidence=float(result.confidence or 0.0),
+            status=result.status,
+            provider_path=result.provider_paths or [],
+            user_id=user_id,
+        )
+    except Exception as exc:
+        log.warning("[research] Learning loop recording failed (non-blocking): %s", exc)
 
 
 def _persist_research_memory(result, user_id: str | None) -> None:

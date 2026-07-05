@@ -145,32 +145,39 @@ def audit_authority_action(
     mission_id: str | None = None,
     captain_override: bool = False,
 ) -> None:
-    """Log an authority decision to Command Memory (non-blocking).
+    """Log an authority decision to the dedicated audit table (non-blocking).
 
-    Uses the decisions table with statement = "Authority: officer / action"
-    so audit events appear in /decisions queries and are permanently
-    recorded in Command Memory.
+    SUOC Wave 1 (MSN-0210E): writes to authority_audit_log instead of the
+    decisions table — decisions had accumulated 5 unrelated consumers by
+    this point (see reports/USS-TJR-MSN-0210-SUOC-Transition-Architecture.md
+    §4/§16); this is the first real Audit platform-service table.
     """
     try:
         if str(_REPO_ROOT) not in sys.path:
             sys.path.insert(0, str(_REPO_ROOT))
 
-        from slack_bot.command_memory_integration import log_decision_to_command_memory
+        from tools.supabase.client import CommanderSupabaseClient
 
-        status_word = "APPROVED" if approved else "DENIED"
-        override_note = " [CAPTAIN OVERRIDE]" if captain_override else ""
-        statement = (
-            f"Authority {status_word}{override_note}: "
-            f"{officer} / {action}"
-            + (f" (mission: {mission_id})" if mission_id else "")
-        )
-        rationale = reason + (" — captain override applied" if captain_override else "")
+        reason_text = reason + (" — captain override applied" if captain_override else "")
 
-        log_decision_to_command_memory(
-            statement=statement,
-            rationale=rationale,
-            owner=f"authority_validator:{officer}",
+        client = CommanderSupabaseClient()
+        if not client.is_enabled():
+            log.info("[authority] Supabase disabled; audit record not persisted")
+            return
+
+        result = client.insert(
+            "authority_audit_log",
+            {
+                "officer": officer,
+                "action": action,
+                "approved": approved,
+                "reason": reason_text,
+                "mission_id": mission_id,
+                "captain_override": captain_override,
+            },
         )
+        if not result.ok:
+            log.warning("[authority] Audit log write failed: %s", result.error)
     except Exception as exc:
         log.warning("[authority] Audit log failed (non-blocking): %s", exc)
 

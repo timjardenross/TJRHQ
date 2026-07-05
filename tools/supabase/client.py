@@ -25,6 +25,7 @@ class SupabaseWriteResult:
     enabled: bool
     table: str
     error: str | None = None
+    data: list[dict[str, Any]] | None = None  # populated when insert(..., returning=True)
 
 
 class CommanderSupabaseClient:
@@ -55,15 +56,21 @@ class CommanderSupabaseClient:
     def is_enabled(self) -> bool:
         return bool(self.url and self.key)
 
-    def insert(self, table: str, payload: dict[str, Any]) -> SupabaseWriteResult:
+    def insert(self, table: str, payload: dict[str, Any], returning: bool = False) -> SupabaseWriteResult:
+        """Insert a row. Set returning=True to get the inserted row (incl. any
+        DB-generated id) back on result.data — needed when a caller must chain
+        an auto-generated id (uuid/bigint) into a subsequent insert."""
         if not self.is_enabled():
             return SupabaseWriteResult(ok=False, enabled=False, table=table, error="supabase_disabled")
         try:
+            data = None
             if self._supabase is not None:
-                self._supabase.table(table).insert(payload).execute()
+                result = self._supabase.table(table).insert(payload).execute()
+                if returning:
+                    data = list(result.data or [])
             else:
-                self._rest_insert(table, payload)
-            return SupabaseWriteResult(ok=True, enabled=True, table=table)
+                data = self._rest_insert(table, payload, returning=returning)
+            return SupabaseWriteResult(ok=True, enabled=True, table=table, data=data)
         except urllib.error.HTTPError as error:
             detail = ""
             try:
@@ -77,7 +84,7 @@ class CommanderSupabaseClient:
         except Exception as error:
             return SupabaseWriteResult(ok=False, enabled=True, table=table, error=type(error).__name__)
 
-    def _rest_insert(self, table: str, payload: dict[str, Any]) -> None:
+    def _rest_insert(self, table: str, payload: dict[str, Any], returning: bool = False) -> list[dict[str, Any]] | None:
         body = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             f"{self.url}/rest/v1/{table}",
@@ -87,11 +94,13 @@ class CommanderSupabaseClient:
                 "apikey": self.key,
                 "Authorization": f"Bearer {self.key}",
                 "Content-Type": "application/json",
-                "Prefer": "return=minimal",
+                "Prefer": "return=representation" if returning else "return=minimal",
             },
         )
-        with urllib.request.urlopen(request, timeout=20):
-            return
+        with urllib.request.urlopen(request, timeout=20) as response:
+            if not returning:
+                return None
+            return json.loads(response.read().decode("utf-8") or "[]")
 
     def select_recent(self, table: str, limit: int) -> list[dict[str, Any]]:
         if not self.is_enabled():

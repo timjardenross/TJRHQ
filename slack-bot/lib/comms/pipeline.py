@@ -154,6 +154,21 @@ def advance(
     # Audit log
     _log_transition(content_id, title, current_state, new_state, trigger, actor)
 
+    # SUOC Wave 1: feed Captain approval decisions into the learning loop
+    if trigger in CAPTAIN_ONLY_TRIGGERS:
+        try:
+            from lib.comms.comms_learning_loop import record_comms_approval_event
+            record_comms_approval_event(
+                content_id=content_id,
+                title=title,
+                trigger=trigger,
+                old_state=current_state,
+                new_state=new_state,
+                actor=actor,
+            )
+        except Exception as exc:
+            log.warning("[comms.pipeline] Learning loop recording failed (non-blocking): %s", exc)
+
     return current_state, new_state
 
 
