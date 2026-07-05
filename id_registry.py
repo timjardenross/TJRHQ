@@ -25,6 +25,13 @@ _LOCK_FILE = _COUNTER_FILE.with_suffix(".lock")
 #   MSN: counter reconciled to 143 (Phase 0 audit, MSN-0064) → first new canonical ID is USS-TJR-MSN-0144
 #   BREQ: 10 legacy timestamp-format BREQ files → first new ID is BREQ-0011
 #   DEC: all legacy DECs are timestamp-format → first new ID is DEC-0001
+#
+# 2026-07-05 (Phase 0 stabilisation): the live counter (.id-counters.json, not this
+# seed) was reconciled from 206 to 209 — slack-bot/commands/mission_brief.py had an
+# independent, non-delegating minting path (Supabase MAX(id)+1, querying the wrong
+# "id" UUID column instead of "mission_id", silently always falling through to a
+# stale mission-index.txt) that had drifted ~25 IDs behind this registry. It now
+# delegates to next_id("MSN") like every other caller; the seed above is unaffected.
 _SEEDS: dict[str, int] = {
     "MSN": 143,
     "BREQ": 10,

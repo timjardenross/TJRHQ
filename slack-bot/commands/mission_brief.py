@@ -569,45 +569,26 @@ existing functionality unless clearly obsolete.
 def next_mission_id(index_path: Path | None = None) -> str:
     """Return the next available mission ID.
 
-    Queries Supabase for the highest existing USS-TJR-MSN-NNNN ID and increments.
-    Falls back to scanning mission-index.txt with a deprecation warning when
-    Supabase is unavailable or index_path is explicitly provided (test/legacy use).
+    Delegates to the canonical file-locked counter in id_registry.py (single
+    source of truth for MSN numbering — see tools/mint_id.py, mint-server.service).
+    Falls back to scanning mission-index.txt only in test/legacy mode, when
+    index_path is explicitly provided.
 
-    Returns the ID string, e.g. 'USS-TJR-MSN-0015'.
+    Returns the ID string, e.g. 'USS-TJR-MSN-0207'.
     Raises ValueError if the ID cannot be determined from any source.
     """
     # Explicit index_path means caller is in test/legacy mode — use file
     if index_path is not None:
         return _next_mission_id_from_file(index_path)
 
-    # Supabase path (primary — MSN-BOT-SOR)
-    try:
-        import sys as _sys
-        _sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
-        from client import CommanderSupabaseClient
-        client = CommanderSupabaseClient()
-        if client.is_enabled():
-            rows = client.get("missions?select=id&id=like.USS-TJR-MSN-*&order=id.desc&limit=50")
-            if rows:
-                nums = [
-                    int(m.group(1))
-                    for r in rows
-                    for m in [re.search(r"USS-TJR-MSN-(\d+)", r.get("id", ""))]
-                    if m
-                ]
-                if nums:
-                    return f"USS-TJR-MSN-{max(nums) + 1:04d}"
-    except Exception as exc:
-        log.warning("[mission-brief] Supabase ID lookup failed: %s", exc)
-
-    # Fallback — file (not authoritative post MSN-BOT-SOR)
-    log.warning(
-        "[mission-brief] FALLBACK: reading next mission ID from mission-index.txt. "
-        "Supabase is unavailable or not configured."
-    )
-    if not _MISSION_INDEX.exists():
-        raise FileNotFoundError(f"Mission index not found: {_MISSION_INDEX}")
-    return _next_mission_id_from_file(_MISSION_INDEX)
+    # Canonical path — id_registry.py's file-locked counter (Phase 0, 2026-07-05:
+    # this used to mint independently via Supabase MAX(id)+1 / file-scan fallback,
+    # which drifted ~25 IDs behind the real counter; now delegates like every
+    # other minting entry point).
+    import sys as _sys
+    _sys.path.insert(0, str(_REPO_ROOT))
+    import id_registry
+    return id_registry.next_id("MSN")
 
 
 def _next_mission_id_from_file(path: Path) -> str:
