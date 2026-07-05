@@ -68,18 +68,20 @@ export default function MissionDetailPage() {
     setSaving(true);
     setError(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const payload: Record<string, unknown> = { status: newStatus };
-    if (note.trim()) payload.notes = note.trim();
-
-    const { error: dbError } = await supabase
-      .from('missions')
-      .update(payload)
-      .eq('mission_id', mission.mission_id);
+    // MSN-0305: governed, audited server-side update (was a direct
+    // browser-side Supabase write with no eligibility check and no audit
+    // record — see reports/USS-TJR-MSN-0304-Captain-Intelligence-Blueprint-v1.0.md
+    // Risk 1). Same status options, same note field — no UX change.
+    const res = await fetch(`/api/missions/${encodeURIComponent(mission.mission_id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus, notes: note.trim() || undefined }),
+    });
 
     setSaving(false);
-    if (dbError) {
-      setError(dbError.message);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.detail ?? body.error ?? `Update failed (${res.status})`);
     } else {
       setSaved(true);
       setMission({ ...mission, status: newStatus });

@@ -82,24 +82,14 @@ class RecoveryStatus:
 
     @property
     def escalation_level(self) -> int:
-        """0=none, 1=friendly reminder, 2=RO notification, 3=critical."""
-        if self.recovery_confidence == 0 and self.pulses_completed == 0:
-            # Use Brisbane local time — UTC wall-clock gives wrong "afternoon" signal
-            try:
-                from zoneinfo import ZoneInfo
-                hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
-            except Exception:
-                hour = datetime.now().hour
-            if hour >= 14:
-                return 3  # Afternoon with zero pulses — critical
-            if hour >= 9:
-                return 2  # Mid-morning with no morning pulse
-            return 1
-        if self.recovery_confidence <= 25:
-            return 2
-        if self.recovery_confidence <= 50:
-            return 1
-        return 0
+        """0=none, 1=friendly reminder, 2=RO notification, 3=critical.
+
+        MSN-0305: delegates to the canonical implementation in
+        wellness_officer/intelligence.py — was one of 3 independent copies
+        of this exact logic (MSN-0302 finding).
+        """
+        from telegram_bots.wellness_officer.intelligence import escalation_level as _escalation_level
+        return _escalation_level(self.recovery_confidence, self.pulses_completed)
 
     @property
     def next_suggested_pulse(self) -> str | None:
@@ -303,21 +293,21 @@ def run_dispatch_check(
         msg = build_daily_summary(status)
         _send(bot, chat_id, msg)
         result.update(action="daily_summary", message_sent=True)
-        return result
+        return _emit_and_return(result)
 
     # L3: Critical — no pulses and it's afternoon+
     if level == 3:
         msg = build_escalation_message(status, level=3)
         _send(bot, chat_id, msg)
         result.update(action="escalation_l3", message_sent=True)
-        return result
+        return _emit_and_return(result)
 
     # L2: Low confidence (1 pulse logged, or no pulses before midday)
     if level == 2:
         msg = build_escalation_message(status, level=2)
         _send(bot, chat_id, msg)
         result.update(action="escalation_l2", message_sent=True)
-        return result
+        return _emit_and_return(result)
 
     # L1: Friendly reminder — only during appropriate hours
     next_pulse = status.next_suggested_pulse
@@ -334,6 +324,42 @@ def run_dispatch_check(
             _send(bot, chat_id, msg)
             result.update(action=f"reminder_{next_pulse}", message_sent=True)
 
+    return _emit_and_return(result)
+
+
+def _emit_and_return(result: dict) -> dict:
+    """MSN-0305: thin, non-blocking Event Bus emission alongside the
+    existing dispatch result — no domain-owned write to mirror here (this
+    domain has no Supabase write of its own, only Telegram dispatch), so
+    the dispatch decision itself is the emission point.
+
+    Deliberately does NOT populate core_events.confidence from
+    `result["confidence"]` (= status.recovery_confidence) — that value is
+    a pulse-completion percentage, not the platform Confidence capability's
+    "how trustworthy is this claim" concept, and conflating the two here
+    would be the exact naming collision this same mission's Confidence
+    review names as unresolved (see the Confidence Naming Decision).
+    `recovery_pulse_completion` carries the raw value under its own name
+    instead, in linked_entities, until that decision lands.
+    """
+    try:
+        import sys
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.event_bus import publish_event
+        pulse_completion = result.get("confidence")
+        publish_event(
+            "wellness.escalation.dispatched",
+            domain="wellness-coaching",
+            source="engagement_dispatcher",
+            importance=(100 - pulse_completion) if pulse_completion is not None else None,
+            linked_entities=[f"recovery_pulse_completion:{pulse_completion}"] if pulse_completion is not None else [],
+            recommended_action=result.get("action"),
+        )
+    except Exception:
+        pass
     return result
 
 

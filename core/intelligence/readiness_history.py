@@ -93,6 +93,29 @@ def persist_readiness_snapshot(
         except Exception as exc:
             print(f"[readiness_history] Supabase upsert failed (non-fatal): {exc}")
 
+    # ── Event Bus emission (best-effort, non-blocking, MSN-0305) ────────────
+    # Thin mirror alongside the existing captain_readiness_history upsert
+    # above — that table remains this domain's sole source of truth. Raw
+    # scores passed through unmodified (no scoring/weighting logic here,
+    # per this mission's own scope). No confidence value exists natively
+    # in this domain (readiness/capacity are already 0-100 scores, not a
+    # 0-1 confidence figure) — left null rather than inventing one; see
+    # the Confidence-naming-collision item tracked separately.
+    try:
+        sys.path.insert(0, str(_REPO_ROOT))
+        from core.platform.event_bus import publish_event
+        publish_event(
+            "health.readiness.scored",
+            domain="health-intelligence",
+            source="readiness_history",
+            importance=snapshot.get("readiness_score"),
+            relevance=snapshot.get("capacity_score"),
+            recommended_action=(snapshot.get("recommended_focus") or [None])[0]
+                if isinstance(snapshot.get("recommended_focus"), list) else None,
+        )
+    except Exception:
+        pass
+
     return True
 
 

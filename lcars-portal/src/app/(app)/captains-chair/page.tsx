@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
+import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { DEPARTMENTS, toneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -290,27 +291,6 @@ function AlertsSidebar() {
           );
         })}
       </ul>
-    </Panel>
-  );
-}
-
-// ── Decisions sidebar ─────────────────────────────────────────────────────────
-
-function DecisionsPanel() {
-  return (
-    <Panel className="mt-3">
-      <SectionHeader title="Decisions Awaiting Approval" />
-      <ol className="flex flex-col gap-2">
-        {decisionsAwaitingApproval.map((d) => (
-          <li key={d.id} className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-2">
-            <span className="shrink-0 font-mono text-xs font-bold text-command">{d.id}</span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-lcars-text">{d.title}</p>
-              <p className="text-[10px] text-lcars-muted">{d.detail}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
     </Panel>
   );
 }
@@ -625,7 +605,13 @@ export default function CaptainsChairPage() {
 
       <div className="hidden w-60 shrink-0 flex-col xl:flex">
         <AlertsSidebar />
-        <DecisionsPanel />
+        {/* MSN-0305: was DecisionsPanel — mock decisionsAwaitingApproval data.
+            CaptainApprovalQueue.tsx is the real, governed component (calls
+            the audited approve/reject API) that was built for this exact
+            slot (MSN-0176) but rendered by zero live pages. */}
+        <div className="mt-3">
+          <CaptainApprovalQueue />
+        </div>
       </div>
     </div>
   );

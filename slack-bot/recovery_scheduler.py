@@ -21,14 +21,19 @@ log = logging.getLogger(__name__)
 
 
 def _escalation_level(confidence: int, pulses: int) -> int:
-    hour = datetime.now().hour
-    if confidence == 0 and pulses == 0:
-        if hour >= 14: return 3
-        if hour >= 9:  return 2
-        return 1
-    if confidence <= 25: return 2
-    if confidence <= 50: return 1
-    return 0
+    """MSN-0305: delegates to the canonical implementation in
+    wellness_officer/intelligence.py — was one of 3 independent copies of
+    this logic (MSN-0302 finding), and the only one using naive local
+    system time instead of Australia/Brisbane, a real silent-drift risk
+    (this VM's system time is CEST, not AEST — "afternoon" resolved
+    differently here than in the other 2 copies)."""
+    import sys
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from telegram_bots.wellness_officer.intelligence import escalation_level as _canonical
+    return _canonical(confidence, pulses)
 
 
 def _dispatch_check(slack_client: Any) -> None:

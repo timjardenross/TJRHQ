@@ -28,6 +28,35 @@ except Exception:
 log = logging.getLogger(__name__)
 
 
+def escalation_level(confidence: int, pulses_completed: int) -> int:
+    """Canonical escalation-level calculation (MSN-0305 consolidation).
+
+    0=none, 1=friendly reminder, 2=RO notification, 3=critical. Previously
+    reimplemented 3 times independently (this module, recovery_officer's
+    engagement_dispatcher.py, slack-bot's recovery_scheduler.py) — the
+    Slack copy used naive local system time instead of Brisbane time,
+    a real silent-drift risk (MSN-0302 finding) since "afternoon" would
+    resolve differently depending on which copy ran and where.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
+    except Exception:
+        hour = datetime.now().hour
+
+    if confidence == 0 and pulses_completed == 0:
+        if hour >= 14:
+            return 3  # Afternoon with zero pulses — critical
+        if hour >= 9:
+            return 2  # Mid-morning with no morning pulse
+        return 1
+    if confidence <= 25:
+        return 2
+    if confidence <= 50:
+        return 1
+    return 0
+
+
 @dataclass
 class WellnessSnapshot:
     # ── Recovery confidence (from recovery_confidence_today view) ──────────────
@@ -113,22 +142,9 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         res = supabase_client.table("recovery_confidence_today").select("*").execute()
         if res.data:
             r = res.data[0]
-            from datetime import datetime
-            try:
-                from zoneinfo import ZoneInfo
-                hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
-            except Exception:
-                hour = datetime.now().hour
             conf   = r.get("recovery_confidence", 0)
             pulses = r.get("pulses_completed", 0)
-
-            if conf == 0 and pulses == 0:
-                if hour >= 14: esc = 3
-                elif hour >= 9: esc = 2
-                else: esc = 1
-            elif conf <= 25: esc = 2
-            elif conf <= 50: esc = 1
-            else: esc = 0
+            esc = escalation_level(conf, pulses)
 
             snap.recovery_confidence = conf
             snap.pulses_completed    = pulses

@@ -1603,6 +1603,14 @@ def _init_learning_loop() -> None:
             ar = AdaptiveRoutingService(fb)
             qf = QualityForecasting(supabase_client)
             ll = LearningLoopService(supabase_client)
+            # MSN-0305: publish `ar` onto research_delegator's own module
+            # namespace. research_delegator.py's globals().get('adaptive_routing_service')
+            # reads ITS OWN module globals, not app.py's — `ar` being a local
+            # variable here meant that lookup always resolved None, silently
+            # defeating quality-driven provider routing since it was introduced
+            # (MSN-0302 finding).
+            import lib.research_delegator as _research_delegator
+            _research_delegator.adaptive_routing_service = ar
             log.info(
                 "[msp-0060b] Learning loop services initialized: "
                 "B1C (quality scoring) → B1D (feedback loops) → B1A (adaptive routing) → B1E (forecasting)"

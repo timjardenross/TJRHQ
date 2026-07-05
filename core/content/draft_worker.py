@@ -99,7 +99,10 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
 # ── Fetch pending items ───────────────────────────────────────────────────────
 
 def fetch_pending(limit: int, single_id: Optional[str] = None) -> list[dict]:
-    fields = "id,title,pillar,format,notes,source_kind"
+    # MSN-0305: source_ref added — was never selected, so the link back to
+    # the originating research finding/signal was silently dropped before
+    # _build_research_topic() could use it (MSN-0302 finding).
+    fields = "id,title,pillar,format,notes,source_kind,source_ref"
     if single_id:
         path = f"comms_content?select={fields}&id=eq.{urllib.parse.quote(single_id)}&status=eq.opportunity&body=is.null"
     else:
@@ -123,6 +126,8 @@ def _build_research_topic(item: dict) -> str:
         parts.append(f"Angle / signal context: {item['notes']}")
     if item.get("source_kind"):
         parts.append(f"Source type: {item['source_kind']}")
+    if item.get("source_ref"):
+        parts.append(f"Source reference: {item['source_ref']}")
     parts.append(
         "The goal is to produce enough grounded research to write a short, "
         "authoritative thought-leadership piece (600–900 words) on this topic."
