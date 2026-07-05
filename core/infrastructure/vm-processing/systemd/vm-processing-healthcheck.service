@@ -8,10 +8,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=ubuntu
+User=claude
 WorkingDirectory=/opt/starship-endeavour/core/infrastructure/vm-processing
 EnvironmentFile=/opt/starship-endeavour/.env
-ExecStart=/bin/sh -c '/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/bin/python healthcheck.py >> /opt/starship-endeavour/outputs/vm-processing-healthcheck.log 2>&1'
+ExecStart=/bin/sh -c '/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/bin/python healthcheck.py >> /opt/starship-endeavour/core/infrastructure/vm-processing/logs/vm-processing-healthcheck.log 2>&1'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=vm-processing-healthcheck

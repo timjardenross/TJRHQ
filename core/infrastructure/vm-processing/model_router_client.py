@@ -68,6 +68,11 @@ Document text (may be truncated):
 Return ONLY the JSON object."""
 
 _PROMPT_CHAR_LIMIT = 8000
+# Classification only needs enough text to identify category/sensitivity, not
+# the whole document — CPU prompt-eval time scales with input tokens, and
+# this is the dominant cost of a classify call on this box (a full 8000-char
+# prompt was clocking ~95s/doc, nearly all in prompt eval, not decode).
+_CLASSIFY_CHAR_LIMIT = 3000
 
 
 class ModelRouterError(RuntimeError):
@@ -115,7 +120,7 @@ class ModelRouterClient:
             categories=", ".join(CATEGORIES),
             sensitivity=", ".join(SENSITIVITY_LEVELS),
             memory_recs=", ".join(MEMORY_RECOMMENDATIONS),
-            text=text[:_PROMPT_CHAR_LIMIT],
+            text=text[:_CLASSIFY_CHAR_LIMIT],
         )
         result = self._post("/api/model/classify-document", prompt)
         if not result.get("success"):

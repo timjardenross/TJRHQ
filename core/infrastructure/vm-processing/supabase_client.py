@@ -19,6 +19,21 @@ class SupabaseError(RuntimeError):
     pass
 
 
+def _strip_null_bytes(value):
+    """Postgres text/jsonb columns reject \\u0000 (error 22P05) — some source
+    PDFs contain embedded null bytes in their text streams, which otherwise
+    surfaces as a write-time crash on an already-successful extraction.
+    Recurses through dicts/lists so it covers nested fields like metadata
+    and processing_log, not just top-level string values."""
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, dict):
+        return {k: _strip_null_bytes(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_strip_null_bytes(v) for v in value]
+    return value
+
+
 class SupabaseClient:
     def __init__(self, url: str, service_role_key: str, timeout: int = 15):
         self.url = url.rstrip("/")
@@ -55,7 +70,7 @@ class SupabaseClient:
 
     def insert(self, table: str, row: dict) -> dict:
         self._require_config()
-        payload = json.dumps(row).encode()
+        payload = json.dumps(_strip_null_bytes(row)).encode()
         req = urllib.request.Request(
             f"{self.url}/rest/v1/{table}",
             data=payload, method="POST",
@@ -72,7 +87,7 @@ class SupabaseClient:
     def patch(self, table: str, match: dict, update: dict) -> None:
         self._require_config()
         qs = "&".join(f"{k}=eq.{urllib.parse.quote(str(v))}" for k, v in match.items())
-        payload = json.dumps(update).encode()
+        payload = json.dumps(_strip_null_bytes(update)).encode()
         req = urllib.request.Request(
             f"{self.url}/rest/v1/{table}?{qs}",
             data=payload, method="PATCH",

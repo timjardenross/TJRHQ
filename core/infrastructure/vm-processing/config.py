@@ -22,7 +22,16 @@ def _load_dotenv(repo_root: Path) -> None:
     for candidate in (repo_root / ".env", repo_root / "slack-bot" / ".env"):
         if not candidate.exists():
             continue
-        for line in candidate.read_text(encoding="utf-8").splitlines():
+        try:
+            text = candidate.read_text(encoding="utf-8")
+        except PermissionError:
+            # This worker only needs SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY,
+            # which live in the repo-root .env — slack-bot/.env is a
+            # different service's secrets file and intentionally not
+            # readable by this worker's runtime user. Skip it like a
+            # missing candidate rather than crashing the whole load.
+            continue
+        for line in text.splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")

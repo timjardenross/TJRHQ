@@ -146,17 +146,35 @@ class ProcessingWorker:
         rows = self.db.get(
             f"processing_documents?status=in.({status_filter})&order=created_at.asc&limit={limit}"
         )
-        counts = {"documents": 0, "awaiting_review": 0, "failed": 0, "excluded": 0}
-        for row in rows:
-            counts["documents"] += 1
-            current = dict(row)
-            while current["status"] in NON_TERMINAL_STATUSES:
+        by_id = {row["id"]: dict(row) for row in rows}
+        counts = {"documents": len(by_id), "awaiting_review": 0, "failed": 0, "excluded": 0}
+
+        # Advance every document by one stage per pass instead of driving
+        # each one fully through the pipeline before starting the next.
+        # Documents scanned/retried together mostly start in the same
+        # status, so this naturally groups all classify calls together,
+        # then all summarise calls, then all embeds — the model router's
+        # Ollama model (gemma3:4b, then nomic-embed-text) stays resident for
+        # a whole pass instead of reloading on every single document.
+        pending_ids = list(by_id.keys())
+        max_passes = len(NON_TERMINAL_STATUSES) + 2  # generous bound on the longest status chain
+        for _ in range(max_passes):
+            if not pending_ids:
+                break
+            still_pending = []
+            for doc_id in pending_ids:
+                current = by_id[doc_id]
                 try:
                     current = self._advance(current)
                 except Exception as exc:  # noqa: BLE001 — any step failure is captured, not fatal to the batch
                     current = self._mark_failed(current, f"{type(exc).__name__}: {exc}")
-                    break
+                by_id[doc_id] = current
+                if current["status"] in NON_TERMINAL_STATUSES:
+                    still_pending.append(doc_id)
                 self.sleep_fn(0.2)  # be gentle with the local model router between calls
+            pending_ids = still_pending
+
+        for current in by_id.values():
             if current["status"] == "failed":
                 counts["failed"] += 1
             elif current["status"] == "awaiting_review":

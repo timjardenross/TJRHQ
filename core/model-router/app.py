@@ -65,8 +65,18 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # classification has its own escalation-trigger logic keyed to
     # task_type == "classify-capture" that document prompts should not
     # inherit, and separate task types keep the call log distinguishable.
-    "classify-document":     {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
-    "summarise-document":    {"model": MODEL_MID,   "keep_alive": "5m",  "timeout": 300},
+    # keep_alive raised to 15m (from 5m) and num_predict capped: on this
+    # CPU-only box a batch run marches many docs through the same stage in a
+    # row (see worker.py process_batch's stage-batched ordering), so the
+    # model needs to survive longer gaps than a single interactive call, and
+    # the JSON outputs here are short — no need to let decode run unbounded.
+    "classify-document":     {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 220},
+    # num_predict 400 was too tight — some summaries run past it and get cut
+    # off mid-sentence before closing their JSON, so the response fails to
+    # parse (observed on Coco_babyVet.pdf). Bumped to 700 to give the model
+    # room to actually finish the JSON object; watch for the same truncation
+    # symptom if a doc still overruns this.
+    "summarise-document":    {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 700},
     "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
     "intelligence-brief":    {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
@@ -98,15 +108,18 @@ ESCALATION_TRIGGERS = [
 
 # ── Ollama client ─────────────────────────────────────────────────────────────
 
-def _ollama_generate(model: str, prompt: str, keep_alive: str, timeout: int) -> dict[str, Any]:
+def _ollama_generate(model: str, prompt: str, keep_alive: str, timeout: int, num_predict: int | None = None) -> dict[str, Any]:
     """POST /api/generate. Returns parsed response dict."""
     url = f"{_OLLAMA_BASE}/api/generate"
+    options = {"temperature": 0.2}
+    if num_predict is not None:
+        options["num_predict"] = num_predict
     payload = json.dumps({
         "model": model,
         "prompt": prompt,
         "stream": False,
         "keep_alive": keep_alive,
-        "options": {"temperature": 0.2},
+        "options": options,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -219,7 +232,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
-            raw = _ollama_generate(model, prompt, keep_alive, timeout)
+            raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
             embeddings = None
             token_info = {
