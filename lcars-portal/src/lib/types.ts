@@ -23,6 +23,14 @@ export type StatusTone =
   | 'status'
   | 'neutral';
 
+/**
+ * Operational state tone — independent of department identity colour
+ * (MSN-0315 Phase 1A). Use this for anything communicating live/health/
+ * confidence/escalation state; use `StatusTone` only for department
+ * identity. See `stateToneClasses` in `./departments`.
+ */
+export type StateTone = 'ok' | 'warn' | 'crit' | 'unknown';
+
 /** Mirrors mission-registry-reader.js mission rows and Supabase missions table. */
 export interface Mission {
   mission_id: string;

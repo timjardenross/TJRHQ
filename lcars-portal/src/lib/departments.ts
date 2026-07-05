@@ -1,4 +1,4 @@
-import type { DepartmentKey, StatusTone } from './types';
+import type { DepartmentKey, StatusTone, StateTone } from './types';
 
 /**
  * Department colour registry. Tailwind class fragments are listed explicitly
@@ -92,4 +92,22 @@ export function toneClasses(tone: StatusTone): { text: string; border: string; b
   }
   const d = DEPARTMENTS[tone];
   return { text: d.text, border: d.border, bg: d.bgSoft, dot: d.bg };
+}
+
+/**
+ * Operational state classes (MSN-0315 Phase 1B) — decoupled from department
+ * identity colour. Use for confidence/health/live-data/escalation state;
+ * never repurpose a department colour to mean "state" (that conflation is
+ * exactly what these tokens replace).
+ */
+const STATE_CLASSES: Record<StateTone, { text: string; border: string; bg: string; dot: string; on: string }> = {
+  ok:      { text: 'text-state-ok',      border: 'border-state-ok',      bg: 'bg-state-ok/15',      dot: 'bg-state-ok',      on: 'text-state-ok-on' },
+  warn:    { text: 'text-state-warn',    border: 'border-state-warn',    bg: 'bg-state-warn/15',    dot: 'bg-state-warn',    on: 'text-state-warn-on' },
+  crit:    { text: 'text-state-crit',    border: 'border-state-crit',    bg: 'bg-state-crit/15',    dot: 'bg-state-crit',    on: 'text-state-crit-on' },
+  unknown: { text: 'text-state-unknown', border: 'border-state-unknown', bg: 'bg-state-unknown/15', dot: 'bg-state-unknown', on: 'text-state-unknown-on' },
+};
+
+/** Map a state tone to text/border/bg/dot classes, plus a high-contrast `on` variant for text on solid fills. */
+export function stateToneClasses(tone: StateTone): { text: string; border: string; bg: string; dot: string; on: string } {
+  return STATE_CLASSES[tone];
 }

@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { useRecoveryConfidence } from '@/lib/useRecoveryConfidence';
-import { StatusBadge } from './StatusBadge';
-import type { StatusTone } from '@/lib/types';
+import { ConfidenceIndicator } from './ConfidenceIndicator';
 
 // ── Escalation level (mirrors Telegram dispatcher logic) ──────────────────────
 
@@ -17,22 +16,6 @@ function escalationLevel(confidence: number, pulses: number): 0 | 1 | 2 | 3 {
   if (confidence <= 25) return 2;
   if (confidence <= 50) return 1;
   return 0;
-}
-
-// ── Confidence tone ───────────────────────────────────────────────────────────
-
-function confidenceTone(score: number): StatusTone {
-  if (score === 100) return 'status';
-  if (score >= 75)   return 'command';
-  if (score >= 50)   return 'operations';
-  return 'neutral';
-}
-
-function confidenceBarColour(score: number): string {
-  if (score === 100) return 'bg-status';
-  if (score >= 75)   return 'bg-command';
-  if (score >= 50)   return 'bg-operations';
-  return 'bg-lcars-muted';
 }
 
 // ── Escalation border / banner classes ───────────────────────────────────────
@@ -81,8 +64,6 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
   if (isLoading) return null;
 
   const level  = escalationLevel(confidence.recovery_confidence, confidence.pulses_completed);
-  const tone   = confidenceTone(confidence.recovery_confidence);
-  const barCls = confidenceBarColour(confidence.recovery_confidence);
   const border = escalationBorder(level);
 
   if (compact) {
@@ -90,14 +71,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
       <div className={`rounded-lcars border ${border} bg-panel/40 px-4 py-3 flex items-center gap-4`}>
         <div className="flex-1">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Recovery confidence</p>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-2 rounded-full bg-edge/30 overflow-hidden">
-              <div className={`h-full rounded-full ${barCls} transition-all`} style={{ width: `${confidence.recovery_confidence}%` }} />
-            </div>
-            <span className={`font-lcars text-sm font-bold shrink-0 ${tone === 'status' ? 'text-status' : tone === 'command' ? 'text-command' : tone === 'operations' ? 'text-operations' : 'text-lcars-muted'}`}>
-              {confidence.recovery_confidence}%
-            </span>
-          </div>
+          <ConfidenceIndicator score={confidence.recovery_confidence} compact />
         </div>
         <div className="flex gap-3 shrink-0">
           <PulseDot done={confidence.morning_done}    label="AM" />
@@ -117,21 +91,15 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
 
   return (
     <div className={`rounded-lcars border ${border} bg-panel/40 p-4 flex flex-col gap-4`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-0.5">Recovery Confidence</p>
-          <p className="text-xs text-lcars-muted/80">{confidence.confidence_label}</p>
-        </div>
-        <StatusBadge label={`${confidence.recovery_confidence}%`} tone={tone} />
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-0.5">Recovery Confidence</p>
+        <p className="text-xs text-lcars-muted/80">{confidence.confidence_label}</p>
       </div>
 
       {/* Escalation alert — L2/L3 only */}
       {level >= 2 && <EscalationBanner level={level as 2 | 3} />}
 
-      {/* Progress bar */}
-      <div className="h-3 rounded-full bg-edge/30 overflow-hidden">
-        <div className={`h-full rounded-full ${barCls} transition-all`} style={{ width: `${confidence.recovery_confidence}%` }} />
-      </div>
+      <ConfidenceIndicator score={confidence.recovery_confidence} />
 
       {/* Pulse dots */}
       <div className="flex justify-between">

@@ -31,6 +31,11 @@ const config: Config = {
     'text-medical-on',
     'text-science-on',
     'text-status-on',
+    // Operational state classes (dynamic composition in departments.ts stateToneClasses — MSN-0315 Phase 1B)
+    'bg-state-ok', 'bg-state-ok/15', 'text-state-ok', 'border-state-ok', 'text-state-ok-on',
+    'bg-state-warn', 'bg-state-warn/15', 'text-state-warn', 'border-state-warn', 'text-state-warn-on',
+    'bg-state-crit', 'bg-state-crit/15', 'text-state-crit', 'border-state-crit', 'text-state-crit-on',
+    'bg-state-unknown', 'bg-state-unknown/15', 'text-state-unknown', 'border-state-unknown', 'text-state-unknown-on',
   ],
   theme: {
     extend: {
