@@ -4,9 +4,8 @@ import Link from 'next/link';
 import { useCommandCentre } from '@/lib/useCommandCentre';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
-import { toneClasses } from '@/lib/departments';
 import type { RecoveryPostureBand } from '@/lib/types';
-import { RecommendationCard } from './RecommendationCard';
+import { ExecutiveSummary } from './ExecutiveSummary';
 
 /**
  * MobileOperatingPicture — the iPhone-first daily operating picture (WP2).
@@ -87,10 +86,14 @@ export function MobileOperatingPicture() {
         </div>
       </div>
 
-      {/* ── Top priority (recommended action) ── */}
-      {cc.recommendedAction && (
-        <RecommendationCard recommendation={cc.recommendedAction} title="Top priority" compact />
-      )}
+      {/* ── Top priority + ship status (MSN-0303's ratified "headline + supporting tiles" duplicate) ── */}
+      <ExecutiveSummary
+        recommendation={cc.recommendedAction}
+        recommendationTitle="Top priority"
+        shipStatus={cc.shipStatus}
+        statusTitle="Mission state · readiness"
+        compact
+      />
 
       {/* ── Escalations ── */}
       {escalations.length > 0 && (
@@ -100,27 +103,6 @@ export function MobileOperatingPicture() {
             {escalations.slice(0, 3).map((e) => (
               <li key={e.id} className="text-sm text-lcars-text/85">• {e.title}</li>
             ))}
-          </ul>
-        </div>
-      )}
-
-      {/* ── Current state — ship status (readiness signals) ── */}
-      {cc.shipStatus.length > 0 && (
-        <div className="rounded-lcars border border-edge bg-panel/60 p-4">
-          <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Mission state · readiness</p>
-          <ul className="grid grid-cols-2 gap-2">
-            {cc.shipStatus.slice(0, 6).map((s) => {
-              const c = toneClasses(s.tone);
-              return (
-                <li key={s.key} className="rounded-md border border-edge bg-panel-2/60 p-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-                    <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{s.label}</span>
-                  </div>
-                  <p className={`mt-0.5 text-xs font-bold ${c.text}`}>{s.state}</p>
-                </li>
-              );
-            })}
           </ul>
         </div>
       )}

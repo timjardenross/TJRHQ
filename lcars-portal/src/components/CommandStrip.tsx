@@ -12,9 +12,7 @@
 import { useCommandCentre } from '@/lib/useCommandCentre';
 import { toneClasses } from '@/lib/departments';
 import { DataSourceIndicator } from './DataSourceIndicator';
-import { RecommendationCard } from './RecommendationCard';
-
-const TREND_GLYPH = { up: '▲', down: '▼', steady: '▬' } as const;
+import { ExecutiveSummary } from './ExecutiveSummary';
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -36,34 +34,13 @@ export function CommandStrip() {
 
   return (
     <section className="flex flex-col gap-4">
-      {/* Recommended Action — the single highest-value next step (WP1) */}
-      <RecommendationCard recommendation={recommendedAction} isLoading={isLoading} isLive={isLive} />
-
-      {/* Ship Status overview — readiness across domains (WP1) */}
-      <Panel>
-        <Header title="Ship Status" />
-        {shipStatus.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            {shipStatus.map((d) => {
-              const c = toneClasses(d.tone);
-              return (
-                <div key={d.key} className={`rounded-md border ${c.border} bg-panel-2/60 p-2`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{d.label}</span>
-                    <span className={`text-[10px] ${c.text}`}>{TREND_GLYPH[d.trend]}</span>
-                  </div>
-                  <p className={`mt-1 font-lcars text-sm font-bold ${c.text}`}>{d.state}</p>
-                  <p className="mt-0.5 text-[10px] leading-tight text-lcars-muted">{d.detail}</p>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-[11px] text-lcars-muted">
-            {isLoading ? 'Reading ship status…' : 'Status awaiting data.'}
-          </p>
-        )}
-      </Panel>
+      {/* Recommended Action headline + Ship Status tiles (WP1) — MSN-0303's ratified "headline + supporting tiles" duplicate */}
+      <ExecutiveSummary
+        recommendation={recommendedAction}
+        isLoading={isLoading}
+        isLive={isLive}
+        shipStatus={shipStatus}
+      />
 
       {/* What Changed + Officer Activity (WP2/WP3) */}
       <div className="grid gap-4 lg:grid-cols-2">
