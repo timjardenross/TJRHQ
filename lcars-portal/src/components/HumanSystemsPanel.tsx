@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
+import { EscalationBanner } from '@/components/EscalationBanner';
 import {
   loadHumanSystems,
   BAND_TONE,
@@ -65,14 +66,13 @@ export function HumanSystemsPanel() {
     >
       {/* Escalation banner always first (doctrine §6). */}
       {snapshot.escalation && (
-        <div className="mb-4 rounded-lcars border border-operations bg-operations/15 p-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-operations">
-            ⚠ Please involve a professional
-          </p>
-          <p className="mt-1 text-sm text-lcars-text/90 leading-relaxed">{snapshot.escalation}</p>
-          <p className="mt-1 text-[11px] text-lcars-muted">
-            A prompt to involve a clinician — not a diagnosis. You remain the decision-maker.
-          </p>
+        <div className="mb-4">
+          <EscalationBanner
+            level={3}
+            label="Please involve a professional"
+            message={snapshot.escalation}
+            footnote="A prompt to involve a clinician — not a diagnosis. You remain the decision-maker."
+          />
         </div>
       )}
 

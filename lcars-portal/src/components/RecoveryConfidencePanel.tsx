@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRecoveryConfidence } from '@/lib/useRecoveryConfidence';
 import { ConfidenceIndicator } from './ConfidenceIndicator';
+import { EscalationBanner } from './EscalationBanner';
+import { stateToneClasses } from '@/lib/departments';
 
 // ── Escalation level (mirrors Telegram dispatcher logic) ──────────────────────
 
@@ -18,11 +20,15 @@ function escalationLevel(confidence: number, pulses: number): 0 | 1 | 2 | 3 {
   return 0;
 }
 
-// ── Escalation border / banner classes ───────────────────────────────────────
+// ── Escalation border classes ─────────────────────────────────────────────────
+// Monotonic with EscalationBanner's tone mapping (level 3 = crit, 1/2 = warn) —
+// previously level 3 used the `medical` (blue) border and level 2 used
+// `operations` (red), so the more severe level read calmer than the less
+// severe one. Fixed here as part of the same consolidation.
 
 function escalationBorder(level: 0 | 1 | 2 | 3): string {
-  if (level === 3) return 'border-medical';
-  if (level === 2) return 'border-operations';
+  if (level === 3) return stateToneClasses('crit').border;
+  if (level === 2) return stateToneClasses('warn').border;
   return 'border-edge';
 }
 
@@ -33,25 +39,6 @@ function PulseDot({ done, label }: { done: boolean; label: string }) {
     <div className="flex flex-col items-center gap-1">
       <div className={`h-2.5 w-2.5 rounded-full ${done ? 'bg-medical' : 'bg-edge/40'}`} />
       <span className="text-[9px] uppercase tracking-wide text-lcars-muted">{label}</span>
-    </div>
-  );
-}
-
-// ── Escalation alert banner ───────────────────────────────────────────────────
-
-function EscalationBanner({ level }: { level: 2 | 3 }) {
-  if (level === 3) {
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-medical bg-medical/10 px-3 py-2">
-        <span className="animate-pulse text-medical text-xs font-bold uppercase tracking-widest">⚠ Critical</span>
-        <span className="text-xs text-lcars-text/80">No telemetry today — log a pulse to restore baseline.</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-operations bg-operations/10 px-3 py-2">
-      <span className="text-operations text-xs font-bold uppercase tracking-widest">Low</span>
-      <span className="text-xs text-lcars-text/80">Recovery confidence below threshold — pulses needed.</span>
     </div>
   );
 }
@@ -97,7 +84,16 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
       </div>
 
       {/* Escalation alert — L2/L3 only */}
-      {level >= 2 && <EscalationBanner level={level as 2 | 3} />}
+      {level >= 2 && (
+        <EscalationBanner
+          level={level as 2 | 3}
+          message={
+            level === 3
+              ? 'No telemetry today — log a pulse to restore baseline.'
+              : 'Recovery confidence below threshold — pulses needed.'
+          }
+        />
+      )}
 
       <ConfidenceIndicator score={confidence.recovery_confidence} />
 
