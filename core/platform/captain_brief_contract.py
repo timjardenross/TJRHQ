@@ -73,6 +73,7 @@ class CaptainBriefItem:
     recommendation: Optional[Recommendation] = None
     related_event_ids: list[str] = field(default_factory=list)
     aggregation_key: Optional[str] = None
+    metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — structured per-domain detail, see core_events.metrics
 
 
 @dataclass
@@ -157,6 +158,7 @@ def assemble_captain_brief(
             recommendation=recommendations.get(decision.event_id or ""),
             related_event_ids=decision.related_event_ids,
             aggregation_key=decision.aggregation_key,
+            metrics=decision.metrics,
         )
 
         if decision.category == AttentionCategory.INTERRUPT_NOW:

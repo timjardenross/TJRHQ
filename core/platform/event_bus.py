@@ -42,6 +42,7 @@ def publish_event(
     linked_missions: Optional[list[str]] = None,
     linked_documents: Optional[list[str]] = None,
     recommended_action: Optional[str] = None,
+    metrics: Optional[dict[str, Any]] = None,
 ) -> Optional[str]:
     """Publish one event. Non-blocking — never raises.
 
@@ -54,6 +55,10 @@ def publish_event(
             independent of importance; absent means no signal, not zero.
         linked_entities/missions/documents: lists of reference strings
         recommended_action: optional free-text or structured-action reference
+        metrics: MSN-0328 Wave 2 — optional structured detail (counts,
+            scores, bands) a presentation layer can render without
+            parsing prose, e.g. {"high_risk_count": 3, "open_count": 12}.
+            Absent/empty is normal, not every domain has this.
 
     Returns:
         The new event_id (str) if persisted, None otherwise (including when
@@ -81,6 +86,7 @@ def publish_event(
                 "linked_missions": linked_missions or [],
                 "linked_documents": linked_documents or [],
                 "recommended_action": recommended_action,
+                "metrics": metrics or {},
             },
             returning=True,
         )

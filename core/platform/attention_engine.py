@@ -76,6 +76,7 @@ class AttentionDecision:
     event_type: str
     aggregation_key: Optional[str] = None
     related_event_ids: list[str] = field(default_factory=list)
+    metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — see core_events.metrics
 
 
 def evaluate_event(
@@ -104,6 +105,7 @@ def evaluate_event(
     domain = event.get("domain", "unknown")
     event_type = event.get("event_type", "unknown")
     event_id = event.get("event_id")
+    metrics = event.get("metrics") or {}
 
     if importance is not None and importance <= t.never_interrupt_importance_ceiling:
         return AttentionDecision(
@@ -115,6 +117,7 @@ def evaluate_event(
             relevance=event.get("relevance"),
             domain=domain,
             event_type=event_type,
+            metrics=metrics,
         )
 
     if (
@@ -135,6 +138,7 @@ def evaluate_event(
             relevance=event.get("relevance"),
             domain=domain,
             event_type=event_type,
+            metrics=metrics,
         )
 
     if importance is not None and importance >= t.interrupt_importance_floor and (
@@ -153,6 +157,7 @@ def evaluate_event(
             relevance=event.get("relevance"),
             domain=domain,
             event_type=event_type,
+            metrics=metrics,
         )
 
     if importance is not None and importance >= t.delayed_importance_floor:
@@ -165,6 +170,7 @@ def evaluate_event(
             relevance=event.get("relevance"),
             domain=domain,
             event_type=event_type,
+            metrics=metrics,
         )
 
     return AttentionDecision(
@@ -176,6 +182,7 @@ def evaluate_event(
         relevance=event.get("relevance"),
         domain=domain,
         event_type=event_type,
+        metrics=metrics,
     )
 
 

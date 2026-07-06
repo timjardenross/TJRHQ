@@ -48,6 +48,11 @@ _DOMAIN_SECTION_MAP: dict[str, str] = {
     "research-learning": "learning",
     "research-learning-intelligence": "learning",
     "content-intelligence": "opportunities",
+    # MSN-0328 Wave 2: new real emitters wired to close the content gap
+    # between this pipeline and the surfaces converging onto it.
+    "mission-lifecycle": "operational_intelligence",
+    "engineering-delivery": "engineering",
+    "strategic-planning": "operational_intelligence",
 }
 
 _WARNING_RISK_THRESHOLD = 60.0  # PriorityScore.risk_score above this is surfaced as a warning, not just ranked
