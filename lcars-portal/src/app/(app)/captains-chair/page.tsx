@@ -6,21 +6,86 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
-import { DEPARTMENTS, toneClasses } from '@/lib/departments';
+import { DataSourceIndicator } from '@/components/DataSourceIndicator';
+import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
+import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { ACTIVE_STATUSES, COMPLETED_STATUSES, AWAITING_CAPTAIN_STATUSES } from '@/lib/missionStatus';
 import {
-  alerts,
+  fetchEngineeringQueue,
+  LIFECYCLE_ORDER,
+  LIFECYCLE_LABEL,
+  LIFECYCLE_TONE,
+  type EngineeringQueueData,
+} from '@/lib/engineering-queue';
+import type { AlertSeverity } from '@/lib/alerts';
+import {
   captainTimeline,
-  decisionsAwaitingApproval,
   departments,
-  engineeringQueueSummary,
-  missionBoard,
-  operatingPicture,
   shipSystemStatus,
   todaysBriefing,
 } from '@/lib/mockData';
-import type { RecoveryPostureBand } from '@/lib/types';
+import type { RecoveryPostureBand, StateTone } from '@/lib/types';
+
+// ── Live mission summary (WP A: Truth & Trust — MSN-0321) ────────────────────
+// Single query backs Priority Overview's decision/mission counts and the
+// Mission Board tiles below, so both read the same authoritative numbers
+// the /missions page itself reports.
+
+interface LiveMissionStats {
+  total: number;
+  active: number;
+  in_progress: number;
+  blocked: number;
+  completed: number;
+  decisionsCount: number;
+}
+
+function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boolean } {
+  const [stats, setStats] = useState<LiveMissionStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase.from('missions').select('status');
+        if (cancelled || !data) return;
+        setStats({
+          total: data.length,
+          active: data.filter((m) => ACTIVE_STATUSES.includes(m.status)).length,
+          in_progress: data.filter((m) => m.status === 'Implemented' || m.status === 'Tested').length,
+          blocked: data.filter((m) => m.status === 'Blocked').length,
+          completed: data.filter((m) => COMPLETED_STATUSES.includes(m.status)).length,
+          decisionsCount: data.filter((m) => AWAITING_CAPTAIN_STATUSES.includes(m.status)).length,
+        });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { stats, loading };
+}
+
+function useLiveEngineeringQueue(): { data: EngineeringQueueData | null; loading: boolean } {
+  const [data, setData] = useState<EngineeringQueueData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEngineeringQueue()
+      .then((d) => { if (!cancelled) setData(d); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, loading };
+}
 
 // ── Shared micro-components ───────────────────────────────────────────────────
 
@@ -150,30 +215,43 @@ function FleetStatusConditional({
 
 // ── Priority Overview ─────────────────────────────────────────────────────────
 
-function PriorityOverview() {
+function PriorityOverview({
+  decisionsCount,
+  alertsCount,
+  activeMissionsCount,
+  loading,
+}: {
+  decisionsCount: number;
+  alertsCount: number;
+  activeMissionsCount: number;
+  loading: boolean;
+}) {
   const items = [
     {
       label: 'Decisions Awaiting Approval',
       sub: 'Require your review',
-      count: decisionsAwaitingApproval.length,
+      count: decisionsCount,
       tone: 'command' as const
     },
     {
       label: 'Alerts Requiring Attention',
-      sub: 'High priority items',
-      count: alerts.filter((a) => a.level !== 'nominal').length,
+      sub: 'Gated, meaningful escalations only',
+      count: alertsCount,
       tone: 'operations' as const
     },
     {
       label: 'Active Missions',
       sub: 'In progress across departments',
-      count: operatingPicture.activeMissions,
+      count: activeMissionsCount,
       tone: 'medical' as const
     },
   ];
   return (
     <Panel>
-      <SectionHeader title="Priority Overview" />
+      <SectionHeader
+        title="Priority Overview"
+        action={<DataSourceIndicator live={!loading} loading={loading} variant="inline" />}
+      />
       <ul className="flex flex-col gap-2">
         {items.map((item) => {
           const dept = DEPARTMENTS[item.tone];
@@ -207,7 +285,10 @@ function PriorityOverview() {
 function ShipStatus() {
   return (
     <Panel>
-      <SectionHeader title="Ship Status" />
+      <SectionHeader
+        title="Ship Status"
+        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+      />
       <ul className="flex flex-col gap-2.5">
         {shipSystemStatus.map((sys) => {
           const barColor = sys.value >= 95 ? 'bg-status' : sys.value >= 80 ? 'bg-command' : 'bg-operations';
@@ -241,7 +322,10 @@ function CaptainTimeline() {
   };
   return (
     <Panel>
-      <SectionHeader title="Captain's Timeline" />
+      <SectionHeader
+        title="Captain's Timeline"
+        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+      />
       <ul className="flex flex-col gap-2">
         {captainTimeline.map((event) => {
           const s = STATUS[event.status];
@@ -261,36 +345,49 @@ function CaptainTimeline() {
 
 // ── Alerts sidebar ────────────────────────────────────────────────────────────
 
-function AlertsSidebar() {
-  const active = alerts.filter((a) => a.level !== 'nominal');
-  const LEVEL = {
-    critical: { dot: 'bg-operations', text: 'text-operations' },
-    warning:  { dot: 'bg-command',    text: 'text-command' },
-    info:     { dot: 'bg-medical',    text: 'text-medical' },
-    nominal:  { dot: 'bg-status',     text: 'text-status' }
-  };
+const ALERT_SEVERITY_TONE: Record<AlertSeverity, StateTone> = {
+  critical: 'crit',
+  high: 'warn',
+  warning: 'warn',
+};
+
+function AlertsSidebar({
+  alerts,
+  loading,
+}: {
+  alerts: { id: string; title: string; why: string; href: string; severity: AlertSeverity }[];
+  loading: boolean;
+}) {
   return (
     <Panel>
       <SectionHeader
         title="Alerts"
-        action={<span className="h-3 w-3 animate-pulse rounded-full bg-operations" />}
+        action={<DataSourceIndicator live={!loading} loading={loading} variant="inline" />}
       />
-      <ul className="flex flex-col gap-2">
-        {active.map((a) => {
-          const s = LEVEL[a.level];
-          return (
-            <li key={a.id} className="rounded-md border border-edge bg-panel-2/60 p-2">
-              <div className="flex items-start gap-2">
-                <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
-                <div>
-                  <p className={`text-[11px] font-bold uppercase ${s.text}`}>{a.title}</p>
-                  <p className="text-[10px] text-lcars-muted">{a.detail}</p>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {loading ? (
+        <p className="text-[10px] text-lcars-muted">Loading…</p>
+      ) : alerts.length === 0 ? (
+        <p className="text-[10px] text-lcars-muted">All clear — nothing needs you right now.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {alerts.map((a) => {
+            const c = stateToneClasses(ALERT_SEVERITY_TONE[a.severity]);
+            return (
+              <li key={a.id} className="rounded-md border border-edge bg-panel-2/60 p-2">
+                <Link href={a.href} className="block">
+                  <div className="flex items-start gap-2">
+                    <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${c.dot}`} />
+                    <div>
+                      <p className={`text-[11px] font-bold uppercase ${c.text}`}>{a.title}</p>
+                      <p className="text-[10px] text-lcars-muted">{a.why}</p>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Panel>
   );
 }
@@ -300,7 +397,12 @@ function AlertsSidebar() {
 function DepartmentRow() {
   const depts = departments.filter((d) => d.key !== 'status');
   return (
-    <div className="overflow-x-auto">
+    <div>
+      <SectionHeader
+        title="Departments"
+        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+      />
+      <div className="overflow-x-auto">
       <div className="flex gap-3" style={{ minWidth: `${depts.length * 160}px` }}>
         {depts.map((dept) => {
           const theme = DEPARTMENTS[dept.key];
@@ -329,45 +431,54 @@ function DepartmentRow() {
           );
         })}
       </div>
+      </div>
     </div>
   );
 }
 
 // ── Mission Board ─────────────────────────────────────────────────────────────
+// WP A: Truth & Trust (MSN-0321) — was a fabricated 5-column kanban with
+// invented mission titles ("Security Audit", "VPS Hardening", ...). Replaced
+// with the same live stat tiles the /missions page itself reports, off the
+// same query useLiveMissionStats() runs — one authoritative number, not two.
 
-function MissionBoard() {
+function MissionBoard({
+  stats,
+  loading,
+}: {
+  stats: LiveMissionStats | null;
+  loading: boolean;
+}) {
+  const tiles = [
+    { label: 'Total', value: stats?.total ?? 0, tone: 'command' as const },
+    { label: 'Active', value: stats?.active ?? 0, tone: 'medical' as const },
+    { label: 'In Progress', value: stats?.in_progress ?? 0, tone: 'science' as const },
+    { label: 'Blocked', value: stats?.blocked ?? 0, tone: 'operations' as const },
+    { label: 'Completed', value: stats?.completed ?? 0, tone: 'status' as const },
+  ];
   return (
     <Panel>
       <SectionHeader
         title="Mission Board"
         action={
-          <Link href="/missions" className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
-            View All →
-          </Link>
+          <div className="flex items-center gap-3">
+            <DataSourceIndicator live={!loading} loading={loading} variant="inline" />
+            <Link href="/missions" className="text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
+              View All →
+            </Link>
+          </div>
         }
       />
-      <div className="overflow-x-auto">
-        <div className="flex gap-2" style={{ minWidth: `${missionBoard.length * 160}px` }}>
-          {missionBoard.map((col) => {
-            const dept = DEPARTMENTS[col.tone];
-            return (
-              <div key={col.label} className="min-w-[160px] flex-1 flex flex-col gap-1.5">
-                <div className="flex items-center justify-between rounded-md border border-edge bg-panel-2/80 px-2 py-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-lcars-muted">
-                    {col.label}
-                  </span>
-                  <span className={`font-mono text-xs font-bold ${dept.text}`}>{col.count}</span>
-                </div>
-                {col.items.map((item) => (
-                  <div key={item.title} className="rounded border border-edge bg-space/50 p-1.5">
-                    <p className="text-[11px] font-medium text-lcars-text">{item.title}</p>
-                    <p className="text-[10px] text-lcars-muted">{item.meta}</p>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+      <div className="grid grid-cols-5 gap-2">
+        {tiles.map((t) => {
+          const dept = DEPARTMENTS[t.tone];
+          return (
+            <div key={t.label} className="rounded-md border border-edge bg-panel-2/60 p-2 text-center">
+              <p className={`font-lcars text-lg font-bold ${dept.text}`}>{t.value}</p>
+              <p className="text-[9px] uppercase tracking-wide text-lcars-muted">{t.label}</p>
+            </div>
+          );
+        })}
       </div>
     </Panel>
   );
@@ -378,7 +489,10 @@ function MissionBoard() {
 function TodaysBriefing() {
   return (
     <Panel>
-      <SectionHeader title="Today's Briefing" />
+      <SectionHeader
+        title="Today's Briefing"
+        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+      />
       <ul className="flex flex-col gap-2">
         {todaysBriefing.map((item) => {
           const c = toneClasses(item.tone);
@@ -395,13 +509,31 @@ function TodaysBriefing() {
 }
 
 // ── Engineering Queue ─────────────────────────────────────────────────────────
+// WP A: Truth & Trust (MSN-0321) — was a static mock count. Now reads the
+// same fetchEngineeringQueue() lifecycle counts the /engineering-queue page
+// itself renders, and links there (was pointing at /engineering — a
+// different page with different data — which is a truth bug in its own right).
 
-function EngineeringQueue() {
+function EngineeringQueue({
+  data,
+  loading,
+}: {
+  data: EngineeringQueueData | null;
+  loading: boolean;
+}) {
+  const rows = LIFECYCLE_ORDER.map((l) => ({
+    label: LIFECYCLE_LABEL[l],
+    count: data?.counts[l] ?? 0,
+    tone: LIFECYCLE_TONE[l],
+  }));
   return (
     <Panel>
-      <SectionHeader title="Engineering Queue" />
+      <SectionHeader
+        title="Engineering Queue"
+        action={<DataSourceIndicator live={!loading} loading={loading} variant="inline" />}
+      />
       <ul className="flex flex-col gap-2">
-        {engineeringQueueSummary.map((item) => {
+        {rows.map((item) => {
           const c = toneClasses(item.tone);
           return (
             <li key={item.label} className="flex items-center justify-between gap-2">
@@ -415,10 +547,10 @@ function EngineeringQueue() {
         })}
       </ul>
       <Link
-        href="/engineering"
+        href="/engineering-queue"
         className="mt-3 block w-full rounded border border-edge bg-panel-2/60 py-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-engineering hover:border-engineering/50"
       >
-        View Engineering →
+        View Engineering Queue →
       </Link>
     </Panel>
   );
@@ -562,12 +694,21 @@ function NotebookWidget() {
 
 export default function CaptainsChairPage() {
   const { posture, isLoading } = useROSData();
+  const { stats: missionStats, loading: missionStatsLoading } = useLiveMissionStats();
+  const { data: engQueueData, loading: engQueueLoading } = useLiveEngineeringQueue();
+  const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
 
   const currentPosture: RecoveryPostureBand = posture.posture ?? 'UNKNOWN';
 
   return (
     <div className="flex gap-4">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
+
+        {/* WP A (MSN-0321): page had no title anywhere — the nav label was
+            the only place a Captain ever saw this page's name. */}
+        <h1 className="font-lcars text-lg font-bold uppercase tracking-wider text-lcars-text">
+          Captain&apos;s Chair
+        </h1>
 
         {/* ── MSN-IOS-001 WP2: iPhone-first daily operating picture (mobile only) ── */}
         <MobileOperatingPicture />
@@ -587,15 +728,20 @@ export default function CaptainsChairPage() {
         {/* ── Fleet section — collapses on FRAGILE/REST per D-055 ── */}
         <FleetStatusConditional posture={currentPosture}>
           <div className="grid gap-4 xl:grid-cols-[1fr_1.6fr_1fr]">
-            <PriorityOverview />
+            <PriorityOverview
+              decisionsCount={missionStats?.decisionsCount ?? 0}
+              alertsCount={liveAlerts.length}
+              activeMissionsCount={missionStats?.active ?? 0}
+              loading={missionStatsLoading || alertsLoading}
+            />
             <ShipStatus />
             <CaptainTimeline />
           </div>
           <DepartmentRow />
-          <MissionBoard />
+          <MissionBoard stats={missionStats} loading={missionStatsLoading} />
           <div className="grid gap-4 md:grid-cols-3">
             <TodaysBriefing />
-            <EngineeringQueue />
+            <EngineeringQueue data={engQueueData} loading={engQueueLoading} />
             <MedicalBayLink />
           </div>
           <NotebookWidget />
@@ -604,11 +750,11 @@ export default function CaptainsChairPage() {
       </div>
 
       <div className="hidden w-60 shrink-0 flex-col xl:flex">
-        <AlertsSidebar />
-        {/* MSN-0305: was DecisionsPanel — mock decisionsAwaitingApproval data.
-            CaptainApprovalQueue.tsx is the real, governed component (calls
-            the audited approve/reject API) that was built for this exact
-            slot (MSN-0176) but rendered by zero live pages. */}
+        <AlertsSidebar alerts={liveAlerts} loading={alertsLoading} />
+        {/* MSN-0305/WP A (MSN-0321): was DecisionsPanel — mock
+            decisionsAwaitingApproval data, now a live count (see
+            useLiveMissionStats above). CaptainApprovalQueue.tsx remains the
+            one place a decision is actually actioned (approve/reject). */}
         <div className="mt-3">
           <CaptainApprovalQueue />
         </div>

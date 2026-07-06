@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { MissionCard } from '@/components/MissionCard';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { ACTIVE_STATUSES, COMPLETED_STATUSES } from '@/lib/missionStatus';
 import type { Mission, RecoveryPostureBand } from '@/lib/types';
 
 // ── Capacity cost per priority ─────────────────────────────────────────────────
@@ -51,13 +52,6 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-
-// Canonical active-equivalent statuses matching Supabase CHECK constraint
-const ACTIVE_STATUSES = [
-  'Idea', 'Designed', 'Approved for Engineering', 'Implemented', 'Tested',
-  'Awaiting Number One Review', 'Validated', 'Requires Rework', 'Blocked',
-];
-const COMPLETED_STATUSES = ['Approved', 'Closed', 'Archived', 'Validated'];
 
 export default function MissionsPage() {
   const { posture: livePosture } = useROSData();

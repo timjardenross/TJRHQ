@@ -193,9 +193,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'System',
     collapsed: true,
     items: [
-      { href: '/operations',     label: 'Operations',      glyph: '08',  department: 'operations',  description: 'Service and integration status' },
-      { href: '/search',         label: 'Search',          glyph: '🔍', department: 'science',     description: 'Universal search' },
-      { href: '/preferences',    label: 'Preferences',     glyph: '⚙',  department: 'engineering', description: 'Settings and defaults' },
+      { href: '/operations',        label: 'Operations',         glyph: '08',  department: 'operations',  description: 'Service and integration status' },
+      { href: '/delivery',          label: 'Delivery',           glyph: 'DL',  department: 'engineering', description: 'Engineering & Delivery Officer — pipeline throughput, where work is stuck' },
+      { href: '/automation-centre', label: 'Automation Centre',  glyph: 'AT',  department: 'operations',  description: 'Scheduled automations, notification routing, alert thresholds' },
+      { href: '/model-crew',        label: 'Model Crew',         glyph: 'MC',  department: 'science',     description: 'Live LLM router — loaded models, latency, escalations' },
+      { href: '/search',            label: 'Search',             glyph: '🔍', department: 'science',     description: 'Universal search' },
+      { href: '/preferences',       label: 'Preferences',        glyph: '⚙',  department: 'engineering', description: 'Settings and defaults' },
     ],
   },
 ];
