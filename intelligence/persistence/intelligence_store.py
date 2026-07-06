@@ -351,6 +351,19 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
             "intelligence.brief.generated",
             confidence=round(brief.confidence * 100) if brief.confidence else None,
             linked_documents=[brief_id] if brief_id else [],
+            # MSN-0328 Wave 3: Telegram's /brief reads this brief's rich
+            # content (bottom_line/overall_risk/themes) directly from
+            # intelligence_briefs today. Attaching it here means the
+            # canonical pipeline's event carries the same substance,
+            # not just "a brief exists" -- required for Telegram to
+            # converge without losing what it currently shows.
+            metrics={
+                "overall_risk": brief.overall_risk,
+                "bottom_line": brief.bottom_line,
+                "emerging_themes": brief.emerging_themes,
+                "forward_watch": brief.forward_watch,
+                "brief_id": brief_id,
+            },
         )
         return brief_id
     return None

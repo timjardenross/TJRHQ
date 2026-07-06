@@ -84,6 +84,33 @@ def build_brief() -> str:
         strategic=strat_signal,
     )
 
+    # MSN-0328 Wave 3: this is the one genuinely duplicate piece of
+    # briefing-assembly logic in this module — a "what matters most today"
+    # recommendation, the exact purpose the canonical Attention/Priority
+    # Engine pipeline exists for. Not replaced (its capacity-aware scoring
+    # has no equivalent in the generic event-stream pipeline — swapping it
+    # for doc.priorities[0] would be a real regression, not a convergence),
+    # but now also emitted, so the canonical pipeline's own priorities list
+    # includes it rather than staying blind to Slack's richest signal.
+    try:
+        from core.platform.event_bus import publish_event
+        publish_event(
+            "human_systems.recommendation_computed", domain="health-intelligence",
+            source="slack-bot:brief", importance=round(pkg.confidence * 100),
+            confidence=round(pkg.confidence * 100),
+            recommended_action=pkg.primary,
+            metrics={
+                "expected_impact": pkg.expected_impact,
+                "opportunity_cost": pkg.opportunity_cost,
+                "recommended_deferral": pkg.recommended_deferral,
+                "strategic_alignment": pkg.strategic_alignment,
+                "secondary": pkg.secondary,
+                "escalation": pkg.escalation,
+            },
+        )
+    except Exception:
+        pass
+
     # EDO control tower (reused, not rebuilt).
     tower = None
     try:
