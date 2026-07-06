@@ -260,24 +260,6 @@
     .dept-link-secondary { background: rgba(12,90,130,0.05); border: 1px solid rgba(12,90,130,0.15); color: var(--sf-text-secondary); }
     .dept-link-amber { background: rgba(156,93,16,0.08); border: 1px solid rgba(156,93,16,0.25); color: var(--sf-status-warn-text); }
 
-    /* COP legacy styles (Command dept) */
-    .cop-health-grid  { display: flex; flex-direction: column; gap: 5px; }
-    .cop-health-row   { display: flex; justify-content: space-between; font-size: 12px; }
-    .cop-health-label { color: var(--widget-subtitle); }
-    .cop-health-value { font-weight: 600; }
-    .cop-health-good  { color: var(--starfleet-success); }
-    .cop-health-bad   { color: var(--starfleet-danger); }
-    .cop-health-moderate { color: var(--starfleet-warning); }
-    .cop-priority-item  { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
-    .cop-rank           { font-size: 18px; font-weight: 700; color: var(--starfleet-accent); min-width: 18px; line-height: 1; }
-    .cop-priority-info  { flex: 1; min-width: 0; }
-    .cop-priority-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cop-priority-action { font-size: 11px; color: var(--widget-subtitle); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cop-n1-summary { font-size: 12px; color: var(--widget-text); margin: 0 0 8px; line-height: 1.4; }
-    .cop-quick-action { font-size: 11px; background: rgba(12,90,130,0.08); border: 1px solid rgba(12,90,130,0.2); border-radius: 4px; padding: 3px 7px; color: var(--starfleet-accent); margin-bottom: 4px; display: block; }
-    .cop-empty { color: var(--widget-subtitle); font-size: 12px; margin: 0; }
-    .cop-all-clear { color: var(--starfleet-success); font-size: 13px; margin: 0; }
-
     /* Control bar */
     .control-bar {
       display: flex; justify-content: space-between; align-items: center;
@@ -811,19 +793,19 @@
         position: relative;
       ">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div style="font-size:0.75em;font-weight:700;letter-spacing:0.1em;color:var(--accent);text-transform:uppercase">
+          <div style="font-size:0.75em;font-weight:700;letter-spacing:0.1em;color:var(--sf-accent);text-transform:uppercase">
             📊 Executive Summary
           </div>
           <button id="records-summary-refresh" onclick="refreshRecordsSummary()" style="
             font-size:0.72em;padding:3px 10px;border-radius:4px;
             background:rgba(12,90,130,0.08);border:1px solid rgba(12,90,130,0.25);
-            color:var(--accent);cursor:pointer;transition:background 0.2s;
+            color:var(--sf-accent);cursor:pointer;transition:background 0.2s;
           " title="Regenerate summary">⟳ Refresh</button>
         </div>
-        <div id="records-summary-text" style="font-size:0.92em;line-height:1.6;color:var(--text-primary)">
-          <span style="color:var(--text-muted)">Generating intelligence summary…</span>
+        <div id="records-summary-text" style="font-size:0.92em;line-height:1.6;color:var(--sf-text-primary)">
+          <span style="color:var(--sf-text-secondary)">Generating intelligence summary…</span>
         </div>
-        <div id="records-summary-meta" style="font-size:0.72em;color:var(--text-muted);margin-top:8px"></div>
+        <div id="records-summary-meta" style="font-size:0.72em;color:var(--sf-text-secondary);margin-top:8px"></div>
       </div>
 
       <div class="intel-grid">
@@ -1702,7 +1684,7 @@
           : `generated now via ${data.provider} · ${c.decisions ?? '?'} decisions · ${c.lessons ?? '?'} lessons · ${c.adrs ?? '?'} ADRs · ${c.directives ?? '?'} directives`;
         metaEl.textContent = age;
       } catch (err) {
-        textEl.innerHTML = '<span style="color:var(--text-muted)">Summary unavailable.</span>';
+        textEl.innerHTML = '<span style="color:var(--sf-text-secondary)">Summary unavailable.</span>';
         metaEl.textContent = '';
       } finally {
         if (btn) btn.disabled = false;
@@ -1713,7 +1695,7 @@
       const btn    = document.getElementById('records-summary-refresh');
       const textEl = document.getElementById('records-summary-text');
       if (btn) btn.disabled = true;
-      if (textEl) textEl.innerHTML = '<span style="color:var(--text-muted)">Regenerating…</span>';
+      if (textEl) textEl.innerHTML = '<span style="color:var(--sf-text-secondary)">Regenerating…</span>';
       try {
         const data = await fetchJSON('/api/v1/governance/summary?refresh=true');
         if (!data || !data.text) throw new Error('empty');
@@ -1722,7 +1704,7 @@
         const metaEl = document.getElementById('records-summary-meta');
         if (metaEl) metaEl.textContent = `generated via ${data.provider} · ${c.decisions ?? '?'} decisions · ${c.lessons ?? '?'} lessons · ${c.adrs ?? '?'} ADRs · ${c.directives ?? '?'} directives`;
       } catch (_) {
-        if (textEl) textEl.innerHTML = '<span style="color:var(--text-muted)">Refresh failed.</span>';
+        if (textEl) textEl.innerHTML = '<span style="color:var(--sf-text-secondary)">Refresh failed.</span>';
       } finally {
         if (btn) btn.disabled = false;
       }
@@ -1761,14 +1743,14 @@
       if (decisionsEl && gov) {
         const list = gov.canonical || [];
         decisionsEl.innerHTML = `
-          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} canonical decisions (D-001 – D-${list.length})</div>
+          <div style="color:var(--sf-text-secondary);font-size:0.8em;margin-bottom:8px">${list.length} canonical decisions (D-001 – D-${list.length})</div>
           <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
             ${list.slice(0, 15).map(d => `
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--sf-border-subtle)">
                 <div>
-                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${d.id}</span>
+                  <span style="font-size:0.75em;font-weight:600;color:var(--sf-text-secondary)">${d.id}</span>
                   <div style="font-size:0.9em">${d.title}</div>
-                  ${d.date ? `<div style="font-size:0.75em;color:var(--text-muted)">${d.date}</div>` : ''}
+                  ${d.date ? `<div style="font-size:0.75em;color:var(--sf-text-secondary)">${d.date}</div>` : ''}
                 </div>
                 ${statusBadge(d.status)}
               </div>`).join('')}
@@ -1784,15 +1766,15 @@
       if (lessonsEl && lessons) {
         const list = lessons.lessons || [];
         lessonsEl.innerHTML = `
-          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${lessons.total || list.length} lessons captured</div>
+          <div style="color:var(--sf-text-secondary);font-size:0.8em;margin-bottom:8px">${lessons.total || list.length} lessons captured</div>
           <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
             ${list.map(l => `
-              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+              <div style="padding:5px 0;border-bottom:1px solid var(--sf-border-subtle)">
                 <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${l.lesson_id || ''}</span>
+                  <span style="font-size:0.75em;font-weight:600;color:var(--sf-text-secondary)">${l.lesson_id || ''}</span>
                 </div>
                 <div style="font-size:0.9em">${l.title}</div>
-                ${l.mission_id ? `<div style="font-size:0.75em;color:var(--text-muted)">↳ ${l.mission_id}</div>` : ''}
+                ${l.mission_id ? `<div style="font-size:0.75em;color:var(--sf-text-secondary)">↳ ${l.mission_id}</div>` : ''}
               </div>`).join('')}
           </div>`;
       } else if (lessonsEl) {
@@ -1805,15 +1787,15 @@
       if (adrsEl && adrs) {
         const list = adrs.adrs || [];
         adrsEl.innerHTML = `
-          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} architectural decisions recorded</div>
+          <div style="color:var(--sf-text-secondary);font-size:0.8em;margin-bottom:8px">${list.length} architectural decisions recorded</div>
           <div style="display:flex;flex-direction:column;gap:6px">
             ${list.map(a => `
-              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+              <div style="padding:5px 0;border-bottom:1px solid var(--sf-border-subtle)">
                 <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${a.id}</span>
+                  <span style="font-size:0.75em;font-weight:600;color:var(--sf-text-secondary)">${a.id}</span>
                   <span style="font-size:0.9em;font-weight:500">${a.title}</span>
                 </div>
-                ${a.decision ? `<div style="font-size:0.82em;color:var(--text-muted);margin-top:2px">${a.decision.slice(0, 120)}${a.decision.length > 120 ? '…' : ''}</div>` : ''}
+                ${a.decision ? `<div style="font-size:0.82em;color:var(--sf-text-secondary);margin-top:2px">${a.decision.slice(0, 120)}${a.decision.length > 120 ? '…' : ''}</div>` : ''}
               </div>`).join('')}
           </div>`;
       } else if (adrsEl) {
@@ -1826,15 +1808,15 @@
       if (directivesEl && directives) {
         const list = directives.directives || [];
         directivesEl.innerHTML = `
-          <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} standing directives</div>
+          <div style="color:var(--sf-text-secondary);font-size:0.8em;margin-bottom:8px">${list.length} standing directives</div>
           <div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
             ${list.map(d => `
-              <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+              <div style="padding:5px 0;border-bottom:1px solid var(--sf-border-subtle)">
                 <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:0.75em;font-weight:600;color:var(--text-muted)">${d.id}</span>
+                  <span style="font-size:0.75em;font-weight:600;color:var(--sf-text-secondary)">${d.id}</span>
                   <span style="font-size:0.9em;font-weight:500">${d.title}</span>
                 </div>
-                ${d.body ? `<div style="font-size:0.82em;color:var(--text-muted);margin-top:2px">${d.body.split('\n')[0].slice(0, 100)}</div>` : ''}
+                ${d.body ? `<div style="font-size:0.82em;color:var(--sf-text-secondary);margin-top:2px">${d.body.split('\n')[0].slice(0, 100)}</div>` : ''}
               </div>`).join('')}
           </div>`;
       } else if (directivesEl) {
@@ -1888,17 +1870,17 @@
       const statusClr = s => s === 'pending_decision' ? 'var(--sf-status-warn-text)' : 'var(--sf-text-secondary)';
 
       capturesEl.innerHTML = `
-        <div style="color:var(--text-muted);font-size:0.8em;margin-bottom:8px">${list.length} item${list.length !== 1 ? 's' : ''} awaiting triage</div>
+        <div style="color:var(--sf-text-secondary);font-size:0.8em;margin-bottom:8px">${list.length} item${list.length !== 1 ? 's' : ''} awaiting triage</div>
         <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="captures-list">
           ${list.map(c => `
-            <div class="capture-triage-row" data-id="${c.id}" style="padding:6px 0;border-bottom:1px solid var(--border)">
+            <div class="capture-triage-row" data-id="${c.id}" style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle)">
               <div style="display:flex;align-items:flex-start;gap:6px">
                 <span style="flex-shrink:0">${typeIcon(c.item_type)}</span>
                 <div style="flex:1;min-width:0">
                   <div style="font-size:0.88em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.title || c.raw_text || '—'}</div>
                   <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap;">
                     <span style="font-size:0.72em;color:${statusClr(c.processing_status)}">${c.processing_status}</span>
-                    <span style="font-size:0.72em;color:var(--text-muted)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</span>
+                    <span style="font-size:0.72em;color:var(--sf-text-secondary)">${(c.captured_at || '').slice(0, 16).replace('T', ' ')}</span>
                   </div>
                   <div class="capture-actions" style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;">
                     <button class="cap-btn" data-id="${c.id}" data-action="route" data-type="mission"
@@ -2061,7 +2043,7 @@
           el.innerHTML = services.map(s => {
             const ok = (s.status || '').toLowerCase() === 'operational';
             const dot = ok ? '🟢' : '🔴';
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--sf-border-subtle)">
               <span>${dot} ${s.name || s.service}</span>
               <span class="muted" style="font-size:0.8em">${s.status || 'unknown'}</span>
             </div>`;
@@ -2082,7 +2064,7 @@
           if (r.ok) {
             const d = await r.json();
             const models = (d.models || []);
-            html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+            html += `<div style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle)">
               <div style="display:flex;justify-content:space-between">
                 <span>🟢 Ollama</span>
                 <span class="muted" style="font-size:0.8em">${models.length} model${models.length !== 1 ? 's' : ''} loaded</span>
@@ -2090,10 +2072,10 @@
               ${models.map(m => `<div class="muted" style="font-size:0.8em;padding-left:12px">• ${m.name}</div>`).join('')}
             </div>`;
           } else {
-            html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">HTTP ${r.status}</span></div>`;
+            html += `<div style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">HTTP ${r.status}</span></div>`;
           }
         } catch(e) {
-          html += `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">Unreachable</span></div>`;
+          html += `<div style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle)"><span>🔴 Ollama</span> <span class="muted" style="font-size:0.8em">Unreachable</span></div>`;
         }
 
         // OpenClaw
@@ -2121,7 +2103,7 @@
           const lastCall = brief.generated_at ? new Date(brief.generated_at).toLocaleString('en-AU', {dateStyle:'short', timeStyle:'short'}) : 'unknown';
 
           el.innerHTML = `
-            <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+            <div style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle)">
               <div style="display:flex;justify-content:space-between">
                 <span>🌐 Google / Gemini API</span>
                 <span class="muted" style="font-size:0.8em">${isGemini ? '🟢 active' : '⚪ not last used'}</span>
@@ -2155,7 +2137,7 @@
 
           el.innerHTML = `
             <div style="display:flex;flex-direction:column;gap:6px">
-              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+              <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--sf-border-subtle);padding-bottom:4px">
                 <span class="muted">Last OR Intel run</span><span>${generated}</span>
               </div>
               <div style="display:flex;justify-content:space-between">
