@@ -25,6 +25,17 @@ Hard failures (exit 1):
   3. Bare hex literal   — a literal #rrggbb outside tokens.css itself
                           and outside a var(--sf-x, #fallback) that
                           matches the token's current value.
+  5. Orphaned semantic  — a rule whose selector names a severity/state
+     rgba              (`.foo-warn`/`-amber`/`-crit`/`-red`/`-ok`/
+                          `-green`) uses an rgba() literal that does
+                          NOT match that state's real token RGB — e.g.
+                          `.intel-risk-amber` using a colour that isn't
+                          `--sf-status-warn`'s. Added Phase 1G after the
+                          Visual Design Officer found exactly this: the
+                          rgba-echo notice below only ever fires on a
+                          *match*, so a literal that silently drifted
+                          away from its own token slipped through 0
+                          errors. This check catches the mismatch case.
 
 Non-blocking notice (printed, doesn't fail the guard):
   4. rgba() token echo  — rgba(r,g,b,a) whose (r,g,b) exactly matches a
@@ -54,6 +65,16 @@ VAR_DEF_RE = re.compile(r"--([\w-]+)\s*:\s*([^;]+);")
 VAR_USE_RE = re.compile(r"var\(\s*--([\w-]+)\s*(?:,\s*([^)]+))?\)")
 HEX_RE = re.compile(r"#[0-9a-fA-F]{6}\b")
 RGBA_RE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)")
+RULE_RE = re.compile(r"\.([\w-]+)\s*\{([^{}]*)\}")
+
+# Selector name fragment -> the state token it should echo when the rule's
+# background/color is an rgba() literal (risk/severity badges use
+# rgba(token-DEFAULT-rgb, low-alpha) as their tint convention).
+SEMANTIC_ALIASES = {
+    "crit": "sf-status-crit", "critical": "sf-status-crit", "red": "sf-status-crit",
+    "warn": "sf-status-warn", "warning": "sf-status-warn", "amber": "sf-status-warn",
+    "ok": "sf-status-ok", "green": "sf-status-ok",
+}
 
 
 def hex_to_rgb(h):
@@ -119,6 +140,25 @@ def check_file(path, token_defs, known_rgb):
                 token = known_rgb[rgb]
                 rgba_echoes[token] = rgba_echoes.get(token, 0) + 1
                 rgba_echo_lines.append((i, token, m.group(0)))
+
+        for rule_m in RULE_RE.finditer(line):
+            selector, body = rule_m.group(1), rule_m.group(2)
+            expected_token = next(
+                (SEMANTIC_ALIASES[frag] for frag in selector.split("-") if frag in SEMANTIC_ALIASES),
+                None,
+            )
+            if not expected_token or expected_token not in defined:
+                continue
+            expected_hex = defined[expected_token]
+            if not re.fullmatch(r"#[0-9a-fA-F]{6}", expected_hex):
+                continue
+            expected_rgb = hex_to_rgb(expected_hex)
+            for m in RGBA_RE.finditer(body):
+                actual_rgb = tuple(int(x) for x in m.groups())
+                if actual_rgb != expected_rgb:
+                    errors.append((i, "orphaned-semantic-rgba",
+                                    f".{selector} — {m.group(0)} doesn't match --{expected_token}'s "
+                                    f"RGB {expected_rgb} (expected {expected_hex})"))
 
     return errors, rgba_echoes, rgba_echo_lines
 

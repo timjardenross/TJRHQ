@@ -127,7 +127,7 @@
       font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px;
       white-space: nowrap; margin-top: 1px; flex-shrink: 0;
     }
-    .alert-badge.critical { background: rgba(255,68,68,0.2); color: var(--sf-status-crit); }
+    .alert-badge.critical { background: rgba(196,48,48,0.2); color: var(--sf-status-crit); }
     .alert-badge.high     { background: rgba(156,93,16,0.2); color: var(--sf-status-warn-text); }
     .alert-badge.medium   { background: rgba(12,90,130,0.1); color: var(--sf-accent); }
     .alert-text { flex: 1; }
@@ -149,9 +149,9 @@
     .mission-item:last-child { border-bottom: none; }
     .mission-priority { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
     /* P0/P1 = Ops Red (critical active work), P2 = Science Blue (planned) */
-    .priority-p0 { background: var(--sf-dept-ops-bg);      color: var(--sf-dept-ops-light); }
+    .priority-p0 { background: var(--sf-status-crit-bg);   color: var(--sf-status-crit-text); }
     .priority-p1 { background: var(--sf-status-warn-bg);   color: var(--sf-status-warn-text); }
-    .priority-p2 { background: var(--sf-dept-science-bg);  color: var(--sf-dept-science-light); }
+    .priority-p2 { background: var(--sf-status-ok-bg);     color: var(--sf-status-ok-text); }
     .mission-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mission-next  { font-size: 10px; color: var(--sf-text-secondary); }
 
@@ -180,7 +180,7 @@
     .intel-headline-meta { font-size: 10px; color: var(--sf-text-secondary); margin-top: 8px; }
     .intel-risk-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
     .intel-risk-green { background: rgba(39,138,68,0.2);  color: var(--sf-status-ok-text); }
-    .intel-risk-amber { background: rgba(200,122,32,0.2); color: var(--sf-status-warn-text); }
+    .intel-risk-amber { background: rgba(156,93,16,0.2);  color: var(--sf-status-warn-text); }
     .intel-risk-red   { background: rgba(196,48,48,0.2);  color: var(--sf-status-crit-text); }
 
     /* Captain's Log status */
