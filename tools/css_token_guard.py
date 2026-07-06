@@ -22,23 +22,40 @@ Hard failures (exit 1):
                           legitimate and not flagged).
   2. Stale hex fallback — var(--sf-x, #hex) whose fallback no longer
                           matches --sf-x's current value in tokens.css.
-  3. Bare hex literal   — a literal #rrggbb outside tokens.css itself
-                          and outside a var(--sf-x, #fallback) that
-                          matches the token's current value.
-  5. Orphaned semantic  — a rule whose selector names a severity/state
+  3. Bare hex literal   — a literal #rrggbb or #rgb outside tokens.css
+                          itself and outside a var(--sf-x, #fallback)
+                          that matches the token's current value.
+  4. Orphaned semantic  — a rule whose selector names a severity/state
      rgba              (`.foo-warn`/`-amber`/`-crit`/`-red`/`-ok`/
-                          `-green`) uses an rgba() literal that does
-                          NOT match that state's real token RGB — e.g.
-                          `.intel-risk-amber` using a colour that isn't
+                          `-green`/`-active`/`-success`/`-danger`) uses
+                          an rgba() literal that does NOT match that
+                          state's real token RGB — e.g. `.intel-risk-
+                          amber` using a colour that isn't
                           `--sf-status-warn`'s. Added Phase 1G after the
                           Visual Design Officer found exactly this: the
                           rgba-echo notice below only ever fires on a
                           *match*, so a literal that silently drifted
                           away from its own token slipped through 0
                           errors. This check catches the mismatch case.
+  5. Orphaned border-   — a rule/inline style whose border/border-color
+     paired rgba          uses var(--sf-status-X), but its background/
+                          background-color rgba() doesn't match X's RGB.
+                          Added Phase 1H: this catches inline
+                          style="..." attributes too (no class-name
+                          parsing needed, unlike check 4), which is how
+                          a "Request Rework" button's rgba and a
+                          `.toggle-switch.active` rule both slipped past
+                          check 4 (their selectors/attrs don't carry a
+                          recognizable severity word). Scoped narrowly
+                          to border+background co-occurrence — a bare
+                          `color: var(--sf-status-X)` alone does NOT
+                          trigger this, since that pattern is also used
+                          legitimately alongside unrelated decorative
+                          backgrounds (e.g. `.debug-mode`'s black
+                          overlay) with no intended colour relationship.
 
 Non-blocking notice (printed, doesn't fail the guard):
-  4. rgba() token echo  — rgba(r,g,b,a) whose (r,g,b) exactly matches a
+  6. rgba() token echo  — rgba(r,g,b,a) whose (r,g,b) exactly matches a
                           token's current RGB. Not wrong by itself (see
                           above), but if that token's hex ever changes,
                           every literal echo of the old RGB goes stale
@@ -63,9 +80,11 @@ DEFAULT_TARGETS = [
 
 VAR_DEF_RE = re.compile(r"--([\w-]+)\s*:\s*([^;]+);")
 VAR_USE_RE = re.compile(r"var\(\s*--([\w-]+)\s*(?:,\s*([^)]+))?\)")
-HEX_RE = re.compile(r"#[0-9a-fA-F]{6}\b")
+HEX_RE = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 RGBA_RE = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)")
 RULE_RE = re.compile(r"\.([\w-]+)\s*\{([^{}]*)\}")
+BORDER_STATUS_RE = re.compile(r"border(?:-color)?\s*:\s*(?:1px\s+solid\s+)?var\(--sf-status-(ok|warn|crit)(?:-text)?\)")
+BACKGROUND_RGBA_RE = re.compile(r"background(?:-color)?\s*:\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)")
 
 # Selector name fragment -> the state token it should echo when the rule's
 # background/color is an rgba() literal (risk/severity badges use
@@ -79,6 +98,8 @@ SEMANTIC_ALIASES = {
 
 def hex_to_rgb(h):
     h = h.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
@@ -159,6 +180,20 @@ def check_file(path, token_defs, known_rgb):
                     errors.append((i, "orphaned-semantic-rgba",
                                     f".{selector} — {m.group(0)} doesn't match --{expected_token}'s "
                                     f"RGB {expected_rgb} (expected {expected_hex})"))
+
+        border_m = BORDER_STATUS_RE.search(line)
+        bg_m = BACKGROUND_RGBA_RE.search(line)
+        if border_m and bg_m:
+            state = border_m.group(1)
+            expected_token = f"sf-status-{state}"
+            expected_hex = defined.get(expected_token)
+            if expected_hex and re.fullmatch(r"#[0-9a-fA-F]{6}", expected_hex):
+                expected_rgb = hex_to_rgb(expected_hex)
+                actual_rgb = tuple(int(x) for x in bg_m.groups())
+                if actual_rgb != expected_rgb:
+                    errors.append((i, "orphaned-border-paired-rgba",
+                                    f"border uses var(--{expected_token}) but background {bg_m.group(0)} "
+                                    f"doesn't match its RGB {expected_rgb} (expected {expected_hex})"))
 
     return errors, rgba_echoes, rgba_echo_lines
 

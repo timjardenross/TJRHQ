@@ -49,6 +49,7 @@
   --sf-border-subtle: #5a7d94;
   --sf-text-primary: #0d1f33;
   --sf-text-secondary: #3a5a78;
+  --sf-text-on-fill: #ffffff;
 
   /* ── Departments — accent (borders/backgrounds) + light (text) + bg (tint) + rgb ── */
   --sf-dept-command: #FFB81C;

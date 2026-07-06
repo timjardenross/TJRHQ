@@ -127,7 +127,7 @@
       font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px;
       white-space: nowrap; margin-top: 1px; flex-shrink: 0;
     }
-    .alert-badge.critical { background: rgba(196,48,48,0.2); color: var(--sf-status-crit); }
+    .alert-badge.critical { background: rgba(196,48,48,0.2); color: var(--sf-status-crit-text); }
     .alert-badge.high     { background: rgba(156,93,16,0.2); color: var(--sf-status-warn-text); }
     .alert-badge.medium   { background: rgba(12,90,130,0.1); color: var(--sf-accent); }
     .alert-text { flex: 1; }
@@ -263,7 +263,7 @@
     /* Control bar */
     .control-bar {
       display: flex; justify-content: space-between; align-items: center;
-      background: rgba(0,50,102,0.4); border: 1px solid rgba(12,90,130,0.2);
+      background: var(--sf-bg-panel); border: 1px solid rgba(12,90,130,0.2);
       border-radius: 6px; padding: 12px 16px; margin-top: 30px; font-size: 12px;
     }
     .control-buttons { display: flex; gap: 8px; }
@@ -278,7 +278,7 @@
     .timestamp { font-size: 12px; color: var(--sf-text-secondary); }
     .auto-refresh-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; }
     .toggle-switch { position: relative; width: 40px; height: 20px; background-color: rgba(12,90,130,0.2); border: 1px solid rgba(12,90,130,0.4); border-radius: 10px; cursor: pointer; transition: all 0.2s ease; }
-    .toggle-switch.active { background-color: rgba(0,221,0,0.3); border-color: var(--sf-status-ok); }
+    .toggle-switch.active { background-color: rgba(39,138,68,0.3); border-color: var(--sf-status-ok); }
     .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background-color: var(--sf-accent); border-radius: 8px; transition: left 0.2s ease; }
     .toggle-switch.active::after { left: 22px; background-color: var(--sf-status-ok); }
 
@@ -406,7 +406,7 @@
     .notif-bell-btn:hover { background: rgba(12,90,130,0.08); border-color: rgba(12,90,130,0.3); color: var(--sf-accent); }
     .notif-badge {
       display: none; position: absolute; top: -5px; right: -5px;
-      background: var(--sf-status-crit); color: #fff; border-radius: 8px;
+      background: var(--sf-status-crit); color: var(--sf-text-on-fill); border-radius: 8px;
       font-size: 9px; font-weight: 700; padding: 1px 5px; min-width: 16px; text-align: center;
     }
     .notif-badge.visible { display: block; }
@@ -728,7 +728,7 @@
             <textarea id="pulse-notes" rows="2" placeholder="Notes (optional)"
               style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>
             <div style="display:flex;align-items:center;gap:10px;">
-              <button onclick="submitPulse()" style="padding:6px 18px;font-size:12px;background:var(--sf-dept-medical-light);color:#fff;border:1px solid var(--sf-dept-medical);border-radius:4px;cursor:pointer;">Log Pulse</button>
+              <button onclick="submitPulse()" style="padding:6px 18px;font-size:12px;background:var(--sf-dept-medical-light);color:var(--sf-text-on-fill);border:1px solid var(--sf-dept-medical);border-radius:4px;cursor:pointer;">Log Pulse</button>
               <span id="pulse-status" style="font-size:11px;color:var(--sf-text-secondary);"></span>
             </div>
           </div>
@@ -1318,7 +1318,7 @@
               ✓ Approve
             </button>
             <button class="approval-btn" data-id="${mId}" data-action="Requires Rework"
-              style="font-size:11px;padding:4px 14px;background:rgba(231,76,60,0.12);border:1px solid var(--sf-status-crit);color:var(--sf-status-crit);border-radius:4px;cursor:pointer;">
+              style="font-size:11px;padding:4px 14px;background:rgba(196,48,48,0.12);border:1px solid var(--sf-status-crit-text);color:var(--sf-status-crit-text);border-radius:4px;cursor:pointer;">
               ↩ Request Rework
             </button>
           </div>
@@ -1412,7 +1412,7 @@
               <select class="mission-status-select" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:2px 4px;cursor:pointer;">
                 ${opts}
               </select>
-              <button class="mission-status-btn" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">Save</button>
+              <button class="mission-status-btn" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-accent);color:var(--sf-text-on-fill);border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">Save</button>
             </div>
           </div>
         </div>`;
@@ -1896,7 +1896,7 @@
                       ⚖️ Decision
                     </button>
                     <button class="cap-btn" data-id="${c.id}" data-action="dismiss"
-                      style="font-size:10px;padding:2px 8px;background:rgba(120,120,120,0.1);border:1px solid rgba(120,120,120,0.3);color:#888;border-radius:3px;cursor:pointer;">
+                      style="font-size:10px;padding:2px 8px;background:rgba(120,120,120,0.1);border:1px solid rgba(120,120,120,0.3);color:var(--sf-text-secondary);border-radius:3px;cursor:pointer;">
                       ✕ Dismiss
                     </button>
                   </div>
