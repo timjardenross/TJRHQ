@@ -32,6 +32,39 @@ interface CaptainBriefItem {
   recommendation: Recommendation | null;
   related_event_ids: string[];
   aggregation_key: string | null;
+  // MSN-0328 Wave 2/3: structured per-domain detail attached at emission
+  // time (e.g. delivery's high_risk_count/constraint) — optional, most
+  // items still have none.
+  metrics?: Record<string, unknown>;
+}
+
+// MSN-0328 Wave 3: renders known metrics keys as compact "label: value"
+// pairs. Unknown keys still render (generic fallback) rather than being
+// silently dropped — a domain adding a new metrics key doesn't need a
+// frontend change to be visible, just less nicely labelled until one is added.
+const METRIC_LABELS: Record<string, string> = {
+  open_count: 'Open',
+  high_risk_count: 'High-risk',
+  constraint: 'Constraint',
+  constraint_count: 'At constraint',
+  active_count: 'Active',
+  active_domains: 'Domains',
+  orphan_count: 'Unaligned',
+  expected_impact: 'Expected impact',
+  opportunity_cost: 'Opportunity cost',
+  recommended_deferral: 'Can wait',
+  strategic_alignment: 'Alignment',
+  overall_risk: 'Risk',
+  bottom_line: 'Bottom line',
+};
+
+function MetricsLine({ metrics }: { metrics?: Record<string, unknown> }) {
+  if (!metrics || Object.keys(metrics).length === 0) return null;
+  const parts = Object.entries(metrics)
+    .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    .map(([k, v]) => `${METRIC_LABELS[k] ?? k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`);
+  if (!parts.length) return null;
+  return <p className="mt-0.5 text-[10px] text-lcars-muted/80">{parts.join(' · ')}</p>;
 }
 
 // Priority Engine's risk_score (0-100, see core/platform/priority_engine.py) —
@@ -76,6 +109,7 @@ function ItemRow({ item }: { item: CaptainBriefItem }) {
         {item.domain} · {item.event_type}
       </p>
       <p className="mt-0.5 text-xs text-lcars-text/90">{item.reason}</p>
+      <MetricsLine metrics={item.metrics} />
     </li>
   );
 }
