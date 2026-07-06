@@ -17,7 +17,7 @@ export interface NavItem {
 // a duplicate, driftable copy of nav item data.
 const VALID_NAV_HREFS = [
   '/captains-chair', '/advisory-council', '/knowledge', '/knowledge-library',
-  '/preferences', '/search', '/timeline', '/capture', '/xo',
+  '/preferences', '/search', '/timeline', '/capture',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
   '/captains-brief', '/delivery', '/automation-centre', '/model-crew',
@@ -40,12 +40,18 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/advisory-council', label: 'Advisory Council',  glyph: 'AC', department: 'command',     description: 'Consult, board, brief, picture, intelligence — unified' },
       { href: '/captains-brief',   label: "Captain's Brief",   glyph: 'CB', department: 'command',     description: 'Cross-domain intelligence brief — priorities, confidence, warnings' },
       { href: '/capture',          label: 'Capture',           glyph: 'QC', department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
+      // MSN-0328 (WP-B): promoted from unreachable — same intake pipeline as Capture.
+      { href: '/captains-notebook', label: "Captain's Notebook", glyph: '16', department: 'command',   description: 'Intelligence intake — capture, triage, route' },
     ],
   },
   {
     label: 'Health & Capacity',
     items: [
       { href: '/medical',        label: 'Health Centre',   glyph: '05',  department: 'medical',     description: 'Recovery indexes, pulse, check-in, trends' },
+      // MSN-0328 (WP-B): promoted from unreachable — real pages, no nav path to any of them before this.
+      { href: '/human-systems',    label: 'Human Systems',    glyph: 'HS', department: 'medical', description: 'Capacity gates, escalation state, recovery debt' },
+      { href: '/recovery-brief',   label: 'Recovery Brief',   glyph: 'RB', department: 'medical', description: 'Recovery posture and debt — leverage recommendation' },
+      { href: '/stage-progression', label: 'Stage Progression', glyph: 'SP', department: 'medical', description: 'Recovery stage tracking (ROS-001)' },
     ],
   },
   {
@@ -63,6 +69,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/missions',       label: 'Missions',        glyph: '02',  department: 'command',     description: 'Mission registry and status board' },
       { href: '/timeline',       label: 'Timeline',        glyph: '⏱',  department: 'science',     description: 'Unified operational timeline' },
       { href: '/captains-log',   label: "Captain's Log",   glyph: '12',  department: 'command',     description: 'End-of-day structured log entry' },
+      // MSN-0328 (WP-B): promoted from unreachable — both are direct Captain decision surfaces.
+      { href: '/alerts',           label: 'Push Alerts',       glyph: '!!', department: 'operations',  description: 'Gated, meaningful escalations only' },
+      { href: '/engineering-queue', label: 'Engineering Queue', glyph: 'EQ', department: 'engineering', description: 'Triage, review, approve and unblock' },
     ],
   },
   {
@@ -71,6 +80,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/operations',        label: 'Operations',         glyph: '08',  department: 'operations',  description: 'Service and integration status' },
       { href: '/delivery',          label: 'Delivery',           glyph: 'DL',  department: 'engineering', description: 'Engineering & Delivery Officer — pipeline throughput, where work is stuck' },
+      // MSN-0328 (WP-B): promoted from unreachable — sits alongside Delivery, same domain.
+      { href: '/engineering',       label: 'Engineering',        glyph: 'EN',  department: 'engineering', description: 'Engineering domain overview' },
       { href: '/automation-centre', label: 'Automation Centre',  glyph: 'AT',  department: 'operations',  description: 'Scheduled automations, notification routing, alert thresholds' },
       { href: '/model-crew',        label: 'Model Crew',         glyph: 'MC',  department: 'science',     description: 'Live LLM router — loaded models, latency, escalations' },
       { href: '/search',            label: 'Search',             glyph: '🔍', department: 'science',     description: 'Universal search' },

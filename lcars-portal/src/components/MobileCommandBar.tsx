@@ -25,7 +25,8 @@ interface Tab {
 const TABS: Tab[] = [
   { href: '/captains-chair', label: 'Chair', glyph: '★', active: 'text-command' },
   { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },
-  { href: '/xo', label: 'XO', glyph: '✦', active: 'text-science' },
+  // MSN-0328 (WP-B): /xo retired (duplicated Advisory Council's XO tab) — points to the real destination directly.
+  { href: '/advisory-council', label: 'Advisory', glyph: '✦', active: 'text-science' },
   { href: '/engineering-queue', label: 'Queue', glyph: '⚙', active: 'text-engineering' },
   { href: '/alerts', label: 'Alerts', glyph: '◆', active: 'text-operations' },
 ];

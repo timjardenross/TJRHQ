@@ -916,7 +916,7 @@ function QuickCapturePageInner() {
         <div className="rounded-lcars border border-status/50 bg-status/10 px-4 py-3 text-sm font-semibold text-status">
           ✓ {flash}
           {commsCapture ? (
-            <> — <Link href="/content" className="underline text-science">view in Content Pipeline →</Link></>
+            <> — <Link href="/comms" className="underline text-science">view in Content Pipeline →</Link></>
           ) : ' — added to the Capture Inbox.'}
         </div>
       )}

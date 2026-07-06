@@ -508,7 +508,7 @@ function ContentSignalsView({ d }: { d: any }) {
         <div className="rounded-lcars border border-edge bg-panel/20 p-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] uppercase tracking-widest text-lcars-muted">Content Pipeline</p>
-            <Link href="/content" className="text-[10px] uppercase tracking-wide text-science-on hover:text-science-on/70 transition-colors">
+            <Link href="/comms" className="text-[10px] uppercase tracking-wide text-science-on hover:text-science-on/70 transition-colors">
               Manage pipeline →
             </Link>
           </div>

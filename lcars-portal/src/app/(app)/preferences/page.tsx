@@ -29,7 +29,7 @@ const PAGES: { href: string; label: string }[] = [
   { href: '/captains-log', label: "Captain's Log" },
   { href: '/medical', label: 'Medical' },
   { href: '/intelligence', label: 'Intelligence' },
-  { href: '/chief-of-staff', label: 'Chief of Staff' },
+  { href: '/advisory-council', label: 'Advisory Council' },
   { href: '/timeline', label: 'Timeline' },
   { href: '/search', label: 'Search' },
   { href: '/knowledge', label: 'Knowledge' },
