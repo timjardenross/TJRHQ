@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { stateToneClasses } from '@/lib/departments';
 
 /**
  * Canonical Approval Queue contract (MSN-0315 Phase 1B). Presentational and
@@ -89,7 +90,7 @@ export function ApprovalQueue({
 
       {flash && (
         <div
-          className={`mb-3 rounded border px-3 py-2 text-xs ${flash.ok ? 'border-status/40 bg-status/10 text-status' : 'border-operations/40 bg-operations/10 text-operations'}`}
+          className={`mb-3 rounded border px-3 py-2 text-xs ${flash.ok ? `${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} ${stateToneClasses('ok').text}` : `${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} ${stateToneClasses('crit').text}`}`}
         >
           {flash.message}
         </div>
@@ -113,7 +114,7 @@ export function ApprovalQueue({
                   placeholder="Rejection reason (required)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus:border-operations/60 focus:outline-none"
+                  className="w-full rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus:border-state-crit/60 focus:outline-none"
                 />
                 <div className="flex gap-2">
                   <button
@@ -124,7 +125,7 @@ export function ApprovalQueue({
                       setRejectReason('');
                       onReject(item.id, reason);
                     }}
-                    className="flex-1 rounded border border-operations/60 bg-operations/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-operations hover:bg-operations/20 disabled:opacity-40 transition-colors"
+                    className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/20 disabled:opacity-40 transition-colors`}
                   >
                     {actingId === item.id ? 'Rejecting…' : 'Confirm Reject'}
                   </button>
@@ -133,7 +134,7 @@ export function ApprovalQueue({
                       setRejectReasonFor(null);
                       setRejectReason('');
                     }}
-                    className="rounded border border-edge px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
+                    className="rounded border border-edge px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
                   >
                     Cancel
                   </button>
@@ -144,14 +145,14 @@ export function ApprovalQueue({
                 <button
                   disabled={actingId === item.id}
                   onClick={() => onApprove(item.id)}
-                  className="flex-1 rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+                  className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
                 >
                   {actingId === item.id ? 'Working…' : 'Approve'}
                 </button>
                 <button
                   disabled={actingId === item.id}
                   onClick={() => setRejectReasonFor(item.id)}
-                  className="flex-1 rounded border border-operations/40 bg-operations/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-operations hover:bg-operations/10 disabled:opacity-40 transition-colors"
+                  className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
                 >
                   Reject
                 </button>
