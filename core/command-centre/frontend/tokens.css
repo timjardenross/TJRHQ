@@ -1,5 +1,5 @@
 /**
- * STARFLEET COMMAND CENTRE — Design Tokens (MSN-0315 Phase 1C)
+ * STARFLEET COMMAND CENTRE — Design Tokens (MSN-0315 Phase 1C, remediated Phase 1E)
  *
  * Replaces the dead widgets.css/theme-starfleet-tokens.css references (both
  * archive-only — every --sf-* var below was previously undefined, so every
@@ -10,15 +10,26 @@
  * visible repaint from dark to light, per Captain direction 2026-07-06.
  *
  * Command Centre's tab taxonomy (command/medical/nav-astrometrics/ops/
- * science — 5 tabs, no "engineering", plus a "science" distinct from "nav")
- * does not biject onto lcars-portal's 6 canonical department keys. Rather
- * than force a taxonomy merge (out of scope — see MSN-0315 Phase 1C plan),
- * each tab keeps its own identity: command/medical/ops/nav reuse
- * lcars-portal's command/medical/operations/science hexes (nav/astrometrics
- * ~= science, both intel-purple); "science" here gets a new, distinct
- * cyan hex since lcars-portal has no equivalent to reuse. Not yet run
- * through the Phase 1A contrast-matrix script — flagged as follow-up,
- * same as the department DEFAULTs Phase 1A found failing 3:1.
+ * science/engineering — 6 tabs) does not biject onto lcars-portal's 6
+ * canonical department keys 1:1 by name, but every tab now has its own
+ * correctly-named token (see --sf-dept-engineering below, added in the
+ * Phase 1E remediation to fix a real Engineering/Operations colour
+ * collision the Visual Design Officer found — the "Engineering" tab was
+ * previously styled with --sf-dept-ops).
+ *
+ * --sf-dept-science's DEFAULT was re-shaded in Phase 1E (#0891B2 → #06768D)
+ * after the Visual Design Officer's independent contrast computation found
+ * the original failed 3:1 against 2 of its 3 live-usage backgrounds
+ * (2.96:1 space, 2.56:1 card) — same failure class as the still-open
+ * legacy department DEFAULTs, but this one is now fixed rather than left
+ * open, since it was net-new (no ratified brand hex to preserve).
+ *
+ * --sf-accent is new in Phase 1E: the old dark theme's #00ccff cyan accent
+ * (links, active icons, rank numerals) had no light-theme token at all —
+ * every occurrence was a hardcoded literal, invisible on the new light
+ * background (contrast ~1.5:1). Re-shaded to #0C5A82 (same hue family,
+ * darkened for reliable ≥4.5:1 body-text contrast on all 3 backgrounds —
+ * computed, not eyeballed: 6.03/6.58/5.21).
  */
 
 :root {
@@ -46,17 +57,27 @@
   --sf-dept-ops-bg: rgba(244, 67, 54, 0.12);
   --sf-dept-ops-rgb: 244, 67, 54;
 
+  /* engineering = the "Engineering" tab — reused verbatim from lcars-portal's engineering orange (Phase 1E fix: was incorrectly styled with --sf-dept-ops/red) */
+  --sf-dept-engineering: #FF9800;
+  --sf-dept-engineering-light: #8A3C00;
+  --sf-dept-engineering-bg: rgba(255, 152, 0, 0.12);
+  --sf-dept-engineering-rgb: 255, 152, 0;
+
   /* nav = Astrometrics/Intel tab — mapped onto lcars-portal's Science purple */
   --sf-dept-nav: #CC88FF;
   --sf-dept-nav-light: #5B2AAA;
   --sf-dept-nav-bg: rgba(204, 136, 255, 0.12);
   --sf-dept-nav-rgb: 204, 136, 255;
 
-  /* science = Command Centre's own 5th tab, distinct from nav — no lcars-portal equivalent, new cyan */
-  --sf-dept-science: #0891B2;
+  /* science = Command Centre's own "Starfleet Records" tab, distinct from nav — no lcars-portal equivalent. DEFAULT re-shaded Phase 1E (was #0891B2, failed 3:1 against 2/3 backgrounds per VDO computation) */
+  --sf-dept-science: #06768D;
   --sf-dept-science-light: #0B4A57;
-  --sf-dept-science-bg: rgba(8, 145, 178, 0.12);
-  --sf-dept-science-rgb: 8, 145, 178;
+  --sf-dept-science-bg: rgba(6, 118, 141, 0.12);
+  --sf-dept-science-rgb: 6, 118, 141;
+
+  /* accent = new in Phase 1E — replaces the old dark theme's hardcoded #00ccff cyan (links, active icons, rank numerals), which had no light-theme token at all */
+  --sf-accent: #0C5A82;
+  --sf-accent-bg: rgba(12, 90, 130, 0.10);
 
   /* ── Operational state — reused verbatim from lcars-portal's state.* tokens (Phase 1A) ── */
   --sf-status-ok: #278A44;
