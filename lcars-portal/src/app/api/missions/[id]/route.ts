@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { publishMissionEvent } from '@/lib/core-events';
 
 // MSN-0305: governed, audited status update — replaces the Mission Detail
 // page's prior direct browser-side Supabase write. Preserves the existing
@@ -73,6 +74,12 @@ export async function PATCH(
       actor:      owner,
       evidence:   JSON.stringify({ action: 'status_update', notes: notes ?? null, source }),
     }); } catch { /* non-fatal */ } })();
+
+    // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts
+    void publishMissionEvent(supabase, {
+      eventType: 'mission.status_changed', missionId: mission.mission_id,
+      fromStatus: prevStatus, toStatus: status, source,
+    });
 
     return NextResponse.json({
       mission_id:      mission.mission_id,

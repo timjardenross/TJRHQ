@@ -202,6 +202,20 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
                 {"status": new_status, "updated_at": now_str},
             )
             if result:
+                # MSN-0328 Wave 2: canonical Captain Brief pipeline event.
+                # Non-blocking, matches publish_event()'s own contract —
+                # never affects this function's own success/failure.
+                try:
+                    if str(_REPO_ROOT) not in sys.path:
+                        sys.path.insert(0, str(_REPO_ROOT))
+                    from core.platform.event_bus import publish_event
+                    publish_event(
+                        "mission.status_changed", domain="mission-lifecycle",
+                        source="slack-bot:mission_lifecycle",
+                        linked_missions=[mid_try], recommended_action=new_status,
+                    )
+                except Exception:
+                    pass
                 return True
         return False
     except Exception as exc:

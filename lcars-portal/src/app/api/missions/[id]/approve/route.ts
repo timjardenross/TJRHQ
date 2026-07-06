@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { publishMissionEvent } from '@/lib/core-events';
 
 // MSN-0175: Statuses eligible for captain approval
 const APPROVAL_ELIGIBLE = [
@@ -68,6 +69,12 @@ export async function POST(
       actor:      owner,
       evidence:   JSON.stringify({ decision: 'approve', source }),
     }); } catch { /* non-fatal */ } })();
+
+    // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts
+    void publishMissionEvent(supabase, {
+      eventType: 'mission.approved', missionId: mission.mission_id,
+      fromStatus: prevStatus, toStatus: 'Approved', source,
+    });
 
     return NextResponse.json({
       mission_id:      mission.mission_id,

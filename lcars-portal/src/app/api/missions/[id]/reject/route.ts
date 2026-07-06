@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { publishMissionEvent } from '@/lib/core-events';
 
 // MSN-0175: Statuses eligible for captain rejection
 const REJECTION_ELIGIBLE = [
@@ -82,6 +83,12 @@ export async function POST(
       actor:      owner,
       evidence:   JSON.stringify({ decision: 'reject', reason, source }),
     }); } catch { /* non-fatal */ } })();
+
+    // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts
+    void publishMissionEvent(supabase, {
+      eventType: 'mission.rejected', missionId: mission.mission_id,
+      fromStatus: prevStatus, toStatus: 'Requires Rework', source,
+    });
 
     return NextResponse.json({
       mission_id:      mission.mission_id,

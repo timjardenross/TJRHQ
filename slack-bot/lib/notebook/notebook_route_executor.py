@@ -152,6 +152,22 @@ def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> 
     try:
         supabase_client.table("strategic_objectives").insert(record).execute()
         log.info("[notebook-executor] Strategic objective %s created from note %s", obj_id, note["id"])
+        # MSN-0328 Wave 2: canonical Captain Brief pipeline event — strategy
+        # domain's one real choke point. Non-blocking, matches
+        # publish_event()'s own contract.
+        try:
+            import sys as _sys
+            from pathlib import Path as _Path
+            _repo_root = _Path(__file__).resolve().parents[3]
+            if str(_repo_root) not in _sys.path:
+                _sys.path.insert(0, str(_repo_root))
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "strategy.objective_created", domain="strategic-planning",
+                source="notebook-route-executor", recommended_action=title,
+            )
+        except Exception:
+            pass
         return obj_id, "strategic_objectives"
     except Exception as exc:
         log.warning("[notebook-executor] Strategic objective insert failed for note %s: %s", note["id"], exc)

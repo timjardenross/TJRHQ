@@ -147,6 +147,19 @@ def _finish(client: SupabaseClient, request_id: str, status: str, note: str) -> 
     except Exception as exc:
         log.warning("Audit event recording failed (non-blocking): %s", exc)
 
+    # MSN-0328 Wave 2: canonical Captain Brief pipeline event — delivery
+    # domain's real choke point (every terminal branch of process_marker()
+    # ends here). Non-blocking, matches publish_event()'s own contract.
+    try:
+        from core.platform.event_bus import publish_event
+        publish_event(
+            "delivery.build_finished", domain="engineering-delivery",
+            source="telegram-build-executor",
+            linked_missions=[request_id], recommended_action=status,
+        )
+    except Exception:
+        pass
+
 
 # ─── BREQ → handoff ────────────────────────────────────────────────────────────
 

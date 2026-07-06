@@ -65,7 +65,21 @@ def record_content(*, content_id: str, title: str, pillar: str | None = None,
     }
     try:
         result = c.insert(CONTENT_TABLE, payload)
-        return bool(getattr(result, "ok", False))
+        ok = bool(getattr(result, "ok", False))
+        if ok:
+            # MSN-0328 Wave 2: canonical Captain Brief pipeline event.
+            # domain='content-intelligence' — already mapped to the
+            # 'opportunities' section (captain_brief_orchestrator.py),
+            # no new mapping needed. Non-blocking.
+            try:
+                from core.platform.event_bus import publish_event
+                publish_event(
+                    "comms.content_recorded", domain="content-intelligence",
+                    source="comms-portfolio", recommended_action=title,
+                )
+            except Exception:
+                pass
+        return ok
     except Exception as exc:  # pragma: no cover
         log.warning("[comms.portfolio] record_content failed: %s", exc)
         return False
