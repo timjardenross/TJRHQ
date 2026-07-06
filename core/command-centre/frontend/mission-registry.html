@@ -4,78 +4,73 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mission Registry — USS TJR</title>
+  <link rel="stylesheet" href="tokens.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg-space: #080B14; --bg-panel: #0d1117; --bg-card: #111827;
-      --border: rgba(255,255,255,0.08); --accent: #00ccff;
-      --text-primary: #e0e6ff; --text-muted: #a0a6c0;
-      --gold: #F0B840; --red: #D94444; --green: #2ecc71;
-    }
-    body { background: var(--bg-space); color: var(--text-primary); font-family: 'Courier New', monospace; font-size: 13px; min-height: 100vh; }
+    body { background: var(--sf-bg-space); color: var(--sf-text-primary); font-family: 'Courier New', monospace; font-size: 13px; min-height: 100vh; }
 
     .page-header {
-      background: linear-gradient(135deg, rgba(0,204,255,0.06), rgba(8,11,20,0.95));
-      border-bottom: 1px solid rgba(0,204,255,0.15);
+      background: var(--sf-bg-panel);
+      border-bottom: 1px solid var(--sf-border-subtle);
       padding: 16px 24px;
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
     }
     .page-header-left { display: flex; align-items: center; gap: 12px; }
-    .back-link { color: var(--accent); text-decoration: none; font-size: 12px; opacity: 0.8; }
+    .back-link { color: var(--sf-accent); text-decoration: none; font-size: 12px; opacity: 0.8; }
     .back-link:hover { opacity: 1; }
-    .page-title { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; color: var(--gold); }
-    .page-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .page-title { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; color: var(--sf-dept-command-light); }
+    .page-subtitle { font-size: 11px; color: var(--sf-text-secondary); margin-top: 2px; }
 
     .controls {
       padding: 14px 24px;
       display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,0.01);
+      border-bottom: 1px solid var(--sf-border-subtle);
+      background: var(--sf-bg-panel);
     }
     .search-input {
       flex: 1; min-width: 220px; max-width: 400px;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 5px; color: var(--text-primary); padding: 8px 12px;
+      background: var(--sf-bg-card); border: 1px solid var(--sf-border-subtle);
+      border-radius: 5px; color: var(--sf-text-primary); padding: 8px 12px;
       font-size: 12px; font-family: inherit;
     }
-    .search-input:focus { outline: none; border-color: rgba(0,204,255,0.4); }
+    .search-input:focus { outline: none; border-color: var(--sf-accent); }
     .filter-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .filter-btn {
       font-size: 11px; padding: 5px 12px; border-radius: 4px; cursor: pointer;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.15);
-      color: var(--text-muted); font-family: inherit; transition: all 0.15s;
+      background: var(--sf-bg-card); border: 1px solid var(--sf-border-subtle);
+      color: var(--sf-text-secondary); font-family: inherit; transition: all 0.15s;
     }
-    .filter-btn:hover, .filter-btn.active { background: rgba(0,204,255,0.1); border-color: rgba(0,204,255,0.4); color: var(--accent); }
+    .filter-btn:hover, .filter-btn.active { background: var(--sf-accent-bg); border-color: var(--sf-accent); color: var(--sf-accent); }
     .filter-btn.active { font-weight: 700; }
-    .count-label { font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+    .count-label { font-size: 11px; color: var(--sf-text-secondary); margin-left: auto; white-space: nowrap; }
 
     .mission-table { width: 100%; padding: 16px 24px; }
     .mission-row {
       display: grid;
       grid-template-columns: 160px 1fr 140px 90px 100px;
       gap: 12px; align-items: center;
-      padding: 10px 0; border-bottom: 1px solid var(--border);
+      padding: 10px 0; border-bottom: 1px solid var(--sf-border-subtle);
       transition: background 0.12s;
     }
-    .mission-row:hover { background: rgba(255,255,255,0.02); }
-    .mission-row.header { color: var(--text-muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding-bottom: 8px; }
-    .mission-id { color: var(--accent); font-size: 11px; font-weight: 600; }
+    .mission-row:hover { background: var(--sf-bg-card); }
+    .mission-row.header { color: var(--sf-text-secondary); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding-bottom: 8px; }
+    .mission-id { color: var(--sf-accent); font-size: 11px; font-weight: 600; }
     .mission-title-cell { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mission-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .mission-domain { font-size: 11px; color: var(--text-muted); }
-    .mission-date { font-size: 10px; color: var(--text-muted); }
+    .mission-domain { font-size: 11px; color: var(--sf-text-secondary); }
+    .mission-date { font-size: 10px; color: var(--sf-text-secondary); }
 
-    /* Status colours */
-    .s-blocked      { color: #ff4444; }
-    .s-approved     { color: var(--green); }
-    .s-idea         { color: #888; }
-    .s-awaiting     { color: var(--gold); }
-    .s-rework       { color: #ff8c00; }
-    .s-default      { color: var(--text-muted); }
+    /* Status colours — text-safe "-text" token variants, not the border/bg DEFAULTs, since these render as plain text on a light background */
+    .s-blocked      { color: var(--sf-status-crit-text); }
+    .s-approved     { color: var(--sf-status-ok-text); }
+    .s-idea         { color: var(--sf-text-secondary); }
+    .s-awaiting     { color: var(--sf-status-warn-text); }
+    .s-rework       { color: var(--sf-status-warn-text); }
+    .s-default      { color: var(--sf-text-secondary); }
 
-    .empty-state { padding: 48px 24px; text-align: center; color: var(--text-muted); }
-    .loading-state { padding: 32px 24px; text-align: center; color: var(--text-muted); }
-    .error-state { padding: 24px; color: #ff6a6a; font-size: 12px; }
+    .empty-state { padding: 48px 24px; text-align: center; color: var(--sf-text-secondary); }
+    .loading-state { padding: 32px 24px; text-align: center; color: var(--sf-text-secondary); }
+    .error-state { padding: 24px; color: var(--sf-status-crit-text); font-size: 12px; }
   </style>
 </head>
 <body>
@@ -88,7 +83,7 @@
       <div class="page-subtitle">All active missions — USS TJR</div>
     </div>
   </div>
-  <div id="header-meta" style="font-size:11px;color:var(--text-muted);text-align:right;"></div>
+  <div id="header-meta" style="font-size:11px;color:var(--sf-text-secondary);text-align:right;"></div>
 </div>
 
 <div class="controls">
