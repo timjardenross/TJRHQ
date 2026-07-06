@@ -87,6 +87,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # over items the deterministic Attention/Priority gate already surfaced —
     # it never decides surfacing itself.
     "captain-insight-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
+    # captain-insight-synthesis (different prompt/purpose) so the call
+    # log stays distinguishable, matching this file's own established
+    # convention (see classify-document vs summarise-note's comment).
+    # Consumes a Step 3 Insight, never the raw event stream directly.
+    "captain-reasoning-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
     "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
@@ -368,6 +374,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/fallback-complex":     "fallback-complex",
             "/api/model/engineering-review":   "engineering-review",
             "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
+            "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
         }
         task_type = route_map.get(path)
         if task_type is None:

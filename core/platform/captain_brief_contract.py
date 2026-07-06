@@ -49,6 +49,14 @@ class Recommendation:
     evidence: list[str] = field(default_factory=list)  # file:line / row / event_id references
     requires_approval: bool = False  # maps to the Permissions capability's authority-gating concept
     supporting_context: Optional[str] = None
+    # MSN-0329 Phase 2 Step 4 (Reasoning Engine): extends this existing
+    # contract rather than a new parallel type — "no duplicate
+    # intelligence logic" applies to data shapes too, not just scoring
+    # logic. All optional; a Recommendation with none of these populated
+    # is identical to the pre-Step-4 shape.
+    alternatives: list[str] = field(default_factory=list)  # other real options considered, not just the chosen one
+    trade_offs: Optional[str] = None  # what's given up by choosing `description` over an alternative
+    expected_outcome: Optional[str] = None  # what should be observably true if this action is taken
 
     def as_text(self) -> str:
         """Flatten to the free-text shape `core_events.recommended_action`
