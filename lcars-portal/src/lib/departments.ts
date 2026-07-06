@@ -76,7 +76,7 @@ export const DEPARTMENTS: Record<DepartmentKey, DepartmentTheme> = {
     key: 'status',
     label: 'Status',
     colorName: 'Status Green',
-    hex: '#4CAF50',
+    hex: '#1B5E20', // Phase 1F: re-shaded from #4CAF50 (failed 3:1/4.5:1) — see tailwind.config.ts
     text: 'text-status-on',
     bg: 'bg-status',
     bgSoft: 'bg-status/15',

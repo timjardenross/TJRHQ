@@ -48,7 +48,7 @@ const config: Config = {
         operations:  { DEFAULT: '#F44336', soft: '#FF6E63', on: '#B71C1C' }, // Operations Red
         medical:     { DEFAULT: '#0099FF', soft: '#4FC3F7', on: '#005299' }, // Medical Blue
         science:     { DEFAULT: '#CC88FF', soft: '#D9A6FF', on: '#5B2AAA' }, // Science Purple
-        status:      { DEFAULT: '#4CAF50', soft: '#81C784', on: '#1B5E20' }, // Status Green (legacy — see `state` below)
+        status:      { DEFAULT: '#1B5E20', soft: '#81C784', on: '#1B5E20' }, // Status Green (legacy — see `state` below). DEFAULT re-shaded Phase 1F (was #4CAF50, failed both 3:1 UI-component and 4.5:1 text contrast — reused the already-validated `on` value since `text-status` is used directly as body text throughout the app, not just via `-on`)
 
         // ── Operational state colours (MSN-0315 Phase 1A) ──────────────
         // Independent of department identity colour — per the ratified rule
