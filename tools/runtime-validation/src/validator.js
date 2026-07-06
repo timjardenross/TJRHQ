@@ -25,7 +25,10 @@ async function runValidation(target, options = {}) {
 
   try {
     for (const scenario of target.scenarios) {
-      const { context, page } = await openPage(browser, target.url, target.viewport ? { viewport: target.viewport } : {});
+      const { context, page } = await openPage(browser, target.url, {
+        ...(target.viewport ? { viewport: target.viewport } : {}),
+        mocks: scenario.mocks || [],
+      });
       try {
         if (scenario.setup) {
           await scenario.setup(page);
@@ -53,6 +56,7 @@ async function runValidation(target, options = {}) {
 
         scenarioResults.push({
           name: scenario.name,
+          state: scenario.state || null,
           accessibility,
           screenshotPath,
           visual,

@@ -13,9 +13,33 @@ async function launchBrowser(options = {}) {
   return browser;
 }
 
-async function openPage(browser, url, { viewport = { width: 1280, height: 720 } } = {}) {
+/**
+ * `mocks` (optional): an array of { url, status?, contentType?, body?, delayMs? }
+ * — registered as page.route() handlers BEFORE navigation, so any
+ * API-driven target can exercise loading/empty/populated/error states
+ * without a live backend. `url` is a Playwright glob/regex route pattern
+ * (e.g. '** /api/v1/coordination/blockers**'). `delayMs` holds the response
+ * open before fulfilling — the mechanism a "loading" scenario uses to let
+ * a caller screenshot/scan the pre-resolution DOM state deliberately,
+ * rather than racing a real network call's actual latency.
+ */
+async function openPage(browser, url, { viewport = { width: 1280, height: 720 }, mocks = [] } = {}) {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
+
+  for (const mock of mocks) {
+    await page.route(mock.url, async (route) => {
+      if (mock.delayMs) {
+        await new Promise((resolve) => setTimeout(resolve, mock.delayMs));
+      }
+      await route.fulfill({
+        status: mock.status || 200,
+        contentType: mock.contentType || 'application/json',
+        body: typeof mock.body === 'string' ? mock.body : JSON.stringify(mock.body ?? {}),
+      });
+    });
+  }
+
   await page.goto(url, { waitUntil: 'load' });
   return { context, page };
 }

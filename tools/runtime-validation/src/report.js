@@ -24,7 +24,7 @@ function buildMarkdownReport(runResult) {
   lines.push('');
 
   for (const scenario of runResult.scenarios) {
-    lines.push(`## Scenario: ${scenario.name}`);
+    lines.push(`## Scenario: ${scenario.name}${scenario.state ? ` (state: ${scenario.state})` : ''}`);
     lines.push('');
     lines.push(`- Screenshot: \`${scenario.screenshotPath}\``);
     lines.push('');

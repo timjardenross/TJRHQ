@@ -1,7 +1,7 @@
 # Runtime Render Validation Framework
 
-**Mission:** `Missions/Active/USS-TJR-MSN-0317-Runtime-Render-Validation-Framework-Implementation.md`
-**Status:** Phase 1 — pilot on Command Centre only.
+**Mission:** `Missions/Completed/USS-TJR-MSN-0317-Runtime-Render-Validation-Framework-Implementation.md` (Phase 1), `Missions/Active/USS-TJR-MSN-0319-Runtime-Validation-Wave2-Scenario-Coverage.md` (Wave 2, Phase 2A — scenario coverage expansion).
+**Status:** Phase 1 complete (Command Centre pilot, 7 default-render scenarios). Phase 2A complete (7 API-driven state scenarios added — loading/empty/populated/error, via route mocking, no live backend required).
 
 A reusable rendered-UI validation capability: it launches a real headless browser, renders a real page, and checks what the browser actually computed — not what source text implies. It sits as a new layer in the validation pipeline, between existing engineering tests and human Design Officer / Visual Design Officer review:
 
@@ -40,7 +40,8 @@ tools/runtime-validation/
 │   │                      full pipeline (render → scan → screenshot → compare)
 │   └── index.js           public API — everything above, re-exported
 ├── targets/
-│   └── command-centre.js  Phase 1's only target — defines the 7 tab scenarios
+│   └── command-centre.js  7 default-render tab scenarios (Phase 1) + 7
+│                          API-driven state scenarios (Phase 2A)
 ├── baselines/
 │   └── command-centre/    committed baseline screenshots, one per scenario
 ├── bin/
@@ -100,16 +101,46 @@ module.exports = {
 
 Run it the same way: `node bin/validate.js my-app`. No changes to `src/` required — this is the extensibility MSN-0317 §8 (Constraints: "keep the framework modular and reusable") calls for.
 
+### Exercising API-driven states (Phase 2A)
+
+A scenario can supply `mocks` — an array of `{ url, status?, contentType?, body?, delayMs? }` — registered as `page.route()` handlers *before* navigation, so any target can exercise loading/empty/populated/error states without a live backend:
+
+```js
+{
+  name: 'widget-populated',
+  state: 'populated (successful API response with data)',   // optional, shown in the report
+  mocks: [
+    { url: '**/api/v1/some/endpoint**', body: { total: 2, items: [...] } },       // empty: body: { total: 0 }
+    // { status: 500, body: { error: '...' } }                                     // error state
+    // { delayMs: 5000, body: {...} }                                             // loading state — pair with
+  ],                                                                               // a short settle time in setup()
+  async setup(page) {
+    await page.click('...');
+    await page.waitForTimeout(300); // long enough for a normal mock to resolve and render
+  },
+}
+```
+
+`url` is a Playwright glob/regex route pattern. For a **loading** state, set `delayMs` longer than the scenario's own settle wait in `setup()` — the scan/screenshot then captures the pre-resolution DOM deliberately, rather than racing real network latency.
+
 ---
 
-## What's checked today (Phase 1, Command Centre pilot)
+## What's checked today
 
-- **Accessibility** (`axe-core`, default rule set) against each of the 7 real tabs, driven via real `.tab-btn` clicks — not just first-paint markup.
-- **Visual regression** — pixel-exact comparison against a committed baseline per tab.
+**Phase 1 — 7 default-render scenarios**, one per real Command Centre tab, driven via real `.tab-btn` clicks:
+- **Accessibility** (`axe-core`, default rule set).
+- **Visual regression** — pixel-exact comparison against a committed baseline.
 - **CSS variable resolution** — a representative set of ratified state tokens (`--sf-status-ok/warn/crit` and their `-text` variants, `--sf-accent`, `--sf-border-subtle`), confirmed to resolve to a real value at runtime, not silently empty.
+
+**Phase 2A — 7 additional API-driven state scenarios**, added because the Phase 1 scenarios only ever see fetch-failure behaviour (no backend running) — never a real, successful, specific-shaped API response:
+- Command Console: blockers widget in **empty** (0 count), **populated** (2 items across severities), and **error** (HTTP 500) states.
+- Astrometrics: OR Intelligence Brief in **populated** (`overall_risk: GREEN`), **populated** (`overall_risk: RED`), **error**, and **loading** (delayed response) states.
+
+This directly reproduced 2 real defects an officer review had found but the Phase 1 scenarios couldn't (both `renderORBrief()` branches — RED and GREEN — using a DEFAULT token as text colour instead of `-text`), and found one more, previously-unknown defect no prior round had surfaced: `.blocker-section-title.critical` fails contrast (3.82:1) in the populated-blockers state. None of these 3 findings were remediated by Phase 2A — coverage expansion and remediation are deliberately separate, gated phases (see the mission brief).
 
 ## Known limitations (honest, not hidden)
 
 - Visual regression here is pixel-exact (via `pixelmatch`) — no perceptual/anti-aliasing tolerance tuning has been done yet. A 1px font-rendering difference between machines would currently register as a diff. Acceptable for Phase 1's single-environment pilot; would need a tolerance pass before running across heterogeneous machines/CI runners.
 - `computedStyle.js`'s CSS-variable check confirms a variable *resolves to a non-empty value* — it does not (yet) assert that value is the *specific* value the caller expects. A target's `setup()`/scenario definition can add that assertion itself using `getComputedStyles()`; the framework provides the primitive, not a hardcoded expectation.
 - No perceptual diffing, no cross-browser matrix (Chromium only), no mobile-viewport pass — all explicitly out of Phase 1 scope per the mission brief.
+- **Phase 2A's mocked states are illustrative, not exhaustive.** 7 stateful scenarios were added against 2 widgets (Command Console blockers, Astrometrics OR brief) — not every API-driven section of Command Centre. The mocked response shapes are hand-authored to match the real endpoints' documented contract as read from source, not validated against a live backend's actual response (none is running in this sandbox) — a schema drift between the mock and the real API would not be caught by this framework.
