@@ -10,6 +10,12 @@ Public API:
     requires_approval(officer: str, action: str) -> str | None
     validate_or_raise(officer: str, action: str) -> None
     audit_authority_action(officer, action, approved, reason, mission_id) -> None
+
+MSN-0326 Wave 3 (explicit-only fail semantics, MSN-0325 §9): a missing
+officer manifest is a manifest gap, not a permission decision. Staged
+rollout via AUTHORITY_MANIFEST_GAP_MODE env var:
+    "log"   (default, Stage 1) — gap logged + audited, still permitted.
+    "raise" (Stage 2)          — gap raises ManifestGapError.
 """
 
 from __future__ import annotations
@@ -28,6 +34,40 @@ _AUTHORITY_DIR = _REPO_ROOT / "governance" / "authority"
 
 # Cache — manifests are static governance documents; no hot-reload needed.
 _manifest_cache: dict[str, dict] = {}
+
+# MSN-0326 Wave 3, explicit-only fail semantics, staged rollout.
+# "log"   — Stage 1. A manifest gap is logged and audited but still
+#           permitted — identical external behaviour to pre-Wave-3, purely
+#           additive instrumentation. Validated clean (Wave 3 Stage 1
+#           report): zero behaviour change to any currently-manifested
+#           officer, gap correctly detected and logged for a genuinely
+#           missing manifest.
+# "raise" — Stage 2 (default as of Wave 3 completion). A manifest gap
+#           raises ManifestGapError instead of permitting. Enabled as the
+#           default per MSN-0325 §9's resolved decision and MSN-0326 Wave
+#           3's success criteria, after Stage 1's evidence (Wave 1 audit +
+#           this Wave's own validation) found zero real, currently-live
+#           call sites that depend on the fail-open default. Override via
+#           AUTHORITY_MANIFEST_GAP_MODE=log if ever needed to revert to
+#           Stage 1 behaviour without a code change.
+_MANIFEST_GAP_MODE = os.environ.get("AUTHORITY_MANIFEST_GAP_MODE", "raise")
+
+
+def _log_manifest_gap(officer: str, action: str, reason: str) -> None:
+    """Record a manifest-gap event — logged and audited regardless of mode,
+    so Stage 1's log-only period produces the same evidence trail Stage 2
+    would have enforced against (MSN-0325 §10 item 2: a gap is itself an
+    audited event)."""
+    log.warning(
+        "[authority][MANIFEST_GAP] officer '%s', action '%s': %s (mode=%s)",
+        officer, action, reason, _MANIFEST_GAP_MODE,
+    )
+    audit_authority_action(
+        officer=officer,
+        action=action,
+        approved=(_MANIFEST_GAP_MODE != "raise"),
+        reason=f"MANIFEST_GAP ({_MANIFEST_GAP_MODE}): {reason}",
+    )
 
 
 # ── Manifest loading ──────────────────────────────────────────────────────────
@@ -77,16 +117,26 @@ def can_officer(officer: str, action: str) -> tuple[bool, str]:
     """Check whether an officer is permitted to perform an action.
 
     Returns (approved: bool, reason: str).
-    Fails open: if the manifest is missing, logs a warning and returns True
-    (governance is advisory during transition; enforcement hardens progressively).
+
+    MSN-0326 Wave 3, explicit-only fail semantics (MSN-0325 §9): a missing
+    manifest is a manifest gap — an authority question with no explicit
+    answer, which is a configuration error, not a permission decision.
+
+    Stage 1 (current, _MANIFEST_GAP_MODE == "log", the default): the gap
+    is logged and audited but still permitted — external behaviour is
+    byte-for-byte identical to before this Wave. This stage changes what's
+    observed, not what's decided.
+
+    Stage 2 (_MANIFEST_GAP_MODE == "raise", not yet enabled by default):
+    the same condition raises ManifestGapError instead of permitting.
     """
     manifest = load_manifest(officer)
     if not manifest:
-        log.warning(
-            "[authority] No manifest for officer '%s'; action '%s' permitted (fail-open)",
-            officer, action
-        )
-        return True, "fail-open: no manifest found"
+        gap_reason = f"no manifest found for officer '{officer}'"
+        _log_manifest_gap(officer, action, gap_reason)
+        if _MANIFEST_GAP_MODE == "raise":
+            raise ManifestGapError(officer=officer, action=action, reason=gap_reason)
+        return True, f"fail-open (Wave 3 Stage 1, logged as gap): {gap_reason}"
 
     # Explicit disallow takes priority
     disallowed = manifest.get("disallowed_actions", [])
@@ -194,6 +244,20 @@ class AuthorityError(Exception):
         super().__init__(f"[authority] Officer '{officer}' denied action '{action}': {reason}")
 
 
+class ManifestGapError(Exception):
+    """MSN-0326 Wave 3 (Stage 2). Raised when an authority question has no
+    explicit manifest answer — a missing officer manifest is a
+    configuration error, not a permission decision (MSN-0325 §9). Not
+    raised while _MANIFEST_GAP_MODE == "log" (Stage 1, the current
+    default); the gap is logged and audited instead."""
+
+    def __init__(self, officer: str, action: str, reason: str):
+        self.officer = officer
+        self.action = action
+        self.reason = reason
+        super().__init__(f"[authority] Manifest gap: officer '{officer}', action '{action}': {reason}")
+
+
 __all__ = [
     "load_manifest",
     "load_all_manifests",
@@ -202,5 +266,6 @@ __all__ = [
     "validate_or_raise",
     "get_capacity_gate_rules",
     "audit_authority_action",
+    "ManifestGapError",
     "AuthorityError",
 ]
