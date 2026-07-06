@@ -134,10 +134,62 @@ def build_brief() -> str:
     except Exception as exc:  # pragma: no cover
         log.warning("[brief] comms opportunities unavailable: %s", exc)
 
+    # MSN-0328 Wave 3: snapshot-on-read emission for the remaining aggregate
+    # values this brief already computes (mission load, delivery risk,
+    # strategic focus) — these are live counts/derivations, not tied to any
+    # single write event, so there's no "choke point" to hook the way
+    # Wave 2's missions/delivery/strategy emitters were. Emitting them here,
+    # at the one moment they're already gathered, makes them visible to the
+    # canonical pipeline for other consumers without duplicating the read
+    # logic itself (still owned by mission_load.py/forecast.py/objectives.py).
+    try:
+        from core.platform.event_bus import publish_event
+        if load.data_available:
+            publish_event(
+                "mission.load_snapshot", domain="mission-lifecycle",
+                source="slack-bot:brief", metrics={"open_count": load.open_count},
+            )
+        if tower:
+            publish_event(
+                "delivery.risk_snapshot", domain="engineering-delivery",
+                source="slack-bot:brief",
+                metrics={
+                    "high_risk_count": tower.get("high_risk_count", 0),
+                    "open_count": tower.get("open_count", 0),
+                    "constraint": (tower.get("bottleneck") or {}).get("constraint"),
+                    "constraint_count": (tower.get("bottleneck") or {}).get("constraint_count", 0),
+                },
+            )
+        if strat_snapshot and strat_snapshot.data_available:
+            publish_event(
+                "strategy.focus_snapshot", domain="strategic-planning",
+                source="slack-bot:brief",
+                metrics={
+                    "active_count": len(strat_snapshot.active),
+                    "active_domains": len(strat_snapshot.active_domains),
+                    "orphan_count": strat_snapshot.orphan_count,
+                },
+            )
+    except Exception:
+        pass
+
+    # MSN-0328 Wave 3: poll the canonical pipeline back so this brief's own
+    # just-emitted event (above) is available for compose_daily_brief() to
+    # render from. None on any failure (Supabase disabled, etc.) — the
+    # renderer's own per-field fallback handles that identically to before
+    # this change existed.
+    canonical_doc = None
+    try:
+        from core.platform.event_bus import poll_events
+        from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
+        canonical_doc = assemble_captain_brief_document(poll_events(limit=50))
+    except Exception:
+        pass
+
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,
         delivery=delivery, control_tower=tower, ori=ori_signal, knowledge=knowledge_hits,
-        strategy=strat_snapshot, comms=comms_opps,
+        strategy=strat_snapshot, comms=comms_opps, brief_doc=canonical_doc,
     )
 
     # WP3 adoption metric: record that a brief was issued (usage signal).

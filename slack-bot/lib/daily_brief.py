@@ -29,6 +29,31 @@ _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢", "UNKNOWN": "⚪"
 _TREND_ARROW = {"worsening": "↑", "improving": "↓", "steady": "→", "unknown": "·"}
 
 
+def _canonical_metrics_for(brief_doc, event_type: str) -> dict:
+    """MSN-0328 Wave 3: look up one event_type's metrics from the canonical
+    CaptainBriefDocument (emitted by commands/brief.py right before this is
+    called). Every call site below uses this as a per-field PREFERENCE over
+    the directly-passed parameter, never a replacement — {} on no match
+    (Supabase disabled, event not yet visible to a poll that raced the
+    insert, or genuinely absent), so this can never lose data, only add
+    the canonical source when it's actually there."""
+    if brief_doc is None:
+        return {}
+    all_items = (
+        getattr(brief_doc, "operational_intelligence", [])
+        + getattr(brief_doc, "health", [])
+        + getattr(brief_doc, "engineering", [])
+    )
+    for item in all_items:
+        if item.event_type == event_type and item.metrics:
+            return item.metrics
+    return {}
+
+
+def _canonical_decision_metrics(brief_doc):
+    return _canonical_metrics_for(brief_doc, "human_systems.recommendation_computed")
+
+
 def compose_daily_brief(
     *,
     capacity,                      # framework.CapacitySnapshot
@@ -42,9 +67,13 @@ def compose_daily_brief(
     comms=None,                    # list[comms.ContentOpportunity] | None (COMMS-001 WP5)
     learning=None,                 # outcome_capture.LearningSnapshot | None (MSN-0076 WP5)
     date_str: str | None = None,
+    brief_doc=None,                # core.platform.captain_brief_orchestrator.CaptainBriefDocument | None (MSN-0328 Wave 3)
 ) -> str:
-    """Compose the single daily operating picture. Pure."""
+    """Compose the single daily operating picture. Pure — brief_doc, like
+    every other param, is pre-fetched by the caller; this function does no
+    I/O of its own."""
     d = date_str or date.today().strftime("%a %d %b %Y")
+    canon = _canonical_decision_metrics(brief_doc)
 
     # Escalation (red flag) always leads.
     head: list[str] = []
@@ -58,10 +87,10 @@ def compose_daily_brief(
         "",
         # The one key decision requiring attention.
         f"🎯 *Decision ({_OFFICER['decision']}):* {recommendation.primary}",
-        f"   • _Why:_ {recommendation.expected_impact}",
-        f"   • _Opportunity cost:_ {recommendation.opportunity_cost}",
-        f"   • _What can wait:_ {recommendation.recommended_deferral}",
-        f"   • _Confidence:_ {recommendation._confidence_label()} · {recommendation.strategic_alignment}",
+        f"   • _Why:_ {canon.get('expected_impact', recommendation.expected_impact)}",
+        f"   • _Opportunity cost:_ {canon.get('opportunity_cost', recommendation.opportunity_cost)}",
+        f"   • _What can wait:_ {canon.get('recommended_deferral', recommendation.recommended_deferral)}",
+        f"   • _Confidence:_ {recommendation._confidence_label()} · {canon.get('strategic_alignment', recommendation.strategic_alignment)}",
         "",
         f"🫀 *Capacity ({_OFFICER['capacity']}):* {capacity.overall_band} "
         f"({round(capacity.overall_score)}/100) — "
@@ -69,19 +98,24 @@ def compose_daily_brief(
     ]
 
     # Mission load.
-    if load.data_available:
-        lines.append(f"📋 *Mission load ({_OFFICER['missions']}):* {load.open_count} open")
+    load_canon = _canonical_metrics_for(brief_doc, "mission.load_snapshot")
+    if load.data_available or load_canon:
+        open_count = load_canon.get("open_count", load.open_count)
+        lines.append(f"📋 *Mission load ({_OFFICER['missions']}):* {open_count} open")
 
     # MSN-SPC-001 WP4: Strategic Focus — what today's work serves long-term.
     if strategy is not None and getattr(strategy, "data_available", False):
+        strat_canon = _canonical_metrics_for(brief_doc, "strategy.focus_snapshot")
         active = list(getattr(strategy, "active", []) or [])
         if active:
             domains = getattr(strategy, "active_domains", []) or []
+            active_count = strat_canon.get("active_count", len(active))
+            domain_count = strat_canon.get("active_domains", len(domains))
             head = (
-                f"🧭 *Strategic Focus ({_OFFICER['strategy']}):* {len(active)} active "
-                f"objective(s) across {len(domains)} domain(s)"
+                f"🧭 *Strategic Focus ({_OFFICER['strategy']}):* {active_count} active "
+                f"objective(s) across {domain_count} domain(s)"
             )
-            orphans = getattr(strategy, "orphan_count", 0) or 0
+            orphans = strat_canon.get("orphan_count", getattr(strategy, "orphan_count", 0) or 0)
             if orphans:
                 head += f" · {orphans} unaligned mission(s)"
             lines.append(head)
@@ -94,12 +128,16 @@ def compose_daily_brief(
     if control_tower:
         ct = control_tower
         bn = ct.get("bottleneck") or {}
+        delivery_canon = _canonical_metrics_for(brief_doc, "delivery.risk_snapshot")
         risk_line = (
-            f"🚦 *Delivery ({_OFFICER['delivery']}):* {ct.get('high_risk_count', 0)} high-risk "
-            f"of {ct.get('open_count', 0)} open"
+            f"🚦 *Delivery ({_OFFICER['delivery']}):* "
+            f"{delivery_canon.get('high_risk_count', ct.get('high_risk_count', 0))} high-risk "
+            f"of {delivery_canon.get('open_count', ct.get('open_count', 0))} open"
         )
-        if bn.get("constraint"):
-            risk_line += f" · constraint: {bn['constraint']} ({bn.get('constraint_count', 0)})"
+        constraint = delivery_canon.get("constraint", bn.get("constraint"))
+        if constraint:
+            constraint_count = delivery_canon.get("constraint_count", bn.get("constraint_count", 0))
+            risk_line += f" · constraint: {constraint} ({constraint_count})"
         lines.append(risk_line)
         top = ct.get("top_risks") or []
         if top:
