@@ -213,6 +213,20 @@ def assemble_captain_brief_document(
     summary = _generate_summary(len(events), domains_represented, priorities, warnings)
     next_actions = _next_actions(list(recommendations_map.values()), warnings)
 
+    # Dedup against priorities' own inline recommendation (Phase 1F, DO
+    # finding from the Phase 1E joint review): an item that's both a top
+    # priority and carries a recommendation would otherwise show the same
+    # guidance twice — once inline on the priority, once again in this
+    # top-level list. Same "seen description" technique as _next_actions.
+    priority_recommendation_descriptions = {
+        item.recommendation.description for item in priorities if item.recommendation
+    }
+    deduped_recommendations = [
+        rec
+        for rec in recommendations_map.values()
+        if rec.description not in priority_recommendation_descriptions
+    ]
+
     # Document-level confidence: mean of every scored item's confidence,
     # None if no event carried one — never fabricated (Confidence Naming
     # Decision, MSN-0305, applied at the document level too).
@@ -237,7 +251,7 @@ def assemble_captain_brief_document(
         generated_at=datetime.now(timezone.utc),
         summary=summary,
         priorities=priorities,
-        recommendations=list(recommendations_map.values()),
+        recommendations=deduped_recommendations,
         health=health,
         operational_intelligence=operational_intelligence,
         engineering=engineering,
