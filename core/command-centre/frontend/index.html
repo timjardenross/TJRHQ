@@ -232,7 +232,7 @@
     /* Blocker list */
     .blocker-section { margin-bottom: 10px; }
     .blocker-section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .blocker-section-title.critical { color: var(--sf-status-crit); }
+    .blocker-section-title.critical { color: var(--sf-status-crit-text); }
     .blocker-section-title.high { color: var(--sf-status-warn-text); }
     .blocker-section-title.normal { color: var(--sf-text-secondary); }
     .blocker-item { font-size: 11px; color: var(--sf-text-primary); padding: 4px 0 4px 8px; border-left: 2px solid rgba(12,90,130,0.15); margin-bottom: 4px; }
@@ -1581,8 +1581,8 @@
         el.innerHTML = '<p class="chair-empty">No intelligence brief available.<br>OR Intelligence pipeline not yet run.</p>';
         return;
       }
-      const riskColour = brief.overall_risk === 'RED' ? 'var(--sf-status-crit)'
-                       : brief.overall_risk === 'AMBER' ? 'var(--sf-status-warn-text)' : 'var(--sf-status-ok)';
+      const riskColour = brief.overall_risk === 'RED' ? 'var(--sf-status-crit-text)'
+                       : brief.overall_risk === 'AMBER' ? 'var(--sf-status-warn-text)' : 'var(--sf-status-ok-text)';
       const genDate = brief.generated_at
         ? new Date(brief.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
         : '—';
