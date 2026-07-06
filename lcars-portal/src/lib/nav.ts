@@ -160,7 +160,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Chief of Staff',
     items: [
-      { href: '/captains-chair',   label: 'Situation Room',    glyph: '01', department: 'command',     description: 'What changed, what matters, what needs attention' },
+      { href: '/captains-chair',   label: "Captain's Chair",   glyph: '01', department: 'command',     description: 'What changed, what matters, what needs attention' },
       { href: '/advisory-council', label: 'Advisory Council',  glyph: 'AC', department: 'command',     description: 'Consult, board, brief, picture, intelligence — unified' },
       { href: '/captains-brief',   label: "Captain's Brief",   glyph: 'CB', department: 'command',     description: 'Cross-domain intelligence brief — priorities, confidence, warnings' },
       { href: '/capture',          label: 'Capture',           glyph: 'QC', department: 'engineering', description: 'Quick intake — note, mission, health, idea' },
