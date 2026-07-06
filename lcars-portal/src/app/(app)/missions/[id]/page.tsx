@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
+import { ApprovalQueue, type ApprovalQueueFlash } from '@/components/ApprovalQueue';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { missions as mockMissions } from '@/lib/mockData';
 import type { Mission } from '@/lib/types';
@@ -16,6 +17,15 @@ const STATUS_OPTIONS = [
   'Awaiting Captain Approval', 'Approved',
   'Blocked', 'Requires Rework', 'Closed', 'Archived',
 ];
+
+// MSN-0328 (WP-C/D): mirrors the eligibility lists the governed
+// /approve and /reject routes themselves enforce (api/missions/[id]/{approve,reject}/route.ts)
+// — kept in sync manually since these routes have no shared client-exported
+// constant; a mismatch here only affects which buttons render, since the
+// routes remain the actual source of truth (a 409 is still possible if this
+// list ever drifts).
+const APPROVAL_ELIGIBLE = ['Awaiting Captain Approval', 'Awaiting XO Approval', 'Validated', 'Tested'];
+const REJECTION_ELIGIBLE = ['Awaiting Captain Approval', 'Awaiting XO Approval', 'Validated', 'Tested', 'Implemented', 'Designed'];
 
 function fmt(iso?: string | null) {
   if (!iso) return '—';
@@ -41,6 +51,9 @@ export default function MissionDetailPage() {
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [error, setError]         = useState<string | null>(null);
+
+  const [deciding, setDeciding] = useState(false);
+  const [decisionFlash, setDecisionFlash] = useState<ApprovalQueueFlash | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -87,6 +100,37 @@ export default function MissionDetailPage() {
       setMission({ ...mission, status: newStatus });
       setNote('');
       setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  // MSN-0328 (WP-C/D): governed decision path — reuses the same
+  // POST /api/missions/{id}/{approve,reject} routes and eligibility gates
+  // CaptainApprovalQueue already calls from Captain's Chair. Previously
+  // Mission Detail had no Approve/Reject UI at all; a Captain could only
+  // reach the same outcome via the free-form status editor below, which
+  // (via the general PATCH route) has no eligibility check.
+  async function decide(decision: 'approve' | 'reject', reason?: string) {
+    if (!mission) return;
+    setDeciding(true);
+    try {
+      const resp = await fetch(`/api/missions/${encodeURIComponent(mission.mission_id)}/${decision}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'lcars-portal:mission-detail', owner: 'Captain', ...(reason ? { reason } : {}) }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setDecisionFlash({ id: mission.mission_id, message: decision === 'approve' ? 'Approved' : 'Requires Rework', ok: true });
+        setMission({ ...mission, status: data.new_status });
+        setNewStatus(data.new_status);
+      } else {
+        setDecisionFlash({ id: mission.mission_id, message: data.error ?? 'Decision failed', ok: false });
+      }
+    } catch (e) {
+      setDecisionFlash({ id: mission.mission_id, message: String(e), ok: false });
+    } finally {
+      setDeciding(false);
+      setTimeout(() => setDecisionFlash(null), 4000);
     }
   }
 
@@ -140,6 +184,26 @@ export default function MissionDetailPage() {
           )}
         </div>
       </LCARSPanel>
+
+      {/* Governed decision — MSN-0328 (WP-C/D): only rendered when the
+          mission's current status is actually eligible, matching what the
+          approve/reject routes themselves enforce. */}
+      {(APPROVAL_ELIGIBLE.includes(mission.status) || REJECTION_ELIGIBLE.includes(mission.status)) && (
+        <ApprovalQueue
+          title="Governed Decision"
+          items={[{
+            id: mission.mission_id,
+            title: mission.title,
+            detail: `Current status: ${mission.status}`,
+            canApprove: APPROVAL_ELIGIBLE.includes(mission.status),
+            canReject: REJECTION_ELIGIBLE.includes(mission.status),
+          }]}
+          actingId={deciding ? mission.mission_id : null}
+          flash={decisionFlash}
+          onApprove={() => decide('approve')}
+          onReject={(_id, reason) => decide('reject', reason)}
+        />
+      )}
 
       {/* Engineering */}
       {(mission.repo || mission.branch_name || mission.pr_url) && (

@@ -19,6 +19,10 @@ export interface ApprovalQueueItem {
   title: string;
   /** Secondary line, e.g. "status · priority · owner". */
   detail?: string;
+  /** Defaults to true. Set false when this item's current state isn't eligible for approval (a second consumer's governed route would 409). */
+  canApprove?: boolean;
+  /** Defaults to true. Set false when this item's current state isn't eligible for rejection. */
+  canReject?: boolean;
 }
 
 export interface ApprovalQueueFlash {
@@ -142,20 +146,24 @@ export function ApprovalQueue({
               </div>
             ) : (
               <div className="flex gap-2 mt-2">
-                <button
-                  disabled={actingId === item.id}
-                  onClick={() => onApprove(item.id)}
-                  className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
-                >
-                  {actingId === item.id ? 'Working…' : 'Approve'}
-                </button>
-                <button
-                  disabled={actingId === item.id}
-                  onClick={() => setRejectReasonFor(item.id)}
-                  className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
-                >
-                  Reject
-                </button>
+                {item.canApprove !== false && (
+                  <button
+                    disabled={actingId === item.id}
+                    onClick={() => onApprove(item.id)}
+                    className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
+                  >
+                    {actingId === item.id ? 'Working…' : 'Approve'}
+                  </button>
+                )}
+                {item.canReject !== false && (
+                  <button
+                    disabled={actingId === item.id}
+                    onClick={() => setRejectReasonFor(item.id)}
+                    className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
+                  >
+                    Reject
+                  </button>
+                )}
               </div>
             )}
           </li>

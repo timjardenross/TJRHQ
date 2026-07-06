@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   CAPTURE_TYPES,
   KNOWN_CHANNELS,
@@ -785,7 +786,18 @@ function CaptureInbox({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// MSN-0328: useSearchParams() requires a Suspense boundary at the page
+// level (Next.js prerender requirement) — the ?filter= deep-link support
+// added for the alerts/search destination fix needed this split.
 export default function QuickCapturePage() {
+  return (
+    <Suspense fallback={null}>
+      <QuickCapturePageInner />
+    </Suspense>
+  );
+}
+
+function QuickCapturePageInner() {
   const [text,         setText]        = useState('');
   const [type,         setType]        = useState<CaptureType>('note');
   const [showTypes,    setShowTypes]   = useState(false);
@@ -794,7 +806,15 @@ export default function QuickCapturePage() {
   const [commsCapture, setCommsCapture] = useState(false);
   const [error,        setError]       = useState<string | null>(null);
   const [inboxKey,     setInboxKey]    = useState(0);
-  const [inboxFilter,  setInboxFilter] = useState<InboxFilter>('all');
+  // MSN-0328 (WP-C): allows alerts/search to deep-link into a pre-filtered
+  // inbox (e.g. /capture?filter=mission) instead of always landing on
+  // the unfiltered "Pending" view — mirrors the existing /knowledge?tab=
+  // deep-link pattern already used elsewhere in this app.
+  const searchParams = useSearchParams();
+  const [inboxFilter,  setInboxFilter] = useState<InboxFilter>(() => {
+    const f = searchParams.get('filter');
+    return INBOX_FILTERS.some((x) => x.key === f) ? (f as InboxFilter) : 'all';
+  });
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const inboxRef = useRef<HTMLDivElement>(null);
 

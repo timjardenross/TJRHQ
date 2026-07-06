@@ -8,147 +8,23 @@ export interface NavItem {
   description: string;
 }
 
-/** Primary navigation — order defines the LCARS rail order. */
-export const NAV_ITEMS: NavItem[] = [
-  {
-    href: '/captains-chair',
-    label: "Captain's Chair",
-    glyph: '01',
-    department: 'command',
-    description: 'Command overview and daily posture'
-  },
-  {
-    href: '/advisory-council',
-    label: 'Advisory Council',
-    glyph: 'AC',
-    department: 'command',
-    description: 'Consult, board, brief, picture, intelligence — unified'
-  },
-  {
-    href: '/knowledge',
-    label: 'Knowledge Hub',
-    glyph: 'KH',
-    department: 'science',
-    description: 'Decisions, lessons, intelligence, architecture records'
-  },
-  {
-    href: '/knowledge-library',
-    label: 'Knowledge Library',
-    glyph: 'KL',
-    department: 'science',
-    description: 'Browse VM-processed documents; approve into Command Memory'
-  },
-  {
-    href: '/preferences',
-    label: 'Preferences',
-    glyph: '⚙',
-    department: 'engineering',
-    description: 'Operating mode, favourites, notifications, advisor defaults'
-  },
-  {
-    href: '/search',
-    label: 'Search',
-    glyph: '🔍',
-    department: 'science',
-    description: 'Universal search — missions, log, captures, events'
-  },
-  {
-    href: '/timeline',
-    label: 'Timeline',
-    glyph: '⏱',
-    department: 'science',
-    description: 'Unified operational timeline — all sources'
-  },
-  {
-    href: '/capture',
-    label: 'Quick Capture',
-    glyph: 'QC',
-    department: 'engineering',
-    description: 'Capture a note, mission, health log or idea'
-  },
-  {
-    href: '/xo',
-    label: 'XO Chat',
-    glyph: 'XO',
-    department: 'science',
-    description: 'Ask, route, clarify — intent into next action (MVP)'
-  },
-  {
-    href: '/engineering-queue',
-    label: 'Engineering Queue',
-    glyph: 'EQ',
-    department: 'engineering',
-    description: 'Triage, review, approve and unblock (MVP)'
-  },
-  {
-    href: '/intelligence',
-    label: 'Intelligence',
-    glyph: 'IC',
-    department: 'science',
-    description: 'Advisory signals, awareness, operational picture'
-  },
-  {
-    href: '/comms',
-    label: 'Communications',
-    glyph: 'CP',
-    department: 'command',
-    description: 'Content pipeline — from signal to published thought-leadership'
-  },
-  {
-    href: '/alerts',
-    label: 'Push Alerts',
-    glyph: '!!',
-    department: 'operations',
-    description: 'Gated, meaningful escalations only'
-  },
-  {
-    href: '/missions',
-    label: 'Missions',
-    glyph: '02',
-    department: 'command',
-    description: 'Mission registry and status'
-  },
-  {
-    href: '/medical',
-    label: 'Medical Bay',
-    glyph: '05',
-    department: 'medical',
-    description: 'Recovery indexes and life participation'
-  },
-  {
-    href: '/operations',
-    label: 'Operations',
-    glyph: '08',
-    department: 'operations',
-    description: 'Service and integration status'
-  },
-  // /medical/pulse and /medical/check-in are sub-pages of Medical Bay — accessible
-  // via the Medical Bay page, not the primary nav rail.
-  {
-    href: '/captains-log',
-    label: "Captain's Log",
-    glyph: '12',
-    department: 'command',
-    description: 'End-of-day structured log entry'
-  },
-  {
-    href: '/captains-notebook',
-    label: "Captain's Notebook",
-    glyph: '16',
-    department: 'command',
-    description: 'Intelligence intake — capture, triage, route'
-  },
-  {
-    href: '/captains-brief',
-    label: "Captain's Brief",
-    glyph: 'CB',
-    department: 'command',
-    description: 'Cross-domain intelligence brief — priorities, confidence, warnings'
-  }
-];
+// MSN-0328 (WP-D): this used to be a full NavItem[] (label/glyph/department/
+// description per entry) that looked like the primary nav source but wasn't
+// — LCARSNav.tsx has always rendered NAV_SECTIONS below, never this. The
+// dead metadata is retired; the one real thing depending on this list —
+// NavHref, a build-time type check used by MobileCommandBar and
+// LCARSBottomNav — is kept, now sourced from a plain href list instead of
+// a duplicate, driftable copy of nav item data.
+const VALID_NAV_HREFS = [
+  '/captains-chair', '/advisory-council', '/knowledge', '/knowledge-library',
+  '/preferences', '/search', '/timeline', '/capture', '/xo',
+  '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
+  '/medical', '/operations', '/captains-log', '/captains-notebook',
+  '/captains-brief', '/delivery', '/automation-centre', '/model-crew',
+] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
-export type NavHref = (typeof NAV_ITEMS)[number]['href'];
+export type NavHref = (typeof VALID_NAV_HREFS)[number];
 
 export interface NavSection {
   label: string;

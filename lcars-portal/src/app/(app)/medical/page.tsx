@@ -11,6 +11,8 @@ import {
   stageStatus
 } from '@/lib/mockData';
 import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
+import { EscalationBanner } from '@/components/EscalationBanner';
+import { loadHumanSystems } from '@/lib/human-systems';
 import { toneClasses } from '@/lib/departments';
 import type {
   EmotionalLoadFlag,
@@ -633,6 +635,14 @@ export default function MedicalPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [readinessTrend, setReadinessTrend] = useState<ReadinessTrendRow[]>([]);
   const [trendRows, setTrendRows] = useState<TrendRow[]>([]);
+  const [escalation, setEscalation] = useState<string | null>(null);
+
+  // MSN-0328 (WP-C): the "Health red flag detected" alert (lib/alerts.ts)
+  // routes here but this page never rendered snapshot.escalation — the
+  // Captain landed on a page with no trace of what the alert was about.
+  useEffect(() => {
+    loadHumanSystems().then((hs) => setEscalation(hs.snapshot.escalation)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -667,6 +677,10 @@ export default function MedicalPage() {
 
   return (
     <div className="flex flex-col gap-4">
+
+      {escalation && (
+        <EscalationBanner level={3} label="Health Red Flag" message={escalation} />
+      )}
 
       {/* Tab bar */}
       <div className="flex border-b border-edge mb-4 overflow-x-auto">

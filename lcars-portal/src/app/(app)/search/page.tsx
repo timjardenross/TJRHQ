@@ -50,7 +50,11 @@ async function searchLog(q: string): Promise<SearchResult[]> {
     title:     `Captain's Log — ${r.log_date}`,
     detail:    (r.todays_intention ?? r.overall_note ?? '').slice(0, 100),
     timestamp: r.log_date,
-    href:      '/captains-log',
+    // MSN-0328 (WP-C): /captains-log is a today-only entry form with no
+    // history view at all — routing a past-date search hit there landed
+    // on a blank form. /timeline already renders past log entries
+    // chronologically (fetchLogEntries) — the real existing destination.
+    href:      '/timeline',
   }));
 }
 
@@ -68,7 +72,11 @@ async function searchCaptures(q: string): Promise<SearchResult[]> {
     title:     r.title ?? r.raw_text?.slice(0, 80) ?? '(captured item)',
     detail:    `${r.item_type} · ${r.processing_status}`,
     timestamp: r.captured_at,
-    href:      '/captains-notebook',
+    // MSN-0328 (WP-C): /captains-notebook reads intelligence_notes, never
+    // captured_items — this search queries captured_items, so a hit here
+    // never appeared on the page it linked to. /capture is the real
+    // captured_items consumer (its Inbox tab).
+    href:      '/capture',
   }));
 }
 
@@ -86,7 +94,11 @@ async function searchEvents(q: string): Promise<SearchResult[]> {
     title:     `${r.mission_id ?? 'System'}: ${r.status}`,
     detail:    undefined,
     timestamp: r.created_at,
-    href:      '/missions',
+    // MSN-0328 (WP-C): no dedicated event-detail view exists anywhere in
+    // this app (bare /missions showed the registry list, not the event).
+    // /timeline already renders mission_execution_events chronologically
+    // (fetchCommanderEvents) — the real existing destination.
+    href:      '/timeline',
   }));
 }
 

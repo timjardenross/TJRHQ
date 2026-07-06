@@ -242,7 +242,12 @@ async function decisionAlerts(): Promise<MobileAlert[]> {
         title: `${count} captured mission${count > 1 ? 's' : ''} awaiting triage`,
         detail: 'Items you captured as missions have not yet been triaged into the pipeline.',
         why: 'You flagged these as missions — they stay invisible to Engineering until you triage them.',
-        href: '/engineering-queue',
+        // MSN-0328 (WP-C): was '/engineering-queue', which queries
+        // build_request_inbox, not captured_items — the alert routed
+        // to a page that could never show what it counted. /capture
+        // is the real captured_items consumer; ?filter=mission
+        // deep-links straight to the classification this alert counts.
+        href: '/capture?filter=mission',
         at: nowIso(),
       });
     }
