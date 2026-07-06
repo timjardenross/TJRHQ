@@ -79,6 +79,14 @@ class CaptainBriefDocument:
     next_actions: list[str]
     metadata: dict[str, Any]
     confidence: Optional[float]
+    # MSN-0329 Phase 2 Step 5 (Captain Brief Evolution): populated only by
+    # captain_brief_evolution.py's assemble_evolved_captain_brief(), never
+    # by this module's own assemble_captain_brief_document() — this
+    # module's "no I/O beyond poll_events()" contract is unchanged; the
+    # field exists here (not on a separate type) so existing consumers
+    # gain the ability to render insights without a second document shape
+    # to learn, but always empty unless the caller opted into Step 2-4.
+    insights: list[Any] = field(default_factory=list)
 
 
 def _section_for_domain(domain: str) -> Optional[str]:
