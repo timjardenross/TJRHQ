@@ -158,7 +158,7 @@
     /* Captain Readiness */
     .readiness-score-big { font-size: 52px; font-weight: 700; line-height: 1; text-align: center; margin-bottom: 4px; }
     .readiness-status-label { text-align: center; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-    .readiness-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-bottom: 10px; overflow: hidden; }
+    .readiness-bar { height: 5px; border-radius: 3px; background: rgba(13,31,51,0.08); margin-bottom: 10px; overflow: hidden; }
     .readiness-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
     .readiness-contributors { font-size: 10px; color: var(--sf-text-secondary); line-height: 1.6; }
 
@@ -287,7 +287,7 @@
     .tab-btn[data-tab="advisors"].active { color: var(--sf-dept-command-light); background: rgba(255,184,28,0.10); border-color: var(--sf-dept-command); }
     .advisor-persona-btn {
       display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;
-      background:rgba(255,255,255,0.03);border:1px solid rgba(255,184,28,0.15);
+      background:rgba(13,31,51,0.03);border:1px solid rgba(255,184,28,0.15);
       border-radius:6px;color:var(--sf-text-primary);font-size:12px;cursor:pointer;
       margin-bottom:6px;text-align:left;transition:all 0.15s ease;
     }
@@ -300,16 +300,16 @@
     .advisor-degraded-note { font-size:10px;color:var(--sf-status-warn-text);margin-top:8px; }
 
     /* Recovery pulse (MSN-F Sickbay) */
-    .pulse-confidence-bar { height:8px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;margin:6px 0 10px; }
+    .pulse-confidence-bar { height:8px;border-radius:4px;background:rgba(13,31,51,0.08);overflow:hidden;margin:6px 0 10px; }
     .pulse-confidence-fill { height:100%;border-radius:4px;transition:width 0.4s ease; }
     .pulse-slot { display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;margin:0 4px 4px 0; }
     .pulse-slot-done { background:rgba(39,138,68,0.2);color:var(--sf-status-ok-text); }
-    .pulse-slot-miss { background:rgba(255,255,255,0.05);color:var(--sf-text-secondary); }
+    .pulse-slot-miss { background:rgba(13,31,51,0.05);color:var(--sf-text-secondary); }
 
     /* Quick capture type buttons */
     .capture-type-btn {
       padding:5px 12px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;
-      background:rgba(255,255,255,0.04);border:1px solid rgba(255,184,28,0.2);
+      background:rgba(13,31,51,0.04);border:1px solid rgba(255,184,28,0.2);
       color:var(--sf-text-secondary);transition:all 0.15s;
     }
     .capture-type-btn:hover  { background:rgba(255,184,28,0.08);color:var(--sf-text-primary); }
@@ -324,7 +324,7 @@
     }
     .global-search-input {
       width: 100%; padding: 10px 40px 10px 36px;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(13,31,51,0.04); border: 1px solid var(--sf-border-subtle);
       border-radius: 6px; color: var(--sf-text-primary); font-size: 13px; font-family: inherit;
       transition: border-color 0.15s;
     }
@@ -369,7 +369,7 @@
     /* ── Timeline Card (MSN-3A-002) ──────────────────────────── */
     .timeline-event {
       display: flex; gap: 12px; padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--sf-border-subtle);
     }
     .timeline-event:last-child { border-bottom: none; }
     .timeline-dot-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
@@ -391,15 +391,15 @@
     .timeline-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .timeline-filter-btn {
       font-size: 10px; padding: 3px 9px; border-radius: 4px; cursor: pointer;
-      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(13,31,51,0.04); border: 1px solid var(--sf-border-subtle);
       color: var(--sf-text-secondary); font-family: inherit;
     }
     .timeline-filter-btn.active { background: rgba(12,90,130,0.1); border-color: rgba(12,90,130,0.35); color: var(--sf-accent); font-weight: 700; }
 
     /* ── Notification Bell + Drawer ─────────────────────────── */
     .notif-bell-btn {
-      position: relative; background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.12); border-radius: 5px;
+      position: relative; background: rgba(13,31,51,0.04);
+      border: 1px solid var(--sf-border-subtle); border-radius: 5px;
       padding: 6px 10px; cursor: pointer; color: var(--sf-text-secondary);
       font-size: 16px; line-height: 1; transition: all 0.15s; flex-shrink: 0;
     }
@@ -625,11 +625,11 @@
       <!-- Mission search + filter bar -->
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <input id="cmd-mission-search" type="text" placeholder="🔍 Search missions…" style="
-          flex:1;min-width:180px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);
+          flex:1;min-width:180px;background:rgba(13,31,51,0.04);border:1px solid var(--sf-border-subtle);
           border-radius:5px;color:var(--sf-text-primary);padding:7px 10px;font-size:12px;font-family:inherit;
         " oninput="filterMissionQueue(this.value, document.getElementById('cmd-status-filter').value)">
         <select id="cmd-status-filter" style="
-          background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid rgba(255,255,255,0.15);
+          background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid var(--sf-border-subtle);
           border-radius:5px;padding:7px 8px;font-size:12px;cursor:pointer;
         " onchange="filterMissionQueue(document.getElementById('cmd-mission-search').value, this.value)">
           <option value="">All statuses</option>
@@ -683,7 +683,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <div style="flex:1;min-width:120px;">
                 <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PULSE TYPE</label>
-                <select id="pulse-type" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                <select id="pulse-type" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="morning">🌅 Morning</option>
                   <option value="midday">☀️ Midday</option>
                   <option value="end_of_day">🌆 End of Day</option>
@@ -693,13 +693,13 @@
               <div style="flex:1;min-width:80px;">
                 <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PAIN (0–10)</label>
                 <input id="pulse-pain" type="number" min="0" max="10" step="0.5" placeholder="—"
-                  style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;box-sizing:border-box;">
+                  style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;box-sizing:border-box;">
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <div style="flex:1;">
                 <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">ENERGY</label>
-                <select id="pulse-energy" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                <select id="pulse-energy" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
                   <option value="moderate">Moderate</option>
@@ -708,7 +708,7 @@
               </div>
               <div style="flex:1;">
                 <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">MOOD</label>
-                <select id="pulse-mood" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                <select id="pulse-mood" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
                   <option value="stable">Stable</option>
@@ -717,7 +717,7 @@
               </div>
               <div style="flex:1;">
                 <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">READINESS</label>
-                <select id="pulse-readiness" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 6px;font-size:12px;">
+                <select id="pulse-readiness" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
                   <option value="moderate">Moderate</option>
@@ -726,7 +726,7 @@
               </div>
             </div>
             <textarea id="pulse-notes" rows="2" placeholder="Notes (optional)"
-              style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>
+              style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:6px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>
             <div style="display:flex;align-items:center;gap:10px;">
               <button onclick="submitPulse()" style="padding:6px 18px;font-size:12px;background:var(--sf-dept-medical-light);color:#fff;border:1px solid var(--sf-dept-medical);border-radius:4px;cursor:pointer;">Log Pulse</button>
               <span id="pulse-status" style="font-size:11px;color:var(--sf-text-secondary);"></span>
@@ -902,7 +902,7 @@
             <div class="intel-card-title" style="color:var(--sf-dept-command-light)">💬 Your Question</div>
             <div style="display:flex;flex-direction:column;gap:8px;">
               <textarea id="advisor-question" rows="4" placeholder="Ask your advisor a question…" style="
-                background:rgba(255,255,255,0.04);border:1px solid rgba(255,184,28,0.25);
+                background:rgba(13,31,51,0.04);border:1px solid rgba(255,184,28,0.25);
                 border-radius:5px;color:var(--sf-text-primary);padding:10px;font-size:12px;
                 resize:vertical;font-family:inherit;width:100%;
               "></textarea>
@@ -957,7 +957,7 @@
         <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--sf-dept-command-light);">
           ⚡ Quick Capture
         </div>
-        <button onclick="closeCapture()" style="padding:4px 10px;font-size:11px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--sf-text-secondary);">✕ Close</button>
+        <button onclick="closeCapture()" style="padding:4px 10px;font-size:11px;background:transparent;border:1px solid var(--sf-border-subtle);color:var(--sf-text-secondary);">✕ Close</button>
       </div>
       <!-- Type selector -->
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;" id="capture-types">
@@ -968,7 +968,7 @@
         <button class="capture-type-btn"        data-type="decision" onclick="setCaptureType(this)">⚖️ Decision</button>
       </div>
       <textarea id="capture-text" rows="4" placeholder="Type to capture…" style="
-        width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,184,28,0.2);
+        width:100%;background:rgba(13,31,51,0.04);border:1px solid rgba(255,184,28,0.2);
         border-radius:5px;color:var(--sf-text-primary);padding:10px;font-size:13px;resize:none;
         font-family:inherit;
       "></textarea>
@@ -1306,7 +1306,7 @@
       }
       el.innerHTML = pending.map(m => {
         const mId = m.id || m.mission_id || '';
-        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--sf-border-subtle);">
           <div style="display:flex;gap:6px;align-items:center;width:100%;">
             <span style="font-size:10px;color:var(--sf-text-secondary);">${m.mission_id || m.id || ''}</span>
             <span style="font-weight:600;flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title || 'Untitled'}</span>
@@ -1400,7 +1400,7 @@
         const opts = _MISSION_STATUSES.map(s =>
           `<option value="${s}"${s === m.status ? ' selected' : ''}>${s}</option>`
         ).join('');
-        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        return `<div class="mission-item" style="flex-direction:column;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--sf-border-subtle);">
           <div style="display:flex;gap:6px;align-items:center;width:100%;">
             <span class="mission-priority ${priClass}">${m.priority || '—'}</span>
             <span class="mission-title" style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title}</span>
@@ -1409,7 +1409,7 @@
           <div style="display:flex;gap:8px;align-items:center;margin-top:4px;width:100%;">
             ${m.mission_id || m.id ? `<span style="font-size:10px;color:var(--sf-text-secondary);">${m.mission_id || m.id}</span>` : ''}
             <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
-              <select class="mission-status-select" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:2px 4px;cursor:pointer;">
+              <select class="mission-status-select" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:2px 4px;cursor:pointer;">
                 ${opts}
               </select>
               <button class="mission-status-btn" data-mission-id="${mId}" style="font-size:10px;background:var(--sf-accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">Save</button>
@@ -1556,7 +1556,7 @@
       el.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;">
           ${sources.map(s => `
-            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--sf-border-subtle);">
               <span style="flex-shrink:0">${statusDot(s.status || s.health)}</span>
               <div style="flex:1;min-width:0;">
                 <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name || s.source_id || '—'}</div>
@@ -1839,7 +1839,7 @@
                 const genDate = brief.generated_at ? brief.generated_at.slice(0, 10) : (b.created_at || '').slice(0, 10) || '—';
                 const risk = brief.overall_risk || '—';
                 const snap = (brief.executive_snapshot || brief.summary || '').slice(0, 100);
-                return `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+                return `<div style="padding:6px 0;border-bottom:1px solid var(--sf-border-subtle);">
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
                     <span style="font-size:10px;color:var(--sf-text-secondary);">${genDate}</span>
                     <span style="font-size:10px;color:${riskColr(risk)};font-weight:600;">${risk}</span>
@@ -2228,7 +2228,7 @@
           ${conf.latest_pain    != null ? `<span>Pain <strong style="color:var(--sf-text-primary)">${conf.latest_pain}/10</strong></span>` : ''}
           ${conf.latest_stress  != null ? `<span>Stress <strong style="color:var(--sf-text-primary)">${conf.latest_stress}/10</strong></span>` : ''}
         </div>` : ''}
-        ${cap ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;font-size:11px;">
+        ${cap ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--sf-border-subtle);display:flex;justify-content:space-between;font-size:11px;">
           <span style="color:var(--sf-text-secondary);">Capacity score</span>
           <span style="color:${capCol};font-weight:700;">${cap.score ?? '—'} · ${cap.status || '—'}</span>
         </div>` : ''}
@@ -2289,7 +2289,7 @@
         <div style="overflow-x:auto;">
           <table style="width:100%;font-size:10px;border-collapse:collapse;">
             <thead>
-              <tr style="color:var(--sf-text-secondary);border-bottom:1px solid rgba(255,255,255,0.1);">
+              <tr style="color:var(--sf-text-secondary);border-bottom:1px solid var(--sf-border-subtle);">
                 <th style="text-align:left;padding:3px 4px;">Date</th>
                 <th style="text-align:center;padding:3px 4px;">Pain</th>
                 <th style="text-align:center;padding:3px 4px;">Sleep</th>
@@ -2299,7 +2299,7 @@
             </thead>
             <tbody>
               ${recent.map(r => `
-                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                <tr style="border-bottom:1px solid var(--sf-border-subtle);">
                   <td style="padding:3px 4px;color:var(--sf-text-primary);">${r.date || '—'}</td>
                   <td style="text-align:center;padding:3px 4px;color:${r.pain >= 7 ? 'var(--sf-status-crit-text)' : r.pain >= 4 ? 'var(--sf-status-warn-text)' : 'var(--sf-status-ok-text)'};">${r.pain ?? '—'}</td>
                   <td style="text-align:center;padding:3px 4px;color:var(--sf-text-primary);">${r.sleep_h != null ? r.sleep_h + 'h' : '—'}</td>
@@ -2364,7 +2364,7 @@
           <div><span style="color:var(--sf-text-secondary);">Escalations</span><br><strong style="font-size:20px;color:${(s.total_escalations||0)>0?'var(--sf-status-warn-text)':'var(--sf-status-ok-text)'};">${s.total_escalations ?? '—'}</strong></div>
           <div><span style="color:var(--sf-text-secondary);">Pending Decisions</span><br><strong style="font-size:20px;color:${(s.pending_decisions||0)>0?'var(--sf-status-warn-text)':'var(--sf-status-ok-text)'};">${s.pending_decisions ?? '—'}</strong></div>
         </div>
-        ${data.blockers && data.blockers.length ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);">
+        ${data.blockers && data.blockers.length ? `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--sf-border-subtle);">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--sf-status-crit-text);margin-bottom:6px;">Blocked Missions</div>
           ${data.blockers.map(b=>`<div style="font-size:12px;padding:3px 0;"><strong>${b.mission_id}</strong> <span style="color:var(--sf-text-secondary);font-size:10px;">${b.title}</span></div>`).join('')}
         </div>` : ''}`;
@@ -2468,7 +2468,7 @@
       if (!hCard || !hEl || !advisorHistory.length) return;
       hCard.style.display = 'block';
       hEl.innerHTML = advisorHistory.slice(0, 10).map(h => `
-        <div style="padding:8px;background:rgba(255,255,255,0.03);border-radius:5px;border:1px solid rgba(255,184,28,0.1);">
+        <div style="padding:8px;background:rgba(13,31,51,0.03);border-radius:5px;border:1px solid rgba(255,184,28,0.1);">
           <div style="font-size:10px;color:var(--sf-dept-command-light);font-weight:700;margin-bottom:4px;">${h.advisor.emoji} ${h.advisor.label}</div>
           <div style="font-size:11px;color:var(--sf-text-secondary);margin-bottom:4px;font-style:italic;">"${h.question}"</div>
           <div style="font-size:11px;color:var(--sf-text-primary);">${h.recommendation.slice(0, 200)}${h.recommendation.length > 200 ? '…' : ''}</div>

@@ -37,7 +37,16 @@
   --sf-bg-space: #dce8f4;
   --sf-bg-panel: #eaf1f8;
   --sf-bg-card: #ccd8ec;
-  --sf-border-subtle: #8aadc4;
+  /* Phase 1G: re-shaded #8aadc4 -> #5a7d94. The "reused verbatim" value
+     failed WCAG 1.4.11's 3:1 non-text threshold against all 3
+     backgrounds (1.65/1.91/2.08) — never in Phase 1E's own contrast
+     matrix, VDO caught it in the 3rd joint review. lcars-portal's own
+     `edge` token shares this exact hex (tailwind.config.ts) and the
+     same defect at ~356 usage sites — deliberately NOT changed here,
+     that's a much larger, separate lcars-portal-wide fix and out of
+     this Command-Centre-scoped mission. Canonical parity is
+     intentionally broken on this one token until that follow-up runs. */
+  --sf-border-subtle: #5a7d94;
   --sf-text-primary: #0d1f33;
   --sf-text-secondary: #3a5a78;
 
