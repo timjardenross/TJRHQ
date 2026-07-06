@@ -9,9 +9,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: linear-gradient(to bottom, var(--sf-bg-space, var(--sf-bg-space)) 0%, var(--sf-bg-panel, var(--sf-bg-panel)) 100%);
+      background: linear-gradient(to bottom, var(--sf-bg-space) 0%, var(--sf-bg-panel) 100%);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: var(--sf-text-primary, var(--sf-text-primary));
+      color: var(--sf-text-primary);
       min-height: 100vh;
       padding: 0;
       position: relative;
@@ -27,8 +27,8 @@
 
     /* ── COMMAND dept: bridge header uses Command Gold ── */
     .header { text-align: center; margin-bottom: 24px; padding: 20px; border-bottom: 2px solid rgba(255,184,28,0.4); }
-    .header-title { font-size: 32px; font-weight: 700; color: var(--sf-dept-command-light, var(--sf-dept-command-light)); letter-spacing: 2px; margin-bottom: 8px; text-transform: uppercase; }
-    .header-subtitle { font-size: 14px; color: var(--sf-text-secondary, var(--sf-text-secondary)); letter-spacing: 1px; text-transform: uppercase; }
+    .header-title { font-size: 32px; font-weight: 700; color: var(--sf-dept-command-light); letter-spacing: 2px; margin-bottom: 8px; text-transform: uppercase; }
+    .header-subtitle { font-size: 14px; color: var(--sf-text-secondary); letter-spacing: 1px; text-transform: uppercase; }
 
     .status-bar {
       display: flex; justify-content: space-between; align-items: center;
@@ -37,7 +37,7 @@
       font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
     }
     .status-item { display: flex; align-items: center; gap: 8px; }
-    .status-indicator { width: 8px; height: 8px; border-radius: 50%; background-color: var(--sf-status-ok, var(--sf-status-ok)); }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; background-color: var(--sf-status-ok); }
     .status-indicator.warning  { background-color: var(--sf-status-warn, var(--sf-status-warn-text)); }
     .status-indicator.critical { background-color: var(--sf-status-crit, #C43030); }
 
@@ -56,16 +56,16 @@
       margin-bottom: -2px;
     }
     /* Tab base hover — neutral */
-    .tab-btn:hover { background: rgba(255,184,28,0.08); color: var(--sf-dept-command-light, var(--sf-dept-command-light)); border-color: rgba(255,184,28,0.2); box-shadow: none; }
-    .tab-btn.active { background: rgba(255,184,28,0.10); border-color: rgba(255,184,28,0.35); border-bottom: 2px solid var(--sf-bg-space, var(--sf-bg-space)); color: var(--sf-dept-command-light, var(--sf-dept-command-light)); }
+    .tab-btn:hover { background: rgba(255,184,28,0.08); color: var(--sf-dept-command-light); border-color: rgba(255,184,28,0.2); box-shadow: none; }
+    .tab-btn.active { background: rgba(255,184,28,0.10); border-color: rgba(255,184,28,0.35); border-bottom: 2px solid var(--sf-bg-space); color: var(--sf-dept-command-light); }
 
     /* Department-specific active tab colours */
     .tab-btn[data-tab="chair"].active,
-    .tab-btn[data-tab="command"].active  { color: var(--sf-dept-command-light, var(--sf-dept-command-light)); background: var(--sf-dept-command-bg, rgba(255,184,28,0.10)); border-color: var(--sf-dept-command, var(--sf-dept-command)); }
-    .tab-btn[data-tab="engineering"].active { color: var(--sf-dept-ops-light, var(--sf-dept-ops-light)); background: var(--sf-dept-ops-bg, rgba(244,67,54,0.10)); border-color: var(--sf-dept-ops, var(--sf-dept-ops)); }
-    .tab-btn[data-tab="sickbay"].active  { color: var(--sf-dept-medical-light, var(--sf-dept-medical-light)); background: var(--sf-dept-medical-bg, rgba(0,153,255,0.10)); border-color: var(--sf-dept-medical, var(--sf-dept-medical)); }
-    .tab-btn[data-tab="astrometrics"].active { color: var(--sf-dept-nav-light, var(--sf-dept-nav-light)); background: var(--sf-dept-nav-bg, rgba(204,136,255,0.10)); border-color: var(--sf-dept-nav, var(--sf-dept-nav)); }
-    .tab-btn[data-tab="records"].active  { color: var(--sf-dept-science-light, var(--sf-dept-science-light)); background: var(--sf-dept-science-bg, rgba(6,118,141,0.10)); border-color: var(--sf-dept-science, var(--sf-dept-science)); }
+    .tab-btn[data-tab="command"].active  { color: var(--sf-dept-command-light); background: var(--sf-dept-command-bg, rgba(255,184,28,0.10)); border-color: var(--sf-dept-command); }
+    .tab-btn[data-tab="engineering"].active { color: var(--sf-dept-engineering-light); background: var(--sf-dept-engineering-bg, rgba(255,152,0,0.10)); border-color: var(--sf-dept-engineering); }
+    .tab-btn[data-tab="sickbay"].active  { color: var(--sf-dept-medical-light); background: var(--sf-dept-medical-bg, rgba(0,153,255,0.10)); border-color: var(--sf-dept-medical); }
+    .tab-btn[data-tab="astrometrics"].active { color: var(--sf-dept-nav-light); background: var(--sf-dept-nav-bg, rgba(204,136,255,0.10)); border-color: var(--sf-dept-nav); }
+    .tab-btn[data-tab="records"].active  { color: var(--sf-dept-science-light); background: var(--sf-dept-science-bg, rgba(6,118,141,0.10)); border-color: var(--sf-dept-science); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
@@ -96,21 +96,21 @@
     }
 
     .chair-panel {
-      background: var(--sf-bg-card, var(--sf-bg-card));
-      border: 1px solid var(--sf-border-subtle, var(--sf-border-subtle));
+      background: var(--sf-bg-card);
+      border: 1px solid var(--sf-border-subtle);
       border-radius: 8px;
       padding: 16px 18px;
       min-height: 120px;
     }
     /* Each Chair panel gets a subtle top-border hint of its target department */
-    .chair-panel-alerts    { border-top: 2px solid var(--sf-dept-command, var(--sf-dept-command)); }
-    .chair-panel-missions  { border-top: 2px solid var(--sf-dept-ops, var(--sf-dept-ops)); }
-    .chair-panel-readiness { border-top: 2px solid var(--sf-dept-medical, var(--sf-dept-medical)); }
-    .chair-panel-intel     { border-top: 2px solid var(--sf-dept-nav, var(--sf-dept-nav)); }
-    .chair-panel-gov       { border-top: 2px solid var(--sf-dept-science, var(--sf-dept-science)); }
+    .chair-panel-alerts    { border-top: 2px solid var(--sf-dept-command); }
+    .chair-panel-missions  { border-top: 2px solid var(--sf-dept-ops); }
+    .chair-panel-readiness { border-top: 2px solid var(--sf-dept-medical); }
+    .chair-panel-intel     { border-top: 2px solid var(--sf-dept-nav); }
+    .chair-panel-gov       { border-top: 2px solid var(--sf-dept-science); }
     .chair-panel-title {
       font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.8px; color: var(--sf-dept-command-light, var(--sf-dept-command-light)); margin-bottom: 12px;
+      letter-spacing: 0.8px; color: var(--sf-dept-command-light); margin-bottom: 12px;
       padding-bottom: 8px; border-bottom: 1px solid rgba(255,184,28,0.15);
       display: flex; justify-content: space-between; align-items: center;
     }
@@ -153,7 +153,7 @@
     .priority-p1 { background: var(--sf-status-warn-bg);   color: var(--sf-status-warn-text); }
     .priority-p2 { background: var(--sf-dept-science-bg);  color: var(--sf-dept-science-light); }
     .mission-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mission-next  { font-size: 10px; color: var(--sf-text-secondary, var(--sf-text-secondary)); }
+    .mission-next  { font-size: 10px; color: var(--sf-text-secondary); }
 
     /* Captain Readiness */
     .readiness-score-big { font-size: 52px; font-weight: 700; line-height: 1; text-align: center; margin-bottom: 4px; }
@@ -165,11 +165,11 @@
     /* Ship Status */
     .ship-status-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(244,67,54,0.08); }
     .ship-status-row:last-child { border-bottom: none; }
-    .ship-status-label { color: var(--sf-text-secondary, var(--sf-text-secondary)); }
+    .ship-status-label { color: var(--sf-text-secondary); }
     .ship-status-value { font-weight: 600; }
-    .ship-ok    { color: var(--sf-status-ok-text,   var(--sf-status-ok-text)); }
-    .ship-warn  { color: var(--sf-status-warn-text, var(--sf-status-warn-text)); }
-    .ship-error { color: var(--sf-status-crit-text, var(--sf-status-crit-text)); }
+    .ship-ok    { color: var(--sf-status-ok-text); }
+    .ship-warn  { color: var(--sf-status-warn-text); }
+    .ship-error { color: var(--sf-status-crit-text); }
 
     /* Chair empty/all-clear states */
     .chair-clear { color: var(--sf-status-ok); font-size: 13px; display: flex; align-items: center; gap: 8px; }
@@ -209,15 +209,15 @@
     /* Intelligence / Astrometrics cards */
     .intel-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; }
     @media (max-width: 1000px) { .intel-grid { grid-template-columns: 1fr; } }
-    .intel-card { background: var(--sf-bg-card, var(--sf-bg-card)); border: 1px solid var(--sf-border-subtle, var(--sf-border-subtle)); border-radius: 8px; padding: 16px; }
+    .intel-card { background: var(--sf-bg-card); border: 1px solid var(--sf-border-subtle); border-radius: 8px; padding: 16px; }
     /* Intel card titles inherit department colour from their tab panel */
-    .intel-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tab-dept-color, var(--sf-dept-science-light, var(--sf-dept-science-light))); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(var(--tab-dept-rgb, 45,95,168), 0.15); }
+    .intel-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--tab-dept-color, var(--sf-dept-science-light)); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(var(--tab-dept-rgb, 45,95,168), 0.15); }
     /* Set --tab-dept-color per tab */
     #tab-sickbay    { --tab-dept-color: var(--sf-dept-medical-light); --tab-dept-rgb: var(--sf-dept-medical-rgb); }
     #tab-astrometrics { --tab-dept-color: var(--sf-dept-nav-light); --tab-dept-rgb: var(--sf-dept-nav-rgb); }
     #tab-records    { --tab-dept-color: var(--sf-dept-science-light); --tab-dept-rgb: var(--sf-dept-science-rgb); }
     #tab-command    { --tab-dept-color: var(--sf-dept-command-light); --tab-dept-rgb: var(--sf-dept-command-rgb); }
-    #tab-engineering { --tab-dept-color: var(--sf-dept-ops-light); --tab-dept-rgb: var(--sf-dept-ops-rgb); }
+    #tab-engineering { --tab-dept-color: var(--sf-dept-engineering-light); --tab-dept-rgb: var(--sf-dept-engineering-rgb); }
     .intel-loading { font-size: 12px; color: var(--sf-text-secondary); }
 
     /* Recommendation list (Astrometrics) */
@@ -301,8 +301,8 @@
     .toggle-switch.active::after { left: 22px; background-color: var(--sf-status-ok); }
 
     /* Advisors tab */
-    #tab-advisors { --tab-dept-color: var(--sf-dept-command-light,var(--sf-dept-command-light)); }
-    .tab-btn[data-tab="advisors"].active { color: var(--sf-dept-command-light,var(--sf-dept-command-light)); background: rgba(255,184,28,0.10); border-color: var(--sf-dept-command,var(--sf-dept-command)); }
+    #tab-advisors { --tab-dept-color: var(--sf-dept-command-light); }
+    .tab-btn[data-tab="advisors"].active { color: var(--sf-dept-command-light); background: rgba(255,184,28,0.10); border-color: var(--sf-dept-command); }
     .advisor-persona-btn {
       display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;
       background:rgba(255,255,255,0.03);border:1px solid rgba(255,184,28,0.15);
@@ -913,11 +913,11 @@
         <!-- Left: persona selector -->
         <div class="widget-container">
           <div class="intel-card">
-            <div class="intel-card-title" style="color:var(--sf-dept-command-light,var(--sf-dept-command-light))">🖖 Select Advisor</div>
+            <div class="intel-card-title" style="color:var(--sf-dept-command-light)">🖖 Select Advisor</div>
             <div id="advisor-personas"><p class="intel-loading">Loading advisors…</p></div>
           </div>
           <div class="intel-card">
-            <div class="intel-card-title" style="color:var(--sf-dept-command-light,var(--sf-dept-command-light))">💬 Your Question</div>
+            <div class="intel-card-title" style="color:var(--sf-dept-command-light)">💬 Your Question</div>
             <div style="display:flex;flex-direction:column;gap:8px;">
               <textarea id="advisor-question" rows="4" placeholder="Ask your advisor a question…" style="
                 background:rgba(255,255,255,0.04);border:1px solid rgba(255,184,28,0.25);
@@ -933,13 +933,13 @@
         <!-- Right: response area -->
         <div class="widget-container">
           <div class="intel-card" id="advisor-response-card">
-            <div class="intel-card-title" style="color:var(--sf-dept-command-light,var(--sf-dept-command-light))">📋 Advisor Response</div>
+            <div class="intel-card-title" style="color:var(--sf-dept-command-light)">📋 Advisor Response</div>
             <div id="advisor-response">
               <p class="intel-loading">Select an advisor and ask a question to begin.</p>
             </div>
           </div>
           <div class="intel-card" id="advisor-history-card" style="display:none">
-            <div class="intel-card-title" style="color:var(--sf-dept-command-light,var(--sf-dept-command-light))">📜 Session History</div>
+            <div class="intel-card-title" style="color:var(--sf-dept-command-light)">📜 Session History</div>
             <div id="advisor-history" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
           </div>
         </div>
