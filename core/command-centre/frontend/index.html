@@ -172,7 +172,7 @@
     .ship-error { color: var(--sf-status-crit-text); }
 
     /* Chair empty/all-clear states */
-    .chair-clear { color: var(--sf-status-ok); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .chair-clear { color: var(--sf-status-ok-text); font-size: 13px; display: flex; align-items: center; gap: 8px; }
     .chair-empty { color: var(--sf-text-secondary); font-size: 12px; }
 
     /* Intelligence Headline */
@@ -468,9 +468,10 @@
 <body>
   <div class="container">
 
+    <header>
     <!-- HEADER -->
     <div class="header">
-      <div class="header-title">⚡ STARFLEET COMMAND</div>
+      <h1 class="header-title">⚡ STARFLEET COMMAND</h1>
       <div class="header-subtitle">Starship Endeavour NCC-170230 | Command Centre</div>
     </div>
 
@@ -522,6 +523,7 @@
       <span class="global-search-spinner" id="global-search-spinner"></span>
       <div class="search-results-overlay" id="search-results-overlay"></div>
     </div>
+    </header>
 
     <!-- TAB NAVIGATION -->
     <nav class="tab-nav" id="tab-nav">
@@ -534,6 +536,7 @@
       <button class="tab-btn" data-tab="advisors">🖖 Advisors</button>
     </nav>
 
+    <main id="main-content">
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- TAB: CAPTAIN'S CHAIR                                           -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -628,7 +631,7 @@
           flex:1;min-width:180px;background:rgba(13,31,51,0.04);border:1px solid var(--sf-border-subtle);
           border-radius:5px;color:var(--sf-text-primary);padding:7px 10px;font-size:12px;font-family:inherit;
         " oninput="filterMissionQueue(this.value, document.getElementById('cmd-status-filter').value)">
-        <select id="cmd-status-filter" style="
+        <select id="cmd-status-filter" aria-label="Filter missions by status" style="
           background:var(--sf-bg-card);color:var(--sf-text-secondary);border:1px solid var(--sf-border-subtle);
           border-radius:5px;padding:7px 8px;font-size:12px;cursor:pointer;
         " onchange="filterMissionQueue(document.getElementById('cmd-mission-search').value, this.value)">
@@ -682,7 +685,7 @@
           <div id="pulse-entry-form">
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <div style="flex:1;min-width:120px;">
-                <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PULSE TYPE</label>
+                <label for="pulse-type" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PULSE TYPE</label>
                 <select id="pulse-type" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="morning">🌅 Morning</option>
                   <option value="midday">☀️ Midday</option>
@@ -691,14 +694,14 @@
                 </select>
               </div>
               <div style="flex:1;min-width:80px;">
-                <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PAIN (0–10)</label>
+                <label for="pulse-pain" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PAIN (0–10)</label>
                 <input id="pulse-pain" type="number" min="0" max="10" step="0.5" placeholder="—"
                   style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;box-sizing:border-box;">
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <div style="flex:1;">
-                <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">ENERGY</label>
+                <label for="pulse-energy" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">ENERGY</label>
                 <select id="pulse-energy" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
@@ -707,7 +710,7 @@
                 </select>
               </div>
               <div style="flex:1;">
-                <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">MOOD</label>
+                <label for="pulse-mood" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">MOOD</label>
                 <select id="pulse-mood" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
@@ -716,7 +719,7 @@
                 </select>
               </div>
               <div style="flex:1;">
-                <label style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">READINESS</label>
+                <label for="pulse-readiness" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">READINESS</label>
                 <select id="pulse-readiness" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
                   <option value="low">Low</option>
@@ -927,7 +930,9 @@
         </div>
       </div>
     </div>
+    </main>
 
+    <footer>
     <!-- CONTROL BAR -->
     <div class="control-bar">
       <div>
@@ -942,6 +947,7 @@
         <div id="auto-refresh-toggle" class="toggle-switch active" title="Click to toggle auto-refresh"></div>
       </div>
     </div>
+    </footer>
   </div>
 
   <!-- QUICK CAPTURE OVERLAY (MSN-C — Cmd+K) -->
