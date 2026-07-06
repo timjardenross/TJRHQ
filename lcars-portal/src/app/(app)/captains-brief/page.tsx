@@ -28,9 +28,21 @@ interface CaptainBriefItem {
   reason: string;
   priority_score: number | null;
   priority_explanation: string | null;
+  risk_score: number | null;
   recommendation: Recommendation | null;
   related_event_ids: string[];
   aggregation_key: string | null;
+}
+
+// Priority Engine's risk_score (0-100, see core/platform/priority_engine.py) —
+// the same signal that gates an item into `warnings` at all (>=60). Bucketed
+// here rather than hardcoded, so the banner's level tracks real severity
+// instead of always reading "Critical" for any warning at all.
+function warningsLevel(warnings: CaptainBriefItem[]): 1 | 2 | 3 {
+  const maxRisk = warnings.reduce((max, w) => Math.max(max, w.risk_score ?? 0), 0);
+  if (maxRisk >= 80) return 3;
+  if (maxRisk >= 60) return 2;
+  return 1;
 }
 
 interface CaptainBriefDocument {
@@ -98,7 +110,19 @@ export default function CaptainsBriefPage() {
       </LCARSPanel>
 
       {doc && doc.warnings.length > 0 && (
-        <EscalationBanner level={3} message={`${doc.warnings.length} high-risk item(s) — review first.`} />
+        <LCARSPanel title="Warnings" accent="operations">
+          <div className="flex flex-col gap-2">
+            <EscalationBanner
+              level={warningsLevel(doc.warnings)}
+              message={`${doc.warnings.length} high-risk item(s) — review before proceeding.`}
+            />
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {doc.warnings.map((item, i) => (
+                <ItemRow key={item.event_id ?? i} item={item} />
+              ))}
+            </ul>
+          </div>
+        </LCARSPanel>
       )}
 
       {doc && doc.priorities.length > 0 && (
@@ -112,6 +136,25 @@ export default function CaptainsBriefPage() {
                   why: item.priority_explanation ?? undefined,
                   sourceOfficer: item.domain,
                   confidence: item.recommendation?.confidence != null ? `${item.recommendation.confidence}%` : 'Unscored',
+                }}
+                compact
+              />
+            ))}
+          </div>
+        </LCARSPanel>
+      )}
+
+      {doc && doc.recommendations.length > 0 && (
+        <LCARSPanel title="Recommendations" accent="command">
+          <div className="flex flex-col gap-2">
+            {doc.recommendations.map((rec, i) => (
+              <RecommendationCard
+                key={i}
+                recommendation={{
+                  action: rec.description,
+                  why: rec.supporting_context ?? undefined,
+                  sourceOfficer: rec.action_type ?? 'Recommendation',
+                  confidence: rec.confidence != null ? `${rec.confidence}%` : 'Unscored',
                 }}
                 compact
               />

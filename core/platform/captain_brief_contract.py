@@ -69,6 +69,7 @@ class CaptainBriefItem:
     reason: str
     priority_score: Optional[float] = None
     priority_explanation: Optional[str] = None
+    risk_score: Optional[float] = None
     recommendation: Optional[Recommendation] = None
     related_event_ids: list[str] = field(default_factory=list)
     aggregation_key: Optional[str] = None
@@ -152,6 +153,7 @@ def assemble_captain_brief(
             reason=decision.reason,
             priority_score=score.total_score if score else None,
             priority_explanation=score.explanation if score else None,
+            risk_score=score.risk_score if score else None,
             recommendation=recommendations.get(decision.event_id or ""),
             related_event_ids=decision.related_event_ids,
             aggregation_key=decision.aggregation_key,
