@@ -19,13 +19,22 @@ Missions created autonomously are recorded in the decisions table under:
   statement = `[OFFICER ACTION] {officer}: {title}`
   rationale = `TYPE: {action_type} | AUTH: {authority} | CONTEXT: {context[:80]}`
 
+MSN-0326 Wave 5: authority data migrated from this module's own in-code
+AUTHORITY_MAP (Mechanism 2, now retired) into each officer's manifest
+(governance/authority/<officer>.yaml, `mission_creation_authority` field),
+read via the same loader core/governance/authority_validator.py uses —
+one canonical authority data source platform-wide, not two independent
+stores that could silently disagree (the original problem MSN-0325/0326
+exist to close). Every mission-creation action is also now audited via
+audit_authority_action(), the platform's canonical audit sink — this
+module previously wrote only to the `decisions` table.
+
 Public API:
     ActionCategory
     ActionAuthority
     ActionResult
     create_officer_action(officer, category, title, rationale, ctx) -> ActionResult
     get_officer_authority(officer, category)                        -> ActionAuthority
-    AUTHORITY_MAP
 """
 
 from __future__ import annotations
@@ -66,39 +75,16 @@ class ActionAuthority(str, Enum):
     CAPTAIN      = "captain"      # Captain approval required
 
 
-# ── Authority map: (officer, category) -> authority ──────────────────────────
+# ── Authority resolution default ─────────────────────────────────────────────
 
-AUTHORITY_MAP: dict[tuple[str, str], ActionAuthority] = {
-    # Medical Officer
-    ("medical",       "investigation"):           ActionAuthority.OFFICER,
-    ("medical",       "review"):                  ActionAuthority.OFFICER,
-    ("medical",       "improvement"):             ActionAuthority.NUMBER_ONE,
-    # Research Officer
-    ("research",      "investigation"):           ActionAuthority.OFFICER,
-    ("research",      "improvement"):             ActionAuthority.OFFICER,
-    ("research",      "review"):                  ActionAuthority.OFFICER,
-    # Knowledge Officer
-    ("knowledge",     "improvement"):             ActionAuthority.OFFICER,
-    ("knowledge",     "review"):                  ActionAuthority.OFFICER,
-    ("knowledge",     "investigation"):           ActionAuthority.OFFICER,
-    # Chief Engineer
-    ("engineering",   "investigation"):           ActionAuthority.OFFICER,
-    ("engineering",   "technical_debt_review"):   ActionAuthority.OFFICER,
-    ("engineering",   "capability_improvement"):  ActionAuthority.NUMBER_ONE,
-    ("engineering",   "architecture_assessment"): ActionAuthority.XO,
-    ("engineering",   "review"):                  ActionAuthority.OFFICER,
-    # Number One
-    ("number_one",    "review"):                  ActionAuthority.OFFICER,
-    ("number_one",    "investigation"):           ActionAuthority.OFFICER,
-    ("number_one",    "improvement"):             ActionAuthority.XO,
-    # QA
-    ("qa",            "review"):                  ActionAuthority.OFFICER,
-    ("qa",            "investigation"):           ActionAuthority.OFFICER,
-    # XO
-    ("xo",            "review"):                  ActionAuthority.OFFICER,
-    ("xo",            "investigation"):           ActionAuthority.OFFICER,
-}
-
+# MSN-0326 Wave 5: preserves AUTHORITY_MAP's own original default exactly —
+# an (officer, category) pair with no manifest entry still resolves to
+# NUMBER_ONE, matching the retired dict's _DEFAULT_AUTHORITY. Not migrated
+# to Wave 3's explicit-only philosophy here — that would be a policy
+# change beyond this Wave's authorized scope ("do not expand policy
+# beyond existing AUTHORITY_MAP intent"), disclosed as a known remaining
+# implicit default in the Wave 5 validation report, not silently folded
+# in or silently ignored.
 _DEFAULT_AUTHORITY = ActionAuthority.NUMBER_ONE
 
 
@@ -121,15 +107,58 @@ class ActionResult:
 # ── Authority resolution ──────────────────────────────────────────────────────
 
 def get_officer_authority(officer: str, category: str) -> ActionAuthority:
-    """Return the authority level required for this officer to act in this category."""
-    return AUTHORITY_MAP.get((officer, category), _DEFAULT_AUTHORITY)
+    """Return the authority level required for this officer to act in this category.
+
+    MSN-0326 Wave 5: reads `governance/authority/<officer>.yaml`'s
+    `mission_creation_authority` field via the same manifest loader
+    Mechanism 1 (core/governance/authority_validator.py) uses — pure
+    migration of the retired AUTHORITY_MAP's data, no policy change. An
+    unmapped (officer, category) pair (no manifest, or no entry for this
+    category) still falls back to _DEFAULT_AUTHORITY, exactly matching
+    the retired dict's own original default.
+    """
+    from core.governance.authority_validator import load_manifest
+
+    manifest = load_manifest(officer)
+    mapping = manifest.get("mission_creation_authority", {})
+    level = mapping.get(category)
+    if level is None:
+        return _DEFAULT_AUTHORITY
+    try:
+        return ActionAuthority(level)
+    except ValueError:
+        log.warning(
+            "[officer_actions] Unrecognised mission_creation_authority value '%s' "
+            "for officer '%s' category '%s' — defaulting to %s",
+            level, officer, category, _DEFAULT_AUTHORITY.value,
+        )
+        return _DEFAULT_AUTHORITY
 
 
 # ── Action recording ──────────────────────────────────────────────────────────
 
 def _record_action(action_id: str, officer: str, category: str, title: str,
                    rationale_context: str, authority: ActionAuthority) -> bool:
-    """Write action record to decisions table."""
+    """Write action record to decisions table, and audit the authority
+    decision via the platform's canonical audit sink.
+
+    MSN-0326 Wave 5 (MSN-0325 §10 item 1): previously this module wrote
+    only to `decisions` — every mission-creation action now also reaches
+    `authority_audit_log` via audit_authority_action(), the same sink
+    Mechanism 1 uses, closing a real audit-trail gap this migration
+    exists to close, not just a data-source one.
+    """
+    try:
+        from core.governance.authority_validator import audit_authority_action
+        audit_authority_action(
+            officer=officer,
+            action=f"mission_creation:{category}",
+            approved=True,  # this module always records the action; requires_approval (below) carries the sign-off distinction, not a denial
+            reason=f"officer action category={category}, authority={authority.value}",
+        )
+    except Exception as exc:
+        log.debug("[officer_actions] Audit call failed (non-blocking): %s", exc)
+
     try:
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
@@ -242,7 +271,6 @@ __all__ = [
     "ActionCategory",
     "ActionAuthority",
     "ActionResult",
-    "AUTHORITY_MAP",
     "get_officer_authority",
     "create_officer_action",
     "execute_triggered_actions",
