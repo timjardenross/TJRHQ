@@ -85,13 +85,20 @@ function routeLabel(route: string | null): string | null {
 
 // ── Artefact navigation ────────────────────────────────────────────────────────
 
+// MSN-0335: 4 of these 7 pointed at pages that have never existed
+// (/strategy, /decisions, /lessons, /research) — dead links waiting to
+// fire the moment any of those route types actually got routed. Fixed
+// 2 to their real destination (/knowledge's own nav description
+// already claims "Decisions, lessons, architecture, articles" as its
+// territory); removed the other 2 rather than guess at a destination
+// that doesn't exist — ArtefactLink already falls back to plain text
+// when no mapping is present, so this is a safe reduction, not a
+// regression.
 const _ARTEFACT_NAV: Record<string, string> = {
   MISSION:                  '/missions',
   BUILD_REQUEST:            '/engineering',
-  STRATEGIC_INITIATIVE:     '/strategy',
-  IMPROVEMENT:              '/decisions',
-  KNOWLEDGE_ARTICLE:        '/lessons',
-  RESEARCH_REQUEST:         '/research',
+  IMPROVEMENT:              '/knowledge',
+  KNOWLEDGE_ARTICLE:        '/knowledge',
   COMMUNICATION_OPPORTUNITY: '/comms',
 };
 
