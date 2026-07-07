@@ -12,7 +12,9 @@ export interface PublishEventArgs {
   domain: string;
   source: string;
   linkedMissions?: string[];
+  linkedDocuments?: string[];
   recommendedAction?: string | null;
+  metrics?: Record<string, unknown>;
 }
 
 export async function publishEvent(supabase: SupabaseClient, args: PublishEventArgs): Promise<void> {
@@ -23,8 +25,13 @@ export async function publishEvent(supabase: SupabaseClient, args: PublishEventA
       source: args.source,
       linked_missions: args.linkedMissions ?? [],
       linked_entities: [],
-      linked_documents: [],
+      linked_documents: args.linkedDocuments ?? [],
       recommended_action: args.recommendedAction ?? null,
+      // MSN-0330: optional, matching publish_event()'s own Optional[dict]
+      // contract — omitted entirely (not sent as {}) when the caller has
+      // nothing structured to add; core_events.metrics defaults to {}
+      // server-side (migration 0061).
+      ...(args.metrics !== undefined && { metrics: args.metrics }),
     });
   } catch {
     /* non-blocking — matches publish_event()'s own never-raises contract */

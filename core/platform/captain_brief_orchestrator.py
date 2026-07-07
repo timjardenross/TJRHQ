@@ -60,6 +60,10 @@ _DOMAIN_SECTION_MAP: dict[str, str] = {
     # attribution ("Knowledge / Learning Loop", daily_brief.py).
     "knowledge": "learning",
     "research": "learning",
+    # MSN-0330: platform/infrastructure service-state transitions
+    # (systemd-managed services command_bus.py already monitors) — an
+    # engineering/operations concern, not a domain intelligence signal.
+    "platform-operations": "engineering",
 }
 
 _WARNING_RISK_THRESHOLD = 60.0  # PriorityScore.risk_score above this is surfaced as a warning, not just ranked

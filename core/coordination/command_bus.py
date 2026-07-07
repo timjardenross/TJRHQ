@@ -88,6 +88,10 @@ _SERVICES = {
     "tg-xo.service":                    "HIGH",
     "tg-engineer.service":              "HIGH",
     "tg-engineering-dept.service":      "HIGH",
+    # MSN-0330: found unmonitored by audit — Captain Intelligence's
+    # Insight/Reasoning Engines depend on this being up (MSN-0329
+    # Phase 3-5); wasn't in this dict at all before.
+    "model-router.service":            "HIGH",
 }
 
 # ---------------------------------------------------------------------------
@@ -175,12 +179,18 @@ def _mark_acted(conn: sqlite3.Connection, key: str) -> None:
     conn.commit()
 
 
-def _resolve_if_gone(conn: sqlite3.Connection, key: str) -> None:
-    conn.execute(
+def _resolve_if_gone(conn: sqlite3.Connection, key: str) -> bool:
+    """Returns True only if this call actually flipped an open event to
+    resolved (a real recovery transition) — False for a no-op on an
+    already-resolved or never-open key. MSN-0330: this distinction is
+    what lets the caller emit exactly one core_events row per real
+    transition, not one per 300s poll cycle."""
+    cur = conn.execute(
         "UPDATE bus_events SET resolved_at=? WHERE event_key=? AND resolved_at IS NULL",
         (_now_iso(), key),
     )
     conn.commit()
+    return cur.rowcount > 0
 
 
 def _reopen_event(conn: sqlite3.Connection, key: str) -> None:
@@ -368,6 +378,22 @@ def _backend_healthy() -> bool:
         return False
 
 
+def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) -> None:
+    """MSN-0330 Signal Expansion: mirrors a genuine service-state
+    TRANSITION into core_events — never a routine per-cycle poll, only
+    the moment something actually changed. Non-blocking, matches every
+    other publish_event() caller's own contract."""
+    try:
+        from core.platform.event_bus import publish_event
+        publish_event(
+            event_type, domain="platform-operations", source="command_bus",
+            recommended_action=f"{svc}: {state}",
+            metrics={"service": svc, "state": state, "criticality": crit},
+        )
+    except Exception:
+        pass
+
+
 def _rule_service_health(conn: sqlite3.Connection) -> None:
     problems: list[tuple[str, str, str]] = []  # (service, state, criticality)
 
@@ -375,7 +401,8 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
         state = _systemd_state(svc)
         key = f"service_down:{svc}"
         if state == "active":
-            _resolve_if_gone(conn, key)
+            if _resolve_if_gone(conn, key):
+                _emit_service_state_event("platform.service_recovered", svc, state, crit)
         else:
             problems.append((svc, state, crit))
 
@@ -395,10 +422,19 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
 
     for svc, state, crit in problems:
         key = f"service_down:{svc}"
+        existing = conn.execute("SELECT 1 FROM bus_events WHERE event_key=?", (key,)).fetchone()
         ev = _upsert_event(conn, key)
-        if ev["resolved_at"]:
+        was_resolved = bool(ev["resolved_at"])
+        if was_resolved:
             _reopen_event(conn, key)
             ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
+        # MSN-0330: emit exactly on a real down-transition — either this
+        # service was never down before (existing is None, brand new
+        # bus_events row) or it had recovered and is now down again
+        # (was_resolved). A service still consecutively down across
+        # polling cycles does neither and correctly emits nothing.
+        if existing is None or was_resolved:
+            _emit_service_state_event("platform.service_down", svc, state, crit)
         if not _should_notify(ev, _NOTIFY_COOLDOWN_H):
             continue
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { assignRetentionPolicy } from '@/lib/retentionPolicy';
 import { assignCategory } from '@/lib/categoryPropagation';
+import { publishEvent } from '@/lib/core-events';
 import type { ReviewDecision, ReviewStatus } from '@/lib/types';
 
 // USS-TJR-MSN-0205D: the ONLY write path from the processing pipeline
@@ -209,6 +210,21 @@ export async function POST(
       })
       .eq('id', id);
     if (updateErr) throw updateErr;
+
+    // MSN-0330: Signal Expansion — the sole real choke point for a
+    // document processing OUTCOME (distinct from ingestion, which
+    // already emits knowledge.document_ingested at
+    // tools/supabase/ingest_knowledge.py::ingest()). Non-blocking,
+    // matches publishEvent()'s own never-throws contract — a failed
+    // emit never affects the decision itself.
+    await publishEvent(supabase, {
+      eventType: 'knowledge.document_review_decided',
+      domain: 'knowledge',
+      source: 'lcars-portal:knowledge-library-decide',
+      linkedDocuments: memoryDocumentId ? [memoryDocumentId] : [],
+      recommendedAction: `${decision} (${doc.filename})`,
+      metrics: { review_status: reviewStatus, decision },
+    });
 
     return NextResponse.json({
       id,
