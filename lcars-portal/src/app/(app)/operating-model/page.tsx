@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 
 interface LiveData {
   activeMissionsCount: number | null;
-  lastLog: { log_date: string; captain_capacity_rating: number | null; todays_intention: string | null } | null;
+  lastLog: { log_date: string; captain_capacity_rating: number | null; tomorrows_priority: string | null } | null;
   lastPulse: { pulse_type: string | null; pain_score: number | null; energy: number | null; mood: number | null; captured_at: string | null } | null;
 }
 
@@ -57,7 +57,7 @@ export default function OperatingModelPage() {
           .not('status', 'in', '(COMPLETE,DEFERRED,CLOSED)'),
         supabase
           .from('captains_log_entries')
-          .select('log_date, captain_capacity_rating, todays_intention')
+          .select('log_date, captain_capacity_rating, tomorrows_priority')
           .order('log_date', { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -153,10 +153,10 @@ export default function OperatingModelPage() {
       <LCARSPanel title="Current Priorities" accent="command" eyebrow="This week">
         {loading ? (
           <div className="text-lcars-muted text-sm">Loading...</div>
-        ) : lastLog?.todays_intention ? (
+        ) : lastLog?.tomorrows_priority ? (
           <div>
             <blockquote className="border-l-4 border-command pl-4 text-foreground text-base leading-relaxed">
-              {lastLog.todays_intention}
+              {lastLog.tomorrows_priority}
             </blockquote>
             <p className="text-lcars-muted text-xs mt-3">
               Updated from last Captain&apos;s Log entry · {lastLog.log_date}

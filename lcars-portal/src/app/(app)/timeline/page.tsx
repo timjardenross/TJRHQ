@@ -68,7 +68,7 @@ async function fetchLogEntries(days: number): Promise<TimelineEvent[]> {
   const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const { data } = await supabase
     .from('captains_log_entries')
-    .select('log_date, todays_intention, captain_capacity_rating')
+    .select('log_date, tomorrows_priority, captain_capacity_rating')
     .gte('log_date', since)
     .order('log_date', { ascending: false })
     .limit(14);
@@ -76,7 +76,7 @@ async function fetchLogEntries(days: number): Promise<TimelineEvent[]> {
     id:        `log-${r.log_date}`,
     source:    'log' as const,
     title:     `Captain's Log filed — ${r.log_date}`,
-    detail:    r.todays_intention?.slice(0, 100),
+    detail:    r.tomorrows_priority?.slice(0, 100),
     timestamp: `${r.log_date}T00:00:00Z`,
     metadata:  { capacity: r.captain_capacity_rating },
   }));

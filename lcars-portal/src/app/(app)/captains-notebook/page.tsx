@@ -128,6 +128,7 @@ function NoteCard({
   onApproveRoute,
   archiving,
   routing,
+  routeMessage,
 }: {
   note: IntelligenceNote;
   expanded: boolean;
@@ -136,6 +137,7 @@ function NoteCard({
   onApproveRoute: () => void;
   archiving: boolean;
   routing: boolean;
+  routeMessage: { id: string; ok: boolean; text: string } | null;
 }) {
   const canRoute = note.status === 'READY_FOR_ROUTING' && !!note.recommended_route;
   const isArchived = note.status === 'ARCHIVED';
@@ -245,6 +247,12 @@ function NoteCard({
             </div>
           )}
 
+          {routeMessage && (
+            <div className={`rounded border px-3 py-2 text-xs ${routeMessage.ok ? 'border-status/40 bg-status/10 text-status' : 'border-operations/40 bg-operations/10 text-operations'}`}>
+              {routeMessage.text}
+            </div>
+          )}
+
           {!isArchived && (
             <div className="flex gap-2 pt-1">
               {canRoute && (
@@ -295,6 +303,7 @@ export default function CaptainsNotebookPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [routingId, setRoutingId]   = useState<string | null>(null);
+  const [routeMessage, setRouteMessage] = useState<{ id: string; ok: boolean; text: string } | null>(null);
 
   async function loadNotes() {
     setLoading(true);
@@ -356,23 +365,29 @@ export default function CaptainsNotebookPage() {
 
   async function handleApproveRoute(note: IntelligenceNote) {
     setRoutingId(note.id);
-    const routeTypeMap: Record<string, string> = {
-      captain:    'decision',
-      xo:         'decision',
-      number_one: 'mission',
-      officer:    'mission',
-      knowledge:  'knowledge',
-      archive:    'archived',
-    };
-    await supabase
-      .from('intelligence_notes')
-      .update({
-        status:        'ROUTED',
-        routed_to_type: routeTypeMap[note.recommended_route ?? ''] ?? 'decision',
-      })
-      .eq('id', note.id);
+    // MSN-0334: was a direct client-side update that only ever set
+    // status/routed_to_type -- never actually created the artefact the
+    // UI implied. Now calls a real API route that creates a real
+    // mission for MISSION-routed notes, or honestly reports that
+    // automatic creation isn't wired for other route types yet.
+    try {
+      const res = await fetch(`/api/intelligence-notes/${encodeURIComponent(note.id)}/approve-route`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRouteMessage({ id: note.id, ok: false, text: data.error ?? 'Approve route failed' });
+      } else if (data.artefact_created) {
+        setRouteMessage({ id: note.id, ok: true, text: `Created ${data.entity_type.toLowerCase()} ${data.artefact_id}.` });
+      } else {
+        setRouteMessage({ id: note.id, ok: true, text: data.note ?? 'Routing decision recorded.' });
+      }
+    } catch (e) {
+      setRouteMessage({ id: note.id, ok: false, text: e instanceof Error ? e.message : String(e) });
+    }
     setRoutingId(null);
     loadNotes();
+    setTimeout(() => setRouteMessage(null), 8000);
   }
 
   const filtered = filter === 'ALL'
@@ -546,6 +561,7 @@ export default function CaptainsNotebookPage() {
                 onApproveRoute={() => handleApproveRoute(note)}
                 archiving={archivingId === note.id}
                 routing={routingId === note.id}
+                routeMessage={routeMessage?.id === note.id ? routeMessage : null}
               />
             ))}
           </div>

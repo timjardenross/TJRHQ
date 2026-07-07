@@ -40,15 +40,15 @@ async function searchLog(q: string): Promise<SearchResult[]> {
   const supabase = createSupabaseBrowserClient();
   const { data } = await supabase
     .from('captains_log_entries')
-    .select('log_date, todays_intention, overall_note')
-    .or(`todays_intention.ilike.%${q}%,overall_note.ilike.%${q}%`)
+    .select('log_date, tomorrows_priority, overall_note')
+    .or(`tomorrows_priority.ilike.%${q}%,overall_note.ilike.%${q}%`)
     .order('log_date', { ascending: false })
     .limit(4);
   return (data ?? []).map(r => ({
     type:      'log' as const,
     id:        r.log_date,
     title:     `Captain's Log — ${r.log_date}`,
-    detail:    (r.todays_intention ?? r.overall_note ?? '').slice(0, 100),
+    detail:    (r.tomorrows_priority ?? r.overall_note ?? '').slice(0, 100),
     timestamp: r.log_date,
     // MSN-0328 (WP-C): /captains-log is a today-only entry form with no
     // history view at all — routing a past-date search hit there landed
