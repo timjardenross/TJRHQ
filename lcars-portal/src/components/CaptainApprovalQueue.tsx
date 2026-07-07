@@ -33,6 +33,10 @@ function toItem(m: QueueMission): ApprovalQueueItem {
     id: m.mission_id,
     code: shortId(m.mission_id),
     title: m.title,
+    // MSN-0334: previously no way back to the mission's own record after
+    // approving/rejecting here — the Captain had to manually navigate to
+    // /missions and find it again.
+    href: `/missions/${encodeURIComponent(m.mission_id)}`,
     detail: `${m.status}${m.priority ? ` · ${m.priority}` : ''}${m.created_by ? ` · ${m.created_by}` : ''}`,
   };
 }

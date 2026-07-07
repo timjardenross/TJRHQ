@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { stateToneClasses } from '@/lib/departments';
 
@@ -17,6 +18,12 @@ export interface ApprovalQueueItem {
   /** Short monospace identifier shown above the title, e.g. a mission number. */
   code?: string;
   title: string;
+  /** MSN-0334: optional link to this item's own detail page. Previously
+      approving/rejecting here left no path back to the record itself —
+      the Captain had to manually navigate and re-find it. Undefined
+      (no link) is a safe default for any consumer whose entity has no
+      detail page. */
+  href?: string;
   /** Secondary line, e.g. "status · priority · owner". */
   detail?: string;
   /** Defaults to true. Set false when this item's current state isn't eligible for approval (a second consumer's governed route would 409). */
@@ -106,7 +113,13 @@ export function ApprovalQueue({
             <div className="flex items-start justify-between gap-2 mb-2">
               <div>
                 {item.code && <span className="font-mono text-[10px] text-lcars-muted">{item.code}</span>}
-                <p className="text-xs font-medium text-lcars-text leading-snug mt-0.5">{item.title}</p>
+                {item.href ? (
+                  <Link href={item.href} className="block text-xs font-medium text-lcars-text leading-snug mt-0.5 underline underline-offset-2 hover:text-status-on">
+                    {item.title}
+                  </Link>
+                ) : (
+                  <p className="text-xs font-medium text-lcars-text leading-snug mt-0.5">{item.title}</p>
+                )}
                 {item.detail && <p className="text-[10px] text-lcars-muted mt-0.5">{item.detail}</p>}
               </div>
             </div>

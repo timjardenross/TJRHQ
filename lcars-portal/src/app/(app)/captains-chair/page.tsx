@@ -7,6 +7,8 @@ import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
+import ProactiveSignals from '@/components/ProactiveSignals';
+import { LCARSPanel } from '@/components/LCARSPanel';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
@@ -725,6 +727,17 @@ export default function CaptainsChairPage() {
 
         {/* ── Recovery panels (live Supabase data via useROSData) ── */}
         <ROSPanels />
+
+        {/* ── MSN-0334: real, working "what needs my attention" engine
+            (blocked >7d, stalled >14d, review >48h, log-gap >3d) that had
+            zero real callers anywhere in the platform -- its first actual
+            usage. Distinct from AlertsSidebar (different thresholds, a
+            separate engine — not reconciled this pass, disclosed as
+            future work) so it's labelled clearly rather than presented as
+            the same thing. ── */}
+        <LCARSPanel title="Proactive Signals" accent="command" eyebrow="Blocked, stalled, and overdue — checked automatically">
+          <ProactiveSignals />
+        </LCARSPanel>
 
         {/* ── MSN-0329 Phase 5: Captain Intelligence (Cognitive Core),
             first production surface. Outside FleetStatusConditional —

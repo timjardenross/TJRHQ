@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 type Severity = 'critical' | 'high' | 'medium';
@@ -77,6 +78,14 @@ export default function ProactiveSignals() {
               </span>
             </div>
             <p className="text-lcars-text text-sm">{signal.detail}</p>
+            {/* MSN-0334: this signal already carries mission_id but never
+                linked to it -- the Captain had no way to jump straight to
+                the mission this is about. */}
+            {signal.mission_id && (
+              <Link href={`/missions/${encodeURIComponent(signal.mission_id)}`} className="text-xs text-lcars-muted underline underline-offset-2 hover:text-status-on w-fit">
+                View mission →
+              </Link>
+            )}
           </div>
         </div>
       ))}
