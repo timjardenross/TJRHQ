@@ -109,6 +109,22 @@ export async function decideDocument(
             approved_via: decision,
             processing_document_id: doc.id,
             original_source_name: doc.source_name,
+            // MSN-0332: real provenance gap found by audit -- these were
+            // recorded on processing_documents but never copied into the
+            // memory row itself, leaving a knowledge_documents row unable
+            // to answer "who approved this, when, and why" on its own
+            // (only via a join back to processing_documents, which stays
+            // possible via processing_document_id above, but the mission's
+            // own "no orphan memory" / provenance requirement asks for
+            // these to travel with the memory record directly).
+            review_reason: reason,
+            review_decided_by: decidedBy,
+            review_decided_at: now,
+            // The classifier's own recommendation that originally informed
+            // this decision -- also previously discarded on approval.
+            memory_recommendation: doc.memory_recommendation ?? null,
+            ocr_used: doc.ocr_used ?? false,
+            ocr_engine: doc.ocr_engine ?? null,
           },
           retention_policy: retention.retention_policy,
           expiry_date: retention.expiry_date,

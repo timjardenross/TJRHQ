@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { StatTile } from '@/components/StatTile';
+import { assignCategory } from '@/lib/categoryPropagation';
 import type {
   ProcessingDocument,
   ProcessingChunk,
@@ -621,6 +622,21 @@ export default function KnowledgeLibraryPage() {
                   <dd className="text-lcars-text">{detail.memory_recommendation ?? '—'}</dd>
                   <dt className="text-lcars-muted">Chunks</dt>
                   <dd className="text-lcars-text">{detail.chunk_count}</dd>
+                  {/* MSN-0332: the Command Memory category this document
+                      would be filed under if approved -- computed with the
+                      exact same assignCategory() the approval write path
+                      itself uses, so this is a genuine preview, not a
+                      guess. Shown before the Captain decides, not just
+                      after. */}
+                  <dt className="text-lcars-muted">Memory category (if approved)</dt>
+                  <dd className="text-lcars-text">{assignCategory('Personal Archive', detail.category ?? null)}</dd>
+                  {/* MSN-0332 audit finding: no source-document-date field
+                      exists anywhere in this pipeline's schema (only
+                      processing timestamps) -- disclosed here rather than
+                      silently omitted, so it reads as "not tracked", not
+                      as a UI bug. */}
+                  <dt className="text-lcars-muted">Document date</dt>
+                  <dd className="text-lcars-text">Not tracked by this pipeline</dd>
                 </dl>
 
                 {detail.summary && (
@@ -705,6 +721,15 @@ export default function KnowledgeLibraryPage() {
                         {detail.review_reason ? `: "${detail.review_reason}"` : ''}. Choose a decision below to resolve it.
                       </div>
                     )}
+                    {/* MSN-0332: what actually gets written, before the
+                        Captain clicks anything — the mission's own
+                        "what will be written if approved" requirement. */}
+                    <p className="mb-1 text-[10px] text-lcars-muted">
+                      Approve writes {detail.summary ? 'the summary above' : `a metadata-only stub ("${detail.filename}")`} as
+                      the memory content, plus full chunk/embedding copy either way — same searchable content regardless of
+                      which Approve button, only the readable text differs. Approve — Metadata Only always uses the stub,
+                      even if a summary exists.
+                    </p>
                     {/* Only 2 buttons: approved_summary is deliberately not
                         offered here anymore — since chunk-copying now
                         happens for every approve tier (see decide/route.ts),
