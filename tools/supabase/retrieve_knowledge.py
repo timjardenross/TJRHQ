@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 from embedding_client import EmbeddingClient, vector_literal
+from knowledge_sensitivity import is_visible_for_general_access
 from supabase_client import SupabaseClient
 
 
@@ -42,13 +43,19 @@ def fallback_search(client: SupabaseClient, query: str, document_type: str | Non
     filters = {"chunk_text": f"ilike.*{pattern}*"}
     rows = client.select(
         "document_chunks",
-        "chunk_index,chunk_text,knowledge_documents(id,source_path,title,document_type)",
+        "chunk_index,chunk_text,knowledge_documents(id,source_path,title,document_type,metadata)",
         filters,
         limit=limit,
     )
     results = []
     for row in rows:
         doc = row.get("knowledge_documents") or {}
+        # MSN-0333: this path bypasses the RPC-level exclusion (migration
+        # 0063 only fixes match_document_chunks/keyword_search_documents),
+        # so it needs its own check -- same rule, shared helper, not a
+        # separate reimplementation.
+        if not is_visible_for_general_access(doc.get("metadata")):
+            continue
         if document_type and doc.get("document_type") != document_type:
             continue
         results.append(

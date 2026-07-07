@@ -67,7 +67,19 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
         if memory_type == MemoryType.COMMAND:
             return _recall_table("decisions", filters, order_col="created_at")
         if memory_type == MemoryType.KNOWLEDGE:
-            return _recall_table("knowledge_documents", filters, order_col="created_at")
+            rows = _recall_table("knowledge_documents", filters, order_col="created_at")
+            # MSN-0333: this is a general-listing recall, not a
+            # deliberate single-document lookup (no `id` filter is
+            # required by this call shape) -- excludes sensitive/
+            # restricted the same way the RPC-based search functions do
+            # (migration 0063), via the same shared helper rather than a
+            # separate reimplementation.
+            import sys as _sys
+            _tools_supabase = _REPO_ROOT / "tools" / "supabase"
+            if str(_tools_supabase) not in _sys.path:
+                _sys.path.insert(0, str(_tools_supabase))
+            from knowledge_sensitivity import filter_general_access
+            return filter_general_access(rows)
         if memory_type == MemoryType.OPERATIONAL_PATTERNS:
             return _recall_table("operational_patterns", filters, order_col="created_at")
         if memory_type == MemoryType.PLATFORM_STATE:

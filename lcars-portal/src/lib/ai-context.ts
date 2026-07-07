@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { filterGeneralAccess } from '@/lib/knowledgeSensitivity';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -77,10 +78,16 @@ async function fetchRecentHealthLog(db: any) {
 async function fetchKnowledgeSummary(db: any) {
   const { data } = await db
     .from('knowledge_documents')
-    .select('title, document_type, updated_at')
+    // MSN-0333: metadata selected only to filter on -- never projected
+    // into the returned rows below, since this feeds straight into an
+    // LLM prompt (the AI Console's system context) and shouldn't carry
+    // raw metadata even for standard documents.
+    .select('title, document_type, updated_at, metadata')
     .order('updated_at', { ascending: false })
     .limit(15);
-  return data ?? [];
+  return filterGeneralAccess(data ?? []).map(({ title, document_type, updated_at }: any) => ({
+    title, document_type, updated_at,
+  }));
 }
 
 async function fetchTodayPulses(db: any) {

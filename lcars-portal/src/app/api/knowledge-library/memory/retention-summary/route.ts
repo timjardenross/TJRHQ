@@ -6,13 +6,19 @@ import type { RetentionSummary } from '@/lib/types';
 // retention_policy, archive_status, and category (MSN-0206J-2), plus how
 // many approved documents are past their review_due_date. Purely
 // informational: nothing here deletes or auto-archives anything.
+//
+// MSN-0333: an aggregate report over knowledge_documents is still
+// "general access" (not a deliberate single-document lookup) — excludes
+// sensitive/restricted from the counts, same rule as the list/search
+// routes, for consistency rather than treating aggregation as a loophole.
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
 
     const { data: rows, error } = await supabase
       .from('knowledge_documents')
-      .select('retention_policy, archive_status, review_due_date, category');
+      .select('retention_policy, archive_status, review_due_date, category, metadata')
+      .or("metadata->>sensitivity.is.null,metadata->>sensitivity.not.in.(sensitive,restricted)");
     if (error) throw error;
 
     const nowIso = new Date().toISOString();
