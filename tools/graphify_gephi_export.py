@@ -24,7 +24,7 @@ OUT.mkdir(exist_ok=True)
 
 # ── Repo display names ────────────────────────────────────────────────────────
 REPO_LABELS = {
-    "slack-bot":          "slack-bot",
+    "platform-runtime":          "platform-runtime",
     "src":                "lcars-portal",
     "coordination":       "core/coordination",
     "context-assembly":   "core/context-assembly",
@@ -327,7 +327,7 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     # Build graph from filtered data (sample for layout performance)
     # Use service community as colour
     SERVICE_COLOURS = {
-        "slack-bot":               "#1E88E5",
+        "platform-runtime":               "#1E88E5",
         "lcars-portal":            "#F4A62A",
         "core/coordination":       "#43A047",
         "core/context-assembly":   "#8E24AA",

@@ -191,7 +191,7 @@ class CapacityGate:
     ) -> None:
         """Log gate decision to Command Memory (non-blocking)."""
         try:
-            sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+            sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
             from command_memory_integration import log_decision_to_command_memory
 
             score_str = f"score={score}" if score is not None else "score=unknown"

@@ -121,9 +121,9 @@ delegate_research_task = None
 ResearchOutcome = None
 
 # Calculate path relative to this file: core/coordination/research_orchestration.py
-# Go up 2 levels to reach the root, then into slack-bot/lib (note: hyphen, not underscore)
+# Go up 2 levels to reach the root, then into platform-runtime/lib (note: hyphen, not underscore)
 _orchestrator_path = Path(__file__).resolve()
-_slack_bot_lib_dir = _orchestrator_path.parent.parent.parent / "slack-bot" / "lib"
+_slack_bot_lib_dir = _orchestrator_path.parent.parent.parent / "platform-runtime" / "lib"
 _research_delegator_file = _slack_bot_lib_dir / "research_delegator.py"
 
 try:
@@ -133,7 +133,7 @@ try:
         _research_delegator_file
     )
     if _spec and _spec.loader:
-        # CRITICAL FIX: Ensure slack-bot/lib is in sys.path BEFORE exec_module
+        # CRITICAL FIX: Ensure platform-runtime/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
         if str(_slack_bot_lib_dir) not in sys.path:
             sys.path.insert(0, str(_slack_bot_lib_dir))
@@ -175,7 +175,7 @@ log.info(f"[startup] Research delegator file exists = {_research_delegator_file.
 # _slack_bot_lib_dir is already in sys.path (added above), so this import works.
 try:
     import mistral_agent_client as _mac
-    log.info("[startup] mistral_agent_client loaded from slack-bot/lib")
+    log.info("[startup] mistral_agent_client loaded from platform-runtime/lib")
 except ImportError as _e:
     _mac = None
     log.warning(f"[startup] mistral_agent_client not available — Mistral stages will fall back: {_e}")

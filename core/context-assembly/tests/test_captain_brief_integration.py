@@ -32,7 +32,7 @@ from unittest.mock import MagicMock, patch
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _CA_DIR = _REPO_ROOT / "core" / "context-assembly"
 _CE_DIR = _REPO_ROOT / "core" / "command-centre"
-_SB_DIR = _REPO_ROOT / "slack-bot"
+_SB_DIR = _REPO_ROOT / "platform-runtime"
 _COORD_DIR = _REPO_ROOT / "core" / "coordination"
 
 for p in (_CA_DIR, _SB_DIR, str(_SB_DIR / "commands"), _COORD_DIR):
@@ -388,7 +388,7 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
 
 class TestSlackCaptainBrief(unittest.TestCase):
     """
-    Unit tests for fetch_and_format_captain_brief() in slack-bot.
+    Unit tests for fetch_and_format_captain_brief() in platform-runtime.
 
     The WP8 captain_brief.py fetch chain is:
       1. Express backend (localhost:5000) via urllib.request.urlopen

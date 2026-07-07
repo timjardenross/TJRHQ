@@ -17,10 +17,10 @@ import sys
 import os
 
 # Add parent directories to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'slack-bot'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'platform-runtime'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tools'))
 
-# MSN-0100: the bot directory is "slack-bot" (hyphen), so it is NOT importable as
+# MSN-0100: the bot directory is "platform-runtime" (hyphen), so it is NOT importable as
 # a `slack_bot` package. It IS on sys.path above, so import the module directly —
 # matching the sibling B1B/B1C/B1D tests. Skip cleanly if optional Slack runtime
 # deps are unavailable (e.g. secret-free CI) rather than aborting collection.

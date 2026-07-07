@@ -88,7 +88,7 @@ def build_prompt(req: RouterRequest) -> str:
             "path>` on its own line, then the entire file inside a triple-backtick "
             "fence, like this:\n"
             "\n"
-            "FILE: slack-bot/commands/example.py\n"
+            "FILE: platform-runtime/commands/example.py\n"
             "```python\n"
             "<the ENTIRE final contents of the file go here>\n"
             "```\n"

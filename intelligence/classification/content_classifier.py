@@ -24,10 +24,10 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-# Allow running from repository root; slack-bot uses a hyphen in the directory name
+# Allow running from repository root; platform-runtime uses a hyphen in the directory name
 _REPO_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path.insert(0, _REPO_ROOT)
-sys.path.insert(0, os.path.join(_REPO_ROOT, "slack-bot", "lib"))
+sys.path.insert(0, os.path.join(_REPO_ROOT, "platform-runtime", "lib"))
 
 from comms.pillars import classify_pillar, PILLARS_BY_KEY  # type: ignore
 

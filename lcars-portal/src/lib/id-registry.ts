@@ -50,7 +50,7 @@ export async function nextId(prefix: string): Promise<string> {
 
 /**
  * Append a runtime mission entry to the authoritative registry (MSN-0145).
- * Same dash-list format as slack-bot/mission_registry.py::append_canonical_registry().
+ * Same dash-list format as platform-runtime/mission_registry.py::append_canonical_registry().
  * Non-fatal: any filesystem failure is silently swallowed.
  */
 export function appendToRegistry(

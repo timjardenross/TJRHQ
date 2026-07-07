@@ -26,7 +26,7 @@ if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
   REPO_ROOT="$PROJECT_ROOT"
 fi
 if [ -z "${COMMANDER_DIR:-}" ] || [ ! -d "${COMMANDER_DIR:-/dev/null}" ]; then
-  COMMANDER_DIR="$REPO_ROOT/slack-bot"
+  COMMANDER_DIR="$REPO_ROOT/platform-runtime"
 fi
 
 echo "========================================"

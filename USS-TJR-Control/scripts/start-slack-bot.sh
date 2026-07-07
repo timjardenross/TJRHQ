@@ -25,7 +25,7 @@ if [ -z "${REPO_ROOT:-}" ] || [ ! -d "${REPO_ROOT:-/dev/null}" ]; then
   REPO_ROOT="$PROJECT_ROOT"
 fi
 if [ -z "${SLACK_BOT_DIR:-}" ] || [ ! -d "${SLACK_BOT_DIR:-/dev/null}" ]; then
-  SLACK_BOT_DIR="$REPO_ROOT/slack-bot"
+  SLACK_BOT_DIR="$REPO_ROOT/platform-runtime"
 fi
 
 echo "========================================"
@@ -55,7 +55,7 @@ fi
 ENV_FILE="$SLACK_BOT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
   echo "[ERROR] .env file not found: $ENV_FILE"
-  echo "        Copy slack-bot/.env.example to slack-bot/.env and populate secrets."
+  echo "        Copy platform-runtime/.env.example to platform-runtime/.env and populate secrets."
   read -r -p "Press Enter to keep this pane open..."
   exit 1
 fi

@@ -24,7 +24,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPO / "slack-bot"))
+sys.path.insert(0, str(_REPO / "platform-runtime"))
 sys.path.insert(0, str(_REPO / "core" / "health"))
 sys.path.insert(0, str(_REPO / "core" / "coordination"))
 
@@ -136,7 +136,7 @@ def test_morning_brief(client):
 
     try:
         # Test _fetch_captain_brief_text directly
-        sys.path.insert(0, str(_REPO / "slack-bot"))
+        sys.path.insert(0, str(_REPO / "platform-runtime"))
         import importlib, proactive_scheduler
         importlib.reload(proactive_scheduler)
 

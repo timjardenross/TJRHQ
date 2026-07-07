@@ -119,7 +119,7 @@ class SupabaseClient:
 
 
 # ---------------------------------------------------------------------------
-# Module-level convenience shims — used by slack-bot commands that import
+# Module-level convenience shims — used by platform-runtime commands that import
 # `from supabase_client import supabase_get, is_configured` after sys.path
 # manipulation may have resolved to this file instead of core/health/supabase_client.py.
 # ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ class TestCPS230FinalValidation:
         """Verify: Quota-aware routing still operational."""
         log.info("TEST 4: Quota-Aware Routing — Intact & Operational")
 
-        source_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "research_delegator.py"
+        source_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "research_delegator.py"
         with open(source_file) as f:
             content = f.read()
 
@@ -145,7 +145,7 @@ class TestCPS230FinalValidation:
         log.info("TEST 5: B1A Schema — Deployed")
 
         schema_file = Path(__file__).parent.parent / "tools" / "supabase" / "schema" / "MSN-0060B-LEARNING-LOOP-SCHEMA.sql"
-        service_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "learning_loop_service.py"
+        service_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py"
 
         if schema_file.exists() and service_file.exists():
             log.info("  ✓ B1A schema file present")
@@ -160,7 +160,7 @@ class TestCPS230FinalValidation:
         """Verify: Provider metadata captured with all required fields."""
         log.info("TEST 6: Provider Metadata — Structure Validated")
 
-        service_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "learning_loop_service.py"
+        service_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py"
         with open(service_file) as f:
             content = f.read()
 
@@ -188,7 +188,7 @@ class TestCPS230FinalValidation:
         """Verify: Decision record model with all required fields."""
         log.info("TEST 7: Decision Record Model — Complete")
 
-        service_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "learning_loop_service.py"
+        service_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py"
         with open(service_file) as f:
             content = f.read()
 
@@ -234,7 +234,7 @@ class TestCPS230FinalValidation:
         log.info("TEST 9: Security — Backend-Only Access Model")
 
         files_to_check = [
-            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/slack-bot/lib/learning_loop_service.py"),
+            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/platform-runtime/lib/learning_loop_service.py"),
             Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/coordination/research_orchestration.py"),
         ]
 

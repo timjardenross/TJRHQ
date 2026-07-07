@@ -17,7 +17,7 @@ Self-healing:
   Restart log: outputs/command_bus_restarts.log
 
 Outputs:
-  Slack    — all alerts (CAPTAINS_INBOX_CHANNEL_ID or BRIEF_CHANNEL from slack-bot/.env)
+  Slack    — all alerts (CAPTAINS_INBOX_CHANNEL_ID or BRIEF_CHANNEL from platform-runtime/.env)
   Telegram — ALERT/CRITICAL severity (TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS)
 
 State: SQLite at outputs/command_bus.db
@@ -55,7 +55,7 @@ def _env(key: str, default: str = "") -> str:
     if v:
         return v
     for envf in (REPO_ROOT / ".env",
-                 REPO_ROOT / "slack-bot" / ".env",
+                 REPO_ROOT / "platform-runtime" / ".env",
                  REPO_ROOT / "telegram-bot" / ".env",
                  REPO_ROOT / "xo-bot" / ".env"):
         try:

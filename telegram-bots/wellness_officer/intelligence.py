@@ -33,7 +33,7 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
 
     0=none, 1=friendly reminder, 2=RO notification, 3=critical. Previously
     reimplemented 3 times independently (this module, recovery_officer's
-    engagement_dispatcher.py, slack-bot's recovery_scheduler.py) — the
+    engagement_dispatcher.py, platform-runtime's recovery_scheduler.py) — the
     Slack copy used naive local system time instead of Brisbane time,
     a real silent-drift risk (MSN-0302 finding) since "afternoon" would
     resolve differently depending on which copy ran and where.

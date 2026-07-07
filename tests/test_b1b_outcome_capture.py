@@ -146,7 +146,7 @@ class TestOutcomeCaptureUnit:
         log.info("\n" + "="*80)
         # Import inside setup to avoid import errors
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.outcome_capture_service import (
                 OutcomeCapture,
                 DecisionOutcome,
@@ -399,7 +399,7 @@ class TestOutcomeCaptureIntegration:
         """Setup for each test."""
         log.info("\n" + "="*80)
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.outcome_capture_service import OutcomeCapture
             self.OutcomeCapture = OutcomeCapture
         except Exception as e:

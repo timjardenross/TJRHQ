@@ -135,7 +135,7 @@ class TestFeedbackLoopsUnit:
         """Setup for each test."""
         log.info("\n" + "="*80)
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.feedback_loops_service import FeedbackLoops, FeedbackSignal
             self.FeedbackLoops = FeedbackLoops
             self.FeedbackSignal = FeedbackSignal
@@ -328,7 +328,7 @@ class TestFeedbackLoopsIntegration:
         """Setup for each test."""
         log.info("\n" + "="*80)
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.feedback_loops_service import FeedbackLoops
             self.FeedbackLoops = FeedbackLoops
         except Exception as e:

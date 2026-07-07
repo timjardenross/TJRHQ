@@ -2,7 +2,7 @@
  * HSF-001 — Human Systems Framework (dashboard layer).
  *
  * A lightweight TypeScript mirror of the Python framework engine
- * (slack-bot/lib/human_systems/framework.py). Derives a four-domain energy
+ * (platform-runtime/lib/human_systems/framework.py). Derives a four-domain energy
  * snapshot + daily capacity score from a daily health row, and fetches that
  * row from the Supabase `human_systems_daily` view. When Supabase is absent or
  * a query fails, callers fall back to a neutral mock so the panel always renders.

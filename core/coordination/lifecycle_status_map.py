@@ -5,7 +5,7 @@ The engineering lifecycle currently runs FOUR independent status vocabularies
 that are never reconciled into one spine (see
 `Missions/MSN-0066-ENGINEERING-LIFECYCLE-ORCHESTRATION-ASSESSMENT.md`, WP1.1):
 
-  1. Slack mission lifecycle   — slack-bot/commands/mission_lifecycle.py
+  1. Slack mission lifecycle   — platform-runtime/commands/mission_lifecycle.py
        Idea / Planned / Active / Blocked / Review / Completed / Closed
   2. Canonical (ADR-0001)      — migration 0013 / canonical_id_resolver.py
        Idea / Designed / Implemented / Tested / Awaiting Number One Review /

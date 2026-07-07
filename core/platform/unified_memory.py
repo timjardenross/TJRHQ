@@ -15,7 +15,7 @@ real existing store:
   KNOWLEDGE           -> `knowledge_documents`/`document_chunks`
   OPERATIONAL_PATTERNS -> `operational_patterns` table (Workstream E, this wave)
   PLATFORM_STATE      -> `core_events` + `tasks` (Workstream A/B, this wave)
-  OFFICER_CONTEXT     -> slack-bot's officer_context.retrieve_officer_context()
+  OFFICER_CONTEXT     -> platform-runtime's officer_context.retrieve_officer_context()
   DECISION_HISTORY    -> `decision_records` + `decision_outcomes`
   CONFIDENCE_HISTORY  -> `quality_scores` + `provider_quality_history`
   RELATIONSHIPS       -> `knowledge_edges` (Workstream D, this wave)
@@ -149,7 +149,7 @@ def _recall_officer_context(officer: Optional[str]) -> list[dict[str, Any]]:
         return []
     import sys
 
-    slack_bot_dir = _REPO_ROOT / "slack-bot"
+    slack_bot_dir = _REPO_ROOT / "platform-runtime"
     if str(slack_bot_dir) not in sys.path:
         sys.path.insert(0, str(slack_bot_dir))
     from lib.officers.officer_context import retrieve_officer_context

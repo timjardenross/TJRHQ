@@ -42,7 +42,7 @@ _MISSION_DIRS = [
 # Directories searched for relevant repo files
 _CODE_SEARCH_ROOTS = [
     "core",
-    "slack-bot",
+    "platform-runtime",
     "tools",
 ]
 

@@ -433,7 +433,7 @@ class RouterHandler(BaseHTTPRequestHandler):
 # ── Entrypoint ────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    # Load .env from repo root or slack-bot
+    # Load .env from repo root or platform-runtime
     _load_dotenv()
     log.info("Model Router starting on %s:%d", _HOST, _PORT)
     log.info("Ollama base: %s", _OLLAMA_BASE)
@@ -448,7 +448,7 @@ def main() -> int:
 
 def _load_dotenv() -> None:
     repo_root = Path(__file__).resolve().parent.parent.parent
-    for candidate in [repo_root / ".env", repo_root / "slack-bot" / ".env"]:
+    for candidate in [repo_root / ".env", repo_root / "platform-runtime" / ".env"]:
         if candidate.exists():
             try:
                 for line in candidate.read_text(encoding="utf-8").splitlines():

@@ -45,7 +45,7 @@ Passing a semantically correct payload in the wrong shape (e.g. `{"messages": [.
 
 **Future Guidance:** When a pipeline provider starts failing, check the SDK call signature first — not just API keys or network. Fallback chains should log `[DEGRADED MODE]` prominently when the primary fails, not just at DEBUG level. Add a startup smoke-test that calls each agent with a minimal payload and validates the response shape before the bot accepts traffic.
 
-**Sources:** USS-TJR-MSN-0060 — Mistral Research Pipeline Hotfix, `slack-bot/lib/mistral_agent_client.py`
+**Sources:** USS-TJR-MSN-0060 — Mistral Research Pipeline Hotfix, `platform-runtime/lib/mistral_agent_client.py`
 
 ---
 """

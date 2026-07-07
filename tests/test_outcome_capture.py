@@ -27,7 +27,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
-sys.path.insert(0, str(_REPO_ROOT / "slack-bot" / "lib"))
+sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "lib"))
 
 import outcome_capture as oc  # noqa: E402
 

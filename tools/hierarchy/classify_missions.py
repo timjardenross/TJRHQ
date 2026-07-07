@@ -81,7 +81,7 @@ def _get_api_key() -> Optional[str]:
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not key:
         # Try .env file
-        for env_path in ["slack-bot/.env", ".env"]:
+        for env_path in ["platform-runtime/.env", ".env"]:
             p = _REPO_ROOT / env_path
             if p.exists():
                 for line in p.read_text().splitlines():

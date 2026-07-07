@@ -349,7 +349,7 @@ class NumberOneExecutionEngine:
             return get_client()
         except Exception:
             try:
-                sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+                sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
                 from command_memory_integration import get_client
                 return get_client()
             except Exception as exc:
@@ -419,7 +419,7 @@ class NumberOneExecutionEngine:
 
 def _try_log_decision(statement: str, rationale: str, owner: str) -> None:
     try:
-        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(statement=statement, rationale=rationale, owner=owner)
     except Exception:

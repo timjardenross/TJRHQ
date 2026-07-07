@@ -108,7 +108,7 @@ except ImportError:
 def _fetch_command_memory_mission_ids() -> set[str]:
     """Return the set of mission IDs already in Command Memory (non-blocking)."""
     try:
-        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
+        sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from command_memory_integration import get_active_missions
         missions = get_active_missions()
         return {m["id"] for m in missions if m.get("id")}

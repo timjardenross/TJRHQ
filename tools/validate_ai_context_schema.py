@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 try:
     from dotenv import load_dotenv
-    load_dotenv(str(REPO_ROOT / "slack-bot" / ".env"))
+    load_dotenv(str(REPO_ROOT / "platform-runtime" / ".env"))
     load_dotenv(str(REPO_ROOT / ".env"))
 except ImportError:
     pass

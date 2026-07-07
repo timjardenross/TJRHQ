@@ -21,7 +21,7 @@ from .models import HierarchyEdge, HierarchyNode
 
 log = logging.getLogger(__name__)
 
-_ENV_PATHS = ["slack-bot/.env", ".env"]
+_ENV_PATHS = ["platform-runtime/.env", ".env"]
 
 
 def _env_creds() -> tuple[str, str]:

@@ -30,7 +30,7 @@ def _load_env(env_path: str) -> dict[str, str]:
     return env
 
 
-def load_live_missions(env_path: str = "slack-bot/.env", limit: int = 200) -> list[dict[str, Any]]:
+def load_live_missions(env_path: str = "platform-runtime/.env", limit: int = 200) -> list[dict[str, Any]]:
     """Return live missions (list of dicts) from Command Memory. READ-ONLY (GET).
 
     Reads SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from the environment, falling

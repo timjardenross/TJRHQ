@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO_ROOT=/opt/starship-endeavour
-VENV_PY="$REPO_ROOT/slack-bot/.venv/bin/python"   # only venv with mistralai
+VENV_PY="$REPO_ROOT/platform-runtime/.venv/bin/python"   # only venv with mistralai
 LOCK=/run/lock/batch-coding-sync.lock
 LOG=/var/log/batch-coding-sync.log
 

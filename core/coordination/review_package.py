@@ -18,7 +18,7 @@ GOVERNANCE (ADR-013): a review package is preparation, not a decision. This
 module collects evidence and an *advisory* QA verdict; it performs no closure, no
 approval, no merge, and runs no code. The human still decides at Gate 2.
 
-CLI (run with a venv that can reach the QA agent, e.g. slack-bot/.venv):
+CLI (run with a venv that can reach the QA agent, e.g. platform-runtime/.venv):
     python -m core.coordination.review_package report      # live QA advisory
     python -m core.coordination.review_package report --no-qa
     python -m core.coordination.review_package write       # persist snapshot
@@ -49,13 +49,13 @@ QaFn = Callable[[str, str], Optional[str]]
 def _load_qa_officer() -> Optional[QaFn]:
     """Import the existing QA Validation Officer, fail-open to None.
 
-    Mirrors how slack-bot/commands/mission_lifecycle.py reaches it: put
-    `slack-bot` on the path, then `from lib.mistral_agents import ...`. Any
+    Mirrors how platform-runtime/commands/mission_lifecycle.py reaches it: put
+    `platform-runtime` on the path, then `from lib.mistral_agents import ...`. Any
     failure (missing dep, no agent configured) degrades to None — advisory
     simply reads "unavailable", never blocking.
     """
     try:
-        bot_dir = str(REPO_ROOT / "slack-bot")
+        bot_dir = str(REPO_ROOT / "platform-runtime")
         if bot_dir not in sys.path:
             sys.path.insert(0, bot_dir)
         from lib.mistral_agents import call_qa_validation_officer

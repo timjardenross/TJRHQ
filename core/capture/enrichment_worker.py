@@ -25,7 +25,7 @@ CAPTURE PROMOTION BRIDGE (MSN-0336):
               these classifications reach a real review path they never had.
             → idempotent: captured_items.processing_status='routed',
               summary JSON records promoted_note_id.
-            → run_notebook_pipeline() (slack-bot/lib/notebook/notebook_router.py)
+            → run_notebook_pipeline() (platform-runtime/lib/notebook/notebook_router.py)
               is invoked once per batch afterwards to advance CAPTURED notes
               through the existing pipeline — this worker's already-live
               15-minute timer is now that pipeline's only real trigger
@@ -483,7 +483,7 @@ def _now() -> str:
 # ── Batch runner ──────────────────────────────────────────────────────────────
 
 def _advance_notebook_pipeline(dry_run: bool = False) -> None:
-    """MSN-0336: run_notebook_pipeline() (slack-bot/lib/notebook/
+    """MSN-0336: run_notebook_pipeline() (platform-runtime/lib/notebook/
     notebook_router.py) had ZERO real callers anywhere in the platform
     before this mission -- notes promoted here (or created via the
     existing Notebook web form / Slack /note-capture) would sit at
@@ -500,9 +500,9 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
         # a relative import that needs a real parent package, not just
         # its own directory on sys.path (confirmed by hitting exactly
         # this failure during validation). notebook/ has __init__.py;
-        # add its PARENT (slack-bot/lib) so `notebook.notebook_router`
+        # add its PARENT (platform-runtime/lib) so `notebook.notebook_router`
         # resolves with the correct package context.
-        lib_dir = _REPO_ROOT / "slack-bot" / "lib"
+        lib_dir = _REPO_ROOT / "platform-runtime" / "lib"
         if str(lib_dir) not in sys.path:
             sys.path.insert(0, str(lib_dir))
         from notebook.notebook_router import run_notebook_pipeline  # noqa: PLC0415
@@ -512,7 +512,7 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
         # .eq().execute() chaining) -- this worker's own urllib-only REST
         # helpers don't implement that surface, and hand-rolling a shim
         # risks silently missing a method one of the 3 downstream modules
-        # calls. capture-enrichment.service runs via slack-bot/.venv/bin/
+        # calls. capture-enrichment.service runs via platform-runtime/.venv/bin/
         # python, confirmed to have the real `supabase` package installed.
         from supabase import create_client
         client = create_client(SUPABASE_URL, SUPABASE_KEY)

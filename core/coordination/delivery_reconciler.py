@@ -18,7 +18,7 @@ whole chain. It does NOT fabricate progress (that is the disease). It:
 Read-only by default (`reconcile()` / `report`). Writes only with apply=True
 (`apply` CLI verb). Fully defensive: a dead source degrades to partial output.
 
-CLI (run with a venv that has access to the repo, e.g. slack-bot/.venv):
+CLI (run with a venv that has access to the repo, e.g. platform-runtime/.venv):
     python -m core.coordination.delivery_reconciler report
     python -m core.coordination.delivery_reconciler apply      # writes mechanical fixes
 """
@@ -50,11 +50,11 @@ NEXT_ACTOR = {
 
 
 def _env(key: str, default: str = "") -> str:
-    """Env var, falling back to the repo-root and slack-bot .env files."""
+    """Env var, falling back to the repo-root and platform-runtime .env files."""
     v = os.environ.get(key)
     if v:
         return v
-    for envf in (REPO_ROOT / ".env", REPO_ROOT / "slack-bot" / ".env"):
+    for envf in (REPO_ROOT / ".env", REPO_ROOT / "platform-runtime" / ".env"):
         try:
             for line in envf.read_text(encoding="utf-8").splitlines():
                 if line.startswith(key + "="):

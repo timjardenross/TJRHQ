@@ -9,14 +9,14 @@ that privilege, separately:
     Captain types /approve <id> in Telegram
         → telegram-bot inserts an approval-marker row (source=telegram-approval,
           status=approved) — its ONLY new capability, still INSERT-only.
-        → THIS worker (service_role, slack-bot venv) polls for those markers,
+        → THIS worker (service_role, platform-runtime venv) polls for those markers,
           claims one, writes a run_sync_one-compatible ENG-HANDOFF from the
           canonical BREQ markdown, runs the review-only Mistral coding pass
           (FULL_FILE → draft PR, new files only — same safety policy as the
           Slack approval path), stamps the marker row, and notifies the chat.
 
 Nothing here ever merges code: the patch is a review artifact and any PR is a
-draft. The worker must run with the slack-bot's environment (SERVICE_ROLE key +
+draft. The worker must run with the platform-runtime's environment (SERVICE_ROLE key +
 MISTRAL_API_KEY + GITHUB_TOKEN) and venv (mistralai). See the systemd unit in
 deploy/telegram-build-executor.{service,timer}.
 
@@ -64,12 +64,12 @@ _INBOX_DIR = _REPO_ROOT / "Missions" / "Telegram-Inbox"
 # ─── env ─────────────────────────────────────────────────────────────────────
 
 def _load_env() -> None:
-    """Best-effort load of repo-root .env then slack-bot/.env (local wins is not
-    needed here — we only fill what is absent). Mirrors the slack-bot precedence
+    """Best-effort load of repo-root .env then platform-runtime/.env (local wins is not
+    needed here — we only fill what is absent). Mirrors the platform-runtime precedence
     so the worker sees SERVICE_ROLE / MISTRAL / GITHUB / TELEGRAM tokens."""
     for env_path in (
         _REPO_ROOT / ".env",
-        _REPO_ROOT / "slack-bot" / ".env",       # SERVICE_ROLE / MISTRAL / GITHUB
+        _REPO_ROOT / "platform-runtime" / ".env",       # SERVICE_ROLE / MISTRAL / GITHUB
         _REPO_ROOT / "telegram-bot" / ".env",    # TELEGRAM_BOT_TOKEN (notify)
     ):
         if not env_path.exists():

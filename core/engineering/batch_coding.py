@@ -16,7 +16,7 @@ Two steps (the Batch API is async):
     submit_pending()   queue all PENDING handoffs into one batch job
     collect(job_id)    download finished results → artifacts + mark DELIVERED
 
-CLI (run with a venv that has mistralai, e.g. slack-bot/.venv):
+CLI (run with a venv that has mistralai, e.g. platform-runtime/.venv):
     python -m core.engineering.batch_coding submit  [--limit N] [--dry-run]
     python -m core.engineering.batch_coding status  --job <JOB_ID>
     python -m core.engineering.batch_coding collect --job <JOB_ID>
@@ -232,16 +232,16 @@ def _stamp(path: Path, updates: dict[str, str]) -> None:
 # ─── draft-PR surfacing ───────────────────────────────────────────────────────
 
 def _env_value(key: str) -> str:
-    """Read an env var, falling back to the repo-root .env then slack-bot/.env.
+    """Read an env var, falling back to the repo-root .env then platform-runtime/.env.
 
-    GITHUB_REPO/GITHUB_TOKEN live in slack-bot/.env (alongside the other GitHub
+    GITHUB_REPO/GITHUB_TOKEN live in platform-runtime/.env (alongside the other GitHub
     config), so both files are searched; the live environment wins, then root,
-    then slack-bot. No dependency on python-dotenv.
+    then platform-runtime. No dependency on python-dotenv.
     """
     val = os.getenv(key)
     if val:
         return val
-    for env in (_REPO_ROOT / ".env", _REPO_ROOT / "slack-bot" / ".env"):
+    for env in (_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"):
         if not env.exists():
             continue
         for line in env.read_text(encoding="utf-8").splitlines():
@@ -480,7 +480,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
     PENDING is skipped (``skipped`` reason) so re-approval can't double-deliver.
     """
     # The Slack writer returns a REPO-RELATIVE path, but the bot's cwd is
-    # slack-bot/, not the repo root — resolve relatives against _REPO_ROOT so the
+    # platform-runtime/, not the repo root — resolve relatives against _REPO_ROOT so the
     # handoff is found regardless of where the caller runs from.
     path = Path(handoff_path)
     if not path.is_absolute():

@@ -23,9 +23,9 @@ import pytest
 # ─── Path setup ──────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).parent.parent
-SLACK_BOT_LIB = REPO_ROOT / "slack-bot" / "lib"
+SLACK_BOT_LIB = REPO_ROOT / "platform-runtime" / "lib"
 
-for p in [str(REPO_ROOT), str(SLACK_BOT_LIB), str(REPO_ROOT / "slack-bot")]:
+for p in [str(REPO_ROOT), str(SLACK_BOT_LIB), str(REPO_ROOT / "platform-runtime")]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

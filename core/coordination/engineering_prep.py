@@ -21,7 +21,7 @@ update are mechanical-reconciliation steps deferred to the apply/wiring stage,
 mirroring how `delivery_reconciler` separates report from apply. Nothing here
 mutates a status, a mission, a build record, or the queue.
 
-CLI (run with a venv that can reach GLM, e.g. slack-bot/.venv):
+CLI (run with a venv that can reach GLM, e.g. platform-runtime/.venv):
     python -m core.coordination.engineering_prep report
     python -m core.coordination.engineering_prep report --no-llm
     python -m core.coordination.engineering_prep write

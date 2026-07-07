@@ -124,7 +124,7 @@ class TestQualityScoringUnit:
         """Setup for each test."""
         log.info("\n" + "="*80)
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.quality_scoring_service import QualityScoring, QualityScore
             self.QualityScoring = QualityScoring
             self.QualityScore = QualityScore
@@ -330,7 +330,7 @@ class TestQualityScoringIntegration:
         """Setup for each test."""
         log.info("\n" + "="*80)
         try:
-            sys.path.insert(0, str(Path(__file__).parent.parent / "slack-bot"))
+            sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.quality_scoring_service import QualityScoring
             self.QualityScoring = QualityScoring
         except Exception as e:

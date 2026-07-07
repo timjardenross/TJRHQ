@@ -4,7 +4,7 @@
 #
 # Paperclip is a local project management server (port 3100).
 # Status: OPTIONAL — system operates without Paperclip.
-# To suppress this pane at startup, set PAPERCLIP_ENABLED=false in slack-bot/.env.
+# To suppress this pane at startup, set PAPERCLIP_ENABLED=false in platform-runtime/.env.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -33,7 +33,7 @@ if [ -z "${PAPERCLIP_DIR:-}" ]; then
 fi
 
 # Load .env for PAPERCLIP_ENABLED flag (best-effort — don't fail if missing)
-ENV_FILE="$PROJECT_ROOT/slack-bot/.env"
+ENV_FILE="$PROJECT_ROOT/platform-runtime/.env"
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
@@ -65,7 +65,7 @@ if [ ! -d "$PAPERCLIP_DIR" ]; then
   echo "[WARN] Paperclip directory not found: $PAPERCLIP_DIR"
   echo ""
   echo "Paperclip is an OPTIONAL service. The USS TJR system operates without it."
-  echo "To suppress this message, set PAPERCLIP_ENABLED=false in slack-bot/.env."
+  echo "To suppress this message, set PAPERCLIP_ENABLED=false in platform-runtime/.env."
   echo ""
   echo "To install and configure Paperclip:"
   echo "  1. Install the Paperclip server binary."

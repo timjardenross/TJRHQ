@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "slack-bot"))
+sys.path.insert(0, str(ROOT / "platform-runtime"))
 
 import repository_awareness  # noqa: E402
 

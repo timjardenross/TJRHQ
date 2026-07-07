@@ -28,7 +28,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # Add paths
-slack_bot_lib = Path(__file__).parent.parent / "slack-bot" / "lib"
+slack_bot_lib = Path(__file__).parent.parent / "platform-runtime" / "lib"
 core_coordination = Path(__file__).parent.parent / "core" / "coordination"
 sys.path.insert(0, str(slack_bot_lib))
 sys.path.insert(0, str(core_coordination))
@@ -162,7 +162,7 @@ class TestResearchOutputQualityValidation:
         """Verify: Provider routing logic unchanged (consolidation exclusion only)."""
         log.info("TEST: Provider Routing Logic Unchanged")
 
-        source_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "research_delegator.py"
+        source_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "research_delegator.py"
         with open(source_file) as f:
             content = f.read()
 
@@ -178,7 +178,7 @@ class TestResearchOutputQualityValidation:
         log.info("TEST: B1A Learning Loop Unchanged")
 
         # Check that learning_loop_service.py unchanged
-        learning_loop_file = Path(__file__).parent.parent / "slack-bot" / "lib" / "learning_loop_service.py"
+        learning_loop_file = Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py"
         assert learning_loop_file.exists(), "Learning loop service missing"
 
         # Check that B1A schema file unchanged
@@ -197,7 +197,7 @@ class TestResearchOutputQualityValidation:
 
         files_to_check = [
             Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py",
-            Path(__file__).parent.parent / "slack-bot" / "lib" / "research_delegator.py",
+            Path(__file__).parent.parent / "platform-runtime" / "lib" / "research_delegator.py",
             Path(__file__).parent.parent / "core" / "coordination" / "research_metrics.py",
         ]
 

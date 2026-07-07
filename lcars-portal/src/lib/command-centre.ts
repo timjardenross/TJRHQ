@@ -2,7 +2,7 @@
  * Captain's Chair — command-centre live data (USS-TJR-MSN-CCP-001).
  *
  * Reuse-first: this module adds NO new stores or pipelines. It reads the same
- * Command Memory the slack-bot already populates and reuses the portal's existing
+ * Command Memory the platform-runtime already populates and reuses the portal's existing
  * fetchers (loadHumanSystems, loadDelivery). Every function returns null/empty on
  * failure so callers fall back to the existing mock panels — identical contract to
  * ros-data.ts.

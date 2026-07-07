@@ -27,8 +27,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Add slack-bot/lib to path
-slack_bot_lib = Path(__file__).parent.parent / "slack-bot" / "lib"
+# Add platform-runtime/lib to path
+slack_bot_lib = Path(__file__).parent.parent / "platform-runtime" / "lib"
 sys.path.insert(0, str(slack_bot_lib))
 
 from research_delegator import (

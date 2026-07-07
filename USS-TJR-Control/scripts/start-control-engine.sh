@@ -29,7 +29,7 @@ LOG_FILE="$LOG_DIR/control-engine.log"
 
 # Python environment
 PYTHON_CMD="python3"
-VENV_ACTIVATE="$REPO_ROOT/slack-bot/.venv/bin/activate"
+VENV_ACTIVATE="$REPO_ROOT/platform-runtime/.venv/bin/activate"
 
 # ============================================================================
 # PRE-FLIGHT CHECKS

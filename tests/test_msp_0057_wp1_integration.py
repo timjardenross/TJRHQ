@@ -178,7 +178,7 @@ class TestWP1ResearchMemoryRetrieval:
         """Verify research_command.py can import and use ResearchMemoryRetriever."""
         try:
             # Check if research_command.py imports the retriever
-            research_command_path = project_dir / "slack-bot" / "commands" / "research_command.py"
+            research_command_path = project_dir / "platform-runtime" / "commands" / "research_command.py"
             with open(research_command_path, 'r') as f:
                 content = f.read()
                 assert "ResearchMemoryRetriever" in content, \

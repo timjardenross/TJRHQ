@@ -23,7 +23,7 @@ no status, performs no approval, runs no code. It is read-only and advisory; the
 only thing it persists is an advisory JSON snapshot under the existing
 USS-TJR-Control audit-log tree.
 
-CLI (run with a venv that can reach the repo, e.g. slack-bot/.venv):
+CLI (run with a venv that can reach the repo, e.g. platform-runtime/.venv):
     python -m core.coordination.lifecycle_reconciler report
     python -m core.coordination.lifecycle_reconciler write   # persist advisory snapshot
 """

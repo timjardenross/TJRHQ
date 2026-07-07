@@ -369,7 +369,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _load_dotenv() -> None:
     """Minimal .env loader — no external deps required."""
-    for candidate in [_REPO_ROOT / ".env", _REPO_ROOT / "slack-bot" / ".env"]:
+    for candidate in [_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"]:
         if candidate.exists():
             try:
                 for line in candidate.read_text(encoding="utf-8").splitlines():

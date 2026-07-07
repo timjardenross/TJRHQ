@@ -19,14 +19,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _load_dotenv(repo_root: Path) -> None:
-    for candidate in (repo_root / ".env", repo_root / "slack-bot" / ".env"):
+    for candidate in (repo_root / ".env", repo_root / "platform-runtime" / ".env"):
         if not candidate.exists():
             continue
         try:
             text = candidate.read_text(encoding="utf-8")
         except PermissionError:
             # This worker only needs SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY,
-            # which live in the repo-root .env — slack-bot/.env is a
+            # which live in the repo-root .env — platform-runtime/.env is a
             # different service's secrets file and intentionally not
             # readable by this worker's runtime user. Skip it like a
             # missing candidate rather than crashing the whole load.

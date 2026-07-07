@@ -19,7 +19,7 @@ GOVERNANCE (ADR-013): a triage package is a RECOMMENDATION, not a decision. It
 assigns no status, makes no assignment, performs no approval. Gate 1 stays human:
 Number One recommends, the XO decides. Suggested priority/owner are advisory.
 
-CLI (run with a venv that can reach Supabase/GLM, e.g. slack-bot/.venv):
+CLI (run with a venv that can reach Supabase/GLM, e.g. platform-runtime/.venv):
     python -m core.coordination.triage_package report          # full analysis
     python -m core.coordination.triage_package report --no-llm # skip GLM
     python -m core.coordination.triage_package write
@@ -50,7 +50,7 @@ GlmFn = Callable[[str, str], Optional[str]]  # (title, description) -> analysis 
 
 
 def _slack_path() -> None:
-    bot_dir = str(REPO_ROOT / "slack-bot")
+    bot_dir = str(REPO_ROOT / "platform-runtime")
     if bot_dir not in sys.path:
         sys.path.insert(0, bot_dir)
 
