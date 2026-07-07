@@ -21,6 +21,7 @@ const VALID_NAV_HREFS = [
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
   '/captains-brief', '/delivery', '/automation-centre', '/model-crew',
+  '/physical-readiness',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
@@ -48,6 +49,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Health & Capacity',
     items: [
       { href: '/medical',        label: 'Health Centre',   glyph: '05',  department: 'medical',     description: 'Recovery indexes, pulse, check-in, trends' },
+      { href: '/physical-readiness', label: 'Physical Readiness', glyph: 'PR', department: 'medical', description: 'Adaptive gym session — readiness, generated workout, runner' },
       // MSN-0328 (WP-B): promoted from unreachable — real pages, no nav path to any of them before this.
       { href: '/human-systems',    label: 'Human Systems',    glyph: 'HS', department: 'medical', description: 'Capacity gates, escalation state, recovery debt' },
       { href: '/recovery-brief',   label: 'Recovery Brief',   glyph: 'RB', department: 'medical', description: 'Recovery posture and debt — leverage recommendation' },

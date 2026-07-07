@@ -682,6 +682,17 @@ export default function MedicalPage() {
         <EscalationBanner level={3} label="Health Red Flag" message={escalation} />
       )}
 
+      <Link
+        href="/physical-readiness"
+        className="flex items-center justify-between rounded-lcars border border-edge bg-panel/50 px-4 py-3 hover:border-medical/60"
+      >
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold uppercase tracking-wider text-lcars-text">Physical Readiness</span>
+          <span className="text-[11px] text-lcars-muted">Check in, get a safe gym session in under 60 seconds</span>
+        </span>
+        <span className="text-medical-on">→</span>
+      </Link>
+
       {/* Tab bar */}
       <div className="flex border-b border-edge mb-4 overflow-x-auto">
         {TABS.map((tab) => (
