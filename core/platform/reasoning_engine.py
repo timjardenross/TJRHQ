@@ -54,9 +54,15 @@ def _build_reasoning_prompt(insight: Insight) -> str:
     )
 
 
-def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 30) -> Optional[str]:
+def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> Optional[str]:
     """Real HTTP call. Non-blocking on failure — returns None, never
-    raises, matching insight_engine.py's identical pattern."""
+    raises, matching insight_engine.py's identical pattern.
+
+    timeout default was 30s, found wrong via real production testing
+    (MSN-0329 Phase 5) — see insight_engine.py's own identical fix for
+    the full explanation. Real synthesis takes 50-260s; the actual
+    production call path (build_recommendation()) never passed an
+    override, so every real call silently failed until this fix."""
     try:
         body = json.dumps({"prompt": prompt}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})

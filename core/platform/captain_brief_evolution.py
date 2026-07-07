@@ -70,6 +70,11 @@ def assemble_evolved_captain_brief(
         recommendation = build_recommendation(insight)
         if recommendation is not None:
             doc.recommendations.append(recommendation)
+        # MSN-0329 Phase 5 fix: this call was imported in Phase 4 but
+        # never actually invoked — every real insight was silently NOT
+        # being persisted, found via re-testing before wiring this into
+        # production. Now genuinely wired.
+        record_insight(insight, recommendation)
 
     doc.insights = insights
     return doc

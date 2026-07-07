@@ -88,10 +88,20 @@ def _build_synthesis_prompt(item: Relationship | Conflict) -> str:
     )
 
 
-def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 30) -> Optional[str]:
+def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> Optional[str]:
     """Real HTTP call to the model router's captain-insight-synthesis
     endpoint. Non-blocking on failure — returns None, never raises,
-    matching every other network-dependent call in this platform."""
+    matching every other network-dependent call in this platform.
+
+    timeout default was 30s, found wrong via real production testing
+    (MSN-0329 Phase 5): every actual call through generate_insights()
+    used this default and silently produced zero insights, since real
+    synthesis on this hardware takes 50-260s (MSN-0329 Phase 3's own
+    measured latency) — a 30s client timeout guaranteed failure on
+    every real call, masked in earlier manual testing only because
+    those diagnostic scripts passed timeout=280 explicitly. Now matches
+    the model router's own server-side TASK_POLICY timeout (300s) with
+    a margin."""
     try:
         body = json.dumps({"prompt": prompt}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
