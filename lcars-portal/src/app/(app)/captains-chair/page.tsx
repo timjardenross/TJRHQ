@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
+import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
@@ -724,6 +725,12 @@ export default function CaptainsChairPage() {
 
         {/* ── Recovery panels (live Supabase data via useROSData) ── */}
         <ROSPanels />
+
+        {/* ── MSN-0329 Phase 5: Captain Intelligence (Cognitive Core),
+            first production surface. Outside FleetStatusConditional —
+            generation is an explicit Captain-triggered action, not
+            passive info that should hide during REST/FRAGILE. ── */}
+        <CaptainIntelligencePanel />
 
         {/* ── Fleet section — collapses on FRAGILE/REST per D-055 ── */}
         <FleetStatusConditional posture={currentPosture}>
