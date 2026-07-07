@@ -6,9 +6,11 @@ import { useAlertCount } from '@/lib/useAlerts';
 import type { NavHref } from '@/lib/nav';
 
 /**
- * MobileCommandBar — the five-surface MVP navigation (MSN-IOS-001 WP7).
+ * MobileCommandBar — the Captain-facing MVP navigation (MSN-IOS-001 WP7).
  *
- * Fixed, thumb-friendly bottom tab bar for the five Captain-facing MVP surfaces.
+ * Fixed, thumb-friendly bottom tab bar. This is the ONLY nav rendered on
+ * mobile (LCARSNav and LCARSBottomNav are `lg:`-gated, desktop-only) — a
+ * page not listed here is unreachable from a phone, full stop.
  * Mobile-only (`lg:hidden`) so the existing desktop portal navigation is
  * untouched — no broad redesign, no broken web access. Always mounted, so it is
  * also the single global owner that drives Push-Alert notifications.
@@ -27,6 +29,10 @@ const TABS: Tab[] = [
   { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },
   // MSN-0328 (WP-B): /xo retired (duplicated Advisory Council's XO tab) — points to the real destination directly.
   { href: '/advisory-council', label: 'Advisory', glyph: '✦', active: 'text-science' },
+  // Physical Readiness MVP: without this, /medical (and everything under it,
+  // incl. Physical Readiness) has zero mobile nav path — LCARSNav/LCARSBottomNav
+  // are desktop-only. Mobile is this module's primary use case per spec.
+  { href: '/physical-readiness', label: 'Readiness', glyph: '✚', active: 'text-medical' },
   { href: '/engineering-queue', label: 'Queue', glyph: '⚙', active: 'text-engineering' },
   { href: '/alerts', label: 'Alerts', glyph: '◆', active: 'text-operations' },
 ];
@@ -45,6 +51,7 @@ export function MobileCommandBar() {
         {TABS.map((tab) => {
           const isActive =
             pathname === tab.href ||
+            pathname.startsWith(tab.href + '/') ||
             (tab.href === '/captains-chair' && pathname === '/');
           const isAlerts = tab.href === '/alerts';
           return (
