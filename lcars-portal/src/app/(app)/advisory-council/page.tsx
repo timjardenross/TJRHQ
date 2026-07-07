@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -337,6 +338,12 @@ function ConsultMode() {
   const [loading, setLoading] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
   const [offlineAdvisors, setOfflineAdvisors] = useState<Set<string>>(new Set());
+  // MSN-0335: ported from the now-retired /ai-console, the one real
+  // capability it had that this canonical chat surface didn't --
+  // letting the Captain pick which model handles the conversation,
+  // rather than a fixed backend model per advisor. Not applicable to
+  // XO-endpoint advisors (that endpoint has its own fixed backend).
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -367,7 +374,7 @@ function ConsultMode() {
     const endpoint = activeAdvisor.useXoEndpoint ? '/api/xo' : '/api/ai/chat';
     const body = activeAdvisor.useXoEndpoint
       ? JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })) })
-      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })), role: activeAdvisor.id, stream: true });
+      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })), role: activeAdvisor.id, model: selectedModel, stream: true });
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
@@ -409,7 +416,7 @@ function ConsultMode() {
         setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Error contacting advisor.', error: true }] }));
       }
     } finally { setLoading(false); setStreamBuffer(''); }
-  }, [activeAdvisor, threads, loading]);
+  }, [activeAdvisor, threads, loading, selectedModel]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } };
   const clearThread = () => { setThreads((prev) => { const next = { ...prev }; delete next[activeAdvisor.id]; return next; }); };
@@ -499,6 +506,20 @@ function ConsultMode() {
                 </button>
               ))}
             </div>
+            {!activeAdvisor.useXoEndpoint && (
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Model</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="rounded-lcars border border-edge bg-space px-2 py-1 text-xs text-lcars-text focus:border-science focus:outline-none"
+                >
+                  {AI_MODELS.filter((m) => m.available).map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
               <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
                 placeholder={`Message ${activeAdvisor.label}…`} disabled={loading}
