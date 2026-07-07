@@ -23,7 +23,15 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const [total, inProgress, ocrRequired, failed, needsYourReview, memoryApproved, needsFollowup, rejected] =
+    // MSN-0334: real session-review-progress count for a sustained
+    // review session — "how many decisions have I actually made today",
+    // not just "how many are still waiting". Local-day boundary (server
+    // clock), not UTC, so it lines up with what "today" means to the
+    // Captain reviewing.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [total, inProgress, ocrRequired, failed, needsYourReview, memoryApproved, needsFollowup, rejected, decidedToday] =
       await Promise.all([
         supabase.from('processing_documents').select('id', { count: 'exact', head: true }),
         supabase.from('processing_documents').select('id', { count: 'exact', head: true })
@@ -46,9 +54,11 @@ export async function GET() {
           .eq('review_status', 'awaiting_followup'),
         supabase.from('processing_documents').select('id', { count: 'exact', head: true })
           .eq('review_decision', 'rejected'),
+        supabase.from('processing_documents').select('id', { count: 'exact', head: true })
+          .gte('review_decided_at', startOfToday.toISOString()),
       ]);
 
-    for (const r of [total, inProgress, ocrRequired, failed, needsYourReview, memoryApproved, needsFollowup, rejected]) {
+    for (const r of [total, inProgress, ocrRequired, failed, needsYourReview, memoryApproved, needsFollowup, rejected, decidedToday]) {
       if (r.error) throw r.error;
     }
 
@@ -61,6 +71,7 @@ export async function GET() {
       memory_approved: memoryApproved.count ?? 0,
       needs_followup: needsFollowup.count ?? 0,
       rejected: rejected.count ?? 0,
+      decided_today: decidedToday.count ?? 0,
     };
 
     return NextResponse.json(stats);

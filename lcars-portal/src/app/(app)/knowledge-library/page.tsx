@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { StatTile } from '@/components/StatTile';
@@ -89,7 +90,22 @@ async function fetchJson(input: string, init?: RequestInit): Promise<any> {
   return data;
 }
 
+// MSN-0334: useSearchParams() (added for URL-persisted filters/page/
+// selected document) requires a Suspense boundary in the App Router,
+// or the build fails to prerender this route.
 export default function KnowledgeLibraryPage() {
+  return (
+    <Suspense fallback={<p className="text-xs text-lcars-muted animate-pulse">Loading…</p>}>
+      <KnowledgeLibraryPageInner />
+    </Suspense>
+  );
+}
+
+function KnowledgeLibraryPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [stats, setStats] = useState<KnowledgeLibraryStats | null>(null);
   const [documents, setDocuments] = useState<ProcessingDocument[]>([]);
   const [total, setTotal] = useState(0);
@@ -98,21 +114,32 @@ export default function KnowledgeLibraryPage() {
   const [pageErrorIsAuth, setPageErrorIsAuth] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
-  const [sensitivity, setSensitivity] = useState('');
-  const [status, setStatus] = useState('');
-  const [reviewFilter, setReviewFilter] = useState<'' | 'none' | ReviewDecision>('');
-  const [reviewStatusFilter, setReviewStatusFilter] = useState<'' | ReviewStatus>('');
+  // MSN-0334: filters/page/selected document now read from and written
+  // to the URL, not just component state -- previously a reload or
+  // returning later always reset to page 0 with no filters, no matter
+  // how deep into a review session the Captain was. A shared link also
+  // now reproduces the exact same view.
+  const initialSearch = searchParams.get('q') ?? '';
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch);
+  const [category, setCategory] = useState(searchParams.get('category') ?? '');
+  const [sensitivity, setSensitivity] = useState(searchParams.get('sensitivity') ?? '');
+  const [status, setStatus] = useState(searchParams.get('status') ?? '');
+  const [reviewFilter, setReviewFilter] = useState<'' | 'none' | ReviewDecision>(
+    (searchParams.get('decision') as '' | 'none' | ReviewDecision) ?? '');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<'' | ReviewStatus>(
+    (searchParams.get('review_status') as '' | ReviewStatus) ?? '');
 
   // MSN-0331: 795 documents at awaiting_review made the old 50/page
   // default with no page controls a real visibility gap — only the
   // newest 50 were ever reachable without hand-editing the URL.
   const PAGE_SIZE = 100;
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => {
+    const p = Number(searchParams.get('page'));
+    return Number.isFinite(p) && p >= 0 ? p : 0;
+  });
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('doc'));
   const [detail, setDetail] = useState<ProcessingDocument | null>(null);
   const [chunkPreview, setChunkPreview] = useState<ProcessingChunk[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -170,8 +197,33 @@ export default function KnowledgeLibraryPage() {
   }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter, page]);
 
   // Any filter change invalidates the current page and the batch
-  // selection (checked IDs may no longer even be in view).
-  useEffect(() => { setPage(0); setCheckedIds(new Set()); }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter]);
+  // selection (checked IDs may no longer even be in view). Skips the
+  // very first render — the initial filter values themselves came from
+  // the URL (MSN-0334), including a possibly-nonzero page, and this
+  // effect would otherwise stomp that restored page back to 0 before
+  // the Captain ever saw it.
+  const isFirstFilterEffect = useRef(true);
+  useEffect(() => {
+    if (isFirstFilterEffect.current) { isFirstFilterEffect.current = false; return; }
+    setPage(0); setCheckedIds(new Set());
+  }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter]);
+
+  // MSN-0334: mirror current view state into the URL so a reload or a
+  // later return (or a shared link) reproduces exactly what the Captain
+  // was looking at — filters, page, and which document was open.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('q', search);
+    if (category) params.set('category', category);
+    if (sensitivity) params.set('sensitivity', sensitivity);
+    if (status) params.set('status', status);
+    if (reviewFilter) params.set('decision', reviewFilter);
+    if (reviewStatusFilter) params.set('review_status', reviewStatusFilter);
+    if (page > 0) params.set('page', String(page));
+    if (selectedId) params.set('doc', selectedId);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter, page, selectedId, router, pathname]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
@@ -233,6 +285,41 @@ export default function KnowledgeLibraryPage() {
       setTimeout(() => setFlash(null), 4000);
     }
   }, [loadStats]);
+
+  // MSN-0334: keyboard shortcuts for a sustained review session — every
+  // decision previously required reaching for the mouse. Ignored while
+  // typing in any text field (search box, reason input) so normal
+  // typing (e.g. the letter "a") never misfires a decision.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (!selectedId || documents.length === 0) return;
+
+      if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const idx = documents.findIndex((d) => d.id === selectedId);
+        if (idx >= 0 && idx < documents.length - 1) setSelectedId(documents[idx + 1].id);
+        return;
+      }
+      if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const idx = documents.findIndex((d) => d.id === selectedId);
+        if (idx > 0) setSelectedId(documents[idx - 1].id);
+        return;
+      }
+
+      const canDecideNow = !!detail && detail.id === selectedId && !reasonFor
+        && detail.review_status !== 'resolved' && detail.review_status !== 'rejected'
+        && detail.status === 'awaiting_review' && acting !== detail.id;
+      if (!canDecideNow) return;
+
+      if (e.key === 'a') { e.preventDefault(); decide(selectedId, 'approved_chunks'); }
+      else if (e.key === 'm') { e.preventDefault(); decide(selectedId, 'approved_metadata'); }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedId, documents, detail, reasonFor, acting, decide]);
 
   // MSN-0331: applies one decision to every checked document in one
   // Captain action. Reuses the same /decide semantics per-document
@@ -316,11 +403,15 @@ export default function KnowledgeLibraryPage() {
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
               Your Review Queue — needs a decision from you
             </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <StatTile label="Needs Your Review" value={stats?.needs_your_review ?? '—'} accent="command" />
               <StatTile label="Needs Follow-Up" value={stats?.needs_followup ?? '—'} accent="command" />
               <StatTile label="Approved to Memory" value={stats?.memory_approved ?? '—'} accent="medical" />
               <StatTile label="Rejected" value={stats?.rejected ?? '—'} accent="operations" />
+              {/* MSN-0334: sustained-review-session progress -- previously
+                  nothing showed how much ground was actually covered in a
+                  session, only how much remained. */}
+              <StatTile label="Reviewed Today" value={stats?.decided_today ?? '—'} accent="science" />
             </div>
           </div>
         </div>
@@ -556,6 +647,7 @@ export default function KnowledgeLibraryPage() {
           <LCARSPanel
             title="Document Detail"
             accent="medical"
+            eyebrow="j/k or ↓/↑ next-prev · a approve · m metadata-only"
             className="lg:w-[420px]"
             actions={(
               <button

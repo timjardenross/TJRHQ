@@ -511,6 +511,7 @@ export interface KnowledgeLibraryStats {
   memory_approved: number;
   needs_followup: number; // USS-TJR-MSN-0206J-1: review_status = 'awaiting_followup'
   rejected: number;
+  decided_today: number; // MSN-0334: review_decided_at falls on today's date — session review progress
 }
 
 /**
