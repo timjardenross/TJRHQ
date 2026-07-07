@@ -18,6 +18,20 @@ def collection_for(path: str) -> str:
     return parts[0] if parts else "Unknown"
 
 
+# MSN-0333: real, active leak found by audit -- this export crosses the
+# platform's own boundary into a third-party system (Notion), so it must
+# never sync a sensitive/restricted document, regardless of what any
+# in-platform RLS/retrieval policy eventually does (this script runs via
+# SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS by default -- an RLS
+# policy alone would not have stopped this). Filtered client-side, not
+# via a PostgREST `not.in` filter: that operator silently excludes NULL
+# rows too (SQL three-valued logic), which would have dropped the 237 of
+# 257 documents that predate the Knowledge Library's sensitivity field
+# entirely (ingested via a different path, sensitivity never applicable)
+# -- confirmed by testing against the real table before trusting it.
+_EXCLUDED_SENSITIVITY = {"sensitive", "restricted"}
+
+
 def records(limit: int | None = None) -> list[dict[str, object]]:
     client = SupabaseClient()
     rows = client.select(
@@ -25,6 +39,13 @@ def records(limit: int | None = None) -> list[dict[str, object]]:
         "id,title,source_path,document_type,metadata,updated_at",
         limit=limit,
     )
+    visible = [
+        row for row in rows
+        if (row.get("metadata") or {}).get("sensitivity") not in _EXCLUDED_SENSITIVITY
+    ]
+    skipped = len(rows) - len(visible)
+    if skipped:
+        print(f"Knowledge Assets sync: excluding {skipped} sensitive/restricted document(s) from Notion export.")
     return [
         {
             "source_id": row["source_path"],
@@ -38,7 +59,7 @@ def records(limit: int | None = None) -> list[dict[str, object]]:
                 "URL": url(None),
             },
         }
-        for row in rows
+        for row in visible
     ]
 
 
