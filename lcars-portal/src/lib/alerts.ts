@@ -123,6 +123,50 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
   } catch {
     /* degrade silently — no alert better than a false alert */
   }
+
+  // MSN-0335: folded in from the now-retired duplicate check in
+  // /api/proactive-signals — a real pain-trend average genuinely passes
+  // this file's own "why now" bar (unlike that route's staleness/log-gap
+  // checks, which are hygiene reminders, not urgent alerts — kept
+  // separate, not merged here).
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('recovery_pulses')
+        .select('pain_score, captured_at')
+        .order('captured_at', { ascending: false })
+        .limit(5);
+      if (data && data.length > 0) {
+        const avg = data.reduce((sum: number, r: { pain_score: number | null }) => sum + (r.pain_score ?? 0), 0) / data.length;
+        if (avg > 8) {
+          out.push({
+            id: 'wellness-pain-critical',
+            kind: 'wellness',
+            severity: 'critical',
+            title: 'Pain critically high',
+            detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 8).`,
+            why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
+            href: '/medical',
+            at: nowIso(),
+          });
+        } else if (avg > 6) {
+          out.push({
+            id: 'wellness-pain-elevated',
+            kind: 'wellness',
+            severity: 'high',
+            title: 'Pain trend elevated',
+            detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 6).`,
+            why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
+            href: '/medical',
+            at: nowIso(),
+          });
+        }
+      }
+    } catch {
+      /* degrade */
+    }
+  }
+
   return out;
 }
 

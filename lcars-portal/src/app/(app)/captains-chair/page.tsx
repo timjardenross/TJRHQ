@@ -728,14 +728,15 @@ export default function CaptainsChairPage() {
         {/* ── Recovery panels (live Supabase data via useROSData) ── */}
         <ROSPanels />
 
-        {/* ── MSN-0334: real, working "what needs my attention" engine
-            (blocked >7d, stalled >14d, review >48h, log-gap >3d) that had
-            zero real callers anywhere in the platform -- its first actual
-            usage. Distinct from AlertsSidebar (different thresholds, a
-            separate engine — not reconciled this pass, disclosed as
-            future work) so it's labelled clearly rather than presented as
-            the same thing. ── */}
-        <LCARSPanel title="Proactive Signals" accent="command" eyebrow="Blocked, stalled, and overdue — checked automatically">
+        {/* ── MSN-0335: renamed from "Proactive Signals" — investigation
+            found the real duplicate with AlertsSidebar (blocked missions,
+            pain-trend) was exactly 2 checks, now merged into alerts.ts as
+            the one authoritative urgent-alert engine. What remains here
+            (stalled >14d, review >48h, log-gap >3d, recovery-pulse-gap)
+            is genuinely a different KIND of signal — operational hygiene
+            reminders, not urgent "why now" alerts — so it's named and
+            framed as that, not a second competing attention engine. ── */}
+        <LCARSPanel title="Operational Hygiene" accent="command" eyebrow="Stalled, overdue, and quietly drifting — not urgent, worth a look">
           <ProactiveSignals />
         </LCARSPanel>
 

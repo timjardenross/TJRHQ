@@ -3,6 +3,15 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+// MSN-0335: deliberately scoped to genuine operational HYGIENE
+// reminders only (staleness, log gaps, tracking gaps) -- not urgent
+// "why now" alerts. 2 checks that were real duplicates of
+// lib/alerts.ts's own urgent-alert engine (blocked missions with no
+// age gate; pain-trend average) were removed here and folded into
+// alerts.ts, the one authoritative urgent-alert engine. What remains
+// answers a genuinely different question ("what's been quietly
+// drifting") than AlertsSidebar's "what needs action right now".
+
 type Severity = 'critical' | 'high' | 'medium';
 
 interface Signal {
@@ -25,29 +34,7 @@ export async function GET() {
 
   const signals: Signal[] = [];
 
-  // 1. BLOCKED missions older than 7 days
-  try {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await supabase
-      .from('missions')
-      .select('mission_id, title, updated_at')
-      .eq('status', 'BLOCKED')
-      .lt('updated_at', cutoff);
-    if (data) {
-      for (const m of data) {
-        signals.push({
-          id: `blocked-${m.mission_id}`,
-          severity: 'high',
-          category: 'Mission',
-          title: 'Blocked mission stalled',
-          detail: `"${m.title}" has been BLOCKED for over 7 days.`,
-          mission_id: m.mission_id,
-        });
-      }
-    }
-  } catch {}
-
-  // 2. Active missions stalled > 14 days
+  // 1. Active missions stalled > 14 days
   try {
     const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
@@ -69,36 +56,7 @@ export async function GET() {
     }
   } catch {}
 
-  // 3 & 4. Pain trend from last 5 recovery_pulses
-  try {
-    const { data } = await supabase
-      .from('recovery_pulses')
-      .select('pain_score, captured_at')
-      .order('captured_at', { ascending: false })
-      .limit(5);
-    if (data && data.length > 0) {
-      const avg = data.reduce((sum, r) => sum + (r.pain_score ?? 0), 0) / data.length;
-      if (avg > 8) {
-        signals.push({
-          id: 'pain-critical',
-          severity: 'critical',
-          category: 'Health',
-          title: 'Pain critically high',
-          detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 8).`,
-        });
-      } else if (avg > 6) {
-        signals.push({
-          id: 'pain-elevated',
-          severity: 'high',
-          category: 'Health',
-          title: 'Pain trend elevated',
-          detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 6).`,
-        });
-      }
-    }
-  } catch {}
-
-  // 5. Most recent captain's log older than 3 days
+  // 2. Most recent captain's log older than 3 days
   try {
     const { data } = await supabase
       .from('captains_log_entries')
@@ -128,7 +86,7 @@ export async function GET() {
     }
   } catch {}
 
-  // 6. REVIEW missions older than 48 hours
+  // 3. REVIEW missions older than 48 hours
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
@@ -150,7 +108,7 @@ export async function GET() {
     }
   } catch {}
 
-  // 7. No recovery_pulses in last 48 hours
+  // 4. No recovery_pulses in last 48 hours
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
