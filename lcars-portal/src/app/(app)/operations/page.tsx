@@ -324,7 +324,7 @@ export default function OperationsPage() {
         eyebrow="Captured Items · Decisions · Command Stream"
       >
         <p className="text-xs text-lcars-muted">
-          Items captured from Slack, URLs, and other sources — plus the live decision log and recent command stream events.
+          Items captured from Quick Capture, Telegram, and other sources — plus the live decision log and recent command stream events.
         </p>
         <p className="mt-2 text-[10px] uppercase tracking-wider text-lcars-muted">
           {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}

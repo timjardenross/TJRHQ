@@ -119,7 +119,6 @@ from commands.memory_queries import (
 )
 # WP8: Context Assembly Captain Brief + Operating Picture
 from commands.resilience_brief import handle_resilience_brief
-from commands.note_capture import handle_note_capture
 from commands.captain_brief import (
     fetch_and_format_captain_brief,
     fetch_and_format_operating_picture,
@@ -947,15 +946,6 @@ if app:
                 respond(f"*DECISION LOG — ERROR*\n\n`{type(exc).__name__}` — check runtime logs.")
 
         threading.Thread(target=_run, daemon=True).start()
-
-    # /note — Captain's Notebook quick capture (EXEC-010C WP4)
-    from commands.note_capture import register as _register_note_capture
-    try:
-        from tools.supabase.client import CommanderSupabaseClient as _CmdSupa
-        _note_supa = _CmdSupa().raw_client
-    except Exception:
-        _note_supa = None
-    _register_note_capture(app, _note_supa)
 
     @app.command("/build")
     def handle_build_slash(ack, respond, command, client):

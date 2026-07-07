@@ -30,7 +30,7 @@ const SEVERITY_TIERS = [
 
 const DELIVERY_CHANNELS = [
   { name: 'Telegram', description: 'XO Bot (reused token)', status: 'Configured' },
-  { name: 'Slack', description: "Captain's Brief channel", status: 'Configured' },
+  { name: 'Slack', description: "Captain's Brief channel — bot retired (MSN-0337)", status: 'Retired' },
   { name: 'In-App', description: 'Command Centre bell', status: 'Active' },
 ];
 
