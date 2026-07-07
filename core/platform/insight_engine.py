@@ -109,6 +109,20 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
         return None
 
 
+def strip_markdown_json_fence(text: str) -> str:
+    """MSN-0329 Phase 3 finding (real production model call, 2026-07-07):
+    despite an explicit "ONLY a JSON object, no other text" instruction,
+    mistral-small3.2:24b wrapped its response in a ```json ... ``` code
+    fence. Strips a leading/trailing fence if present; a response with
+    no fence is returned unchanged."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else t[3:]
+        if t.rstrip().endswith("```"):
+            t = t.rstrip()[:-3]
+    return t.strip()
+
+
 def _parse_insight_response(
     raw_text: Optional[str],
     item: Relationship | Conflict,
@@ -120,7 +134,7 @@ def _parse_insight_response(
     if not raw_text:
         return None
     try:
-        data = json.loads(raw_text.strip())
+        data = json.loads(strip_markdown_json_fence(raw_text))
     except json.JSONDecodeError:
         log.warning("[insight-engine] response was not valid JSON, discarding: %r", raw_text[:200])
         return None
@@ -183,4 +197,4 @@ def generate_insights(
     return insights
 
 
-__all__ = ["Insight", "generate_insights"]
+__all__ = ["Insight", "generate_insights", "strip_markdown_json_fence"]

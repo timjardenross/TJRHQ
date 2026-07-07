@@ -80,19 +80,24 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
     "intelligence-brief":    {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
-    # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine
-    # (not yet built — this is plumbing only). Same tier as intelligence-brief:
-    # infrequent, quality-sensitive, not latency-sensitive. Per the Captain's
-    # resolved hybrid design, this call synthesizes cross-domain meaning ONLY
-    # over items the deterministic Attention/Priority gate already surfaced —
-    # it never decides surfacing itself.
-    "captain-insight-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
+    # Same tier as intelligence-brief: infrequent, quality-sensitive, not
+    # latency-sensitive. Per the Captain's resolved hybrid design, this
+    # call synthesizes cross-domain meaning ONLY over items the
+    # deterministic Attention/Priority gate already surfaced — it never
+    # decides surfacing itself. num_predict added MSN-0329 Phase 3 (real
+    # production call, 2026-07-07): the unbounded default let a real
+    # mistral-small3.2:24b response run past its own JSON object before
+    # finishing, producing an unparseable truncated response — same
+    # failure mode this file's own summarise-document entry already
+    # documents for a different task_type.
+    "captain-insight-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300, "num_predict": 400},
     # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
     # captain-insight-synthesis (different prompt/purpose) so the call
     # log stays distinguishable, matching this file's own established
     # convention (see classify-document vs summarise-note's comment).
     # Consumes a Step 3 Insight, never the raw event stream directly.
-    "captain-reasoning-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    "captain-reasoning-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300, "num_predict": 400},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
     "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},

@@ -23,7 +23,7 @@ import urllib.request
 from typing import Optional
 
 from core.platform.captain_brief_contract import Recommendation
-from core.platform.insight_engine import Insight
+from core.platform.insight_engine import Insight, strip_markdown_json_fence
 
 log = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def _parse_reasoning_response(raw_text: Optional[str], insight: Insight) -> Opti
     if not raw_text:
         return None
     try:
-        data = json.loads(raw_text.strip())
+        data = json.loads(strip_markdown_json_fence(raw_text))
     except json.JSONDecodeError:
         log.warning("[reasoning-engine] response was not valid JSON, discarding: %r", raw_text[:200])
         return None
