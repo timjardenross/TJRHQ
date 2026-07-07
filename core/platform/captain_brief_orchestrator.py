@@ -53,6 +53,13 @@ _DOMAIN_SECTION_MAP: dict[str, str] = {
     "mission-lifecycle": "operational_intelligence",
     "engineering-delivery": "engineering",
     "strategic-planning": "operational_intelligence",
+    # MSN-0329 Phase 4: Knowledge/Research had zero real emitter at all
+    # (unlike research-learning above, a dead mapping with no caller) —
+    # mapped to "learning", matching this platform's own existing
+    # convention that Knowledge and Learning share one officer
+    # attribution ("Knowledge / Learning Loop", daily_brief.py).
+    "knowledge": "learning",
+    "research": "learning",
 }
 
 _WARNING_RISK_THRESHOLD = 60.0  # PriorityScore.risk_score above this is surfaced as a warning, not just ranked

@@ -22,6 +22,13 @@ events in, same `AttentionDecision`s out — so this is a real but
 harmless duplication of computation, not a correctness risk. Left
 as-is rather than refactoring the orchestrator's internals, which
 would carry more regression risk than the inefficiency it removes.
+
+MSN-0329 Phase 4: every generated Insight/Recommendation pair is now
+also persisted via `insight_outcomes.record_insight()` — the durable
+history Phase 4's continuous-measurement/evidence-based-tuning/
+confidence-scoring objectives all require. Non-blocking, matches this
+module's own graceful-degradation guarantee: a failed persist never
+affects the returned document.
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ from typing import Any, Optional
 from core.platform.attention_engine import evaluate_batch
 from core.platform.captain_brief_orchestrator import CaptainBriefDocument, assemble_captain_brief_document
 from core.platform.insight_engine import generate_insights
+from core.platform.insight_outcomes import record_insight
 from core.platform.operational_state_model import assemble_operational_state
 from core.platform.reasoning_engine import build_recommendation
 from core.platform.understanding_engine import build_understanding

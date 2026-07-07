@@ -169,6 +169,25 @@ def ingest(paths: list[str], dry_run: bool) -> None:
         client.insert("document_chunks", chunk_rows)
         print(f"Loaded {relative} as {doc_type} with {len(chunk_rows)} chunks.")
 
+        # MSN-0329 Phase 4: canonical Captain Brief pipeline event — the
+        # Knowledge domain's one real choke point (every ingested/updated
+        # document funnels through this upsert). Non-blocking, matches
+        # publish_event()'s own contract.
+        try:
+            import sys as _sys
+            from pathlib import Path as _Path
+            _repo_root = _Path(__file__).resolve().parents[2]
+            if str(_repo_root) not in _sys.path:
+                _sys.path.insert(0, str(_repo_root))
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "knowledge.document_ingested", domain="knowledge",
+                source="ingest-knowledge", linked_documents=[document["id"]],
+                recommended_action=relative,
+            )
+        except Exception:
+            pass
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)

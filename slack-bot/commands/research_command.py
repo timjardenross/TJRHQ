@@ -897,6 +897,20 @@ def _persist_research_memory(result, user_id: str | None) -> None:
             result.mission_id,
             query_hash[:8],
         )
+
+        # MSN-0329 Phase 4: canonical Captain Brief pipeline event —
+        # the Research domain's one real choke point. Non-blocking,
+        # matches publish_event()'s own contract.
+        try:
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "research.memory_persisted", domain="research",
+                source="slack-bot:research_command",
+                confidence=round(float(result.confidence or 0.0) * 100) if result.confidence else None,
+                recommended_action=result.recommendation or None,
+            )
+        except Exception:
+            pass
     except Exception as exc:
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
 
