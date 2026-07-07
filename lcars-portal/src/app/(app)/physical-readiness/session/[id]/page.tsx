@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { publishEvent } from '@/lib/core-events';
 import {
   makeEasier,
   makeShorter,
@@ -257,31 +256,35 @@ export default function WorkoutRunnerPage() {
       })
       .eq('id', sessionRow.id);
 
-    await publishEvent(supabase, {
-      eventType: 'physical_readiness.workout_completed',
-      domain: 'physical-readiness',
-      source: 'lcars-portal/physical-readiness',
-      metrics: {
-        session_type: sessionRow.session_type,
-        duration_minutes: durationMinutes,
-        completion_status: status,
-        energy_before: readinessInput?.energyState ?? null,
-        energy_after: energyAfter || null,
-        pain_before: readinessInput
-          ? {
-              back_pain: readinessInput.backPain,
-              knee_pain: readinessInput.kneePain,
-              ankle_pain: readinessInput.anklePain,
-              neck_shoulder_pain: readinessInput.neckShoulderPain,
-              general_pain: readinessInput.generalPain,
-            }
-          : null,
-        pain_after: { back_pain: painAfterBack, general_pain: painAfterGeneral },
-        exercises_completed: completedCount,
-        exercises_skipped: skippedCount,
-        notes: completionNotes || null,
-      },
-    });
+    // core_events has RLS with no anon/authenticated policies (service_role
+    // only) — must go through a server route, not the browser client.
+    await fetch('/api/physical-readiness/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionType: sessionRow.session_type,
+        metrics: {
+          session_type: sessionRow.session_type,
+          duration_minutes: durationMinutes,
+          completion_status: status,
+          energy_before: readinessInput?.energyState ?? null,
+          energy_after: energyAfter || null,
+          pain_before: readinessInput
+            ? {
+                back_pain: readinessInput.backPain,
+                knee_pain: readinessInput.kneePain,
+                ankle_pain: readinessInput.anklePain,
+                neck_shoulder_pain: readinessInput.neckShoulderPain,
+                general_pain: readinessInput.generalPain,
+              }
+            : null,
+          pain_after: { back_pain: painAfterBack, general_pain: painAfterGeneral },
+          exercises_completed: completedCount,
+          exercises_skipped: skippedCount,
+          notes: completionNotes || null,
+        },
+      }),
+    }).catch(() => { /* non-blocking, matches publishEvent's own contract */ });
 
     setSaving(false);
     setPhase('done');
