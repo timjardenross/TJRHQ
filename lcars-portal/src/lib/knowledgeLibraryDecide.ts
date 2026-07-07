@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assignRetentionPolicy } from '@/lib/retentionPolicy';
 import { assignCategory } from '@/lib/categoryPropagation';
-import { publishEvent } from '@/lib/core-events';
+import { publishEventServerSide } from '@/lib/core-events';
 import type { ReviewDecision, ReviewStatus } from '@/lib/types';
 
 // MSN-0331: extracted verbatim from the single-document decide route
@@ -195,7 +195,10 @@ export async function decideDocument(
   // MSN-0330: canonical Captain Brief pipeline event — moved here
   // unchanged from the single-document route so the batch route gets
   // it too, for free, without a second copy of this call.
-  await publishEvent(supabase, {
+  // Service-role wrapper: core_events RLS denies the anon/SSR `supabase`
+  // client used above for the processing_documents update (silent-failure
+  // bug, fixed) -- must not reuse it here.
+  await publishEventServerSide({
     eventType: 'knowledge.document_review_decided',
     domain: 'knowledge',
     source: 'lcars-portal:knowledge-library-decide',

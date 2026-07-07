@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { publishMissionEvent } from '@/lib/core-events';
+import { publishMissionEventServerSide } from '@/lib/core-events';
 
 // MSN-0175: Statuses eligible for captain approval
 const APPROVAL_ELIGIBLE = [
@@ -70,8 +70,10 @@ export async function POST(
       evidence:   JSON.stringify({ decision: 'approve', source }),
     }); } catch { /* non-fatal */ } })();
 
-    // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts
-    void publishMissionEvent(supabase, {
+    // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts.
+    // Service-role wrapper: core_events RLS denies the anon/SSR `supabase`
+    // client above, so this must NOT reuse it (silent-failure bug, fixed).
+    void publishMissionEventServerSide({
       eventType: 'mission.approved', missionId: mission.mission_id,
       fromStatus: prevStatus, toStatus: 'Approved', source,
     });

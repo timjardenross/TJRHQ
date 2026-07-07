@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { publishEvent } from '@/lib/core-events';
+import { publishEventServerSide } from '@/lib/core-events';
 
 /**
- * core_events has RLS enabled with zero policies (migration 0055: "service_role
- * bypasses; no public read/write"). The browser anon client and the SSR
- * authenticated-cookie client both get denied — publishEvent() swallows that
- * silently by design, so the workout-completion event never lands if called
- * client-side. This route is server-only so it can use the service-role key.
+ * core_events has RLS enabled with zero anon/authenticated policies
+ * (migration 0055: "service_role bypasses; no public read/write"). This
+ * route exists purely so the workout runner (browser, anon key) can reach
+ * a server context that publishEventServerSide() can use to build a
+ * service-role client — see lib/core-events.ts / lib/supabase-service-role.ts.
  */
-function getServiceRoleSupabase() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
-}
-
 export async function POST(request: NextRequest) {
   let body: { sessionType?: string; metrics?: Record<string, unknown> } = {};
   try {
@@ -26,13 +20,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'sessionType and metrics required' }, { status: 400 });
   }
 
-  const supabase = getServiceRoleSupabase();
-  await publishEvent(supabase, {
+  const result = await publishEventServerSide({
     eventType: 'physical_readiness.workout_completed',
     domain: 'physical-readiness',
     source: 'lcars-portal/physical-readiness',
     metrics: body.metrics,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: result.ok, error: result.error });
 }
