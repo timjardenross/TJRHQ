@@ -10,9 +10,27 @@ HYBRID AUTO-ROUTE INVARIANTS (MSN-0200-P2B):
             → appends raw_text to today's captains_log_entries.overall_note
             → marks processing_status='routed', review_status='actioned'
             → sends Telegram XO confirmation
-  FORBIDDEN (hard invariant — never auto-route regardless of confidence):
-            mission | decision | research | project | build_request | unclassified
-            → these ALWAYS stay in the inbox for Captain review
+  FORBIDDEN (hard invariant — never auto-route DIRECTLY TO A FINAL
+  DESTINATION regardless of confidence):
+            unclassified
+            → stays in the inbox for Captain review, no path anywhere else.
+
+CAPTURE PROMOTION BRIDGE (MSN-0336):
+  mission | decision | research | reference + confidence >= 0.5
+            → promoted into intelligence_notes (status=CAPTURED), entering
+              the existing Notebook officer-triage pipeline — NOT a final
+              destination, a Captain-supervised staging step. The MSN-0200-P2B
+              invariant above is about skipping Captain review entirely;
+              promotion into triage does not skip it, it's what finally lets
+              these classifications reach a real review path they never had.
+            → idempotent: captured_items.processing_status='routed',
+              summary JSON records promoted_note_id.
+            → run_notebook_pipeline() (slack-bot/lib/notebook/notebook_router.py)
+              is invoked once per batch afterwards to advance CAPTURED notes
+              through the existing pipeline — this worker's already-live
+              15-minute timer is now that pipeline's only real trigger
+              anywhere in the platform (confirmed zero other callers before
+              this mission).
 
 Usage:
     python enrichment_worker.py               # process up to 10 pending items
@@ -63,11 +81,23 @@ TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 VALID_CLASSIFICATIONS = {"reference", "mission", "personal", "research", "decision", "unclassified"}
 VALID_IMPORTANCES     = {"low", "medium", "high"}
 
-# Hard invariant: these classifications NEVER auto-route regardless of confidence
-_NEVER_AUTO_ROUTE = {"mission", "decision", "research", "unclassified"}
+# Hard invariant: only 'unclassified' never gets a path anywhere (MSN-0336
+# narrowed this from the original {mission, decision, research, unclassified}
+# now that the other three have a real, Captain-supervised triage path).
+_NEVER_AUTO_ROUTE = {"unclassified"}
 
-# Minimum confidence for personal auto-route
+# Minimum confidence for personal auto-route (skips triage entirely -- a
+# higher bar than promotion, since nothing reviews it before it lands in
+# the log).
 AUTO_ROUTE_MIN_CONFIDENCE = 0.85
+
+# MSN-0336: minimum confidence to promote into intelligence_notes for
+# officer triage. Lower than AUTO_ROUTE_MIN_CONFIDENCE deliberately --
+# a wrong promotion costs a human a few seconds reviewing a bad triage
+# candidate; a wrong direct auto-route costs a real captains_log_entries
+# write. The two paths carry different risk, so they carry different bars.
+PROMOTION_MIN_CONFIDENCE = 0.5
+_PROMOTABLE = {"mission", "decision", "research", "reference"}
 
 SYSTEM_PROMPT = """You are a capture classification assistant for USS TJR personal command system.
 The Captain uses this system to log quick thoughts, voice notes, missions, health signals, and decisions.
@@ -127,6 +157,24 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
     )
     with urllib.request.urlopen(req, timeout=10):
         pass
+
+
+def _sb_insert(table: str, record: dict) -> dict:
+    """MSN-0336: insert helper -- this file previously only ever needed
+    get/patch (route within existing rows); the promotion bridge needs to
+    create a new intelligence_notes row. Returns the inserted row."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set")
+    payload = json.dumps(record).encode()
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/{table}",
+        data=payload,
+        method="POST",
+        headers={**_sb_headers(), "Content-Length": str(len(payload))},
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        rows = json.loads(resp.read())
+    return rows[0] if rows else {}
 
 
 # ── Ollama helper ─────────────────────────────────────────────────────────────
@@ -268,6 +316,84 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
     return True
 
 
+def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = False) -> bool:
+    """MSN-0336: Capture Promotion Bridge. Promotes a mission/decision/
+    research/reference-classified captured_item into intelligence_notes
+    (status=CAPTURED), entering the existing Notebook officer-triage
+    pipeline. Idempotent (captured_items.processing_status='routed' is
+    checked by the caller's query filter, matching _auto_route_personal's
+    own convention exactly). Returns True on success."""
+    item_id  = item["id"]
+    raw_text = (item.get("raw_text") or item.get("title") or "").strip()
+
+    log.info("[%s] Promoting → intelligence_notes (classification=%s)", item_id[:8], suggestion["classification"])
+
+    if dry_run:
+        print(f"[promote DRY RUN] Would create intelligence_notes row for {item_id}: {raw_text[:80]}")
+        return True
+
+    promoted_at = _now()
+    # Provenance envelope (MSN-0336 objective 3) -- every fact available
+    # on the source captured_item, since intelligence_notes had no
+    # metadata column at all before this mission (migration 0067).
+    provenance = {
+        "captured_item_id":  item_id,
+        "source_channel":    item.get("source_type"),
+        "source_channel_id": item.get("source_channel_id"),
+        "captured_at":       item.get("captured_at"),
+        "captured_by":       item.get("captured_by") or item.get("source_user_id"),
+        "promoted_at":       promoted_at,
+        "promotion_reason":  f"classification={suggestion['classification']} confidence={suggestion['confidence']:.2f}",
+    }
+
+    try:
+        note = _sb_insert("intelligence_notes", {
+            "title":       (item.get("title") or raw_text[:80]).strip(),
+            "raw_content": raw_text,
+            "source":      f"capture:{item.get('source_type') or 'unknown'}",
+            "tags":        [suggestion["classification"]],
+            "status":      "CAPTURED",
+            "classification": suggestion["classification"],
+            "confidence_score": suggestion["confidence"],
+            "metadata":    provenance,
+        })
+    except Exception as exc:
+        log.error("[%s] Failed to create intelligence_notes row: %s", item_id[:8], exc)
+        return False
+
+    note_id = note.get("id")
+
+    # Mark captured_item as routed (same idempotency convention as
+    # _auto_route_personal -- the caller's query filter on
+    # processing_status='pending' means this row is never picked up again).
+    try:
+        existing_summary = _safe_parse_summary(item.get("summary"))
+        updated_summary = {
+            **existing_summary,
+            "auto_routed":       True,
+            "auto_route_target": "intelligence_notes",
+            "auto_route_at":     promoted_at,
+            "promoted_note_id":  note_id,
+        }
+        _sb_patch("captured_items", {"id": item_id}, {
+            "processing_status": "routed",
+            "review_status":     "actioned",
+            "summary":           json.dumps(updated_summary),
+        })
+    except Exception as exc:
+        log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
+        return False
+
+    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    confidence_pct = int(suggestion.get("confidence", 0) * 100)
+    _send_telegram_confirmation(
+        f"📋 <b>Capture promoted → Officer Triage</b>\n"
+        f"<i>{preview}</i>\n"
+        f"Classification: <code>{suggestion['classification']}</code> · Confidence: {confidence_pct}%"
+    )
+    return True
+
+
 # ── Core enrichment logic ─────────────────────────────────────────────────────
 
 def enrich_item(item: dict, dry_run: bool = False) -> bool:
@@ -321,7 +447,7 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
     })
     log.info("[%s] ✓ Enriched", item_id[:8])
 
-    # ── Hybrid auto-route (MSN-0200-P2B) ─────────────────────────────────────
+    # ── Hybrid auto-route (MSN-0200-P2B) + Capture Promotion Bridge (MSN-0336) ──
     classification = suggestion["classification"]
     confidence     = suggestion["confidence"]
 
@@ -329,6 +455,8 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
         log.info("[%s] classification=%s — inbox only (hard invariant)", item_id[:8], classification)
     elif classification == "personal" and confidence >= AUTO_ROUTE_MIN_CONFIDENCE:
         _auto_route_personal(item, suggestion, dry_run=dry_run)
+    elif classification in _PROMOTABLE and confidence >= PROMOTION_MIN_CONFIDENCE:
+        _promote_to_intelligence_note(item, suggestion, dry_run=dry_run)
     else:
         log.info("[%s] classification=%s confidence=%.2f — below threshold, inbox only",
                  item_id[:8], classification, confidence)
@@ -354,13 +482,57 @@ def _now() -> str:
 
 # ── Batch runner ──────────────────────────────────────────────────────────────
 
+def _advance_notebook_pipeline(dry_run: bool = False) -> None:
+    """MSN-0336: run_notebook_pipeline() (slack-bot/lib/notebook/
+    notebook_router.py) had ZERO real callers anywhere in the platform
+    before this mission -- notes promoted here (or created via the
+    existing Notebook web form / Slack /note-capture) would sit at
+    status=CAPTURED forever. This worker's already-live 15-minute timer
+    (capture-enrichment.timer, confirmed active) is now that pipeline's
+    real, live trigger. No Slack-specific dependencies in the notebook
+    modules (confirmed before wiring this) -- plain-Python, safe to call
+    from this process."""
+    if dry_run:
+        log.info("[notebook-pipeline] dry-run — skipping advance")
+        return
+    try:
+        # notebook_router.py does `from .notebook_officer import ...` --
+        # a relative import that needs a real parent package, not just
+        # its own directory on sys.path (confirmed by hitting exactly
+        # this failure during validation). notebook/ has __init__.py;
+        # add its PARENT (slack-bot/lib) so `notebook.notebook_router`
+        # resolves with the correct package context.
+        lib_dir = _REPO_ROOT / "slack-bot" / "lib"
+        if str(lib_dir) not in sys.path:
+            sys.path.insert(0, str(lib_dir))
+        from notebook.notebook_router import run_notebook_pipeline  # noqa: PLC0415
+
+        # run_notebook_pipeline() (and the officer/review modules it calls
+        # in turn) expect a real supabase-py client (.table().select()
+        # .eq().execute() chaining) -- this worker's own urllib-only REST
+        # helpers don't implement that surface, and hand-rolling a shim
+        # risks silently missing a method one of the 3 downstream modules
+        # calls. capture-enrichment.service runs via slack-bot/.venv/bin/
+        # python, confirmed to have the real `supabase` package installed.
+        from supabase import create_client
+        client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+        result = run_notebook_pipeline(client)
+        log.info("[notebook-pipeline] advanced: %s", result)
+    except Exception as exc:
+        log.warning("[notebook-pipeline] advance failed (non-blocking): %s", exc)
+
+
 def run_batch(limit: int = 10, dry_run: bool = False) -> dict:
     """Pick up pending items and enrich them. Returns summary dict."""
     rows = _sb_get(
         f"captured_items"
         f"?ai_enrichment_status=eq.not_enriched"
         f"&processing_status=eq.pending"
-        f"&select=id,title,raw_text,summary,ai_enrichment_status"
+        # MSN-0336: added the provenance fields _promote_to_intelligence_note()
+        # needs (captured_by/captured_at/source_type/source_channel_id/
+        # source_user_id) -- previously only what auto-route-to-log needed.
+        f"&select=id,title,raw_text,summary,ai_enrichment_status,captured_by,captured_at,source_type,source_channel_id,source_user_id"
         f"&order=captured_at.asc"
         f"&limit={limit}"
     )
@@ -376,13 +548,14 @@ def run_batch(limit: int = 10, dry_run: bool = False) -> dict:
         except Exception as exc:
             log.error("Unexpected error on item %s: %s", item.get("id", "?")[:8], exc)
             err += 1
+    _advance_notebook_pipeline(dry_run=dry_run)
     return {"processed": len(rows), "ok": ok, "errors": err}
 
 
 def run_single(item_id: str, dry_run: bool = False) -> bool:
     rows = _sb_get(
         f"captured_items?id=eq.{urllib.request.quote(item_id)}"
-        f"&select=id,title,raw_text,summary,ai_enrichment_status&limit=1"
+        f"&select=id,title,raw_text,summary,ai_enrichment_status,captured_by,captured_at,source_type,source_channel_id,source_user_id&limit=1"
     )
     if not rows:
         log.error("Item %s not found", item_id)
