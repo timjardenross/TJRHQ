@@ -18,8 +18,10 @@ import type {
 // USS-TJR-MSN-0205D: Knowledge Library and Memory Approval Queue.
 // Browses documents produced by the VM Knowledge Processing Engine
 // (MSN-0205C) and is the ONLY UI path that can approve one into Command
-// Memory (knowledge_documents) — every decision here is an explicit,
-// per-document Captain action; there is no bulk-approve.
+// Memory (knowledge_documents) — every decision is still an explicit
+// Captain action, never automated. MSN-0331 added checkbox-based batch
+// triage (apply one decision to many selected documents) on top of the
+// original per-document flow, which remains unchanged below.
 
 const CATEGORY_OPTIONS: DocumentCategory[] = [
   'Financial', 'Legal', 'Health', 'Correspondence', 'Reference',
@@ -103,10 +105,24 @@ export default function KnowledgeLibraryPage() {
   const [reviewFilter, setReviewFilter] = useState<'' | 'none' | ReviewDecision>('');
   const [reviewStatusFilter, setReviewStatusFilter] = useState<'' | ReviewStatus>('');
 
+  // MSN-0331: 795 documents at awaiting_review made the old 50/page
+  // default with no page controls a real visibility gap — only the
+  // newest 50 were ever reachable without hand-editing the URL.
+  const PAGE_SIZE = 100;
+  const [page, setPage] = useState(0);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProcessingDocument | null>(null);
   const [chunkPreview, setChunkPreview] = useState<ProcessingChunk[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // MSN-0331: batch triage — distinct from selectedId (single-document
+  // detail view). A document can be checked for batch action without
+  // being the one shown in the detail panel.
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [batchActing, setBatchActing] = useState(false);
+  const [batchReasonFor, setBatchReasonFor] = useState<ReviewDecision | null>(null);
+  const [batchReasonDraft, setBatchReasonDraft] = useState('');
 
   const [acting, setActing] = useState<string | null>(null);
   const [reasonFor, setReasonFor] = useState<ReviewDecision | null>(null);
@@ -137,6 +153,8 @@ export default function KnowledgeLibraryPage() {
       if (status) params.set('status', status);
       if (reviewFilter) params.set('review_decision', reviewFilter);
       if (reviewStatusFilter) params.set('review_status', reviewStatusFilter);
+      params.set('limit', String(PAGE_SIZE));
+      params.set('offset', String(page * PAGE_SIZE));
       const data = await fetchJson(`/api/knowledge-library/documents?${params.toString()}`);
       setDocuments(data.documents ?? []);
       setTotal(data.total ?? 0);
@@ -148,7 +166,11 @@ export default function KnowledgeLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter]);
+  }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter, page]);
+
+  // Any filter change invalidates the current page and the batch
+  // selection (checked IDs may no longer even be in view).
+  useEffect(() => { setPage(0); setCheckedIds(new Set()); }, [search, category, sensitivity, status, reviewFilter, reviewStatusFilter]);
 
   useEffect(() => { loadStats(); }, [loadStats]);
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
@@ -210,6 +232,62 @@ export default function KnowledgeLibraryPage() {
       setTimeout(() => setFlash(null), 4000);
     }
   }, [loadStats]);
+
+  // MSN-0331: applies one decision to every checked document in one
+  // Captain action. Reuses the same /decide semantics per-document
+  // server-side (lib/knowledgeLibraryDecide.ts) — this is a throughput
+  // fix, not a new decision-making path.
+  const batchDecide = useCallback(async (decision: ReviewDecision, reason?: string) => {
+    const ids = Array.from(checkedIds);
+    if (ids.length === 0) return;
+    setBatchActing(true);
+    try {
+      const data = await fetchJson('/api/knowledge-library/documents/batch-decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, decision, decided_by: 'Captain', ...(reason ? { reason } : {}) }),
+      });
+      setFlash({
+        msg: `${DECISION_LABELS[decision]}: ${data.succeeded}/${data.requested} succeeded${data.failed ? `, ${data.failed} failed` : ''}.`,
+        ok: data.failed === 0,
+      });
+      setCheckedIds(new Set());
+      loadDocuments();
+      loadStats();
+    } catch (e) {
+      setFlash({
+        msg: e instanceof ApiAuthError ? e.message : (e instanceof Error ? e.message : String(e)),
+        ok: false,
+      });
+    } finally {
+      setBatchActing(false);
+      setBatchReasonFor(null);
+      setBatchReasonDraft('');
+      setTimeout(() => setFlash(null), 6000);
+    }
+  }, [checkedIds, loadDocuments, loadStats]);
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleChecked = documents.length > 0 && documents.every((d) => checkedIds.has(d.id));
+  const toggleAllVisible = () => {
+    setCheckedIds((prev) => {
+      if (allVisibleChecked) {
+        const next = new Set(prev);
+        documents.forEach((d) => next.delete(d.id));
+        return next;
+      }
+      const next = new Set(prev);
+      documents.forEach((d) => next.add(d.id));
+      return next;
+    });
+  };
 
   const clearFilters = () => {
     setSearchInput(''); setSearch(''); setCategory(''); setSensitivity('');
@@ -312,50 +390,166 @@ export default function KnowledgeLibraryPage() {
       </LCARSPanel>
 
       <div className="flex flex-col gap-4 lg:flex-row">
-        <LCARSPanel title={`Documents (${total})`} accent="science" className="flex-1">
+        <LCARSPanel
+          title={`Documents (${total})`}
+          accent="science"
+          className="flex-1"
+          actions={total > PAGE_SIZE ? (
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-lcars-muted">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="rounded border border-edge px-2 py-1 hover:text-science disabled:opacity-30"
+              >
+                Prev
+              </button>
+              <span>
+                {page * PAGE_SIZE + 1}–{Math.min(total, (page + 1) * PAGE_SIZE)} of {total}
+              </span>
+              <button
+                onClick={() => setPage((p) => ((p + 1) * PAGE_SIZE < total ? p + 1 : p))}
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                className="rounded border border-edge px-2 py-1 hover:text-science disabled:opacity-30"
+              >
+                Next
+              </button>
+            </div>
+          ) : undefined}
+        >
           {loading ? (
             <p className="text-xs text-lcars-muted animate-pulse">Loading…</p>
           ) : documents.length === 0 ? (
             <p className="text-xs text-lcars-muted">No documents match these filters.</p>
           ) : (
-            <ul className="flex flex-col gap-2">
-              {documents.map((doc) => (
-                <li key={doc.id}>
-                  <button
-                    onClick={() => setSelectedId(doc.id)}
-                    className={`w-full rounded border p-3 text-left transition-colors ${
-                      selectedId === doc.id ? 'border-science bg-science/10' : 'border-edge bg-panel-2/60 hover:border-science/40'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium text-lcars-text">{doc.filename}</p>
-                        <p className="mt-0.5 text-[10px] text-lcars-muted">
-                          {doc.source_name} · {formatBytes(doc.size_bytes)}
-                        </p>
+            <>
+              <label className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-wider text-lcars-muted">
+                <input type="checkbox" checked={allVisibleChecked} onChange={toggleAllVisible} />
+                Select all visible ({documents.length})
+              </label>
+              <ul className="flex flex-col gap-2">
+                {documents.map((doc) => (
+                  <li key={doc.id} className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-4"
+                      checked={checkedIds.has(doc.id)}
+                      onChange={() => toggleChecked(doc.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={() => setSelectedId(doc.id)}
+                      className={`w-full rounded border p-3 text-left transition-colors ${
+                        selectedId === doc.id ? 'border-science bg-science/10' : 'border-edge bg-panel-2/60 hover:border-science/40'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-lcars-text">{doc.filename}</p>
+                          <p className="mt-0.5 text-[10px] text-lcars-muted">
+                            {doc.source_name} · {formatBytes(doc.size_bytes)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <StatusBadge label={doc.status} status={doc.status} />
+                          <StatusBadge label={doc.sensitivity} tone={sensitivityTone(doc.sensitivity)} />
+                        </div>
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <StatusBadge label={doc.status} status={doc.status} />
-                        <StatusBadge label={doc.sensitivity} tone={sensitivityTone(doc.sensitivity)} />
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {doc.category && (
+                          <span className="rounded-full border border-edge px-2 py-0.5 text-[10px] text-lcars-muted">{doc.category}</span>
+                        )}
+                        {doc.review_decision && (
+                          <StatusBadge
+                            label={DECISION_LABELS[doc.review_decision]}
+                            tone={doc.review_decision === 'rejected' ? 'operations' : doc.review_decision === 'needs_review' ? 'command' : 'status'}
+                          />
+                        )}
                       </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {doc.category && (
-                        <span className="rounded-full border border-edge px-2 py-0.5 text-[10px] text-lcars-muted">{doc.category}</span>
-                      )}
-                      {doc.review_decision && (
-                        <StatusBadge
-                          label={DECISION_LABELS[doc.review_decision]}
-                          tone={doc.review_decision === 'rejected' ? 'operations' : doc.review_decision === 'needs_review' ? 'command' : 'status'}
-                        />
-                      )}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </LCARSPanel>
+
+        {checkedIds.size > 0 && (
+          <LCARSPanel title={`Batch Decide (${checkedIds.size} selected)`} accent="command" className="lg:w-[340px]">
+            {flash && (
+              <div className={`mb-2 rounded border px-3 py-2 text-xs ${flash.ok ? 'border-status/40 bg-status/10 text-status' : 'border-operations/40 bg-operations/10 text-operations'}`}>
+                {flash.msg}
+              </div>
+            )}
+            {batchReasonFor ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  placeholder={`Reason for ${DECISION_LABELS[batchReasonFor].toLowerCase()} (required)`}
+                  value={batchReasonDraft}
+                  onChange={(e) => setBatchReasonDraft(e.target.value)}
+                  className="w-full rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus:border-operations/60 focus:outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    disabled={!batchReasonDraft.trim() || batchActing}
+                    onClick={() => batchDecide(batchReasonFor, batchReasonDraft.trim())}
+                    className="flex-1 rounded border border-operations/60 bg-operations/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-operations hover:bg-operations/20 disabled:opacity-40 transition-colors"
+                  >
+                    {batchActing ? 'Working…' : `Confirm ${DECISION_LABELS[batchReasonFor]}`}
+                  </button>
+                  <button
+                    onClick={() => { setBatchReasonFor(null); setBatchReasonDraft(''); }}
+                    className="rounded border border-edge px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <p className="mb-1 text-[11px] text-lcars-muted">
+                  Applies one decision to all {checkedIds.size} selected documents. Each is still checked individually server-side (idempotent, terminal-status guarded) — only genuinely eligible ones are decided.
+                </p>
+                <button
+                  disabled={batchActing}
+                  onClick={() => batchDecide('approved_chunks')}
+                  className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+                >
+                  {batchActing ? 'Working…' : 'Approve'}
+                </button>
+                <button
+                  disabled={batchActing}
+                  onClick={() => batchDecide('approved_metadata')}
+                  className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+                >
+                  {DECISION_LABELS.approved_metadata}
+                </button>
+                <div className="mt-1 flex gap-1.5">
+                  <button
+                    disabled={batchActing}
+                    onClick={() => setBatchReasonFor('needs_review')}
+                    className="flex-1 rounded border border-command/40 bg-command/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-command hover:bg-command/10 disabled:opacity-40 transition-colors"
+                  >
+                    Needs Review
+                  </button>
+                  <button
+                    disabled={batchActing}
+                    onClick={() => setBatchReasonFor('rejected')}
+                    className="flex-1 rounded border border-operations/40 bg-operations/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-operations hover:bg-operations/10 disabled:opacity-40 transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
+                <button
+                  onClick={() => setCheckedIds(new Set())}
+                  className="mt-2 text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-lcars-text transition-colors"
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+          </LCARSPanel>
+        )}
 
         {selectedId && (
           <LCARSPanel
