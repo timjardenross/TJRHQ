@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { REVIEW_PENDING_STATUSES } from '@/lib/missionStatus';
+import { dedupeMissionSignals, isHygieneEligible } from '@/lib/hygieneRules';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +13,15 @@ export const dynamic = 'force-dynamic';
 // alerts.ts, the one authoritative urgent-alert engine. What remains
 // answers a genuinely different question ("what's been quietly
 // drifting") than AlertsSidebar's "what needs action right now".
+//
+// Operational Hygiene Cleanup mission: rule 1's exclusion list
+// ("COMPLETE","DEFERRED","CLOSED") never matched real data — the
+// missions.status CHECK constraint uses 'Closed'/'Archived' (Title
+// Case), so 108 Closed and 13 Archived missions (all of them
+// Slack/force-triage era stub missions like "force-20260610225359")
+// were being evaluated as if active. Every mission-scoped signal below
+// now goes through isHygieneEligible(), one shared guard, instead of a
+// per-rule status string.
 
 type Severity = 'critical' | 'high' | 'medium';
 
@@ -40,10 +51,10 @@ export async function GET() {
     const { data } = await supabase
       .from('missions')
       .select('mission_id, title, status, updated_at')
-      .not('status', 'in', '("COMPLETE","DEFERRED","CLOSED")')
       .lt('updated_at', cutoff);
     if (data) {
       for (const m of data) {
+        if (!isHygieneEligible(m.status, m.mission_id)) continue;
         signals.push({
           id: `stalled-${m.mission_id}`,
           severity: 'medium',
@@ -86,22 +97,23 @@ export async function GET() {
     }
   } catch {}
 
-  // 3. REVIEW missions older than 48 hours
+  // 3. Missions awaiting review/approval for more than 48 hours
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
       .from('missions')
-      .select('mission_id, title, updated_at')
-      .eq('status', 'REVIEW')
+      .select('mission_id, title, status, updated_at')
+      .in('status', REVIEW_PENDING_STATUSES)
       .lt('updated_at', cutoff);
     if (data) {
       for (const m of data) {
+        if (!isHygieneEligible(m.status, m.mission_id)) continue;
         signals.push({
           id: `review-${m.mission_id}`,
           severity: 'high',
           category: 'Mission',
           title: 'Awaiting review',
-          detail: `"${m.title}" has been awaiting review for over 48 hours.`,
+          detail: `"${m.title}" (${m.status}) has been awaiting review for over 48 hours.`,
           mission_id: m.mission_id,
         });
       }
@@ -127,7 +139,8 @@ export async function GET() {
     }
   } catch {}
 
-  signals.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+  const deduped = dedupeMissionSignals(signals);
+  deduped.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 
-  return NextResponse.json({ signals });
+  return NextResponse.json({ signals: deduped });
 }
