@@ -36,19 +36,31 @@ _TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # ── Supabase helpers ──────────────────────────────────────────────────────────
 
-def _sb_get(table: str, query: str = "") -> list[dict]:
+def _sb_request(table: str, query: str = "") -> list[dict]:
+    """Raw fetch — raises on any failure (network/HTTP/parse). Used where a
+    failed query must NOT be treated the same as a query that succeeded and
+    found nothing (USS-TJR-MSN-0339 WP4 — MSN-0338 §8 Gap #1: the midday job
+    was silently suppressing every brief because a schema-mismatch query
+    failure and 'genuinely zero signals' looked identical)."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
-        return []
+        raise RuntimeError("Supabase not configured (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY unset)")
     url = f"{_SUPABASE_URL}/rest/v1/{table}{'?' + query if query else ''}"
     headers = {
         "apikey": _SUPABASE_KEY,
         "Authorization": f"Bearer {_SUPABASE_KEY}",
         "Accept": "application/json",
     }
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return json.loads(resp.read())
+
+
+def _sb_get(table: str, query: str = "") -> list[dict]:
+    """Best-effort fetch — swallows failures and returns []. Only for optional/
+    decorative data (missions, health, recovery, knowledge counts) where a
+    Supabase hiccup should degrade that section, not break the whole brief."""
     try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            return json.loads(resp.read())
+        return _sb_request(table, query)
     except Exception as exc:
         log.warning("Supabase fetch failed (%s): %s", table, exc)
         return []
@@ -110,6 +122,16 @@ def _get_recovery_status() -> Optional[dict]:
     return rows[0] if rows else None
 
 
+def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
+    since = (date.today() - timedelta(days=days)).isoformat()
+    return _sb_get(
+        "debrief_logs",
+        f"log_date=gte.{since}&order=log_date.desc"
+        f"&select=title,key_themes,stressors,energy_sources,open_loops,"
+        f"ideas_captured,decisions_emerging,change_talk,follow_up_candidate,log_date",
+    )
+
+
 def _get_knowledge_platform_summary() -> dict:
     """USS-TJR-MSN-0207A: counts from the document processing pipeline
     (processing_documents). Each query fetches only `id` and takes len() —
@@ -164,26 +186,57 @@ def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: O
         log.warning("[brief-persist] failed to persist %s brief: %s", brief_type, exc)
 
 
+def _derive_risk_label(row: dict) -> str:
+    """intelligence_events has never had a risk_rating column (USS-TJR-MSN-0339
+    WP4 — MSN-0338 §8 Gap #1) — derive an equivalent HIGH/MEDIUM/LOW label from
+    the real scoring columns (rank_score, operational_relevance) instead."""
+    try:
+        rank = float(row.get("rank_score") or 0)
+    except (TypeError, ValueError):
+        rank = 0.0
+    try:
+        relevance = float(row.get("operational_relevance") or 0)
+    except (TypeError, ValueError):
+        relevance = 0.0
+    if rank >= 75 or relevance >= 0.85:
+        return "HIGH"
+    if rank >= 50 or relevance >= 0.60:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _with_risk_label(rows: list[dict]) -> list[dict]:
+    for row in rows:
+        row["risk_rating"] = _derive_risk_label(row)
+    return rows
+
+
 def _get_new_signals_since(since_iso: str) -> list[dict]:
-    return _sb_get(
+    """Raises on a genuine Supabase fetch failure (via _sb_request) — the
+    caller (check_midday_signals, via scheduler.py's _midday_check_job, which
+    already wraps this in its own try/except) must not treat a failed query
+    the same as a query that succeeded and found zero signals."""
+    rows = _sb_request(
         "intelligence_events",
         f"collected_at=gte.{since_iso}&suppressed=eq.false"
-        f"&risk_rating=in.(HIGH,MEDIUM)"
+        f"&rank_score=gte.50"
         f"&order=rank_score.desc&limit=10"
-        f"&select=raw_title,event_type,geography,risk_rating,rank_score",
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
     )
+    return _with_risk_label(rows)
 
 
 def _get_recent_signals(hours: int = 24) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    return _sb_get(
+    rows = _sb_get(
         "intelligence_events",
         f"collected_at=gte.{since}&suppressed=eq.false"
         f"&order=rank_score.desc&limit=5"
-        f"&select=raw_title,event_type,geography,risk_rating,rank_score",
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
     )
+    return _with_risk_label(rows)
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
@@ -487,6 +540,78 @@ def generate_weekly_report() -> str:
     return "\n".join(lines)
 
 
+def _recurring(items_lists: list, min_count: int = 2, limit: int = 4) -> list[str]:
+    """Flatten jsonb string-array debrief_logs fields across sessions, count
+    occurrences, keep only items seen in >=min_count distinct sessions —
+    signal over volume per the weekly digest spec (don't surface every trend)."""
+    counts: dict[str, int] = {}
+    for items in items_lists:
+        for item in (items or []):
+            if isinstance(item, str) and item.strip():
+                key = item.strip()
+                counts[key] = counts.get(key, 0) + 1
+    recurring = sorted((k for k, v in counts.items() if v >= min_count), key=lambda k: -counts[k])
+    return recurring[:limit]
+
+
+def generate_weekly_debrief_digest() -> str:
+    """Weekly digest of recurring signal from debrief_logs (Phase 6 of the
+    XO Voice Daily Debrief MVP). Deliberately deterministic frequency
+    counting, not an LLM summary — reproducible, cheap, and only surfaces
+    items recurring across >=2 sessions."""
+    now = _now_aest()
+    week_start = (now - timedelta(days=6)).strftime("%d %b")
+    logs = _get_recent_debrief_logs(days=7)
+
+    lines = [
+        "<b>🗒 WEEKLY DEBRIEF DIGEST</b>",
+        f"<i>{week_start} – {now.strftime('%d %b %Y')} · {len(logs)} session(s)</i>",
+        "",
+    ]
+
+    if not logs:
+        lines += ["No debrief sessions this week.", "", "🤖 <i>XO · Starship Endeavour</i>"]
+        return "\n".join(lines)
+
+    stressors   = _recurring([l.get("stressors") for l in logs])
+    energy      = _recurring([l.get("energy_sources") for l in logs])
+    ideas       = _recurring([l.get("ideas_captured") for l in logs])
+    open_loops  = _recurring([l.get("open_loops") for l in logs])
+    commitments = _recurring([l.get("decisions_emerging") for l in logs])
+
+    follow_ups: list[str] = []
+    for l in logs:
+        fu = (l.get("follow_up_candidate") or "").strip()
+        if fu and fu not in follow_ups:
+            follow_ups.append(fu)
+    follow_ups = follow_ups[:4]
+
+    changes: list[str] = []
+    for l in logs:
+        ct = (l.get("change_talk") or "").strip()
+        if ct and ct not in changes:
+            changes.append(ct)
+    changes = changes[:3]
+
+    def _section(title: str, items: list[str]) -> None:
+        if items:
+            lines.append(f"<b>{title}</b>")
+            for it in items:
+                lines.append(f"  • {it}")
+            lines.append("")
+
+    _section("😣 RECURRING STRESSORS", stressors)
+    _section("⚡ RECURRING ENERGY SOURCES", energy)
+    _section("💡 RECURRING IDEAS", ideas)
+    _section("🔁 UNRESOLVED OPEN LOOPS", open_loops)
+    _section("✅ COMMITMENTS MADE", commitments)
+    _section("👁 WORTH REVISITING", follow_ups)
+    _section("📈 MEANINGFUL CHANGES", changes)
+
+    lines.append("🤖 <i>XO · Starship Endeavour</i>")
+    return "\n".join(lines)
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def send_brief(brief_type: str, **kwargs) -> bool:
@@ -494,6 +619,11 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     signals: list[dict] = []
     if brief_type == "morning":
         text = generate_morning_brief()
+        # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal
+        # signal fetch for display but doesn't return the count — re-fetch here
+        # so the persisted signals_count reflects reality instead of always 0
+        # (MSN-0338 §8 Gap #1).
+        signals = _get_recent_signals(hours=24)
     elif brief_type == "midday":
         signals = kwargs.get("signals", [])
         if not signals:
@@ -502,10 +632,14 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         text = generate_midday_update(signals)
     elif brief_type == "eod":
         text = generate_eod_summary()
+        signals = _get_recent_signals(hours=24)
     elif brief_type == "weekly":
         text = generate_weekly_report()
+        signals = _get_recent_signals(hours=24 * 7)
     elif brief_type == "knowledge_ops":
         text = generate_knowledge_ops_brief()
+    elif brief_type == "weekly_debrief":
+        text = generate_weekly_debrief_digest()
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False

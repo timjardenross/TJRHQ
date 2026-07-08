@@ -20,7 +20,11 @@ from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urljoin, urlparse
 
-from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
+from intelligence.config import (
+    HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE,
+    NO_INCIDENT_SENTINEL_PHRASES, KNOWN_JUNK_TITLE_SUBSTRINGS,
+    STATUS_NARRATIVE_KEYWORDS, AUTH_GATED_SENTINEL_PHRASES,
+)
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -41,6 +45,13 @@ _ARTICLE_SELECTORS = [
 
 class ScrapeAdapter(BaseSourceAdapter):
 
+    def __init__(self, source: SourceRecord):
+        super().__init__(source)
+        # Set during collect(); read by _validate_content() (USS-TJR-MSN-0339 WP1).
+        self._sentinel_matched = False
+        self._used_narrative = False
+        self._used_fallback = False
+
     def collect(self) -> list[IntelligenceItem]:
         try:
             from bs4 import BeautifulSoup
@@ -50,12 +61,49 @@ class ScrapeAdapter(BaseSourceAdapter):
         html = self._fetch_html(self.source.url)
         soup = BeautifulSoup(html, "html.parser")
 
-        items = self._extract_items(soup)
-        if not items:
-            # Fallback: grab any links with date-like context
-            items = self._extract_fallback(soup)
+        page_text = soup.get_text(" ", strip=True).lower()
 
+        # 0. Auth/address-gated pages have no anonymous public content at all
+        #    (e.g. Telstra's outages page — MSN-0338 §4/§8). Fail loudly and
+        #    visibly rather than silently degrading or fabricating content.
+        if any(phrase in page_text for phrase in AUTH_GATED_SENTINEL_PHRASES):
+            raise RuntimeError(
+                "Source requires authentication/address lookup — no public "
+                "anonymous content available (USS-TJR-MSN-0339 WP1)."
+            )
+
+        # 1. "All clear" sentinel — a real, confirmed-empty status, not a failure.
+        if any(phrase in page_text for phrase in NO_INCIDENT_SENTINEL_PHRASES):
+            self._sentinel_matched = True
+            return []
+
+        # 2. Structured list extraction (news/release-style pages).
+        items = self._extract_items(soup)
+        if items:
+            return items[:MAX_ITEMS_PER_SOURCE]
+
+        # 3. Status-narrative extraction (single-status pages: a heading + a
+        #    paragraph describing current state, not a list of articles).
+        items = self._extract_status_narrative(soup)
+        if items:
+            self._used_narrative = True
+            return items[:MAX_ITEMS_PER_SOURCE]
+
+        # 4. Last resort: grab any links with date-like context.
+        items = self._extract_fallback(soup)
+        if items:
+            self._used_fallback = True
         return items[:MAX_ITEMS_PER_SOURCE]
+
+    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, Optional[str]]:
+        if self._used_narrative:
+            return True, "Extracted from status-page narrative text (keyword-gated)."
+        if self._used_fallback:
+            return False, (
+                "No structured content found — fell back to generic link extraction. "
+                "Low confidence; likely site furniture rather than real notices."
+            )
+        return True, "Structured extraction via CSS selectors."
 
     def _fetch_html(self, url: str) -> str:
         req = urllib.request.Request(
@@ -113,6 +161,28 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         return items
 
+    def _extract_status_narrative(self, soup) -> list[IntelligenceItem]:
+        """For single-status pages (a heading + a paragraph describing current
+        state, not a list of articles) — treat the main heading/paragraph as
+        one real item, but only if it actually reads as a status statement
+        (USS-TJR-MSN-0339 WP1). Rejects generic marketing/informational copy
+        that happens to share the page with a status section."""
+        heading_el = soup.find(["h1", "h2"])
+        if not heading_el:
+            return []
+        heading = heading_el.get_text(strip=True)
+
+        para_el = heading_el.find_next("p")
+        body = para_el.get_text(strip=True) if para_el else ""
+
+        combined = f"{heading} {body}".lower()
+        if not any(kw in combined for kw in STATUS_NARRATIVE_KEYWORDS):
+            return []
+        if len(heading) < 10:
+            return []
+
+        return [self._make_item(heading, body[:500] or None, self.source.url, None)]
+
     def _extract_fallback(self, soup) -> list[IntelligenceItem]:
         """Grab all <a> tags that look like article links."""
         items = []
@@ -126,8 +196,13 @@ class ScrapeAdapter(BaseSourceAdapter):
                 continue
             if title in seen_titles:
                 continue
+            title_lower = title.lower()
             # Skip nav/footer type links
-            if any(skip in title.lower() for skip in ["home", "contact", "about", "privacy", "terms", "login"]):
+            if any(skip in title_lower for skip in ["home", "contact", "about", "privacy", "terms", "login"]):
+                continue
+            # Skip known generic site furniture/marketing copy (USS-TJR-MSN-0339 WP1 —
+            # MSN-0338 §4 found these exact titles returned on every run since seeding).
+            if any(junk in title_lower for junk in KNOWN_JUNK_TITLE_SUBSTRINGS):
                 continue
             seen_titles.add(title)
             url = urljoin(base, href)

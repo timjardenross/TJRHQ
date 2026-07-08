@@ -43,9 +43,33 @@ class BaseSourceAdapter(ABC):
             elapsed = int((time.monotonic() - started) * 1000)
             health.items_retrieved = len(items)
             health.latency_ms = elapsed
+
             if not items:
-                health.status = "degraded"
-                health.error_message = "Source returned no items"
+                # USS-TJR-MSN-0339 WP1: for an intermittent/incident-only source,
+                # zero items is the expected, correct state — not a failure. Marking
+                # it "degraded" is what previously made Azure Status/AWS Sydney read
+                # as broken when they were just quiet (MSN-0338 §2).
+                if getattr(self.source, "content_expectation", "continuous") == "intermittent":
+                    health.content_valid = True
+                    health.content_validity_reason = (
+                        "No items — expected/correct for an intermittent source with "
+                        "no active incident right now."
+                    )
+                else:
+                    health.status = "degraded"
+                    health.error_message = "Source returned no items"
+                    health.content_valid = False
+                    health.content_validity_reason = "No items from a continuous-expectation source."
+            else:
+                valid, reason = self._validate_content(items)
+                health.content_valid = valid
+                health.content_validity_reason = reason
+                if not valid:
+                    log.warning(
+                        "[%s] content-validity check failed: %s",
+                        self.source.source_name, reason,
+                    )
+
             log.info("[%s] collected %d items in %dms", self.source.source_name, len(items), elapsed)
         except Exception as exc:
             elapsed = int((time.monotonic() - started) * 1000)
@@ -60,6 +84,13 @@ class BaseSourceAdapter(ABC):
     def collect(self) -> list[IntelligenceItem]:
         """Fetch and return normalised IntelligenceItems. May raise on error."""
         ...
+
+    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, Optional[str]]:
+        """Hook for adapters to flag content that parsed successfully but isn't
+        real (generic site furniture, marketing boilerplate, JS template
+        placeholders). Default: no opinion — treated as valid. Returns
+        (is_valid, reason)."""
+        return True, None
 
     def _make_item(
         self,

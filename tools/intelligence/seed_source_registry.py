@@ -277,27 +277,48 @@ SOURCES = [
         "source_name":        "NBN Network Status",
         "category":           "critical_infrastructure",
         "priority_rank":      2,
-        "url":                "https://www.nbnco.com.au/support/network-status",
+        "url":                "https://www.nbnco.com.au/utility/major-significant-local-outages",
         "rss_url":            None,
         "api_endpoint":       None,
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.85,
         "active":             True,
-        "notes":              "NBN outage and degradation notices. No RSS or public API.",
+        "content_expectation": "intermittent",
+        "notes":              "USS-TJR-MSN-0339 WP1: switched from /support/network-status (an "
+                              "address-lookup JS SPA — the real per-postcode outage data is fetched "
+                              "client-side and was never in the static HTML, which is why the old URL "
+                              "produced zero real content ever, per MSN-0338 §4) to this page, which is "
+                              "server-rendered and states plainly in its own text either "
+                              "'There are no current Major or Significant Local outages...' (real, "
+                              "confirmed-quiet — matched by NO_INCIDENT_SENTINEL_PHRASES) or a real "
+                              "outage description when one is active. No RSS or public API exists.",
     },
     {
         "source_name":        "Telstra Service Alerts",
         "category":           "critical_infrastructure",
         "priority_rank":      2,
-        "url":                "https://crowdsupport.telstra.com.au/t5/service-alerts/tkb-p/service-alerts",
+        "url":                "https://www.telstra.com.au/outages",
         "rss_url":            None,
         "api_endpoint":       None,
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.85,
         "active":             True,
-        "notes":              "Telstra public outage announcements via community support portal.",
+        "notes":              "USS-TJR-MSN-0339 WP1: old URL (crowdsupport.telstra.com.au) has been "
+                              "permanently retired (301 -> telstra.com.au/crowdsupport-retirement) and "
+                              "was producing zero real content for its entire history regardless (its "
+                              "'alert list' was rendered client-side, never present in static HTML — "
+                              "MSN-0338 §4). Investigated the real successor (this URL): it requires "
+                              "'Sign in with your Telstra ID' or an address lookup — Telstra publishes "
+                              "no public, unauthenticated, machine-readable outage feed as of this "
+                              "investigation (2026-07-08). The adapter now fails loudly and visibly on "
+                              "this page (AUTH_GATED_SENTINEL_PHRASES) instead of silently degrading or "
+                              "fabricating content. Real Telstra-class outage detection currently relies "
+                              "on the already-registered news sources (ABC/Reuters/etc.), whose "
+                              "classifier already tags 'telstra'/'network outage' keywords — this is a "
+                              "genuine capability gap, not a scraper bug, and any fix (credentialed API, "
+                              "third-party aggregator) is a separate, Captain-scoped decision.",
     },
     {
         "source_name":        "Optus Network Status",
@@ -338,7 +359,11 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.95,
         "active":             True,
-        "notes":              "Azure global service health. Use CDN URL — direct azure.status.microsoft/feed/ unreliable.",
+        "content_expectation": "intermittent",
+        "notes":              "Azure global service health. Use CDN URL — direct azure.status.microsoft/feed/ unreliable. "
+                              "USS-TJR-MSN-0339 WP1: confirmed live 2026-07-08, valid RSS 2.0, zero <item> "
+                              "elements — this is real, correct content (no active Azure incident right now), "
+                              "not a broken feed. Was previously misreported as failing (MSN-0338 §2/§9).",
     },
     {
         "source_name":        "AWS Service Health Dashboard",
@@ -538,8 +563,13 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.80,
-        "active":             True,
-        "notes":              "Reuters replacement — AP News wire service, authoritative global financial/business news, no paywall. RSS confirmed live.",
+        "active":             False,
+        "notes":              "Reuters replacement — AP News wire service, authoritative global financial/business news, no paywall. RSS confirmed live. "
+                              "USS-TJR-MSN-0339 WP1: feeds.apnews.com no longer resolves (DNS failure, confirmed "
+                              "2026-07-08) — AP appears to have retired this feed subdomain; apnews.com/business "
+                              "itself still loads (HTTP 200) but no working public RSS/API endpoint was found in "
+                              "a quick check. Deactivated pending a real replacement feed rather than left silently "
+                              "failing forever (MSN-0338 §8 Gap #9).",
     },
     {
         "source_name":        "Guardian Australia",
@@ -758,13 +788,18 @@ SOURCES = [
         "category":           "regulatory",
         "priority_rank":      2,
         "url":                "https://www.fsb.org/press/press-releases/",
-        "rss_url":            "https://www.fsb.org/wordpress/content_type/press-releases/feed/",
+        "rss_url":            "https://www.fsb.org/feed/",
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.92,
         "active":             True,
-        "notes":              "Financial Stability Board — G20 systemic risk, TBTF, resolution frameworks.",
+        "notes":              "Financial Stability Board — G20 systemic risk, TBTF, resolution frameworks. "
+                              "USS-TJR-MSN-0339 WP1: the old content_type/press-releases/feed/ URL is a real, "
+                              "well-formed, reachable RSS feed that has simply never had a single <item> in it "
+                              "(confirmed 2026-07-08) — a CMS misconfiguration on FSB's side, not our bug. "
+                              "Switched to the site-wide /feed/ (confirmed live, 10 items) as the working "
+                              "real replacement; broader than press-releases-only but genuinely populated.",
     },
     {
         "source_name":        "FSB Publications",
@@ -776,8 +811,14 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.90,
-        "active":             True,
-        "notes":              "FSB policy papers, consultation reports, peer reviews.",
+        "active":             False,
+        "notes":              "FSB policy papers, consultation reports, peer reviews. "
+                              "USS-TJR-MSN-0339 WP1: same permanently-empty-feed issue as FSB Press Releases "
+                              "(confirmed 2026-07-08, real/reachable/well-formed RSS, zero items ever). No "
+                              "separate publications-only feed found; the fixed 'FSB Press Releases' source "
+                              "now points at FSB's real site-wide /feed/, which covers this content too — "
+                              "deactivated here to avoid ingesting the same items twice under two source_ids "
+                              "(dedup_hash includes source_id, so cross-source duplicates would not be caught).",
     },
     {
         "source_name":        "BIS Press Releases",
@@ -812,13 +853,18 @@ SOURCES = [
         "category":           "cloud_technology",
         "priority_rank":      1,
         "url":                "https://health.aws.amazon.com/health/status",
-        "rss_url":            "http://status.aws.amazon.com/rss/all.rss",
+        "rss_url":            "https://status.aws.amazon.com/rss/all.rss",
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.95,
         "active":             True,
-        "notes":              "AWS all-regions health feed. Third-party cloud dependency risk.",
+        "content_expectation": "intermittent",
+        "notes":              "AWS all-regions health feed. Third-party cloud dependency risk. "
+                              "USS-TJR-MSN-0339 WP1: incident-only feed — zero items during a quiet "
+                              "period is expected/correct, not a failure (MSN-0338 §2/§9). Also found "
+                              "and fixed live 2026-07-08: rss_url was plain http:// — connection refused "
+                              "outright (server now https-only); switched to https://, confirmed 200.",
     },
     {
         "source_name":        "AWS Sydney (ap-southeast-2)",
@@ -831,7 +877,11 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
         "active":             True,
-        "notes":              "AWS EC2 Sydney region — most relevant for AU-hosted workloads.",
+        "content_expectation": "intermittent",
+        "notes":              "AWS EC2 Sydney region — most relevant for AU-hosted workloads. "
+                              "USS-TJR-MSN-0339 WP1: confirmed live 2026-07-08, valid RSS, zero <item> "
+                              "elements — real, correct content (no active incident right now), not a "
+                              "broken feed. Was previously misreported as failing (MSN-0338 §2/§9).",
     },
     {
         "source_name":        "Oracle Cloud (OCI) Status",
@@ -952,6 +1002,11 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
     update_rows = []
     for row in rows:
         r = dict(row)
+        # PostgREST batch POSTs require every object in the array to have the
+        # same key set (PGRST102) — normalise optional fields not every SOURCES
+        # entry sets explicitly (USS-TJR-MSN-0339 WP1 added content_expectation
+        # to only the entries that need it).
+        r.setdefault("content_expectation", "continuous")
         if r["source_name"] in existing:
             r["source_id"] = existing[r["source_name"]]
             update_rows.append(r)

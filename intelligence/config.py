@@ -88,3 +88,49 @@ IMPACT_SCORES    = {"high": 1.0, "medium": 0.5, "low": 0.1}
 # ─── Status thresholds ───────────────────────────────────────────────────────
 
 SOURCE_STALE_HOURS = int(os.getenv("OR_INTEL_SOURCE_STALE_HOURS", "6"))
+
+# ─── Content-validity heuristics (USS-TJR-MSN-0339 WP1) ─────────────────────
+# Distinguishes "HTTP/parse succeeded" from "the content is real" — see
+# MSN-0338 §2/§8 Gap #2/#9 (Telstra/NBN scrapers return generic site
+# furniture at ~83% "ok"; Azure/AWS status feeds show "degraded" for a
+# correctly-empty quiet period).
+
+# Case-insensitive substrings. Presence anywhere in page text means the page
+# is confirming "nothing is currently wrong" in its own words — a real,
+# valid, empty result, not a collection failure.
+NO_INCIDENT_SENTINEL_PHRASES = [
+    "no current major or significant local outages",
+    "no known issues",
+    "all systems operational",
+    "no incidents reported",
+]
+
+# Case-insensitive substrings indicating the real content is behind a login/
+# address lookup and structurally unreachable anonymously (e.g. Telstra's
+# outages page — MSN-0338 §4/§8). Treated as a failed collection, not a
+# silently-degraded or falsely-successful one, so the gap stays visible.
+AUTH_GATED_SENTINEL_PHRASES = [
+    "sign in with your telstra id",
+    "sign in to view",
+    "log in to check",
+]
+
+# Case-insensitive substrings. Titles matching these are known generic site
+# furniture/marketing copy repeatedly mis-extracted by fallback link-scraping
+# (confirmed identical output on every run since source seeding — MSN-0338 §4).
+KNOWN_JUNK_TITLE_SUBSTRINGS = [
+    "support in times of need",
+    "cyber security & safety",
+    "cyber security and safety",
+    "helping you when times are tough",
+    "nbn business plans",
+    "connect to the nbn network",
+]
+
+# A block of narrative text extracted from a status page's main heading/paragraph
+# is only treated as a real alert if it contains at least one of these — otherwise
+# it's assumed to be unrelated marketing/informational copy.
+STATUS_NARRATIVE_KEYWORDS = [
+    "outage", "incident", "disruption", "restored", "affecting",
+    "degraded", "service issue", "unplanned", "resolved", "down",
+]

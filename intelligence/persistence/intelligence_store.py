@@ -103,6 +103,7 @@ def load_source_registry() -> list[SourceRecord]:
             rss_url=r.get("rss_url"),
             api_endpoint=r.get("api_endpoint"),
             notes=r.get("notes"),
+            content_expectation=r.get("content_expectation") or "continuous",
         ))
     return sources
 
@@ -123,6 +124,8 @@ def save_source_health(health: SourceHealth) -> None:
         "latency_ms": health.latency_ms,
         "error_message": health.error_message,
         "http_status": health.http_status,
+        "content_valid": health.content_valid,
+        "content_validity_reason": health.content_validity_reason,
     })
     if health.status == "failed":
         _publish_core_event(

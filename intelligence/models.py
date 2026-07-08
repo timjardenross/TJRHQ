@@ -23,6 +23,10 @@ class SourceRecord:
     rss_url: Optional[str] = None
     api_endpoint: Optional[str] = None
     notes: Optional[str] = None
+    # continuous: zero items is suspicious (news/regulatory feeds).
+    # intermittent: zero items is the expected, correct state most of the time
+    # (incident-only status feeds) — must not be flagged as degraded on that basis alone.
+    content_expectation: str = "continuous"
 
 
 @dataclass
@@ -35,6 +39,11 @@ class SourceHealth:
     latency_ms: Optional[int] = None
     error_message: Optional[str] = None
     http_status: Optional[int] = None
+    # Orthogonal to status — whether the retrieved content is genuinely real, not
+    # generic site furniture/marketing boilerplate/a stale identical repeat/a JS
+    # template placeholder. None = not evaluated by this adapter type.
+    content_valid: Optional[bool] = None
+    content_validity_reason: Optional[str] = None
 
 
 @dataclass
