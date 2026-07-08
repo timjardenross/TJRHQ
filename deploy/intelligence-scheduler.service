@@ -8,22 +8,21 @@
 # docker unit anywhere in the repo) — almost certainly a manual nohup/tmux
 # session with zero auto-restart protection. This unit closes that gap.
 #
-# DEPLOYED 2026-07-03, confirmed live (PID recorded in the MSN-0207C
-# deployment record) — the two details below were corrected against the
-# real VM at deploy time and are no longer assumptions:
-#   - EnvironmentFile is slack-bot/.env, not the repo-root .env — the
-#     repo-root file is missing ~22 vars this process actually needs
-#     (Supabase key, Telegram token/chat id, LLM provider config,
-#     CONTENT_INTEL_PUSH_ENABLED). slack-bot/.venv's own .env has them.
-#   - The other long-running Telegram-facing daemon this unit's shape
-#     matches is deployed as tg-xo.service in production, not
-#     xo-bot.service (this repo's deploy/xo-bot.service file predates
-#     that rename and was never updated — noted here rather than silently
-#     assumed correct).
+# DEPLOYED 2026-07-03. venv/env-file corrected 2026-07-08 (USS-TJR-MSN-0339
+# WP-adjacent fix) against the actually-installed live unit, which had
+# drifted from this file (slack-bot/.venv here vs platform-runtime/.venv
+# live) — slack-bot/ no longer exists in this repo (retired per the
+# XO-only Telegram bot policy), so slack-bot/.venv was never a valid target
+# regardless. platform-runtime/.venv is confirmed correct: this exact unit
+# has now run intelligence/scheduler.py successfully from it repeatedly
+# (MSN-0339 WP1/WP2/WP3 live validation, 2026-07-08), including apscheduler
+# and every other dependency the daemon needs — no longer an assumption.
 #
 # This is a long-running daemon (APScheduler BlockingScheduler — it never
 # exits under normal operation), not a discrete job — Type=simple, not
-# oneshot, matching tg-xo.service's pattern rather than
+# oneshot, matching tg-xo.service's pattern (the other long-running
+# Telegram-facing daemon in this repo — confirmed live under that name,
+# not xo-bot.service, which doesn't exist as a running unit) rather than
 # delivery-reconciler's or capture-enrichment's oneshot+timer pattern.
 Description=USS TJR Intelligence Scheduler — Captain's Brief (single owner, MSN-0207C)
 After=network-online.target
@@ -32,8 +31,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
-EnvironmentFile=/opt/starship-endeavour/slack-bot/.env
-ExecStart=/opt/starship-endeavour/slack-bot/.venv/bin/python -m intelligence.scheduler
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
 Restart=always
 RestartSec=10
 StandardOutput=journal
