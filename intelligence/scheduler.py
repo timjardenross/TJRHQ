@@ -28,6 +28,18 @@ logging.basicConfig(
 )
 log = logging.getLogger("or-intelligence-scheduler")
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    try:
+        sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message)
+    except Exception:
+        pass
+
 
 def _brief_to_stdout(brief: ResilienceBrief) -> None:
     """Print a brief summary to stdout as JSON (used by Node.js connector)."""
@@ -257,10 +269,13 @@ def _morning_brief_job() -> None:
         if ok:
             _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
             log.info("Morning brief delivered")
+            _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered")
         else:
             log.warning("Morning brief delivery failed")
+            _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
     except Exception as exc:
         log.error("Morning brief job failed: %s", exc)
+        _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
 
 def _midday_check_job() -> None:
@@ -291,8 +306,12 @@ def _eod_brief_job() -> None:
     try:
         ok = send_brief("eod")
         log.info("EOD brief %s", "delivered" if ok else "delivery failed")
+        _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
+                           detail="eod brief" if ok else None,
+                           error_message=None if ok else "eod brief delivery failed")
     except Exception as exc:
         log.error("EOD brief job failed: %s", exc)
+        _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
 
 def _weekly_brief_job() -> None:
@@ -302,8 +321,12 @@ def _weekly_brief_job() -> None:
     try:
         ok = send_brief("weekly")
         log.info("Weekly brief %s", "delivered" if ok else "delivery failed")
+        _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
+                           detail="weekly brief" if ok else None,
+                           error_message=None if ok else "weekly brief delivery failed")
     except Exception as exc:
         log.error("Weekly brief job failed: %s", exc)
+        _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
 
 def _knowledge_ops_brief_job() -> None:
@@ -387,8 +410,13 @@ def _daily_collection_job() -> None:
             "events_classified=%d events_saved=%d",
             len(health_records), len(items), len(classified), saved,
         )
+        _record_heartbeat(
+            "intelligence_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)
+        _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:

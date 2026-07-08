@@ -1533,6 +1533,19 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str
         except Exception as exc:
             insight["_persist_error"] = str(exc)
 
+    # STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort.
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        if insight.get("_persist_error"):
+            record_heartbeat("weekly_health_synthesis", status="failed",
+                              error_message=insight["_persist_error"])
+        else:
+            record_heartbeat("weekly_health_synthesis", status="ok",
+                              detail=f"period={week_start}")
+    except Exception as _hb_exc:
+        pass
+
     # ── Update Health-Summary.md ─────────────────────────────────────────────
     if update_health_summary:
         try:

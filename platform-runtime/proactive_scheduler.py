@@ -652,6 +652,11 @@ def _job_appointment_prep(client) -> None:
 # Shakedown Logger import helper  [M-20260615]
 # ---------------------------------------------------------------------------
 
+_HEARTBEAT_DOMAIN_ALIASES = {
+    "stale_missions": "stale_missions_job",  # avoid colliding with the "missions" data-freshness domain
+}
+
+
 def _shakedown_log(job_id: str, status: str, detail: str = "", delivered_to: str = "") -> None:
     """Write one shakedown event. Fails silently — never disrupts job execution."""
     try:
@@ -660,6 +665,19 @@ def _shakedown_log(job_id: str, status: str, detail: str = "", delivered_to: str
         log_event(job_id, status, detail, delivered_to)
     except Exception as exc:
         log.debug("[shakedown] log_event failed (non-critical): %s", exc)
+
+    # STARSHIP-REDESIGN.md §4.1: every internal job is a domain too, watched
+    # by the same heartbeat mechanism as external data. Best-effort, never
+    # disrupts job execution.
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        domain_key = _HEARTBEAT_DOMAIN_ALIASES.get(job_id, job_id)
+        hb_status = {"success": "ok", "failure": "failed", "skipped": "skipped"}.get(status, "failed")
+        record_heartbeat(domain_key, status=hb_status, detail=detail or None,
+                          error_message=detail if hb_status == "failed" else None)
+    except Exception as exc:
+        log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
 
 
 # ---------------------------------------------------------------------------

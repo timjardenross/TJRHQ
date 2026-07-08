@@ -589,12 +589,32 @@ def cmd_process(args) -> int:
     return 1 if result["failed"] else 0
 
 
+def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    try:
+        if str(_REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(_REPO_ROOT))
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat("knowledge_library", status=status, detail=detail, error_message=error_message)
+    except Exception:
+        pass
+
+
 def cmd_run(args) -> int:
     _, worker = _build_worker(args.config)
-    scan_result = worker.scan()
-    process_result = worker.process_batch(limit=args.limit)
+    try:
+        scan_result = worker.scan()
+        process_result = worker.process_batch(limit=args.limit)
+    except Exception as exc:
+        _record_heartbeat("failed", error_message=str(exc))
+        raise
     print(json.dumps({"scan": scan_result, "process": process_result}, indent=2))
-    return 1 if process_result["failed"] else 0
+    if process_result["failed"]:
+        _record_heartbeat("failed", error_message=f"{process_result['failed']} document(s) failed processing")
+        return 1
+    _record_heartbeat("ok", detail=f"new={scan_result.get('new', '?')} documents={process_result.get('documents', '?')} awaiting_review={process_result.get('awaiting_review', '?')}")
+    return 0
 
 
 def cmd_status(args) -> int:

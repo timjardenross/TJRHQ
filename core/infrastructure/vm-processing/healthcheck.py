@@ -142,6 +142,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    try:
+        repo_root = _HERE.parents[2]  # .../vm-processing -> infrastructure -> core -> repo root
+        sys.path.insert(0, str(repo_root / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat("knowledge_library", status=status, detail=detail, error_message=error_message)
+    except Exception:
+        pass
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -149,7 +160,14 @@ def main() -> int:
     worker = _build_worker(args.config)
     report = run_healthcheck(worker, thresholds)
     print(json.dumps(report, indent=2))
-    return 0 if report["healthy"] else 1
+    if report["healthy"]:
+        _record_heartbeat("ok", detail=f"failed={report['failed_count']} permanently_failed={report['permanently_failed_count']}")
+        return 0
+    _record_heartbeat(
+        "failed",
+        error_message=f"failed={report['failed_count']} permanently_failed={report['permanently_failed_count']}",
+    )
+    return 1
 
 
 if __name__ == "__main__":
