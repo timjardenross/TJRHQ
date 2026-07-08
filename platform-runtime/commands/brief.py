@@ -182,9 +182,24 @@ def build_brief() -> str:
     try:
         from core.platform.event_bus import poll_events
         from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
-        canonical_doc = assemble_captain_brief_document(poll_events(limit=50))
+        polled_events = poll_events(limit=50)
+        canonical_doc = assemble_captain_brief_document(polled_events)
     except Exception:
-        pass
+        polled_events = []
+
+    # USS-TJR-MSN-0339 WP2: an INTERRUPT_NOW classification, computed above,
+    # previously had nowhere to go (MSN-0338 Gap #3 — notify() had zero
+    # callers). Manual-trigger dispatch only — every `/brief` run is a
+    # "manually...triggered Attention Engine evaluation" per WP2's own
+    # validation gate; continuous/autonomous dispatch is WP3's scope.
+    # dispatch_interrupt_now() itself skips anything already acknowledged,
+    # so re-running /brief does not re-notify the same event.
+    if canonical_doc is not None and canonical_doc.interrupt_now:
+        try:
+            from core.platform.interrupt_dispatcher import dispatch_interrupt_now
+            dispatch_interrupt_now(polled_events, canonical_doc.interrupt_now)
+        except Exception as exc:  # pragma: no cover
+            log.warning("[brief] interrupt dispatch failed: %s", exc)
 
     body = daily_brief.compose_daily_brief(
         capacity=snapshot, recommendation=pkg, load=load,

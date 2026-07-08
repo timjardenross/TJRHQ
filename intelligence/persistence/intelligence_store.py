@@ -228,6 +228,13 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
             confidence=round(row["confidence"] * 100),
             relevance=round(row["operational_relevance"] * 100),
             linked_entities=[event_id] if event_id else [],
+            # USS-TJR-MSN-0339 WP2: without this, a dispatched INTERRUPT_NOW
+            # push had no readable content — the Attention Engine's own
+            # `reason` field is a scoring formula ("importance=X >= Y AND
+            # confidence=Z >= W"), not what actually happened. This is the
+            # same real title WP1 already validated as genuine content, not
+            # new judgment about the signal's meaning.
+            recommended_action=row["raw_title"],
         )
         return event_id
     return None

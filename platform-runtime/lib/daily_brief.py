@@ -80,6 +80,21 @@ def compose_daily_brief(
     if recommendation.escalation:
         head += [recommendation.escalation, "", "———", ""]
 
+    # USS-TJR-MSN-0339 WP2: render every Attention Engine INTERRUPT_NOW item,
+    # not one hardcoded event_type — MSN-0338 Gap #4 found the prior renderer
+    # had no call site at all for ORI's `intelligence.signal.ranked`, so a
+    # correctly-computed interrupt was silently dropped before any text was
+    # produced. Reading `brief_doc.interrupt_now` directly (populated by
+    # captain_brief_orchestrator.py, MSN-0339 WP2) fixes this for any
+    # domain/event_type in the category, not just the one MSN-0338 traced.
+    interrupt_items = list(getattr(brief_doc, "interrupt_now", []) or [])
+    if interrupt_items:
+        head.append(f"🚨 *INTERRUPT NOW ({len(interrupt_items)}):*")
+        for item in interrupt_items[:5]:
+            text = item.recommendation.description if item.recommendation else item.reason
+            head.append(f"   • [{item.domain}] {text}")
+        head.append("")
+
     # What matters today.
     lines = head + [
         f"*Captain's Daily Operating Picture — {d}*",

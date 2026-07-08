@@ -98,6 +98,14 @@ class CaptainBriefDocument:
     # gain the ability to render insights without a second document shape
     # to learn, but always empty unless the caller opted into Step 2-4.
     insights: list[Any] = field(default_factory=list)
+    # USS-TJR-MSN-0339 WP2: the raw Attention Engine INTERRUPT_NOW bucket
+    # (already computed below via assemble_captain_brief(), previously
+    # discarded after `priorities`/`warnings` were derived from it — MSN-0338
+    # Gap #3/#4 found both the dispatcher and the brief renderer had no path
+    # to this data). Plain data, no I/O — does not change this module's own
+    # "no I/O beyond poll_events()" contract; `interrupt_dispatcher.py` and
+    # `daily_brief.py` are the (I/O-performing) consumers of this field.
+    interrupt_now: list[CaptainBriefItem] = field(default_factory=list)
 
 
 def _section_for_domain(domain: str) -> Optional[str]:
@@ -285,6 +293,7 @@ def assemble_captain_brief_document(
         next_actions=next_actions,
         metadata=metadata,
         confidence=doc_confidence,
+        interrupt_now=list(brief.interrupt_now),
     )
 
 
