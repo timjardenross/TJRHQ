@@ -198,11 +198,27 @@ def _start_scheduler() -> None:
     else:
         log.info("Content intelligence scoring disabled (set CONTENT_INTEL_PUSH_ENABLED=1 to enable)")
 
+    # ── USS-TJR-MSN-0339 WP3: continuous Attention Engine evaluation ──────────
+    # MSN-0338 Gap #5 — evaluate_batch() was only ever invoked from a manual
+    # LCARS/Slack '/brief' click, never autonomously. Reuses this already-live
+    # scheduler daemon rather than standing up a third one (Gap #7 already
+    # flags two uncoordinated schedulers as a problem, not a pattern to grow).
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    eval_interval = int(os.environ.get("ATTENTION_EVAL_INTERVAL_MINUTES", "10"))
+    scheduler.add_job(
+        _attention_evaluation_job,
+        IntervalTrigger(minutes=eval_interval),
+        id="continuous_attention_evaluation",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
-        "Daily collection: 06:00 (%s)",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ,
+        "Daily collection: 06:00 (%s) | Attention evaluation: every %d min",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
     )
 
     try:
@@ -377,6 +393,57 @@ def _content_scoring_job() -> None:
         log.info("Content intelligence scoring complete: %d signals written", written)
     except Exception as exc:
         log.error("Content intelligence scoring failed: %s", exc)
+
+
+def _attention_evaluation_job() -> None:
+    """USS-TJR-MSN-0339 WP3: autonomous Attention Engine evaluation.
+
+    MSN-0338 Gap #5 — evaluate_batch()/evaluate_event() were only ever
+    invoked from inside a manual LCARS/Slack '/brief' click, so a signal
+    only ever got classified if a human happened to ask. This job removes
+    that dependency: it runs unattended on ATTENTION_EVAL_INTERVAL_MINUTES.
+
+    Polls the same core_events Event Bus WP2's dispatcher reads and
+    dispatches anything reaching INTERRUPT_NOW. Safe to poll the same
+    recent window every run without re-notifying — dispatch_interrupt_now()
+    only acts on events still core_events.status="new"; anything already
+    "acknowledged" (by this job or a manual /brief run) is silently
+    skipped, which is also what keeps duplicate-evaluation harmless:
+    evaluate_batch()/evaluate_event() are pure functions with no side
+    effects, so re-evaluating an already-seen event produces the same
+    AttentionDecision and writes nothing.
+
+    Lower categories (can_be_delayed/should_be_summarised/should_be_
+    aggregated) are deliberately not pushed here — WP3's scope is
+    autonomous *evaluation*, not a second push channel for non-urgent
+    categories. They stay visible whenever a brief is next composed,
+    which WP2 already made lossless for interrupt-worthy items via
+    daily_brief.py's render fix.
+
+    Threshold values (AttentionThresholds) are untouched — this only
+    changes *when* evaluation runs, per this mission's own governing rule;
+    MSN-0329's Operational Observation Period still gates any future
+    tuning.
+    """
+    log.info("Autonomous Attention Engine evaluation triggered")
+    try:
+        from core.platform.event_bus import poll_events
+        from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
+        from core.platform.interrupt_dispatcher import dispatch_interrupt_now
+
+        events = poll_events(limit=200)
+        doc = assemble_captain_brief_document(events)
+        if not doc.interrupt_now:
+            log.info("Attention evaluation: %d event(s) evaluated, 0 interrupt_now", len(events))
+            return
+        results = dispatch_interrupt_now(events, doc.interrupt_now)
+        dispatched = sum(1 for r in results if r.ok)
+        log.info(
+            "Attention evaluation: %d event(s) evaluated, %d interrupt_now, %d dispatched",
+            len(events), len(doc.interrupt_now), dispatched,
+        )
+    except Exception as exc:
+        log.error("Attention evaluation job failed: %s", exc)
 
 
 if __name__ == "__main__":
