@@ -99,7 +99,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/physical-readiness', label: 'Physical Readiness', glyph: 'PR', department: 'medical', description: 'Adaptive gym session — readiness, generated workout, runner' },
       { href: '/human-systems',    label: 'Human Systems',    glyph: 'HS', department: 'medical', description: 'Capacity gates, escalation state, recovery debt' },
       { href: '/recovery-brief',   label: 'Recovery Brief',   glyph: 'RB', department: 'medical', description: 'Recovery posture and debt — leverage recommendation' },
-      { href: '/stage-progression', label: 'Stage Progression', glyph: 'SP', department: 'medical', description: 'Recovery stage tracking (ROS-001)' },
+      { href: '/stage-progression', label: 'Stage Progression (Retired)', glyph: 'SP', department: 'medical', description: 'Retired - previously showed placeholder data, not live' },
     ],
   },
   {
