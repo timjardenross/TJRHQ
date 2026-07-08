@@ -214,11 +214,24 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # ── USS-TJR-MSN-0339 WP5: Operational Intelligence Validation Suite ───────
+    # Runs daily, 30 min after collection so it sees fresh data and well
+    # before the 07:00 morning brief — per the suite's own design doc §4
+    # ("runs on a schedule... not just at code-commit time, since MSN-0338's
+    # failures were both live drift invisible to any CI-only test suite").
+    scheduler.add_job(
+        _validation_suite_job,
+        CronTrigger(hour=6, minute=30, timezone=tz),
+        id="operational_intelligence_validation_suite",
+        replace_existing=True,
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
-        "Daily collection: 06:00 (%s) | Attention evaluation: every %d min",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+        "Daily collection: 06:00 (%s) | Attention evaluation: every %d min | "
+        "Validation suite: 06:30 (%s)",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
     )
 
     try:
@@ -444,6 +457,37 @@ def _attention_evaluation_job() -> None:
         )
     except Exception as exc:
         log.error("Attention evaluation job failed: %s", exc)
+
+
+def _validation_suite_job() -> None:
+    """USS-TJR-MSN-0339 WP5: daily run of the Operational Intelligence
+    Validation Suite (intelligence/validation_suite.py). A failed case is
+    itself an INTERRUPT_NOW-class event about the pipeline's own health —
+    dispatched via WP2's notification_service.notify() (the same delivery
+    path WP2 restored), not a sixth notification mechanism, per the
+    suite's own design doc §4.
+    """
+    log.info("Operational Intelligence Validation Suite triggered")
+    try:
+        from intelligence.validation_suite import run_suite
+        from core.platform.notification_service import notify, Severity, Transport
+
+        report = run_suite()
+        passed = sum(r.passed for r in report.results)
+        log.info("Validation suite: %d/%d cases passed", passed, len(report.results))
+        if report.all_passed:
+            return
+        failed_names = ", ".join(r.case_name for r in report.failed)
+        log.error("Validation suite regression: %s", failed_names)
+        notify(
+            report.render(),
+            title=f"Validation suite regression — {len(report.failed)} case(s) failed",
+            severity=Severity.CRITICAL,
+            template="alert",
+            transport=Transport.TELEGRAM,
+        )
+    except Exception as exc:
+        log.error("Validation suite job failed: %s", exc)
 
 
 if __name__ == "__main__":
