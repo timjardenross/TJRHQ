@@ -14,6 +14,7 @@ import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { loadSinceLastSession, type SinceLastSessionSummary } from '@/lib/sinceLastSession';
 import { ACTIVE_STATUSES, COMPLETED_STATUSES, AWAITING_CAPTAIN_STATUSES } from '@/lib/missionStatus';
 import {
   fetchEngineeringQueue,
@@ -23,12 +24,7 @@ import {
   type EngineeringQueueData,
 } from '@/lib/engineering-queue';
 import type { AlertSeverity } from '@/lib/alerts';
-import {
-  captainTimeline,
-  departments,
-  shipSystemStatus,
-  todaysBriefing,
-} from '@/lib/mockData';
+import { departments } from '@/lib/mockData';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
 // ── Live mission summary (WP A: Truth & Trust — MSN-0321) ────────────────────
@@ -88,6 +84,231 @@ function useLiveEngineeringQueue(): { data: EngineeringQueueData | null; loading
   }, []);
 
   return { data, loading };
+}
+
+// MSN-0345: replaces TodaysBriefing's fabricated summary numbers with the
+// real CaptainBriefDocument the /captains-brief page itself renders — same
+// API route, same data, no new backend.
+interface TodaysBriefingStats {
+  confidence: number | null;
+  priorities: number;
+  warnings: number;
+  recommendations: number;
+  nextActions: number;
+}
+
+// MSN-0345: Operational Picture item shape — a subset of CaptainBriefItem
+// (captains-brief/page.tsx's own local type) sufficient for a compact
+// "situation in seconds" view. Not re-fetched separately — comes from the
+// same /api/captain-brief call TodaysBriefing already makes.
+interface OperationalPictureItem {
+  event_id: string | null;
+  domain: string;
+  event_type: string;
+  reason: string;
+  risk_score: number | null;
+  recommendation: { description: string; confidence: number | null; evidence: string[] } | null;
+}
+
+function useTodaysBriefing(): {
+  stats: TodaysBriefingStats | null;
+  loading: boolean;
+  operationalPicture: OperationalPictureItem[];
+} {
+  const [stats, setStats] = useState<TodaysBriefingStats | null>(null);
+  const [operationalPicture, setOperationalPicture] = useState<OperationalPictureItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/captain-brief')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((doc) => {
+        if (cancelled || !doc) return;
+        setStats({
+          confidence: doc.confidence ?? null,
+          priorities: doc.priorities?.length ?? 0,
+          warnings: doc.warnings?.length ?? 0,
+          recommendations: doc.recommendations?.length ?? 0,
+          nextActions: doc.next_actions?.length ?? 0,
+        });
+        // Warnings first (highest risk_score, already the page's own
+        // definition of "needs a look"), then operational_intelligence,
+        // deduped by event_id, capped — a picture, not a full re-list.
+        const pool = [...(doc.warnings ?? []), ...(doc.operational_intelligence ?? [])];
+        const seen = new Set<string>();
+        const picture: OperationalPictureItem[] = [];
+        for (const item of pool) {
+          const key = item.event_id ?? item.reason;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          picture.push(item);
+          if (picture.length >= 5) break;
+        }
+        setOperationalPicture(picture);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { stats, loading, operationalPicture };
+}
+
+// MSN-0345 Objective 5: "understand the situation within seconds" — a
+// compact, real view over Operational Intelligence's actual computed
+// fields (risk_score, confidence, evidence), not a new backend query.
+// Reuses ConfidenceIndicator + the evidence disclosure pattern shipped for
+// Captain's Brief (MSN-0344) rather than inventing a third rendering.
+function OperationalPicture({ items, loading }: { items: OperationalPictureItem[]; loading: boolean }) {
+  return (
+    <LCARSPanel title="Operational Picture" accent="science" eyebrow="Current incidents and emerging risks — Operational Intelligence">
+      {loading ? (
+        <p className="text-xs text-lcars-muted animate-pulse">Reading the operational picture…</p>
+      ) : items.length === 0 ? (
+        <p className="text-xs text-lcars-muted">No active incidents or emerging risks in the current brief.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {items.map((item, i) => (
+            <li key={item.event_id ?? i} className="rounded-md border border-edge bg-panel-2/60 p-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-lcars-muted">
+                    {item.domain} · {item.event_type}
+                  </p>
+                  <p className="mt-0.5 text-xs text-lcars-text/90">{item.reason}</p>
+                </div>
+                {item.risk_score != null && (
+                  <span className="shrink-0 font-mono text-[11px] font-bold text-operations">
+                    risk {Math.round(item.risk_score)}
+                  </span>
+                )}
+              </div>
+              {item.recommendation && (
+                <div className="mt-1.5 flex flex-col gap-1">
+                  <p className="text-[11px] text-command">→ {item.recommendation.description}</p>
+                  {item.recommendation.evidence && item.recommendation.evidence.length > 0 && (
+                    <details className="text-[11px]">
+                      <summary className="cursor-pointer text-lcars-muted hover:text-lcars-text">
+                        Evidence ({item.recommendation.evidence.length})
+                      </summary>
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-3">
+                        {item.recommendation.evidence.map((e, j) => (
+                          <li key={j} className="list-disc text-lcars-text/70">{e}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Link href="/intelligence" className="mt-2 inline-block text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
+        Full Intelligence Picture →
+      </Link>
+    </LCARSPanel>
+  );
+}
+
+// MSN-0345: replaces CaptainTimeline's fabricated schedule with today's real
+// Event Bus activity (core_events) — the same table 12+ real emit-points
+// across the platform already write to (see MSN-0343's Registry work).
+// Every row here already happened, so all render as "completed" — there is
+// no real "scheduled" future-event source to distinguish from today.
+interface LiveTimelineEvent {
+  id: string;
+  time: string;
+  title: string;
+}
+
+function useCaptainTimeline(): { events: LiveTimelineEvent[]; loading: boolean } {
+  const [events, setEvents] = useState<LiveTimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const since = new Date();
+        since.setHours(0, 0, 0, 0);
+        const { data } = await supabase
+          .from('core_events')
+          .select('event_id, event_type, domain, occurred_at')
+          .gte('occurred_at', since.toISOString())
+          .order('occurred_at', { ascending: false })
+          .limit(8);
+        if (cancelled) return;
+        setEvents(
+          (data ?? []).map((e) => ({
+            id: e.event_id,
+            time: new Date(e.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            title: `${e.domain} · ${e.event_type}`,
+          })),
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { events, loading };
+}
+
+// MSN-0345: Since Last Session hook + panel. See lib/sinceLastSession.ts's
+// own header for exactly what this can and can't answer honestly.
+
+function useSinceLastSession(): { summary: SinceLastSessionSummary | null; loading: boolean } {
+  const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSinceLastSession()
+      .then((s) => { if (!cancelled) setSummary(s); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { summary, loading };
+}
+
+function SinceLastSessionPanel({ summary, loading }: { summary: SinceLastSessionSummary | null; loading: boolean }) {
+  if (loading || !summary) return null;
+  if (summary.firstSession) {
+    return (
+      <LCARSPanel title="Since Last Session" accent="command">
+        <p className="text-xs text-lcars-muted">First session on this browser — nothing to compare against yet.</p>
+      </LCARSPanel>
+    );
+  }
+  return (
+    <LCARSPanel title="Since Last Session" accent="command" eyebrow={`Since ${new Date(summary.previousSessionAt!).toLocaleString()}`}>
+      {summary.eventCount === 0 ? (
+        <p className="text-xs text-lcars-muted">Nothing new since your last visit.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-lcars-text/90">
+            <span className="font-mono font-bold text-command">{summary.eventCount}</span> event
+            {summary.eventCount === 1 ? '' : 's'} across the platform since your last visit.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] uppercase tracking-wide text-lcars-muted">
+            {summary.byDomain.map((d) => (
+              <span key={d.domain}>{d.domain} · {d.count}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="mt-2 text-[10px] text-lcars-muted/70">
+        Answers &quot;what changed.&quot; What completed, worsened, was delegated, or was learned
+        aren&apos;t yet trackable — no data source for those exists in the platform today (honestly
+        disclosed, not fabricated — see MSN-0345).
+      </p>
+    </LCARSPanel>
+  );
 }
 
 // ── Shared micro-components ───────────────────────────────────────────────────
@@ -284,64 +505,39 @@ function PriorityOverview({
 }
 
 // ── Ship Status ───────────────────────────────────────────────────────────────
-
-function ShipStatus() {
-  return (
-    <Panel>
-      <SectionHeader
-        title="Ship Status"
-        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
-      />
-      <ul className="flex flex-col gap-2.5">
-        {shipSystemStatus.map((sys) => {
-          const barColor = sys.value >= 95 ? 'bg-status' : sys.value >= 80 ? 'bg-command' : 'bg-operations';
-          const textColor = sys.value >= 95 ? 'text-status' : sys.value >= 80 ? 'text-command' : 'text-operations';
-          return (
-            <li key={sys.label} className="flex items-center gap-3">
-              <span className="w-36 shrink-0 text-[10px] uppercase tracking-wide text-lcars-muted">
-                {sys.label}
-              </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-edge/60">
-                <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${sys.value}%` }} />
-              </div>
-              <span className={`w-10 shrink-0 text-right font-mono text-xs font-bold ${textColor}`}>
-                {sys.value}%
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
-  );
-}
+// MSN-0345: retired. No real per-subsystem health source exists anywhere in
+// the platform today, and building one (new backend queries across N
+// invented "ship systems") is exactly the kind of new backend service this
+// mission's own scope explicitly avoids ("do not create new backend
+// services unless absolutely necessary"). A permanently-fake panel is worse
+// than no panel — removed rather than left mock. If real per-subsystem
+// health becomes a real need, `/operations`'s existing service/integration
+// status is the closer real starting point, not this component's shape.
 
 // ── Captain's Timeline ────────────────────────────────────────────────────────
 
-function CaptainTimeline() {
-  const STATUS = {
-    completed:   { text: 'text-status',      dot: 'bg-status',  glyph: '✓' },
-    in_progress: { text: 'text-command',     dot: 'bg-command', glyph: '◎' },
-    scheduled:   { text: 'text-lcars-muted', dot: 'bg-edge',    glyph: '○' }
-  };
+function CaptainTimeline({ events, loading }: { events: LiveTimelineEvent[]; loading: boolean }) {
   return (
     <Panel>
       <SectionHeader
         title="Captain's Timeline"
-        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+        action={<DataSourceIndicator live={!loading} loading={loading} variant="inline" />}
       />
-      <ul className="flex flex-col gap-2">
-        {captainTimeline.map((event) => {
-          const s = STATUS[event.status];
-          return (
-            <li key={event.time} className="flex items-center gap-3">
+      {loading ? (
+        <p className="text-[10px] text-lcars-muted">Loading…</p>
+      ) : events.length === 0 ? (
+        <p className="text-[10px] text-lcars-muted">No events logged yet today.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {events.map((event) => (
+            <li key={event.id} className="flex items-center gap-3">
               <span className="w-10 shrink-0 font-mono text-[11px] text-lcars-muted">{event.time}</span>
-              <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
-              <p className={`flex-1 text-[11px] font-medium ${s.text}`}>{event.title}</p>
-              <span className={`shrink-0 text-sm ${s.text}`}>{s.glyph}</span>
+              <span className="h-2 w-2 shrink-0 rounded-full bg-status" />
+              <p className="flex-1 text-[11px] font-medium text-lcars-text">{event.title}</p>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      )}
     </Panel>
   );
 }
@@ -396,6 +592,14 @@ function AlertsSidebar({
 }
 
 // ── Department Row ────────────────────────────────────────────────────────────
+// MSN-0345: the per-department metric VALUES (dept.metrics) were fabricated —
+// no real query backed them, and building one across 5 unrelated domains'
+// tables in this pass would be new backend work this mission's scope
+// avoids. The department NAMES and LINKS are real (they route to real,
+// live pages) — kept, with the fake numbers removed rather than shown
+// alongside a now-misleading "live" label. DataSourceIndicator now
+// correctly reflects what's actually true: this is real navigation, not
+// live metrics.
 
 function DepartmentRow() {
   const depts = departments.filter((d) => d.key !== 'status');
@@ -403,7 +607,7 @@ function DepartmentRow() {
     <div>
       <SectionHeader
         title="Departments"
-        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+        action={<DataSourceIndicator live={true} variant="inline" />}
       />
       <div className="overflow-x-auto">
       <div className="flex gap-3" style={{ minWidth: `${depts.length * 160}px` }}>
@@ -412,22 +616,11 @@ function DepartmentRow() {
           return (
             <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[160px] flex-1">
               <div className="rounded-lcars border border-edge bg-panel/60 p-3 hover:border-command/60 transition-colors h-full">
-                <div className="mb-2 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className={`h-5 w-5 shrink-0 rounded-md ${theme.bg}`} />
                   <h3 className={`text-[10px] font-bold uppercase tracking-wider ${theme.text}`}>
                     {dept.name}
                   </h3>
-                </div>
-                <dl className="flex flex-col gap-1">
-                  {dept.metrics.map((m) => (
-                    <div key={m.label} className="flex items-center justify-between">
-                      <dt className="text-[10px] uppercase tracking-wide text-lcars-muted">{m.label}</dt>
-                      <dd className={`font-mono text-xs font-bold ${theme.text}`}>{m.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <div className="mt-2">
-                  <StatusBadge label={dept.status} tone={dept.tone} />
                 </div>
               </div>
             </Link>
@@ -488,25 +681,45 @@ function MissionBoard({
 }
 
 // ── Today's Briefing ──────────────────────────────────────────────────────────
+// MSN-0345: replaced fabricated summary numbers with the real
+// CaptainBriefDocument (same /api/captain-brief route, same data /captains-brief renders).
 
-function TodaysBriefing() {
+function TodaysBriefing({ stats, loading }: { stats: TodaysBriefingStats | null; loading: boolean }) {
+  const rows = stats
+    ? [
+        { label: 'Confidence', value: stats.confidence != null ? `${stats.confidence}%` : '—', tone: 'command' as const },
+        { label: 'Priorities', value: String(stats.priorities), tone: 'command' as const },
+        { label: 'Warnings', value: String(stats.warnings), tone: stats.warnings > 0 ? 'operations' as const : 'status' as const },
+        { label: 'Recommendations', value: String(stats.recommendations), tone: 'command' as const },
+        { label: 'Next Actions', value: String(stats.nextActions), tone: 'command' as const },
+      ]
+    : [];
   return (
     <Panel>
       <SectionHeader
         title="Today's Briefing"
-        action={<DataSourceIndicator live={false} mockLabel="Preview Data" variant="inline" />}
+        action={<DataSourceIndicator live={!loading} loading={loading} variant="inline" />}
       />
-      <ul className="flex flex-col gap-2">
-        {todaysBriefing.map((item) => {
-          const c = toneClasses(item.tone);
-          return (
-            <li key={item.label} className="flex items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{item.label}</span>
-              <span className={`font-mono text-xs font-bold ${c.text}`}>{item.value}</span>
-            </li>
-          );
-        })}
-      </ul>
+      {loading ? (
+        <p className="text-[10px] text-lcars-muted">Loading…</p>
+      ) : !stats ? (
+        <p className="text-[10px] text-lcars-muted">Brief unavailable — run the daily brief.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows.map((item) => {
+            const c = toneClasses(item.tone);
+            return (
+              <li key={item.label} className="flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{item.label}</span>
+                <span className={`font-mono text-xs font-bold ${c.text}`}>{item.value}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <Link href="/captains-brief" className="mt-2 inline-block text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
+        View Full Brief →
+      </Link>
     </Panel>
   );
 }
@@ -700,6 +913,9 @@ export default function CaptainsChairPage() {
   const { stats: missionStats, loading: missionStatsLoading } = useLiveMissionStats();
   const { data: engQueueData, loading: engQueueLoading } = useLiveEngineeringQueue();
   const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
+  const { stats: briefingStats, loading: briefingLoading, operationalPicture } = useTodaysBriefing();
+  const { events: timelineEvents, loading: timelineLoading } = useCaptainTimeline();
+  const { summary: sinceLastSession, loading: sinceLastSessionLoading } = useSinceLastSession();
 
   const currentPosture: RecoveryPostureBand = posture.posture ?? 'UNKNOWN';
 
@@ -712,6 +928,10 @@ export default function CaptainsChairPage() {
         <h1 className="font-lcars text-lg font-bold uppercase tracking-wider text-lcars-text">
           Captain&apos;s Chair
         </h1>
+
+        {/* ── MSN-0345: Since Last Session — first thing on the page, per
+            Objective 3's "what changed since last session" ask. ── */}
+        <SinceLastSessionPanel summary={sinceLastSession} loading={sinceLastSessionLoading} />
 
         {/* ── MSN-IOS-001 WP2: iPhone-first daily operating picture (mobile only) ── */}
         <MobileOperatingPicture />
@@ -746,22 +966,26 @@ export default function CaptainsChairPage() {
             passive info that should hide during REST/FRAGILE. ── */}
         <CaptainIntelligencePanel />
 
+        {/* ── MSN-0345: Operational Picture — outside FleetStatusConditional,
+            same reasoning as CaptainIntelligencePanel above: active risks are
+            not the kind of secondary info that should hide during REST/FRAGILE. ── */}
+        <OperationalPicture items={operationalPicture} loading={briefingLoading} />
+
         {/* ── Fleet section — collapses on FRAGILE/REST per D-055 ── */}
         <FleetStatusConditional posture={currentPosture}>
-          <div className="grid gap-4 xl:grid-cols-[1fr_1.6fr_1fr]">
+          <div className="grid gap-4 xl:grid-cols-2">
             <PriorityOverview
               decisionsCount={missionStats?.decisionsCount ?? 0}
               alertsCount={liveAlerts.length}
               activeMissionsCount={missionStats?.active ?? 0}
               loading={missionStatsLoading || alertsLoading}
             />
-            <ShipStatus />
-            <CaptainTimeline />
+            <CaptainTimeline events={timelineEvents} loading={timelineLoading} />
           </div>
           <DepartmentRow />
           <MissionBoard stats={missionStats} loading={missionStatsLoading} />
           <div className="grid gap-4 md:grid-cols-3">
-            <TodaysBriefing />
+            <TodaysBriefing stats={briefingStats} loading={briefingLoading} />
             <EngineeringQueue data={engQueueData} loading={engQueueLoading} />
             <MedicalBayLink />
           </div>

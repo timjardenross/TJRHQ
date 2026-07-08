@@ -13,6 +13,15 @@ export interface RecommendedAction {
   why?: string;
   sourceOfficer: string;
   confidence: string;
+  /**
+   * MSN-0344: supporting evidence strings for this recommendation — optional
+   * and additive. Rendered as a collapsed `<details>` disclosure so existing
+   * callers that don't pass it see zero change. Backend contract already
+   * carries this (`Recommendation.evidence: string[]`, captain_brief_contract.py)
+   * — it was typed on the Captain's Brief page but never rendered anywhere
+   * until now (found during MSN-0344's explainability review).
+   */
+  evidence?: string[];
 }
 
 export interface RecommendationCardProps {
@@ -22,7 +31,7 @@ export interface RecommendationCardProps {
   title?: string;
   emptyMessage?: string;
   loadingMessage?: string;
-  /** Compact drops the `why` line and the live indicator — for dense mobile cards. */
+  /** Compact drops the `why` line and the live indicator — for dense mobile cards. Evidence disclosure still shows if present. */
   compact?: boolean;
 }
 
@@ -57,6 +66,18 @@ export function RecommendationCard({
               <span className="text-command">{recommendation.sourceOfficer}</span>
               <span className="text-lcars-muted">Confidence · {recommendation.confidence}</span>
             </div>
+          )}
+          {recommendation.evidence && recommendation.evidence.length > 0 && (
+            <details className="mt-1 text-[11px]">
+              <summary className="cursor-pointer text-lcars-muted hover:text-lcars-text">
+                Evidence ({recommendation.evidence.length})
+              </summary>
+              <ul className="mt-1 flex flex-col gap-0.5 pl-3">
+                {recommendation.evidence.map((e, i) => (
+                  <li key={i} className="list-disc text-lcars-text/70">{e}</li>
+                ))}
+              </ul>
+            </details>
           )}
         </div>
       ) : (

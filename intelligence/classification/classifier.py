@@ -24,7 +24,7 @@ from intelligence.classification.deduplicator import compute_hash
 # ─── Keyword tables ───────────────────────────────────────────────────────────
 
 _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
-    ("cyber",                ["cyber", "ransomware", "malware", "phishing", "breach", "vulnerability",
+    ("cyber",                ["cyber", "ransomware", "malware", "phishing", "breach", "vulnerabilit",
                               "exploit", "cve", "ddos", "intrusion", "threat actor", "zero-day",
                               "data leak", "credential", "acsc", "incident response", "patch",
                               "critical security", "advisory"]),

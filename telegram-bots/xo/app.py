@@ -17,6 +17,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -67,7 +68,7 @@ from telegram_bots.recovery_officer.engagement_dispatcher import (
     get_recovery_status,
     run_dispatch_check,
 )
-from telegram_bots.llm import generate_async
+from telegram_bots.llm import generate_conversational_async as generate_async
 from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
 from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
 
@@ -327,6 +328,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Captain Intelligence*\n"
         "/captain — narrative: what changed, why it matters, what to do\n"
         "/learning — learning health \\+ compliance, insights, leadership candidates\n"
+        "/patterns \\[category\\] — Operational Pattern Library: reusable engineering process knowledge\n"
         "/pending — attention queue \\+ quick outcome capture \\(tap buttons\\)\n\n"
         "*Intelligence*\n"
         "/brief — intelligence brief on demand\n\n"
@@ -893,6 +895,47 @@ async def cmd_learning(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             f"⚠️ Learning status failed: `{_escape(str(exc))}`",
             parse_mode="MarkdownV2",
         )
+
+
+async def cmd_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """MSN-0343: first real consumer of the Operational Pattern Library
+    (`core/platform/operational_pattern_library.py`, built MSN-0210J,
+    zero consumers until now). Read-only — surfaces reusable engineering
+    process knowledge on demand before risky work, distinct from `/learning`
+    (MSN-0086's leadership/content learning — a different "learning" that
+    happens to share the name; not the same capability)."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        await update.message.reply_text("Not authorised\\.", parse_mode="MarkdownV2")
+        return
+    category = " ".join(context.args).strip() if context.args else None
+    try:
+        from core.platform.operational_pattern_library import get_patterns
+
+        patterns = get_patterns(category=category or None)
+    except Exception as exc:
+        log.error("[patterns] failed: %s", exc)
+        await update.message.reply_text(
+            f"⚠️ Pattern Library lookup failed: `{_escape(str(exc))}`",
+            parse_mode="MarkdownV2",
+        )
+        return
+    if not patterns:
+        hint = f" for category `{_plain(category)}`" if category else ""
+        await update.message.reply_text(
+            _escape(f"No patterns found{hint}. Try /patterns with no argument to list all."),
+            parse_mode="MarkdownV2",
+        )
+        return
+    msg = [f"*Operational Patterns*{f' — {_plain(category)}' if category else ''}"]
+    for p in patterns[:8]:
+        msg.append("")
+        msg.append(f"*{_plain(p.get('pattern_name', '?'))}* \\({_plain(p.get('confidence', '?'))}%\\)")
+        msg.append(_plain((p.get("description") or "")[:200]))
+        msg.append(f"_When: {_plain((p.get('when_to_use') or '')[:120])}_")
+    if len(patterns) > 8:
+        msg += ["", f"_...and {len(patterns) - 8} more. Narrow with /patterns <category>._"]
+    await update.message.reply_text(_escape("\n".join(msg)), parse_mode="MarkdownV2")
+    log.info("[patterns] delivered count=%s category=%s", len(patterns), category)
 
 
 # ── Mission create command (MSN-0172) ────────────────────────────────────────
@@ -1633,7 +1676,15 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     text = (update.message.text or "").strip()
     if not text:
         return
-    db       = _get_supabase()
+    db = _get_supabase()
+
+    if db:
+        from telegram_bots.xo import debrief_engine as de
+        debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+        if debrief_result["handled"]:
+            await update.message.reply_text(debrief_result["reply"])
+            return
+
     status   = get_recovery_status(db)
     snap     = get_wellness_snapshot(db)
     missions = _get_open_missions(db)
@@ -1711,71 +1762,16 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 # ── Voice-to-Capture ──────────────────────────────────────────────────────────
 
-async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle voice messages — transcribe locally and write to capture inbox."""
-    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
-        return
-
-    msg = update.message
-    if not msg or not msg.voice:
-        return
-
-    db = _get_supabase()
-    if not db:
-        await msg.reply_text("⚠️ Supabase unavailable — voice capture requires database connectivity.")
-        return
-
-    # Import here to avoid circular deps at module load
+def _build_capture_reply(capture_id, voice_type: str, confidence: float, duration: float, transcript: str):
+    """Shared by cmd_voice_note's low-tier path and the 'Save as Capture'
+    button callback — one canonical capture confirmation card, not duplicated."""
     from telegram_bots.xo import voice_capture as vc
 
-    # Ensure temp dir exists
-    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    label    = vc.voice_type_label(voice_type)
+    short_id = str(capture_id)[:8]
+    preview  = transcript[:300]
+    conf_pct = int(confidence * 100)
 
-    # Download voice note
-    audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
-    thinking = await msg.reply_text("🎙 Transcribing…")
-    try:
-        tg_file = await msg.voice.get_file()
-        await tg_file.download_to_drive(audio_path)
-    except Exception as exc:
-        log.error("[voice] download failed: %s", exc)
-        await thinking.edit_text(f"⚠️ Could not download voice file: {exc}")
-        return
-
-    # Run full pipeline
-    try:
-        result = vc.handle_capture_from_voice(
-            db, audio_path,
-            chat_id=update.effective_chat.id,
-            message_id=msg.message_id,
-        )
-    except Exception as exc:
-        log.error("[voice] pipeline error: %s", exc)
-        await thinking.edit_text(f"⚠️ Capture failed: {exc}")
-        return
-    finally:
-        import os
-        try:
-            os.unlink(audio_path)
-        except OSError:
-            pass
-
-    if not result.get("ok"):
-        err = _escape(result.get("error", "Unknown error"))
-        await thinking.edit_text(f"⚠️ Voice capture failed: {err}", parse_mode="MarkdownV2")
-        return
-
-    transcript  = result["transcript"]
-    voice_type  = result["voice_type"]
-    confidence  = result["confidence"]
-    capture_id  = result["capture_id"]
-    duration    = result.get("duration", 0.0)
-    label       = vc.voice_type_label(voice_type)
-    short_id    = str(capture_id)[:8]
-    preview     = transcript[:300]
-    conf_pct    = int(confidence * 100)
-
-    # Inline action buttons
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Confirm", callback_data=f"vc|confirm|{capture_id}"),
@@ -1786,7 +1782,6 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             InlineKeyboardButton("📋 → Note",    callback_data=f"vc|note|{capture_id}"),
         ],
     ])
-
     reply = (
         f"🎙 *Voice captured\\.*\n\n"
         f"Type: `{_escape(label)}`\n"
@@ -1796,8 +1791,175 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"ID: `{short_id}…`\n\n"
         f"*Preview:*\n_{_escape_strict(preview)}_"
     )
+    return reply, keyboard
+
+
+async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle voice messages — acknowledge immediately, then transcribe/route/reply."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+
+    msg = update.message
+    if not msg or not msg.voice:
+        return
+
+    # XO Debrief Responsiveness Improvement: acknowledge BEFORE any expensive
+    # work (Supabase check, download, transcription, LLM) — the Captain should
+    # never feel like they're waiting on a backend pipeline.
+    t0 = time.monotonic()
+    timings = {}
+    thinking = await msg.reply_text("Received, Captain.")
+    timings["ack_ms"] = round((time.monotonic() - t0) * 1000)
+
+    db = _get_supabase()
+    if not db:
+        await thinking.edit_text("⚠️ Supabase unavailable — voice capture requires database connectivity.")
+        return
+
+    # Import here to avoid circular deps at module load
+    from telegram_bots.xo import voice_capture as vc
+    from telegram_bots.xo import debrief_engine as de
+
+    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
+    try:
+        tg_file = await msg.voice.get_file()
+        await tg_file.download_to_drive(audio_path)
+    except Exception as exc:
+        log.error("[voice] download failed: %s", exc)
+        await thinking.edit_text(f"⚠️ Could not download voice file: {exc}")
+        return
+
+    # Transcribe only here — classification/save is deferred below so a
+    # voice note that belongs to an active debrief never lands in
+    # captured_items (debrief takes priority over quick-capture).
+    try:
+        t = vc.transcribe_audio(audio_path)
+    except Exception as exc:
+        log.error("[voice] transcription error: %s", exc)
+        await thinking.edit_text(f"⚠️ Capture failed: {exc}")
+        return
+    finally:
+        import os
+        try:
+            os.unlink(audio_path)
+        except OSError:
+            pass
+    timings["transcribed_ms"] = round((time.monotonic() - t0) * 1000)
+
+    if not t.get("ok"):
+        err = _escape(t.get("error", "Unknown error"))
+        await thinking.edit_text(f"⚠️ Voice capture failed: {err}", parse_mode="MarkdownV2")
+        return
+
+    transcript = (t.get("text") or "").strip()
+    if not transcript:
+        await thinking.edit_text(
+            "⚠️ Transcription produced no text — audio may be silent or too short\\.",
+            parse_mode="MarkdownV2",
+        )
+        return
+    duration = float(t.get("duration") or 0.0)
+
+    def _log_timing(used_llm: bool | None) -> None:
+        timings["first_reply_ms"] = round((time.monotonic() - t0) * 1000)
+        if used_llm:
+            timings["llm_reply_ms"] = timings["first_reply_ms"]
+        log.info("[voice-timing] %s", timings)
+
+    # Active debrief always continues, regardless of what this voice note says.
+    session = de.get_active_session(db, update.effective_chat.id)
+    if session is not None:
+        debrief_result = await de.route_debrief_interaction(
+            db, update.effective_chat.id, transcript,
+            audio_file=audio_path, confidence=t.get("language_probability"),
+        )
+        timings["routed_ms"] = timings["transcribed_ms"]
+        await thinking.edit_text(debrief_result["reply"])
+        _log_timing(debrief_result.get("used_llm"))
+        return
+
+    # No active session — classify for capture AND score debrief intent
+    # together, so a rich reflective narrative isn't silently boxed into a
+    # quick-capture card just because it happened to match a keyword rule.
+    voice_type, confidence = vc.classify_text(transcript)
+    tier = de.score_debrief_intent(transcript, voice_type, confidence)
+    timings["routed_ms"] = round((time.monotonic() - t0) * 1000)
+
+    if tier == "high":
+        debrief_result = await de.route_debrief_interaction(
+            db, update.effective_chat.id, transcript,
+            audio_file=audio_path, confidence=t.get("language_probability"),
+            force_start=True,
+        )
+        await thinking.edit_text(debrief_result["reply"])
+        _log_timing(debrief_result.get("used_llm"))
+        return
+
+    if tier == "moderate":
+        # Staged as needs_decision — invisible to every real capture consumer
+        # until the Captain resolves it via the buttons below.
+        saved = vc.save_capture(
+            db, transcript, voice_type, confidence,
+            update.effective_chat.id, msg.message_id, duration, audio_path,
+            processing_status="needs_decision",
+        )
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🗣 Start Debrief",   callback_data=f"vd|debrief|{saved['id']}"),
+                InlineKeyboardButton("📋 Save as Capture", callback_data=f"vd|capture|{saved['id']}"),
+            ],
+            [InlineKeyboardButton("✖ Cancel", callback_data=f"vd|cancel|{saved['id']}")],
+        ])
+        await thinking.edit_text(
+            "Captain, this sounds more like a debrief than a quick capture\\.\n\n"
+            "Would you like to start a debrief\\?",
+            parse_mode="MarkdownV2", reply_markup=keyboard,
+        )
+        _log_timing(used_llm=False)
+        return
+
+    # tier == "low" — existing capture flow, unchanged.
+    saved = vc.save_capture(
+        db, transcript, voice_type, confidence,
+        update.effective_chat.id, msg.message_id, duration, audio_path,
+    )
+    reply, keyboard = _build_capture_reply(saved["id"], voice_type, confidence, duration, transcript)
     await thinking.edit_text(reply, parse_mode="MarkdownV2", reply_markup=keyboard)
-    log.info("[voice] captured id=%s type=%s conf=%d%%", short_id, voice_type, conf_pct)
+    _log_timing(used_llm=False)
+    log.info("[voice] captured id=%s type=%s conf=%d%%", str(saved["id"])[:8], voice_type, int(confidence * 100))
+
+
+# ── Debrief commands ──────────────────────────────────────────────────────────
+
+async def cmd_debrief_close(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/debrief_close — explicit escape hatch, force-closes the active debrief
+    regardless of natural-language close-phrase detection or LLM inference."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    db = _get_supabase()
+    if not db:
+        await update.message.reply_text("⚠️ Supabase unavailable.")
+        return
+
+    from telegram_bots.xo import debrief_engine as de
+    session = de.get_active_session(db, update.effective_chat.id)
+    if not session:
+        await update.message.reply_text("No active debrief session, Captain.")
+        return
+
+    turns = de.fetch_turns(db, session["id"])
+    log_row = await de.close_session(db, session, turns)
+    await update.message.reply_text(de.format_log_reply(log_row))
+
+
+async def cmd_debrief_weekly(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/debrief_weekly — manual trigger for the weekly debrief digest (Phase 6)."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    from intelligence.captains_brief import generate_weekly_debrief_digest
+    text = await asyncio.get_event_loop().run_in_executor(None, generate_weekly_debrief_digest)
+    await update.message.reply_text(text, parse_mode="HTML")
 
 
 async def handle_voice_capture_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1855,6 +2017,72 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
     except Exception as exc:
         log.error("[voice-cb] %s failed: %s", action, exc)
         await query.edit_message_text(f"⚠️ Action failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+
+
+async def handle_voice_debrief_decision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Resolves the moderate-tier 'sounds like a debrief?' buttons.
+
+    The row is staged with processing_status='needs_decision' (invisible to
+    every real capture consumer) until one of these three outcomes:
+      - debrief: staged row deleted outright, a real debrief session starts
+      - capture: row transitions to 'pending' — only now is it a real capture
+      - cancel:  row dismissed, same as a normal capture dismiss
+    Exactly one storage location at any time — no voice note ever enters
+    both workflows.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+
+    parts = query.data.split("|")  # vd|action|capture_id
+    if len(parts) != 3:
+        return
+    _, action, capture_id = parts
+
+    db = _get_supabase()
+    if not db:
+        await query.edit_message_text("⚠️ Supabase unavailable.")
+        return
+
+    row_result = db.table("captured_items").select("*").eq("id", capture_id).execute()
+    if not row_result.data:
+        await query.edit_message_text("⚠️ That capture no longer exists.")
+        return
+    row = row_result.data[0]
+
+    try:
+        if action == "cancel":
+            db.table("captured_items").update({"processing_status": "dismissed"}) \
+              .eq("id", capture_id).execute()
+            await query.edit_message_text("Dismissed.")
+            return
+
+        if action == "capture":
+            db.table("captured_items").update({"processing_status": "pending"}) \
+              .eq("id", capture_id).execute()
+            summary = json.loads(row.get("summary") or "{}")
+            voice_type = summary.get("voice_type", "unknown")
+            confidence = float(summary.get("confidence", 0.5))
+            duration = float(summary.get("duration_s", 0.0))
+            reply, keyboard = _build_capture_reply(
+                capture_id, voice_type, confidence, duration, row.get("raw_text", ""),
+            )
+            await query.edit_message_text(reply, parse_mode="MarkdownV2", reply_markup=keyboard)
+            return
+
+        if action == "debrief":
+            from telegram_bots.xo import debrief_engine as de
+            transcript = row.get("raw_text", "")
+            db.table("captured_items").delete().eq("id", capture_id).execute()
+            result = await de.start_session_with_first_turn(db, update.effective_chat.id, transcript)
+            await query.edit_message_text(result["reply"])
+            return
+
+    except Exception as exc:
+        log.error("[voice-debrief-cb] %s failed: %s", action, exc)
+        await query.edit_message_text(f"⚠️ Action failed: {exc}")
 
 
 # ── Telegram adapter ──────────────────────────────────────────────────────────
@@ -2075,6 +2303,7 @@ _BOT_COMMANDS = [
     # Captain intelligence — primary daily interface
     ("captain",         "Narrative: what changed, why it matters, what to do"),
     ("learning",        "Learning health, compliance, insights, leadership candidates"),
+    ("patterns",        "Operational Pattern Library: reusable engineering process knowledge"),
     ("pending",         "Captain attention queue + quick outcome capture"),
     # Intelligence
     ("brief",           "Intelligence brief on demand"),
@@ -2084,6 +2313,9 @@ _BOT_COMMANDS = [
     # Advisory
     ("advisor",         "Multi-officer advisory panel  e.g. /advisor What to focus on this week?"),
     ("challenge",       "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
+    # Daily debrief
+    ("debrief_close",   "Force-close the active debrief and get today's log"),
+    ("debrief_weekly",  "Weekly debrief digest — recurring stressors, ideas, open loops"),
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
@@ -2165,12 +2397,16 @@ def main() -> None:
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("daily",           cmd_daily))
     app.add_handler(CommandHandler("learning",        cmd_learning))
+    app.add_handler(CommandHandler("patterns",        cmd_patterns))
     app.add_handler(CommandHandler("captain",         cmd_captain))
     app.add_handler(CommandHandler("pending",         cmd_pending))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
+    app.add_handler(CommandHandler("debrief_close",   cmd_debrief_close))
+    app.add_handler(CommandHandler("debrief_weekly",  cmd_debrief_weekly))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
+    app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
     app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 

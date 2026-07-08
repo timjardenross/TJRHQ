@@ -219,19 +219,15 @@ def _case_gcp_advisories() -> CaseResult:
     (exactly one row per distinct GCP-2026-NNN advisory), not a duplicate
     regression. This case's real job is the dedup-correctness check below.
 
-    Built while writing this case, NOT part of the pass/fail gate: a real
-    classifier gap (see KNOWN_GAPS) where some GCP security bulletins
-    misclassify as `technology_outage` instead of `cyber` because their
-    boilerplate cross-platform distribution text ("GKE on AWS security
-    bulletin", "GKE on Azure security bulletin") scores 2 technology_outage
-    keyword hits ("aws", "azure") against only 1 cyber hit ("cve") when the
-    genuine cyber signal is a plural "vulnerabilities" that the classifier's
-    singular "vulnerability" keyword doesn't substring-match. This is
-    pre-existing (MSN-0338 Gap #6 class), not a WP1-4 regression — hard-
-    failing this suite daily for it would be a false alarm for an
-    already-known, explicitly out-of-scope-for-WP1-4 issue. Tracked in
-    KNOWN_GAPS with the specific root cause instead, so it's actionable
-    for whichever future mission scopes a Gap #6 classifier-quality fix."""
+    Built while writing this case, NOT part of the pass/fail gate: found a
+    real classifier gap (see KNOWN_GAPS) where some GCP security bulletins
+    misclassified as `technology_outage` instead of `cyber` — fixed in
+    MSN-0343 (classifier.py's cyber rule now matches the "vulnerabilit"
+    stem instead of only the singular "vulnerability"). Left as an
+    informational count rather than a hard pass/fail gate here: the rows
+    already in intelligence_events from before the fix keep their original
+    classification (not retroactively reclassified), so cyber_count on
+    historical data won't hit 100% even though new ingestion will."""
     name = "gcp_advisory_batch_dedup"
     kind = "real"
     rows = _query_events("GCP-2026-%", limit=20)
@@ -418,13 +414,14 @@ KNOWN_GAPS = [
     "No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
     "both cases above are real historical text replayed offline, not a currently-collectible live row; "
     "swap in a live row here the day a real one exists.",
-    "NEW, found building this suite (2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, "
-    "real cross-platform GKE bulletins with genuine CVEs) misclassify as technology_outage instead of cyber "
-    "— their boilerplate 'GKE on AWS security bulletin'/'GKE on Azure security bulletin' distribution text "
-    "scores 2 technology_outage keyword hits (aws, azure) against only 1 cyber hit (cve), because the plural "
-    "'vulnerabilities' in these bulletins doesn't substring-match the classifier's singular 'vulnerability' "
-    "keyword. Pre-existing (MSN-0338 Gap #6 class: classifier keyword-count scoring, not a WP1-4 regression) "
-    "— intelligence/classification/classifier.py's _EVENT_TYPE_RULES, not fixed here, out of this WP's scope.",
+    "FIXED (MSN-0343, 2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, real cross-platform "
+    "GKE bulletins with genuine CVEs) misclassified as technology_outage instead of cyber because the plural "
+    "'vulnerabilities' in their boilerplate didn't substring-match the classifier's singular 'vulnerability' "
+    "keyword. intelligence/classification/classifier.py's cyber _EVENT_TYPE_RULES entry now matches the "
+    "'vulnerabilit' stem, covering both forms. Fix is forward-only — the GCP-2026-025/027/029/039 rows already "
+    "in intelligence_events retain their original (wrong) classification from ingestion time; not retroactively "
+    "reclassified, since doing so correctly requires re-running the full classify() pipeline per row, not just "
+    "flipping event_type. The next real ingestion of a similar bulletin will classify correctly.",
 ]
 
 

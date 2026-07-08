@@ -170,6 +170,7 @@ export default function CaptainsBriefPage() {
                   why: item.priority_explanation ?? undefined,
                   sourceOfficer: item.domain,
                   confidence: item.recommendation?.confidence != null ? `${item.recommendation.confidence}%` : 'Unscored',
+                  evidence: item.recommendation?.evidence,
                 }}
                 compact
               />
@@ -189,6 +190,7 @@ export default function CaptainsBriefPage() {
                   why: rec.supporting_context ?? undefined,
                   sourceOfficer: rec.action_type ?? 'Recommendation',
                   confidence: rec.confidence != null ? `${rec.confidence}%` : 'Unscored',
+                  evidence: rec.evidence,
                 }}
                 compact
               />
