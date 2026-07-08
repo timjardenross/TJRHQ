@@ -30,13 +30,15 @@ router.get('/state', asyncHandler(async (req, res) => {
   const { value, isStale } = cacheManager.get(cacheKey);
   if (value) return res.json(successResponse(value, 200, { source: isStale ? 'stale_cache' : 'cache' }));
 
-  const [stateRows, registryRows] = await Promise.all([
+  const [stateRows, registryRows, allDomainsRows] = await Promise.all([
     supabaseGet('verification_state?select=computed_at,state,degraded_domains,reason&order=computed_at.desc&limit=1'),
     supabaseGet('domain_registry?domain_key=eq.verification_engine&select=expected_cadence_minutes,grace_period_minutes'),
+    supabaseGet('domain_registry?select=domain_key'),
   ]);
 
   const registry = registryRows[0] || { expected_cadence_minutes: 5, grace_period_minutes: 15 };
   const maxAgeMs = (registry.expected_cadence_minutes + registry.grace_period_minutes) * 60 * 1000;
+  const totalDomains = allDomainsRows.length;
 
   const latest = stateRows[0] || null;
   const nowMs = Date.now();
@@ -49,6 +51,7 @@ router.get('/state', asyncHandler(async (req, res) => {
       state: 'blind',
       last_verified_at: latest ? latest.computed_at : null,
       degraded_domains: [],
+      total_domains: totalDomains,
       reason: latest
         ? 'Verification has not run recently enough to trust its last result'
         : 'Verification has never completed a pass',
@@ -58,6 +61,7 @@ router.get('/state', asyncHandler(async (req, res) => {
       state: latest.state, // 'sure' | 'unsure'
       last_verified_at: latest.computed_at,
       degraded_domains: latest.degraded_domains || [],
+      total_domains: totalDomains,
       reason: latest.reason || null,
     };
   }
