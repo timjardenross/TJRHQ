@@ -6,10 +6,6 @@ import { StatusBadge } from '@/components/StatusBadge';
 import Link from 'next/link';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import {
-  stageProgressionRecord,
-  stageStatus
-} from '@/lib/mockData';
 import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
 import { EscalationBanner } from '@/components/EscalationBanner';
 import { loadHumanSystems } from '@/lib/human-systems';
@@ -20,8 +16,6 @@ import type {
   PostureHistory,
   RecoveryIndex,
   RecoveryPostureBand,
-  StageProgressionRecord,
-  StageStatus,
   StatusTone,
   WeeklyPatternSummary
 } from '@/lib/types';
@@ -35,7 +29,6 @@ const TABS = [
   { key: 'pulse',     label: 'Pulse',     glyph: '♥' },
   { key: 'check-in',  label: 'Check-In',  glyph: '✚' },
   { key: 'trends',    label: 'Trends',    glyph: '↗' },
-  { key: 'stage',     label: 'Stage',     glyph: '◈' },
 ] as const;
 type Tab = typeof TABS[number]['key'];
 
@@ -72,29 +65,6 @@ const BAND_TONE: Record<string, StatusTone> = {
   rest:     'medical',
   unknown:  'neutral'
 };
-
-// ── Stage display ────────────────────────────────────────────────────────────
-
-function StageDisplay({ stage }: { stage: StageStatus }) {
-  const c = toneClasses(stage.tone);
-  return (
-    <LCARSPanel title="Recovery Stage" accent="medical" eyebrow="ROS-001 v1.1">
-      <div className={`flex items-start gap-4 rounded-lcars border ${c.border} ${c.bg} p-4`}>
-        <div className={`shrink-0 font-lcars text-4xl font-bold ${c.text}`}>
-          {stage.stage}
-        </div>
-        <div>
-          <p className={`font-lcars text-sm font-semibold uppercase tracking-wider ${c.text}`}>
-            {stage.label}
-          </p>
-          <p className="mt-1 text-sm text-lcars-text/80 leading-relaxed">
-            {stage.description}
-          </p>
-        </div>
-      </div>
-    </LCARSPanel>
-  );
-}
 
 // ── Life Participation Score ─────────────────────────────────────────────────
 
@@ -520,59 +490,6 @@ function MedicalGuidance({ guidance }: { guidance: string[] }) {
   );
 }
 
-// ── Stage Progression card (compact — full record on /stage-progression) ─────
-
-function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
-  const metCount = record.stage2_criteria.filter((c) => c.met === true).length;
-  const total = record.stage2_criteria.length;
-  const { stable_or_strong, total_recorded, threshold } = record.stability_signal;
-
-  return (
-    <LCARSPanel
-      title="Stage Progression"
-      accent="medical"
-      eyebrow="Knowledge Officer record"
-      actions={
-        <Link
-          href="/stage-progression"
-          className="text-[10px] uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70"
-        >
-          Full Record →
-        </Link>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3">
-          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Current stage</p>
-          <p className="font-lcars text-lg font-semibold text-medical-on mt-0.5">
-            {record.current_stage_label}
-          </p>
-          <p className="text-xs text-lcars-muted mt-1">
-            Transitions are recognised, not achieved. Consistent behaviour creates the conditions.
-          </p>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-lcars border border-edge bg-space/40 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stage 2 criteria</p>
-            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
-              {metCount} / {total}
-            </p>
-            <p className="text-xs text-lcars-muted">criteria met or partial</p>
-          </div>
-          <div className="rounded-lcars border border-edge bg-space/40 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stability signal</p>
-            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
-              {stable_or_strong} / {threshold}
-            </p>
-            <p className="text-xs text-lcars-muted">of {threshold} days needed ({total_recorded} recorded)</p>
-          </div>
-        </div>
-      </div>
-    </LCARSPanel>
-  );
-}
-
 // ── Recovery Posture summary (compact — full detail on Captain's Chair) ──────
 
 function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPosture }) {
@@ -788,6 +705,7 @@ export default function MedicalPage() {
       {activeTab === 'trends' && (
         <div className="flex flex-col gap-4">
           <PosturePatternChart history={postureHistory} />
+          <CapacityRestorationPanel rows={readinessTrend} />
           <div className="grid gap-4 xl:grid-cols-2">
             <WeeklyPatternSummaryPanel summary={weeklySummary} />
             <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
@@ -823,23 +741,6 @@ export default function MedicalPage() {
               </div>
             )}
           </LCARSPanel>
-        </div>
-      )}
-
-      {/* Stage tab — progression detail + capacity restoration */}
-      {activeTab === 'stage' && (
-        <div className="flex flex-col gap-4">
-          <StageDisplay stage={stageStatus} />
-          <CapacityRestorationPanel rows={readinessTrend} />
-          <StageProgressionCard record={stageProgressionRecord} />
-          <div className="rounded-lcars border border-edge bg-space/40 p-4">
-            <p className="text-sm text-lcars-muted leading-relaxed mb-3">
-              Stage tracking observes patterns over time. Transitions are recognised, not achieved.
-            </p>
-            <Link href="/human-systems" className="text-xs uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70 transition-colors">
-              Human Systems Framework →
-            </Link>
-          </div>
         </div>
       )}
 

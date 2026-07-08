@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import type { VerificationResult } from '@/lib/verification';
 import { homeCopyFor, fmtTime } from '@/lib/homeCopy';
 
 // STARSHIP-REDESIGN.md §3. Four blocks, one screen, no persistent nav.
 // The "Am I okay?" block is the only one wired to real backend state today
-// (the verification engine, Phase 1) - Needs you / Since yesterday / Worth
-// knowing render their honest empty defaults because Decide and Ask don't
-// exist yet. That is not a cosmetic shortcut: those defaults are literally
-// true right now (there is no decision engine to have an opinion, no diff
-// engine to have noticed a change), so stating them plainly is the honest
-// choice, not a placeholder pretending to be complete.
+// (the verification engine, Phase 1). Needs you / Since yesterday / Worth
+// knowing state plainly that Decide and Ask don't exist yet, rather than
+// implying a check ran and found nothing - "no decisions require your
+// judgement" would be a real, false claim if genuine pending approvals are
+// sitting in the missions/decisions tables that Home simply isn't looking
+// at yet. Saying "not wired up" instead of "nothing to report" is the
+// honest version of an empty state for a capability that doesn't exist.
 
 export function HomeScreen({ verification }: { verification: VerificationResult }) {
   const [daypart, setDaypart] = useState('Hello');
@@ -59,19 +61,35 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
               </>
             )}
           </div>
+          {copy.coverage && (
+            <p className="mt-2 pl-[24px] text-[13px] tabular-nums text-[#5A6875]">
+              {copy.coverage}
+            </p>
+          )}
         </div>
 
         {/* 2 · Needs you */}
         <Section eyebrow="Needs you" ringColor={copy.ringColor}>
           <p className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed">
-            No decisions require your judgement.
+            Decide isn&rsquo;t wired into Home yet.{' '}
+            <span className="text-[#93A1B0]">
+              Check{' '}
+              <Link href="/missions" className="underline underline-offset-2 hover:text-[#E8EDF2]">
+                Missions
+              </Link>{' '}
+              or{' '}
+              <Link href="/decisions" className="underline underline-offset-2 hover:text-[#E8EDF2]">
+                Decisions
+              </Link>{' '}
+              directly for anything pending.
+            </span>
           </p>
         </Section>
 
         {/* 3 · Since yesterday */}
         <Section eyebrow="Since yesterday" ringColor={copy.ringColor}>
           <p className="text-[16.5px] text-[#93A1B0] leading-relaxed">
-            Nothing notable changed since yesterday.
+            Change tracking isn&rsquo;t built yet — nothing to show here.
           </p>
         </Section>
 
@@ -87,13 +105,9 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
               borderLeft: `3px solid ${copy.ringColor}`,
             }}
           >
-            Nothing else stands out today.
+            Insight surfacing isn&rsquo;t built yet — nothing to show here.
           </p>
         </Section>
-
-        <p className="pt-8 text-[15px] text-[#5A6875] italic">
-          That&rsquo;s everything. Go do the rest of your day.
-        </p>
 
         <footer className="mt-auto pt-14 text-[12.5px] text-[#5A6875] flex items-center gap-2">
           <span
