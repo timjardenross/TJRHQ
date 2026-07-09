@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { TERMINAL_STATUSES } from './missionStatus';
 
 // MSN-0349 Objective 2: Executive Interrupt Assembly. Answers exactly one
 // question - "does anything currently justify interrupting the Captain?" -
@@ -6,12 +7,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // scoring, no invented thresholds beyond what's disclosed here, no
 // confidence display.
 //
-// Deliberately narrower than the Change Assembly's domain list: Missions,
+// Deliberately narrower than the Change Assembly's domain list:
 // Decide-adjacent, Captured Items, Captain's Log, Lessons Learned, and
 // Communications do NOT nominate interrupts here, because their genuine
 // "needs judgement" cases already surface via Decide's "Needs you" count -
 // adding a second interrupt for the same underlying fact would be the
 // duplicate truth this system exists to avoid.
+//
+// MSN-0354 correction: Missions used to be on that exclusion list too, on
+// the documented assumption that Decide's queue already covered mission
+// urgency. It doesn't, and the two are not interchangeable by design: Decide
+// only lists missions sitting in a status the mission-approve API actually
+// accepts (APPROVAL_ELIGIBLE in app/api/missions/[id]/approve/route.ts -
+// 'Awaiting Captain Approval' | 'Awaiting XO Approval' | 'Validated' |
+// 'Tested'). A P0 mission stuck in 'Designed' has no approve/reject action
+// available at all - it is invisible to Decide by design, not by bug, and
+// would 409 if that filter were simply widened to include it (verified live
+// against the real approve route, MSN-0354). Home's Interrupt Assembly is
+// the right home for that fact: passive awareness that something is stuck,
+// with no claim that an action route exists. See missionNominator below.
 //
 // The completeness rule (STARSHIP-REDESIGN.md / MSN-0349 Objective 2):
 // Home may only claim "Sure" if every domain below was actually reachable
@@ -106,8 +120,76 @@ async function intelligenceBriefNominator(supabase: SupabaseClient): Promise<Int
   };
 }
 
-const NOMINATORS: Nominator[] = [healthRiskNominator, intelligenceEventNominator, intelligenceBriefNominator];
-const DOMAIN_NAMES = ['Health', 'Operational intelligence', 'Intelligence briefs'];
+/** Priority + staleness thresholds, in days since `created_at`. P0 gets a
+ * tight 3-day window, P1 a full week - the same escalation cadence already
+ * disclosed and used elsewhere in this codebase for "a few days of no
+ * movement is fine, a week isn't" (lib/delivery.ts's detectBottlenecks():
+ * planned>3d -> medium severity, planned>7d -> high), applied here to
+ * mission priority instead of delivery_state. Not a new invented scale. */
+const MISSION_STALE_DAYS: Record<string, number> = { P0: 3, P1: 7 };
+
+function daysSince(dateStr: string): number {
+  const days = (Date.now() - new Date(dateStr).getTime()) / 86_400_000;
+  return Number.isNaN(days) ? 0 : days;
+}
+
+interface StaleMissionRow {
+  mission_id: string;
+  title: string;
+  status: string;
+  priority: string | null;
+  created_at: string;
+}
+
+/** missions is a real table already used throughout the product (Missions
+ * board, Decide's mission queue). Nominates the single oldest P0/P1 mission
+ * that has sat in a non-terminal status (TERMINAL_STATUSES, shared with the
+ * hygiene checks - lib/missionStatus.ts) past its priority's staleness
+ * threshold. Never fabricates urgency: only real priority + real created_at,
+ * the same two fields Decide's own mission sort already uses
+ * (lib/decisions.ts missionPriorityRank/ageBonus).
+ *
+ * evidenceAt is deliberately the evaluation time (now), not created_at: the
+ * fact this nominates on - "this mission is still stuck, right now" - is
+ * continuously true for as long as nothing changes, unlike the other three
+ * nominators' evidenceAt (a real point-in-time event: when a brief/insight
+ * was generated, when an intelligence event was published). Using
+ * created_at here would make a multi-day-stale mission look like *older*
+ * evidence than a same-day health/intel signal in selectPrimaryInterrupt's
+ * "most recent wins" tie-break, which would bury the exact defect this
+ * nominator exists to catch (MSN-0354: a 17-day-stale P0 mission). */
+async function missionNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
+  const { data } = await supabase
+    .from('missions')
+    .select('mission_id, title, status, priority, created_at')
+    .in('priority', Object.keys(MISSION_STALE_DAYS))
+    .order('created_at', { ascending: true })
+    .limit(50);
+  const rows = (data ?? []) as StaleMissionRow[];
+  const stale = rows.filter((m) => {
+    if (TERMINAL_STATUSES.includes(m.status)) return false;
+    const threshold = MISSION_STALE_DAYS[m.priority ?? ''];
+    return threshold != null && daysSince(m.created_at) >= threshold;
+  });
+  // Rows already ascending by created_at, so the first stale row is the
+  // oldest - the single most overdue mission, not just any qualifying one.
+  const row = stale[0];
+  if (!row) return null;
+  const ageDays = Math.floor(daysSince(row.created_at));
+  return {
+    domain: 'Missions',
+    text: `${row.priority} mission "${row.title}" has been ${row.status} for ${ageDays} day${ageDays === 1 ? '' : 's'} with no resolution.`,
+    evidenceAt: new Date().toISOString(),
+  };
+}
+
+const NOMINATORS: Nominator[] = [
+  healthRiskNominator,
+  intelligenceEventNominator,
+  intelligenceBriefNominator,
+  missionNominator,
+];
+const DOMAIN_NAMES = ['Health', 'Operational intelligence', 'Intelligence briefs', 'Missions'];
 
 export async function assembleInterrupts(supabase: SupabaseClient): Promise<InterruptAssemblyResult> {
   const settled = await Promise.allSettled(NOMINATORS.map((n) => n(supabase)));

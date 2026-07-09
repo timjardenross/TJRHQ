@@ -25,9 +25,15 @@ describe('INTERRUPT_COVERAGE_REGISTRY', () => {
     }
   });
 
-  it('captains-brief and advisory-proactive are the only server-evaluated capabilities today', () => {
+  it('lists exactly the server-evaluated capabilities today (MSN-0354 added missions and health-insights-risk-flags)', () => {
     const real = capabilitiesWithRealEvaluator().map((e) => e.capability).sort();
-    expect(real).toEqual(['advisory-proactive', 'captains-brief', 'intelligence-signals']);
+    expect(real).toEqual([
+      'advisory-proactive',
+      'captains-brief',
+      'health-insights-risk-flags',
+      'intelligence-signals',
+      'missions',
+    ]);
   });
 
   it('honestly reports the remaining false-calm gaps MSN-0351 did not close', () => {

@@ -8,6 +8,7 @@ function chain(result: { data: unknown[] | null } | Promise<never>) {
     eq: () => obj,
     gte: () => obj,
     not: () => obj,
+    in: () => obj,
     order: () => obj,
     limit: () => obj,
     then: (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
@@ -68,6 +69,116 @@ describe('assembleInterrupts', () => {
     const supabase = fakeSupabase({ health_insights: Promise.reject(new Error('down')) });
     const result = await assembleInterrupts(supabase);
     expect(result.uncheckedDomains).toContain('Health');
+    expect(result.complete).toBe(false);
+  });
+
+  // MSN-0354: missions used to be entirely absent from this assembly - a real
+  // P0 mission (MSN-LCARS-003, status='Designed') sat unnominated for 17
+  // days. These cases pin the fix.
+  it('nominates a P0 mission stuck in a non-terminal status past the 3-day threshold', async () => {
+    const supabase = fakeSupabase({
+      missions: {
+        data: [
+          {
+            mission_id: 'MSN-LCARS-003',
+            title: 'Data Provenance & Operational Trust Framework',
+            status: 'Designed',
+            priority: 'P0',
+            created_at: '2026-06-22T12:53:24Z',
+          },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const mission = result.interrupts.find((i) => i.domain === 'Missions');
+    expect(mission?.text).toContain('P0 mission "Data Provenance & Operational Trust Framework"');
+    expect(mission?.text).toContain('Designed');
+  });
+
+  it('does not nominate a P0 mission younger than the 3-day threshold', async () => {
+    const supabase = fakeSupabase({
+      missions: {
+        data: [
+          {
+            mission_id: 'MSN-NEW',
+            title: 'Brand new mission',
+            status: 'Designed',
+            priority: 'P0',
+            created_at: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Missions')).toBeUndefined();
+  });
+
+  it('does not nominate a P1 mission until it clears the 7-day threshold', async () => {
+    const fourDaysAgo = new Date(Date.now() - 4 * 86_400_000).toISOString();
+    const eightDaysAgo = new Date(Date.now() - 8 * 86_400_000).toISOString();
+    const stillYoung = fakeSupabase({
+      missions: {
+        data: [{ mission_id: 'MSN-P1-A', title: 'P1 young', status: 'Idea', priority: 'P1', created_at: fourDaysAgo }],
+      },
+    });
+    expect((await assembleInterrupts(stillYoung)).interrupts.find((i) => i.domain === 'Missions')).toBeUndefined();
+
+    const nowStale = fakeSupabase({
+      missions: {
+        data: [{ mission_id: 'MSN-P1-B', title: 'P1 stale', status: 'Idea', priority: 'P1', created_at: eightDaysAgo }],
+      },
+    });
+    expect((await assembleInterrupts(nowStale)).interrupts.find((i) => i.domain === 'Missions')).toBeDefined();
+  });
+
+  it('never nominates a mission sitting in a terminal status, however old', async () => {
+    const supabase = fakeSupabase({
+      missions: {
+        data: [
+          {
+            mission_id: 'MSN-OLD-CLOSED',
+            title: 'Long since closed',
+            status: 'Closed',
+            priority: 'P0',
+            created_at: '2020-01-01T00:00:00Z',
+          },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Missions')).toBeUndefined();
+  });
+
+  it('picks the single oldest qualifying mission when several are stale', async () => {
+    const supabase = fakeSupabase({
+      missions: {
+        data: [
+          {
+            mission_id: 'MSN-OLDEST',
+            title: 'Oldest stale mission',
+            status: 'Designed',
+            priority: 'P0',
+            created_at: '2026-06-01T00:00:00Z',
+          },
+          {
+            mission_id: 'MSN-NEWER',
+            title: 'Newer stale mission',
+            status: 'Designed',
+            priority: 'P0',
+            created_at: '2026-06-20T00:00:00Z',
+          },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const mission = result.interrupts.find((i) => i.domain === 'Missions');
+    expect(mission?.text).toContain('Oldest stale mission');
+  });
+
+  it('marks Missions unchecked (never Sure) when its nominator query fails', async () => {
+    const supabase = fakeSupabase({ missions: Promise.reject(new Error('down')) });
+    const result = await assembleInterrupts(supabase);
+    expect(result.uncheckedDomains).toContain('Missions');
     expect(result.complete).toBe(false);
   });
 });
