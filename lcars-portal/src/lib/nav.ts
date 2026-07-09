@@ -17,7 +17,7 @@ export interface NavItem {
 // a duplicate, driftable copy of nav item data.
 const VALID_NAV_HREFS = [
   '/captains-chair', '/advisory-council', '/knowledge', '/knowledge-library',
-  '/preferences', '/search', '/timeline', '/capture',
+  '/search', '/timeline', '/capture',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
   '/captains-brief', '/delivery', '/automation-centre', '/model-crew',
