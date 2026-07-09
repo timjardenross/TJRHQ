@@ -13,12 +13,17 @@ interface BottomTab {
   glyph: string;
 }
 
+// Starship rewrite (docs/REMOVAL-PLAN.md): this bar only renders inside the
+// legacy (app) layout - Home/Decide/Ask live outside it and are never
+// wrapped by this component - so its job now is purely "give the Captain a
+// quick way back to the three MVP surfaces while on a legacy page", plus
+// Capture, kept because it's a real task tool with no other quick-access
+// path once the sidebar (NAV_SECTIONS) stopped listing it.
 const BOTTOM_TABS: BottomTab[] = [
-  { href: '/captains-chair', label: 'Chair',      bg: 'bg-command',     glyph: '⌂' },
-  { href: '/advisory-council', label: 'Advisory',  bg: 'bg-science',     glyph: '✦' },
-  { href: '/medical',        label: 'Health',     bg: 'bg-medical',     glyph: '✚' },
-  { href: '/capture',        label: 'Capture',    bg: 'bg-engineering', glyph: '+' },
-  { href: '/missions',       label: 'Missions',   bg: 'bg-lcars-lilac', glyph: '★' },
+  { href: '/',        label: 'Home',   bg: 'bg-command',     glyph: '⌂' },
+  { href: '/decide',  label: 'Decide', bg: 'bg-status',      glyph: '✓' },
+  { href: '/ask',     label: 'Ask',    bg: 'bg-science',     glyph: '?' },
+  { href: '/capture', label: 'Capture', bg: 'bg-engineering', glyph: '+' },
 ];
 
 export function LCARSBottomNav() {
@@ -29,7 +34,7 @@ export function LCARSBottomNav() {
       className="mt-4 hidden overflow-hidden rounded-lcars border border-edge lg:flex"
     >
       {BOTTOM_TABS.map((tab) => {
-        const active = pathname === tab.href || (tab.href === '/captains-chair' && pathname === '/');
+        const active = pathname === tab.href;
         return (
           <Link
             key={tab.href}

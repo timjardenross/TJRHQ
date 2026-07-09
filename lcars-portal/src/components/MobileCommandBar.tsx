@@ -24,22 +24,32 @@ interface Tab {
   active: string;
 }
 
+// Starship rewrite (docs/REMOVAL-PLAN.md): Home/Decide/Ask are now the
+// primary surfaces and take the first three slots - this is the ONLY nav
+// on mobile (see doc comment above), so without this change mobile had
+// zero path to any of them. Capture and Physical Readiness are kept -
+// both are real task tools (docs/INVENTORY.md: MIGRATE/TASK-TOOL), not
+// dashboards, and mobile is their primary device with no other nav path
+// once NAV_SECTIONS stopped listing them. Chair/Advisory/Queue/Alerts
+// dropped - all four are superseded (see docs/REMOVAL-PLAN.md Category A)
+// and remain reachable by direct URL for now, not deleted.
 const TABS: Tab[] = [
-  { href: '/captains-chair', label: 'Chair', glyph: '★', active: 'text-command' },
+  { href: '/', label: 'Home', glyph: '⌂', active: 'text-command' },
+  { href: '/decide', label: 'Decide', glyph: '✓', active: 'text-status' },
+  { href: '/ask', label: 'Ask', glyph: '?', active: 'text-science' },
   { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },
-  // MSN-0328 (WP-B): /xo retired (duplicated Advisory Council's XO tab) — points to the real destination directly.
-  { href: '/advisory-council', label: 'Advisory', glyph: '✦', active: 'text-science' },
-  // Physical Readiness MVP: without this, /medical (and everything under it,
-  // incl. Physical Readiness) has zero mobile nav path — LCARSNav/LCARSBottomNav
-  // are desktop-only. Mobile is this module's primary use case per spec.
   { href: '/physical-readiness', label: 'Readiness', glyph: '✚', active: 'text-medical' },
-  { href: '/engineering-queue', label: 'Queue', glyph: '⚙', active: 'text-engineering' },
-  { href: '/alerts', label: 'Alerts', glyph: '◆', active: 'text-operations' },
 ];
 
 export function MobileCommandBar() {
   const pathname = usePathname();
-  const alertCount = useAlertCount();
+  // Kept despite the Alerts tab being removed below: this hook's
+  // `enableNotifications: true` option is what actually fires native
+  // browser push notifications for critical/high alerts - this component
+  // is documented as its "single global owner" (see file doc comment).
+  // Dropping the call would silently break real notifications, not just
+  // hide a badge. The count itself is no longer displayed anywhere.
+  useAlertCount();
 
   return (
     <nav
@@ -49,11 +59,7 @@ export function MobileCommandBar() {
     >
       <ul className="mx-auto flex max-w-[640px]">
         {TABS.map((tab) => {
-          const isActive =
-            pathname === tab.href ||
-            pathname.startsWith(tab.href + '/') ||
-            (tab.href === '/captains-chair' && pathname === '/');
-          const isAlerts = tab.href === '/alerts';
+          const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
           return (
             <li key={tab.href} className="flex-1">
               <Link
@@ -66,11 +72,6 @@ export function MobileCommandBar() {
               >
                 <span className="relative text-xl leading-none" aria-hidden>
                   {tab.glyph}
-                  {isAlerts && alertCount > 0 && (
-                    <span className="absolute -right-3 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-operations px-1 text-[10px] font-bold text-space">
-                      {alertCount > 9 ? '9+' : alertCount}
-                    </span>
-                  )}
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em]">
                   {tab.label}
