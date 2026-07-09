@@ -305,12 +305,28 @@ export interface RecoveryPulse {
   readiness: string | null;
   pain_score: number | null;
   notes: string | null;
+  /** Directly captured nervous-system reading from the pulse (MSN-0355). */
+  nervous_system: string | null;
 }
 
 /** Map stress → nervous_system_state for capacity scoring. */
 function stressToNsState(stress: string | null): string | null {
   if (!stress) return null;
   return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
+}
+
+/**
+ * Resolve a pulse's nervous-system state (MSN-0355). Prefers the directly
+ * captured `nervous_system` reading — real signal, not an inference — and
+ * only falls back to deriving it from `stress` when the real value is null.
+ * Many July check-ins record `nervous_system` with `stress` left null (or
+ * vice versa), so this priority order matters for both directions, not just
+ * the common case. Exported so every consumer of pulse data (this module's
+ * own capacity scoring, and ros-data.ts's Emotional Load Flag) applies the
+ * exact same rule rather than re-deriving it independently.
+ */
+export function pulseNsState(pulse: Pick<RecoveryPulse, 'nervous_system' | 'stress'>): string | null {
+  return pulse.nervous_system ?? stressToNsState(pulse.stress);
 }
 
 /** Map readiness → captain_capacity_rating. */
@@ -333,7 +349,10 @@ function mergeWithPulse(log: HealthRow | null, pulse: RecoveryPulse | null): Hea
     energy: pulse.energy ?? base.energy,
     mood: pulse.mood ?? base.mood,
     pain_score: pulse.pain_score ?? base.pain_score,
-    nervous_system_state: stressToNsState(pulse.stress) ?? base.nervous_system_state,
+    // MSN-0355: prefer the real captured nervous_system reading; only fall
+    // back to the stress-derived heuristic when it's null, and only fall
+    // back to the log's own value when the pulse has neither.
+    nervous_system_state: pulseNsState(pulse) ?? base.nervous_system_state,
     captain_capacity_rating: readinessToCapacity(pulse.readiness) ?? base.captain_capacity_rating,
     notes: pulse.notes ?? base.notes,
   };
@@ -372,7 +391,7 @@ async function fetchPulseRows(days: number): Promise<FetchResult<RecoveryPulse>>
   try {
     const { data, error } = await supabase
       .from('recovery_pulses')
-      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes')
+      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes,nervous_system')
       .gte('log_date', daysAgo(days))
       .order('captured_at', { ascending: false });
     if (error) return { rows: [], failed: true };

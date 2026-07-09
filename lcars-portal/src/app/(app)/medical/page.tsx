@@ -239,22 +239,29 @@ function PosturePatternChart({ history }: { history: PostureHistory }) {
 // ── Emotional Load Flag ──────────────────────────────────────────────────────
 
 function EmotionalLoadFlagPanel({ flag }: { flag: EmotionalLoadFlag }) {
-  const tone: StatusTone = flag.raised ? 'operations' : 'status';
+  // MSN-0355: "no recent data" is a distinct state from "flag genuinely
+  // clear" — the same honest-omission convention used for
+  // escalationCheckFailed (human-systems.ts) and loadError (missions
+  // pages). An empty window must never render as "Clear".
+  const tone: StatusTone = flag.noRecentData ? 'neutral' : flag.raised ? 'operations' : 'status';
   const c = toneClasses(tone);
+  const badgeLabel = flag.noRecentData ? 'No Data' : flag.raised ? 'Raised' : 'Clear';
+  const glyph = flag.noRecentData ? '?' : flag.raised ? '⚑' : '●';
   return (
     <LCARSPanel
       title="Emotional Load Flag"
       accent="medical"
       eyebrow="Nervous system activation pattern"
-      actions={<StatusBadge label={flag.raised ? 'Raised' : 'Clear'} tone={tone} />}
+      actions={<StatusBadge label={badgeLabel} tone={tone} />}
     >
       <div className={`flex items-start gap-3 rounded-lcars border ${c.border} ${c.bg} p-4`}>
-        <span className={`text-xl ${c.text}`}>{flag.raised ? '⚑' : '●'}</span>
+        <span className={`text-xl ${c.text}`}>{glyph}</span>
         <div>
           <p className="text-sm text-lcars-text/90 leading-relaxed">{flag.message}</p>
           <p className="mt-2 text-xs text-lcars-muted">
             {flag.period} — Activated: {flag.activated_days} day{flag.activated_days !== 1 ? 's' : ''} ·{' '}
-            Dysregulated: {flag.dysregulated_days} day{flag.dysregulated_days !== 1 ? 's' : ''}
+            Dysregulated: {flag.dysregulated_days} day{flag.dysregulated_days !== 1 ? 's' : ''} ·{' '}
+            Recorded: {flag.recorded_days} of 7
           </p>
           <p className="mt-1 text-[10px] text-lcars-muted italic">
             Flag raises when activated or dysregulated on 3+ of any 7 days.

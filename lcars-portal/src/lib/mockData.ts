@@ -754,6 +754,8 @@ export const emotionalLoadFlag: EmotionalLoadFlag = {
   raised: false,
   activated_days: 1,
   dysregulated_days: 0,
+  recorded_days: 7,
+  noRecentData: false,
   period: 'Last 7 days',
   message: 'Nervous system activation within expected range. No flag raised.'
 };

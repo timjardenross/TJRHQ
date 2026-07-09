@@ -13,6 +13,7 @@
  */
 
 import { supabase } from './supabase';
+import { pulseNsState } from './human-systems';
 import type {
   BodyContext,
   CapacityBand,
@@ -328,32 +329,92 @@ const DIRECTION_LABEL: Record<WeeklyPatternSummary['direction'], string> = {
 
 // ── EmotionalLoadFlag ────────────────────────────────────────────────────────
 
+/** Severity order for reducing a day's nervous-system signal to a single state. */
+const NS_SEVERITY: Record<string, number> = { calm: 0, activated: 1, dysregulated: 2 };
+
+/** The more severe of two nervous-system states (nulls lose to any real value). */
+function worseNsState(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return (NS_SEVERITY[b] ?? -1) > (NS_SEVERITY[a] ?? -1) ? b : a;
+}
+
+/**
+ * MSN-0355: this flag previously read ONLY `analytics_health_daily`, a view
+ * over `captains_log_entries` FULL JOIN `health_daily_logs` — both of which
+ * stopped receiving rows after 2026-06-28 when the daily check-in habit
+ * moved to the actively-written `recovery_pulses` table (multiple pulses/day
+ * via Telegram). `analytics_health_daily` itself is not broken — it is a
+ * live view correctly reflecting stale source tables — so the fix is not a
+ * SQL repair. Per the Captain's instruction not to silently prefer whichever
+ * table happens to have rows, this merges BOTH sources per day rather than
+ * switching exclusively to one:
+ *   - `analytics_health_daily.nervous_system_state` (may be present for
+ *     older days, or again if the daily-log habit resumes)
+ *   - `recovery_pulses` (the current real signal), resolved per pulse via
+ *     `pulseNsState` — the real `nervous_system` reading, falling back to
+ *     the `stress`-derived heuristic only when it's null
+ * A day can carry several pulses with different readings (confirmed live:
+ * e.g. 2026-07-03 has both 'calm' and 'dysregulated' pulses). Because this
+ * flag exists to catch sustained activation, a day's state is the WORST
+ * (most activated/dysregulated) signal recorded that day, not the latest —
+ * averaging or "most recent wins" would let an earlier dysregulated pulse be
+ * masked by a later calmer one.
+ */
 export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null> {
   if (!supabase) return null;
   try {
     const from = daysAgo(6);
-    const { data, error } = await supabase
-      .from('analytics_health_daily')
-      .select('log_date, nervous_system_state')
-      .gte('log_date', from)
-      .lte('log_date', today())
-      .order('log_date', { ascending: true });
+    const to = today();
 
-    if (error || !data) return null;
+    const [analyticsRes, pulseRes] = await Promise.all([
+      supabase
+        .from('analytics_health_daily')
+        .select('log_date, nervous_system_state')
+        .gte('log_date', from)
+        .lte('log_date', to),
+      supabase
+        .from('recovery_pulses')
+        .select('log_date, nervous_system, stress')
+        .gte('log_date', from)
+        .lte('log_date', to)
+    ]);
 
-    const rows = data as { log_date: string; nervous_system_state: string | null }[];
-    const activated    = rows.filter((r) => r.nervous_system_state === 'activated').length;
-    const dysregulated = rows.filter((r) => r.nervous_system_state === 'dysregulated').length;
-    const raised       = (activated + dysregulated) >= 3;
+    if (analyticsRes.error || pulseRes.error) return null;
+
+    const byDate = new Map<string, string | null>();
+
+    const analyticsRows = (analyticsRes.data ?? []) as { log_date: string; nervous_system_state: string | null }[];
+    for (const row of analyticsRows) {
+      byDate.set(row.log_date, row.nervous_system_state ?? null);
+    }
+
+    const pulseRows = (pulseRes.data ?? []) as { log_date: string; nervous_system: string | null; stress: string | null }[];
+    for (const pulse of pulseRows) {
+      const ns = pulseNsState(pulse);
+      if (!ns) continue;
+      byDate.set(pulse.log_date, worseNsState(byDate.get(pulse.log_date) ?? null, ns));
+    }
+
+    const states       = Array.from(byDate.values());
+    const recordedDays = states.filter((s): s is string => !!s).length;
+    const activated     = states.filter((s) => s === 'activated').length;
+    const dysregulated  = states.filter((s) => s === 'dysregulated').length;
+    const raised        = (activated + dysregulated) >= 3;
+    const noRecentData  = recordedDays === 0;
 
     return {
       raised,
       activated_days:    activated,
       dysregulated_days: dysregulated,
+      recorded_days:     recordedDays,
+      noRecentData,
       period:            'Last 7 days',
-      message: raised
-        ? `Nervous system activation elevated — ${activated + dysregulated} of 7 days activated or dysregulated. Number One has reduced sprint commitments accordingly.`
-        : `Nervous system activation within expected range. No flag raised.`
+      message: noRecentData
+        ? 'No nervous-system signal recorded in the last 7 days — no check-ins or pulses logged. This is not a "clear" reading; there is nothing to evaluate.'
+        : raised
+          ? `Nervous system activation elevated — ${activated + dysregulated} of ${recordedDays} recorded day${recordedDays !== 1 ? 's' : ''} activated or dysregulated. Number One has reduced sprint commitments accordingly.`
+          : `Nervous system activation within expected range across ${recordedDays} recorded day${recordedDays !== 1 ? 's' : ''}. No flag raised.`
     };
   } catch {
     return null;

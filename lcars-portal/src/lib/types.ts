@@ -298,11 +298,20 @@ export interface PostureHistory {
 /**
  * Emotional Load Flag — raised when nervous system state is activated or
  * dysregulated for 3+ of the last 7 days (WP2 Stage 1 guardrail).
+ *
+ * MSN-0355: `recorded_days` and `noRecentData` distinguish a genuinely calm
+ * window from an empty one. Before this fix the flag could read "Clear"
+ * purely because its data source had no rows — an honest reading requires
+ * knowing whether there was anything to evaluate at all.
  */
 export interface EmotionalLoadFlag {
   raised: boolean;
   activated_days: number;
   dysregulated_days: number;
+  /** Days in the window with ANY nervous-system signal recorded (0-7). */
+  recorded_days: number;
+  /** True when recorded_days is 0 — nothing to evaluate, not "clear". */
+  noRecentData: boolean;
   period: string; // e.g. "Last 7 days"
   message: string;
 }
