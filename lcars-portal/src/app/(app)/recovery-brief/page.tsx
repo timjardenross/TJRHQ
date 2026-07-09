@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -37,32 +38,41 @@ function SectionRule({ label }: { label: string }) {
 // ── Recovery Brief ────────────────────────────────────────────────────────────
 
 export default function RecoveryBriefPage() {
-  const { posture: livePosture, bodyContext, guidance, isLive, isLoading } = useROSData();
+  const { posture: livePosture, bodyContext, isLive, isLoading } = useROSData();
 
-  // Merge live posture data over the mock brief template
+  // MSN-0351: this brief carries only fields with a genuine live source. The
+  // previous version spread a mock template (mockBrief) and rendered several
+  // never-replaced mock fields (guidance, afternoon_note, load_summary, the
+  // mission/decision/fleet notes) under a "● Live" badge — those blocks have
+  // been removed rather than presented as live. `stardate` is a decorative
+  // constant (not health/mission data); `sleep_summary` falls back to the mock
+  // string only when bodyContext itself carries no live sleep figure.
   const brief = {
-    ...mockBrief,
-    posture:         livePosture.posture,
-    posture_message: livePosture.posture_message,
+    stardate:         mockBrief.stardate,
+    posture:          livePosture.posture,
+    posture_message:  livePosture.posture_message,
     capacity_message: livePosture.capacity_message,
-    best_window:     livePosture.best_window,
-    sleep_summary:   bodyContext.sleep_hours
+    best_window:      livePosture.best_window,
+    sleep_summary:    bodyContext.sleep_hours
       ? `${bodyContext.sleep_hours}h · ${bodyContext.sleep_quality}${bodyContext.cpap_compliant ? ' · CPAP compliant' : ''}`
       : mockBrief.sleep_summary,
-    nervous_system: bodyContext.nervous_system_state,
-    energy:         bodyContext.energy,
-    guidance
+    nervous_system:   bodyContext.nervous_system_state,
+    energy:           bodyContext.energy
   };
 
   const postureTone = POSTURE_TONE[brief.posture];
   const pc = toneClasses(postureTone);
 
-  // Format generated timestamp
-  const generated = new Date(brief.generated).toLocaleTimeString('en-AU', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  // Real generation time — set client-side only, after mount, so the SSR
+  // pass and the first client render never disagree (a `new Date()` read
+  // directly in render body mismatches whenever the clock crosses a minute
+  // boundary between the two passes).
+  const [generated, setGenerated] = useState<string | null>(null);
+  useEffect(() => {
+    setGenerated(
+      new Date().toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
+    );
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -71,7 +81,7 @@ export default function RecoveryBriefPage() {
       <LCARSPanel
         title="Recovery Brief"
         accent="medical"
-        eyebrow={`Stardate ${brief.stardate} · Generated ${generated}`}
+        eyebrow={`Stardate ${brief.stardate}${generated ? ` · Generated ${generated}` : ''}`}
         actions={<StatusBadge label={brief.posture} tone={postureTone} />}
       >
         <p className="text-xs text-lcars-muted mb-2">
@@ -118,10 +128,6 @@ export default function RecoveryBriefPage() {
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Best window</p>
               <p className="font-lcars text-lg font-semibold text-command-on">{brief.best_window}</p>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Afternoon</p>
-              <p className="text-sm text-lcars-text/90 mt-0.5">{brief.afternoon_note}</p>
-            </div>
           </div>
         </div>
       </LCARSPanel>
@@ -129,50 +135,20 @@ export default function RecoveryBriefPage() {
       {/* ── Wellness Intelligence — live from health_insights ── */}
       <WellnessInsightPanel />
 
-      {/* ── Recovery Guidance ── */}
-      <LCARSPanel
-        title="Recovery Guidance"
-        accent="medical"
-        eyebrow="Medical Officer — standing orders today"
-        actions={<StatusBadge label="Always present" tone="medical" />}
-      >
-        <ol className="flex flex-col gap-2">
-          {brief.guidance.map((item, i) => (
-            <li
-              key={i}
-              className="flex gap-3 rounded-lcars border border-edge bg-space/40 p-3 text-sm text-lcars-text/90 leading-relaxed"
-            >
-              <span className="font-lcars text-medical-on shrink-0 mt-0.5">{i + 1}.</span>
-              {item}
-            </li>
-          ))}
-        </ol>
-      </LCARSPanel>
+      {/*
+        MSN-0351: the "Recovery Guidance", "Today's Sustainable Load", and the
+        Fleet summary blocks previously rendered fixed mock content (standing
+        orders, a fabricated MSN-0062 note, "No blockers. Crew nominal.") under
+        a "● Live" badge with no live source behind them. Those blocks have been
+        removed. Live wellness guidance is above (WellnessInsightPanel); real
+        mission load and fleet status live on the Captain's Chair.
+      */}
 
-      {/* ── Today's Sustainable Load ── */}
-      <LCARSPanel
-        title="Today&apos;s Sustainable Load"
-        accent="medical"
-        eyebrow="What is a safe and sustainable mission load today?"
-      >
-        <div className="flex flex-col gap-2">
-          <div className={`rounded-lcars border ${pc.border} ${pc.bg} px-4 py-3`}>
-            <p className={`text-sm font-semibold ${pc.text}`}>{brief.load_summary}</p>
-          </div>
-          {[brief.active_mission_note, brief.new_starts_note, brief.decisions_note].map((note, i) => (
-            <div key={i} className="flex gap-2 rounded-lcars border border-edge bg-space/40 px-4 py-3 text-sm text-lcars-text/90">
-              <span className="text-lcars-muted shrink-0">·</span>
-              {note}
-            </div>
-          ))}
-        </div>
-      </LCARSPanel>
-
-      {/* ── Fleet (context) ── */}
-      <LCARSPanel title="Fleet" accent="medical" eyebrow="Context — available when needed">
-        <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3">
-          <p className="text-sm text-lcars-text/80">{brief.fleet_summary}</p>
-        </div>
+      {/* ── Fleet & mission detail (pointer — no fabricated status) ── */}
+      <LCARSPanel title="Mission &amp; Fleet" accent="medical" eyebrow="Context — available when needed">
+        <p className="text-sm text-lcars-text/80">
+          Live mission load and fleet status are maintained on the Captain&apos;s Chair.
+        </p>
         <Link
           href="/captains-chair"
           className="mt-2 block text-xs text-command-on hover:opacity-70"

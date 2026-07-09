@@ -53,7 +53,7 @@ export function HumanSystemsPanel() {
     );
   }
 
-  const { snapshot, debt, decision, isLive } = data;
+  const { snapshot, debt, decision, isLive, escalationCheckFailed } = data;
   const debtTone =
     debt.level === 'high' ? 'operations' : debt.level === 'building' ? 'command' : 'status';
 
@@ -64,6 +64,18 @@ export function HumanSystemsPanel() {
       eyebrow="Capacity & Decision Support Officer"
       actions={<DataSourceIndicator live={isLive} />}
     >
+      {/* Honest "could not check" state — the red-flag scan genuinely failed,
+          so we can claim neither all-clear nor a red flag. Styled as an
+          unknown/caution state, distinct from both. */}
+      {escalationCheckFailed && !snapshot.escalation && (
+        <div className="mb-4 flex items-start gap-2 rounded-lcars border border-edge bg-edge/20 px-3 py-2">
+          <span className="shrink-0 text-xs font-bold text-lcars-muted">?</span>
+          <span className="text-xs text-lcars-text/80">
+            Could not check for health red flags right now — try again.
+          </span>
+        </div>
+      )}
+
       {/* Escalation banner always first (doctrine §6). */}
       {snapshot.escalation && (
         <div className="mb-4">

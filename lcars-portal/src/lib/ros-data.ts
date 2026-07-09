@@ -176,28 +176,99 @@ export async function fetchPostureHistory(days = 7): Promise<PostureHistory | nu
   }
 }
 
+interface RawPostureDayRow {
+  log_date:                 string;
+  sleep_hours:              number | null;
+  sleep_quality:            string | null;
+  nervous_system_state:     string | null;
+  energy:                   string | null;
+  pain_score:               number | null;
+  captain_capacity_rating:  string | null;
+}
+
+/**
+ * Derive a recovery posture band from a single day's real check-in row.
+ *
+ * MSN-0351: the previous fallback labelled *every* day UNKNOWN even when a real
+ * check-in existed for that day — hiding recorded data and reporting it as
+ * absent. This derives an honest per-day posture from whatever signals the row
+ * actually carries (sleep, nervous system, energy, pain, and the Captain's own
+ * capacity rating). A day with a row but genuinely no usable signal — and a day
+ * with no row at all — still resolve to UNKNOWN, which is the honest outcome.
+ */
+function derivePostureFromRow(row: RawPostureDayRow): { posture: RecoveryPostureBand; score: number | null } {
+  const signals: number[] = [];
+
+  if (row.sleep_hours != null && !Number.isNaN(Number(row.sleep_hours))) {
+    signals.push(Math.max(0, Math.min(100, (Number(row.sleep_hours) / 7.5) * 100)));
+  } else if (row.sleep_quality) {
+    const q = row.sleep_quality.toLowerCase();
+    signals.push(q === 'good' ? 85 : q === 'fair' ? 60 : q === 'poor' ? 30 : 50);
+  }
+
+  const ns = row.nervous_system_state?.toLowerCase();
+  if (ns) signals.push(ns === 'calm' ? 90 : ns === 'activated' ? 52 : ns === 'dysregulated' ? 22 : 60);
+
+  const en = row.energy?.toLowerCase();
+  if (en) signals.push(en === 'high' ? 90 : en === 'moderate' ? 60 : en === 'low' ? 28 : 55);
+
+  if (row.pain_score != null && !Number.isNaN(Number(row.pain_score))) {
+    signals.push(Math.max(0, 100 - Number(row.pain_score) * 10));
+  }
+
+  const cap = row.captain_capacity_rating?.toLowerCase();
+
+  // No usable signal and no self-rating → honestly unknown.
+  if (!signals.length && !(cap === 'green' || cap === 'amber' || cap === 'red')) {
+    return { posture: 'UNKNOWN', score: null };
+  }
+
+  let score = signals.length ? signals.reduce((a, b) => a + b, 0) / signals.length : 60;
+
+  // Blend the Captain's own capacity rating when present (mirrors the weighting
+  // interpretCapacity uses for captain_capacity_rating).
+  if (cap === 'green' || cap === 'amber' || cap === 'red') {
+    const self = cap === 'green' ? 85 : cap === 'amber' ? 55 : 25;
+    score = signals.length ? 0.6 * score + 0.4 * self : self;
+  }
+
+  const rounded = Math.round(score);
+  const posture: RecoveryPostureBand =
+    score >= 75 ? 'STRONG' :
+    score >= 55 ? 'STABLE' :
+    score >= 35 ? 'FRAGILE' : 'REST';
+  return { posture, score: rounded };
+}
+
 async function fetchPostureHistoryFallback(days: number): Promise<PostureHistory | null> {
   if (!supabase) return null;
   try {
     const from = daysAgo(days - 1);
-    // Query analytics_health_daily and compute posture via the score function
-    // Simpler: just query the view for the date range and return UNKNOWN for each day
-    // (the RPC function doesn't exist yet — this will return nulls gracefully)
+    // The get_recovery_posture_range RPC is absent — derive each day's posture
+    // directly from the real per-day rows in analytics_health_daily instead of
+    // blanket-filling UNKNOWN (which would hide recorded check-ins).
     const { data, error } = await supabase
       .from('analytics_health_daily')
-      .select('log_date')
+      .select([
+        'log_date', 'sleep_hours', 'sleep_quality', 'nervous_system_state',
+        'energy', 'pain_score', 'captain_capacity_rating'
+      ].join(','))
       .gte('log_date', from)
       .lte('log_date', today())
       .order('log_date', { ascending: true });
 
     if (error) return null;
 
-    const recordedDates = new Set((data ?? []).map((r: { log_date: string }) => r.log_date));
-    const history = buildDateRange(from, today()).map((d) => ({
-      date:    d,
-      posture: recordedDates.has(d) ? ('UNKNOWN' as RecoveryPostureBand) : ('UNKNOWN' as RecoveryPostureBand),
-      score:   null
-    }));
+    const rowsByDate = new Map<string, RawPostureDayRow>(
+      ((data ?? []) as unknown as RawPostureDayRow[]).map((r) => [r.log_date, r])
+    );
+
+    const history = buildDateRange(from, today()).map((d) => {
+      const row = rowsByDate.get(d);
+      if (!row) return { date: d, posture: 'UNKNOWN' as RecoveryPostureBand, score: null };
+      const { posture, score } = derivePostureFromRow(row);
+      return { date: d, posture, score };
+    });
 
     return { days: history, period_label: `Last ${days} days` };
   } catch {
