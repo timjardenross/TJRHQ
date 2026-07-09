@@ -7,7 +7,6 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ApprovalQueue, type ApprovalQueueFlash } from '@/components/ApprovalQueue';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { missions as mockMissions } from '@/lib/mockData';
 import type { Mission } from '@/lib/types';
 
 // Canonical Supabase status values (CHECK constraint on missions.status)
@@ -46,6 +45,12 @@ export default function MissionDetailPage() {
   const { id } = useParams<{ id: string }>();
 
   const [mission, setMission] = useState<Mission | null>(null);
+  // MSN-0351: distinguish loading / found / genuinely-not-found (404) / fetch
+  // error. Previously an empty-or-failed fetch silently fell back to mock
+  // mission data from lib/mockData, making an outage indistinguishable from a
+  // live record. The mock fallback is removed; the three non-loading outcomes
+  // are now surfaced honestly.
+  const [loadState, setLoadState] = useState<'loading' | 'found' | 'notfound' | 'error'>('loading');
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote]           = useState('');
   const [saving, setSaving]       = useState(false);
@@ -58,7 +63,10 @@ export default function MissionDetailPage() {
   useEffect(() => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase
+      // .single() returns error code 'PGRST116' when no row matches — that is a
+      // genuine 404, distinct from a transport/permission error which must be
+      // surfaced as a load failure rather than a "not found".
+      const { data, error } = await supabase
         .from('missions')
         .select('*')
         .eq('mission_id', id)
@@ -67,10 +75,14 @@ export default function MissionDetailPage() {
       if (data) {
         setMission(data as Mission);
         setNewStatus(data.status);
+        setLoadState('found');
+      } else if (error && error.code === 'PGRST116') {
+        setLoadState('notfound');
+      } else if (error) {
+        console.error('mission detail fetch failed', error);
+        setLoadState('error');
       } else {
-        const mock = mockMissions.find((m) => m.mission_id === id) ?? null;
-        setMission(mock);
-        if (mock) setNewStatus(mock.status);
+        setLoadState('notfound');
       }
     }
     load();
@@ -134,8 +146,42 @@ export default function MissionDetailPage() {
     }
   }
 
-  if (!mission) {
+  if (loadState === 'loading') {
     return <div className="py-16 text-center text-lcars-muted text-sm">Loading mission…</div>;
+  }
+
+  if (loadState === 'error') {
+    return (
+      <div className="flex flex-col gap-4">
+        <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command">
+          ← Mission Registry
+        </Link>
+        <LCARSPanel title="Mission Data Unavailable" accent="operations" eyebrow="Fetch error">
+          <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3">
+            <p className="text-sm font-semibold text-operations-on">Couldn’t load this mission right now.</p>
+            <p className="text-xs text-lcars-muted mt-1">
+              This is a load failure — not a confirmation the mission is missing. No record is shown
+              because the registry could not be read. Retry shortly.
+            </p>
+          </div>
+        </LCARSPanel>
+      </div>
+    );
+  }
+
+  if (loadState === 'notfound' || !mission) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command">
+          ← Mission Registry
+        </Link>
+        <LCARSPanel title="Mission Not Found" accent="command" eyebrow="No such record">
+          <p className="text-sm text-lcars-muted">
+            No mission with ID <span className="font-mono text-lcars-text">{id}</span> exists in the registry.
+          </p>
+        </LCARSPanel>
+      </div>
+    );
   }
 
   const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';

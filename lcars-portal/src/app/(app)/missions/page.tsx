@@ -64,6 +64,7 @@ export default function MissionsPage() {
     blocked: number; completed: number; by_priority: Record<string, number>;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -87,7 +88,12 @@ export default function MissionsPage() {
             by_priority: byPriority,
           });
         }
-      } catch (e) { console.error('missions fetch failed', e); }
+      } catch (e) {
+        // A genuine fetch failure must not collapse into the all-zero summary,
+        // which is indistinguishable from "genuinely no missions". Surface it.
+        console.error('missions fetch failed', e);
+        setLoadError('Couldn’t load mission data right now.');
+      }
       finally { setIsLoading(false); }
     }
     load();
@@ -115,6 +121,14 @@ export default function MissionsPage() {
       <LCARSPanel title="Mission Registry" accent="command" eyebrow="Mission Control">
         {isLoading ? (
           <p className="text-sm text-lcars-muted italic">Loading missions…</p>
+        ) : loadError ? (
+          <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3">
+            <p className="text-sm font-semibold text-operations-on">{loadError}</p>
+            <p className="text-xs text-lcars-muted mt-1">
+              These counts could not be read from the registry — this is a load failure, not an
+              empty registry. Retry shortly.
+            </p>
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -174,6 +188,8 @@ export default function MissionsPage() {
       >
         {isLoading ? (
           <p className="text-sm text-lcars-muted italic">Loading missions…</p>
+        ) : loadError ? (
+          <p className="text-sm text-operations-on">{loadError} No list to show — this is a load failure, not an empty registry.</p>
         ) : displayMissions.length === 0 ? (
           <p className="text-sm text-lcars-muted italic">No missions match the current filter.</p>
         ) : (
