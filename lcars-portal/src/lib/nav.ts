@@ -34,7 +34,7 @@ const VALID_NAV_HREFS = [
   // above this line stays valid (all those pages still exist and are
   // still directly reachable) but is no longer nav-promoted - see the
   // removal plan for the full per-route legacy access policy.
-  '/', '/decide', '/ask',
+  '/captains-chair', '/decide', '/ask',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
@@ -58,7 +58,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Starship',
     items: [
-      { href: '/',       label: 'Home',   glyph: '⌂', department: 'command', description: 'The verified-quiet briefing' },
+      { href: '/captains-chair', label: 'Home', glyph: '⌂', department: 'command', description: 'The verified-quiet briefing' },
       { href: '/decide', label: 'Decide', glyph: '✓', department: 'command', description: 'One place for judgement, one item at a time' },
       { href: '/ask',    label: 'Ask',    glyph: '?', department: 'command', description: 'Ask Starship what it knows' },
     ],

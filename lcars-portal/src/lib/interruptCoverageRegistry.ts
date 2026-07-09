@@ -82,13 +82,15 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'medical-emotional-load',
     label: 'Medical — Emotional Load Flag',
     canInterrupt: 'conditional',
-    conditions: 'nervous_system_state in {activated, dysregulated} on 3+ of any 7 days.',
-    evidenceSource: 'analytics_health_daily.nervous_system_state',
+    conditions: 'Worst-of-day nervous-system state in {activated, dysregulated} on 3+ of any 7 recorded days.',
+    evidenceSource:
+      "MSN-0355: merged analytics_health_daily.nervous_system_state AND recovery_pulses (real nervous_system column, falling back to the stress-derived heuristic only when null) - analytics_health_daily's underlying source tables (captains_log_entries, health_daily_logs) stopped receiving rows after 2026-06-28 when the daily check-in habit moved to recovery_pulses; the view itself is not broken, so both sources are now merged per day rather than switching exclusively to one.",
     evaluationMethod: 'client-render-only',
-    falsePositiveGuard: 'Real 3-of-7 threshold (fetchEmotionalLoadFlag).',
-    degradationBehaviour: 'Silent - panel simply does not render on fetch failure.',
-    degradationIsHonest: false,
-    knownGap: 'Not addressed in this pass; inherits the general Health page failure state improvements only indirectly.',
+    falsePositiveGuard: 'Real 3-of-7 threshold over RECORDED days only (fetchEmotionalLoadFlag) - a day with no signal from either source is not counted as calm.',
+    degradationBehaviour:
+      'MSN-0355: an explicit noRecentData state (EmotionalLoadFlag.noRecentData) renders a distinct "No Data" badge on /medical, instead of the previous behaviour where an empty analytics_health_daily window silently computed activated=0/dysregulated=0 and read as "Clear" - the exact false-calm-by-omission pattern this registry exists to catch. Verified against live data: real dysregulated recovery_pulses on 2026-07-01 and 2026-07-03 (previously unread) now raise the flag.',
+    degradationIsHonest: true,
+    knownGap: 'Still client-render-only - no server-side scheduled evaluator exists yet, same as most of this registry (see human-systems-redflag).',
   },
   {
     capability: 'recovery-brief-posture',
@@ -102,6 +104,19 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
       'MSN-0351: mock guidance/afternoon/load-summary/fleet blocks removed entirely rather than silently rendered as live - the page no longer mixes real posture with fabricated content under one "Live" badge.',
     degradationIsHonest: true,
     knownGap: 'REST posture still has no sustained-trend debounce, and no server-side evaluator exists.',
+  },
+  {
+    capability: 'health-insights-risk-flags',
+    label: 'Health Insights — risk flags (EOS interrupt only)',
+    canInterrupt: 'yes',
+    conditions: 'health_insights.risk_flags on the most recent weekly synthesis row is a real, non-empty array.',
+    evidenceSource: 'health_insights.risk_flags, health_insights.generated_at',
+    evaluationMethod: 'server-on-demand',
+    falsePositiveGuard: 'Never fabricates a flag - nominates only when a real array with at least one element exists (healthRiskNominator, lib/interruptAssembly.ts).',
+    degradationBehaviour: 'A query failure marks the Health domain unchecked in EOS (uncheckedDomains), which forces Home to Unsure rather than a silent pass - the same completeness rule every EOS nominator gets, not a page-local banner.',
+    degradationIsHonest: true,
+    knownGap:
+      'MSN-0354 addition: this evidence source existed in interruptAssembly.ts since MSN-0349 (healthRiskNominator) but had no registry entry at all until this pass - a real reverse-direction mismatch this registry is meant to catch (a nominator with no declared coverage). risk_flags has been empty on every historical row observed to date (dormant, not yet exercised in production, same status as when MSN-0349 first wrote it) and is not rendered on any page outside EOS Home\'s primaryInterrupt slot.',
   },
   {
     capability: 'captains-brief',
@@ -133,15 +148,16 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
   {
     capability: 'missions',
     label: 'Missions registry & detail',
-    canInterrupt: 'conditional',
-    conditions: "status='Blocked', or awaiting-approval status with no time bound tracked today.",
-    evidenceSource: 'missions',
-    evaluationMethod: 'client-render-only',
-    falsePositiveGuard: 'None for staleness - the list query does not select updated_at into the blocked/awaiting logic.',
+    canInterrupt: 'yes',
+    conditions:
+      "MSN-0354: a P0 mission in a non-terminal status (see TERMINAL_STATUSES, lib/missionStatus.ts) older than 3 days, or a P1 mission older than 7 days, wired into EOS Interrupt Assembly as missionNominator (lib/interruptAssembly.ts). Page-level status='Blocked'/awaiting-approval display is unchanged and still has no separate evaluator.",
+    evidenceSource: 'missions (priority, status, created_at)',
+    evaluationMethod: 'server-on-demand',
+    falsePositiveGuard: 'Real, disclosed priority-tiered age threshold (missionNominator) - not a naive "any non-terminal mission" rule; terminal statuses are excluded via the same TERMINAL_STATUSES list the hygiene checks use.',
     degradationBehaviour:
-      'MSN-0351: explicit loadError state on the list page (distinct failure message instead of an all-zero summary); the mock-data fallback on the detail page was removed entirely and replaced with an explicit loading/found/notfound/error state so a fetch error can never render as a fabricated live record.',
+      'MSN-0351: explicit loadError state on the list page (distinct failure message instead of an all-zero summary); the mock-data fallback on the detail page was removed entirely and replaced with an explicit loading/found/notfound/error state so a fetch error can never render as a fabricated live record. MSN-0354: a missionNominator query failure marks the Missions domain unchecked in EOS (uncheckedDomains), which forces Home to Unsure rather than a silent pass - not yet distinguished as its own banner on the Missions page itself.',
     degradationIsHonest: true,
-    knownGap: 'No age-based staleness detector exists yet; still evaluated only on page render.',
+    knownGap: 'The interrupt threshold only covers P0/P1; P2/P3 missions and the page-level "Blocked"/awaiting-approval display still have no dedicated evaluator or staleness detector.',
   },
   {
     capability: 'engineering-rates',
@@ -196,13 +212,15 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'intelligence-signals',
     label: 'Intelligence — Signals risk',
     canInterrupt: 'conditional',
-    conditions: "overall_risk='RED' in intelligence_briefs (already wired into EOS Interrupt Assembly - see lcars-portal/src/lib/interruptAssembly.ts), or a Signal with customer_impact/banking_relevance='high'.",
+    conditions:
+      "overall_risk='RED' in intelligence_briefs, or an individual intelligence_events row with operational_relevance >= 0.9 - both already wired into EOS Interrupt Assembly (intelligenceEventNominator / intelligenceBriefNominator, lcars-portal/src/lib/interruptAssembly.ts). The page badge's customer_impact/banking_relevance='high' condition still has no evaluator of its own.",
     evidenceSource: 'intelligence_briefs, intelligence_events',
     evaluationMethod: 'server-on-demand',
-    falsePositiveGuard: 'Categorical impact fields, no numeric threshold for individual Signals; the RED-brief path (already in EOS) has a real threshold.',
+    falsePositiveGuard: 'RED-brief path and the operational_relevance>=0.9 path (top ~5% of historical events) both have real disclosed thresholds; the page-level customer_impact/banking_relevance badge has none.',
     degradationBehaviour: 'MSN-0351: the risk badge is now disclosed as derived, not stored, with a visible "(derived)" tag; the HIGH filter bug (silently missing banking_relevance-only items) is fixed at the API layer.',
     degradationIsHonest: true,
-    knownGap: 'Individual Signals still have no interrupt evaluator of their own (only the brief-level RED status is wired into EOS today).',
+    knownGap:
+      'MSN-0354 correction: this entry previously claimed individual Signals had no interrupt evaluator. That was incorrect. intelligenceEventNominator has evaluated individual intelligence_events rows since MSN-0349 and was already wired into EOS before this registry entry was written. The remaining gap is narrower: the specific customer_impact/banking_relevance=\'high\' condition used by the page badge still has no evaluator of its own, distinct from the operational_relevance path that does.',
   },
   {
     capability: 'knowledge-library-review',

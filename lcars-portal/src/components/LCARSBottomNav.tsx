@@ -20,7 +20,7 @@ interface BottomTab {
 // Capture, kept because it's a real task tool with no other quick-access
 // path once the sidebar (NAV_SECTIONS) stopped listing it.
 const BOTTOM_TABS: BottomTab[] = [
-  { href: '/',        label: 'Home',   bg: 'bg-command',     glyph: '⌂' },
+  { href: '/captains-chair', label: 'Home', bg: 'bg-command', glyph: '⌂' },
   { href: '/decide',  label: 'Decide', bg: 'bg-status',      glyph: '✓' },
   { href: '/ask',     label: 'Ask',    bg: 'bg-science',     glyph: '?' },
   { href: '/capture', label: 'Capture', bg: 'bg-engineering', glyph: '+' },
