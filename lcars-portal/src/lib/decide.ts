@@ -19,6 +19,16 @@
 // governed OI decision route to reuse, so none are shown, exactly as
 // lib/decisions.ts's own header already documents for the legacy /decisions
 // page.
+//
+// MSN-0352: engineering items now include AI-proposed operational actions
+// (create_mission / log_decision, queued by lib/ai-actions.ts's
+// parseAndProposeActions instead of executed directly) alongside ordinary
+// build requests - same table, same queue, same Approve/Hold/Undo model.
+// Approving a proposed create_mission/log_decision routes through
+// POST /api/build-request/[id]/approve-action, which performs the real
+// mutation only at that point; approving a plain build request or a
+// proposed create_handoff still just flips build_request_inbox.status, as
+// it always has.
 
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { fetchMissionDecisions } from '@/lib/decisions';
@@ -46,6 +56,10 @@ export interface DecideItem {
   /** Engineering only - the item's real status immediately before any
    * decision, captured so undo restores it exactly rather than guessing. */
   priorStatus?: string;
+  /** MSN-0352: non-null only for an AI-proposed action (create_mission |
+   * create_handoff | log_decision) awaiting approval. Drives both the
+   * question/reasoning text and which route approveDecideItem calls. */
+  actionType?: string | null;
   /** Internal ordering only (reused from lib/decisions.ts's real, existing
    * mission-priority + engineering-blocked/priority/age heuristic) - never
    * displayed, never labeled "Priority Engine". That heuristic is a
@@ -74,6 +88,25 @@ export function engineeringReasoning(item: QueueItem): string {
   return bits.join(' ');
 }
 
+/** MSN-0352: plain-fact reasoning for an AI-proposed action, distinct from
+ * an ordinary build request - names what will actually happen on approval,
+ * never a claim that anything has happened yet. */
+export function proposedActionReasoning(item: QueueItem): string {
+  if (item.actionType === 'create_mission') {
+    return `Proposed by an AI advisor. Approving this will create a new mission. ${item.summary ?? ''}`.trim();
+  }
+  if (item.actionType === 'log_decision') {
+    return `Proposed by an AI advisor. Approving this will log a decision. ${item.summary ?? ''}`.trim();
+  }
+  return `Proposed by an AI advisor. ${item.summary ?? ''}`.trim();
+}
+
+function questionFor(item: QueueItem): string {
+  if (item.actionType === 'create_mission') return `Approve mission creation: "${item.title}"?`;
+  if (item.actionType === 'log_decision') return `Approve decision log: "${item.title}"?`;
+  return `Approve build request "${item.title}"?`;
+}
+
 async function fetchDecideMissionItems(): Promise<DecideItem[]> {
   const missions = await fetchMissionDecisions();
   return missions.map((m) => ({
@@ -93,18 +126,27 @@ async function fetchDecideEngineeringItems(): Promise<DecideItem[]> {
   try {
     const data = await fetchEngineeringQueue();
     const reviewable = data.items.filter((i) => i.lifecycle === 'awaiting_review' && i.source === 'build');
-    return reviewable.map((i) => ({
-      id: `eng:${i.id}`,
-      source: 'engineering' as const,
-      rawId: i.id,
-      question: `Approve build request "${i.title}"?`,
-      reasoning: engineeringReasoning(i),
-      domainTag: 'Engineering',
-      evidenceHref: i.prUrl ?? undefined,
-      undoAvailable: true,
-      priorStatus: i.rawStatus,
-      _sortRank: (i.blocked ? 90 : 60) + Math.min(15, i.ageDays ?? 0),
-    }));
+    return reviewable.map((i) => {
+      // MSN-0352: create_mission/log_decision perform a real, irreversible
+      // mutation on approval - same principle as mission approvals already
+      // applied here (undoAvailable: false, "there is no route back").
+      // create_handoff and plain build requests are unchanged: approval is
+      // just a status flip, so undo (restoring priorStatus) is still safe.
+      const isIrreversibleProposal = i.actionType === 'create_mission' || i.actionType === 'log_decision';
+      return {
+        id: `eng:${i.id}`,
+        source: 'engineering' as const,
+        rawId: i.id,
+        question: questionFor(i),
+        reasoning: i.actionType ? proposedActionReasoning(i) : engineeringReasoning(i),
+        domainTag: 'Engineering',
+        evidenceHref: i.prUrl ?? undefined,
+        undoAvailable: !isIrreversibleProposal,
+        priorStatus: i.rawStatus,
+        actionType: i.actionType,
+        _sortRank: (i.blocked ? 90 : 60) + Math.min(15, i.ageDays ?? 0),
+      };
+    });
   } catch {
     return [];
   }
@@ -151,6 +193,18 @@ export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'Decide', owner: 'Captain' }),
+      });
+      const data = await resp.json();
+      result = resp.ok ? { ok: true } : { ok: false, error: data.error ?? 'Failed' };
+    } catch (e) {
+      result = { ok: false, error: String(e) };
+    }
+  } else if (item.actionType === 'create_mission' || item.actionType === 'log_decision') {
+    // MSN-0352: the real mutation only happens here, on explicit Captain
+    // approval of this exact item - never before, never automatically.
+    try {
+      const resp = await fetch(`/api/build-request/${encodeURIComponent(item.rawId)}/approve-action`, {
+        method: 'POST',
       });
       const data = await resp.json();
       result = resp.ok ? { ok: true } : { ok: false, error: data.error ?? 'Failed' };

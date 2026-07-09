@@ -153,6 +153,7 @@ describe('No fake Operational Intelligence decisions', () => {
         {
           id: 'abc', title: 'Build', summary: null, rawStatus: 'awaiting_review', lifecycle: 'awaiting_review',
           blocked: false, source: 'build', priority: 'P1', prUrl: null, ageDays: 2, createdAt: null, nextAction: 'Review',
+          actionType: null,
         },
       ],
       counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
@@ -224,5 +225,127 @@ describe('Undo is honest about what the source actually supports', () => {
     expect(res.ok).toBe(true);
     expect(fromMock).toHaveBeenCalledWith('build_request_inbox');
     expect(updateEqSelectMock).toHaveBeenCalledWith('build_request_inbox', { status: 'awaiting_review' });
+  });
+});
+
+// ── MSN-0352: proposed AI actions route through Decide's real approval ────
+// gate, not through the LLM conversation. These tests assert the exact
+// distinction the mission requires: a proposed create_mission/log_decision
+// is NOT the same as an ordinary build request - it must call the
+// dedicated approve-action route (a deterministic server handler) rather
+// than the plain status-flip setQueueItemStatus, and it must never be
+// undo-eligible (the mutation it performs is real and not cleanly
+// reversible, same principle already applied to mission approvals).
+describe('MSN-0352: proposed conversational actions', () => {
+  const proposedMissionQueueItem: QueueItem = {
+    id: 'prop-1', title: 'AI-proposed mission', summary: 'Proposed mission: AI-proposed mission', rawStatus: 'awaiting_review',
+    lifecycle: 'awaiting_review', blocked: false, source: 'build', priority: null, prUrl: null, ageDays: 0, createdAt: null,
+    nextAction: 'Review — approve or reject this item.', actionType: 'create_mission',
+  };
+  const proposedDecisionQueueItem: QueueItem = {
+    id: 'prop-2', title: 'AI-proposed decision', summary: 'Proposed decision log: AI-proposed decision', rawStatus: 'awaiting_review',
+    lifecycle: 'awaiting_review', blocked: false, source: 'build', priority: null, prUrl: null, ageDays: 0, createdAt: null,
+    nextAction: 'Review — approve or reject this item.', actionType: 'log_decision',
+  };
+  const proposedHandoffQueueItem: QueueItem = {
+    id: 'prop-3', title: 'AI-proposed handoff', summary: null, rawStatus: 'awaiting_review',
+    lifecycle: 'awaiting_review', blocked: false, source: 'build', priority: null, prUrl: null, ageDays: 0, createdAt: null,
+    nextAction: 'Review — approve or reject this item.', actionType: 'create_handoff',
+  };
+
+  it('a proposed create_mission item gets a distinct question and reasoning, and is never undo-eligible', async () => {
+    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
+    vi.mocked(fetchEngineeringQueue).mockResolvedValue({
+      items: [proposedMissionQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
+      blockers: [], nextAction: null, isLive: true,
+    });
+    const [item] = await fetchDecideQueue();
+    expect(item.actionType).toBe('create_mission');
+    expect(item.question).toMatch(/approve mission creation/i);
+    expect(item.reasoning).toMatch(/proposed by an ai advisor/i);
+    expect(item.reasoning).toMatch(/approving this will create a new mission/i);
+    expect(item.undoAvailable).toBe(false);
+  });
+
+  it('a proposed log_decision item gets a distinct question and is never undo-eligible', async () => {
+    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
+    vi.mocked(fetchEngineeringQueue).mockResolvedValue({
+      items: [proposedDecisionQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
+      blockers: [], nextAction: null, isLive: true,
+    });
+    const [item] = await fetchDecideQueue();
+    expect(item.actionType).toBe('log_decision');
+    expect(item.question).toMatch(/approve decision log/i);
+    expect(item.undoAvailable).toBe(false);
+  });
+
+  it('a proposed create_handoff item behaves exactly like an ordinary build request (unchanged undo semantics)', async () => {
+    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
+    vi.mocked(fetchEngineeringQueue).mockResolvedValue({
+      items: [proposedHandoffQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
+      blockers: [], nextAction: null, isLive: true,
+    });
+    const [item] = await fetchDecideQueue();
+    expect(item.question).toMatch(/approve build request/i);
+    expect(item.undoAvailable).toBe(true);
+  });
+
+  it('approving a proposed create_mission item calls the deterministic approve-action route, never setQueueItemStatus', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const decideItem: DecideItem = {
+      id: 'eng:prop-1', source: 'engineering', rawId: 'prop-1', question: 'Approve mission creation: "X"?',
+      reasoning: 'Proposed by an AI advisor.', domainTag: 'Engineering', undoAvailable: false,
+      priorStatus: 'awaiting_review', actionType: 'create_mission', _sortRank: 60,
+    };
+    const res = await approveDecideItem(decideItem);
+    expect(res.ok).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith('/api/build-request/prop-1/approve-action', expect.objectContaining({ method: 'POST' }));
+    expect(setQueueItemStatus).not.toHaveBeenCalled();
+  });
+
+  it('approving a proposed log_decision item also calls the approve-action route', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const decideItem: DecideItem = {
+      id: 'eng:prop-2', source: 'engineering', rawId: 'prop-2', question: 'Approve decision log: "X"?',
+      reasoning: 'Proposed by an AI advisor.', domainTag: 'Engineering', undoAvailable: false,
+      priorStatus: 'awaiting_review', actionType: 'log_decision', _sortRank: 60,
+    };
+    await approveDecideItem(decideItem);
+    expect(global.fetch).toHaveBeenCalledWith('/api/build-request/prop-2/approve-action', expect.objectContaining({ method: 'POST' }));
+    expect(setQueueItemStatus).not.toHaveBeenCalled();
+  });
+
+  it('approving a proposed create_handoff item still uses setQueueItemStatus, unchanged from ordinary build requests', async () => {
+    vi.mocked(setQueueItemStatus).mockResolvedValue({ ok: true });
+    const decideItem: DecideItem = {
+      id: 'eng:prop-3', source: 'engineering', rawId: 'prop-3', question: 'Approve build request "X"?',
+      reasoning: 'Proposed by an AI advisor.', domainTag: 'Engineering', undoAvailable: true,
+      priorStatus: 'awaiting_review', actionType: 'create_handoff', _sortRank: 60,
+    };
+    await approveDecideItem(decideItem);
+    expect(setQueueItemStatus).toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalledWith(expect.stringContaining('/approve-action'), expect.anything());
+  });
+
+  it('holding a proposed action never calls fetch, setQueueItemStatus, or the approve-action route - it only defers', async () => {
+    const decideItem: DecideItem = {
+      id: 'eng:prop-1', source: 'engineering', rawId: 'prop-1', question: 'Approve mission creation: "X"?',
+      reasoning: 'Proposed by an AI advisor.', domainTag: 'Engineering', undoAvailable: false,
+      priorStatus: 'awaiting_review', actionType: 'create_mission', _sortRank: 60,
+    };
+    await holdDecideItem(decideItem);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(setQueueItemStatus).not.toHaveBeenCalled();
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'hold' }));
+  });
+
+  it('undo is refused for a proposed create_mission/log_decision item - the mutation already happened and is not reversible', async () => {
+    const decideItem: DecideItem = {
+      id: 'eng:prop-1', source: 'engineering', rawId: 'prop-1', question: 'Approve mission creation: "X"?',
+      reasoning: 'Proposed by an AI advisor.', domainTag: 'Engineering', undoAvailable: false,
+      priorStatus: 'awaiting_review', actionType: 'create_mission', _sortRank: 60,
+    };
+    const res = await undoDecideItem(decideItem);
+    expect(res.ok).toBe(false);
   });
 });
