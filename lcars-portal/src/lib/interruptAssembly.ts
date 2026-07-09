@@ -183,13 +183,20 @@ async function missionNominator(supabase: SupabaseClient): Promise<Interrupt | n
   };
 }
 
-const NOMINATORS: Nominator[] = [
+// Exported (MSN-0357) so Integrity Audit / Redundancy Reconciliation
+// investigations (lib/investigations/integrityAudit.ts) can read the real,
+// live nominator wiring directly - by identity, not by re-declaring a
+// parallel list that could itself drift from this one. Named function
+// declarations are used deliberately so `fn.name` is a stable, real
+// identifier those investigations can cross-reference against this
+// registry's own text, without ever invoking the nominators themselves.
+export const NOMINATORS: Nominator[] = [
   healthRiskNominator,
   intelligenceEventNominator,
   intelligenceBriefNominator,
   missionNominator,
 ];
-const DOMAIN_NAMES = ['Health', 'Operational intelligence', 'Intelligence briefs', 'Missions'];
+export const DOMAIN_NAMES = ['Health', 'Operational intelligence', 'Intelligence briefs', 'Missions'];
 
 export async function assembleInterrupts(supabase: SupabaseClient): Promise<InterruptAssemblyResult> {
   const settled = await Promise.allSettled(NOMINATORS.map((n) => n(supabase)));
