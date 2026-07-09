@@ -3,12 +3,7 @@ import Link from 'next/link';
 import { PublicShell } from '@/components/public/PublicShell';
 import { buildPublicMetadata } from '@/lib/public-site';
 
-export const metadata: Metadata = buildPublicMetadata({
-  path: '/',
-  title: 'TJR Mind & Body | Practical Resilience Coaching and Education',
-  description:
-    'Practical resilience coaching and education for people navigating pressure, burnout, chronic pain, disruption, and steady rebuilding.',
-});
+export const metadata: Metadata = buildPublicMetadata('/');
 
 const pillars = [
   {
@@ -34,6 +29,7 @@ const principles = [
 export default function Home() {
   return (
     <PublicShell
+      path="/"
       eyebrow="TJR Mind & Body"
       title="Practical resilience coaching and education for real-life pressure"
       intro="Built for people navigating chronic stress, pain, burnout, disruption, and the slow work of rebuilding. The focus here is practical support, steady progress, and resilience that can hold up in real life."
@@ -51,12 +47,14 @@ export default function Home() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
+              aria-label="Read the TJR Mind & Body founder story"
               href="/founder-story"
               className="rounded-full bg-[#243b7a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1e315f]"
             >
               Read the founder story
             </Link>
             <Link
+              aria-label="Contact TJR Mind & Body"
               href="/contact"
               className="rounded-full border border-[#c9d5ee] px-5 py-3 text-sm font-semibold text-[#24304b] transition hover:border-[#243b7a] hover:text-[#243b7a]"
             >
@@ -86,6 +84,7 @@ export default function Home() {
             Tim Jarden-Ross brings together lived experience of long-term pain and rebuilding with a career spent helping organisations function under real pressure.
           </p>
           <Link
+            aria-label="Explore the TJR Mind & Body founder story"
             href="/founder-story"
             className="mt-5 inline-block text-sm font-semibold text-white underline decoration-[#93a9e8] underline-offset-4"
           >

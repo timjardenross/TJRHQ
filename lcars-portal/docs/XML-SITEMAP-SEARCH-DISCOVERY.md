@@ -6,8 +6,13 @@ The LCARS portal now uses a hybrid architecture:
 
 - Public, indexable pages:
   - `/`
+  - `/about`
   - `/founder-story`
   - `/contact`
+  - `/privacy-policy`
+  - `/terms-conditions`
+  - `/disclaimer`
+  - `/cookie-policy`
 - Public but intentionally non-indexed utility/auth page:
   - `/login`
 - Public metadata routes:
@@ -21,8 +26,13 @@ Everything else remains part of the private LCARS command-centre and is still pr
 `src/app/sitemap.ts` includes only the intentional public marketing pages:
 
 - `https://tjrmindbody.com/`
+- `https://tjrmindbody.com/about`
 - `https://tjrmindbody.com/founder-story`
 - `https://tjrmindbody.com/contact`
+- `https://tjrmindbody.com/privacy-policy`
+- `https://tjrmindbody.com/terms-conditions`
+- `https://tjrmindbody.com/disclaimer`
+- `https://tjrmindbody.com/cookie-policy`
 
 Private LCARS routes are never emitted into the sitemap, and `/login` is excluded so search engines do not treat the authentication entry point as a landing page.
 
@@ -52,6 +62,9 @@ Each intentional public page overrides that default with page-level metadata:
 - title
 - description
 - Open Graph metadata
+- Twitter/X card metadata
+- a shared social sharing image
+- JSON-LD structured data for Organization, Person, WebSite, WebPage, and BreadcrumbList where relevant
 
 This means new private routes inherit `noindex` unless they are explicitly designed and reviewed as public pages.
 
@@ -60,8 +73,13 @@ This means new private routes inherit `noindex` unless they are explicitly desig
 `src/middleware.ts` allows unauthenticated access only to:
 
 - `/`
+- `/about`
 - `/founder-story`
 - `/contact`
+- `/privacy-policy`
+- `/terms-conditions`
+- `/disclaimer`
+- `/cookie-policy`
 - `/login`
 
 The metadata routes `/sitemap.xml` and `/robots.txt` are excluded from middleware matching so crawlers can fetch them without authentication redirects.

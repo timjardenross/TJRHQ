@@ -1,32 +1,32 @@
 import type { Metadata } from 'next';
 import { PublicShell } from '@/components/public/PublicShell';
-import { buildPublicMetadata } from '@/lib/public-site';
+import { CONTACT_RESPONSE_TIME, buildPublicMetadata } from '@/lib/public-site';
 
-export const metadata: Metadata = buildPublicMetadata({
-  path: '/contact',
-  title: 'Contact | TJR Mind & Body',
-  description:
-    'Contact TJR Mind & Body to enquire about support, coaching, education, or a discovery conversation.',
-});
+export const metadata: Metadata = buildPublicMetadata('/contact');
 
 const contactOptions = [
   {
     title: 'General support',
-    detail: 'Questions about the brand, approach, or whether this work is the right fit.',
+    detail: 'Questions about the brand, approach, or whether this work is the right fit for where you are right now.',
   },
   {
     title: 'Coaching and education',
-    detail: 'Enquiries about practical resilience coaching, self-management support, or tailored education.',
+    detail: 'Enquiries about practical resilience coaching, self-management support, or tailored education conversations.',
   },
   {
     title: 'Discovery conversation',
     detail: 'A simple first conversation to understand what is going on and what support might help next.',
+  },
+  {
+    title: 'Partnerships or speaking',
+    detail: 'Opportunities related to practical resilience, operational pressure, rebuilding, or lived-experience-informed education.',
   },
 ];
 
 export default function ContactPage() {
   return (
     <PublicShell
+      path="/contact"
       eyebrow="Contact"
       title="Start With a Simple Conversation"
       intro="If you would like to ask a question, explore support, or enquire about a discovery conversation, this is the place to start."
@@ -48,6 +48,18 @@ export default function ContactPage() {
           </a>
           <p className="mt-3 text-sm leading-7 text-[#5a6780]">
             A discovery conversation can be arranged from there if it feels like the right next step.
+          </p>
+        </div>
+
+        <div className="mt-6 rounded-[28px] border border-[#d9e1f0] bg-[#fcfdff] p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#566889]">
+            Expected response time
+          </p>
+          <p className="mt-3 text-sm leading-7 text-[#4b5c78]">
+            {CONTACT_RESPONSE_TIME}
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[#4b5c78]">
+            If your enquiry relates to urgent medical or mental health support, please contact an appropriate clinician or emergency service instead of relying on email.
           </p>
         </div>
       </section>

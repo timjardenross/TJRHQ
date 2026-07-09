@@ -2,12 +2,7 @@ import type { Metadata } from 'next';
 import { PublicShell } from '@/components/public/PublicShell';
 import { buildPublicMetadata } from '@/lib/public-site';
 
-export const metadata: Metadata = buildPublicMetadata({
-  path: '/founder-story',
-  title: 'Founder Story | TJR Mind & Body',
-  description:
-    'Why TJR Mind & Body exists: Tim Jarden-Ross on operational resilience, chronic pain, rebuilding, and practical support that works in real life.',
-});
+export const metadata: Metadata = buildPublicMetadata('/founder-story');
 
 const storyBlocks = [
   `For most of my career, I have helped organisations prepare for, respond to and recover from disruption. That work has involved major incident response, operational resilience, business continuity and helping people keep functioning when pressure is real.`,
@@ -20,6 +15,7 @@ const storyBlocks = [
 export default function FounderStoryPage() {
   return (
     <PublicShell
+      path="/founder-story"
       eyebrow="Founder Story"
       title="Why TJR Mind & Body Exists"
       intro="A lived story about operational resilience, chronic pain, rebuilding, and creating support that feels useful when life is genuinely demanding."

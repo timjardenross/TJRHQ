@@ -315,7 +315,9 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
  * may be *missing* from this registry, and no entry may claim more than
  * it delivers).
  */
-export function validateCoverage(): { ok: boolean; problems: string[] } {
+export type ValidationResult = { ok: boolean; problems: string[] };
+
+export function validateCoverage(): ValidationResult {
   const problems: string[] = [];
   for (const entry of INTERRUPT_COVERAGE_REGISTRY) {
     if (entry.canInterrupt !== 'no' && !entry.evidenceSource.trim()) {
