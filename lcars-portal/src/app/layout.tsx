@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'USS TJR — Command Centre',
   description:
     "Starship Endeavour mobile Command Centre — Captain's Chair, Quick Capture, XO Chat, Engineering Queue, and Push Alerts.",
+  robots: {
+    index: false,
+    follow: false
+  },
   manifest: '/manifest.webmanifest',
   applicationName: 'USS TJR Command Centre',
   appleWebApp: {

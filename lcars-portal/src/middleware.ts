@@ -61,8 +61,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude Next internals, the PWA service worker + manifest, and static
-    // image assets so the installable PWA can load them unauthenticated.
-    '/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+    // Exclude Next internals, the PWA service worker + manifest, static
+    // image assets, and the SEO metadata routes (sitemap.xml/robots.txt) so
+    // they serve unauthenticated instead of 307-redirecting to /login — a
+    // redirect there would break Google Search Console's ability to fetch
+    // either file.
+    '/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 };
