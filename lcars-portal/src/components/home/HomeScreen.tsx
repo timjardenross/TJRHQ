@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { VerificationResult, VerificationState } from '@/lib/verification';
 import { homeCopyFor, fmtTime, needsYouText, type NeedsYouState } from '@/lib/homeCopy';
 import { fetchDecideCount } from '@/lib/decide';
+import { investigationTypeForDomain } from '@/lib/investigate';
 import type { SessionBoundary } from '@/lib/homeSessions';
 
 // STARSHIP-REDESIGN.md §3. Four blocks, one screen, no persistent nav.
@@ -150,6 +151,32 @@ export function HomeScreen({
               </span>
             )}
           </p>
+          {/* EOS Phase 2 Priority 2 (Executive Intelligence): composes the
+              existing Attention Engine output above with the two other
+              real, already-built capabilities - Captain Intelligence
+              (/captains-brief, already composes Event Bus + Attention +
+              Priority into one document, reused as-is) and the
+              Investigation Engine (MSN-0357, reused via /investigate).
+              Both links are contextual, appearing only when there's real
+              evidence to follow - no standing menu, matching MSN-0353. */}
+          {primaryInterrupt && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pl-1">
+              <Link
+                href="/captains-brief"
+                className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+              >
+                See the full picture
+              </Link>
+              {investigationTypeForDomain(primaryInterrupt.domain) && (
+                <Link
+                  href={`/investigate?type=${encodeURIComponent(investigationTypeForDomain(primaryInterrupt.domain)!)}&reason=${encodeURIComponent(primaryInterrupt.text)}`}
+                  className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+                >
+                  Investigate
+                </Link>
+              )}
+            </div>
+          )}
         </Section>
 
         <div className="mt-auto pt-14 flex items-center justify-between gap-3">

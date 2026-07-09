@@ -44,7 +44,7 @@ const VALID_NAV_HREFS = [
   // link, same treatment as Decide/Ask - deliberately not promoted in
   // NAV_SECTIONS below (no persistent sidebar, per docs/EOS-CANONICAL-
   // ARCHITECTURE-DECISIONS.md §5).
-  '/recommended',
+  '/recommended', '/investigate',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
