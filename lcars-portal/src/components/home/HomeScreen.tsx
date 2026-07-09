@@ -115,13 +115,20 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
           </p>
         </Section>
 
-        <footer className="mt-auto pt-14 text-[12.5px] text-[#5A6875] flex items-center gap-2">
-          <span
-            className="w-[5px] h-[5px] rounded-full inline-block"
-            style={{ background: copy.ringColor, opacity: 0.6 }}
-          />
-          Verified by Starship · Last checked {verifiedTime ?? 'never'}
-        </footer>
+        <div className="mt-auto pt-14 flex items-center justify-between gap-3">
+          <footer className="text-[12.5px] text-[#5A6875] flex items-center gap-2">
+            <span
+              className="w-[5px] h-[5px] rounded-full inline-block"
+              style={{ background: copy.ringColor, opacity: 0.6 }}
+            />
+            Verified by Starship · Last checked {verifiedTime ?? 'never'}
+          </footer>
+          {/* STARSHIP-REDESIGN.md §7/§2: Ask is always reachable, quietly -
+              no persistent nav bar, just this one small affordance. */}
+          <Link href="/ask" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
+            Ask
+          </Link>
+        </div>
       </div>
     </main>
   );
