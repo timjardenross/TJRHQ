@@ -65,6 +65,12 @@ async function intelligenceEventNominator(supabase: SupabaseClient): Promise<Int
     .from('intelligence_events')
     .select('raw_title, published_at, operational_relevance')
     .gte('operational_relevance', OPERATIONAL_RELEVANCE_THRESHOLD)
+    // Postgres sorts NULLs first in a DESC order by default - without this,
+    // rows with no published_at (real production rows exist) would outrank
+    // a genuinely-recent, real event and silently bury it. Found via live
+    // data during MSN-0349 validation: a same-day, relevance-1.00 Telstra
+    // outage event was being shadowed by null-dated rows before this fix.
+    .not('published_at', 'is', null)
     .order('published_at', { ascending: false })
     .limit(1);
   const row = data?.[0];
@@ -73,21 +79,31 @@ async function intelligenceEventNominator(supabase: SupabaseClient): Promise<Int
 }
 
 /** overall_risk is a real RED/AMBER/GREEN/UNKNOWN field already computed
- * by the existing brief pipeline. Only RED nominates. The Captain-facing
- * text uses the brief's own plain-language bottom_line, never the raw
- * "RED" label or a colour badge - STARSHIP-REDESIGN.md bans red/alarm
- * styling; this is a real upstream classification informing a calm
- * sentence, not a UI alert. */
+ * by the existing brief pipeline. Only RED nominates.
+ *
+ * Every text field this table has - bottom_line, top_events[].so_what,
+ * emerging_themes - is LLM-generated (llm_used=true on every observed row)
+ * and written as directive advisory prose ("Ensure our cyber defences are
+ * robust...", "Review the bank's incident response plan..."). Quoting any
+ * of it verbatim would be exactly the fabricated-synthesis / hidden-advice
+ * problem MSN-0349 bans, the same reason health_insights.summary is never
+ * surfaced. So this nominates on the real overall_risk fact alone and
+ * states it in Starship's own plain voice - no quoted narrative, no
+ * "RED" label, no colour. */
 async function intelligenceBriefNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
   const { data } = await supabase
     .from('intelligence_briefs')
-    .select('bottom_line, generated_at, overall_risk')
+    .select('generated_at, overall_risk')
     .eq('overall_risk', 'RED')
     .order('generated_at', { ascending: false })
     .limit(1);
   const row = data?.[0];
-  if (!row || !row.bottom_line) return null;
-  return { domain: 'Intelligence briefs', text: row.bottom_line as string, evidenceAt: row.generated_at as string };
+  if (!row) return null;
+  return {
+    domain: 'Intelligence briefs',
+    text: 'The latest intelligence brief flagged elevated risk. Worth a look on the Intelligence page.',
+    evidenceAt: row.generated_at as string,
+  };
 }
 
 const NOMINATORS: Nominator[] = [healthRiskNominator, intelligenceEventNominator, intelligenceBriefNominator];

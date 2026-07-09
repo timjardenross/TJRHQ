@@ -7,6 +7,7 @@ function chain(result: { data: unknown[] | null } | Promise<never>) {
     select: () => obj,
     eq: () => obj,
     gte: () => obj,
+    not: () => obj,
     order: () => obj,
     limit: () => obj,
     then: (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
@@ -54,15 +55,13 @@ describe('assembleInterrupts', () => {
     expect(result.interrupts[0].text).toBe('Major outage.');
   });
 
-  it('nominates a RED brief using its own plain-language bottom_line', async () => {
+  it('states the RED brief fact in Starship voice, never quoting the LLM bottom_line', async () => {
     const supabase = fakeSupabase({
-      intelligence_briefs: {
-        data: [{ bottom_line: 'Elevated risk from a third-party outage.', generated_at: '2026-07-08T09:00:00Z', overall_risk: 'RED' }],
-      },
+      intelligence_briefs: { data: [{ generated_at: '2026-07-08T09:00:00Z', overall_risk: 'RED' }] },
     });
     const result = await assembleInterrupts(supabase);
     const brief = result.interrupts.find((i) => i.domain === 'Intelligence briefs');
-    expect(brief?.text).toBe('Elevated risk from a third-party outage.');
+    expect(brief?.text).toBe('The latest intelligence brief flagged elevated risk. Worth a look on the Intelligence page.');
   });
 
   it('marks a domain unchecked (never Sure) when its nominator query fails', async () => {
