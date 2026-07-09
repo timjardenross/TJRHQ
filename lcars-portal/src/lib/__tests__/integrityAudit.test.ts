@@ -74,7 +74,18 @@ describe('integrityAuditDiagnose', () => {
     // NOMINATORS array is named in the registry's own declared text, and vice
     // versa (interruptCoverageRegistry.test.ts pins the same coverage set).
     expect(opened.evidence?.liveNominatorNames.sort()).toEqual(
-      ['healthRiskNominator', 'intelligenceBriefNominator', 'intelligenceEventNominator', 'missionNominator'].sort()
+      [
+        'healthRiskNominator',
+        'intelligenceBriefNominator',
+        'intelligenceEventNominator',
+        'missionNominator',
+        'recoveryEscalationNominator',
+        'recoveryPostureNominator',
+        'painTrendNominator',
+        'deliveryBlockedNominator',
+        'failedDispatchNominator',
+        'engineeringReviewNominator',
+      ].sort()
     );
     expect(opened.evidence?.claimedButMissingFromLive).toEqual([]);
     expect(opened.evidence?.liveButUndeclaredInRegistry).toEqual([]);

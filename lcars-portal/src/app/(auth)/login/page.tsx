@@ -27,7 +27,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) setError(error.message);
-    else router.push('/captains-chair');
+    else router.push('/home');
   }
 
   async function handleMagicLink(e: React.FormEvent) {

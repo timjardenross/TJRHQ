@@ -34,7 +34,17 @@ const VALID_NAV_HREFS = [
   // above this line stays valid (all those pages still exist and are
   // still directly reachable) but is no longer nav-promoted - see the
   // removal plan for the full per-route legacy access policy.
-  '/captains-chair', '/decide', '/ask',
+  // Canonical Architecture Decisions §1 (docs/EOS-CANONICAL-ARCHITECTURE-
+  // DECISIONS.md): /home is now the real Home - HomeScreen.tsx/
+  // executiveContext.ts mounted there, zero persistent nav, matching
+  // /decide and /ask. /captains-chair remains fully valid and reachable
+  // as a supporting experience, just no longer the Home target.
+  '/decide', '/ask', '/home',
+  // EOS Phase 2 Priority 1: reached only via Home's quiet "Recommended"
+  // link, same treatment as Decide/Ask - deliberately not promoted in
+  // NAV_SECTIONS below (no persistent sidebar, per docs/EOS-CANONICAL-
+  // ARCHITECTURE-DECISIONS.md §5).
+  '/recommended',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
@@ -58,7 +68,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Starship',
     items: [
-      { href: '/captains-chair', label: 'Home', glyph: '⌂', department: 'command', description: 'The verified-quiet briefing' },
+      { href: '/home', label: 'Home', glyph: '⌂', department: 'command', description: 'The verified-quiet briefing' },
       { href: '/decide', label: 'Decide', glyph: '✓', department: 'command', description: 'One place for judgement, one item at a time' },
       { href: '/ask',    label: 'Ask',    glyph: '?', department: 'command', description: 'Ask Starship what it knows' },
     ],

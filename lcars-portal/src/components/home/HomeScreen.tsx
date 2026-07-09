@@ -161,10 +161,20 @@ export function HomeScreen({
             Verified by Starship · Last checked {verifiedTime ?? 'never'}
           </footer>
           {/* STARSHIP-REDESIGN.md §7/§2: Ask is always reachable, quietly -
-              no persistent nav bar, just this one small affordance. */}
-          <Link href="/ask" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
-            Ask
-          </Link>
+              no persistent nav bar, just this one small affordance.
+              EOS Phase 2 Priority 1: Recommended sits alongside it, same
+              treatment - a reference tool always available, not an alert;
+              earning attention through "Needs you"/"Worth knowing" is a
+              different, stricter bar this deliberately doesn't claim to
+              meet. */}
+          <div className="flex items-center gap-4">
+            <Link href="/recommended" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
+              Recommended
+            </Link>
+            <Link href="/ask" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
+              Ask
+            </Link>
+          </div>
         </div>
       </div>
     </main>

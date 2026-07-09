@@ -34,7 +34,7 @@ interface Tab {
 // dropped - all four are superseded (see docs/REMOVAL-PLAN.md Category A)
 // and remain reachable by direct URL for now, not deleted.
 const TABS: Tab[] = [
-  { href: '/captains-chair', label: 'Home', glyph: '⌂', active: 'text-command' },
+  { href: '/home', label: 'Home', glyph: '⌂', active: 'text-command' },
   { href: '/decide', label: 'Decide', glyph: '✓', active: 'text-status' },
   { href: '/ask', label: 'Ask', glyph: '?', active: 'text-science' },
   { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },

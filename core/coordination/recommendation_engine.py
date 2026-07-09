@@ -53,6 +53,24 @@ except ImportError:
 # Public API
 # ---------------------------------------------------------------------------
 
+def _normalized_priority(mission: Dict[str, Any]) -> str:
+    """
+    Return the mission's priority token (P0/P1/P2/P3/...), defaulting to
+    "P3" both when the field is absent AND when it is present but blank.
+
+    Bridging fix (lcars-portal recommendations route): 9 of 52 real missions
+    in the corpus carry an explicit priority of "" rather than a missing key,
+    so `mission.get("priority", "P3")` never reaches its default - it returns
+    "" - and every caller here already assumed a non-empty split()[0] result.
+    Confirmed live via context_service.py's own _load_missions(). Not a new
+    scoring rule: it makes the existing, already-intended "P3" default
+    actually apply to this real shape of row.
+    """
+    raw = str(mission.get("priority") or "P3").strip()
+    parts = raw.split()
+    return (parts[0] if parts else "P3").upper()
+
+
 def rank_missions(
     missions: List[Dict[str, Any]],
     health_context: Optional[HealthContextPackage] = None,
@@ -77,7 +95,7 @@ def rank_missions(
         score = score_priority(m, missions)
         # Red capacity depresses non-critical mission scores so queue reorders
         if cap_status == "Red":
-            priority = str(m.get("priority", "P3")).split()[0].upper()
+            priority = _normalized_priority(m)
             if priority in ("P2", "P3"):
                 score = max(0.0, score - 0.15)
             elif priority == "P1":
@@ -157,7 +175,7 @@ def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) 
     score = 0.0
 
     # Priority level
-    priority = str(mission.get("priority", "P3")).split()[0].upper()
+    priority = _normalized_priority(mission)
     priority_scores = {"P0": 0.40, "P1": 0.30, "P2": 0.15, "P3": 0.05}
     score += priority_scores.get(priority, 0.05)
 
@@ -193,7 +211,7 @@ def check_health_constraints(
         return None
 
     cap_status = _capacity_status(health_context)
-    priority = str(mission.get("priority", "P3")).split()[0].upper()
+    priority = _normalized_priority(mission)
     domain = str(mission.get("domain", "")).lower()
     heavy_domains = {"engineering", "governance", "science", "workflow"}
 
@@ -386,7 +404,7 @@ def _explain_recommendation(
     GAP-001: Injects applicable lessons.
     GAP-004: Surfaces historical evidence and traceability rationale.
     """
-    priority = str(mission.get("priority", "P3")).split()[0].upper()
+    priority = _normalized_priority(mission)
     status = str(mission.get("status", "")).upper()
     due_date = mission.get("due_date")
     mid = str(mission.get("mission_id") or mission.get("id") or "")

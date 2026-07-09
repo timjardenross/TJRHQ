@@ -55,16 +55,16 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     label: 'Human Systems / Medical — clinical red flag',
     canInterrupt: 'yes',
     conditions:
-      'Free-text health notes match a red-flag pattern (suicidal ideation/self-harm, chest pain/breathing difficulty, new neuro symptoms, fever/infection) and the match is not negated.',
+      'Free-text health notes match a red-flag pattern (suicidal ideation/self-harm, chest pain/breathing difficulty, new neuro symptoms, fever/infection) and the match is not negated. EOS reconciliation: also wired into EOS Interrupt Assembly as recoveryEscalationNominator (lib/interruptAssembly.ts), reusing the exact same scanEscalation() detector.',
     evidenceSource: 'human_systems_daily.notes, recovery_pulses.notes',
-    evaluationMethod: 'client-render-only',
+    evaluationMethod: 'server-on-demand',
     falsePositiveGuard:
       'MSN-0351: negation-aware matching (isNegated()) — "no chest pain"/"denies suicidal ideation" no longer fire.',
     degradationBehaviour:
-      'MSN-0351: an explicit escalationCheckFailed state renders a distinct "could not check" banner on both /human-systems and /medical, instead of silently returning null.',
+      'MSN-0351: an explicit escalationCheckFailed state renders a distinct "could not check" banner on both /human-systems and /medical, instead of silently returning null. A recoveryEscalationNominator query failure marks the Recovery escalation domain unchecked in EOS (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: true,
     knownGap:
-      'Still evaluated only when a human opens /human-systems or /medical - no server-side scheduled evaluator exists yet. This is the single highest-priority follow-up given it is the highest-stakes interrupt candidate in the product.',
+      '/human-systems and /medical themselves are still evaluated only when a human opens the page - no scheduled evaluator exists for those pages. recoveryEscalationNominator narrows this for EOS Home specifically, but reads recovery_pulses.notes only (the actively-written real-time channel per MSN-0355), not the merged human_systems_daily.notes fallback the page-level check also considers - a real, disclosed narrower scope, not full parity.',
   },
   {
     capability: 'human-systems-recovery-debt',
@@ -96,14 +96,15 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'recovery-brief-posture',
     label: 'Recovery Brief — REST posture / low confidence',
     canInterrupt: 'conditional',
-    conditions: "posture = 'REST', or recovery_confidence = 0 with pulses_completed = 0 after 14:00.",
+    conditions:
+      "posture = 'REST', or recovery_confidence = 0 with pulses_completed = 0 after 14:00. EOS reconciliation: the REST-posture path is also wired into EOS Interrupt Assembly as recoveryPostureNominator (lib/interruptAssembly.ts), reusing the same get_recovery_posture RPC.",
     evidenceSource: 'get_recovery_posture RPC; recovery_confidence_today view',
-    evaluationMethod: 'client-render-only',
+    evaluationMethod: 'server-on-demand',
     falsePositiveGuard: 'Confidence path has real time-of-day staging (09:00/14:00 gates); REST posture has no debounce.',
     degradationBehaviour:
-      'MSN-0351: mock guidance/afternoon/load-summary/fleet blocks removed entirely rather than silently rendered as live - the page no longer mixes real posture with fabricated content under one "Live" badge.',
+      'MSN-0351: mock guidance/afternoon/load-summary/fleet blocks removed entirely rather than silently rendered as live - the page no longer mixes real posture with fabricated content under one "Live" badge. A recoveryPostureNominator RPC failure marks the Recovery posture domain unchecked in EOS (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: true,
-    knownGap: 'REST posture still has no sustained-trend debounce, and no server-side evaluator exists.',
+    knownGap: 'REST posture still has no sustained-trend debounce. recoveryPostureNominator closes the "no server-side evaluator" gap for the REST-posture path specifically; the recovery_confidence/time-of-day path remains client-render-only-only.',
   },
   {
     capability: 'health-insights-risk-flags',
@@ -117,6 +118,21 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     degradationIsHonest: true,
     knownGap:
       'MSN-0354 addition: this evidence source existed in interruptAssembly.ts since MSN-0349 (healthRiskNominator) but had no registry entry at all until this pass - a real reverse-direction mismatch this registry is meant to catch (a nominator with no declared coverage). risk_flags has been empty on every historical row observed to date (dormant, not yet exercised in production, same status as when MSN-0349 first wrote it) and is not rendered on any page outside EOS Home\'s primaryInterrupt slot.',
+  },
+  {
+    capability: 'recovery-pain-trend',
+    label: 'Recovery Pulse — pain trend (EOS interrupt only)',
+    canInterrupt: 'yes',
+    conditions: 'Average pain_score over the last 5 recovery_pulses is > 6 (elevated) or > 8 (critical).',
+    evidenceSource: 'recovery_pulses.pain_score, recovery_pulses.captured_at',
+    evaluationMethod: 'server-on-demand',
+    falsePositiveGuard:
+      'Real 5-pulse rolling average, the exact same disclosed thresholds already used in lib/alerts.ts (MSN-0335, "folded in from the now-retired duplicate check in /api/proactive-signals") - not a single bad reading, not a new scale.',
+    degradationBehaviour:
+      'A query failure marks the Recovery pain trend domain unchecked in EOS (uncheckedDomains), which forces Home to Unsure rather than a silent pass - the same completeness rule every EOS nominator gets.',
+    degradationIsHonest: true,
+    knownGap:
+      'This evidence source and threshold already existed in lib/alerts.ts (captains-chair) since MSN-0335; painTrendNominator (lib/interruptAssembly.ts) is the reconciliation of that same real signal into EOS Home, not a new threshold or a second, independently-tuned check. Not surfaced anywhere outside captains-chair and EOS Home\'s primaryInterrupt slot; no dedicated page for this signal exists.',
   },
   {
     capability: 'captains-brief',
@@ -137,13 +153,13 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     label: 'Delivery / Engineering Queue — bottlenecks & mission risk',
     canInterrupt: 'yes',
     conditions:
-      "delivery_state='blocked', or age thresholds (planned>3d/7d, in_review>1d, validated>1d), or deliveryRisk() >= 70.",
+      "delivery_state='blocked', or age thresholds (planned>3d/7d, in_review>1d, validated>1d), or deliveryRisk() >= 70. EOS reconciliation: two of these are also wired into EOS Interrupt Assembly - deliveryBlockedNominator (delivery_state='blocked', any age, same zero-day rule as detectBottlenecks()) and engineeringReviewNominator (delivery_state='in_review' with P0/P1 priority_norm) - both in lib/interruptAssembly.ts.",
     evidenceSource: 'mission_delivery, mission_delivery_metrics',
-    evaluationMethod: 'client-render-only',
+    evaluationMethod: 'server-on-demand',
     falsePositiveGuard: 'Real, reusable age thresholds in lib/delivery.ts detectBottlenecks()/deliveryRisk() - the best-defended logic in the audit. One gap: "blocked" fires with no age gate.',
-    degradationBehaviour: 'Degrades gracefully to a real empty state, but still indistinguishable from "pipeline genuinely clear" - not addressed in this pass.',
+    degradationBehaviour: 'Degrades gracefully to a real empty state, but still indistinguishable from "pipeline genuinely clear" on the Delivery/Engineering Queue pages themselves - not addressed in this pass. deliveryBlockedNominator/engineeringReviewNominator query failures mark their EOS domains unchecked (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: false,
-    knownGap: 'No scheduled evaluator; a real outage still reads as "nothing stuck."',
+    knownGap: 'deliveryBlockedNominator and engineeringReviewNominator close the "no scheduled evaluator" gap for two of this capability\'s several real conditions, in EOS specifically. The remaining age-threshold conditions (planned>3d/7d, in_review>1d without a priority gate, validated>1d, deliveryRisk()>=70) and the Delivery/Engineering Queue pages themselves still have no evaluator - a real outage there still reads as "nothing stuck."',
   },
   {
     capability: 'missions',
@@ -174,14 +190,18 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
   {
     capability: 'automation-centre',
     label: 'Automation Centre — mission execution events',
-    canInterrupt: 'no',
-    conditions: 'N/A - ALERT_THRESHOLDS is descriptive reference text; no code evaluates it (now explicitly labelled as such).',
-    evidenceSource: 'mission_execution_events (the only live element on the page)',
-    evaluationMethod: 'none',
-    falsePositiveGuard: 'N/A',
-    degradationBehaviour: 'MSN-0351: the events query now handles error and renders a distinct failure block instead of the "no recent events" quiet-period message.',
+    canInterrupt: 'yes',
+    conditions:
+      "The Automation Centre page's own ALERT_THRESHOLDS remains descriptive reference text; no code on that page evaluates it. EOS reconciliation: mission_execution_events with status='failed' in the last 3 days IS evaluated - wired into EOS Interrupt Assembly as failedDispatchNominator (lib/interruptAssembly.ts).",
+    evidenceSource: 'mission_execution_events.status, mission_execution_events.created_at',
+    evaluationMethod: 'server-on-demand',
+    falsePositiveGuard:
+      'Real, disclosed 3-day window and status=\'failed\' filter, the exact same threshold already used in lib/alerts.ts\'s delivery-failed-dispatch condition - not a new window.',
+    degradationBehaviour:
+      'MSN-0351: the events query on the Automation Centre page now handles error and renders a distinct failure block instead of the "no recent events" quiet-period message. A failedDispatchNominator query failure marks the Delivery dispatch domain unchecked in EOS (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: true,
-    knownGap: null,
+    knownGap:
+      'The Automation Centre page itself still has no code evaluating ALERT_THRESHOLDS - only EOS Home\'s failedDispatchNominator does, for the specific failed-dispatch condition.',
   },
   {
     capability: 'operations-friction',

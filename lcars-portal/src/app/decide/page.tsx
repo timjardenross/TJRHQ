@@ -89,7 +89,7 @@ export default function DecidePage() {
     <main className="min-h-screen flex justify-center bg-[#0B1017] text-[#E8EDF2]">
       <div className="w-full max-w-[620px] px-7 pt-10 pb-14 flex flex-col min-h-screen">
         <Link
-          href="/captains-chair"
+          href="/home"
           className="text-sm text-[#5A6875] hover:text-[#93A1B0] mb-8 inline-flex items-center gap-1.5 w-fit"
         >
           ← Home

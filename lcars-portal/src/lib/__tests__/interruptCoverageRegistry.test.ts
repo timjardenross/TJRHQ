@@ -25,14 +25,19 @@ describe('INTERRUPT_COVERAGE_REGISTRY', () => {
     }
   });
 
-  it('lists exactly the server-evaluated capabilities today (MSN-0354 added missions and health-insights-risk-flags)', () => {
+  it('lists exactly the server-evaluated capabilities today (EOS Canonical Architecture Decisions §1 alerts.ts reconciliation added automation-centre, delivery-bottlenecks, human-systems-redflag, recovery-brief-posture, recovery-pain-trend)', () => {
     const real = capabilitiesWithRealEvaluator().map((e) => e.capability).sort();
     expect(real).toEqual([
       'advisory-proactive',
+      'automation-centre',
       'captains-brief',
+      'delivery-bottlenecks',
       'health-insights-risk-flags',
+      'human-systems-redflag',
       'intelligence-signals',
       'missions',
+      'recovery-brief-posture',
+      'recovery-pain-trend',
     ]);
   });
 

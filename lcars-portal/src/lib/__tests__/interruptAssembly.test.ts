@@ -17,8 +17,25 @@ function chain(result: { data: unknown[] | null } | Promise<never>) {
   return obj;
 }
 
-function fakeSupabase(byTable: Record<string, { data: unknown[] | null } | Promise<never>>) {
-  return { from: (table: string) => chain(byTable[table] ?? { data: [] }) } as never;
+function rpcChain(result: { data: unknown } | Promise<never>) {
+  const isRejection = result instanceof Promise;
+  const obj: Record<string, unknown> = {
+    select: () => obj,
+    single: () => obj,
+    then: (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+      isRejection ? (result as Promise<never>).then(resolve, reject) : Promise.resolve(result).then(resolve, reject),
+  };
+  return obj;
+}
+
+function fakeSupabase(
+  byTable: Record<string, { data: unknown[] | null; count?: number } | Promise<never>> = {},
+  byRpc: Record<string, { data: unknown } | Promise<never>> = {},
+) {
+  return {
+    from: (table: string) => chain(byTable[table] ?? { data: [] }),
+    rpc: (fn: string) => rpcChain(byRpc[fn] ?? { data: null }),
+  } as never;
 }
 
 describe('assembleInterrupts', () => {
@@ -180,6 +197,131 @@ describe('assembleInterrupts', () => {
     const result = await assembleInterrupts(supabase);
     expect(result.uncheckedDomains).toContain('Missions');
     expect(result.complete).toBe(false);
+  });
+
+  // alerts.ts reconciliation (EOS Canonical Architecture Decisions §1) —
+  // recoveryPostureNominator, recoveryEscalationNominator, painTrendNominator,
+  // deliveryBlockedNominator, failedDispatchNominator, engineeringReviewNominator.
+
+  it('nominates a recovery-posture interrupt when the RPC reports REST', async () => {
+    const supabase = fakeSupabase(
+      {},
+      { get_recovery_posture: { data: { posture: 'REST', posture_message: 'Minimal capacity today.' } } },
+    );
+    const result = await assembleInterrupts(supabase);
+    const posture = result.interrupts.find((i) => i.domain === 'Recovery posture');
+    expect(posture?.text).toBe('Minimal capacity today.');
+  });
+
+  it('does not nominate a recovery-posture interrupt for a non-REST band', async () => {
+    const supabase = fakeSupabase(
+      {},
+      { get_recovery_posture: { data: { posture: 'STABLE', posture_message: 'Steady.' } } },
+    );
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Recovery posture')).toBeUndefined();
+  });
+
+  it('marks Recovery posture unchecked when the RPC fails', async () => {
+    const supabase = fakeSupabase({}, { get_recovery_posture: Promise.reject(new Error('down')) });
+    const result = await assembleInterrupts(supabase);
+    expect(result.uncheckedDomains).toContain('Recovery posture');
+  });
+
+  it('nominates a recovery-escalation interrupt when the latest pulse notes carry a real red flag', async () => {
+    const supabase = fakeSupabase({
+      recovery_pulses: {
+        data: [{ notes: 'chest pain and cannot breathe', captured_at: '2026-07-09T08:00:00Z' }],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const escalation = result.interrupts.find((i) => i.domain === 'Recovery escalation');
+    expect(escalation).toBeDefined();
+    expect(escalation?.evidenceAt).toBe('2026-07-09T08:00:00Z');
+  });
+
+  it('does not nominate a recovery-escalation interrupt when the red-flag phrase is negated', async () => {
+    const supabase = fakeSupabase({
+      recovery_pulses: { data: [{ notes: 'no chest pain today', captured_at: '2026-07-09T08:00:00Z' }] },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Recovery escalation')).toBeUndefined();
+  });
+
+  it('nominates a pain-trend interrupt above the disclosed critical threshold (8)', async () => {
+    const supabase = fakeSupabase({
+      recovery_pulses: {
+        data: [
+          { pain_score: 9, captured_at: '2026-07-09T08:00:00Z' },
+          { pain_score: 9, captured_at: '2026-07-08T08:00:00Z' },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const pain = result.interrupts.find((i) => i.domain === 'Recovery pain trend');
+    expect(pain?.text).toContain('critically high');
+  });
+
+  it('does not nominate a pain-trend interrupt at or below the elevated threshold (6)', async () => {
+    const supabase = fakeSupabase({
+      recovery_pulses: { data: [{ pain_score: 4, captured_at: '2026-07-09T08:00:00Z' }] },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Recovery pain trend')).toBeUndefined();
+  });
+
+  it('nominates a delivery interrupt for a blocked mission_delivery row', async () => {
+    const supabase = fakeSupabase({
+      mission_delivery: { data: [{ title: 'Stalled build', delivery_state: 'blocked', age_days: 5 }] },
+    });
+    const result = await assembleInterrupts(supabase);
+    const delivery = result.interrupts.find((i) => i.domain === 'Delivery');
+    expect(delivery?.text).toContain('Stalled build');
+    expect(delivery?.text).toContain('blocked');
+  });
+
+  it('does not nominate a delivery interrupt when the blocked query returns no rows', async () => {
+    // mission_delivery's own eq('delivery_state', 'blocked') filter is what
+    // does the real-world filtering; an empty result mirrors "nothing
+    // blocked", the honest shape a passing query returns for that case.
+    const supabase = fakeSupabase({ mission_delivery: { data: [] } });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Delivery')).toBeUndefined();
+  });
+
+  it('nominates a delivery-dispatch interrupt when failed dispatches exist in the last 3 days', async () => {
+    const supabase = fakeSupabase({ mission_execution_events: { data: null, count: 2 } });
+    const result = await assembleInterrupts(supabase);
+    const dispatch = result.interrupts.find((i) => i.domain === 'Delivery dispatch');
+    expect(dispatch?.text).toContain('2 mission dispatches failed');
+  });
+
+  it('does not nominate a delivery-dispatch interrupt when the failed count is zero', async () => {
+    const supabase = fakeSupabase({ mission_execution_events: { data: null, count: 0 } });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Delivery dispatch')).toBeUndefined();
+  });
+
+  it('nominates an engineering-review interrupt for a P0/P1 mission_delivery row in_review', async () => {
+    const supabase = fakeSupabase({
+      mission_delivery: {
+        data: [{ title: 'Critical fix', delivery_state: 'in_review', priority_norm: 'P0', pr_url: null }],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    const review = result.interrupts.find((i) => i.domain === 'Engineering review');
+    expect(review?.text).toContain('Critical fix');
+    expect(review?.text).toContain('P0');
+  });
+
+  it('does not nominate an engineering-review interrupt for a P2 mission_delivery row in_review', async () => {
+    const supabase = fakeSupabase({
+      mission_delivery: {
+        data: [{ title: 'Low priority', delivery_state: 'in_review', priority_norm: 'P2', pr_url: null }],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Engineering review')).toBeUndefined();
   });
 });
 
