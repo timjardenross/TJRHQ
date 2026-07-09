@@ -8,6 +8,12 @@ interface LoadedModel {
   expires_at?: string;
 }
 
+interface RoutingPolicyEntry {
+  task_type: string;
+  model: string;
+  keep_alive: string;
+}
+
 interface RouterStatus {
   ollama_url?: string;
   ollama_reachable?: boolean;
@@ -16,8 +22,24 @@ interface RouterStatus {
   router_port?: number;
   recent_avg_ms?: number | null;
   recent_failed?: number;
+  routing_policy?: RoutingPolicyEntry[];
   error?: string;
 }
+
+// Editorial annotations for routing behaviours that are not machine-readable
+// from the backend's TASK_POLICY (escalation / fallback logic lives in code).
+// The task→model→keep_alive mapping itself is rendered from live status data,
+// so these notes never carry the model names that previously drifted.
+const ROUTING_NOTES: Record<string, string> = {
+  'classify-capture': 'auto-escalates to the large model if build/risk/health triggers detected',
+  'embed': 'semantic search embeddings',
+  'intelligence-brief': 'morning brief synthesis',
+  'intelligence-signals': 'proactive signals analysis',
+  'xo-response': 'XO chat reasoning',
+  'fallback-complex': 'cloud fallback, no local keep_alive',
+  'escalate': 'forced large-model path',
+  'engineering-review': 'falls back to the cloud model if the code model is not installed',
+};
 
 interface CallEntry {
   ts: string;
@@ -101,6 +123,7 @@ export default function ModelCrewPage() {
   const reachable = status?.ollama_reachable ?? false;
   const loaded = status?.loaded_models ?? [];
   const available = status?.available_models ?? [];
+  const routingPolicy = status?.routing_policy ?? [];
   const successCalls = calls.filter(c => c.success);
   const avgMs = successCalls.length
     ? Math.round(successCalls.reduce((s, c) => s + c.duration_ms, 0) / successCalls.length)
@@ -205,28 +228,29 @@ export default function ModelCrewPage() {
         </div>
       )}
 
-      {/* Routing policy */}
+      {/* Routing policy — rendered live from the backend's TASK_POLICY */}
       <div className="border border-edge rounded p-4">
         <h2 className="text-sm font-semibold text-lcars-muted uppercase tracking-wider mb-3">Routing Policy</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          {[
-            { task: 'classify-capture', model: 'gemma4:12b', ka: '5m', note: 'auto-escalates to mistral-sm if build/risk/health detected' },
-            { task: 'summarise-note', model: 'gemma4:12b', ka: '5m', note: 'fast summary' },
-            { task: 'xo-response', model: 'gemma4:12b', ka: '10m', note: 'XO chat reasoning' },
-            { task: 'intelligence-brief', model: 'mistral-sm', ka: '15m', note: 'morning brief synthesis' },
-            { task: 'intelligence-signals', model: 'mistral-sm', ka: '10m', note: 'proactive signals analysis' },
-            { task: 'embed', model: 'nomic-embed', ka: '1m', note: 'semantic search' },
-            { task: 'fallback-complex', model: 'glm-5.2:cloud', ka: '—', note: 'cloud fallback, no local keep_alive' },
-            { task: 'engineering-review', model: 'qwen3-coder:30b', ka: '10m', note: 'falls back to glm-5.2:cloud if not installed' },
-            { task: 'escalate', model: 'mistral-sm', ka: '15m', note: 'forced large model path' },
-          ].map(row => (
-            <div key={row.task} className="flex items-start gap-3">
-              <span className={`font-mono ${TASK_COLOR[row.task] ?? 'text-lcars-text'}`}>{row.task}</span>
-              <span className="text-lcars-muted">→ {row.model} [{row.ka}]</span>
-              <span className="text-lcars-muted/60">{row.note}</span>
-            </div>
-          ))}
-        </div>
+        {routingPolicy.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            {routingPolicy.map(row => (
+              <div key={row.task_type} className="flex items-start gap-3">
+                <span className={`font-mono ${TASK_COLOR[row.task_type] ?? 'text-lcars-text'}`}>{row.task_type}</span>
+                <span className="text-lcars-muted">
+                  → {MODEL_SHORT[row.model] ?? row.model} [{row.keep_alive === '0' ? '—' : row.keep_alive}]
+                </span>
+                {ROUTING_NOTES[row.task_type] && (
+                  <span className="text-lcars-muted/60">{ROUTING_NOTES[row.task_type]}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-lcars-muted text-sm">
+            Routing policy is defined in the model router backend (TASK_POLICY) and is only shown here
+            when the router is reachable. It is not currently available.
+          </p>
+        )}
       </div>
 
       {/* Recent calls */}

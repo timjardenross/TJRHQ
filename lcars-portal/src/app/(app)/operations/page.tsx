@@ -275,11 +275,12 @@ function EventsPanel({ events }: { events: CommanderEvent[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OperationsPage() {
-  const [items,     setItems]     = useState<CapturedItem[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [events,    setEvents]    = useState<CommanderEvent[]>([]);
-  const [isLive,    setIsLive]    = useState(false);
-  const [loading,   setLoading]   = useState(true);
+  const [items,       setItems]       = useState<CapturedItem[]>([]);
+  const [decisions,   setDecisions]   = useState<Decision[]>([]);
+  const [events,      setEvents]      = useState<CommanderEvent[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [loadError,   setLoadError]   = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -302,11 +303,20 @@ export default function OperationsPage() {
             .order('created_at', { ascending: false })
             .limit(8),
         ]);
-        if (itemRes.data?.length) { setItems(itemRes.data as CapturedItem[]); setIsLive(true); }
+        // Supabase surfaces query failures on `.error` rather than throwing, so
+        // an outage must be detected explicitly — otherwise the Friction Panel
+        // reports false calm (MSN-0351).
+        const queryError = itemRes.error ?? decRes.error ?? evRes.error;
+        if (queryError) {
+          setLoadError(queryError.message ?? 'Query failed');
+        } else {
+          setIsConnected(true);
+        }
+        if (itemRes.data?.length) setItems(itemRes.data as CapturedItem[]);
         if (decRes.data?.length)  setDecisions(decRes.data as Decision[]);
         if (evRes.data?.length)   setEvents(evRes.data as CommanderEvent[]);
-      } catch {
-        // fall through
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load operational data');
       } finally {
         setLoading(false);
       }
@@ -327,8 +337,20 @@ export default function OperationsPage() {
           Items captured from Quick Capture, Telegram, and other sources — plus the live decision log and recent command stream events.
         </p>
         <p className="mt-2 text-[10px] uppercase tracking-wider text-lcars-muted">
-          {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}
+          {loading
+            ? 'Loading…'
+            : loadError
+            ? '⚠ Connection error'
+            : isConnected
+            ? '● Connected · Supabase'
+            : '○ Not connected'}
         </p>
+        {loadError && (
+          <p className="mt-2 rounded-lcars border border-operations/40 bg-operations/5 px-3 py-2 text-xs text-operations-on">
+            Couldn&apos;t load operational data — try again. Empty panels below may be stale, not genuinely clear.
+            <span className="block text-[10px] text-lcars-muted mt-1 font-mono">{loadError}</span>
+          </p>
+        )}
       </LCARSPanel>
 
       <LCARSPanel
