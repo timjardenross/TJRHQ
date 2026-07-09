@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { VerificationResult } from '@/lib/verification';
-import { homeCopyFor, fmtTime } from '@/lib/homeCopy';
+import { homeCopyFor, fmtTime, needsYouText, type NeedsYouState } from '@/lib/homeCopy';
+import { fetchDecideCount } from '@/lib/decide';
 
 // STARSHIP-REDESIGN.md §3. Four blocks, one screen, no persistent nav.
 // The "Am I okay?" block is the only one wired to real backend state today
@@ -17,10 +18,17 @@ import { homeCopyFor, fmtTime } from '@/lib/homeCopy';
 
 export function HomeScreen({ verification }: { verification: VerificationResult }) {
   const [daypart, setDaypart] = useState('Hello');
+  const [needsYou, setNeedsYou] = useState<NeedsYouState>({ status: 'loading' });
 
   useEffect(() => {
     const h = new Date().getHours();
     setDaypart(h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
+  }, []);
+
+  useEffect(() => {
+    fetchDecideCount()
+      .then((count) => setNeedsYou({ status: 'ok', count }))
+      .catch(() => setNeedsYou({ status: 'error' }));
   }, []);
 
   const copy = homeCopyFor(verification);
@@ -70,20 +78,18 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
 
         {/* 2 · Needs you */}
         <Section eyebrow="Needs you" ringColor={copy.ringColor}>
-          <p className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed">
-            Decide isn&rsquo;t wired into Home yet.{' '}
-            <span className="text-[#93A1B0]">
-              Check{' '}
-              <Link href="/missions" className="underline underline-offset-2 hover:text-[#E8EDF2]">
-                Missions
-              </Link>{' '}
-              or{' '}
-              <Link href="/decisions" className="underline underline-offset-2 hover:text-[#E8EDF2]">
-                Decisions
-              </Link>{' '}
-              directly for anything pending.
-            </span>
-          </p>
+          {needsYou.status === 'ok' && needsYou.count > 0 ? (
+            <Link
+              href="/decide"
+              className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed underline underline-offset-4 decoration-[rgba(147,161,176,0.4)] hover:decoration-[#E8EDF2]"
+            >
+              {needsYouText(needsYou)}
+            </Link>
+          ) : (
+            <p className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed">
+              {needsYouText(needsYou)}
+            </p>
+          )}
         </Section>
 
         {/* 3 · Since yesterday */}

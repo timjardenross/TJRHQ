@@ -88,3 +88,18 @@ export function homeCopyFor(v: VerificationResult): HomeCopy {
     coverage: null,
   };
 }
+
+/** STARSHIP-REDESIGN.md §3/§6: Home's "Needs you" line reflects the real
+ * /decide queue count. A tri-state rather than a plain number|null - on a
+ * fetch failure we must not silently render "No decisions need you", since
+ * that would be a false claim of an empty queue rather than an honest
+ * "couldn't check". */
+export type NeedsYouState = { status: 'loading' } | { status: 'error' } | { status: 'ok'; count: number };
+
+export function needsYouText(state: NeedsYouState): string {
+  if (state.status === 'loading') return 'Checking…';
+  if (state.status === 'error') return "Can't check decisions right now.";
+  if (state.count === 0) return 'No decisions need you.';
+  if (state.count === 1) return 'One decision needs you.';
+  return `${state.count} decisions need you.`;
+}

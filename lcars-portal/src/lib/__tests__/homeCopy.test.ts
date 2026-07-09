@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { homeCopyFor, degradedDomainsClause, coverageText, fmtTime } from '@/lib/homeCopy';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { homeCopyFor, degradedDomainsClause, coverageText, fmtTime, needsYouText } from '@/lib/homeCopy';
 import type { VerificationResult } from '@/lib/verification';
 
 const base: VerificationResult = {
@@ -157,5 +159,31 @@ describe('fmtTime', () => {
 
   it('returns null for no timestamp, never fabricates a time', () => {
     expect(fmtTime(null)).toBeNull();
+  });
+});
+
+describe('needsYouText', () => {
+  it('never claims an empty queue while still loading or on a fetch error', () => {
+    expect(needsYouText({ status: 'loading' })).not.toMatch(/no decisions/i);
+    expect(needsYouText({ status: 'error' })).not.toMatch(/no decisions/i);
+    expect(needsYouText({ status: 'error' })).toMatch(/can't check/i);
+  });
+
+  it('states the real count in words matching spec §3 exactly', () => {
+    expect(needsYouText({ status: 'ok', count: 0 })).toBe('No decisions need you.');
+    expect(needsYouText({ status: 'ok', count: 1 })).toBe('One decision needs you.');
+    expect(needsYouText({ status: 'ok', count: 3 })).toBe('3 decisions need you.');
+  });
+
+  it('HomeScreen fetches the real /decide count rather than a hardcoded value', () => {
+    const src = readFileSync(join(__dirname, '../../components/home/HomeScreen.tsx'), 'utf-8');
+    expect(src).toMatch(/fetchDecideCount/);
+    // Must not render a bare "0" or hardcoded literal in place of the real count.
+    expect(src).not.toMatch(/Needs you.*No decisions.*<\/p>/s);
+  });
+
+  it('Home never shows a list of decision items - only the count line', () => {
+    const src = readFileSync(join(__dirname, '../../components/home/HomeScreen.tsx'), 'utf-8');
+    expect(src).not.toMatch(/\.map\(/); // no array rendering anywhere in Home
   });
 });
