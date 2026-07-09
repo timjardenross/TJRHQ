@@ -1,4 +1,4 @@
-import type { VerificationResult } from '@/lib/verification';
+import type { VerificationResult, VerificationState } from '@/lib/verification';
 
 /** Plain-language "I can't currently verify X" clause per spec §4.3 -
  * degraded states name the specific domain in plain words, never internals.
@@ -43,10 +43,22 @@ export interface HomeCopy {
   coverage: string | null;
 }
 
-export function homeCopyFor(v: VerificationResult): HomeCopy {
-  const verifiedAt = fmtTime(v.last_verified_at);
+const CAUTION_RANK: Record<VerificationState, number> = { sure: 0, unsure: 1, blind: 2 };
 
-  if (v.state === 'sure') {
+/** MSN-0349: `composedState` lets executiveContext.ts downgrade the raw
+ * domain-heartbeat state when the Interrupt Assembly couldn't reach every
+ * nominator this pass - "Sure" requires BOTH. Clamped defensively here (not
+ * just trusted from the caller) so a bug upstream can only ever make Home
+ * MORE cautious, never less - the "never claim Sure unless everything
+ * actually checked out" rule is load-bearing enough to enforce at the
+ * point of use, not just at the one call site that currently computes it. */
+export function homeCopyFor(v: VerificationResult, composedState?: VerificationState): HomeCopy {
+  const requested = composedState ?? v.state;
+  const state = CAUTION_RANK[requested] >= CAUTION_RANK[v.state] ? requested : v.state;
+  const verifiedAt = fmtTime(v.last_verified_at);
+  const downgradedByInterrupts = state === 'unsure' && v.state === 'sure';
+
+  if (state === 'sure') {
     return {
       ringColor: '#58C0A8',
       headline: 'Nothing needs you, Captain.',
@@ -56,7 +68,17 @@ export function homeCopyFor(v: VerificationResult): HomeCopy {
     };
   }
 
-  if (v.state === 'unsure') {
+  if (state === 'unsure') {
+    if (downgradedByInterrupts) {
+      return {
+        ringColor: '#D8A65A',
+        headline: 'Mostly quiet.',
+        verifyText:
+          "All monitored domains are reporting normally, but I couldn't reach every source that might flag something worth your attention.",
+        showVerifiedTime: true,
+        coverage: coverageText(v),
+      };
+    }
     const verifiedCount = Math.max(0, v.total_domains - v.degraded_domains.length);
     return {
       ringColor: '#D8A65A',

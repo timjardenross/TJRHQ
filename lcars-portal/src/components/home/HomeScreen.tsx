@@ -2,21 +2,47 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { VerificationResult } from '@/lib/verification';
+import type { VerificationResult, VerificationState } from '@/lib/verification';
 import { homeCopyFor, fmtTime, needsYouText, type NeedsYouState } from '@/lib/homeCopy';
 import { fetchDecideCount } from '@/lib/decide';
+import type { SessionBoundary } from '@/lib/homeSessions';
 
 // STARSHIP-REDESIGN.md §3. Four blocks, one screen, no persistent nav.
-// The "Am I okay?" block is the only one wired to real backend state today
-// (the verification engine, Phase 1). Needs you / Since yesterday / Worth
-// knowing state plainly that Decide and Ask don't exist yet, rather than
-// implying a check ran and found nothing - "no decisions require your
-// judgement" would be a real, false claim if genuine pending approvals are
-// sitting in the missions/decisions tables that Home simply isn't looking
-// at yet. Saying "not wired up" instead of "nothing to report" is the
-// honest version of an empty state for a capability that doesn't exist.
+// MSN-0349: "Since yesterday" and "Worth knowing" are now powered by the
+// Executive Change and Interrupt Assemblies (executiveContext.ts, computed
+// server-side in page.tsx) rather than static placeholder copy.
 
-export function HomeScreen({ verification }: { verification: VerificationResult }) {
+export interface PrimaryInterrupt {
+  domain: string;
+  text: string;
+  evidenceAt: string;
+}
+
+/** MSN-0349 Objective 5: returning-after-absence must be first-class, not
+ * a special case bolted on - this is the one place that decides how the
+ * "since X" eyebrow adapts to how long it's actually been. */
+function changeEyebrow(session: SessionBoundary): string {
+  if (session.daysSinceLastSession === null) return 'Getting started';
+  if (session.daysSinceLastSession === 0) return 'Since earlier today';
+  if (session.daysSinceLastSession === 1) return 'Since yesterday';
+  return `Since your last visit — ${session.daysSinceLastSession} days ago`;
+}
+
+export function HomeScreen({
+  verification,
+  composedState,
+  session,
+  changeText,
+  primaryInterrupt,
+  interruptsComplete,
+}: {
+  verification: VerificationResult;
+  composedState: VerificationState;
+  session: SessionBoundary;
+  changeText: string;
+  primaryInterrupt: PrimaryInterrupt | null;
+  interruptsComplete: boolean;
+}) {
   const [daypart, setDaypart] = useState('Hello');
   const [needsYou, setNeedsYou] = useState<NeedsYouState>({ status: 'loading' });
 
@@ -31,8 +57,14 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
       .catch(() => setNeedsYou({ status: 'error' }));
   }, []);
 
-  const copy = homeCopyFor(verification);
+  const copy = homeCopyFor(verification, composedState);
   const verifiedTime = fmtTime(verification.last_verified_at);
+
+  const worthKnowingText = primaryInterrupt
+    ? primaryInterrupt.text
+    : interruptsComplete
+      ? "Nothing stood out as worth flagging right now."
+      : "I couldn't check every source for something worth flagging just now.";
 
   return (
     <main className="min-h-screen flex justify-center bg-[#0B1017] text-[#E8EDF2]">
@@ -93,9 +125,9 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
         </Section>
 
         {/* 3 · Since yesterday */}
-        <Section eyebrow="Since yesterday" ringColor={copy.ringColor}>
+        <Section eyebrow={changeEyebrow(session)} ringColor={copy.ringColor}>
           <p className="text-[16.5px] text-[#93A1B0] leading-relaxed">
-            Change tracking isn&rsquo;t built yet — nothing to show here.
+            {changeText}
           </p>
         </Section>
 
@@ -111,7 +143,12 @@ export function HomeScreen({ verification }: { verification: VerificationResult 
               borderLeft: `3px solid ${copy.ringColor}`,
             }}
           >
-            Insight surfacing isn&rsquo;t built yet — nothing to show here.
+            {worthKnowingText}
+            {primaryInterrupt && (
+              <span className="block mt-2 text-[13px] font-sans text-[#5A6875]">
+                {primaryInterrupt.domain}
+              </span>
+            )}
           </p>
         </Section>
 

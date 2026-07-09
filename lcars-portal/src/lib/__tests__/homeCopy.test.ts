@@ -89,6 +89,26 @@ describe('homeCopyFor', () => {
     expect(copy.verifyText).toContain('never completed a verification pass');
     expect(copy.verifyText).not.toMatch(/\d{2}:\d{2}/);
   });
+
+  it('MSN-0349: downgrades sure to unsure when composedState says interrupts were incomplete, and says why precisely', () => {
+    const copy = homeCopyFor(base, 'unsure');
+    expect(copy.headline).not.toContain('Nothing needs you');
+    expect(copy.verifyText).toBe(
+      "All monitored domains are reporting normally, but I couldn't reach every source that might flag something worth your attention."
+    );
+    // Must not reuse the domain-degraded wording - that would misdescribe what's actually unverified.
+    expect(copy.verifyText).not.toBe('I can only verify some domains right now.');
+  });
+
+  it('MSN-0349: composedState cannot upgrade a real unsure/blind verification result to sure', () => {
+    const v: VerificationResult = { ...base, state: 'unsure', degraded_domains: [{ domain_key: 'x', display_name: 'X' }] };
+    const copy = homeCopyFor(v, 'sure');
+    expect(copy.headline).not.toContain('Nothing needs you');
+  });
+
+  it('MSN-0349: composedState defaults to the raw verification state when omitted', () => {
+    expect(homeCopyFor(base)).toEqual(homeCopyFor(base, 'sure'));
+  });
 });
 
 describe('coverageText', () => {
