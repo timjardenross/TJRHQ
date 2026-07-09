@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
+import type { ActionResult } from '@/lib/ai-actions';
+import { describeProposalOutcome } from '@/lib/actionProposalCopy';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -39,6 +41,36 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
   error?: boolean;
+  /** MSN-0352: deterministic action-proposal outcomes attached to this
+   * message, rendered from the backend's ActionResult objects - never
+   * from the model's own prose, so the "only proposed, not performed"
+   * distinction cannot be lost or contradicted by how the model phrased
+   * its reply. */
+  proposals?: ActionResult[];
+}
+
+/** MSN-0352: the one place this UI states whether an action was queued or
+ * failed. Text comes from describeProposalOutcome() (lib/actionProposalCopy.ts)
+ * - a plain, unit-tested function, not JSX authored ad hoc here - so
+ * "never claims completion for a mere proposal" is a property that's
+ * actually verified, not just a convention. */
+function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
+  if (!proposals.length) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-command-on/40 pl-3">
+      {proposals.map((p, i) => (
+        <div key={i} className={`text-xs ${p.success ? 'text-lcars-muted' : 'text-alert-on'}`}>
+          <span className="font-semibold">{describeProposalOutcome(p)}</span>
+          {p.success && (
+            <>
+              {' '}
+              <a href="/decide" className="underline hover:text-command-on font-normal">Open Decide →</a>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Advisory block ─────────────────────────────────────────────────────────────
@@ -387,6 +419,10 @@ function ConsultMode() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = '', buf = '';
+      // MSN-0352: capture the backend's deterministic action-proposal
+      // outcomes alongside the streamed text - this is the code-side
+      // record of what actually happened, independent of the model's prose.
+      let proposals: ActionResult[] = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -396,11 +432,15 @@ function ConsultMode() {
           if (!line.startsWith('data: ')) continue;
           const payload = line.slice(6).trim();
           if (payload === '[DONE]') break;
-          try { const p = JSON.parse(payload) as { token?: string }; if (p.token) { acc += p.token; setStreamBuffer(acc); } } catch { /* skip */ }
+          try {
+            const p = JSON.parse(payload) as { token?: string; actions?: ActionResult[] };
+            if (p.token) { acc += p.token; setStreamBuffer(acc); }
+            if (p.actions?.length) proposals = p.actions;
+          } catch { /* skip */ }
         }
       }
       const finalContent = acc || '(no response)';
-      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: finalContent }] }));
+      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: finalContent, proposals: proposals.length ? proposals : undefined }] }));
       setStreamBuffer('');
       // Persist to Supabase (best-effort)
       fetch('/api/advisory-sessions', {
@@ -474,6 +514,7 @@ function ConsultMode() {
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
+                      {!isUser && m.proposals && <ProposalBlock proposals={m.proposals} />}
                     </div>
                   </div>
                 );
