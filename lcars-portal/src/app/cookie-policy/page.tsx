@@ -7,7 +7,7 @@ export const metadata: Metadata = buildPublicMetadata('/cookie-policy');
 const cookieSections = [
   {
     title: 'Why this policy exists',
-    body: `This Cookie Policy explains how TJR Mind & Body uses cookies and similar technologies on the website. It is intended to help visitors understand what is used, why it is used, and what choices are available.`,
+    body: `This Cookie Policy explains how TJR Mind & Body uses cookies and similar technologies on the website. The aim is to make that use easy to understand in plain language.`,
   },
   {
     title: 'Essential cookies',
@@ -33,7 +33,7 @@ export default function CookiePolicyPage() {
       path="/cookie-policy"
       eyebrow="Cookie Policy"
       title="Cookie Policy"
-      intro="This page explains the limited role cookies and similar technologies play on the TJR Mind & Body website."
+      intro="This page explains the limited role cookies and similar technologies play across the TJR Mind & Body website and private portal."
     >
       <section className="rounded-[32px] border border-[#d9e1f0] bg-white p-6 shadow-[0_20px_60px_rgba(23,32,51,0.08)] sm:p-8">
         <div className="space-y-8">

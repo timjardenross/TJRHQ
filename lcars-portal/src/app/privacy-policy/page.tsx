@@ -7,7 +7,7 @@ export const metadata: Metadata = buildPublicMetadata('/privacy-policy');
 const sections = [
   {
     title: 'What this policy covers',
-    body: `This Privacy Policy explains how TJR Mind & Body handles personal information collected through this website, direct email enquiries, and related contact interactions. It is written to support transparent, plain-English disclosure of how information is collected, used, stored, and protected.`,
+    body: `This Privacy Policy explains how TJR Mind & Body handles personal information collected through this website, direct email enquiries, and related contact interactions. The aim is to be clear about what is collected, how it is used, and how it is looked after.`,
   },
   {
     title: 'Information we may collect',
@@ -15,7 +15,7 @@ const sections = [
   },
   {
     title: 'How we use personal information',
-    body: `Information may be used to respond to enquiries, provide requested information, manage legitimate support or coaching-related communication, improve website operation, maintain security, and meet legal or administrative obligations.`,
+    body: `Information may be used to respond to enquiries, provide requested information, manage legitimate communication related to support or coaching, improve website operation, maintain security, and meet legal or administrative obligations.`,
   },
   {
     title: 'Cookies and similar technologies',
@@ -35,7 +35,7 @@ const sections = [
   },
   {
     title: 'Updates to this policy',
-    body: `This policy may be updated from time to time to reflect operational, legal, or website changes. The current version published on the website is the version that applies.`,
+    body: `This policy may be updated from time to time to reflect operational, legal, or website changes. The version published on the website is the current version.`,
   },
 ];
 
@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
       path="/privacy-policy"
       eyebrow="Privacy Policy"
       title="Privacy Policy"
-      intro="This page explains how TJR Mind & Body handles personal information provided through the website and related enquiries."
+      intro="This page explains how TJR Mind & Body handles personal information shared through the website and related enquiries."
     >
       <section className="rounded-[32px] border border-[#d9e1f0] bg-white p-6 shadow-[0_20px_60px_rgba(23,32,51,0.08)] sm:p-8">
         <div className="space-y-8">
@@ -72,7 +72,7 @@ export default function PrivacyPolicyPage() {
             {SUPPORT_EMAIL}
           </a>
           <p className="mt-3 text-sm leading-7 text-[#4b5c78]">
-            Use this address for privacy-related enquiries, correction requests, or concerns about information submitted through the site.
+            Use this address for privacy-related questions, correction requests, or concerns about information submitted through the site.
           </p>
         </section>
 

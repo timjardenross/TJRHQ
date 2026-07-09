@@ -7,7 +7,7 @@ export const metadata: Metadata = buildPublicMetadata('/contact');
 const contactOptions = [
   {
     title: 'General support',
-    detail: 'Questions about the brand, approach, or whether this work is the right fit for where you are right now.',
+    detail: 'Questions about the approach, the brand, or whether this work feels relevant to what you are navigating.',
   },
   {
     title: 'Coaching and education',
@@ -15,7 +15,7 @@ const contactOptions = [
   },
   {
     title: 'Discovery conversation',
-    detail: 'A simple first conversation to understand what is going on and what support might help next.',
+    detail: 'A calm first conversation to understand what is going on and what kind of support may make sense next.',
   },
   {
     title: 'Partnerships or speaking',
@@ -29,11 +29,11 @@ export default function ContactPage() {
       path="/contact"
       eyebrow="Contact"
       title="Start With a Simple Conversation"
-      intro="If you would like to ask a question, explore support, or enquire about a discovery conversation, this is the place to start."
+      intro="If you want to ask a question, explore support, or enquire about a discovery conversation, this is the best place to start."
     >
       <section className="rounded-[32px] border border-[#d9e1f0] bg-white p-6 shadow-[0_20px_60px_rgba(23,32,51,0.08)] sm:p-8">
         <p className="text-base leading-8 text-[#31415f] sm:text-lg">
-          The easiest way to get in touch is by email. Share a little about what you are navigating, what kind of support you are looking for, and any questions you want answered first.
+          The easiest way to get in touch is by email. You are welcome to share a little about what you are navigating, what kind of support you are looking for, and any questions you want answered first.
         </p>
 
         <div className="mt-8 rounded-[28px] border border-[#dbe3f3] bg-[#f7f9fd] p-5">
@@ -47,7 +47,7 @@ export default function ContactPage() {
             support@tjrmindbody.com
           </a>
           <p className="mt-3 text-sm leading-7 text-[#5a6780]">
-            A discovery conversation can be arranged from there if it feels like the right next step.
+            If it feels like a good fit, a discovery conversation can be arranged from there.
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export default function ContactPage() {
             {CONTACT_RESPONSE_TIME}
           </p>
           <p className="mt-2 text-sm leading-7 text-[#4b5c78]">
-            If your enquiry relates to urgent medical or mental health support, please contact an appropriate clinician or emergency service instead of relying on email.
+            If your enquiry relates to urgent medical or mental health support, please contact an appropriate clinician, crisis line, or emergency service instead of relying on email.
           </p>
         </div>
       </section>
@@ -84,7 +84,7 @@ export default function ContactPage() {
             Plain-English Approach
           </p>
           <p className="mt-4 text-sm leading-7 text-[#eef3ff]">
-            Support here is grounded in practical resilience, steady rebuilding, and honest conversations about what helps in real life.
+            The tone here is steady, practical, and human. The aim is to be useful, not overwhelming.
           </p>
         </section>
       </aside>

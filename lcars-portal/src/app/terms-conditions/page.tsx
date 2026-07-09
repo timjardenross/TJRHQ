@@ -7,7 +7,7 @@ export const metadata: Metadata = buildPublicMetadata('/terms-conditions');
 const terms = [
   {
     title: 'Website purpose',
-    body: `This website is provided to share information about TJR Mind & Body, its coaching and educational approach, and ways to make contact. It is not a public clinical portal and does not provide personalised medical, diagnostic, or emergency advice.`,
+    body: `This website is provided to share information about TJR Mind & Body, its coaching and educational approach, and ways to make contact. It is not a public clinical portal and it does not provide personalised medical, diagnostic, or emergency advice.`,
   },
   {
     title: 'Use of the website',
@@ -45,7 +45,7 @@ export default function TermsConditionsPage() {
       path="/terms-conditions"
       eyebrow="Terms & Conditions"
       title="Terms & Conditions"
-      intro="These terms govern use of the TJR Mind & Body website and clarify the scope and limits of the public content provided here."
+      intro="These terms govern use of the TJR Mind & Body website and help clarify the scope and limits of the public content provided here."
     >
       <section className="rounded-[32px] border border-[#d9e1f0] bg-white p-6 shadow-[0_20px_60px_rgba(23,32,51,0.08)] sm:p-8">
         <div className="space-y-8">
