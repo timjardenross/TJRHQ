@@ -109,6 +109,16 @@ function InvestigatePageInner() {
                   This is evidence, not an action — nothing here changes anything. A decision with
                   real effect goes through Decide.
                 </p>
+                {/* EOS Phase 2 Priority 4: hands this investigation's real
+                    evidence straight to the Advisory Council's Board tab as
+                    ambient context, rather than making the Captain restate
+                    it - see advisory-council/page.tsx's EvidencePanel. */}
+                <Link
+                  href={`/advisory-council?tab=board&investigationType=${encodeURIComponent(type ?? '')}&investigationReason=${encodeURIComponent(result.triggerDescription)}`}
+                  className="inline-block mt-3 text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+                >
+                  Consult the Advisory Council on this
+                </Link>
               </div>
             )}
 

@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
 import type { ActionResult } from '@/lib/ai-actions';
 import { describeProposalOutcome } from '@/lib/actionProposalCopy';
+import { fetchRecommendations, type RecommendationPackage } from '@/lib/recommendations';
+import { fetchInvestigation, type InvestigationRunResult } from '@/lib/investigate';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -69,6 +72,64 @@ function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Evidence panel ─────────────────────────────────────────────────────────────
+
+/** EOS Phase 2 Priority 4 (Executive Advisory Council): composes the two
+ * canonical engines that previously never fed the Council - the
+ * Recommendation Engine (core/coordination/recommendation_engine.py, via
+ * lib/recommendations.ts) and the Investigation Engine (lib/investigate.ts)
+ * - into the Board's evidence, kept structurally and visually separate from
+ * officer perspectives (interpretation). Both bridges already degrade to
+ * null on any failure (see their own headers), so a fetch problem here
+ * just omits the panel rather than fabricating placeholder evidence; there
+ * is no synthesis or re-ranking here, only direct passthrough of what each
+ * engine already returned. */
+function EvidencePanel({
+  recommendations,
+  investigation,
+}: {
+  recommendations: RecommendationPackage | null;
+  investigation: InvestigationRunResult | null;
+}) {
+  const hasRecommendations = !!recommendations?.recommendations.length;
+  if (!hasRecommendations && !investigation) return null;
+  return (
+    <div className="rounded-lcars border border-edge bg-panel/40 p-3 space-y-3">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">
+        Evidence — sourced directly from the canonical engines, not an officer&apos;s interpretation
+      </p>
+      {hasRecommendations && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-science-on mb-1">Recommendation Engine</p>
+          <ul className="space-y-1">
+            {recommendations!.recommendations.slice(0, 3).map((r) => (
+              <li key={r.mission_id} className="text-xs text-lcars-text/80">
+                <span className="text-lcars-text">{r.title}</span>{' '}
+                <span className="text-lcars-muted">({r.mission_id})</span> — {r.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {investigation && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-science-on mb-1">
+            Investigation Engine — {investigation.label}
+          </p>
+          <p className="text-xs text-lcars-text/80">{investigation.triggerDescription}</p>
+          {investigation.decisionOptions.length > 0 && (
+            <ul className="mt-1 space-y-1">
+              {investigation.decisionOptions.map((opt) => (
+                <li key={opt.id} className="text-xs text-lcars-text/70">{opt.label}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -582,19 +643,44 @@ function ConsultMode() {
 interface BoardSession { id: string; ts: number; question: string; result: AdvisoryResult }
 const LS_BOARD_LOG = 'lcars-board-log';
 
-function BoardMode() {
-  const [input, setInput] = useState('');
+function BoardMode({
+  investigationType,
+  investigationReason,
+}: {
+  investigationType?: string;
+  investigationReason?: string;
+}) {
+  const [input, setInput] = useState(investigationReason ?? '');
   const [isScenario, setIsScenario] = useState(false);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<AdvisoryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<BoardSession[]>([]);
   const [showLog, setShowLog] = useState(false);
+  const [recommendations, setRecommendations] = useState<RecommendationPackage | null>(null);
+  const [investigation, setInvestigation] = useState<InvestigationRunResult | null>(null);
   const elapsed = useElapsed(loading);
 
   useEffect(() => {
     try { const raw = localStorage.getItem(LS_BOARD_LOG); if (raw) setLog(JSON.parse(raw) as BoardSession[]); } catch { /* ignore */ }
   }, []);
+
+  // EOS Phase 2 Priority 4: the Recommendation Engine's current top
+  // priorities are always relevant standing evidence for the Board, not
+  // just on a deep link - fetched once per Board visit, best-effort.
+  useEffect(() => {
+    fetchRecommendations().then(setRecommendations);
+  }, []);
+
+  // A specific investigation is only fetched when arrived at via a real
+  // contextual link (e.g. from /investigate's "Consult the Advisory
+  // Council on this") - never fabricated, never guessed from the free-text
+  // question the Captain types directly into Board.
+  useEffect(() => {
+    if (investigationType && investigationReason) {
+      fetchInvestigation(investigationType, investigationReason).then(setInvestigation);
+    }
+  }, [investigationType, investigationReason]);
 
   const submit = async () => {
     const trimmed = input.trim();
@@ -689,6 +775,8 @@ function BoardMode() {
             </button>
           </div>
         </div>
+
+        <EvidencePanel recommendations={recommendations} investigation={investigation} />
 
         {loading && (
           <div className="flex items-center gap-3 py-4">
@@ -1237,8 +1325,19 @@ const TOP_TABS: { id: TopTab; label: string; glyph: string }[] = [
   { id: 'perspectives', label: 'Perspectives', glyph: '↗' },
 ];
 
-export default function AdvisoryCouncilPage() {
-  const [tab, setTab] = useState<TopTab>('consult');
+/** EOS Phase 2 Priority 4: reads the optional deep-link params a contextual
+ * entry point (e.g. /investigate's "Consult the Advisory Council on this")
+ * can pass - ?tab=board opens straight to Board, ?investigationType=&
+ * investigationReason= carry a real investigation's evidence in. Absent any
+ * of these, behaviour is unchanged from before this mission (defaults to
+ * Consult, no evidence fetched until the Captain opens Board themselves). */
+function AdvisoryCouncilPageInner() {
+  const params = useSearchParams();
+  const investigationType = params.get('investigationType') ?? undefined;
+  const investigationReason = params.get('investigationReason') ?? undefined;
+  const [tab, setTab] = useState<TopTab>(
+    params.get('tab') === 'board' || (investigationType && investigationReason) ? 'board' : 'consult'
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -1257,8 +1356,16 @@ export default function AdvisoryCouncilPage() {
       </div>
 
       {tab === 'consult'      && <ConsultMode />}
-      {tab === 'board'        && <BoardMode />}
+      {tab === 'board'        && <BoardMode investigationType={investigationType} investigationReason={investigationReason} />}
       {tab === 'perspectives' && <PerspectivesMode />}
     </div>
+  );
+}
+
+export default function AdvisoryCouncilPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdvisoryCouncilPageInner />
+    </Suspense>
   );
 }
