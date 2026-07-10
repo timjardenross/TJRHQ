@@ -34,3 +34,9 @@ apscheduler>=3.10.0
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
+# 2026-07-10: core/context-assembly/context_service.py's `serve` command
+# (Flask HTTP bridge for Captain's Brief + Recommendations, deploy/
+# context-service.service) needs these - not previously declared here
+# because nothing ran `serve` under process supervision before this unit.
+flask>=3.0.0
+flask-cors>=4.0.0

@@ -1,0 +1,48 @@
+[Unit]
+# 2026-07-10: formal supervision for core/context-assembly/context_service.py
+# serve mode — exposes CaptainBriefDocument (assemble_captain_brief_document
+# via poll_events()) and the Recommendation Engine's generate_recommendation_
+# package() over HTTP (GET /brief/full, GET /recommendations/full), so
+# lcars-portal's Vercel-hosted Next.js API routes (api/captain-brief/route.ts,
+# api/recommendations/route.ts) can reach them with a plain fetch() instead
+# of shelling out to a local python3 that does not exist on Vercel's Node.js
+# serverless runtime — the confirmed root cause of both routes silently
+# degrading to an honest-looking-but-misleading "no new signals"/empty
+# result in production. Existing endpoints (/brief/captain, /brief/number-one)
+# are unaffected by this unit; this only adds process supervision to a
+# service that previously had none (WP-A built the Flask app, but nothing
+# ran it persistently).
+#
+# Matches intelligence-scheduler.service's established pattern: same
+# WorkingDirectory, same platform-runtime/.venv (confirmed correct there
+# 2026-07-08 after a real drift incident — reused rather than assuming a
+# fresh venv would work), same EnvironmentFile. This unit needs flask and
+# flask-cors added to platform-runtime/requirements.txt (see this session's
+# work) and installed into that same venv before first start.
+#
+# Binds 127.0.0.1 only, deliberately — this must NOT be exposed as a raw
+# HTTP port on the public internet. Route a public HTTPS path through the
+# existing Caddy reverse proxy to 127.0.0.1:5001 (Caddy config lives on the
+# VM, not in this repo — add the route by hand). CONTEXT_SERVICE_SECRET in
+# EnvironmentFile is checked on every request except /health as defense in
+# depth even behind Caddy - lcars-portal's Vercel deployment must send the
+# same value in the X-Context-Service-Secret header (set CONTEXT_SERVICE_URL
+# to the public Caddy-fronted URL and CONTEXT_SERVICE_SECRET to the same
+# value in Vercel's project env vars).
+Description=USS TJR Context Assembly Service — Captain's Brief + Recommendations HTTP bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python core/context-assembly/context_service.py serve --host 127.0.0.1 --port 5001
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=context-service
+
+[Install]
+WantedBy=multi-user.target
