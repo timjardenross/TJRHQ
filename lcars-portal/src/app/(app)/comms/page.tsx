@@ -110,7 +110,12 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      setMsg(`Moved to ${STATUS_LABEL[d.to]}`);
+      // EOS Phase 2 Priority 5: mark_published no longer publishes directly
+      // - it queues a governed proposal (api/comms/[id]/advance/route.ts),
+      // so the response here is { proposed: true }, not { to: 'published' }.
+      // The status badge correctly stays "Ready to Publish" until the
+      // Captain approves it in Decide.
+      setMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : `Moved to ${STATUS_LABEL[d.to]}`);
       onRefresh();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error');
@@ -266,7 +271,7 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
             {item.status === 'ready_to_publish' && (
               <button type="button" onClick={() => advance('mark_published')} disabled={busy}
                 className="text-xs border border-science/40 rounded px-3 py-1 text-science hover:bg-science/10 disabled:opacity-50 transition-colors">
-                ✓ Mark Published
+                Submit for Publish Approval →
               </button>
             )}
           </div>

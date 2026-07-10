@@ -162,6 +162,7 @@ export const PRIVATE_ROBOTS_DISALLOWS = [
   '/home',
   '/recommended',
   '/investigate',
+  '/comms-studio',
 ] as const;
 
 export function getPublicPage(path: string): PublicPageConfig {

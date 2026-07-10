@@ -45,6 +45,9 @@ const VALID_NAV_HREFS = [
   // NAV_SECTIONS below (no persistent sidebar, per docs/EOS-CANONICAL-
   // ARCHITECTURE-DECISIONS.md §5).
   '/recommended', '/investigate',
+  // EOS Phase 2 Priority 5: same treatment - reached via Home's quiet
+  // "Draft" link.
+  '/comms-studio',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */

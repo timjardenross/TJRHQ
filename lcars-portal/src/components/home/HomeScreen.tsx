@@ -193,10 +193,22 @@ export function HomeScreen({
               treatment - a reference tool always available, not an alert;
               earning attention through "Needs you"/"Worth knowing" is a
               different, stricter bar this deliberately doesn't claim to
-              meet. */}
+              meet. EOS Phase 2 Priority 4: Council joins them on the same
+              basis - the Advisory Council (/advisory-council) is a standing
+              capability the Captain can consult any time, not something
+              this page has evidence to alert about. EOS Phase 2 Priority 5:
+              Draft (/comms-studio) is the same again - a governed
+              communication layer the Captain reaches for when they want
+              one, not an alert this page is raising. */}
           <div className="flex items-center gap-4">
             <Link href="/recommended" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
               Recommended
+            </Link>
+            <Link href="/advisory-council" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
+              Council
+            </Link>
+            <Link href="/comms-studio" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
+              Draft
             </Link>
             <Link href="/ask" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
               Ask
