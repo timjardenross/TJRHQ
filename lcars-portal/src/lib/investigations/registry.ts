@@ -13,7 +13,6 @@ import { upstreamCoverageGap, downstreamVerificationGap } from './coverageGaps';
 import { queueResolution, queueTriage } from './queueGovernance';
 import { trendScan, noiseTriage, decisionTraceback } from './captainReview';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const INVESTIGATION_REGISTRY: InvestigationDefinition<any, any>[] = [
   integrityAuditDiagnose,
   integrityAuditVerify,

@@ -56,7 +56,6 @@ export interface JourneyCoverageEntry {
   typeLabel: string;
   configUsed: string;
   limitations: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   definition: InvestigationDefinition<any, any>;
   trigger: TriggerContext;
   /** Which decision (if any) to resolve with — chosen for safety (never a real mutation) per the file header note above. */
