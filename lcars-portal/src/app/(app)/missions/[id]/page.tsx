@@ -229,6 +229,16 @@ export default function MissionDetailPage() {
             <Field label="Rework Of" value={mission.rework_of} />
           )}
         </div>
+        {/* EOS Phase 3 Priority 2: automatic context, no manual ID entry -
+            this mission's own real mission_id is the exact refId
+            Communications Studio's Mission Report assembler
+            (lib/commsStudio.ts) needs. */}
+        <Link
+          href={`/comms-studio?type=mission_report&refId=${encodeURIComponent(mission.mission_id)}`}
+          className="mt-4 inline-block text-xs text-lcars-muted underline underline-offset-2 hover:text-command"
+        >
+          Draft a Mission Report →
+        </Link>
       </LCARSPanel>
 
       {/* Governed decision — MSN-0328 (WP-C/D): only rendered when the

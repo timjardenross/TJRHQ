@@ -19,8 +19,17 @@
 // assembly architecture (assembleStudioDraft in lib/commsStudio.ts)
 // supports adding more without touching this page or the save route; see
 // the mission report for what's left.
+//
+// EOS Phase 3 Priority 2 (Contextual Journey Completion): reads optional
+// ?type=&refId= - Decide's "Draft a Decision Brief" link and a Mission
+// detail page's "Draft a Mission Report" link both pass these so the
+// Captain never has to manually copy/paste a decide_ledger id or mission
+// id the originating workflow already knew. When both are present (or
+// just ?type= for executive_brief, which needs no reference), the draft
+// assembles automatically on load rather than requiring an extra click.
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { assembleStudioDraft, type StudioAssembly, type StudioDocType } from '@/lib/commsStudio';
 
@@ -30,9 +39,18 @@ const DOC_TYPES: { key: StudioDocType; label: string; needsRef: boolean; refLabe
   { key: 'mission_report', label: 'Mission Report', needsRef: true, refLabel: 'Mission ID (e.g. USS-TJR-MSN-0123)' },
 ];
 
-export default function CommsStudioPage() {
-  const [type, setType] = useState<StudioDocType>('executive_brief');
-  const [refId, setRefId] = useState('');
+function isStudioDocType(v: string | null): v is StudioDocType {
+  return v === 'executive_brief' || v === 'decision_brief' || v === 'mission_report';
+}
+
+function CommsStudioPageInner() {
+  const params = useSearchParams();
+  const paramType = params.get('type');
+  const paramRefId = params.get('refId') ?? '';
+  const initialType = isStudioDocType(paramType) ? paramType : 'executive_brief';
+
+  const [type, setType] = useState<StudioDocType>(initialType);
+  const [refId, setRefId] = useState(isStudioDocType(paramType) ? paramRefId : '');
   const [draft, setDraft] = useState<StudioAssembly | null>(null);
   const [editBody, setEditBody] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,12 +59,12 @@ export default function CommsStudioPage() {
 
   const active = DOC_TYPES.find((d) => d.key === type)!;
 
-  async function generate() {
+  async function generate(forType: StudioDocType = type, forRefId: string = refId) {
     setLoading(true);
     setError(null);
     setDraft(null);
     setSavedId(null);
-    const result = await assembleStudioDraft(type, refId.trim());
+    const result = await assembleStudioDraft(forType, forRefId.trim());
     setLoading(false);
     if (!result) {
       setError('Could not assemble this document — check the reference and try again.');
@@ -55,6 +73,17 @@ export default function CommsStudioPage() {
     setDraft(result);
     setEditBody(result.body);
   }
+
+  // EOS Phase 3 Priority 2: a contextual link already told us the type and
+  // (where needed) the reference - assemble immediately rather than making
+  // the Captain click "Assemble Draft" again for context the originating
+  // workflow already handed over.
+  useEffect(() => {
+    if (!isStudioDocType(paramType)) return;
+    if (paramType !== 'executive_brief' && !paramRefId) return;
+    generate(paramType, paramRefId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramType, paramRefId]);
 
   async function saveDraft() {
     if (!draft) return;
@@ -123,7 +152,7 @@ export default function CommsStudioPage() {
 
           <button
             type="button"
-            onClick={generate}
+            onClick={() => generate()}
             disabled={loading || (active.needsRef && !refId.trim())}
             className="self-start rounded border border-[#5AA0D8]/50 px-4 py-2 text-xs uppercase tracking-widest text-[#5AA0D8] hover:bg-[#5AA0D8]/10 disabled:opacity-40"
           >
@@ -175,5 +204,13 @@ export default function CommsStudioPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function CommsStudioPage() {
+  return (
+    <Suspense fallback={null}>
+      <CommsStudioPageInner />
+    </Suspense>
   );
 }

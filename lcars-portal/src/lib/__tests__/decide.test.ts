@@ -7,7 +7,14 @@ import { join } from 'path';
 // (pre-Decide) approve/reject UIs already use - never a new route. Mocking
 // at this boundary lets us assert exactly which table/endpoint is hit.
 
-const insertMock = vi.fn().mockResolvedValue({ data: null, error: null });
+// EOS Phase 3 Priority 2: writeLedger() now chains .insert().select('id')
+// .single() (it returns the new row's id, so Communications Studio's
+// Decision Brief can launch with automatic context) rather than a bare
+// .insert() - insertMock still receives the exact row, so every existing
+// assertion on its call args is unchanged; insertSingleMock controls what
+// the chain resolves to.
+const insertSingleMock = vi.fn().mockResolvedValue({ data: { id: 'ledger-1' }, error: null });
+const insertMock = vi.fn((row: Record<string, unknown>) => ({ select: (_cols: string) => ({ single: insertSingleMock }) }));
 const updateEqSelectMock = vi.fn().mockResolvedValue({ data: [{ id: 'x' }], error: null });
 const fromMock = vi.fn((table: string) => ({
   insert: insertMock,
@@ -75,7 +82,7 @@ const engineeringItem: DecideItem = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  insertMock.mockResolvedValue({ data: null, error: null });
+  insertSingleMock.mockResolvedValue({ data: { id: 'ledger-1' }, error: null });
   updateEqSelectMock.mockResolvedValue({ data: [{ id: 'x' }], error: null });
   global.fetch = vi.fn();
 });
