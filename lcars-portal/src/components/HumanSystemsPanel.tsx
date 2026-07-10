@@ -88,20 +88,32 @@ export function HumanSystemsPanel() {
         </div>
       )}
 
-      {/* Readiness headline + daily capacity. */}
+      {/* Readiness headline + daily capacity. interpretCapacity()'s no-data
+          fallback (human-systems.ts:175-194) assigns a hardcoded score of 60
+          and a "moderate" band to every domain so the panel always has a
+          shape to render - that's a placeholder, not a reading, and
+          snapshot.dataAvailable exists specifically to mark it as one. Real
+          bug found via a live walkthrough (2026-07-10): this component was
+          rendering that placeholder with the exact same visual authority
+          (large bold number, coloured band badge) as a genuine reading,
+          with zero visual distinction - dataAvailable was computed and then
+          never checked. Fixed to match the honest "—" pattern the Sleep/
+          Body Signal/Movement metrics below already use. */}
       <div className="flex items-start gap-4">
         <div className="shrink-0 text-center">
-          <div className="font-lcars text-4xl font-bold text-medical">{snapshot.overallScore}</div>
+          <div className="font-lcars text-4xl font-bold text-medical">
+            {snapshot.dataAvailable ? snapshot.overallScore : '—'}
+          </div>
           <StatusBadge
-            label={BAND_LABEL[snapshot.overallBand]}
-            tone={BAND_TONE[snapshot.overallBand]}
+            label={snapshot.dataAvailable ? BAND_LABEL[snapshot.overallBand] : 'No data'}
+            tone={snapshot.dataAvailable ? BAND_TONE[snapshot.overallBand] : 'neutral'}
           />
           <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Readiness</p>
         </div>
         <p className="flex-1 text-sm text-lcars-text/85 leading-relaxed">{snapshot.headline}</p>
       </div>
 
-      {/* Capacity by domain. */}
+      {/* Capacity by domain - same fix, same reasoning as above. */}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {snapshot.domains.map((d) => (
           <div
@@ -111,8 +123,13 @@ export function HumanSystemsPanel() {
           >
             <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">{d.label}</p>
             <div className="mt-1 flex items-center justify-between">
-              <span className="text-sm font-semibold text-lcars-text">{d.score}</span>
-              <StatusBadge label={BAND_LABEL[d.band]} tone={BAND_TONE[d.band]} />
+              <span className="text-sm font-semibold text-lcars-text">
+                {snapshot.dataAvailable ? d.score : '—'}
+              </span>
+              <StatusBadge
+                label={snapshot.dataAvailable ? BAND_LABEL[d.band] : 'No data'}
+                tone={snapshot.dataAvailable ? BAND_TONE[d.band] : 'neutral'}
+              />
             </div>
           </div>
         ))}

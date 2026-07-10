@@ -44,6 +44,18 @@ interface CaptainBriefDocument {
   next_actions: string[];
 }
 
+/** Renders a raw Python isoformat timestamp ("2026-07-10 08:17:03.991378+00:00")
+ * as a human-readable date/time. Falls back to the raw string on any parse
+ * failure - a malformed value should still surface, not vanish silently. */
+function formatGeneratedAt(raw: string): string {
+  const d = new Date(raw.replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleString('en-AU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 /** Reuses /api/captain-brief as-is (core/platform/captain_brief_orchestrator.py,
  * MSN-0313) — the most mature evidence-cited, no-fabrication document
  * assembly already in the platform. This function only reformats its
@@ -55,7 +67,14 @@ async function assembleExecutiveBrief(): Promise<StudioAssembly | null> {
     const doc = (await resp.json()) as CaptainBriefDocument;
     if (!doc || typeof doc.summary !== 'string') return null;
 
-    const lines: string[] = [`# Executive Brief`, `_Generated ${doc.generated_at}_`, '', doc.summary];
+    // Real bug found via a live walkthrough (2026-07-10): doc.generated_at is
+    // a raw Python isoformat timestamp with microseconds
+    // ("2026-07-10 08:17:03.991378+00:00") - fine as machine-readable data,
+    // not fine unformatted in a document meant to read as "executive
+    // quality." formatGeneratedAt() renders it the way a human reads a
+    // timestamp; falls back to the raw string only if parsing fails, so a
+    // malformed value still surfaces rather than silently disappearing.
+    const lines: string[] = [`# Executive Brief`, `_Generated ${formatGeneratedAt(doc.generated_at)}_`, '', doc.summary];
 
     if (doc.priorities?.length) {
       lines.push('', '## Priorities');
