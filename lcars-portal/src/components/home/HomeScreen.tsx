@@ -12,6 +12,21 @@ import type { SessionBoundary } from '@/lib/homeSessions';
 // MSN-0349: "Since yesterday" and "Worth knowing" are now powered by the
 // Executive Change and Interrupt Assemblies (executiveContext.ts, computed
 // server-side in page.tsx) rather than static placeholder copy.
+//
+// Real-Captain-walkthrough revision (2026-07-10): two pieces of direct
+// feedback after actually using this page, not a compile check. (1) "Hate
+// the black" - this page used a bespoke near-black (#0B1017) palette found
+// nowhere else in the platform, unrelated to either the LCARS design system
+// or the real public brand. (2) "No way to direct things" - resolved as
+// "keep zero-nav, but make Home a real hub": every real experience now gets
+// a findable link here, not just the ones tied to an active interrupt.
+// Visual language now reuses the actual public-site brand
+// (components/public/PublicShell.tsx - the real tjrmindbody.com tokens:
+// #f5f7fb background, #172033/#18223a navy text, #243b7a accent, soft
+// rounded cards) instead of a third, one-off palette. All data/logic below
+// is unchanged - verification, decide count, change assembly, interrupt
+// assembly all work exactly as before; this is a visual + information-
+// architecture change only.
 
 export interface PrimaryInterrupt {
   domain: string;
@@ -28,6 +43,24 @@ function changeEyebrow(session: SessionBoundary): string {
   if (session.daysSinceLastSession === 1) return 'Since yesterday';
   return `Since your last visit — ${session.daysSinceLastSession} days ago`;
 }
+
+/** Every real experience the Captain can reach, grouped for the Explore
+ * hub below. Investigate is deliberately excluded - it requires a real
+ * ?type=&reason= a specific journey already knows (its own page says so:
+ * "reach this from a link on Home or Recommended") - a blind link here
+ * would just be a dead end, not a genuine entry point. */
+const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [
+  { href: '/decide', label: 'Decide', description: 'One place for judgement, one item at a time' },
+  { href: '/ask', label: 'Ask', description: 'Ask Starship what it knows' },
+  { href: '/recommended', label: 'Recommended', description: 'Ranked mission priorities from the Recommendation Engine' },
+  { href: '/advisory-council', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },
+  { href: '/comms-studio', label: 'Communications Studio', description: 'Assemble an executive brief, decision brief, or mission report' },
+  { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
+  { href: '/missions', label: 'Missions', description: 'The full mission registry' },
+  { href: '/captains-brief', label: "Captain's Brief", description: 'The composed intelligence document' },
+  { href: '/comms', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
+  { href: '/captains-chair', label: "Captain's Chair", description: 'The full operational dashboard' },
+];
 
 export function HomeScreen({
   verification,
@@ -68,42 +101,29 @@ export function HomeScreen({
       : "I couldn't check every source for something worth flagging just now.";
 
   return (
-    <main className="min-h-screen flex justify-center bg-[#0B1017] text-[#E8EDF2]">
-      <div className="w-full max-w-[620px] px-7 pt-12 pb-14 sm:pt-16 flex flex-col min-h-screen">
+    <main className="min-h-screen bg-[#f5f7fb] text-[#172033]">
+      <div className="mx-auto w-full max-w-[720px] px-5 py-10 sm:px-8 sm:py-14 flex flex-col min-h-screen">
 
         {/* 1 · Am I okay? */}
-        <div className="mb-10 sm:mb-16">
-          <p className="text-sm uppercase tracking-[0.14em] text-[#5A6875] mb-6 font-medium">
+        <div className="mb-8 sm:mb-10 rounded-[28px] border border-[#d9e1f0] bg-white/92 px-6 py-7 sm:px-8 sm:py-8 shadow-[0_20px_60px_rgba(23,32,51,0.06)]">
+          <p className="text-sm uppercase tracking-[0.14em] text-[#61718c] mb-4 font-medium">
             {daypart}
           </p>
-          <h1
-            className="text-[30px] sm:text-[40px] leading-[1.18] mb-6"
-            style={{
-              // The app's globals.css forces all h1/h2/h3 to uppercase
-              // sans-serif (@layer base) for the existing LCARS design
-              // system - Home is deliberately breaking from that (spec §7:
-              // serif display for the human voice), so these are pinned
-              // inline rather than fought via the Tailwind utility cascade.
-              fontFamily: '"New York", "SF Pro Display", Georgia, serif',
-              fontWeight: 500,
-              textTransform: 'none',
-              letterSpacing: '-0.015em',
-            }}
-          >
+          <h1 className="text-[28px] sm:text-[36px] leading-[1.2] font-semibold tracking-[-0.02em] text-[#18223a] mb-5">
             {copy.headline}
           </h1>
-          <div className="flex items-center gap-3 text-[#93A1B0] text-[15.5px]">
+          <div className="flex items-center gap-3 text-[#4d5d77] text-[15px]">
             <VerificationRing color={copy.ringColor} />
             <span>{copy.verifyText}</span>
             {copy.showVerifiedTime && verifiedTime && (
               <>
-                <span className="text-[#5A6875]">·</span>
-                <span className="tabular-nums text-[#93A1B0]">verified {verifiedTime}</span>
+                <span className="text-[#a0abc2]">·</span>
+                <span className="tabular-nums text-[#4d5d77]">verified {verifiedTime}</span>
               </>
             )}
           </div>
           {copy.coverage && (
-            <p className="mt-2 pl-[24px] text-[13px] tabular-nums text-[#5A6875]">
+            <p className="mt-2 pl-[24px] text-[13px] tabular-nums text-[#61718c]">
               {copy.coverage}
             </p>
           )}
@@ -114,12 +134,12 @@ export function HomeScreen({
           {needsYou.status === 'ok' && needsYou.count > 0 ? (
             <Link
               href="/decide"
-              className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed underline underline-offset-4 decoration-[rgba(147,161,176,0.4)] hover:decoration-[#E8EDF2]"
+              className="text-[18px] font-normal text-[#18223a] leading-relaxed underline underline-offset-4 decoration-[#c3cee3] hover:decoration-[#243b7a]"
             >
               {needsYouText(needsYou)}
             </Link>
           ) : (
-            <p className="text-[19px] font-normal text-[#E8EDF2] leading-relaxed">
+            <p className="text-[18px] font-normal text-[#18223a] leading-relaxed">
               {needsYouText(needsYou)}
             </p>
           )}
@@ -127,7 +147,7 @@ export function HomeScreen({
 
         {/* 3 · Since yesterday */}
         <Section eyebrow={changeEyebrow(session)} ringColor={copy.ringColor}>
-          <p className="text-[16.5px] text-[#93A1B0] leading-relaxed">
+          <p className="text-[15.5px] text-[#4d5d77] leading-relaxed">
             {changeText}
           </p>
         </Section>
@@ -135,18 +155,12 @@ export function HomeScreen({
         {/* 4 · Worth knowing */}
         <Section eyebrow="Worth knowing" ringColor={copy.ringColor}>
           <p
-            className="text-[20px] leading-relaxed px-6 py-5 rounded-md border border-[rgba(147,161,176,0.14)]"
-            style={{
-              fontFamily: '"New York", "SF Pro Display", Georgia, serif',
-              fontWeight: 450,
-              color: '#E8EDF2',
-              background: '#101722',
-              borderLeft: `3px solid ${copy.ringColor}`,
-            }}
+            className="text-[17px] leading-relaxed px-6 py-5 rounded-2xl border border-[#d9e1f0] bg-white/92 text-[#18223a]"
+            style={{ borderLeft: `3px solid ${copy.ringColor}` }}
           >
             {worthKnowingText}
             {primaryInterrupt && (
-              <span className="block mt-2 text-[13px] font-sans text-[#5A6875]">
+              <span className="block mt-2 text-[13px] text-[#61718c]">
                 {primaryInterrupt.domain}
               </span>
             )}
@@ -163,14 +177,14 @@ export function HomeScreen({
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pl-1">
               <Link
                 href="/captains-brief"
-                className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+                className="text-[12.5px] text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
               >
                 See the full picture
               </Link>
               {investigationTypeForDomain(primaryInterrupt.domain) && (
                 <Link
                   href={`/investigate?type=${encodeURIComponent(investigationTypeForDomain(primaryInterrupt.domain)!)}&reason=${encodeURIComponent(primaryInterrupt.text)}`}
-                  className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+                  className="text-[12.5px] text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
                 >
                   Investigate
                 </Link>
@@ -179,42 +193,36 @@ export function HomeScreen({
           )}
         </Section>
 
-        <div className="mt-auto pt-14 flex items-center justify-between gap-3">
-          <footer className="text-[12.5px] text-[#5A6875] flex items-center gap-2">
-            <span
-              className="w-[5px] h-[5px] rounded-full inline-block"
-              style={{ background: copy.ringColor, opacity: 0.6 }}
-            />
-            Verified by Starship · Last checked {verifiedTime ?? 'never'}
-          </footer>
-          {/* STARSHIP-REDESIGN.md §7/§2: Ask is always reachable, quietly -
-              no persistent nav bar, just this one small affordance.
-              EOS Phase 2 Priority 1: Recommended sits alongside it, same
-              treatment - a reference tool always available, not an alert;
-              earning attention through "Needs you"/"Worth knowing" is a
-              different, stricter bar this deliberately doesn't claim to
-              meet. EOS Phase 2 Priority 4: Council joins them on the same
-              basis - the Advisory Council (/advisory-council) is a standing
-              capability the Captain can consult any time, not something
-              this page has evidence to alert about. EOS Phase 2 Priority 5:
-              Draft (/comms-studio) is the same again - a governed
-              communication layer the Captain reaches for when they want
-              one, not an alert this page is raising. */}
-          <div className="flex items-center gap-4">
-            <Link href="/recommended" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
-              Recommended
-            </Link>
-            <Link href="/advisory-council" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
-              Council
-            </Link>
-            <Link href="/comms-studio" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
-              Draft
-            </Link>
-            <Link href="/ask" className="text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2">
-              Ask
-            </Link>
+        {/* 5 · Explore - the real hub. Every experience, always findable,
+            not gated behind an interrupt deciding it's relevant. Still no
+            persistent nav bar - this is one section on one page, reached
+            by scrolling Home, not a menu that follows you everywhere. */}
+        <Section eyebrow="Explore" ringColor={copy.ringColor}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {EXPLORE_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group rounded-2xl border border-[#d9e1f0] bg-white/92 px-4 py-3.5 transition hover:border-[#243b7a] hover:shadow-[0_8px_24px_rgba(23,32,51,0.08)]"
+              >
+                <p className="text-[15px] font-semibold text-[#18223a] group-hover:text-[#243b7a]">
+                  {item.label}
+                </p>
+                <p className="mt-0.5 text-[13px] text-[#61718c] leading-snug">
+                  {item.description}
+                </p>
+              </Link>
+            ))}
           </div>
-        </div>
+        </Section>
+
+        <footer className="mt-10 pt-6 border-t border-[#d9e1f0] text-[12.5px] text-[#61718c] flex items-center gap-2">
+          <span
+            className="w-[5px] h-[5px] rounded-full inline-block"
+            style={{ background: copy.ringColor, opacity: 0.7 }}
+          />
+          Verified by Starship · Last checked {verifiedTime ?? 'never'}
+        </footer>
       </div>
     </main>
   );
@@ -230,15 +238,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className="py-7"
-      style={{ borderTop: '1px solid rgba(147,161,176,0.14)' }}
-      aria-label={eyebrow}
-    >
-      <p className="text-xs uppercase tracking-[0.16em] text-[#5A6875] font-semibold mb-4 flex items-center">
+    <section className="py-6" aria-label={eyebrow}>
+      <p className="text-xs uppercase tracking-[0.16em] text-[#61718c] font-semibold mb-3.5 flex items-center">
         <span
           className="inline-block w-[18px] h-[3px] rounded-sm mr-2.5"
-          style={{ background: ringColor, opacity: 0.55 }}
+          style={{ background: ringColor, opacity: 0.7 }}
         />
         {eyebrow}
       </p>
