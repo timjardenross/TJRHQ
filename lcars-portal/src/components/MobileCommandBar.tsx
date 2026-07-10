@@ -14,14 +14,16 @@ import type { NavHref } from '@/lib/nav';
  * Mobile-only (`lg:hidden`) so the existing desktop portal navigation is
  * untouched — no broad redesign, no broken web access. Always mounted, so it is
  * also the single global owner that drives Push-Alert notifications.
+ *
+ * Real-Captain-walkthrough revision (2026-07-10): restyled on the real
+ * public-site brand tokens - one accent colour for the active tab, not
+ * five decorative department colours.
  */
 
 interface Tab {
   href: NavHref;
   label: string;
   glyph: string;
-  /** Static Tailwind colour class (must be literal for the JIT scan). */
-  active: string;
 }
 
 // Starship rewrite (docs/REMOVAL-PLAN.md): Home/Decide/Ask are now the
@@ -34,11 +36,11 @@ interface Tab {
 // dropped - all four are superseded (see docs/REMOVAL-PLAN.md Category A)
 // and remain reachable by direct URL for now, not deleted.
 const TABS: Tab[] = [
-  { href: '/home', label: 'Home', glyph: '⌂', active: 'text-command' },
-  { href: '/decide', label: 'Decide', glyph: '✓', active: 'text-status' },
-  { href: '/ask', label: 'Ask', glyph: '?', active: 'text-science' },
-  { href: '/capture', label: 'Capture', glyph: '＋', active: 'text-engineering' },
-  { href: '/physical-readiness', label: 'Readiness', glyph: '✚', active: 'text-medical' },
+  { href: '/home', label: 'Home', glyph: '⌂' },
+  { href: '/decide', label: 'Decide', glyph: '✓' },
+  { href: '/ask', label: 'Ask', glyph: '?' },
+  { href: '/capture', label: 'Capture', glyph: '＋' },
+  { href: '/physical-readiness', label: 'Readiness', glyph: '✚' },
 ];
 
 export function MobileCommandBar() {
@@ -54,7 +56,7 @@ export function MobileCommandBar() {
   return (
     <nav
       aria-label="Command MVP"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-space/95 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d9e1f0] bg-white/95 backdrop-blur lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="mx-auto flex max-w-[640px]">
@@ -67,7 +69,7 @@ export function MobileCommandBar() {
                 aria-current={isActive ? 'page' : undefined}
                 className={[
                   'relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2',
-                  isActive ? tab.active : 'text-lcars-muted',
+                  isActive ? 'text-[#243b7a]' : 'text-[#61718c]',
                 ].join(' ')}
               >
                 <span className="relative text-xl leading-none" aria-hidden>
