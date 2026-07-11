@@ -1,43 +1,24 @@
 'use client';
 
-// Phase B — Intelligence Workbench · Screen 1 (Overview).
-// STANDALONE, brand-matched surface — deliberately OUTSIDE the (app) route group
-// so it carries none of the LCARS chrome (no left nav / no LCARS header). Built
-// from scratch in the warm TJR brand. Auth still applies via middleware.
-
+// Phase B — Intelligence Workbench · Screen 1 (Overview). Standalone brand surface.
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Card, RiskPill, Shell } from './_components/Shell';
 
 type Brief = {
-  brief_id: string;
-  overall_risk: string | null;
-  approval_status: string | null;
-  executive_snapshot: string | null;
-  signal_ids: string[] | null;
+  brief_id: string; overall_risk: string | null; approval_status: string | null;
+  executive_snapshot: string | null; signal_ids: string[] | null;
 };
 type Signal = {
-  event_id: string;
-  raw_title: string;
-  sector: string | null;
-  geography: string | null;
-  risk_rating: string | null;
-  rank_score: number | null;
-  source_tier: number | null;
+  event_id: string; raw_title: string; sector: string | null; geography: string | null;
+  risk_rating: string | null; rank_score: number | null; source_tier: number | null;
 };
 type Payload = {
   kpis: { signals_7d?: number; briefs_pending?: number; red_active?: number };
-  briefs: Brief[];
-  hotSignals: Signal[];
+  briefs: Brief[]; hotSignals: Signal[];
 };
 
-const riskBadge = (r: string | null) => {
-  const v = (r ?? '').toUpperCase();
-  if (v === 'RED' || v === 'HIGH') return 'bg-wb-crit/15 text-wb-crit';
-  if (v === 'AMBER' || v === 'MEDIUM') return 'bg-wb-warn/15 text-wb-warn';
-  if (v === 'GREEN' || v === 'LOW') return 'bg-wb-ok/15 text-wb-ok';
-  return 'bg-wb-line text-wb-ink2';
-};
-
-export default function IntelligenceWorkbenchOverview() {
+export default function Overview() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,88 +35,62 @@ export default function IntelligenceWorkbenchOverview() {
     (b.executive_snapshot ?? '').split('.')[0]?.slice(0, 80) || `Brief ${b.brief_id.slice(0, 8)}`;
 
   return (
-    <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
-      {/* Brand header — standalone, warm */}
-      <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-wb-sage text-[14px] font-semibold text-white">
-            TJR
-          </span>
-          <div className="leading-tight">
-            <div className="font-serif text-[17px]">Intelligence Workbench</div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Operational Resilience</div>
+    <Shell title="Intelligence Workbench" right="Routine mode · last 7 days">
+      <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        {[
+          { n: k.signals_7d ?? 0, l: 'Signals collected (7d)', red: false },
+          { n: k.briefs_pending ?? 0, l: 'Briefs pending approval', red: false },
+          { n: k.red_active ?? 0, l: 'RED incidents active', red: true },
+        ].map((c) => (
+          <div key={c.l} className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
+            <div className={`font-serif text-3xl ${c.red && c.n > 0 ? 'text-wb-crit' : ''}`}>{c.n}</div>
+            <div className="text-[12px] text-wb-ink2">{c.l}</div>
           </div>
-          <span className="ml-auto text-[12px] text-wb-ink2">Routine mode · last 7 days</span>
+        ))}
+        <div className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
+          <div className="font-serif text-3xl text-wb-sage-deep">Live</div>
+          <div className="text-[12px] text-wb-ink2">Pipeline status</div>
         </div>
-      </header>
+      </div>
 
-      <main className="mx-auto max-w-4xl px-6 py-8">
-        {/* KPIs */}
-        <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-          {[
-            { n: k.signals_7d ?? 0, l: 'Signals collected (7d)', red: false },
-            { n: k.briefs_pending ?? 0, l: 'Briefs pending approval', red: false },
-            { n: k.red_active ?? 0, l: 'RED incidents active', red: true },
-          ].map((c) => (
-            <div key={c.l} className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
-              <div className={`font-serif text-3xl ${c.red && c.n > 0 ? 'text-wb-crit' : ''}`}>{c.n}</div>
-              <div className="text-[12px] text-wb-ink2">{c.l}</div>
+      <Card title="Briefs — gate status">
+        {loading ? (
+          <p className="text-[13px] text-wb-ink2">Loading…</p>
+        ) : (data?.briefs.length ?? 0) === 0 ? (
+          <p className="text-[13px] text-wb-ink2">No pending briefs.</p>
+        ) : (
+          data!.briefs.map((b) => (
+            <div key={b.brief_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
+              <RiskPill value={b.overall_risk} />
+              <span className="flex-1">{briefTitle(b)}</span>
+              <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
+              <Link href={`/intelligence-workbench/brief/${b.brief_id}`}
+                className="rounded-md border border-wb-sage bg-wb-sage px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                Review Brief →
+              </Link>
             </div>
-          ))}
-          <div className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
-            <div className="font-serif text-3xl text-wb-sage-deep">Live</div>
-            <div className="text-[12px] text-wb-ink2">Pipeline status</div>
-          </div>
-        </div>
+          ))
+        )}
+      </Card>
 
-        {/* Briefs by gate status */}
-        <section className="mb-6 rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
-          <h2 className="mb-3 border-b border-wb-line pb-3 font-serif text-lg">Briefs — gate status</h2>
-          {loading ? (
-            <p className="text-[13px] text-wb-ink2">Loading…</p>
-          ) : (data?.briefs.length ?? 0) === 0 ? (
-            <p className="text-[13px] text-wb-ink2">No pending briefs.</p>
-          ) : (
-            data!.briefs.map((b) => (
-              <div key={b.brief_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${riskBadge(b.overall_risk)}`}>
-                  {b.overall_risk ?? '—'}
-                </span>
-                <span className="flex-1">{briefTitle(b)}</span>
-                <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
-                <button className="rounded-md border border-wb-sage bg-wb-sage px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                  Review Brief →
-                </button>
-              </div>
-            ))
-          )}
-        </section>
-
-        {/* Hot incidents */}
-        <section className="rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
-          <h2 className="mb-3 border-b border-wb-line pb-3 font-serif text-lg">Hot incidents — by operational relevance</h2>
-          {loading ? (
-            <p className="text-[13px] text-wb-ink2">Loading…</p>
-          ) : (data?.hotSignals.length ?? 0) === 0 ? (
-            <p className="text-[13px] text-wb-ink2">No signals in the last 7 days.</p>
-          ) : (
-            data!.hotSignals.map((s) => (
-              <div key={s.event_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${riskBadge(s.risk_rating)}`}>
-                  {s.risk_rating ?? '—'}
-                </span>
-                <span className="flex-1">{s.raw_title}</span>
-                <span className="text-[11px] text-wb-ink2">
-                  {s.source_tier ? `Tier ${s.source_tier}` : '—'} · {s.sector ?? '—'}
-                </span>
-                <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}</span>
-              </div>
-            ))
-          )}
-        </section>
-
-        <p className="mt-8 text-center text-[11px] text-wb-ink2">USS TJR · Operational Resilience Intelligence · Phase B</p>
-      </main>
-    </div>
+      <Card title="Hot incidents — by operational relevance">
+        {loading ? (
+          <p className="text-[13px] text-wb-ink2">Loading…</p>
+        ) : (data?.hotSignals.length ?? 0) === 0 ? (
+          <p className="text-[13px] text-wb-ink2">No signals in the last 7 days.</p>
+        ) : (
+          data!.hotSignals.map((s) => (
+            <div key={s.event_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
+              <RiskPill value={s.risk_rating} />
+              <span className="flex-1">{s.raw_title}</span>
+              <span className="text-[11px] text-wb-ink2">
+                {s.source_tier ? `Tier ${s.source_tier}` : '—'} · {s.sector ?? '—'}
+              </span>
+              <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}</span>
+            </div>
+          ))
+        )}
+      </Card>
+    </Shell>
   );
 }
