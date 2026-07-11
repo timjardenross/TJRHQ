@@ -51,7 +51,10 @@ def trigger_collection() -> bool:
 
 
 def verify_events() -> bool:
-    """Query the 5 most recent events via PostgREST and report field population."""
+    """Query the 5 most recent canonical events via PostgREST and report field population.
+
+    Canonical events have signal_status=SCORED; DUPLICATE events skip enrichment by design.
+    Only canonical events should be checked for Phase A field population."""
     from intelligence.persistence import intelligence_store as store
 
     if not (store.SUPABASE_URL and store.SUPABASE_KEY):
@@ -59,13 +62,14 @@ def verify_events() -> bool:
                     "cannot verify live population. Caveat #3 remains OPEN.")
         return False
 
+    # Query canonical (SCORED) events only — duplicates are not enriched by design.
     rows = store._get(
-        f"intelligence_events?order=collected_at.desc&limit=5&select={_EVENT_SELECT}")
+        f"intelligence_events?signal_status=eq.SCORED&order=collected_at.desc&limit=5&select={_EVENT_SELECT}")
     if not rows:
-        log.warning("No events returned — nothing to verify. Caveat #3 remains OPEN.")
+        log.warning("No canonical (SCORED) events returned — nothing to verify. Caveat #3 remains OPEN.")
         return False
 
-    log.info("Checking Phase A fields on %d recent events:", len(rows))
+    log.info("Checking Phase A fields on %d canonical events:", len(rows))
     populated = 0
     for r in rows:
         st = r.get("source_tier")
@@ -79,7 +83,7 @@ def verify_events() -> bool:
             populated += 1
 
     covered = populated == len(rows)
-    log.info("Phase A field population: %d/%d events fully populated.", populated, len(rows))
+    log.info("Phase A field population (canonical only): %d/%d events fully populated.", populated, len(rows))
     return covered
 
 
