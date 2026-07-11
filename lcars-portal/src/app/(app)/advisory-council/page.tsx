@@ -427,6 +427,7 @@ const QUICK_PROMPTS = [
 function ConsultMode() {
   const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
+  const [threadsLoaded, setThreadsLoaded] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
@@ -444,11 +445,19 @@ function ConsultMode() {
       const raw = localStorage.getItem(LS_CONSULT_KEY);
       if (raw) setThreads(JSON.parse(raw) as Record<string, Msg[]>);
     } catch { /* ignore */ }
+    setThreadsLoaded(true);
   }, []);
 
+  // Gated on threadsLoaded (not just present in the closure) because on mount
+  // this effect and the load effect above fire in the same commit: without
+  // the gate it persists the pre-load `threads` ({}) before the load's
+  // setThreads has been applied, clobbering whatever was just read back from
+  // localStorage. React Strict Mode's dev-only double-invoke of mount
+  // effects makes this race lose every time instead of intermittently.
   useEffect(() => {
+    if (!threadsLoaded) return;
     try { localStorage.setItem(LS_CONSULT_KEY, JSON.stringify(threads)); } catch { /* ignore */ }
-  }, [threads]);
+  }, [threads, threadsLoaded]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [threads, activeAdvisor, streamBuffer]);
 
