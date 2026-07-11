@@ -265,10 +265,13 @@ def record_lesson(repo, actor_role: str, brief_id: str, lesson_text: str,
 
 # ─── Phase B crisis-mode actions (Screens 4/5) ───────────────────────────────
 def _deep_link(brief_id: str) -> str:
-    """Workbench deep-link for a brief (used in the Telegram alert button)."""
+    """Workbench deep-link for a brief (used in the Telegram alert button).
+
+    Points at the RED-escalation screen (Screen 6 handler), not the Overview —
+    the escalation route reads alert_source=telegram to render the deep-link view."""
     import os
     base = (os.environ.get("LCARS_PORTAL_URL", "") or "").rstrip("/")
-    return f"{base}/intelligence-workbench?brief_id={brief_id}&alert_source=telegram"
+    return f"{base}/intelligence-workbench/escalation/{brief_id}?alert_source=telegram"
 
 
 def escalate_brief(repo, actor_role: str, brief_id: str, reason: str = "") -> dict:

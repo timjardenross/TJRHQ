@@ -59,7 +59,7 @@ class TestNotifyTelegram(unittest.TestCase):
         bid = _brief(self.repo, risk="RED")
         payload = service.build_telegram_alert(self.repo.get_brief(bid))
         self.assertIn("VERIFY NOW", payload["button_label"])
-        self.assertIn(f"brief_id={bid}", payload["deep_link"])
+        self.assertIn(f"/escalation/{bid}", payload["deep_link"])
         self.assertIn("alert_source=telegram", payload["deep_link"])
         self.assertIn("🔴", payload["text"])
 
