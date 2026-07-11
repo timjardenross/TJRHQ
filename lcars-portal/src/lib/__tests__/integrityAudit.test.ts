@@ -85,6 +85,7 @@ describe('integrityAuditDiagnose', () => {
         'deliveryBlockedNominator',
         'failedDispatchNominator',
         'engineeringReviewNominator',
+        'capturedMissionNominator',
       ].sort()
     );
     expect(opened.evidence?.claimedButMissingFromLive).toEqual([]);

@@ -207,14 +207,16 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'operations-friction',
     label: 'Operations — friction detection',
     canInterrupt: 'conditional',
-    conditions: "captured_items.processing_status='failed', or review_status='unreviewed' AND importance='high'.",
+    conditions:
+      "captured_items.processing_status='failed', or review_status='unreviewed' AND importance='high'. EOS reconciliation: a distinct condition on the same table - classification='mission' AND review_status='unreviewed', mirroring lib/alerts.ts's decisionAlerts() - is separately wired into EOS Interrupt Assembly as capturedMissionNominator (lib/interruptAssembly.ts). This is a different subset of captured_items than the importance/processing_status conditions above, not a duplicate of them.",
     evidenceSource: 'captured_items, commander_events',
-    evaluationMethod: 'client-render-only',
-    falsePositiveGuard: 'unreviewedHigh requires both conditions; no age threshold exists.',
+    evaluationMethod: 'server-on-demand',
+    falsePositiveGuard: 'unreviewedHigh requires both conditions; no age threshold exists. capturedMissionNominator has its own real two-field filter, the same one decisionAlerts() already used on captains-chair.',
     degradationBehaviour:
-      'MSN-0351: explicit loadError state + a distinct honest note, and the misleading "Live"/"No data" badge (which only meant "has rows") was renamed to reflect actual connection status.',
+      'MSN-0351: explicit loadError state + a distinct honest note, and the misleading "Live"/"No data" badge (which only meant "has rows") was renamed to reflect actual connection status. MSN-0358: a capturedMissionNominator query failure marks the Captured missions domain unchecked in EOS (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: true,
-    knownGap: 'No scheduled evaluator; friction is only detected over the last 10 rows fetched when a human opens the page.',
+    knownGap:
+      'MSN-0358: capturedMissionNominator closes the "no scheduled evaluator" gap for the classification=\'mission\'+review_status=\'unreviewed\' subset specifically, in EOS. The importance=\'high\' and processing_status=\'failed\' conditions above, and the Operations page\'s own friction panel, still have no evaluator.',
   },
   {
     capability: 'advisory-proactive',
