@@ -36,10 +36,10 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         return None
 
     url = f"{SUPABASE_URL}/rest/v1/{table}"
+    if on_conflict:
+        url += f"?on_conflict={on_conflict}"
     headers = _headers()
     prefer = "return=representation,resolution=merge-duplicates"
-    if on_conflict:
-        prefer += f",on_conflict={on_conflict}"
     headers["Prefer"] = prefer
 
     body = json.dumps(payload).encode()
