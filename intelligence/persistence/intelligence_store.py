@@ -53,6 +53,29 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         return None
 
 
+def patch_row(table: str, match: str, payload: dict) -> dict:
+    """PATCH (update) rows matching a PostgREST filter (e.g. 'event_id=eq.<uuid>').
+
+    Returns the updated row (representation) or {} on failure/misconfig. Used by
+    the Phase A workflow repository (SupabaseRepository)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("Supabase not configured — skipping patch for %s", table)
+        return {}
+
+    url = f"{SUPABASE_URL}/rest/v1/{table}?{match}"
+    headers = _headers()
+    headers["Prefer"] = "return=representation"
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(url, data=body, headers=headers, method="PATCH")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+            return result[0] if isinstance(result, list) and result else (result or {})
+    except Exception as exc:
+        log.error("Supabase patch failed (%s): %s", table, exc)
+        return {}
+
+
 def _publish_core_event(event_type: str, **kwargs) -> None:
     """SUOC Wave 3/MSN-0210K: thin-index mirror into the shared Event Bus
     (core_events). Best-effort, non-blocking — never raises, never affects

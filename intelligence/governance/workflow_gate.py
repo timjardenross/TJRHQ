@@ -81,10 +81,12 @@ def require(role: str, action: str) -> None:
 # ─── Signal lifecycle state machine ──────────────────────────────────────────
 # Mirrors the signal_status CHECK constraint in migration 0077.
 SIGNAL_TRANSITIONS: dict[str, frozenset[str]] = {
+    # VERIFYING and READY_FOR_BRIEF are optional intermediates; the human gates
+    # (verify: SCORED->VERIFIED, select: VERIFIED->IN_BRIEF) are single legal moves.
     "TO_COLLECT":      frozenset({"SCORED", "DUPLICATE", "ARCHIVED"}),
-    "SCORED":          frozenset({"VERIFYING", "DUPLICATE", "ARCHIVED"}),
+    "SCORED":          frozenset({"VERIFYING", "VERIFIED", "DUPLICATE", "ARCHIVED"}),
     "VERIFYING":       frozenset({"VERIFIED", "SCORED", "ARCHIVED"}),
-    "VERIFIED":        frozenset({"READY_FOR_BRIEF", "ARCHIVED"}),
+    "VERIFIED":        frozenset({"READY_FOR_BRIEF", "IN_BRIEF", "ARCHIVED"}),
     "READY_FOR_BRIEF": frozenset({"IN_BRIEF", "ARCHIVED"}),
     "IN_BRIEF":        frozenset({"ARCHIVED"}),
     "DUPLICATE":       frozenset({"ARCHIVED"}),
