@@ -84,15 +84,21 @@ def _render(template: str, title: Optional[str], body: str) -> str:
     return text[:_TELEGRAM_MAX_LEN]
 
 
-def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
-    """Reuses command_bus.py's _telegram() HTTP body (sendMessage, Markdown)."""
+def _send_telegram(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, Optional[str]]:
+    """Reuses command_bus.py's _telegram() HTTP body (sendMessage, Markdown).
+
+    reply_markup (optional) attaches an inline keyboard — used by Phase B to add
+    the RED-alert [VERIFY NOW] deep-link button."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     raw_ids = os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
     chat_id = raw_ids.split(",")[0].strip() if raw_ids else os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
         return False, "missing TELEGRAM_BOT_TOKEN or chat id"
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode()
+    body_obj = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        body_obj["reply_markup"] = reply_markup
+    payload = json.dumps(body_obj).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10):
@@ -101,8 +107,9 @@ def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
         return False, f"{type(exc).__name__}: {exc}"
 
 
-def _send_slack(text: str) -> tuple[bool, Optional[str]]:
-    """Reuses command_bus.py's _slack() HTTP body (chat.postMessage)."""
+def _send_slack(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, Optional[str]]:
+    """Reuses command_bus.py's _slack() HTTP body (chat.postMessage).
+    reply_markup is Telegram-specific and ignored here (signature parity)."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
     channel = (
         os.environ.get("BRIEF_CHANNEL")
@@ -144,6 +151,7 @@ def notify(
     transport: Transport = Transport.TELEGRAM,
     max_retries: int = 1,
     retry_backoff_seconds: float = 2.0,
+    reply_markup: Optional[dict] = None,
 ) -> NotificationResult:
     """Send a notification through the given transport.
 
@@ -162,7 +170,7 @@ def notify(
     attempts = 0
     for attempt in range(max_retries + 1):
         attempts += 1
-        ok, error = sender(text)
+        ok, error = sender(text, reply_markup)
         if ok or attempt >= max_retries:
             break
         time.sleep(retry_backoff_seconds)

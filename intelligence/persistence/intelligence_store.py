@@ -36,10 +36,10 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         return None
 
     url = f"{SUPABASE_URL}/rest/v1/{table}"
+    if on_conflict:
+        url += f"?on_conflict={on_conflict}"
     headers = _headers()
     prefer = "return=representation,resolution=merge-duplicates"
-    if on_conflict:
-        prefer += f",on_conflict={on_conflict}"
     headers["Prefer"] = prefer
 
     body = json.dumps(payload).encode()
@@ -51,6 +51,29 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
     except Exception as exc:
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
+
+
+def patch_row(table: str, match: str, payload: dict) -> dict:
+    """PATCH (update) rows matching a PostgREST filter (e.g. 'event_id=eq.<uuid>').
+
+    Returns the updated row (representation) or {} on failure/misconfig. Used by
+    the Phase A workflow repository (SupabaseRepository)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("Supabase not configured — skipping patch for %s", table)
+        return {}
+
+    url = f"{SUPABASE_URL}/rest/v1/{table}?{match}"
+    headers = _headers()
+    headers["Prefer"] = "return=representation"
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(url, data=body, headers=headers, method="PATCH")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+            return result[0] if isinstance(result, list) and result else (result or {})
+    except Exception as exc:
+        log.error("Supabase patch failed (%s): %s", table, exc)
+        return {}
 
 
 def _publish_core_event(event_type: str, **kwargs) -> None:
@@ -178,13 +201,25 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
     return len(rows) > 0
 
 
-def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
+_PHASE_A_FIELDS = (
+    "source_tier", "signal_status", "score_breakdown", "relevance_score",
+    "risk_rating", "canonical_signal_id", "cluster_similarity",
+    "analysis_summary", "services_affected", "customers_affected",
+    "confidence_level", "verified_against", "signal_owner",
+)
+
+
+def save_event(event: RankedEvent, ori: Optional[dict] = None,
+               phase_a: Optional[dict] = None) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure.
 
     `ori` optionally supplies the WP4 enrichment columns for digest-sourced
     events (source_document_id, source_ref, brief_date, organisation,
     regulatory_topic, resilience_themes, watch_item_status, executive_relevance).
-    Existing callers pass no `ori` and behaviour is unchanged.
+    `phase_a` optionally supplies the Phase A workflow columns (migration 0077:
+    source_tier, signal_status, score_breakdown, risk_rating, canonical_signal_id,
+    cluster_similarity, ...). Existing callers pass neither and behaviour is
+    unchanged.
     """
     row = {
         "source_id": event.source_id,
@@ -219,6 +254,8 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
             "watch_item_status":   ori.get("watch_item_status"),
             "executive_relevance": ori.get("executive_relevance"),
         })
+    if phase_a:
+        row.update({k: phase_a[k] for k in _PHASE_A_FIELDS if k in phase_a})
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         event_id = result.get("event_id")

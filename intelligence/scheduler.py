@@ -397,13 +397,25 @@ def _daily_collection_job() -> None:
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
+        # Phase A enrichment: source-tier + fuzzy near-dup clustering + 10-dim
+        # heuristic scoring, persisted via save_event(..., phase_a=). Guarded —
+        # falls back to the original plain-save loop so this critical job can
+        # never be broken by Phase A logic.
         saved = 0
-        for event in ranked:
-            try:
-                if store.save_event(event):
-                    saved += 1
-            except Exception as exc:
-                log.warning("Event save failed (%s): %s", event.raw_title[:60], exc)
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store)
+            saved = _stats["canonical"] + _stats["duplicate"]
+            log.info("Phase A enrichment: canonical=%d duplicate=%d failed=%d",
+                     _stats["canonical"], _stats["duplicate"], _stats["failed"])
+        except Exception as exc:
+            log.warning("Phase A enrichment failed; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
             "Daily collection complete: sources_checked=%d items_collected=%d "
