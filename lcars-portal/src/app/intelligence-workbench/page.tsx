@@ -1,7 +1,9 @@
 'use client';
 
-// Phase B — Intelligence Workbench · Screen 1 (Overview, routine mode).
-// Warm brand palette (wb.* tokens). Read-only; bound to real Phase A columns.
+// Phase B — Intelligence Workbench · Screen 1 (Overview).
+// STANDALONE, brand-matched surface — deliberately OUTSIDE the (app) route group
+// so it carries none of the LCARS chrome (no left nav / no LCARS header). Built
+// from scratch in the warm TJR brand. Auth still applies via middleware.
 
 import { useEffect, useState } from 'react';
 
@@ -52,11 +54,22 @@ export default function IntelligenceWorkbenchOverview() {
     (b.executive_snapshot ?? '').split('.')[0]?.slice(0, 80) || `Brief ${b.brief_id.slice(0, 8)}`;
 
   return (
-    <div className="min-h-[100dvh] bg-wb-bg text-wb-ink px-6 py-8 font-sans">
-      <div className="mx-auto max-w-4xl">
-        <h1 className="font-serif text-[26px] tracking-tight">Intelligence Workbench</h1>
-        <p className="mb-8 text-[13px] text-wb-ink2">Operational Resilience · routine mode · last 7 days</p>
+    <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
+      {/* Brand header — standalone, warm */}
+      <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-wb-sage text-[14px] font-semibold text-white">
+            TJR
+          </span>
+          <div className="leading-tight">
+            <div className="font-serif text-[17px]">Intelligence Workbench</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Operational Resilience</div>
+          </div>
+          <span className="ml-auto text-[12px] text-wb-ink2">Routine mode · last 7 days</span>
+        </div>
+      </header>
 
+      <main className="mx-auto max-w-4xl px-6 py-8">
         {/* KPIs */}
         <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
           {[
@@ -64,19 +77,19 @@ export default function IntelligenceWorkbenchOverview() {
             { n: k.briefs_pending ?? 0, l: 'Briefs pending approval', red: false },
             { n: k.red_active ?? 0, l: 'RED incidents active', red: true },
           ].map((c) => (
-            <div key={c.l} className="rounded border border-wb-line bg-wb-surface p-4">
+            <div key={c.l} className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
               <div className={`font-serif text-3xl ${c.red && c.n > 0 ? 'text-wb-crit' : ''}`}>{c.n}</div>
               <div className="text-[12px] text-wb-ink2">{c.l}</div>
             </div>
           ))}
-          <div className="rounded border border-wb-line bg-wb-surface p-4">
+          <div className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
             <div className="font-serif text-3xl text-wb-sage-deep">Live</div>
             <div className="text-[12px] text-wb-ink2">Pipeline status</div>
           </div>
         </div>
 
         {/* Briefs by gate status */}
-        <section className="mb-6 rounded border border-wb-line bg-wb-surface p-6 shadow-sm">
+        <section className="mb-6 rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
           <h2 className="mb-3 border-b border-wb-line pb-3 font-serif text-lg">Briefs — gate status</h2>
           {loading ? (
             <p className="text-[13px] text-wb-ink2">Loading…</p>
@@ -90,7 +103,7 @@ export default function IntelligenceWorkbenchOverview() {
                 </span>
                 <span className="flex-1">{briefTitle(b)}</span>
                 <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
-                <button className="rounded border border-wb-sage bg-wb-sage px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px">
+                <button className="rounded-md border border-wb-sage bg-wb-sage px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   Review Brief →
                 </button>
               </div>
@@ -99,7 +112,7 @@ export default function IntelligenceWorkbenchOverview() {
         </section>
 
         {/* Hot incidents */}
-        <section className="rounded border border-wb-line bg-wb-surface p-6 shadow-sm">
+        <section className="rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
           <h2 className="mb-3 border-b border-wb-line pb-3 font-serif text-lg">Hot incidents — by operational relevance</h2>
           {loading ? (
             <p className="text-[13px] text-wb-ink2">Loading…</p>
@@ -120,7 +133,9 @@ export default function IntelligenceWorkbenchOverview() {
             ))
           )}
         </section>
-      </div>
+
+        <p className="mt-8 text-center text-[11px] text-wb-ink2">USS TJR · Operational Resilience Intelligence · Phase B</p>
+      </main>
     </div>
   );
 }
