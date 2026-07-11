@@ -25,6 +25,7 @@ from intelligence.governance.workflow_gate import (
     EXECUTIVE_APPROVER,
     INTELLIGENCE_LEAD,
     GovernanceError,
+    NotFoundError,
     check_brief_gates,
     log_mutation,
     require,
@@ -77,7 +78,7 @@ def score_event(repo, analyst, event_id: str, actor_role: str = ANALYST) -> dict
     require(actor_role, "signal.score")
     event = repo.get_event(event_id)
     if event is None:
-        raise GovernanceError(f"no event {event_id}")
+        raise NotFoundError(f"no event {event_id}")
 
     score = analyst.score_signal(_signal_from_event(event))
     current = event.get("signal_status", "TO_COLLECT")
@@ -97,7 +98,7 @@ def verify_event(repo, actor_role: str, event_id: str,
     require(actor_role, "signal.verify")
     event = repo.get_event(event_id)
     if event is None:
-        raise GovernanceError(f"no event {event_id}")
+        raise NotFoundError(f"no event {event_id}")
     if confidence_level not in ("Confirmed", "Probable", "Emerging", "Unverified"):
         raise GovernanceError(f"invalid confidence_level '{confidence_level}'")
 
@@ -121,14 +122,14 @@ def select_events(repo, actor_role: str, brief_id: str, event_ids: list[str]) ->
     require(actor_role, "signal.select")
     brief = repo.get_brief(brief_id)
     if brief is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
     if len(event_ids) < 3:
         raise GovernanceError("select at least 3 events for a brief")
 
     for eid in event_ids:
         ev = repo.get_event(eid)
         if ev is None:
-            raise GovernanceError(f"no event {eid}")
+            raise NotFoundError(f"no event {eid}")
         current = ev.get("signal_status", "VERIFIED")
         _require_transition(current, "IN_BRIEF")
         repo.update_event(eid, {"signal_status": "IN_BRIEF", "brief_id": brief_id})
@@ -149,7 +150,7 @@ def curate_watchlist(repo, actor_role: str, brief_id: str, items: list[dict]) ->
     brief.forward_watch finalised."""
     require(actor_role, "brief.curate_watchlist")
     if repo.get_brief(brief_id) is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
 
     created = []
     for item in items:
@@ -184,7 +185,7 @@ def set_qa_gate(repo, actor_role: str, brief_id: str, gate: str,
 
     brief = repo.get_brief(brief_id)
     if brief is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
 
     audit = dict(brief.get("approval_audit") or {})
     audit[gate] = {"status": status, "approved_by": actor_role}
@@ -208,7 +209,7 @@ def mark_qa_ready(repo, actor_role: str, brief_id: str) -> dict:
     require(actor_role, "brief.mark_qa_ready")
     brief = repo.get_brief(brief_id)
     if brief is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
 
     ready, missing = check_brief_gates(brief.get("approval_audit"))
     if not ready:
@@ -229,7 +230,7 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     require(actor_role, "brief.publish")
     brief = repo.get_brief(brief_id)
     if brief is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
 
     current = brief.get("approval_status", "QA_READY")
     # QA_READY -> EXECUTIVE_APPROVED -> PUBLISHED (both legal single steps).
@@ -251,7 +252,7 @@ def record_lesson(repo, actor_role: str, brief_id: str, lesson_text: str,
     """Intelligence Lead records a lesson against a brief."""
     require(actor_role, "brief.record_lesson")
     if repo.get_brief(brief_id) is None:
-        raise GovernanceError(f"no brief {brief_id}")
+        raise NotFoundError(f"no brief {brief_id}")
     if category not in ("assumption", "surprise", "methodology_change", "other"):
         category = "other"
     row = repo.insert_lesson({

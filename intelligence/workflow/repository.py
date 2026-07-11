@@ -30,6 +30,7 @@ class WorkflowRepository(Protocol):
     def get_brief(self, brief_id: str) -> Optional[dict]: ...
     def update_brief(self, brief_id: str, fields: dict) -> dict: ...
     def insert_brief(self, row: dict) -> dict: ...
+    def list_briefs(self, approval_status: Optional[str] = None) -> list[dict]: ...
     # watchlist + lessons
     def insert_watchlist_item(self, row: dict) -> dict: ...
     def list_watchlist_items(self, brief_id: str) -> list[dict]: ...
@@ -105,6 +106,12 @@ class InMemoryRepository:
         self.briefs[brief_id].update(fields)
         return dict(self.briefs[brief_id])
 
+    def list_briefs(self, approval_status: Optional[str] = None) -> list[dict]:
+        rows = list(self.briefs.values())
+        if approval_status is not None:
+            rows = [r for r in rows if r.get("approval_status") == approval_status]
+        return [dict(r) for r in rows]
+
     # watchlist + lessons
     def insert_watchlist_item(self, row: dict) -> dict:
         row = dict(row)
@@ -169,6 +176,12 @@ class SupabaseRepository:
 
     def insert_brief(self, row: dict) -> dict:
         return self._s._post("intelligence_briefs", row) or row
+
+    def list_briefs(self, approval_status: Optional[str] = None) -> list[dict]:
+        q = "intelligence_briefs?order=generated_at.desc&limit=200"
+        if approval_status is not None:
+            q = f"intelligence_briefs?approval_status=eq.{approval_status}&limit=200"
+        return self._s._get(q)
 
     def insert_watchlist_item(self, row: dict) -> dict:
         return self._s._post("watchlist_items", row) or row

@@ -201,13 +201,25 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
     return len(rows) > 0
 
 
-def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
+_PHASE_A_FIELDS = (
+    "source_tier", "signal_status", "score_breakdown", "relevance_score",
+    "risk_rating", "canonical_signal_id", "cluster_similarity",
+    "analysis_summary", "services_affected", "customers_affected",
+    "confidence_level", "verified_against", "signal_owner",
+)
+
+
+def save_event(event: RankedEvent, ori: Optional[dict] = None,
+               phase_a: Optional[dict] = None) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure.
 
     `ori` optionally supplies the WP4 enrichment columns for digest-sourced
     events (source_document_id, source_ref, brief_date, organisation,
     regulatory_topic, resilience_themes, watch_item_status, executive_relevance).
-    Existing callers pass no `ori` and behaviour is unchanged.
+    `phase_a` optionally supplies the Phase A workflow columns (migration 0077:
+    source_tier, signal_status, score_breakdown, risk_rating, canonical_signal_id,
+    cluster_similarity, ...). Existing callers pass neither and behaviour is
+    unchanged.
     """
     row = {
         "source_id": event.source_id,
@@ -242,6 +254,8 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None) -> Optional[str]:
             "watch_item_status":   ori.get("watch_item_status"),
             "executive_relevance": ori.get("executive_relevance"),
         })
+    if phase_a:
+        row.update({k: phase_a[k] for k in _PHASE_A_FIELDS if k in phase_a})
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         event_id = result.get("event_id")

@@ -111,10 +111,13 @@ def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None)
 class IntelligenceAnalyst:
     """10-dimension scorer over the shared LLM provider chain, with heuristic fallback."""
 
-    def __init__(self, llm_provider: Optional[Any] = None):
+    def __init__(self, llm_provider: Optional[Any] = None, use_llm: bool = True):
         # Lazy default so importing this module never requires network/config.
+        # use_llm=False forces the deterministic heuristic path — used by batch
+        # jobs (daily collection) that must not fire an LLM call per signal.
         self._llm = llm_provider
         self._llm_attempted = llm_provider is not None
+        self._use_llm = use_llm
 
     def _get_llm(self):
         if not self._llm_attempted:
@@ -130,9 +133,10 @@ class IntelligenceAnalyst:
     # ── Public API ────────────────────────────────────────────────────────────
     def score_signal(self, signal: dict) -> SignalScore:
         """Score a signal dict. Falls back to heuristic on any LLM failure."""
-        llm_result = self._score_via_llm(signal)
-        if llm_result is not None:
-            return llm_result
+        if self._use_llm:
+            llm_result = self._score_via_llm(signal)
+            if llm_result is not None:
+                return llm_result
         return self._heuristic_score(signal)
 
     def score_event(self, event: Any) -> SignalScore:

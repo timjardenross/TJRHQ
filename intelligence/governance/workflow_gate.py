@@ -56,7 +56,15 @@ ALL_ACTIONS: frozenset[str] = frozenset().union(*ROLE_ACTIONS.values())
 
 
 class GovernanceError(Exception):
-    """Raised when an action or lifecycle transition is not permitted."""
+    """Raised when an action or lifecycle transition is not permitted (-> HTTP 400)."""
+
+
+class AuthorizationError(GovernanceError):
+    """Role is not permitted to perform the action (-> HTTP 403)."""
+
+
+class NotFoundError(GovernanceError):
+    """Target record does not exist (-> HTTP 404)."""
 
 
 def can(role: str, action: str) -> tuple[bool, str]:
@@ -72,10 +80,10 @@ def can(role: str, action: str) -> tuple[bool, str]:
 
 
 def require(role: str, action: str) -> None:
-    """Raise GovernanceError unless `role` may perform `action`."""
+    """Raise AuthorizationError unless `role` may perform `action`."""
     allowed, reason = can(role, action)
     if not allowed:
-        raise GovernanceError(reason)
+        raise AuthorizationError(reason)
 
 
 # ─── Signal lifecycle state machine ──────────────────────────────────────────
