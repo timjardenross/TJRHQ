@@ -40,6 +40,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ── Phase B Intelligence Workbench — warm brand palette ────────
+        // TJR Mind & Body direction (Phase-B design sign-off, D6). `ink`/`ink2`
+        // on `bg`/`surface` pass WCAG AA as text; `sage` is an accent for
+        // fills/borders/large-text only (fails AA as small text), `sage-deep`
+        // is the text-safe variant. Validate any new pairing with the method in
+        // docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        wb: {
+          bg:       '#FAF8F3',
+          surface:  '#FFFFFF',
+          line:     '#E8E5DC',
+          ink:      '#2D2D2D',
+          ink2:     '#5A5A5A',
+          sage:     '#8B9E8B',
+          'sage-deep': '#52604F',
+          ok:       '#6B8E6B',
+          warn:     '#B57A34',
+          crit:     '#C85A54',
+        },
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
         // on: darker shade, readable as text on the light #dce8f4 background
