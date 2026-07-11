@@ -261,3 +261,98 @@ def record_lesson(repo, actor_role: str, brief_id: str, lesson_text: str,
     })
     log_mutation("brief_lessons_learned", row["id"], "INSERT", actor_role, after_state=row)
     return row
+
+
+# ─── Phase B crisis-mode actions (Screens 4/5) ───────────────────────────────
+def _deep_link(brief_id: str) -> str:
+    """Workbench deep-link for a brief (used in the Telegram alert button)."""
+    import os
+    base = (os.environ.get("LCARS_PORTAL_URL", "") or "").rstrip("/")
+    return f"{base}/intelligence-workbench?brief_id={brief_id}&alert_source=telegram"
+
+
+def escalate_brief(repo, actor_role: str, brief_id: str, reason: str = "") -> dict:
+    """Intelligence Lead escalates a brief to RED (Screen 3 'Escalate to RED' /
+    Screen 4). Sets overall_risk='RED' (reuses the existing column) and audits."""
+    require(actor_role, "brief.escalate")
+    brief = repo.get_brief(brief_id)
+    if brief is None:
+        raise NotFoundError(f"no brief {brief_id}")
+    before = brief.get("overall_risk")
+    updated = repo.update_brief(brief_id, {"overall_risk": "RED"})
+    log_mutation("intelligence_briefs", brief_id, "UPDATE", actor_role,
+                 before_state={"overall_risk": before},
+                 after_state={"overall_risk": "RED", "escalation_reason": reason})
+    return updated
+
+
+def build_telegram_alert(brief: dict) -> dict:
+    """Construct the RED Telegram alert payload (text + deep-link button) for a brief.
+    Pure — no side effects — so it is unit-testable and reusable by any sender."""
+    bid = brief.get("brief_id", "")
+    risk = brief.get("overall_risk", "UNKNOWN")
+    snap = (brief.get("executive_snapshot") or brief.get("bottom_line") or "").strip()
+    n = len(brief.get("signal_ids") or [])
+    text = (
+        f"🔴 CRITICAL — Operational Resilience\n\n{snap}\n\n"
+        f"Risk: {risk} · {n} signals."
+    )
+    return {
+        "text": text,
+        "deep_link": _deep_link(bid),
+        "button_label": "VERIFY NOW",
+        "brief_id": bid,
+    }
+
+
+def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
+    """Intelligence Lead sends the RED Telegram alert (Screen 4).
+
+    `sender(payload) -> bool` is injectable so tests never send. When omitted, the
+    real backend sender (core.platform.notification_service) is used if available;
+    delivery failure never raises (returns sent=False)."""
+    require(actor_role, "brief.notify_telegram")
+    brief = repo.get_brief(brief_id)
+    if brief is None:
+        raise NotFoundError(f"no brief {brief_id}")
+
+    payload = build_telegram_alert(brief)
+    sent = False
+    try:
+        if sender is not None:
+            sent = bool(sender(payload))
+        else:
+            from core.platform.notification_service import notify, Severity, Transport
+            reply_markup = {"inline_keyboard": [[
+                {"text": payload["button_label"], "url": payload["deep_link"]}]]}
+            sent = bool(notify(payload["text"], title="RED — Operational Resilience",
+                               severity=Severity.ALERT, transport=Transport.TELEGRAM,
+                               reply_markup=reply_markup))
+    except Exception as exc:  # delivery must never break the workflow
+        log_mutation("intelligence_briefs", brief_id, "NOTIFY", actor_role,
+                     after_state={"telegram_sent": False, "error": str(exc)})
+        return {"sent": False, "payload": payload}
+
+    log_mutation("intelligence_briefs", brief_id, "NOTIFY", actor_role,
+                 after_state={"telegram_sent": sent, "deep_link": payload["deep_link"]})
+    return {"sent": sent, "payload": payload}
+
+
+def stand_down(repo, actor_role: str, brief_id: str,
+               lesson_text: Optional[str] = None, category: str = "other") -> dict:
+    """Intelligence Lead closes a RED escalation (Screen 5). Optionally records a
+    lesson, then audits the stand-down. Does not delete anything."""
+    require(actor_role, "brief.stand_down")
+    brief = repo.get_brief(brief_id)
+    if brief is None:
+        raise NotFoundError(f"no brief {brief_id}")
+
+    lesson = None
+    if lesson_text:
+        # record_lesson also requires intelligence_lead — same actor.
+        lesson = record_lesson(repo, actor_role, brief_id, lesson_text, category)
+
+    log_mutation("intelligence_briefs", brief_id, "STAND_DOWN", actor_role,
+                 before_state={"overall_risk": brief.get("overall_risk")},
+                 after_state={"stood_down": True, "lesson_id": (lesson or {}).get("id")})
+    return {"brief_id": brief_id, "stood_down": True, "lesson": lesson}

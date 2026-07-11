@@ -46,6 +46,8 @@ ROLE_ACTIONS: dict[str, frozenset[str]] = {
     INTELLIGENCE_LEAD: frozenset({
         "signal.verify", "signal.select",
         "brief.curate_watchlist", "brief.mark_qa_ready", "brief.record_lesson",
+        # Phase B crisis-mode actions (Screen 4/5).
+        "brief.escalate", "brief.notify_telegram", "brief.stand_down",
     }),
     EXECUTIVE_APPROVER: frozenset({
         "brief.publish",

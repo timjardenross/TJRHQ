@@ -66,6 +66,19 @@ def _h_lesson(repo, role, p):
                                  p.get("category", "other"))
 
 
+def _h_escalate(repo, role, p):
+    return service.escalate_brief(repo, role, p["brief_id"], p.get("reason", ""))
+
+
+def _h_notify_telegram(repo, role, p):
+    return service.notify_telegram(repo, role, p["brief_id"])
+
+
+def _h_stand_down(repo, role, p):
+    return service.stand_down(repo, role, p["brief_id"], p.get("lesson_text"),
+                              p.get("category", "other"))
+
+
 # action name -> (handler, required payload keys)
 ACTIONS: dict[str, tuple[Callable, tuple[str, ...]]] = {
     "signal.verify":         (_h_verify, ("event_id", "confidence_level")),
@@ -75,6 +88,10 @@ ACTIONS: dict[str, tuple[Callable, tuple[str, ...]]] = {
     "brief.mark_qa_ready":   (_h_mark_qa_ready, ("brief_id",)),
     "brief.publish":         (_h_publish, ("brief_id",)),
     "brief.record_lesson":   (_h_lesson, ("brief_id", "lesson_text")),
+    # Phase B crisis-mode actions (Screen 4/5)
+    "brief.escalate":        (_h_escalate, ("brief_id",)),
+    "brief.notify_telegram": (_h_notify_telegram, ("brief_id",)),
+    "brief.stand_down":      (_h_stand_down, ("brief_id",)),
 }
 
 
