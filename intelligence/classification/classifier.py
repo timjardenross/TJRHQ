@@ -210,6 +210,13 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         cps230_confidence = 2
     elif event_type == "regulatory" and not _routine_publication and banking_hits >= 2:
         cps230_confidence = 2
+    elif event_type == "regulatory" and not _routine_publication and medium_hits >= 1:
+        # Substantive (non-routine) regulatory content carrying an operational-risk
+        # signal (e.g. "APRA draft guidance on business continuity") is CPS 230
+        # heartland. The routine-publication guard already excludes statistics /
+        # speeches (which have 0 medium hits), so this keeps recall on real guidance
+        # without reopening the false-positive hole cc9f1307 closed.
+        cps230_confidence = 2
     elif medium_hits >= 1 or (event_type == "regulatory" and not _routine_publication):
         cps230_confidence = 1
     else:
