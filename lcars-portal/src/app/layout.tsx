@@ -1,39 +1,66 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { SITE_URL } from '@/lib/site';
+import { PUBLIC_SITE_DESCRIPTION, PUBLIC_SITE_NAME, PUBLIC_SOCIAL_IMAGE_PATH } from '@/lib/public-site';
 
 export const metadata: Metadata = {
-  title: 'USS TJR — Command Centre',
-  description:
-    "Starship Endeavour mobile Command Centre — Captain's Chair, Quick Capture, XO Chat, Engineering Queue, and Push Alerts.",
-  manifest: '/manifest.webmanifest',
-  applicationName: 'USS TJR Command Centre',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Endeavour'
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: PUBLIC_SITE_NAME,
+    template: `%s | ${PUBLIC_SITE_NAME}`,
+  },
+  applicationName: PUBLIC_SITE_NAME,
+  description: PUBLIC_SITE_DESCRIPTION,
+  authors: [{ name: 'Tim Jarden-Ross' }],
+  creator: 'Tim Jarden-Ross',
+  publisher: PUBLIC_SITE_NAME,
+  category: 'Health and wellness education',
+  robots: {
+    index: false,
+    follow: false,
+  },
+  openGraph: {
+    title: PUBLIC_SITE_NAME,
+    description: PUBLIC_SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: PUBLIC_SITE_NAME,
+    type: 'website',
+    images: [
+      {
+        url: PUBLIC_SOCIAL_IMAGE_PATH,
+        width: 1200,
+        height: 630,
+        alt: 'TJR Mind & Body social sharing image',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: PUBLIC_SITE_NAME,
+    description: PUBLIC_SITE_DESCRIPTION,
+    images: [PUBLIC_SOCIAL_IMAGE_PATH],
   },
   icons: {
     icon: [
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }]
-  }
+    shortcut: [{ url: '/icon-192.png', type: 'image/png' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#05070e',
+  themeColor: '#f5f7fb',
   width: 'device-width',
   initialScale: 1,
-  viewportFit: 'cover'
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

@@ -105,33 +105,49 @@ def _build_message(job: str):
     raise ValueError(f"unknown job: {job}")
 
 
+def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    try:
+        sys.path.insert(0, str(_BOT_DIR.parent / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat("human_systems", status=status, detail=detail, error_message=error_message)
+    except Exception as exc:
+        log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
+
+
 def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
             record: bool = True) -> dict:
     """Run one proactive job: generate → record → deliver. Returns a report dict."""
     if job not in JOBS:
         return {"job": job, "error": f"unknown job (expected one of {JOBS})"}
 
-    message = _build_message(job)
-    if message is None:
-        # Threshold-driven job with no actionable signal — a no-op is correct.
-        log.info("[human-systems-scheduler] job=%s no actionable signal — skipped", job)
-        return {"job": job, "skipped": True, "reason": "no_actionable_signal"}
+    try:
+        message = _build_message(job)
+        if message is None:
+            # Threshold-driven job with no actionable signal — a no-op is correct.
+            log.info("[human-systems-scheduler] job=%s no actionable signal — skipped", job)
+            _record_heartbeat("skipped", detail=f"job={job} no_actionable_signal")
+            return {"job": job, "skipped": True, "reason": "no_actionable_signal"}
 
-    if record:
-        try:
-            memory.record_recommendation(
-                kind=message.kind, domain=_JOB_DOMAIN.get(job, "resilience"),
-                output_class=message.output_class, summary=message.title,
-                source="scheduler",
-            )
-        except Exception as exc:  # pragma: no cover
-            log.warning("[human-systems-scheduler] memory record failed: %s", exc)
+        if record:
+            try:
+                memory.record_recommendation(
+                    kind=message.kind, domain=_JOB_DOMAIN.get(job, "resilience"),
+                    output_class=message.output_class, summary=message.title,
+                    source="scheduler",
+                )
+            except Exception as exc:  # pragma: no cover
+                log.warning("[human-systems-scheduler] memory record failed: %s", exc)
 
-    result = delivery.deliver(message, client=client, channel=channel, dry_run=dry_run)
-    report = {"job": job, **result.as_dict()}
-    log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
-             job, report["delivered"], report["dry_run"])
-    return report
+        result = delivery.deliver(message, client=client, channel=channel, dry_run=dry_run)
+        report = {"job": job, **result.as_dict()}
+        log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
+                 job, report["delivered"], report["dry_run"])
+        _record_heartbeat("ok", detail=f"job={job} delivered={report['delivered']} dry_run={report['dry_run']}")
+        return report
+    except Exception as exc:
+        _record_heartbeat("failed", detail=f"job={job}", error_message=str(exc))
+        raise
 
 
 def run_all(*, client=None, channel=None, dry_run: bool = False) -> list[dict]:

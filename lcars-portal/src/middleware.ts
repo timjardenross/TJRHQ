@@ -1,12 +1,27 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
 
+  if (PUBLIC_ROUTE_ALLOWLIST.has(pathname) || pathname.startsWith('/auth')) {
+    return NextResponse.next({ request });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    return NextResponse.redirect(loginUrl);
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -27,13 +42,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
-
-  // Allow auth callback and login page through unauthenticated
-  if (pathname.startsWith('/auth') || pathname === '/login') {
-    return supabaseResponse;
-  }
-
   // Allow bot requests carrying the shared secret — API routes only.
   // SUOC Wave 1 (MSN-0210E): this previously bypassed auth for the entire
   // app surface (any page, not just API calls) for any request holding a
@@ -49,7 +57,6 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Redirect unauthenticated users to login
   if (!user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
@@ -61,8 +68,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude Next internals, the PWA service worker + manifest, and static
-    // image assets so the installable PWA can load them unauthenticated.
-    '/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+    // Exclude Next internals, static assets, and metadata routes so the
+    // public surface and crawler-facing files stay directly retrievable.
+    '/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 };

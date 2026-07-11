@@ -268,7 +268,16 @@ def _create_comms_opportunity(note: dict[str, Any], supabase_client: Any) -> tup
         "title":          title,
         "source_kind":    "notebook",
         "source_ref":     note["id"],
-        "classification": "draft",
+        # Phase 3 Priority 3 fix: "draft" is not a valid comms_content
+        # classification (CHECK constraint only allows publishable /
+        # internal_only / future_opportunity - migrations
+        # 0027_communications_presence.sql, 0036_content_intelligence.sql)
+        # - every notebook-routed comms opportunity insert has been failing
+        # silently (caught by the broad except below, logged as a warning,
+        # never surfaced). "publishable" matches the established precedent
+        # for opportunity-stage inserts (api/content/draft/route.ts uses
+        # the same value for the same lifecycle stage).
+        "classification": "publishable",
         "status":         "opportunity",
         "created_at":     _now(),
         "updated_at":     _now(),

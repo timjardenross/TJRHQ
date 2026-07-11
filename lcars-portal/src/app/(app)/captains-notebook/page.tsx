@@ -306,6 +306,7 @@ export default function CaptainsNotebookPage() {
   // Inbox
   const [notes, setNotes]         = useState<IntelligenceNote[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter]       = useState<FilterStatus>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
@@ -314,13 +315,25 @@ export default function CaptainsNotebookPage() {
 
   async function loadNotes() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('intelligence_notes')
-      .select('id, title, raw_content, source, tags, status, created_at, updated_at, assigned_officers, officer_findings, triage_summary, classification, confidence_score, strategic_alignment_score, recommended_route, routed_to_type, routed_to_id, routed_entity_type, routed_at, routed_by')
-      .order('created_at', { ascending: false })
-      .limit(100);
-    setLoading(false);
-    if (!error && data) setNotes(data as IntelligenceNote[]);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from('intelligence_notes')
+        .select('id, title, raw_content, source, tags, status, created_at, updated_at, assigned_officers, officer_findings, triage_summary, classification, confidence_score, strategic_alignment_score, recommended_route, routed_to_type, routed_to_id, routed_entity_type, routed_at, routed_by')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      // A genuine query error must be surfaced — not silently swallowed into an
+      // empty inbox that reads as "no notes yet".
+      if (error) {
+        setLoadError(error.message);
+      } else {
+        setNotes((data as IntelligenceNote[]) ?? []);
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadNotes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -552,6 +565,10 @@ export default function CaptainsNotebookPage() {
 
         {loading ? (
           <p className="text-sm text-lcars-muted text-center py-6">Loading…</p>
+        ) : loadError ? (
+          <div className="rounded-lcars border border-operations bg-operations/10 px-3 py-4 text-sm text-operations-on text-center">
+            Couldn&apos;t load notebook entries — try again.
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-lcars-muted text-center py-6">
             {filter === 'ALL' ? 'No intelligence notes yet. Capture a thought above.' : `No notes in ${statusLabel(filter)}.`}

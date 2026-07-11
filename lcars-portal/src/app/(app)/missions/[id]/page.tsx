@@ -7,7 +7,6 @@ import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ApprovalQueue, type ApprovalQueueFlash } from '@/components/ApprovalQueue';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { missions as mockMissions } from '@/lib/mockData';
 import type { Mission } from '@/lib/types';
 
 // Canonical Supabase status values (CHECK constraint on missions.status)
@@ -36,8 +35,8 @@ function Field({ label, value, mono }: { label: string; value?: string | null; m
   if (!value) return null;
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted">{label}</p>
-      <p className={`text-sm text-lcars-text break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</p>
+      <p className="text-[9px] uppercase tracking-[0.2em] text-[#61718c]">{label}</p>
+      <p className={`text-sm text-[#18223a] break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -46,6 +45,12 @@ export default function MissionDetailPage() {
   const { id } = useParams<{ id: string }>();
 
   const [mission, setMission] = useState<Mission | null>(null);
+  // MSN-0351: distinguish loading / found / genuinely-not-found (404) / fetch
+  // error. Previously an empty-or-failed fetch silently fell back to mock
+  // mission data from lib/mockData, making an outage indistinguishable from a
+  // live record. The mock fallback is removed; the three non-loading outcomes
+  // are now surfaced honestly.
+  const [loadState, setLoadState] = useState<'loading' | 'found' | 'notfound' | 'error'>('loading');
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote]           = useState('');
   const [saving, setSaving]       = useState(false);
@@ -58,7 +63,10 @@ export default function MissionDetailPage() {
   useEffect(() => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase
+      // .single() returns error code 'PGRST116' when no row matches — that is a
+      // genuine 404, distinct from a transport/permission error which must be
+      // surfaced as a load failure rather than a "not found".
+      const { data, error } = await supabase
         .from('missions')
         .select('*')
         .eq('mission_id', id)
@@ -67,10 +75,14 @@ export default function MissionDetailPage() {
       if (data) {
         setMission(data as Mission);
         setNewStatus(data.status);
+        setLoadState('found');
+      } else if (error && error.code === 'PGRST116') {
+        setLoadState('notfound');
+      } else if (error) {
+        console.error('mission detail fetch failed', error);
+        setLoadState('error');
       } else {
-        const mock = mockMissions.find((m) => m.mission_id === id) ?? null;
-        setMission(mock);
-        if (mock) setNewStatus(mock.status);
+        setLoadState('notfound');
       }
     }
     load();
@@ -134,8 +146,42 @@ export default function MissionDetailPage() {
     }
   }
 
-  if (!mission) {
-    return <div className="py-16 text-center text-lcars-muted text-sm">Loading mission…</div>;
+  if (loadState === 'loading') {
+    return <div className="py-16 text-center text-[#61718c] text-sm">Loading mission…</div>;
+  }
+
+  if (loadState === 'error') {
+    return (
+      <div className="flex flex-col gap-4">
+        <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-[#61718c] hover:text-[#243b7a]">
+          ← Mission Registry
+        </Link>
+        <LCARSPanel title="Mission Data Unavailable" accent="operations" eyebrow="Fetch error">
+          <div className="rounded-lcars border border-[#243b7a]/50 bg-[#243b7a]/10 px-4 py-3">
+            <p className="text-sm font-semibold text-[#243b7a]">Couldn’t load this mission right now.</p>
+            <p className="text-xs text-[#61718c] mt-1">
+              This is a load failure — not a confirmation the mission is missing. No record is shown
+              because the registry could not be read. Retry shortly.
+            </p>
+          </div>
+        </LCARSPanel>
+      </div>
+    );
+  }
+
+  if (loadState === 'notfound' || !mission) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-[#61718c] hover:text-[#243b7a]">
+          ← Mission Registry
+        </Link>
+        <LCARSPanel title="Mission Not Found" accent="command" eyebrow="No such record">
+          <p className="text-sm text-[#61718c]">
+            No mission with ID <span className="font-mono text-[#18223a]">{id}</span> exists in the registry.
+          </p>
+        </LCARSPanel>
+      </div>
+    );
   }
 
   const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';
@@ -143,24 +189,24 @@ export default function MissionDetailPage() {
   return (
     <div className="flex flex-col gap-4">
 
-      <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-lcars-muted hover:text-command">
+      <Link href="/missions" className="self-start text-[10px] uppercase tracking-[0.25em] text-[#61718c] hover:text-[#243b7a]">
         ← Mission Registry
       </Link>
 
       {/* Header */}
       <LCARSPanel title={mission.mission_id} accent="command" eyebrow={eyebrow} actions={<StatusBadge label={mission.status} status={mission.status} />}>
-        <h2 className="font-lcars text-xl font-bold text-lcars-text">{mission.title}</h2>
+        <h2 className="font-lcars text-xl font-bold text-[#18223a]">{mission.title}</h2>
         {mission.description && (
-          <p className="mt-2 text-sm text-lcars-muted leading-relaxed">{mission.description}</p>
+          <p className="mt-2 text-sm text-[#61718c] leading-relaxed">{mission.description}</p>
         )}
         <div className="mt-3 flex flex-wrap gap-3">
           {mission.priority && (
-            <span className="rounded border border-edge px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-command">
+            <span className="rounded border border-[#d9e1f0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#243b7a]">
               {mission.priority}
             </span>
           )}
           {mission.created_by && (
-            <span className="text-xs text-lcars-muted">Created by <span className="text-lcars-text">{mission.created_by}</span></span>
+            <span className="text-xs text-[#61718c]">Created by <span className="text-[#18223a]">{mission.created_by}</span></span>
           )}
         </div>
       </LCARSPanel>
@@ -183,6 +229,16 @@ export default function MissionDetailPage() {
             <Field label="Rework Of" value={mission.rework_of} />
           )}
         </div>
+        {/* EOS Phase 3 Priority 2: automatic context, no manual ID entry -
+            this mission's own real mission_id is the exact refId
+            Communications Studio's Mission Report assembler
+            (lib/commsStudio.ts) needs. */}
+        <Link
+          href={`/comms-studio?type=mission_report&refId=${encodeURIComponent(mission.mission_id)}`}
+          className="mt-4 inline-block text-xs text-[#61718c] underline underline-offset-2 hover:text-[#243b7a]"
+        >
+          Draft a Mission Report →
+        </Link>
       </LCARSPanel>
 
       {/* Governed decision — MSN-0328 (WP-C/D): only rendered when the
@@ -213,12 +269,12 @@ export default function MissionDetailPage() {
             <Field label="Branch"       value={mission.branch_name} mono />
             {mission.pr_url && (
               <div className="flex flex-col gap-0.5">
-                <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted">Pull Request</p>
+                <p className="text-[9px] uppercase tracking-[0.2em] text-[#61718c]">Pull Request</p>
                 <a
                   href={mission.pr_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-mono text-science hover:underline break-all"
+                  className="text-xs font-mono text-[#243b7a] hover:underline break-all"
                 >
                   {mission.pr_url}
                 </a>
@@ -232,7 +288,7 @@ export default function MissionDetailPage() {
       <LCARSPanel title="Update Status" accent="command" eyebrow="Write-back to mission registry">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">New status</p>
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[#61718c]">New status</p>
             <div className="flex flex-wrap gap-2">
               {STATUS_OPTIONS.map((s) => (
                 <button
@@ -240,8 +296,8 @@ export default function MissionDetailPage() {
                   onClick={() => setNewStatus(s)}
                   className={`rounded-lcars border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     newStatus === s
-                      ? 'border-command bg-command/20 text-command'
-                      : 'border-edge bg-space/40 text-lcars-muted hover:border-command/50'
+                      ? 'border-[#243b7a] bg-[#243b7a]/20 text-[#243b7a]'
+                      : 'border-[#d9e1f0] bg-[#f5f7fb]/40 text-[#61718c] hover:border-[#243b7a]/50'
                   }`}
                 >
                   {s}
@@ -251,22 +307,22 @@ export default function MissionDetailPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">Note (optional)</p>
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[#61718c]">Note (optional)</p>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               placeholder="What changed? What's the blocker?"
-              className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none resize-none"
+              className="w-full rounded-lcars border border-[#d9e1f0] bg-[#f5f7fb] px-3 py-2 text-sm text-[#18223a] placeholder:text-[#61718c] focus:border-[#243b7a] focus:outline-none resize-none"
             />
           </div>
 
-          {error && <p className="text-xs text-operations">{error}</p>}
+          {error && <p className="text-xs text-[#243b7a]">{error}</p>}
 
           <button
             onClick={handleSave}
             disabled={saving || (newStatus === mission.status && !note)}
-            className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+            className="w-full rounded-lcars bg-[#243b7a] px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Update Mission'}
           </button>

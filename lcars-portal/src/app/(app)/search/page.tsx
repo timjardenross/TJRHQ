@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { collectSourceOutcomes } from '@/lib/sourceResults';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,17 +17,25 @@ interface SearchResult {
   href?: string;
 }
 
+// MSN-0351: each searcher reports whether its Supabase read succeeded so a
+// failed source surfaces an honest "couldn't check" note rather than being
+// silently indistinguishable from "no matches".
+interface SearchOutcome {
+  ok: boolean;
+  results: SearchResult[];
+}
+
 // ── Supabase search functions ─────────────────────────────────────────────────
 
-async function searchMissions(q: string): Promise<SearchResult[]> {
+async function searchMissions(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('missions')
     .select('mission_id, title, status, description, updated_at')
     .or(`title.ilike.%${q}%,mission_id.ilike.%${q}%,description.ilike.%${q}%`)
     .order('updated_at', { ascending: false })
     .limit(6);
-  return (data ?? []).map(r => ({
+  const results = (data ?? []).map(r => ({
     type:      'mission' as const,
     id:        r.mission_id,
     title:     r.title,
@@ -34,17 +43,18 @@ async function searchMissions(q: string): Promise<SearchResult[]> {
     timestamp: r.updated_at,
     href:      `/missions/${r.mission_id}`,
   }));
+  return { ok: !error, results };
 }
 
-async function searchLog(q: string): Promise<SearchResult[]> {
+async function searchLog(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('captains_log_entries')
     .select('log_date, tomorrows_priority, overall_note')
     .or(`tomorrows_priority.ilike.%${q}%,overall_note.ilike.%${q}%`)
     .order('log_date', { ascending: false })
     .limit(4);
-  return (data ?? []).map(r => ({
+  const results = (data ?? []).map(r => ({
     type:      'log' as const,
     id:        r.log_date,
     title:     `Captain's Log — ${r.log_date}`,
@@ -56,17 +66,18 @@ async function searchLog(q: string): Promise<SearchResult[]> {
     // chronologically (fetchLogEntries) — the real existing destination.
     href:      '/timeline',
   }));
+  return { ok: !error, results };
 }
 
-async function searchCaptures(q: string): Promise<SearchResult[]> {
+async function searchCaptures(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('captured_items')
     .select('id, title, raw_text, item_type, processing_status, captured_at')
     .or(`title.ilike.%${q}%,raw_text.ilike.%${q}%`)
     .order('captured_at', { ascending: false })
     .limit(4);
-  return (data ?? []).map(r => ({
+  const results = (data ?? []).map(r => ({
     type:      'capture' as const,
     id:        r.id,
     title:     r.title ?? r.raw_text?.slice(0, 80) ?? '(captured item)',
@@ -78,17 +89,18 @@ async function searchCaptures(q: string): Promise<SearchResult[]> {
     // captured_items consumer (its Inbox tab).
     href:      '/capture',
   }));
+  return { ok: !error, results };
 }
 
-async function searchEvents(q: string): Promise<SearchResult[]> {
+async function searchEvents(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('mission_execution_events')
     .select('id, status, mission_id, created_at')
     .or(`status.ilike.%${q}%,mission_id.ilike.%${q}%`)
     .order('created_at', { ascending: false })
     .limit(4);
-  return (data ?? []).map(r => ({
+  const results = (data ?? []).map(r => ({
     type:      'event' as const,
     id:        String(r.id),
     title:     `${r.mission_id ?? 'System'}: ${r.status}`,
@@ -100,7 +112,16 @@ async function searchEvents(q: string): Promise<SearchResult[]> {
     // (fetchCommanderEvents) — the real existing destination.
     href:      '/timeline',
   }));
+  return { ok: !error, results };
 }
+
+// Pair each searcher with its display label so failures can be named.
+const SEARCHERS: { source: string; run: (q: string) => Promise<SearchOutcome> }[] = [
+  { source: 'Missions',      run: searchMissions },
+  { source: "Captain's Log", run: searchLog },
+  { source: 'Captures',      run: searchCaptures },
+  { source: 'Events',        run: searchEvents },
+];
 
 // ── Result meta ───────────────────────────────────────────────────────────────
 
@@ -136,30 +157,33 @@ export default function SearchPage() {
   const router = useRouter();
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [failedSources, setFailedSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [timer, setTimer]     = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setResults([]); setSearched(false); return; }
+    if (q.trim().length < 2) { setResults([]); setSearched(false); setFailedSources([]); return; }
     setLoading(true);
     setSearched(true);
     try {
-      const all = await Promise.allSettled([
-        searchMissions(q),
-        searchLog(q),
-        searchCaptures(q),
-        searchEvents(q),
-      ]);
-      const flat = all
-        .filter((r): r is PromiseFulfilledResult<SearchResult[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value);
-      flat.sort((a, b) => {
+      // A rejected promise is a failed source, same as an ok:false Supabase
+      // error — neither may silently disappear from the results.
+      const outcomes = await Promise.all(
+        SEARCHERS.map(s =>
+          s.run(q)
+            .then(r => ({ source: s.source, ok: r.ok, items: r.results }))
+            .catch(() => ({ source: s.source, ok: false, items: [] as SearchResult[] })),
+        ),
+      );
+      const { items, failed } = collectSourceOutcomes(outcomes);
+      items.sort((a, b) => {
         if (!a.timestamp) return 1;
         if (!b.timestamp) return -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-      setResults(flat);
+      setResults(items);
+      setFailedSources(failed);
     } finally {
       setLoading(false);
     }
@@ -209,7 +233,16 @@ export default function SearchPage() {
             </p>
           )}
 
-          {searched && !loading && results.length === 0 && (
+          {/* MSN-0351: honest, quiet note when one or more sources failed —
+              a source outage no longer looks identical to "no matches". */}
+          {searched && !loading && failedSources.length > 0 && (
+            <p className="text-xs text-lcars-muted/80">
+              Couldn&rsquo;t check: {failedSources.join(', ')}. Results may be incomplete.
+            </p>
+          )}
+
+          {/* Only claim a genuine empty result when every source succeeded. */}
+          {searched && !loading && results.length === 0 && failedSources.length === 0 && (
             <p className="text-sm text-lcars-muted">No results for <span className="text-foreground">&ldquo;{query}&rdquo;</span></p>
           )}
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
-import { parseAndExecuteActions } from '@/lib/ai-actions';
+import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 // Ollama Cloud base URL — configurable without code changes
@@ -103,8 +103,9 @@ function streamOllamaResponse(upstream: Response): Response {
                 );
               }
               if (chunk?.done) {
-                // Execute any starfleet-action blocks before closing
-                const actionResults = await parseAndExecuteActions(fullText).catch(() => []);
+                // MSN-0352: queues any starfleet-action blocks as governed
+                // proposals in Decide before closing - never executes them.
+                const actionResults = await parseAndProposeActions(fullText).catch(() => []);
                 if (actionResults.length > 0) {
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ actions: actionResults })}\n\n`)

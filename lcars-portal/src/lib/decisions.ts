@@ -71,7 +71,7 @@ function ageBonus(createdAt: string | null): number {
   return Math.min(15, Math.round(days));
 }
 
-async function fetchMissionDecisions(): Promise<DecisionItem[]> {
+export async function fetchMissionDecisions(): Promise<DecisionItem[]> {
   try {
     const supabase = createSupabaseBrowserClient();
     const { data } = await supabase
@@ -95,7 +95,7 @@ async function fetchMissionDecisions(): Promise<DecisionItem[]> {
   }
 }
 
-async function fetchEngineeringDecisions(): Promise<DecisionItem[]> {
+export async function fetchEngineeringDecisions(): Promise<DecisionItem[]> {
   try {
     const data = await fetchEngineeringQueue();
     const reviewable = data.items.filter((i) => i.lifecycle === 'awaiting_review' && i.source === 'build');

@@ -44,7 +44,7 @@ function snippet(text: string | null, len: number): string {
 const TABS: { id: TabId; label: string }[] = [
   { id: 'decisions', label: 'Decisions' },
   { id: 'lessons', label: 'Lessons' },
-  { id: 'architecture', label: 'Architecture' },
+  { id: 'architecture', label: 'ADR Index' },
   { id: 'all', label: 'All' },
 ];
 
@@ -57,6 +57,7 @@ export default function KnowledgePage() {
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -78,11 +79,25 @@ export default function KnowledgePage() {
         .select('id, title, lesson_text, context, source, created_at, mission_id')
         .order('created_at', { ascending: false })
         .limit(50),
-    ]).then(([d, l]) => {
-      setDecisions((d.data as DecisionRecord[]) ?? []);
-      setLessons((l.data as LessonRecord[]) ?? []);
-      setLoading(false);
-    });
+    ])
+      .then(([d, l]) => {
+        // Distinguish a genuine query error from a genuinely-empty result:
+        // a query error means we cannot claim "0 records" honestly.
+        if (d.error || l.error) {
+          setLoadError(d.error?.message ?? l.error?.message ?? 'Query failed');
+          return;
+        }
+        setDecisions((d.data as DecisionRecord[]) ?? []);
+        setLessons((l.data as LessonRecord[]) ?? []);
+      })
+      .catch((e) => {
+        // A fully-rejected promise would otherwise leave the page stuck on the
+        // loading spinner forever — surface it as a visible error state instead.
+        setLoadError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const q = debouncedQuery.toLowerCase();
@@ -120,7 +135,7 @@ export default function KnowledgePage() {
             className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-foreground placeholder:text-lcars-muted focus:border-science focus:outline-none"
           />
           <p className="text-xs text-lcars-muted">
-            {loading ? 'Loading…' : `${totalRecords} records`}
+            {loading ? 'Loading…' : loadError ? 'Records unavailable' : `${totalRecords} records`}
           </p>
         </div>
       </LCARSPanel>
@@ -145,6 +160,10 @@ export default function KnowledgePage() {
       {/* Content */}
       {loading ? (
         <p className="text-sm text-lcars-muted">Loading knowledge records…</p>
+      ) : loadError ? (
+        <div className="rounded-lcars border border-operations bg-operations/10 p-3 text-sm text-operations-on">
+          Couldn&apos;t load knowledge records — try again.
+        </div>
       ) : (
         <>
           {/* DECISIONS */}
@@ -216,9 +235,16 @@ export default function KnowledgePage() {
           {/* ARCHITECTURE */}
           {activeTab === 'architecture' && (
             <div className="rounded-lcars border border-engineering bg-panel/60 p-4 space-y-3">
-              <p className="text-[9px] uppercase tracking-[0.15em] text-engineering-on font-lcars">ADR Registry</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[9px] uppercase tracking-[0.15em] text-engineering-on font-lcars">ADR Index</p>
+                <span className="text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border border-edge text-lcars-muted">
+                  Static reference · not live
+                </span>
+              </div>
               <p className="text-xs text-lcars-muted">
-                Architecture Decision Records — query the Engineering tab for full detail and status.
+                A hand-maintained list of architecture decision titles for quick orientation. This is not a
+                queryable registry and is not guaranteed complete or current — some entries record decisions
+                still awaiting Captain approval. Treat it as a static index, not a source of record.
               </p>
               <div className="space-y-1.5 text-xs text-lcars-muted font-mono">
                 {[

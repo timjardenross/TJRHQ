@@ -6,10 +6,6 @@ import { StatusBadge } from '@/components/StatusBadge';
 import Link from 'next/link';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import {
-  stageProgressionRecord,
-  stageStatus
-} from '@/lib/mockData';
 import { WellnessInsightPanel } from '@/components/WellnessInsightPanel';
 import { EscalationBanner } from '@/components/EscalationBanner';
 import { loadHumanSystems } from '@/lib/human-systems';
@@ -20,8 +16,6 @@ import type {
   PostureHistory,
   RecoveryIndex,
   RecoveryPostureBand,
-  StageProgressionRecord,
-  StageStatus,
   StatusTone,
   WeeklyPatternSummary
 } from '@/lib/types';
@@ -35,7 +29,6 @@ const TABS = [
   { key: 'pulse',     label: 'Pulse',     glyph: '♥' },
   { key: 'check-in',  label: 'Check-In',  glyph: '✚' },
   { key: 'trends',    label: 'Trends',    glyph: '↗' },
-  { key: 'stage',     label: 'Stage',     glyph: '◈' },
 ] as const;
 type Tab = typeof TABS[number]['key'];
 
@@ -72,29 +65,6 @@ const BAND_TONE: Record<string, StatusTone> = {
   rest:     'medical',
   unknown:  'neutral'
 };
-
-// ── Stage display ────────────────────────────────────────────────────────────
-
-function StageDisplay({ stage }: { stage: StageStatus }) {
-  const c = toneClasses(stage.tone);
-  return (
-    <LCARSPanel title="Recovery Stage" accent="medical" eyebrow="ROS-001 v1.1">
-      <div className={`flex items-start gap-4 rounded-lcars border ${c.border} ${c.bg} p-4`}>
-        <div className={`shrink-0 font-lcars text-4xl font-bold ${c.text}`}>
-          {stage.stage}
-        </div>
-        <div>
-          <p className={`font-lcars text-sm font-semibold uppercase tracking-wider ${c.text}`}>
-            {stage.label}
-          </p>
-          <p className="mt-1 text-sm text-lcars-text/80 leading-relaxed">
-            {stage.description}
-          </p>
-        </div>
-      </div>
-    </LCARSPanel>
-  );
-}
 
 // ── Life Participation Score ─────────────────────────────────────────────────
 
@@ -269,22 +239,29 @@ function PosturePatternChart({ history }: { history: PostureHistory }) {
 // ── Emotional Load Flag ──────────────────────────────────────────────────────
 
 function EmotionalLoadFlagPanel({ flag }: { flag: EmotionalLoadFlag }) {
-  const tone: StatusTone = flag.raised ? 'operations' : 'status';
+  // MSN-0355: "no recent data" is a distinct state from "flag genuinely
+  // clear" — the same honest-omission convention used for
+  // escalationCheckFailed (human-systems.ts) and loadError (missions
+  // pages). An empty window must never render as "Clear".
+  const tone: StatusTone = flag.noRecentData ? 'neutral' : flag.raised ? 'operations' : 'status';
   const c = toneClasses(tone);
+  const badgeLabel = flag.noRecentData ? 'No Data' : flag.raised ? 'Raised' : 'Clear';
+  const glyph = flag.noRecentData ? '?' : flag.raised ? '⚑' : '●';
   return (
     <LCARSPanel
       title="Emotional Load Flag"
       accent="medical"
       eyebrow="Nervous system activation pattern"
-      actions={<StatusBadge label={flag.raised ? 'Raised' : 'Clear'} tone={tone} />}
+      actions={<StatusBadge label={badgeLabel} tone={tone} />}
     >
       <div className={`flex items-start gap-3 rounded-lcars border ${c.border} ${c.bg} p-4`}>
-        <span className={`text-xl ${c.text}`}>{flag.raised ? '⚑' : '●'}</span>
+        <span className={`text-xl ${c.text}`}>{glyph}</span>
         <div>
           <p className="text-sm text-lcars-text/90 leading-relaxed">{flag.message}</p>
           <p className="mt-2 text-xs text-lcars-muted">
             {flag.period} — Activated: {flag.activated_days} day{flag.activated_days !== 1 ? 's' : ''} ·{' '}
-            Dysregulated: {flag.dysregulated_days} day{flag.dysregulated_days !== 1 ? 's' : ''}
+            Dysregulated: {flag.dysregulated_days} day{flag.dysregulated_days !== 1 ? 's' : ''} ·{' '}
+            Recorded: {flag.recorded_days} of 7
           </p>
           <p className="mt-1 text-[10px] text-lcars-muted italic">
             Flag raises when activated or dysregulated on 3+ of any 7 days.
@@ -520,59 +497,6 @@ function MedicalGuidance({ guidance }: { guidance: string[] }) {
   );
 }
 
-// ── Stage Progression card (compact — full record on /stage-progression) ─────
-
-function StageProgressionCard({ record }: { record: StageProgressionRecord }) {
-  const metCount = record.stage2_criteria.filter((c) => c.met === true).length;
-  const total = record.stage2_criteria.length;
-  const { stable_or_strong, total_recorded, threshold } = record.stability_signal;
-
-  return (
-    <LCARSPanel
-      title="Stage Progression"
-      accent="medical"
-      eyebrow="Knowledge Officer record"
-      actions={
-        <Link
-          href="/stage-progression"
-          className="text-[10px] uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70"
-        >
-          Full Record →
-        </Link>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3">
-          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Current stage</p>
-          <p className="font-lcars text-lg font-semibold text-medical-on mt-0.5">
-            {record.current_stage_label}
-          </p>
-          <p className="text-xs text-lcars-muted mt-1">
-            Transitions are recognised, not achieved. Consistent behaviour creates the conditions.
-          </p>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-lcars border border-edge bg-space/40 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stage 2 criteria</p>
-            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
-              {metCount} / {total}
-            </p>
-            <p className="text-xs text-lcars-muted">criteria met or partial</p>
-          </div>
-          <div className="rounded-lcars border border-edge bg-space/40 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Stability signal</p>
-            <p className="font-lcars text-lg font-semibold text-command-on mt-0.5">
-              {stable_or_strong} / {threshold}
-            </p>
-            <p className="text-xs text-lcars-muted">of {threshold} days needed ({total_recorded} recorded)</p>
-          </div>
-        </div>
-      </div>
-    </LCARSPanel>
-  );
-}
-
 // ── Recovery Posture summary (compact — full detail on Captain's Chair) ──────
 
 function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPosture }) {
@@ -636,12 +560,20 @@ export default function MedicalPage() {
   const [readinessTrend, setReadinessTrend] = useState<ReadinessTrendRow[]>([]);
   const [trendRows, setTrendRows] = useState<TrendRow[]>([]);
   const [escalation, setEscalation] = useState<string | null>(null);
+  const [escalationCheckFailed, setEscalationCheckFailed] = useState(false);
 
   // MSN-0328 (WP-C): the "Health red flag detected" alert (lib/alerts.ts)
   // routes here but this page never rendered snapshot.escalation — the
   // Captain landed on a page with no trace of what the alert was about.
+  // MSN-0351: a genuine fetch failure must read as "could not check", not as
+  // an all-clear — surface it honestly instead of swallowing it.
   useEffect(() => {
-    loadHumanSystems().then((hs) => setEscalation(hs.snapshot.escalation)).catch(() => {});
+    loadHumanSystems()
+      .then((hs) => {
+        setEscalation(hs.snapshot.escalation);
+        setEscalationCheckFailed(hs.escalationCheckFailed);
+      })
+      .catch(() => setEscalationCheckFailed(true));
   }, []);
 
   useEffect(() => {
@@ -680,6 +612,17 @@ export default function MedicalPage() {
 
       {escalation && (
         <EscalationBanner level={3} label="Health Red Flag" message={escalation} />
+      )}
+
+      {/* Honest "could not check" state — the red-flag scan genuinely failed.
+          Neither all-clear nor a red flag: an unknown/caution state. */}
+      {escalationCheckFailed && !escalation && (
+        <div className="flex items-start gap-2 rounded-lcars border border-edge bg-edge/20 px-3 py-2">
+          <span className="shrink-0 text-xs font-bold text-lcars-muted">?</span>
+          <span className="text-xs text-lcars-text/80">
+            Could not check for health red flags right now — try again.
+          </span>
+        </div>
       )}
 
       <Link
@@ -788,6 +731,7 @@ export default function MedicalPage() {
       {activeTab === 'trends' && (
         <div className="flex flex-col gap-4">
           <PosturePatternChart history={postureHistory} />
+          <CapacityRestorationPanel rows={readinessTrend} />
           <div className="grid gap-4 xl:grid-cols-2">
             <WeeklyPatternSummaryPanel summary={weeklySummary} />
             <EmotionalLoadFlagPanel flag={emotionalLoadFlag} />
@@ -823,23 +767,6 @@ export default function MedicalPage() {
               </div>
             )}
           </LCARSPanel>
-        </div>
-      )}
-
-      {/* Stage tab — progression detail + capacity restoration */}
-      {activeTab === 'stage' && (
-        <div className="flex flex-col gap-4">
-          <StageDisplay stage={stageStatus} />
-          <CapacityRestorationPanel rows={readinessTrend} />
-          <StageProgressionCard record={stageProgressionRecord} />
-          <div className="rounded-lcars border border-edge bg-space/40 p-4">
-            <p className="text-sm text-lcars-muted leading-relaxed mb-3">
-              Stage tracking observes patterns over time. Transitions are recognised, not achieved.
-            </p>
-            <Link href="/human-systems" className="text-xs uppercase tracking-[0.15em] text-medical-on hover:text-medical-on/70 transition-colors">
-              Human Systems Framework →
-            </Link>
-          </div>
         </div>
       )}
 

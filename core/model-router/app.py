@@ -411,6 +411,17 @@ class RouterHandler(BaseHTTPRequestHandler):
             times = [c.get("duration_ms", 0) for c in calls if c.get("success")]
             avg_ms = int(sum(times) / len(times)) if times else None
         failed = sum(1 for c in calls if not c.get("success"))
+        # Expose the live routing policy so the UI renders the real task→model
+        # mapping instead of a hardcoded copy that drifts (MSN-0351). Order is
+        # preserved from TASK_POLICY's declaration order.
+        routing_policy = [
+            {
+                "task_type": name,
+                "model": policy["model"],
+                "keep_alive": policy["keep_alive"],
+            }
+            for name, policy in TASK_POLICY.items()
+        ]
         self._send_json(200, {
             "ollama_url": _OLLAMA_BASE,
             "ollama_reachable": "error" not in ps,
@@ -420,6 +431,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             "log_file": str(_LOG_FILE),
             "recent_avg_ms": avg_ms,
             "recent_failed": failed,
+            "routing_policy": routing_policy,
         })
 
     def _handle_recent_calls(self) -> None:

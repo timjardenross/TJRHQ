@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { deriveRisk } from '@/lib/intelligenceRisk';
 
 /**
  * Intelligence Centre — MSN-0201 rewire.
@@ -101,14 +102,14 @@ function LatestBrief({ d }: { d: any }) {
   );
 }
 
-function deriveRisk(s: any): string {
-  const ci = s.customer_impact ?? '';
-  const br = s.banking_relevance ?? '';
-  if (ci === 'high' || br === 'high') return 'HIGH';
-  if (ci === 'medium' || br === 'medium') return 'MEDIUM';
-  if (ci === 'low' || br === 'low') return 'LOW';
-  return '';
-}
+// deriveRisk now lives in @/lib/intelligenceRisk so the server-side risk
+// filter (api/intelligence/route.ts) and this badge share one definition and
+// can never disagree. Kept imported at module top.
+
+// Tooltip text making the badge's provenance explicit — this HIGH/MEDIUM/LOW
+// is an assessment computed from impact fields, not a stored, verified rating.
+const DERIVED_RISK_TOOLTIP =
+  'Derived assessment — computed from customer-impact & banking-relevance. Not a stored risk rating.';
 
 function SignalCard({ s }: { s: any }) {
   const [open, setOpen] = useState(false);
@@ -136,7 +137,12 @@ function SignalCard({ s }: { s: any }) {
             {s.event_type && <span className="capitalize">{s.event_type.replace(/_/g,' ')}</span>}
             {s.organisation && <span>🏢 {s.organisation}</span>}
             {s.geography  && <span>📍 {s.geography}</span>}
-            {risk         && <span className={RISK_COLOUR[risk]}>{risk}</span>}
+            {risk         && (
+              <span className={RISK_COLOUR[risk]} title={DERIVED_RISK_TOOLTIP}>
+                {risk}
+                <span className="ml-0.5 font-normal text-lcars-muted/60">(derived)</span>
+              </span>
+            )}
             {s.rank_score != null && <span>Score {Number(s.rank_score).toFixed(1)}</span>}
             <span>{(s.collected_at ?? '').slice(0, 10)}</span>
           </div>
@@ -185,6 +191,10 @@ function SignalsView({ d }: { d: any }) {
   if (!signals.length) return <p className="text-sm text-lcars-muted">No signals found for this period.</p>;
   return (
     <div className="flex flex-col gap-2">
+      {/* MSN-0351: make the badge's provenance visible, not silent. */}
+      <p className="text-[10px] text-lcars-muted/70" title={DERIVED_RISK_TOOLTIP}>
+        Risk is a derived assessment (from customer-impact &amp; banking-relevance), not a stored rating.
+      </p>
       {signals.map((s, i) => <SignalCard key={s.event_id ?? i} s={s} />)}
     </div>
   );

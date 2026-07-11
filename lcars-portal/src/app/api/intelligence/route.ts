@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { signalMatchesRisk } from '@/lib/intelligenceRisk';
 
 export async function GET(req: NextRequest) {
   const view = req.nextUrl.searchParams.get('view') ?? 'latest';
@@ -39,20 +40,27 @@ export async function GET(req: NextRequest) {
     // ── Intelligence signals (events) ────────────────────────────────────────
     if (view === 'signals') {
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
-      // risk_rating is not a DB column — risk is derived from customer_impact/banking_relevance
+      // risk_rating is not a DB column — risk is DERIVED from
+      // customer_impact/banking_relevance (see @/lib/intelligenceRisk).
+      // MSN-0351: the old filter did `.eq('customer_impact', level)`, which
+      // silently dropped items that were HIGH only via banking_relevance —
+      // filtering to "HIGH" could miss real high-risk items. We now over-fetch
+      // and filter through the SAME deriveRisk() the badge uses, so the filter
+      // and the displayed badge can never disagree.
+      const fetchLimit = risk ? Math.min(limit * 5, 200) : limit;
       let query = sb
         .from('intelligence_events')
         .select('event_id,raw_title,raw_summary,event_type,geography,rank_score,collected_at,canonical_url,customer_impact,banking_relevance,cps230_relevance,organisation,sector,source_ref,resilience_themes,executive_relevance,dependency_risk')
         .eq('suppressed', false)
         .gte('collected_at', since)
         .order('rank_score', { ascending: false })
-        .limit(limit);
-      // Map UI risk filter (HIGH/MEDIUM/LOW) → customer_impact (high/medium/low)
-      if (risk)  query = query.eq('customer_impact', risk.toLowerCase());
+        .limit(fetchLimit);
       if (type)  query = query.ilike('event_type', `%${type}%`);
       const { data, error } = await query;
       if (error) throw error;
-      return NextResponse.json({ signals: data ?? [], days });
+      let signals = data ?? [];
+      if (risk) signals = signals.filter((s) => signalMatchesRisk(s, risk)).slice(0, limit);
+      return NextResponse.json({ signals, days });
     }
 
     // ── Source health ────────────────────────────────────────────────────────
