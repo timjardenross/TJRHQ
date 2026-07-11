@@ -18,14 +18,18 @@ from unittest.mock import MagicMock, patch
 
 # Allow running as __main__ without pytest
 sys.path.insert(0, str(Path(__file__).parents[2]))
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram_bots.xo.voice_capture import (
     classify_text,
     handle_capture_from_voice,
+    promote_recovery_pulse,
     save_capture,
     transcribe_audio,
     voice_type_label,
     _CAPTURE_META,
 )
+from telegram_bots.xo.pulse_time import pulse_type_for_hour
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -272,6 +276,137 @@ def test_voice_type_labels():
     check("unknown key falls back gracefully", bool(voice_type_label("nonexistent_type")))
 
 
+# ── Test 9: pulse_type_for_hour bucketing (shared with app.py) ───────────────
+
+def test_pulse_type_for_hour():
+    print("\n── pulse_type_for_hour bucketing (shared with app.py) ───────────")
+    check("5am -> morning", pulse_type_for_hour(5) == "morning")
+    check("11am -> morning", pulse_type_for_hour(11) == "morning")
+    check("12pm -> midday", pulse_type_for_hour(12) == "midday")
+    check("15:59 -> midday", pulse_type_for_hour(15) == "midday")
+    check("16:00 -> end_of_day", pulse_type_for_hour(16) == "end_of_day")
+    check("19:59 -> end_of_day", pulse_type_for_hour(19) == "end_of_day")
+    check("20:00 -> evening", pulse_type_for_hour(20) == "evening")
+    check("2am -> evening (wraps past midnight)", pulse_type_for_hour(2) == "evening")
+
+
+# ── Test 10: promote_recovery_pulse — EOS Phase 2 Priority 3 ─────────────────
+
+def _make_promotion_mock(existing_recovery_rows=None):
+    """Routes .table('recovery_pulses') and .table('captured_items') to
+    distinct sub-mocks so insert/update/select payloads can be inspected
+    per-table, matching promote_recovery_pulse's real call shape."""
+    recovery_table = MagicMock()
+    captured_table = MagicMock()
+
+    recovery_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = (
+        existing_recovery_rows or []
+    )
+    recovery_table.insert.return_value.execute.return_value.data = [{"id": "new-pulse-id"}]
+    recovery_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+    captured_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+    supabase = MagicMock()
+    supabase.table.side_effect = lambda name: recovery_table if name == "recovery_pulses" else captured_table
+    return supabase, recovery_table, captured_table
+
+
+def test_promote_recovery_pulse_inserts_when_no_existing_row():
+    print("\n── promote_recovery_pulse — insert path (no existing pulse) ─────")
+    supabase, recovery_table, captured_table = _make_promotion_mock(existing_recovery_rows=[])
+    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+
+    result = promote_recovery_pulse(supabase, "capture-123", "my pain is pretty bad today", captured_at)
+
+    check("action = inserted", result["action"] == "inserted")
+    check("pulse_type = morning (9am)", result["pulse_type"] == "morning")
+    check("log_date = 2026-07-09", result["log_date"] == "2026-07-09")
+
+    insert_payload = recovery_table.insert.call_args[0][0]
+    check("source = telegram", insert_payload.get("source") == "telegram")
+    check("notes contains the transcript", "my pain is pretty bad today" in insert_payload.get("notes", ""))
+    check("notes carries the reference tag", "[voice:capture-123]" in insert_payload.get("notes", ""))
+    check("no structured field fabricated (energy absent)", "energy" not in insert_payload)
+    check("no structured field fabricated (nervous_system absent)", "nervous_system" not in insert_payload)
+    check("no structured field fabricated (pain_score absent)", "pain_score" not in insert_payload)
+
+    captured_update = captured_table.update.call_args[0][0]
+    check("captured_items marked routed", captured_update.get("processing_status") == "routed")
+    check("captured_items marked actioned", captured_update.get("review_status") == "actioned")
+    check("captured_items routed_to_table = recovery_pulses", captured_update.get("routed_to_table") == "recovery_pulses")
+
+
+def test_promote_recovery_pulse_merges_without_overwriting_structured_fields():
+    print("\n── promote_recovery_pulse — merge path (real pulse already exists) ─")
+    existing = [{"id": "existing-pulse-id", "notes": "real structured pulse already logged"}]
+    supabase, recovery_table, captured_table = _make_promotion_mock(existing_recovery_rows=existing)
+    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+
+    result = promote_recovery_pulse(supabase, "capture-456", "also feeling pretty tired", captured_at)
+
+    check("action = merged", result["action"] == "merged")
+    check("recovery_pulse_id = the existing row's id, not a new one", result["recovery_pulse_id"] == "existing-pulse-id")
+    check("insert was NOT called (no duplicate row created)", not recovery_table.insert.called)
+
+    update_payload = recovery_table.update.call_args[0][0]
+    check("update touches ONLY notes - never energy/nervous_system/etc.", set(update_payload.keys()) == {"notes"})
+    check("merged notes preserve the original real pulse text", "real structured pulse already logged" in update_payload["notes"])
+    check("merged notes append the new voice transcript", "also feeling pretty tired" in update_payload["notes"])
+
+
+def test_promote_recovery_pulse_is_idempotent():
+    print("\n── promote_recovery_pulse — idempotency ─────────────────────────")
+    existing = [{"id": "existing-pulse-id", "notes": "[voice:capture-789] already promoted once"}]
+    supabase, recovery_table, captured_table = _make_promotion_mock(existing_recovery_rows=existing)
+    captured_at = datetime(2026, 7, 9, 9, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+
+    result = promote_recovery_pulse(supabase, "capture-789", "already promoted once", captured_at)
+
+    check("action = already_promoted", result["action"] == "already_promoted")
+    check("no second insert", not recovery_table.insert.called)
+    check("no second update - the same capture is never appended twice", not recovery_table.update.called)
+    check("captured_items still marked routed even on the idempotent path", captured_table.update.called)
+
+
+# ── Test 11: full pipeline — recovery_pulse auto-promotion wiring ────────────
+
+def test_handle_capture_from_voice_promotes_recovery_pulse():
+    print("\n── Full pipeline — recovery_pulse auto-promotion ────────────────")
+    recovery_table = MagicMock()
+    recovery_table.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+    recovery_table.insert.return_value.execute.return_value.data = [{"id": "new-pulse-id"}]
+    captured_table = MagicMock()
+    captured_table.insert.return_value.execute.return_value.data = [{"id": "capture-999"}]
+
+    mock_supabase = MagicMock()
+    mock_supabase.table.side_effect = lambda name: recovery_table if name == "recovery_pulses" else captured_table
+
+    with patch("telegram_bots.xo.voice_capture.transcribe_audio") as mock_transcribe:
+        mock_transcribe.return_value = {"ok": True, "text": "my pain is pretty bad today", "duration": 6.0}
+        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 3001)
+
+    check("pipeline still returns ok=True", result.get("ok") is True)
+    check("voice_type = recovery_pulse", result.get("voice_type") == "recovery_pulse")
+    check("status unchanged - still 'needs_review' (additive field only, no existing caller breaks)",
+          result.get("status") == "needs_review")
+    check("recovery_pulse field populated", result.get("recovery_pulse") is not None)
+    check("recovery_pulse action = inserted", (result.get("recovery_pulse") or {}).get("action") == "inserted")
+
+
+def test_handle_capture_from_voice_does_not_promote_other_types():
+    print("\n── Full pipeline — non-recovery captures unaffected ─────────────")
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.insert.return_value.execute.return_value.data = [{"id": "capture-111"}]
+
+    with patch("telegram_bots.xo.voice_capture.transcribe_audio") as mock_transcribe:
+        mock_transcribe.return_value = {"ok": True, "text": "remind me to book the physio", "duration": 4.0}
+        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 4001)
+
+    check("voice_type = thing_to_do (unrelated classification, unaffected)", result.get("voice_type") == "thing_to_do")
+    check("recovery_pulse field stays None for non-recovery captures", result.get("recovery_pulse") is None)
+    check("existing functionality unchanged - only one table call chain used", mock_supabase.table.call_count == 1)
+
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -288,6 +423,12 @@ def main():
     test_handle_capture_success()
     test_handle_capture_transcription_failure()
     test_voice_type_labels()
+    test_pulse_type_for_hour()
+    test_promote_recovery_pulse_inserts_when_no_existing_row()
+    test_promote_recovery_pulse_merges_without_overwriting_structured_fields()
+    test_promote_recovery_pulse_is_idempotent()
+    test_handle_capture_from_voice_promotes_recovery_pulse()
+    test_handle_capture_from_voice_does_not_promote_other_types()
 
     passed = sum(1 for tag, _ in _results if tag == PASS)
     total  = len(_results)

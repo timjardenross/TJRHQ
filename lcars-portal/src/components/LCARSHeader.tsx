@@ -1,87 +1,49 @@
+// Real-Captain-walkthrough revision (2026-07-10): restyled on the real
+// public-site brand (components/public/PublicShell.tsx tokens), matching
+// HomeScreen.tsx's earlier redesign, so the chrome every (app) page sits
+// inside stops looking like a third, unrelated design system.
+//
+// Also removed condition/readinessPercent/missionStatus entirely - a
+// repo-wide grep confirmed zero callers anywhere ever passed real values
+// for any of the three; every page under (app) has been showing the
+// hardcoded prop defaults ("94%", "GREEN", "CONDITION GREEN") as if they
+// were real operational data, on every single page load. No real
+// "operational readiness %" or "mission status" computation exists
+// anywhere in this codebase to wire this to honestly, so - matching the
+// same principle applied to Human Systems' fabricated 60/Moderate
+// fallback this same session - the fix is removal, not a fake number
+// swapped for an equally fake "No data" badge nobody asked to see on
+// every page. Stardate stays: computeStardate() is real and deterministic.
+
 export interface LCARSHeaderProps {
   ship: string;
   registry: string;
   stardate: string;
   pageTitle?: string;
-  condition?: string;
-  readinessPercent?: number;
-  missionStatus?: string;
 }
 
-export function LCARSHeader({
-  ship,
-  registry,
-  stardate,
-  pageTitle,
-  condition = 'CONDITION GREEN',
-  readinessPercent = 94,
-  missionStatus = 'GREEN'
-}: LCARSHeaderProps) {
+export function LCARSHeader({ ship, registry, stardate, pageTitle }: LCARSHeaderProps) {
   return (
-    <header className="overflow-hidden rounded-lcars border border-edge bg-panel/70">
-      <div className="flex flex-col gap-3 p-3 md:flex-row md:items-stretch md:gap-4">
-        {/* LCARS elbow block */}
-        <div className="flex items-end gap-2 shrink-0">
-          <div className="h-14 w-24 rounded-bl-lcars rounded-tl-lcars bg-command" />
-          <div className="h-8 w-10 rounded-md bg-engineering" />
-          <div className="h-6 w-6 rounded-md bg-medical" />
-        </div>
-
-        {/* Page title + ship identity */}
-        <div className="flex flex-1 flex-col justify-center min-w-0">
-          {pageTitle && (
-            <h1 className="text-xl font-bold text-command-on md:text-2xl uppercase tracking-widest">
-              {pageTitle}
-            </h1>
-          )}
-          <p className="lcars-readout truncate">
-            {ship} · {registry}
-          </p>
-        </div>
-
-        {/* Stat blocks */}
-        <div className="hidden lg:flex items-stretch gap-0 divide-x divide-edge">
-          <div className="flex flex-col justify-center pr-5">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
-              Operational Readiness
-            </p>
-            <p className="font-lcars text-2xl font-bold text-status leading-none mt-0.5">
-              {readinessPercent}%
-            </p>
-          </div>
-          <div className="flex flex-col justify-center px-5">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
-              Mission Status
-            </p>
-            <p className="font-lcars text-2xl font-bold text-status leading-none mt-0.5">
-              {missionStatus}
-            </p>
-          </div>
-          <div className="flex flex-col justify-center pl-5">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
-              Stardate
-            </p>
-            <p className="font-lcars text-lg font-bold text-command leading-none mt-0.5">
-              {stardate}
-            </p>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted mt-0.5">
-              Ship Time
+    <header className="overflow-hidden rounded-[24px] border border-[#d9e1f0] bg-white/92 shadow-[0_12px_40px_rgba(23,32,51,0.06)]">
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 shrink-0 rounded-xl bg-[#243b7a]" />
+          <div className="min-w-0">
+            {pageTitle && (
+              <h1 className="text-lg font-semibold tracking-[-0.01em] text-[#18223a] truncate">
+                {pageTitle}
+              </h1>
+            )}
+            <p className="text-[13px] text-[#61718c] truncate">
+              {ship} · {registry}
             </p>
           </div>
         </div>
 
-        {/* Condition badge */}
-        <div className="flex items-center shrink-0">
-          <span className="lcars-pill bg-status/20 text-status">{condition}</span>
+        <div className="flex items-center shrink-0 text-right">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#61718c]">Stardate</p>
+          <p className="ml-2 font-semibold tabular-nums text-[#18223a]">{stardate}</p>
         </div>
-      </div>
-      <div className="flex gap-1 px-3 pb-3">
-        <div className="lcars-bar flex-[3] bg-command" />
-        <div className="lcars-bar flex-1 bg-engineering" />
-        <div className="lcars-bar flex-1 bg-operations" />
-        <div className="lcars-bar flex-1 bg-medical" />
-        <div className="lcars-bar flex-1 bg-science" />
-        <div className="lcars-bar flex-[2] bg-status" />
       </div>
     </header>
   );

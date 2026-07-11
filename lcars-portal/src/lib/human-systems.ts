@@ -126,9 +126,45 @@ const RED_FLAGS: { test: RegExp; urgent: boolean; message: string }[] = [
   }
 ];
 
-function scanEscalation(text: string | null | undefined): string | null {
+/**
+ * Negation markers that, when they immediately precede a red-flag phrase,
+ * mean the phrase is being denied rather than reported ("no chest pain",
+ * "denies suicidal ideation", "negative for fever", "ruled out infection").
+ */
+const NEGATION_MARKERS =
+  /\b(no|not|never|none|without|negative(?:\s+for)?|denies|denied|deny|ruled?\s+out|rules?\s+out|free\s+of|absence\s+of|absent)\b/i;
+
+/**
+ * True when the red-flag phrase at `matchIndex` is negated by a marker in the
+ * short window of text immediately preceding it (~4 words). This is a
+ * deliberately simple preceding-text check, not full NLP — it is scoped to
+ * catch the common denial forms a check-in note actually uses. A pure,
+ * testable function so both the true-positive and negated paths are covered.
+ */
+export function isNegated(text: string, matchIndex: number): boolean {
+  if (matchIndex <= 0) return false;
+  const preceding = text.slice(0, matchIndex);
+  const words = preceding.split(/\s+/).filter(Boolean);
+  // Look back ~4 tokens (enough for "negative for", "ruled out", "no ... of").
+  const window = words.slice(-4).join(' ');
+  return NEGATION_MARKERS.test(window);
+}
+
+export function scanEscalation(text: string | null | undefined): string | null {
   if (!text) return null;
-  const hits = RED_FLAGS.filter((f) => f.test.test(text));
+  const hits = RED_FLAGS.filter((f) => {
+    // A flag only counts if at least one of its matches is NOT negated by the
+    // text immediately preceding it. Iterate every match (global copy of the
+    // pattern) so "no chest pain but chest tightness now" still escalates.
+    const flags = f.test.flags.includes('g') ? f.test.flags : f.test.flags + 'g';
+    const re = new RegExp(f.test.source, flags);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (!isNegated(text, m.index)) return true;
+      if (m.index === re.lastIndex) re.lastIndex++; // guard against zero-width loops
+    }
+    return false;
+  });
   if (!hits.length) return null;
   hits.sort((a, b) => Number(b.urgent) - Number(a.urgent));
   return hits.map((h) => h.message).join(' ');
@@ -269,12 +305,28 @@ export interface RecoveryPulse {
   readiness: string | null;
   pain_score: number | null;
   notes: string | null;
+  /** Directly captured nervous-system reading from the pulse (MSN-0355). */
+  nervous_system: string | null;
 }
 
 /** Map stress → nervous_system_state for capacity scoring. */
 function stressToNsState(stress: string | null): string | null {
   if (!stress) return null;
   return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
+}
+
+/**
+ * Resolve a pulse's nervous-system state (MSN-0355). Prefers the directly
+ * captured `nervous_system` reading — real signal, not an inference — and
+ * only falls back to deriving it from `stress` when the real value is null.
+ * Many July check-ins record `nervous_system` with `stress` left null (or
+ * vice versa), so this priority order matters for both directions, not just
+ * the common case. Exported so every consumer of pulse data (this module's
+ * own capacity scoring, and ros-data.ts's Emotional Load Flag) applies the
+ * exact same rule rather than re-deriving it independently.
+ */
+export function pulseNsState(pulse: Pick<RecoveryPulse, 'nervous_system' | 'stress'>): string | null {
+  return pulse.nervous_system ?? stressToNsState(pulse.stress);
 }
 
 /** Map readiness → captain_capacity_rating. */
@@ -297,41 +349,55 @@ function mergeWithPulse(log: HealthRow | null, pulse: RecoveryPulse | null): Hea
     energy: pulse.energy ?? base.energy,
     mood: pulse.mood ?? base.mood,
     pain_score: pulse.pain_score ?? base.pain_score,
-    nervous_system_state: stressToNsState(pulse.stress) ?? base.nervous_system_state,
+    // MSN-0355: prefer the real captured nervous_system reading; only fall
+    // back to the stress-derived heuristic when it's null, and only fall
+    // back to the log's own value when the pulse has neither.
+    nervous_system_state: pulseNsState(pulse) ?? base.nervous_system_state,
     captain_capacity_rating: readinessToCapacity(pulse.readiness) ?? base.captain_capacity_rating,
     notes: pulse.notes ?? base.notes,
   };
 }
 
-/** Fetch recent rows from human_systems_daily. Returns [] when unavailable. */
-async function fetchLogRows(days: number): Promise<HealthRow[]> {
-  if (!supabase) return [];
+/**
+ * Result of a source fetch. `failed` is true ONLY when the query genuinely
+ * errored or threw — never when Supabase is simply unconfigured or the query
+ * succeeded with no rows. This lets callers distinguish "checked, nothing
+ * there" from "could not check", which matters for the red-flag banner.
+ */
+interface FetchResult<T> {
+  rows: T[];
+  failed: boolean;
+}
+
+/** Fetch recent rows from human_systems_daily. */
+async function fetchLogRows(days: number): Promise<FetchResult<HealthRow>> {
+  if (!supabase) return { rows: [], failed: false };
   try {
     const { data, error } = await supabase
       .from('human_systems_daily')
       .select('*')
       .gte('log_date', daysAgo(days))
       .order('log_date', { ascending: false });
-    if (error || !data) return [];
-    return data as HealthRow[];
+    if (error) return { rows: [], failed: true };
+    return { rows: (data ?? []) as HealthRow[], failed: false };
   } catch {
-    return [];
+    return { rows: [], failed: true };
   }
 }
 
 /** Fetch recent recovery pulses — most recent per day returned. */
-async function fetchPulseRows(days: number): Promise<RecoveryPulse[]> {
-  if (!supabase) return [];
+async function fetchPulseRows(days: number): Promise<FetchResult<RecoveryPulse>> {
+  if (!supabase) return { rows: [], failed: false };
   try {
     const { data, error } = await supabase
       .from('recovery_pulses')
-      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes')
+      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes,nervous_system')
       .gte('log_date', daysAgo(days))
       .order('captured_at', { ascending: false });
-    if (error || !data) return [];
-    return data as RecoveryPulse[];
+    if (error) return { rows: [], failed: true };
+    return { rows: (data ?? []) as RecoveryPulse[], failed: false };
   } catch {
-    return [];
+    return { rows: [], failed: true };
   }
 }
 
@@ -341,12 +407,14 @@ async function fetchPulseRows(days: number): Promise<RecoveryPulse[]> {
  * energy/mood/pain/stress. Log provides sleep, movement, sitting tolerance.
  * Days with pulses but no log still produce a usable row.
  */
-export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
-  const [logRows, pulseRows] = await Promise.all([fetchLogRows(days), fetchPulseRows(days)]);
+export async function fetchHumanSystemsRowsWithStatus(
+  days = 7
+): Promise<{ rows: HealthRow[]; failed: boolean }> {
+  const [logRes, pulseRes] = await Promise.all([fetchLogRows(days), fetchPulseRows(days)]);
 
   // Latest pulse per day (pulses already ordered desc by captured_at)
   const latestPulseByDate = new Map<string, RecoveryPulse>();
-  for (const p of pulseRows) {
+  for (const p of pulseRes.rows) {
     if (!latestPulseByDate.has(p.log_date)) {
       latestPulseByDate.set(p.log_date, p);
     }
@@ -354,16 +422,22 @@ export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
 
   // All dates represented across both sources
   const allDates = new Set<string>([
-    ...logRows.map((r) => String(r.log_date)),
+    ...logRes.rows.map((r) => String(r.log_date)),
     ...latestPulseByDate.keys(),
   ]);
 
-  const logByDate = new Map(logRows.map((r) => [String(r.log_date), r]));
+  const logByDate = new Map(logRes.rows.map((r) => [String(r.log_date), r]));
 
-  return Array.from(allDates)
+  const rows = Array.from(allDates)
     .sort((a, b) => b.localeCompare(a)) // newest first
     .map((date) => mergeWithPulse(logByDate.get(date) ?? null, latestPulseByDate.get(date) ?? null))
     .filter((r): r is HealthRow => r !== null);
+
+  return { rows, failed: logRes.failed || pulseRes.failed };
+}
+
+export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {
+  return (await fetchHumanSystemsRowsWithStatus(days)).rows;
 }
 
 // ── HSF-002 decision layer (compact mirror of decision.py) ────────────────────
@@ -448,12 +522,20 @@ export interface HumanSystemsData {
   debt: RecoveryDebt;
   decision: Decision;
   isLive: boolean;
+  /**
+   * True only when the health-source fetch that feeds the red-flag scan
+   * genuinely failed (query error / thrown), so `snapshot.escalation` is
+   * unreliable — distinct from a successful "no red flag" result. Surfaces
+   * on both /human-systems and /medical must render an honest "could not
+   * check" state rather than an all-clear when this is true.
+   */
+  escalationCheckFailed: boolean;
 }
 
 /** Load the panel's data, degrading gracefully to a neutral no-data snapshot. */
 export async function loadHumanSystems(): Promise<HumanSystemsData> {
-  const [rows, openMissions] = await Promise.all([
-    fetchHumanSystemsRows(7),
+  const [{ rows, failed }, openMissions] = await Promise.all([
+    fetchHumanSystemsRowsWithStatus(7),
     fetchOpenMissionCount()
   ]);
   const todayRow = rows.find((r) => String(r.log_date) === today()) ?? rows[0] ?? null;
@@ -462,6 +544,7 @@ export async function loadHumanSystems(): Promise<HumanSystemsData> {
     snapshot,
     debt: recoveryDebt(rows),
     decision: decide(snapshot, openMissions),
-    isLive: rows.length > 0
+    isLive: rows.length > 0,
+    escalationCheckFailed: failed
   };
 }

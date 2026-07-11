@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { engineeringRates, engineeringRatePct } from '@/lib/engineeringMetrics';
 import type { StatusTone } from '@/lib/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,107 +68,39 @@ function fmtDuration(s: number | null | undefined): string {
   return `${Math.round(s / 60)}m`;
 }
 
-// ── Cognitive Load Reduction (D-055) ─────────────────────────────────────────
+// ── Engineering Throughput Rates ─────────────────────────────────────────────
+// MSN-0351: was a fabricated "Cognitive Load Reduction /100" composite (invented
+// 40/30/30 weightings + 80/50/25 severity bands over real inputs). The composite
+// and its High/Moderate/Low banding are removed. We now show only the three real
+// measured rates it was built from, each as its own honest number.
 
-function cogLoadScore(perfs: AgentPerf[], jobs: BatchJob[], requests: BuildRequest[]): {
-  score: number;
-  label: string;
-  tone: StatusTone;
-  signals: { label: string; value: string; contribution: string }[];
-} {
-  // Automation success rate (0-40 pts)
-  const successRate = perfs.length
-    ? perfs.filter(p => p.success).length / perfs.length
-    : 0;
-  const automationPts = Math.round(successRate * 40);
-
-  // Batch throughput (0-30 pts)
-  const totalBatchReqs = jobs.reduce((s, j) => s + (j.total_requests ?? 0), 0);
-  const succeededBatch = jobs.reduce((s, j) => s + (j.succeeded_requests ?? 0), 0);
-  const batchRate = totalBatchReqs > 0 ? succeededBatch / totalBatchReqs : 0;
-  const batchPts = Math.round(batchRate * 30);
-
-  // Build pipeline activity (0-30 pts) — delivered or approved = friction removed
-  const delivered = requests.filter(r => ['engineering_delivered', 'approved'].includes(r.status)).length;
-  const pipelinePts = requests.length > 0 ? Math.round(Math.min(delivered / requests.length, 1) * 30) : 0;
-
-  const score = automationPts + batchPts + pipelinePts;
-  const label = score >= 80 ? 'High reduction' : score >= 50 ? 'Moderate reduction' : score >= 25 ? 'Low reduction' : 'Insufficient data';
-  const tone: StatusTone = score >= 80 ? 'status' : score >= 50 ? 'command' : score >= 25 ? 'operations' : 'neutral';
-
-  return {
-    score,
-    label,
-    tone,
-    signals: [
-      {
-        label: 'Automation success',
-        value: perfs.length ? `${Math.round(successRate * 100)}%` : '—',
-        contribution: `${automationPts} / 40 pts`,
-      },
-      {
-        label: 'Batch throughput',
-        value: totalBatchReqs > 0 ? `${Math.round(batchRate * 100)}%` : '—',
-        contribution: `${batchPts} / 30 pts`,
-      },
-      {
-        label: 'Pipeline delivery',
-        value: requests.length > 0 ? `${delivered} / ${requests.length}` : '—',
-        contribution: `${pipelinePts} / 30 pts`,
-      },
-    ],
-  };
-}
-
-function CognitiveLoadPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; jobs: BatchJob[]; requests: BuildRequest[] }) {
-  const { score, label, tone, signals } = cogLoadScore(perfs, jobs, requests);
-  const hasData = perfs.length > 0 || jobs.length > 0 || requests.length > 0;
+function EngineeringRatesPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; jobs: BatchJob[]; requests: BuildRequest[] }) {
+  const { rates, hasData } = engineeringRates(perfs, jobs, requests);
 
   return (
     <LCARSPanel
-      title="Cognitive Load Reduction"
+      title="Engineering Throughput"
       accent="engineering"
-      eyebrow="D-055 · Chief Engineer mandate — reduce friction, return time to Captain"
-      actions={hasData ? <StatusBadge label={label} tone={tone} /> : undefined}
+      eyebrow="Measured rates — agent success · batch success · pipeline delivery"
     >
       <p className="mb-4 text-xs text-lcars-muted leading-relaxed">
-        Chief Engineer mandate: reduce cognitive load through automation and simplification.
-        This score measures how effectively the engineering system is removing decision overhead
-        and returning time and energy to Captain TJR.
+        Three directly-measured rates from the build pipeline and agent runtime. Each is computed
+        from real records over the recent window shown below; a rate reads “—” when there is nothing
+        yet to measure it from. These are not combined into a single composite score.
       </p>
 
       {!hasData ? (
         <p className="text-sm text-lcars-muted italic">No engineering data available yet.</p>
       ) : (
-        <>
-          {/* Score hero */}
-          <div className="mb-4 flex items-center gap-4 rounded-lcars border border-engineering/40 bg-engineering/5 px-5 py-4">
-            <span className="font-lcars text-5xl font-bold text-engineering-on">{score}</span>
-            <div>
-              <p className="font-lcars text-sm font-semibold uppercase tracking-wider text-engineering-on">{label}</p>
-              <p className="text-xs text-lcars-muted mt-0.5">out of 100</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {rates.map((r) => (
+            <div key={r.key} className="rounded-lcars border border-edge bg-space/40 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{r.label}</p>
+              <p className="font-lcars text-2xl font-bold text-engineering-on mt-0.5">{engineeringRatePct(r.ratio)}</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">{r.detail}</p>
             </div>
-            <div className="flex-1 ml-4">
-              <div className="h-3 rounded-full bg-edge/30 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-engineering transition-all"
-                  style={{ width: `${score}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Signal breakdown */}
-          <div className="grid gap-2 sm:grid-cols-3">
-            {signals.map((s) => (
-              <div key={s.label} className="rounded-lcars border border-edge bg-space/40 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
-                <p className="font-lcars text-lg font-bold text-engineering-on mt-0.5">{s.value}</p>
-                <p className="text-[10px] text-lcars-muted mt-0.5">{s.contribution}</p>
-              </div>
-            ))}
-          </div>
-        </>
+          ))}
+        </div>
       )}
     </LCARSPanel>
   );
@@ -316,6 +249,7 @@ export default function EngineeringPage() {
   const [jobs,     setJobs]      = useState<BatchJob[]>([]);
   const [isLive,   setIsLive]    = useState(false);
   const [loading,  setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -338,11 +272,16 @@ export default function EngineeringPage() {
             .order('created_at', { ascending: false })
             .limit(8),
         ]);
+        // A genuine fetch error on any source must be surfaced, not swallowed
+        // into an empty "no data" state indistinguishable from a real all-clear.
+        const firstError = reqRes.error ?? perfRes.error ?? jobRes.error;
+        if (firstError) throw firstError;
         if (reqRes.data?.length) { setRequests(reqRes.data as BuildRequest[]); setIsLive(true); }
         if (perfRes.data?.length) setPerfs(perfRes.data as AgentPerf[]);
         if (jobRes.data?.length)  setJobs(jobRes.data as BatchJob[]);
-      } catch {
-        // fall through to empty state
+      } catch (e) {
+        console.error('engineering deck fetch failed', e);
+        setLoadError('Couldn’t reach engineering data right now.');
       } finally {
         setLoading(false);
       }
@@ -361,11 +300,24 @@ export default function EngineeringPage() {
           Live build request inbox, agent performance telemetry, and batch job status.
         </p>
         <p className="mt-2 text-[10px] uppercase tracking-wider text-lcars-muted">
-          {loading ? 'Loading…' : isLive ? '● Live · Supabase' : '○ No data'}
+          {loading ? 'Loading…' : loadError ? '△ Data unavailable' : isLive ? '● Live · Supabase' : '○ No data'}
         </p>
       </LCARSPanel>
 
-      <CognitiveLoadPanel perfs={perfs} jobs={jobs} requests={requests} />
+      {loadError ? (
+        <LCARSPanel title="Engineering Data Unavailable" accent="operations" eyebrow="Fetch error">
+          <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3">
+            <p className="text-sm font-semibold text-operations-on">{loadError}</p>
+            <p className="text-xs text-lcars-muted mt-1">
+              This is a load failure, not an all-clear — the panels below are hidden because the
+              engineering telemetry could not be read. Retry shortly; if it persists, check the
+              Supabase connection.
+            </p>
+          </div>
+        </LCARSPanel>
+      ) : (
+        <>
+          <EngineeringRatesPanel perfs={perfs} jobs={jobs} requests={requests} />
 
       <LCARSPanel
         title="Build Request Inbox"
@@ -378,6 +330,8 @@ export default function EngineeringPage() {
       <AgentPerformancePanel perfs={perfs} />
 
       <BatchJobsPanel jobs={jobs} />
+        </>
+      )}
     </div>
   );
 }

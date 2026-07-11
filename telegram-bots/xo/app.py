@@ -232,11 +232,12 @@ _PULSE_LABELS = {
 }
 
 def _current_pulse_type() -> str:
-    h = datetime.now(_TZ).hour
-    if 5  <= h < 12: return "morning"
-    if 12 <= h < 16: return "midday"
-    if 16 <= h < 20: return "end_of_day"
-    return "evening"
+    # EOS Phase 2 Priority 3: extracted to pulse_time.py so voice_capture.py's
+    # automatic recovery-pulse promotion can reuse the exact same bucketing
+    # instead of a second, drifting copy - one source of truth, per the
+    # mission's own "no duplicated business logic" requirement.
+    from telegram_bots.xo.pulse_time import current_pulse_type
+    return current_pulse_type()
 
 def _parse_cb(data: str) -> dict:
     result = {}

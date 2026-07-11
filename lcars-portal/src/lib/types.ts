@@ -282,14 +282,6 @@ export interface LifeParticipationScore {
   workload_constraint: 'none' | 'light' | 'moderate' | 'severe' | 'unknown';
 }
 
-/** Stage 1 / Stage 2 display — no countdown, no progress bar. */
-export interface StageStatus {
-  stage: 1 | 2;
-  label: string;
-  description: string;
-  tone: StatusTone;
-}
-
 /** A single data point for the PosturePatternChart (last N days). */
 export interface PostureDataPoint {
   date: string; // ISO YYYY-MM-DD
@@ -306,11 +298,20 @@ export interface PostureHistory {
 /**
  * Emotional Load Flag — raised when nervous system state is activated or
  * dysregulated for 3+ of the last 7 days (WP2 Stage 1 guardrail).
+ *
+ * MSN-0355: `recorded_days` and `noRecentData` distinguish a genuinely calm
+ * window from an empty one. Before this fix the flag could read "Clear"
+ * purely because its data source had no rows — an honest reading requires
+ * knowing whether there was anything to evaluate at all.
  */
 export interface EmotionalLoadFlag {
   raised: boolean;
   activated_days: number;
   dysregulated_days: number;
+  /** Days in the window with ANY nervous-system signal recorded (0-7). */
+  recorded_days: number;
+  /** True when recorded_days is 0 — nothing to evaluate, not "clear". */
+  noRecentData: boolean;
   period: string; // e.g. "Last 7 days"
   message: string;
 }
@@ -330,40 +331,6 @@ export interface WeeklyPatternSummary {
   };
   direction: 'settling' | 'steady' | 'variable' | 'insufficient_data';
   direction_label: string;
-}
-
-/** A single Knowledge Officer stage assessment entry. */
-export interface StageAssessment {
-  date: string; // ISO YYYY-MM-DD
-  stage: 1 | 2 | 3 | 4;
-  author: string; // officer name
-  signal: string; // what triggered the assessment
-  outcome: 'monitoring' | 'not_yet' | 'transition_recognised';
-  notes: string;
-}
-
-/**
- * Full stage progression record — owned by Knowledge Officer.
- * Transitions are recognised, not achieved. No countdown. No target date.
- */
-export interface StageProgressionRecord {
-  current_stage: 1 | 2 | 3 | 4;
-  current_stage_label: string;
-  current_stage_since: string; // ISO date
-  // Stage 2 recognition criteria (qualitative checklist)
-  stage2_criteria: {
-    label: string;
-    met: boolean | 'partial' | 'unknown';
-    detail: string;
-  }[];
-  // Stability signal: STABLE or STRONG days in last 21
-  stability_signal: {
-    stable_or_strong: number;
-    total_recorded: number;
-    period: string; // "Last 21 days"
-    threshold: number; // 14
-  };
-  assessments: StageAssessment[];
 }
 
 /** Full Recovery Brief — WP7 morning brief format. */

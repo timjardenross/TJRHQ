@@ -228,8 +228,23 @@ export default function CaptainsBriefPage() {
         })}
 
       {doc && doc.priorities.length === 0 && doc.warnings.length === 0 && (
-        <LCARSPanel title="All Clear" accent="status">
-          <p className="text-sm text-lcars-muted">No new signals since the last brief.</p>
+        // MSN-0351: an all-empty document is NOT proof that all is well.
+        // The brief is assembled from event_bus.poll_events(), which returns
+        // [] on any Supabase error (core/platform/event_bus.py) — so a data
+        // outage produces exactly this same empty document as a genuinely
+        // quiet period. The response shape carries no sources-checked /
+        // degraded flag to tell them apart (see report), so this copy is
+        // worded to report what it actually knows ("no signals received")
+        // rather than affirmatively reassure ("all clear").
+        <LCARSPanel title="No New Signals" accent="status">
+          <p className="text-sm text-lcars-muted">
+            No priorities or warnings in the latest brief.
+          </p>
+          <p className="mt-1 text-xs text-lcars-muted/70">
+            This reflects the signals received — it can&rsquo;t on its own confirm every source
+            was reachable. If you expected activity, check source health before treating this as
+            all-clear.
+          </p>
         </LCARSPanel>
       )}
     </div>

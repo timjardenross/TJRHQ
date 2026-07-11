@@ -46,6 +46,13 @@ from datetime import datetime, timezone
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+# 2026-07-10: /brief/full's `core.platform.*` absolute imports need the repo
+# root itself on sys.path (the two inserts above only cover this directory's
+# own same-level sibling imports) - "core" isn't a hyphenatable package name
+# via `python3 -m`, so this script is always run as a plain script, never
+# `-m core.context-assembly.context_service`; this insert is what actually
+# makes `core.platform.*` resolvable regardless of the process's cwd.
+sys.path.insert(0, str(REPO_ROOT))
 
 import config
 from assembler import (
@@ -225,11 +232,32 @@ def _make_flask_app():
     Build and return the Flask app. Separated from module level so the
     import is deferred — CLI usage never pays the Flask import cost.
     """
-    from flask import Flask, jsonify
+    from flask import Flask, jsonify, request
     from flask_cors import CORS
 
     http_app = Flask(__name__)
     CORS(http_app)
+
+    # 2026-07-10: this service is about to be reachable from the public
+    # internet (via Caddy, see deploy/context-service.service) for the
+    # first time - previously it only ever ran on localhost, where an
+    # open endpoint was harmless. CONTEXT_SERVICE_SECRET is optional so
+    # local dev (where the var is deliberately unset) keeps working
+    # unauthenticated - but once it IS configured (real deployment), every
+    # route except /health fails closed on a missing/wrong secret, matching
+    # this whole platform's "no exceptions" governance stance rather than
+    # leaving real Captain data on an unauthenticated public endpoint.
+    @http_app.before_request
+    def _require_secret():
+        if request.path == "/health":
+            return None
+        expected = os.environ.get("CONTEXT_SERVICE_SECRET")
+        if not expected:
+            return None
+        provided = request.headers.get("X-Context-Service-Secret")
+        if provided != expected:
+            return jsonify({"error": "unauthorized"}), 401
+        return None
 
     @http_app.get("/health")
     def http_health():
@@ -275,7 +303,72 @@ def _make_flask_app():
                 "assembled_at": _http_timestamp(),
             }), 500
 
+    # ── Real Captain's Brief + Recommendations, over HTTP ──────────────────
+    # 2026-07-10: lcars-portal's api/captain-brief and api/recommendations
+    # routes previously shelled out to a local python3 CLI
+    # (execFile('python3', ['-m', 'core.platform.captain_brief_cli', ...]))
+    # - a pattern that cannot work once the Next.js app is deployed to
+    # Vercel's Node.js serverless runtime (no python3 available there at
+    # all). This service already runs as a real, persistent Flask process
+    # somewhere Python genuinely is available - these two routes expose the
+    # exact same underlying functions those CLIs called, over HTTP, so the
+    # Vercel-hosted routes can reach them with a plain fetch() instead.
+    # Reuses the real logic verbatim (same imports, same call shape, same
+    # serialization) - no reimplementation, no second copy.
+
+    @http_app.get("/brief/full")
+    def http_full_captain_brief():
+        try:
+            import dataclasses
+            from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
+            from core.platform.event_bus import poll_events
+
+            limit = int(_request_arg("limit", 200))
+            events = poll_events(limit=limit)
+            doc = assemble_captain_brief_document(events)
+            return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
+        except Exception as exc:
+            return jsonify({
+                "error": "full_captain_brief_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    @http_app.get("/recommendations/full")
+    def http_recommendations_full():
+        try:
+            return jsonify(get_recommendations())
+        except Exception as exc:
+            return jsonify({
+                "error": "recommendations_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
     return http_app
+
+
+def _request_arg(name: str, default):
+    """Reads a query-string arg from the active Flask request - deferred
+    import so CLI usage never pays the Flask import cost, matching every
+    other function in this HTTP-only section."""
+    from flask import request
+    val = request.args.get(name)
+    return val if val is not None else default
+
+
+def _str_default_asdict(fields) -> dict:
+    """dataclasses.asdict's dict_factory - matches captain_brief_cli.py's
+    json.dumps(..., default=str) behaviour (dates/enums render as strings)
+    while still returning a real dict for jsonify, not a JSON string."""
+    result = {}
+    for key, value in fields:
+        try:
+            json.dumps(value)
+            result[key] = value
+        except TypeError:
+            result[key] = str(value)
+    return result
 
 
 def _http_captain_brief() -> dict:
@@ -542,7 +635,7 @@ def main():
         port = args.port or config.CONTEXT_SERVICE_PORT
         flask_app = _make_flask_app()
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one")
+        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /brief/full  GET /recommendations/full")
         flask_app.run(host=args.host, port=port, debug=False)
         return
 

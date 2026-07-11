@@ -45,36 +45,50 @@ function priorityColor(p: string) {
 
 export default function OperatingModelPage() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [data, setData] = useState<LiveData>({ activeMissionsCount: null, lastLog: null, lastPulse: null });
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     async function fetchAll() {
-      const [missionsRes, logRes, pulseRes] = await Promise.all([
-        supabase
-          .from('missions')
-          .select('mission_id', { count: 'exact', head: true })
-          .not('status', 'in', '(COMPLETE,DEFERRED,CLOSED)'),
-        supabase
-          .from('captains_log_entries')
-          .select('log_date, captain_capacity_rating, tomorrows_priority')
-          .order('log_date', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('recovery_pulses')
-          .select('pulse_type, pain_score, energy, mood, captured_at')
-          .order('captured_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
+      // Previously had no error handling at all: any Supabase rejection threw
+      // unhandled, so setLoading/setData never ran and the tiles rendered '—'
+      // forever with no error shown (MSN-0351).
+      try {
+        const [missionsRes, logRes, pulseRes] = await Promise.all([
+          supabase
+            .from('missions')
+            .select('mission_id', { count: 'exact', head: true })
+            .not('status', 'in', '(COMPLETE,DEFERRED,CLOSED)'),
+          supabase
+            .from('captains_log_entries')
+            .select('log_date, captain_capacity_rating, tomorrows_priority')
+            .order('log_date', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('recovery_pulses')
+            .select('pulse_type, pain_score, energy, mood, captured_at')
+            .order('captured_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
 
-      setData({
-        activeMissionsCount: missionsRes.count ?? 0,
-        lastLog: logRes.data ?? null,
-        lastPulse: pulseRes.data ?? null,
-      });
-      setLoading(false);
+        const queryError = missionsRes.error ?? logRes.error ?? pulseRes.error;
+        if (queryError) {
+          setLoadError(queryError.message ?? 'Query failed');
+        }
+
+        setData({
+          activeMissionsCount: missionsRes.count ?? 0,
+          lastLog: logRes.data ?? null,
+          lastPulse: pulseRes.data ?? null,
+        });
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load live data');
+      } finally {
+        setLoading(false);
+      }
     }
     fetchAll();
   }, []);
@@ -94,6 +108,14 @@ export default function OperatingModelPage() {
           </p>
         </div>
 
+        {loadError && (
+          <div className="mb-4 rounded-lcars border border-operations/40 bg-operations/5 px-3 py-2 text-xs text-operations-on">
+            Couldn&apos;t load live data — the tiles below may be blank because of a connection error, not because there is nothing to show.
+            <span className="block text-[10px] text-lcars-muted mt-1 font-mono">{loadError}</span>
+          </div>
+        )}
+
+        <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-2">Live — latest values from source tables</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Active Missions</div>
@@ -117,7 +139,7 @@ export default function OperatingModelPage() {
       </LCARSPanel>
 
       {/* Section 2 — Domains */}
-      <LCARSPanel title="Domains & Capacity Allocation" accent="science" eyebrow="Operational focus">
+      <LCARSPanel title="Domains & Capacity Allocation" accent="science" eyebrow="Reference · Operational focus (authored doctrine, not live data)">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {DOMAINS.map((d) => (
             <div key={d.name} className="bg-panel border border-edge rounded-lcars p-4 flex flex-col gap-2">
@@ -135,7 +157,7 @@ export default function OperatingModelPage() {
       </LCARSPanel>
 
       {/* Section 3 — Operating Principles */}
-      <LCARSPanel title="Operating Principles" accent="medical" eyebrow="Decision framework">
+      <LCARSPanel title="Operating Principles" accent="medical" eyebrow="Reference · Decision framework (authored doctrine, not live data)">
         <ol className="space-y-3">
           {PRINCIPLES.map((p) => (
             <li key={p.num} className="flex gap-4 items-start bg-panel border border-edge rounded-lcars px-4 py-3">
@@ -171,7 +193,7 @@ export default function OperatingModelPage() {
       <LCARSPanel title="Energy & Recovery Profile" accent="medical" eyebrow="Operational posture">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Operating Envelope</div>
+            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Operating Envelope <span className="text-lcars-muted/60 normal-case tracking-normal">· reference</span></div>
             <ul className="space-y-2">
               {SCHEDULE.map((s) => (
                 <li key={s.label} className="flex items-start gap-3 bg-panel border border-edge rounded-lcars px-4 py-2">
@@ -183,7 +205,7 @@ export default function OperatingModelPage() {
           </div>
 
           <div>
-            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Last Recovery Pulse</div>
+            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Last Recovery Pulse <span className="text-lcars-muted/60 normal-case tracking-normal">· live</span></div>
             {loading ? (
               <div className="text-lcars-muted text-sm">Loading...</div>
             ) : lastPulse ? (

@@ -1,10 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { AI_MODELS, DEFAULT_MODEL_ID } from '@/lib/ai-models';
+import type { ActionResult } from '@/lib/ai-actions';
+import { describeProposalOutcome } from '@/lib/actionProposalCopy';
+import { fetchRecommendations, type RecommendationPackage } from '@/lib/recommendations';
+import { fetchInvestigation, type InvestigationRunResult } from '@/lib/investigate';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -39,6 +44,94 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
   error?: boolean;
+  /** MSN-0352: deterministic action-proposal outcomes attached to this
+   * message, rendered from the backend's ActionResult objects - never
+   * from the model's own prose, so the "only proposed, not performed"
+   * distinction cannot be lost or contradicted by how the model phrased
+   * its reply. */
+  proposals?: ActionResult[];
+}
+
+/** MSN-0352: the one place this UI states whether an action was queued or
+ * failed. Text comes from describeProposalOutcome() (lib/actionProposalCopy.ts)
+ * - a plain, unit-tested function, not JSX authored ad hoc here - so
+ * "never claims completion for a mere proposal" is a property that's
+ * actually verified, not just a convention. */
+function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
+  if (!proposals.length) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-[#243b7a]/40 pl-3">
+      {proposals.map((p, i) => (
+        <div key={i} className={`text-xs ${p.success ? 'text-[#61718c]' : 'text-alert-on'}`}>
+          <span className="font-semibold">{describeProposalOutcome(p)}</span>
+          {p.success && (
+            <>
+              {' '}
+              <a href="/decide" className="underline hover:text-[#243b7a] font-normal">Open Decide →</a>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Evidence panel ─────────────────────────────────────────────────────────────
+
+/** EOS Phase 2 Priority 4 (Executive Advisory Council): composes the two
+ * canonical engines that previously never fed the Council - the
+ * Recommendation Engine (core/coordination/recommendation_engine.py, via
+ * lib/recommendations.ts) and the Investigation Engine (lib/investigate.ts)
+ * - into the Board's evidence, kept structurally and visually separate from
+ * officer perspectives (interpretation). Both bridges already degrade to
+ * null on any failure (see their own headers), so a fetch problem here
+ * just omits the panel rather than fabricating placeholder evidence; there
+ * is no synthesis or re-ranking here, only direct passthrough of what each
+ * engine already returned. */
+function EvidencePanel({
+  recommendations,
+  investigation,
+}: {
+  recommendations: RecommendationPackage | null;
+  investigation: InvestigationRunResult | null;
+}) {
+  const hasRecommendations = !!recommendations?.recommendations.length;
+  if (!hasRecommendations && !investigation) return null;
+  return (
+    <div className="rounded-lcars border border-[#d9e1f0] bg-white/40 p-3 space-y-3">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">
+        Evidence — sourced directly from the canonical engines, not an officer&apos;s interpretation
+      </p>
+      {hasRecommendations && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">Recommendation Engine</p>
+          <ul className="space-y-1">
+            {recommendations!.recommendations.slice(0, 3).map((r) => (
+              <li key={r.mission_id} className="text-xs text-[#18223a]/80">
+                <span className="text-[#18223a]">{r.title}</span>{' '}
+                <span className="text-[#61718c]">({r.mission_id})</span> — {r.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {investigation && (
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">
+            Investigation Engine — {investigation.label}
+          </p>
+          <p className="text-xs text-[#18223a]/80">{investigation.triggerDescription}</p>
+          {investigation.decisionOptions.length > 0 && (
+            <ul className="mt-1 space-y-1">
+              {investigation.decisionOptions.map((opt) => (
+                <li key={opt.id} className="text-xs text-[#18223a]/70">{opt.label}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Advisory block ─────────────────────────────────────────────────────────────
@@ -48,24 +141,24 @@ function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
   return (
     <div className="space-y-3 text-sm">
       {(data.executive_summary || data.bottom_line) && (
-        <div className="rounded-lcars border border-command/30 bg-command/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-command-on">Summary</p>
-          <p className="text-lcars-text leading-relaxed">{String(data.executive_summary ?? data.bottom_line ?? '')}</p>
+        <div className="rounded-lcars border border-[#243b7a]/30 bg-[#243b7a]/10 px-3 py-2">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-[#243b7a]">Summary</p>
+          <p className="text-[#18223a] leading-relaxed">{String(data.executive_summary ?? data.bottom_line ?? '')}</p>
         </div>
       )}
       {data.recommendation && (
-        <div className="rounded-lcars border border-science/30 bg-science/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-science-on">Recommendation</p>
-          <p className="text-lcars-text leading-relaxed">{String(data.recommendation)}</p>
+        <div className="rounded-lcars border border-[#243b7a]/30 bg-[#243b7a]/10 px-3 py-2">
+          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-[#243b7a]">Recommendation</p>
+          <p className="text-[#18223a] leading-relaxed">{String(data.recommendation)}</p>
         </div>
       )}
       {Array.isArray(data.risks_and_challenges) && data.risks_and_challenges.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-operations-on">Risks</p>
+          <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-[#243b7a]">Risks</p>
           <ul className="space-y-1">
             {data.risks_and_challenges.map((r, i) => (
-              <li key={i} className="flex gap-2 text-lcars-text/80">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-operations" />
+              <li key={i} className="flex gap-2 text-[#18223a]/80">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#243b7a]" />
                 {String(r)}
               </li>
             ))}
@@ -73,7 +166,7 @@ function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
         </div>
       )}
       {conf && (
-        <p className="text-[10px] text-lcars-muted">
+        <p className="text-[10px] text-[#61718c]">
           Confidence: {conf.band ?? ''} ({conf.value ?? ''})
           {conf.basis ? ` — ${conf.basis}` : ''}
         </p>
@@ -91,21 +184,21 @@ function OperationalCard({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {bottomLine && (
-        <p className="text-sm font-semibold text-command-on border-l-2 border-command/50 pl-3">{bottomLine}</p>
+        <p className="text-sm font-semibold text-[#243b7a] border-l-2 border-[#243b7a]/50 pl-3">{bottomLine}</p>
       )}
       {sections.map((s, i) => (
         <div key={i}>
-          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">{s.heading}</p>
-          {s.text && <p className="text-xs text-lcars-text/80">{s.text}</p>}
+          <p className="text-[10px] uppercase tracking-widest text-[#61718c] mb-1">{s.heading}</p>
+          {s.text && <p className="text-xs text-[#18223a]/80">{s.text}</p>}
           {s.items && s.items.length > 0 && (
-            <ul className="space-y-0.5">{s.items.map((item, j) => <li key={j} className="text-xs text-lcars-text/80">· {item}</li>)}</ul>
+            <ul className="space-y-0.5">{s.items.map((item, j) => <li key={j} className="text-xs text-[#18223a]/80">· {item}</li>)}</ul>
           )}
           {s.suppressed !== undefined && s.suppressed > 0 && (
-            <p className="text-[10px] text-lcars-muted mt-0.5">+{s.suppressed} suppressed</p>
+            <p className="text-[10px] text-[#61718c] mt-0.5">+{s.suppressed} suppressed</p>
           )}
         </div>
       ))}
-      {note && <p className="text-[11px] text-lcars-muted italic">{note}</p>}
+      {note && <p className="text-[11px] text-[#61718c] italic">{note}</p>}
     </div>
   );
 }
@@ -113,9 +206,9 @@ function OperationalCard({ data }: { data: Record<string, unknown> }) {
 // ── Intelligence panel renderers ───────────────────────────────────────────────
 
 function TrendPill({ label, dir }: { label: string; dir: string }) {
-  const tone = dir === 'improving' ? 'text-medical-on border-medical/40 bg-medical/10'
-    : dir === 'worsening' ? 'text-operations-on border-operations/40 bg-operations/10'
-    : 'text-lcars-muted border-edge bg-panel/40';
+  const tone = dir === 'improving' ? 'text-[#243b7a] border-[#243b7a]/40 bg-[#243b7a]/10'
+    : dir === 'worsening' ? 'text-[#243b7a] border-[#243b7a]/40 bg-[#243b7a]/10'
+    : 'text-[#61718c] border-[#d9e1f0] bg-white/40';
   const arrow = dir === 'improving' ? '↑' : dir === 'worsening' ? '↓' : '–';
   return (
     <span className={`inline-flex items-center gap-1 rounded-lcars border px-2 py-0.5 text-xs ${tone}`}>
@@ -132,10 +225,10 @@ function AwarenessCard({ data }: { data: Record<string, unknown> }) {
   const priorities = (data.recovery_priorities ?? []) as string[];
   return (
     <div className="space-y-3">
-      {narrative && <p className="text-sm text-lcars-text/90 leading-relaxed border-l-2 border-science/50 pl-3">{narrative}</p>}
+      {narrative && <p className="text-sm text-[#18223a]/90 leading-relaxed border-l-2 border-[#243b7a]/50 pl-3">{narrative}</p>}
       {Object.keys(trends).length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1.5">Trends</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#61718c] mb-1.5">Trends</p>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(trends).map(([k, v]) => <TrendPill key={k} label={k.replace(/_/g, ' ')} dir={String(v)} />)}
           </div>
@@ -145,22 +238,22 @@ function AwarenessCard({ data }: { data: Record<string, unknown> }) {
         <div className="grid grid-cols-2 gap-3">
           {improving.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-medical-on mb-1">Improving</p>
-              <ul className="space-y-0.5">{improving.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↑ {s}</li>)}</ul>
+              <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">Improving</p>
+              <ul className="space-y-0.5">{improving.map((s, i) => <li key={i} className="text-xs text-[#18223a]/80">↑ {s}</li>)}</ul>
             </div>
           )}
           {worsening.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-operations-on mb-1">Needs attention</p>
-              <ul className="space-y-0.5">{worsening.map((s, i) => <li key={i} className="text-xs text-lcars-text/80">↓ {s}</li>)}</ul>
+              <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">Needs attention</p>
+              <ul className="space-y-0.5">{worsening.map((s, i) => <li key={i} className="text-xs text-[#18223a]/80">↓ {s}</li>)}</ul>
             </div>
           )}
         </div>
       )}
       {priorities.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Recovery priorities</p>
-          <ul className="space-y-0.5">{priorities.map((p, i) => <li key={i} className="text-xs text-lcars-text/80">· {p}</li>)}</ul>
+          <p className="text-[10px] uppercase tracking-widest text-[#61718c] mb-1">Recovery priorities</p>
+          <ul className="space-y-0.5">{priorities.map((p, i) => <li key={i} className="text-xs text-[#18223a]/80">· {p}</li>)}</ul>
         </div>
       )}
     </div>
@@ -177,38 +270,38 @@ function SignalsCard({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {headline && (
-        <p className={`text-sm font-semibold ${attnRequired ? 'text-operations-on' : 'text-lcars-text/90'}`}>
+        <p className={`text-sm font-semibold ${attnRequired ? 'text-[#243b7a]' : 'text-[#18223a]/90'}`}>
           {attnRequired ? '▲ ' : '● '}{headline}
         </p>
       )}
       {triggers.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-operations-on mb-1">Triggers</p>
-          <ul className="space-y-0.5">{triggers.map((t, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof t === 'string' ? t : JSON.stringify(t)}</li>)}</ul>
+          <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">Triggers</p>
+          <ul className="space-y-0.5">{triggers.map((t, i) => <li key={i} className="text-xs text-[#18223a]/80">· {typeof t === 'string' ? t : JSON.stringify(t)}</li>)}</ul>
         </div>
       )}
       {opportunities.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-science-on mb-1">Opportunities</p>
-          <ul className="space-y-0.5">{opportunities.map((o, i) => <li key={i} className="text-xs text-lcars-text/80">· {typeof o === 'string' ? o : JSON.stringify(o)}</li>)}</ul>
+          <p className="text-[10px] uppercase tracking-widest text-[#243b7a] mb-1">Opportunities</p>
+          <ul className="space-y-0.5">{opportunities.map((o, i) => <li key={i} className="text-xs text-[#18223a]/80">· {typeof o === 'string' ? o : JSON.stringify(o)}</li>)}</ul>
         </div>
       )}
       {typeof health.narrative === 'string' && health.narrative && (
-        <p className="text-xs text-lcars-muted border-l border-edge pl-2">{health.narrative}</p>
+        <p className="text-xs text-[#61718c] border-l border-[#d9e1f0] pl-2">{health.narrative}</p>
       )}
-      {note && <p className="text-[11px] text-lcars-muted italic">{note}</p>}
+      {note && <p className="text-[11px] text-[#61718c] italic">{note}</p>}
     </div>
   );
 }
 
 function IntelResultCard({ action, data }: { action: string; data: unknown }) {
-  if (!data || typeof data !== 'object') return <p className="text-sm text-lcars-muted">No data available.</p>;
+  if (!data || typeof data !== 'object') return <p className="text-sm text-[#61718c]">No data available.</p>;
   const obj = data as Record<string, unknown>;
   if (action === 'awareness') return <AwarenessCard data={obj} />;
   if (action === 'proactive') return <SignalsCard data={obj} />;
   if (action === 'wellness') return <OperationalCard data={obj} />;
   return (
-    <div className="rounded-lcars border border-edge bg-panel/40 px-3 py-2.5 text-xs text-lcars-muted whitespace-pre-wrap">
+    <div className="rounded-lcars border border-[#d9e1f0] bg-white/40 px-3 py-2.5 text-xs text-[#61718c] whitespace-pre-wrap">
       {JSON.stringify(data, null, 2)}
     </div>
   );
@@ -223,8 +316,8 @@ function TabBtn({ label, glyph, active, onClick }: { label: string; glyph?: stri
       onClick={onClick}
       className={`px-4 py-2 text-xs uppercase tracking-[0.15em] whitespace-nowrap transition-colors ${
         active
-          ? 'border-b-2 border-command text-command-on font-semibold -mb-px'
-          : 'text-lcars-muted hover:text-lcars-text'
+          ? 'border-b-2 border-[#243b7a] text-[#243b7a] font-semibold -mb-px'
+          : 'text-[#61718c] hover:text-[#18223a]'
       }`}
     >
       {glyph ? `${glyph} ${label}` : label}
@@ -260,21 +353,21 @@ function ProactiveSignalsBanner() {
 
   return (
     <div className={`rounded-lcars border px-3 py-2.5 flex items-start gap-3 text-sm ${
-      isUrgent ? 'border-operations/50 bg-operations/10' : 'border-science/30 bg-science/5'
+      isUrgent ? 'border-[#243b7a]/50 bg-[#243b7a]/10' : 'border-[#243b7a]/30 bg-[#243b7a]/5'
     }`}>
-      <span className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-operations-on' : 'text-science-on'}`}>
+      <span className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-[#243b7a]' : 'text-[#243b7a]'}`}>
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="flex-1 min-w-0">
         {signals.headline && (
-          <p className={`text-xs font-semibold ${isUrgent ? 'text-operations-on' : 'text-science-on'}`}>{signals.headline}</p>
+          <p className={`text-xs font-semibold ${isUrgent ? 'text-[#243b7a]' : 'text-[#243b7a]'}`}>{signals.headline}</p>
         )}
         {triggerList.length > 0 && (
-          <p className="text-[11px] text-lcars-muted mt-0.5">{triggerList.slice(0, 2).join(' · ')}{triggerList.length > 2 ? ` +${triggerList.length - 2} more` : ''}</p>
+          <p className="text-[11px] text-[#61718c] mt-0.5">{triggerList.slice(0, 2).join(' · ')}{triggerList.length > 2 ? ` +${triggerList.length - 2} more` : ''}</p>
         )}
       </div>
       <button onClick={() => setDismissed(true)}
-        className="shrink-0 text-[10px] text-lcars-muted hover:text-lcars-text transition-colors uppercase tracking-widest">
+        className="shrink-0 text-[10px] text-[#61718c] hover:text-[#18223a] transition-colors uppercase tracking-widest">
         Dismiss
       </button>
     </div>
@@ -294,30 +387,30 @@ interface CouncilAdvisor {
 
 const COUNCIL: CouncilAdvisor[] = [
   // Command
-  { id: 'xo',               label: 'XO',               subtitle: 'Executive Officer',        accent: 'text-command-on',    group: 'Command', useXoEndpoint: true },
-  { id: 'chief_engineer',   label: 'Chief Engineer',   subtitle: 'Architecture & Engineering', accent: 'text-engineering-on', group: 'Command' },
-  { id: 'research_officer', label: 'Research Officer', subtitle: 'Intelligence & Analysis',   accent: 'text-science-on',    group: 'Command' },
+  { id: 'xo',               label: 'XO',               subtitle: 'Executive Officer',        accent: 'text-[#243b7a]',    group: 'Command', useXoEndpoint: true },
+  { id: 'chief_engineer',   label: 'Chief Engineer',   subtitle: 'Architecture & Engineering', accent: 'text-[#243b7a]', group: 'Command' },
+  { id: 'research_officer', label: 'Research Officer', subtitle: 'Intelligence & Analysis',   accent: 'text-[#243b7a]',    group: 'Command' },
   // Operations
-  { id: 'number_one',       label: 'Number One',       subtitle: 'Priorities & Sequencing',  accent: 'text-operations-on', group: 'Operations' },
+  { id: 'number_one',       label: 'Number One',       subtitle: 'Priorities & Sequencing',  accent: 'text-[#243b7a]', group: 'Operations' },
   // Wellness
-  { id: 'medical_officer',  label: 'Medical Officer',  subtitle: 'Capacity & Health',         accent: 'text-medical-on',    group: 'Wellness' },
-  { id: 'recovery_officer', label: 'Recovery Officer', subtitle: 'Directive 055 Compliance',  accent: 'text-medical-on',    group: 'Wellness' },
-  { id: 'wellness_advisor', label: 'Wellness Advisor', subtitle: 'Whole-Person Wellbeing',    accent: 'text-medical-on',    group: 'Wellness' },
-  { id: 'recovery_coach',   label: 'Recovery Coach',   subtitle: 'Protocol Optimisation',     accent: 'text-medical-on',    group: 'Wellness' },
-  { id: 'performance_coach',label: 'Perf. Coach',      subtitle: 'Capacity Windows',          accent: 'text-medical-on',    group: 'Wellness' },
+  { id: 'medical_officer',  label: 'Medical Officer',  subtitle: 'Capacity & Health',         accent: 'text-[#243b7a]',    group: 'Wellness' },
+  { id: 'recovery_officer', label: 'Recovery Officer', subtitle: 'Directive 055 Compliance',  accent: 'text-[#243b7a]',    group: 'Wellness' },
+  { id: 'wellness_advisor', label: 'Wellness Advisor', subtitle: 'Whole-Person Wellbeing',    accent: 'text-[#243b7a]',    group: 'Wellness' },
+  { id: 'recovery_coach',   label: 'Recovery Coach',   subtitle: 'Protocol Optimisation',     accent: 'text-[#243b7a]',    group: 'Wellness' },
+  { id: 'performance_coach',label: 'Perf. Coach',      subtitle: 'Capacity Windows',          accent: 'text-[#243b7a]',    group: 'Wellness' },
   // Operational Resilience
-  { id: 'or_advisor',       label: 'OR Advisor',       subtitle: 'Operational Resilience',    accent: 'text-operations-on', group: 'Resilience' },
-  { id: 'bc_advisor',       label: 'BC Advisor',       subtitle: 'Business Continuity',       accent: 'text-operations-on', group: 'Resilience' },
-  { id: 'crisis_advisor',   label: 'Crisis Advisor',   subtitle: 'Crisis Management',         accent: 'text-operations-on', group: 'Resilience' },
-  { id: 'executive_risk_advisor', label: 'Risk Advisor', subtitle: 'Executive Risk',          accent: 'text-operations-on', group: 'Resilience' },
+  { id: 'or_advisor',       label: 'OR Advisor',       subtitle: 'Operational Resilience',    accent: 'text-[#243b7a]', group: 'Resilience' },
+  { id: 'bc_advisor',       label: 'BC Advisor',       subtitle: 'Business Continuity',       accent: 'text-[#243b7a]', group: 'Resilience' },
+  { id: 'crisis_advisor',   label: 'Crisis Advisor',   subtitle: 'Crisis Management',         accent: 'text-[#243b7a]', group: 'Resilience' },
+  { id: 'executive_risk_advisor', label: 'Risk Advisor', subtitle: 'Executive Risk',          accent: 'text-[#243b7a]', group: 'Resilience' },
 
   // ── Advisory Board — Independent Strategic Council ──────────────────────────
-  { id: 'strategist',            label: 'Strategist',    subtitle: 'Long-Range Strategy',   accent: 'text-science-on',     group: 'Advisory Board' },
+  { id: 'strategist',            label: 'Strategist',    subtitle: 'Long-Range Strategy',   accent: 'text-[#243b7a]',     group: 'Advisory Board' },
   { id: 'challenger',            label: 'Challenger',    subtitle: "Devil's Advocate",       accent: 'text-alert-on',       group: 'Advisory Board' },
-  { id: 'operator',              label: 'Operator',      subtitle: 'Execution Reality',      accent: 'text-engineering-on', group: 'Advisory Board' },
-  { id: 'external_lens',         label: 'Ext. Lens',     subtitle: 'Market & World View',    accent: 'text-science-on',     group: 'Advisory Board' },
-  { id: 'commercial_realist',    label: 'Commercial',    subtitle: 'Commercial Viability',   accent: 'text-command-on',     group: 'Advisory Board' },
-  { id: 'human_systems_advisor', label: 'Human Systems', subtitle: 'People & Culture',       accent: 'text-medical-on',     group: 'Advisory Board' },
+  { id: 'operator',              label: 'Operator',      subtitle: 'Execution Reality',      accent: 'text-[#243b7a]', group: 'Advisory Board' },
+  { id: 'external_lens',         label: 'Ext. Lens',     subtitle: 'Market & World View',    accent: 'text-[#243b7a]',     group: 'Advisory Board' },
+  { id: 'commercial_realist',    label: 'Commercial',    subtitle: 'Commercial Viability',   accent: 'text-[#243b7a]',     group: 'Advisory Board' },
+  { id: 'human_systems_advisor', label: 'Human Systems', subtitle: 'People & Culture',       accent: 'text-[#243b7a]',     group: 'Advisory Board' },
 ];
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
@@ -387,6 +480,10 @@ function ConsultMode() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = '', buf = '';
+      // MSN-0352: capture the backend's deterministic action-proposal
+      // outcomes alongside the streamed text - this is the code-side
+      // record of what actually happened, independent of the model's prose.
+      let proposals: ActionResult[] = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -396,11 +493,15 @@ function ConsultMode() {
           if (!line.startsWith('data: ')) continue;
           const payload = line.slice(6).trim();
           if (payload === '[DONE]') break;
-          try { const p = JSON.parse(payload) as { token?: string }; if (p.token) { acc += p.token; setStreamBuffer(acc); } } catch { /* skip */ }
+          try {
+            const p = JSON.parse(payload) as { token?: string; actions?: ActionResult[] };
+            if (p.token) { acc += p.token; setStreamBuffer(acc); }
+            if (p.actions?.length) proposals = p.actions;
+          } catch { /* skip */ }
         }
       }
       const finalContent = acc || '(no response)';
-      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: finalContent }] }));
+      setThreads((prev) => ({ ...prev, [activeAdvisor.id]: [...(prev[activeAdvisor.id] ?? []), { id: (Date.now() + 1).toString(), role: 'assistant', content: finalContent, proposals: proposals.length ? proposals : undefined }] }));
       setStreamBuffer('');
       // Persist to Supabase (best-effort)
       fetch('/api/advisory-sessions', {
@@ -430,13 +531,13 @@ function ConsultMode() {
       <div className="flex flex-col gap-3 w-full lg:w-44 shrink-0 pt-1 overflow-y-auto">
         {Object.entries(groups).map(([group, advisors]) => (
           <div key={group}>
-            <p className="text-[9px] uppercase tracking-[0.2em] text-lcars-muted mb-1 px-1">{group}</p>
+            <p className="text-[9px] uppercase tracking-[0.2em] text-[#61718c] mb-1 px-1">{group}</p>
             <div className="flex flex-col gap-1">
               {advisors.map((a) => (
                 <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
-                  className={['rounded-lcars border px-2.5 py-2 text-left transition-colors', activeAdvisor.id === a.id ? `border-command bg-command/10 ${a.accent}` : 'border-edge text-lcars-muted hover:border-edge/60'].join(' ')}>
+                  className={['rounded-lcars border px-2.5 py-2 text-left transition-colors', activeAdvisor.id === a.id ? `border-[#243b7a] bg-[#243b7a]/10 ${a.accent}` : 'border-[#d9e1f0] text-[#61718c] hover:border-[#d9e1f0]/60'].join(' ')}>
                   <p className={`text-xs font-lcars uppercase tracking-wider ${activeAdvisor.id === a.id ? a.accent : ''}`}>{a.label}</p>
-                  <p className="text-[9px] text-lcars-muted leading-tight mt-0.5">{a.subtitle}</p>
+                  <p className="text-[9px] text-[#61718c] leading-tight mt-0.5">{a.subtitle}</p>
                 </button>
               ))}
             </div>
@@ -448,50 +549,51 @@ function ConsultMode() {
       <LCARSPanel title={`${activeAdvisor.label} — ${activeAdvisor.subtitle}`} accent="command" className="flex-1 min-w-0"
         actions={messages.length > 0 ? (
           <button onClick={clearThread} disabled={loading}
-            className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-operations-on transition-colors disabled:opacity-40">
+            className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors disabled:opacity-40">
             Clear
           </button>
         ) : undefined}>
         {isOffline ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-            <p className="text-lcars-muted text-sm">{activeAdvisor.label} is offline (AI model not configured).</p>
-            <p className="text-lcars-text/60 text-xs max-w-sm">Use the <span className="text-command-on font-semibold">Board</span> tab for advisory via the intelligence runtime.</p>
+            <p className="text-[#61718c] text-sm">{activeAdvisor.label} is offline (AI model not configured).</p>
+            <p className="text-[#18223a]/60 text-xs max-w-sm">Use the <span className="text-[#243b7a] font-semibold">Board</span> tab for advisory via the intelligence runtime.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <div className="overflow-y-auto space-y-3 pr-1" style={{ maxHeight: 'calc(65vh - 200px)' }}>
               {messages.length === 0 && !loading && (
-                <p className="text-lcars-muted text-sm text-center py-8">{activeAdvisor.label} standing by.</p>
+                <p className="text-[#61718c] text-sm text-center py-8">{activeAdvisor.label} standing by.</p>
               )}
               {messages.map((m) => {
                 const isUser = m.role === 'user';
                 return (
                   <div key={m.id} style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-                    <div className={['rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed', isUser ? 'border-command/40 bg-command/10 text-lcars-text' : m.error ? 'border-operations/40 bg-operations/10 text-operations-on' : 'border-edge bg-panel/60 text-lcars-text/90'].join(' ')} style={{ maxWidth: '90%' }}>
+                    <div className={['rounded-lcars border px-3.5 py-2.5 text-sm leading-relaxed', isUser ? 'border-[#243b7a]/40 bg-[#243b7a]/10 text-[#18223a]' : m.error ? 'border-[#243b7a]/40 bg-[#243b7a]/10 text-[#243b7a]' : 'border-[#d9e1f0] bg-white/60 text-[#18223a]/90'].join(' ')} style={{ maxWidth: '90%' }}>
                       {!isUser && !m.error && <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.accent}`}>{activeAdvisor.label}</p>}
                       {isUser ? <span className="whitespace-pre-wrap">{m.content}</span> : (
-                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-lcars-text prose-headings:font-lcars prose-strong:text-lcars-text prose-li:my-0.5 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-[#18223a] prose-headings:font-lcars prose-strong:text-[#18223a] prose-li:my-0.5 prose-code:text-[#243b7a] prose-code:bg-[#f5f7fb]/60 prose-code:px-1 prose-code:rounded">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
+                      {!isUser && m.proposals && <ProposalBlock proposals={m.proposals} />}
                     </div>
                   </div>
                 );
               })}
               {loading && streamBuffer && (
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div className="max-w-[90%] rounded-lcars border border-edge bg-panel/60 px-3.5 py-2.5 text-sm leading-relaxed text-lcars-text/90">
+                  <div className="max-w-[90%] rounded-lcars border border-[#d9e1f0] bg-white/60 px-3.5 py-2.5 text-sm leading-relaxed text-[#18223a]/90">
                     <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.accent}`}>{activeAdvisor.label}</p>
                     <div className="prose prose-sm max-w-none prose-p:my-1"><ReactMarkdown>{streamBuffer}</ReactMarkdown></div>
-                    <span className="inline-block w-1.5 h-3.5 bg-science animate-pulse ml-0.5 align-middle" />
+                    <span className="inline-block w-1.5 h-3.5 bg-[#243b7a] animate-pulse ml-0.5 align-middle" />
                   </div>
                 </div>
               )}
               {loading && !streamBuffer && (
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <div className="rounded-lcars border border-edge bg-panel/60 px-4 py-3">
+                  <div className="rounded-lcars border border-[#d9e1f0] bg-white/60 px-4 py-3">
                     <div style={{ display: 'flex', height: '12px', alignItems: 'center', gap: '6px' }}>
-                      {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i * 150}ms` }} />)}
+                      {[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i * 150}ms` }} />)}
                     </div>
                   </div>
                 </div>
@@ -501,18 +603,18 @@ function ConsultMode() {
             <div className="flex flex-wrap gap-1.5">
               {QUICK_PROMPTS.map((p) => (
                 <button key={p} onClick={() => send(p)} disabled={loading}
-                  className="rounded-lcars border border-edge px-2.5 py-1 text-[10px] uppercase tracking-wider text-lcars-muted hover:border-science hover:text-science-on transition-colors disabled:opacity-40">
+                  className="rounded-lcars border border-[#d9e1f0] px-2.5 py-1 text-[10px] uppercase tracking-wider text-[#61718c] hover:border-[#243b7a] hover:text-[#243b7a] transition-colors disabled:opacity-40">
                   {p}
                 </button>
               ))}
             </div>
             {!activeAdvisor.useXoEndpoint && (
               <div className="flex items-center gap-2">
-                <label className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted">Model</label>
+                <label className="text-[10px] uppercase tracking-[0.2em] text-[#61718c]">Model</label>
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
-                  className="rounded-lcars border border-edge bg-space px-2 py-1 text-xs text-lcars-text focus:border-science focus:outline-none"
+                  className="rounded-lcars border border-[#d9e1f0] bg-[#f5f7fb] px-2 py-1 text-xs text-[#18223a] focus:border-[#243b7a] focus:outline-none"
                 >
                   {AI_MODELS.filter((m) => m.available).map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
@@ -523,9 +625,9 @@ function ConsultMode() {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
               <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
                 placeholder={`Message ${activeAdvisor.label}…`} disabled={loading}
-                className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
+                className="flex-1 resize-y rounded-lcars border border-[#d9e1f0] bg-[#f5f7fb] px-3 py-2 text-sm text-[#18223a] placeholder:text-[#61718c] focus:border-[#243b7a] focus:outline-none disabled:opacity-50 min-h-[72px]" />
               <button onClick={() => send(input)} disabled={loading || !input.trim()}
-                className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+                className="self-stretch rounded-lcars bg-[#243b7a] px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
                 Send
               </button>
             </div>
@@ -541,19 +643,44 @@ function ConsultMode() {
 interface BoardSession { id: string; ts: number; question: string; result: AdvisoryResult }
 const LS_BOARD_LOG = 'lcars-board-log';
 
-function BoardMode() {
-  const [input, setInput] = useState('');
+function BoardMode({
+  investigationType,
+  investigationReason,
+}: {
+  investigationType?: string;
+  investigationReason?: string;
+}) {
+  const [input, setInput] = useState(investigationReason ?? '');
   const [isScenario, setIsScenario] = useState(false);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<AdvisoryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<BoardSession[]>([]);
   const [showLog, setShowLog] = useState(false);
+  const [recommendations, setRecommendations] = useState<RecommendationPackage | null>(null);
+  const [investigation, setInvestigation] = useState<InvestigationRunResult | null>(null);
   const elapsed = useElapsed(loading);
 
   useEffect(() => {
     try { const raw = localStorage.getItem(LS_BOARD_LOG); if (raw) setLog(JSON.parse(raw) as BoardSession[]); } catch { /* ignore */ }
   }, []);
+
+  // EOS Phase 2 Priority 4: the Recommendation Engine's current top
+  // priorities are always relevant standing evidence for the Board, not
+  // just on a deep link - fetched once per Board visit, best-effort.
+  useEffect(() => {
+    fetchRecommendations().then(setRecommendations);
+  }, []);
+
+  // A specific investigation is only fetched when arrived at via a real
+  // contextual link (e.g. from /investigate's "Consult the Advisory
+  // Council on this") - never fabricated, never guessed from the free-text
+  // question the Captain types directly into Board.
+  useEffect(() => {
+    if (investigationType && investigationReason) {
+      fetchInvestigation(investigationType, investigationReason).then(setInvestigation);
+    }
+  }, [investigationType, investigationReason]);
 
   const submit = async () => {
     const trimmed = input.trim();
@@ -597,10 +724,10 @@ function BoardMode() {
       actions={
         log.length > 0 ? (
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowLog((v) => !v)} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
+            <button onClick={() => setShowLog((v) => !v)} className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors">
               {showLog ? 'Hide Log' : `Log (${log.length})`}
             </button>
-            <button onClick={exportLog} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
+            <button onClick={exportLog} className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors">
               Export ↓
             </button>
           </div>
@@ -609,16 +736,16 @@ function BoardMode() {
       <div className="space-y-4">
 
         {showLog && log.length > 0 && (
-          <div className="rounded-lcars border border-edge bg-panel/40 p-3 space-y-2 max-h-56 overflow-y-auto">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Session History</p>
+          <div className="rounded-lcars border border-[#d9e1f0] bg-white/40 p-3 space-y-2 max-h-56 overflow-y-auto">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Session History</p>
             {log.map((s) => (
-              <div key={s.id} className="flex items-start justify-between gap-2 border-b border-edge/40 pb-2 last:border-0">
+              <div key={s.id} className="flex items-start justify-between gap-2 border-b border-[#d9e1f0]/40 pb-2 last:border-0">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-lcars-text/80 truncate">{s.question}</p>
-                  <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()}</p>
+                  <p className="text-xs text-[#18223a]/80 truncate">{s.question}</p>
+                  <p className="text-[10px] text-[#61718c]">{new Date(s.ts).toLocaleString()}</p>
                 </div>
                 <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); }}
-                  className="shrink-0 text-[9px] text-science-on hover:text-science-on/70 uppercase tracking-widest">View</button>
+                  className="shrink-0 text-[9px] text-[#243b7a] hover:text-[#243b7a]/70 uppercase tracking-widest">View</button>
               </div>
             ))}
           </div>
@@ -626,40 +753,42 @@ function BoardMode() {
 
         <div className="space-y-2">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-xs text-lcars-muted uppercase tracking-wider">Mode</span>
+            <span className="text-xs text-[#61718c] uppercase tracking-wider">Mode</span>
             {(['Advisory', 'Scenario'] as const).map((m) => {
               const isActive = m === 'Scenario' ? isScenario : !isScenario;
               return (
                 <button key={m} onClick={() => setIsScenario(m === 'Scenario')}
-                  className={`rounded-lcars border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors ${isActive ? (m === 'Scenario' ? 'border-science bg-science/10 text-science-on' : 'border-command bg-command/10 text-command-on') : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
+                  className={`rounded-lcars border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors ${isActive ? (m === 'Scenario' ? 'border-[#243b7a] bg-[#243b7a]/10 text-[#243b7a]' : 'border-[#243b7a] bg-[#243b7a]/10 text-[#243b7a]') : 'border-[#d9e1f0] text-[#61718c] hover:border-[#d9e1f0]/60'}`}>
                   {m}
                 </button>
               );
             })}
-            {isScenario && <span className="text-[10px] text-science-on/70 italic">What would happen if…</span>}
+            {isScenario && <span className="text-[10px] text-[#243b7a]/70 italic">What would happen if…</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
               placeholder={isScenario ? 'What would happen if…' : 'Bring a question to the Advisory Board…'} disabled={loading}
-              className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
+              className="flex-1 resize-y rounded-lcars border border-[#d9e1f0] bg-[#f5f7fb] px-3 py-2 text-sm text-[#18223a] placeholder:text-[#61718c] focus:border-[#243b7a] focus:outline-none disabled:opacity-50 min-h-[72px]" />
             <button onClick={submit} disabled={loading || !input.trim()}
-              className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+              className="self-stretch rounded-lcars bg-[#243b7a] px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
               Convene
             </button>
           </div>
         </div>
 
+        <EvidencePanel recommendations={recommendations} investigation={investigation} />
+
         {loading && (
           <div className="flex items-center gap-3 py-4">
-            {[0, 1, 2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i * 150}ms` }} />)}
-            <span className="text-lcars-muted text-sm">Convening Advisory Board…</span>
-            <span className="text-[10px] text-lcars-muted font-mono ml-auto">{elapsed}s</span>
+            {[0, 1, 2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i * 150}ms` }} />)}
+            <span className="text-[#61718c] text-sm">Convening Advisory Board…</span>
+            <span className="text-[10px] text-[#61718c] font-mono ml-auto">{elapsed}s</span>
           </div>
         )}
         {error && (
-          <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
+          <div className="rounded-lcars border border-[#243b7a]/40 bg-[#243b7a]/10 px-4 py-3 text-sm text-[#243b7a]">
             <p className="font-semibold mb-1">Advisory runtime offline</p>
-            <p className="text-operations-on/80 text-xs">{error}</p>
+            <p className="text-[#243b7a]/80 text-xs">{error}</p>
           </div>
         )}
         {summary && !loading && (
@@ -667,21 +796,21 @@ function BoardMode() {
             <AdvisoryBlock data={summary} />
             {perspectives.length > 0 && (
               <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Officer Perspectives</p>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Officer Perspectives</p>
                 <div className="space-y-2">
                   {perspectives.map((op, i) => {
                     const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase());
-                    const accentClass = advisor?.accent ?? 'text-science-on';
+                    const accentClass = advisor?.accent ?? 'text-[#243b7a]';
                     const stance = op.stance ?? '';
-                    const stanceColor = stance === 'supports' ? 'text-medical-on' : stance === 'cautions' ? 'text-operations-on' : 'text-lcars-muted';
+                    const stanceColor = stance === 'supports' ? 'text-[#243b7a]' : stance === 'cautions' ? 'text-[#243b7a]' : 'text-[#61718c]';
                     return (
-                      <div key={i} className="rounded-lcars border border-edge bg-panel/50 px-4 py-3 space-y-1.5">
+                      <div key={i} className="rounded-lcars border border-[#d9e1f0] bg-white/50 px-4 py-3 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <p className={`text-[11px] uppercase tracking-wider font-semibold ${accentClass}`}>{op.officer}</p>
                           {stance && <span className={`text-[9px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
                         </div>
-                        <p className="text-sm text-lcars-text/85 leading-relaxed">{op.recommendation}</p>
-                        {op.confidence !== undefined && <p className="text-[9px] text-lcars-muted">Confidence: {op.confidence}%</p>}
+                        <p className="text-sm text-[#18223a]/85 leading-relaxed">{op.recommendation}</p>
+                        {op.confidence !== undefined && <p className="text-[9px] text-[#61718c]">Confidence: {op.confidence}%</p>}
                       </div>
                     );
                   })}
@@ -717,9 +846,9 @@ function BriefMode() {
 
   return (
     <LCARSPanel title="Daily Brief" accent="science"
-      actions={<button onClick={fetchBrief} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors disabled:opacity-40">Refresh</button>}>
-      {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-lcars-muted text-sm">Fetching brief…</span></div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold mb-1">Intelligence runtime offline</p><p className="text-operations-on/80 text-xs">{error}</p></div>}
+      actions={<button onClick={fetchBrief} disabled={loading} className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors disabled:opacity-40">Refresh</button>}>
+      {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-[#61718c] text-sm">Fetching brief…</span></div>}
+      {error && <div className="rounded-lcars border border-[#243b7a]/40 bg-[#243b7a]/10 px-4 py-3 text-sm text-[#243b7a]"><p className="font-semibold mb-1">Intelligence runtime offline</p><p className="text-[#243b7a]/80 text-xs">{error}</p></div>}
       {result && !loading && <AdvisoryBlock data={result} />}
     </LCARSPanel>
   );
@@ -747,9 +876,9 @@ function PictureMode() {
 
   return (
     <LCARSPanel title="Operating Picture" accent="command"
-      actions={<button onClick={fetchPicture} disabled={loading} className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-command-on transition-colors disabled:opacity-40">Refresh</button>}>
-      {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-command" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-lcars-muted text-sm">Assembling operating picture…</span></div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold mb-1">Advisory runtime offline</p><p className="text-operations-on/80 text-xs">{error}</p></div>}
+      actions={<button onClick={fetchPicture} disabled={loading} className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors disabled:opacity-40">Refresh</button>}>
+      {loading && <div className="flex items-center gap-3 py-8">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i*150}ms` }} />)}<span className="text-[#61718c] text-sm">Assembling operating picture…</span></div>}
+      {error && <div className="rounded-lcars border border-[#243b7a]/40 bg-[#243b7a]/10 px-4 py-3 text-sm text-[#243b7a]"><p className="font-semibold mb-1">Advisory runtime offline</p><p className="text-[#243b7a]/80 text-xs">{error}</p></div>}
       {result && !loading && <OperationalCard data={result} />}
     </LCARSPanel>
   );
@@ -784,11 +913,11 @@ function IntelPanel({ action }: { action: string }) {
 
   return (
     <div>
-      {loading && <div className="flex items-center gap-3 py-6">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}</div>}
-      {error && <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on"><p className="font-semibold">Intelligence runtime offline</p><p className="text-xs mt-1 text-operations-on/80">{error}</p></div>}
-      {!loading && !error && items.length === 0 && <p className="text-lcars-muted text-sm py-6">No data available.</p>}
+      {loading && <div className="flex items-center gap-3 py-6">{[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i*150}ms` }} />)}</div>}
+      {error && <div className="rounded-lcars border border-[#243b7a]/40 bg-[#243b7a]/10 px-4 py-3 text-sm text-[#243b7a]"><p className="font-semibold">Intelligence runtime offline</p><p className="text-xs mt-1 text-[#243b7a]/80">{error}</p></div>}
+      {!loading && !error && items.length === 0 && <p className="text-[#61718c] text-sm py-6">No data available.</p>}
       <div className="space-y-2 mt-2">{items.map((item, i) => <IntelResultCard key={i} action={action} data={item} />)}</div>
-      {!loading && <button onClick={fetch_} className="mt-3 rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">Refresh</button>}
+      {!loading && <button onClick={fetch_} className="mt-3 rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors">Refresh</button>}
     </div>
   );
 }
@@ -798,7 +927,7 @@ function IntelligenceMode() {
   const active = INTEL_TABS.find((t) => t.id === tab)!;
   return (
     <LCARSPanel title="Intelligence" accent="science">
-      <div className="flex border-b border-edge mb-4">{INTEL_TABS.map((t) => <TabBtn key={t.id} label={t.label} glyph={t.glyph} active={tab === t.id} onClick={() => setTab(t.id)} />)}</div>
+      <div className="flex border-b border-[#d9e1f0] mb-4">{INTEL_TABS.map((t) => <TabBtn key={t.id} label={t.label} glyph={t.glyph} active={tab === t.id} onClick={() => setTab(t.id)} />)}</div>
       <IntelPanel key={active.id} action={active.action} />
     </LCARSPanel>
   );
@@ -1018,11 +1147,11 @@ function PerspectivesMode() {
           {log.length > 0 && (
             <>
               <button onClick={() => setShowLog((v) => !v)}
-                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
+                className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors">
                 {showLog ? 'Hide Log' : `Log (${log.length})`}
               </button>
               <button onClick={exportSession}
-                className="rounded-lcars border border-edge px-3 py-1 text-[10px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors">
+                className="rounded-lcars border border-[#d9e1f0] px-3 py-1 text-[10px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors">
                 Export ↓
               </button>
             </>
@@ -1033,29 +1162,29 @@ function PerspectivesMode() {
 
         {/* Session log */}
         {showLog && log.length > 0 && (
-          <div className="rounded-lcars border border-edge bg-panel/40 p-3 space-y-3 max-h-64 overflow-y-auto">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Session History</p>
+          <div className="rounded-lcars border border-[#d9e1f0] bg-white/40 p-3 space-y-3 max-h-64 overflow-y-auto">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Session History</p>
             {log.map((s) => (
-              <div key={s.id} className="space-y-1 border-b border-edge/40 pb-2 last:border-0">
+              <div key={s.id} className="space-y-1 border-b border-[#d9e1f0]/40 pb-2 last:border-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs text-lcars-text/80 flex-1">{s.question}</p>
+                  <p className="text-xs text-[#18223a]/80 flex-1">{s.question}</p>
                   <button onClick={() => { setInput(s.question); setShowLog(false); }}
-                    className="shrink-0 text-[9px] text-science-on hover:text-science-on/70 uppercase tracking-widest">Re-ask</button>
+                    className="shrink-0 text-[9px] text-[#243b7a] hover:text-[#243b7a]/70 uppercase tracking-widest">Re-ask</button>
                 </div>
-                <p className="text-[10px] text-lcars-muted">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
+                <p className="text-[10px] text-[#61718c]">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
               </div>
             ))}
           </div>
         )}
 
         {loadingList ? (
-          <p className="text-lcars-muted text-sm">Loading perspectives…</p>
+          <p className="text-[#61718c] text-sm">Loading perspectives…</p>
         ) : (
           <div className="space-y-3">
 
             {/* Selection mode row */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Select by</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Select by</span>
               {/* Category chips */}
               {CATEGORIES.map((cat) => {
                 const isActive = selectionMode === 'category' && activeCategory === cat.key;
@@ -1063,21 +1192,21 @@ function PerspectivesMode() {
                 if (count === 0) return null;
                 return (
                   <button key={cat.key} onClick={() => selectCategory(cat.key)}
-                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${isActive ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40 hover:text-lcars-text'}`}>
+                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${isActive ? 'border-[#243b7a] bg-[#243b7a]/15 text-[#243b7a]' : 'border-[#d9e1f0]/60 text-[#61718c] hover:border-[#243b7a]/40 hover:text-[#18223a]'}`}>
                     {cat.label} <span className="opacity-60">({count})</span>
                   </button>
                 );
               })}
               {/* All button */}
               <button onClick={selectAll}
-                className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${selectionMode === 'all' ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40 hover:text-lcars-text'}`}>
+                className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${selectionMode === 'all' ? 'border-[#243b7a] bg-[#243b7a]/15 text-[#243b7a]' : 'border-[#d9e1f0]/60 text-[#61718c] hover:border-[#243b7a]/40 hover:text-[#18223a]'}`}>
                 All ({available.length})
               </button>
             </div>
 
             {/* Individual figure chips */}
             <div>
-              <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted mb-2">
+              <p className="text-[10px] uppercase tracking-[0.15em] text-[#61718c] mb-2">
                 {selectionMode === 'individual' ? 'Or pick individual voices' : `Active: ${selectionCount} voice${selectionCount !== 1 ? 's' : ''}`}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -1085,7 +1214,7 @@ function PerspectivesMode() {
                   const isOn = selectionMode === 'all' || (selectionMode === 'category' && p.category === activeCategory) || selected.has(p.name);
                   return (
                     <button key={p.name} onClick={() => toggleSelect(p.name)}
-                      className={`rounded-lcars border px-3 py-1.5 text-xs font-lcars uppercase tracking-wider transition-colors ${isOn ? 'border-science bg-science/10 text-science-on' : 'border-edge text-lcars-muted hover:border-edge/60'}`}>
+                      className={`rounded-lcars border px-3 py-1.5 text-xs font-lcars uppercase tracking-wider transition-colors ${isOn ? 'border-[#243b7a] bg-[#243b7a]/10 text-[#243b7a]' : 'border-[#d9e1f0] text-[#61718c] hover:border-[#d9e1f0]/60'}`}>
                       {p.label}
                     </button>
                   );
@@ -1096,10 +1225,10 @@ function PerspectivesMode() {
             {/* Response mode toggle */}
             {selectionCount > 1 && (
               <div className="flex items-center gap-3">
-                <span className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Response</span>
+                <span className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Response</span>
                 {(['individual', 'synthesised'] as ResponseMode[]).map((m) => (
                   <button key={m} onClick={() => setResponseMode(m)}
-                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${responseMode === m ? 'border-science bg-science/15 text-science-on' : 'border-edge/60 text-lcars-muted hover:border-science/40'}`}>
+                    className={`rounded-lcars border px-3 py-1 text-[10px] font-lcars uppercase tracking-wider transition-colors ${responseMode === m ? 'border-[#243b7a] bg-[#243b7a]/15 text-[#243b7a]' : 'border-[#d9e1f0]/60 text-[#61718c] hover:border-[#243b7a]/40'}`}>
                     {m === 'individual' ? 'Individual voices' : 'Group synthesis'}
                   </button>
                 ))}
@@ -1111,35 +1240,35 @@ function PerspectivesMode() {
               <textarea value={input} onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); convene(); } }}
                 rows={3} placeholder="What would these perspectives say about…?" disabled={selectionCount === 0 || anyLoading}
-                className="flex-1 resize-y rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-science focus:outline-none disabled:opacity-50 min-h-[72px]" />
+                className="flex-1 resize-y rounded-lcars border border-[#d9e1f0] bg-[#f5f7fb] px-3 py-2 text-sm text-[#18223a] placeholder:text-[#61718c] focus:border-[#243b7a] focus:outline-none disabled:opacity-50 min-h-[72px]" />
               <button onClick={() => convene()} disabled={selectionCount === 0 || !input.trim() || anyLoading}
-                className="self-stretch rounded-lcars bg-science px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+                className="self-stretch rounded-lcars bg-[#243b7a] px-4 font-lcars text-sm font-bold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
                 Ask
               </button>
             </div>
-            {selectionCount === 0 && !anyLoading && <p className="text-[10px] text-lcars-muted">Select voices above — by category, all, or individually.</p>}
+            {selectionCount === 0 && !anyLoading && <p className="text-[10px] text-[#61718c]">Select voices above — by category, all, or individually.</p>}
           </div>
         )}
 
         {/* Loading state */}
         {(anyLoading || synthesising) && (
           <div className="flex items-center gap-3 py-2">
-            {[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-science" style={{ animationDelay: `${i*150}ms` }} />)}
-            <span className="text-lcars-muted text-sm">
+            {[0,1,2].map((i) => <span key={i} className="h-2 w-2 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${i*150}ms` }} />)}
+            <span className="text-[#61718c] text-sm">
               {synthesising ? 'Synthesising panel response…' : `Gathering ${totalLoading} perspective${totalLoading !== 1 ? 's' : ''}…`}
             </span>
-            <span className="text-[10px] text-lcars-muted font-mono ml-auto">{elapsed}s</span>
+            <span className="text-[10px] text-[#61718c] font-mono ml-auto">{elapsed}s</span>
           </div>
         )}
 
         {/* Group synthesis result */}
         {synthesis && !synthesising && (
-          <div className="rounded-lcars border border-science/40 bg-science/5">
-            <div className="px-4 py-2.5 border-b border-science/30">
-              <p className="text-[11px] uppercase tracking-widest text-science-on font-semibold">Panel Synthesis</p>
+          <div className="rounded-lcars border border-[#243b7a]/40 bg-[#243b7a]/5">
+            <div className="px-4 py-2.5 border-b border-[#243b7a]/30">
+              <p className="text-[11px] uppercase tracking-widest text-[#243b7a] font-semibold">Panel Synthesis</p>
             </div>
             <div className="px-5 py-4">
-              <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2">
+              <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-[#18223a] prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-[#18223a] prose-li:my-1 prose-ul:my-2 prose-ol:my-2">
                 <ReactMarkdown>{synthesis}</ReactMarkdown>
               </div>
             </div>
@@ -1150,31 +1279,31 @@ function PerspectivesMode() {
         {hasActive && (
           <div className="space-y-4">
             {responseMode === 'synthesised' && synthesis && (
-              <p className="text-[10px] uppercase tracking-[0.15em] text-lcars-muted">Individual voices</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-[#61718c]">Individual voices</p>
             )}
             {responses.map((r, i) => (
-              <div key={i} className="rounded-lcars border border-edge bg-panel/50">
-                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-edge/50">
-                  <span className="text-[11px] uppercase tracking-widest text-science-on font-semibold">{r.perspective.label}</span>
+              <div key={i} className="rounded-lcars border border-[#d9e1f0] bg-white/50">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-[#d9e1f0]/50">
+                  <span className="text-[11px] uppercase tracking-widest text-[#243b7a] font-semibold">{r.perspective.label}</span>
                   <div className="flex items-center gap-2">
                     {r.response && !r.loading && (
                       <button onClick={() => convene([r.perspective.name])} disabled={anyLoading || !input.trim()}
-                        className="text-[9px] uppercase tracking-widest text-lcars-muted hover:text-science-on transition-colors disabled:opacity-40">
+                        className="text-[9px] uppercase tracking-widest text-[#61718c] hover:text-[#243b7a] transition-colors disabled:opacity-40">
                         ↺ Regenerate
                       </button>
                     )}
                     {r.loading && (
                       <div className="flex items-center gap-1.5">
-                        {[0,1,2].map((j) => <span key={j} className="h-1.5 w-1.5 animate-pulse rounded-full bg-science" style={{ animationDelay: `${j*150}ms` }} />)}
+                        {[0,1,2].map((j) => <span key={j} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#243b7a]" style={{ animationDelay: `${j*150}ms` }} />)}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="px-5 py-4">
-                  {r.error && <p className="text-sm text-operations-on">{r.error}</p>}
-                  {!r.loading && !r.error && !r.response && <p className="text-sm text-lcars-muted">No response.</p>}
+                  {r.error && <p className="text-sm text-[#243b7a]">{r.error}</p>}
+                  {!r.loading && !r.error && !r.response && <p className="text-sm text-[#61718c]">No response.</p>}
                   {r.response && !r.loading && (
-                    <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-lcars-text prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-lcars-text prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-command-on prose-code:bg-space/60 prose-code:px-1 prose-code:rounded">
+                    <div className="prose prose-base max-w-none prose-p:my-2 prose-p:leading-7 prose-headings:text-[#18223a] prose-headings:font-lcars prose-headings:mt-4 prose-headings:mb-2 prose-strong:text-[#18223a] prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-code:text-[#243b7a] prose-code:bg-[#f5f7fb]/60 prose-code:px-1 prose-code:rounded">
                       <ReactMarkdown>{r.response}</ReactMarkdown>
                     </div>
                   )}
@@ -1196,28 +1325,47 @@ const TOP_TABS: { id: TopTab; label: string; glyph: string }[] = [
   { id: 'perspectives', label: 'Perspectives', glyph: '↗' },
 ];
 
-export default function AdvisoryCouncilPage() {
-  const [tab, setTab] = useState<TopTab>('consult');
+/** EOS Phase 2 Priority 4: reads the optional deep-link params a contextual
+ * entry point (e.g. /investigate's "Consult the Advisory Council on this")
+ * can pass - ?tab=board opens straight to Board, ?investigationType=&
+ * investigationReason= carry a real investigation's evidence in. Absent any
+ * of these, behaviour is unchanged from before this mission (defaults to
+ * Consult, no evidence fetched until the Captain opens Board themselves). */
+function AdvisoryCouncilPageInner() {
+  const params = useSearchParams();
+  const investigationType = params.get('investigationType') ?? undefined;
+  const investigationReason = params.get('investigationReason') ?? undefined;
+  const [tab, setTab] = useState<TopTab>(
+    params.get('tab') === 'board' || (investigationType && investigationReason) ? 'board' : 'consult'
+  );
 
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h1 className="font-lcars text-xl uppercase tracking-[0.2em] text-lcars-text">Advisory Council</h1>
-        <p className="text-xs text-lcars-muted tracking-wider mt-0.5">Captain&apos;s Advisory Council — Starship Endeavour</p>
+        <h1 className="font-lcars text-xl uppercase tracking-[0.2em] text-[#18223a]">Advisory Council</h1>
+        <p className="text-xs text-[#61718c] tracking-wider mt-0.5">Captain&apos;s Advisory Council — Starship Endeavour</p>
       </div>
 
       {/* Proactive signals banner (MSN-0206) */}
       <ProactiveSignalsBanner />
 
       {/* Mode tabs */}
-      <div className="flex border-b border-edge overflow-x-auto mb-4">
+      <div className="flex border-b border-[#d9e1f0] overflow-x-auto mb-4">
         {TOP_TABS.map((t) => <TabBtn key={t.id} label={t.label} glyph={t.glyph} active={tab === t.id} onClick={() => setTab(t.id)} />)}
       </div>
 
       {tab === 'consult'      && <ConsultMode />}
-      {tab === 'board'        && <BoardMode />}
+      {tab === 'board'        && <BoardMode investigationType={investigationType} investigationReason={investigationReason} />}
       {tab === 'perspectives' && <PerspectivesMode />}
     </div>
+  );
+}
+
+export default function AdvisoryCouncilPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdvisoryCouncilPageInner />
+    </Suspense>
   );
 }

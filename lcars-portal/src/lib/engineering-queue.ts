@@ -76,6 +76,12 @@ export interface QueueItem {
   createdAt: string | null;
   /** A short, concrete next action for this item. */
   nextAction: string;
+  /** MSN-0352: non-null only when this row is an AI-proposed action
+   * (create_mission | create_handoff | log_decision) awaiting Captain
+   * approval - never executed until approved via
+   * /api/build-request/[id]/approve-action. Null for every traditional
+   * build request, which is the vast majority of this queue. */
+  actionType: string | null;
 }
 
 interface BuildRow {
@@ -87,6 +93,7 @@ interface BuildRow {
   source: string | null;
   suggested_next_step?: string | null;
   created_at: string;
+  action_type?: string | null;
 }
 
 function nextActionFor(lifecycle: Lifecycle, blocked: boolean, suggested?: string | null): string {
@@ -123,7 +130,7 @@ export async function fetchEngineeringQueue(): Promise<EngineeringQueueData> {
     const supabase = createSupabaseBrowserClient();
     const { data } = await supabase
       .from('build_request_inbox')
-      .select('id, request_id, title, summary, status, source, suggested_next_step, created_at')
+      .select('id, request_id, title, summary, status, source, suggested_next_step, created_at, action_type')
       .order('created_at', { ascending: false })
       .limit(40);
     if (data?.length) {
@@ -144,6 +151,7 @@ export async function fetchEngineeringQueue(): Promise<EngineeringQueueData> {
           ageDays: ageInDays(r.created_at),
           createdAt: r.created_at,
           nextAction: nextActionFor(lifecycle, blocked, r.suggested_next_step),
+          actionType: r.action_type ?? null,
         });
       }
     }
@@ -174,6 +182,7 @@ export async function fetchEngineeringQueue(): Promise<EngineeringQueueData> {
         ageDays: r.age_days,
         createdAt: null,
         nextAction: nextActionFor(lifecycle, blocked),
+        actionType: null,
       });
     }
   } catch {

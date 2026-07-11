@@ -38,6 +38,7 @@ const consoleRoutes = require('./api/console');
 const captureRoutes = require('./api/capture');
 const searchRoutes = require('./api/search');
 const timelineRoutes = require('./api/timeline');
+const verificationRoutes = require('./api/verification');
 const { errorHandler } = require('./middleware/error-handling');
 const notificationEngine = require('./services/notification-engine');
 
@@ -140,6 +141,7 @@ app.use('/api/v1/console', consoleRoutes);
 app.use('/api/v1/capture', captureRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/timeline', timelineRoutes);
+app.use('/api/v1/verification', verificationRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -206,6 +208,9 @@ app.get('/api', (req, res) => {
       capture: {
         submit: 'POST /api/v1/capture',
         recent: 'GET  /api/v1/capture/recent'
+      },
+      verification: {
+        state: 'GET /api/v1/verification/state'
       }
     },
     documentation: 'See MSN-0035-PHASE2-INTEGRATION-PLAN.md',

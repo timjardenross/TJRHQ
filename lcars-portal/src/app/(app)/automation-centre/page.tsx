@@ -31,7 +31,7 @@ const SEVERITY_TIERS = [
 const DELIVERY_CHANNELS = [
   { name: 'Telegram', description: 'XO Bot (reused token)', status: 'Configured' },
   { name: 'Slack', description: "Captain's Brief channel — bot retired (MSN-0337)", status: 'Retired' },
-  { name: 'In-App', description: 'Command Centre bell', status: 'Active' },
+  { name: 'In-App', description: 'Command Centre bell', status: 'Configured' },
 ];
 
 const ALERT_THRESHOLDS = [
@@ -69,6 +69,7 @@ export default function AutomationCentrePage() {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [events, setEvents] = useState<MissionExecutionEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
 
   useEffect(() => {
     const fmt = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -84,8 +85,15 @@ export default function AutomationCentrePage() {
       .select('id, mission_id, status, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
-      .then(({ data }) => {
-        setEvents(data ?? []);
+      .then(({ data, error }) => {
+        // A genuine fetch error must not read as "No recent events recorded",
+        // which is indistinguishable from a real quiet period.
+        if (error) {
+          console.error('mission_execution_events fetch failed', error);
+          setEventsError('Couldn’t load mission execution events right now.');
+        } else {
+          setEvents(data ?? []);
+        }
         setLoadingEvents(false);
       });
   }, []);
@@ -107,7 +115,12 @@ export default function AutomationCentrePage() {
       </LCARSPanel>
 
       {/* 2. Scheduled Automations */}
-      <LCARSPanel title="Scheduled Automations" accent="engineering" eyebrow="Active jobs">
+      <LCARSPanel title="Scheduled Automations" accent="engineering" eyebrow="Configured jobs · reference only">
+        <p className="text-lcars-muted text-xs mb-3">
+          Reference list from configuration — these rows are <span className="text-lcars-text">not live-probed</span>.
+          The status column reflects how each job is configured (or that it was retired), not a verified
+          confirmation it is currently running.
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -115,7 +128,7 @@ export default function AutomationCentrePage() {
                 <th className="text-left pb-2 pr-4">Job</th>
                 <th className="text-left pb-2 pr-4">Schedule</th>
                 <th className="text-left pb-2 pr-4">Source</th>
-                <th className="text-left pb-2">Status</th>
+                <th className="text-left pb-2">Configured state</th>
               </tr>
             </thead>
             <tbody>
@@ -136,7 +149,7 @@ export default function AutomationCentrePage() {
                       {retired ? (
                         <span className="text-lcars-muted text-xs">Retired</span>
                       ) : (
-                        <span className="text-operations-on text-xs font-medium">Active</span>
+                        <span className="text-lcars-text text-xs font-medium">Configured</span>
                       )}
                     </td>
                   </tr>
@@ -165,20 +178,28 @@ export default function AutomationCentrePage() {
       </LCARSPanel>
 
       {/* 4. Delivery Channels */}
-      <LCARSPanel title="Delivery Channels" accent="operations" eyebrow="Channel status">
+      <LCARSPanel title="Delivery Channels" accent="operations" eyebrow="Configured channels · reference only">
+        <p className="text-lcars-muted text-xs mb-4">
+          Reference list from configuration — <span className="text-lcars-text">not live-probed</span>.
+          &ldquo;Configured&rdquo; means the channel is set up, not a verified confirmation it is
+          currently delivering.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {DELIVERY_CHANNELS.map((ch) => (
-            <div key={ch.name} className="bg-panel rounded-lcars p-4 border border-edge">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-lcars-text font-lcars font-medium">{ch.name}</span>
-                <span className={`inline-block w-2 h-2 rounded-full ${ch.status === 'Active' ? 'bg-operations' : 'bg-science'}`} />
+          {DELIVERY_CHANNELS.map((ch) => {
+            const retired = ch.status === 'Retired';
+            return (
+              <div key={ch.name} className="bg-panel rounded-lcars p-4 border border-edge">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-lcars-text font-lcars font-medium">{ch.name}</span>
+                  <span className={`inline-block w-2 h-2 rounded-full ${retired ? 'bg-science' : 'bg-edge'}`} />
+                </div>
+                <p className="text-lcars-muted text-xs mb-2">{ch.description}</p>
+                <span className={`text-xs font-medium ${retired ? 'text-science-on' : 'text-lcars-muted'}`}>
+                  {ch.status}
+                </span>
               </div>
-              <p className="text-lcars-muted text-xs mb-2">{ch.description}</p>
-              <span className={`text-xs font-medium ${ch.status === 'Active' ? 'text-operations-on' : 'text-science-on'}`}>
-                {ch.status}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </LCARSPanel>
 
@@ -186,6 +207,13 @@ export default function AutomationCentrePage() {
       <LCARSPanel title="Mission Execution Events" accent="engineering" eyebrow="Recent activity">
         {loadingEvents ? (
           <p className="text-lcars-muted text-sm animate-pulse">Loading events...</p>
+        ) : eventsError ? (
+          <div className="rounded-lcars border border-operations/50 bg-operations/10 px-4 py-3">
+            <p className="text-sm font-semibold text-operations-on">{eventsError}</p>
+            <p className="text-xs text-lcars-muted mt-1">
+              This is a load failure, not a quiet period — the event feed could not be read. Retry shortly.
+            </p>
+          </div>
         ) : events.length === 0 ? (
           <p className="text-lcars-muted text-sm">No recent events recorded.</p>
         ) : (
@@ -204,7 +232,14 @@ export default function AutomationCentrePage() {
       </LCARSPanel>
 
       {/* 6. Alert Configuration */}
-      <LCARSPanel title="Alert Configuration" accent="command" eyebrow="Thresholds">
+      <LCARSPanel title="Alert Configuration" accent="command" eyebrow="Descriptive thresholds · not evaluated">
+        <div className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 mb-4">
+          <p className="text-sm font-semibold text-operations-on">Descriptive / aspirational — not active alerting.</p>
+          <p className="text-xs text-lcars-muted mt-1">
+            No code currently evaluates these conditions or raises alerts from them. This table
+            documents intended thresholds for reference only; nothing here is monitored or firing.
+          </p>
+        </div>
         <div className="space-y-2">
           {ALERT_THRESHOLDS.map((alert) => (
             <div key={alert.condition} className="flex items-center justify-between border-b border-edge/40 pb-2 last:border-0 last:pb-0">
