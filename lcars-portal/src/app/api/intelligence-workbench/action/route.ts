@@ -26,12 +26,34 @@ const ACTION_ROLE: Record<string, string> = {
   'brief.publish': 'executive_approver',
 };
 
+// Resolve the Supabase env the Python side needs (SUPABASE_URL +
+// SUPABASE_SERVICE_ROLE_KEY — service-role so writes bypass RLS), tolerating the
+// portal's NEXT_PUBLIC_* naming. Explicit so the bridge doesn't depend on the two
+// codebases happening to share env-var names.
+function pythonEnv(): NodeJS.ProcessEnv {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  return {
+    ...process.env,
+    SUPABASE_URL: url,
+    SUPABASE_SERVICE_ROLE_KEY: key,
+    LCARS_PORTAL_URL:
+      process.env.LCARS_PORTAL_URL || process.env.NEXT_PUBLIC_SITE_URL || '',
+  };
+}
+
+function credsReady(): boolean {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return Boolean(url && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
 function runDispatch(req: object): Promise<{ status: number; body: unknown }> {
   const repoRoot = path.resolve(process.cwd(), '..'); // lcars-portal/ -> repo root
+  const python = process.env.PYTHON_BIN || 'python3';
   return new Promise((resolve) => {
-    const child = spawn('python3', ['-m', 'intelligence.workflow.cli', '--json', JSON.stringify(req)], {
+    const child = spawn(python, ['-m', 'intelligence.workflow.cli', '--json', JSON.stringify(req)], {
       cwd: repoRoot,
-      env: process.env,
+      env: pythonEnv(),
     });
     let out = '';
     let err = '';
@@ -64,6 +86,13 @@ export async function POST(request: NextRequest) {
   const role = ACTION_ROLE[action];
   if (!role) {
     return NextResponse.json({ error: `unknown or unsupported action '${action}'` }, { status: 400 });
+  }
+
+  if (!credsReady()) {
+    return NextResponse.json(
+      { error: 'governance bridge not configured: set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY on the server' },
+      { status: 503 },
+    );
   }
 
   const { status, body: result } = await runDispatch({

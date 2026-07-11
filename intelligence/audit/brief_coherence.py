@@ -212,6 +212,11 @@ def print_brief_stats(samples: dict) -> None:
     print(f"BRIEF COMPOSITION STATISTICS ({len(samples['briefs'])} sampled)")
     print(f"{'='*80}\n")
 
+    if not samples["briefs"]:
+        print(f"No briefs found in the sample period. Coherence audit cannot proceed.")
+        print(f"(This may indicate: no briefs generated, or query filter too strict)\n")
+        return
+
     total_events_included = sum(b["events_summary"]["included"] for b in samples["briefs"])
     total_events_suppressed = sum(b["events_summary"]["suppressed"] for b in samples["briefs"])
 
@@ -219,7 +224,12 @@ def print_brief_stats(samples: dict) -> None:
     print(f"  Total briefs: {len(samples['briefs'])}")
     print(f"  Total events included: {total_events_included}")
     print(f"  Total events suppressed: {total_events_suppressed}")
-    print(f"  Inclusion rate: {total_events_included / (total_events_included + total_events_suppressed) * 100:.1f}%\n")
+
+    if total_events_included + total_events_suppressed > 0:
+        inclusion_rate = total_events_included / (total_events_included + total_events_suppressed) * 100
+        print(f"  Inclusion rate: {inclusion_rate:.1f}%\n")
+    else:
+        print(f"  Inclusion rate: N/A (no events)\n")
 
     print(f"RISK DISTRIBUTION (overall_risk field)")
     risk_counts = {}
