@@ -65,7 +65,7 @@ export default function Overview() {
               <span className="flex-1">{briefTitle(b)}</span>
               <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
               <Link href={`/intelligence-workbench/brief/${b.brief_id}`}
-                className="rounded-md border border-wb-sage bg-wb-sage px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Review Brief →
               </Link>
             </div>

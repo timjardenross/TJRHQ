@@ -129,7 +129,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             ))}
             <div className="mt-4 flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.mark_qa_ready', {}, 'Mark QA ready')}
-                className="rounded-md border border-wb-sage bg-wb-sage px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Mark QA Ready
               </button>
               <button disabled={!!busy} onClick={() => act('brief.publish', {}, 'Publish')}
@@ -137,7 +137,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 Publish
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to RED')}
-                className="rounded-md border border-wb-crit bg-wb-crit px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit">
+                className="rounded-md border border-wb-crit-on bg-wb-crit-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
                 Escalate to RED
               </button>
               <a href={`/intelligence-workbench/escalation/${id}`}

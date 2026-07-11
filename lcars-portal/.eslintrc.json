@@ -1,3 +1,10 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["src/app/intelligence-workbench/**/*.tsx"],
+      "extends": ["plugin:jsx-a11y/recommended"],
+      "plugins": ["jsx-a11y"]
+    }
+  ]
 }

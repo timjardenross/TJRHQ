@@ -19,11 +19,17 @@ export function Shell({
 }) {
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
+      <a
+        href="#wb-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-[13px] focus:text-white"
+      >
+        Skip to content
+      </a>
       <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
           <Link
             href="/intelligence-workbench"
-            className="grid h-8 w-8 place-items-center rounded-full bg-wb-sage text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="grid h-8 w-8 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
             aria-label="Workbench home"
           >
             TJR
@@ -35,7 +41,7 @@ export function Shell({
           <span className="ml-auto text-[12px] text-wb-ink2">{right}</span>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">
+      <main id="wb-main" className="mx-auto max-w-4xl px-6 py-8">
         {back && (
           <Link
             href={back.href}
@@ -64,9 +70,10 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
 
 export function riskClass(r: string | null | undefined) {
   const v = (r ?? '').toUpperCase();
-  if (v === 'RED' || v === 'HIGH') return 'bg-wb-crit/15 text-wb-crit';
-  if (v === 'AMBER' || v === 'MEDIUM') return 'bg-wb-warn/15 text-wb-warn';
-  if (v === 'GREEN' || v === 'LOW') return 'bg-wb-ok/15 text-wb-ok';
+  // *-on text hues are AA-safe (>=4.5:1) on the light tint backgrounds.
+  if (v === 'RED' || v === 'HIGH') return 'bg-wb-crit/15 text-wb-crit-on';
+  if (v === 'AMBER' || v === 'MEDIUM') return 'bg-wb-warn/15 text-wb-warn-on';
+  if (v === 'GREEN' || v === 'LOW') return 'bg-wb-ok/15 text-wb-ok-on';
   return 'bg-wb-line text-wb-ink2';
 }
 

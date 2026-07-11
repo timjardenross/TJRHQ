@@ -71,7 +71,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
         <p className="text-[13px] text-wb-ink2">Brief not found.</p>
       ) : (
         <>
-          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit to-[#B14943] px-5 py-4 text-white">
+          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-on to-[#8a2f2a] px-5 py-4 text-white">
             <span className="h-3 w-3 animate-pulse rounded-full bg-white" aria-hidden />
             <div>
               <div className="font-serif text-[20px]" role="status" aria-live="assertive">
@@ -100,11 +100,11 @@ export default function Escalation({ params }: { params: { id: string } }) {
           <Card title="Immediate actions">
             <div className="flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.notify_telegram', {}, 'Send Telegram alert')}
-                className="rounded-md border border-wb-sage bg-wb-sage px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 📱 Send Telegram Alert
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to Captain')}
-                className="rounded-md border border-wb-warn bg-wb-warn px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn">
+                className="rounded-md border border-wb-warn-on bg-wb-warn-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
                 🚀 Escalate to Captain
               </button>
             </div>

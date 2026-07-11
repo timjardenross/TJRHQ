@@ -57,6 +57,13 @@ const config: Config = {
           ok:       '#6B8E6B',
           warn:     '#B57A34',
           crit:     '#C85A54',
+          // AA-safe (>=4.5:1) text/solid-button variants of the status hues.
+          // sage/ok/warn/crit fail AA as small text or white-on-fill; use these
+          // for pill text and white-on-colour buttons. Contrast validated
+          // (docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md method).
+          'ok-on':   '#3F633F',
+          'warn-on': '#8A5A1B',
+          'crit-on': '#A23A34',
         },
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
