@@ -115,7 +115,11 @@ def source_fidelity_report(days: int = 30) -> dict:
     degraded = []
 
     for source_id, stats in source_stats.items():
-        events = source_events.get(source_id, {})
+        events = source_events.get(source_id, {
+            "total_events": 0,
+            "canonical_events": 0,
+            "duplicate_events": 0,
+        })
         brief_inclusions = source_brief_count.get(source_id, 0)
 
         signal_rate = (
@@ -129,14 +133,14 @@ def source_fidelity_report(days: int = 30) -> dict:
             "check_count": stats["check_count"],
             "failure_rate": stats["failures"] / stats["check_count"] if stats["check_count"] > 0 else 0,
             "last_error": stats["last_error"],
-            "events_extracted": events["total_events"],
-            "canonical_events": events["canonical_events"],
-            "duplicate_events": events["duplicate_events"],
+            "events_extracted": events.get("total_events", 0),
+            "canonical_events": events.get("canonical_events", 0),
+            "duplicate_events": events.get("duplicate_events", 0),
             "signal_rate": round(signal_rate, 3),
             "brief_inclusions": brief_inclusions,
             "brief_inclusion_rate": round(
-                brief_inclusions / events["canonical_events"], 3
-            ) if events["canonical_events"] > 0 else 0,
+                brief_inclusions / events.get("canonical_events", 1), 3
+            ) if events.get("canonical_events", 0) > 0 else 0,
         }
 
         report["sources"][source_id] = source_record
