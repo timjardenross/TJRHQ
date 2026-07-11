@@ -1,146 +1,116 @@
 #!/usr/bin/env python3
 """
-Phase A Live Verification: Trigger daily collection and verify field population.
+Phase A live verification — trigger the daily collection job and confirm that the
+migration-0077 Phase A fields actually populate in intelligence_events.
 
-This script:
-1. Triggers the daily collection job (_daily_collection_job from scheduler)
-2. Queries Supabase to verify source_tier, score_breakdown population
-3. Reports caveat closure status
+Corrects the earlier variants which called a non-existent `store.db.table(...)`
+Supabase client and queried columns that don't exist (`id_text`,
+`fuzzy_cluster_id`, `event_ids_included`). intelligence_store talks to Supabase
+via PostgREST helpers (`_get`/`_post`); the real Phase A columns are
+`event_id`, `source_tier`, `score_breakdown`, `canonical_signal_id`,
+`cluster_similarity`, `signal_status` (see 0077 + docs/PHASE-A-IMPLEMENTATION-RECORD.md).
 
 Usage:
-  python scripts/verify_phase_a_live_population.py
+  python scripts/verify_phase_a_live_population.py            # verify only
+  python scripts/verify_phase_a_live_population.py --collect  # trigger collection first
+
+Exit code 0 = Phase A fields populated (Caveat #3 closed).
+Exit code 2 = not populated / Supabase not configured (Caveat #3 remains open).
 """
 
-import sys
+import argparse
 import logging
-from datetime import datetime, timezone
+import os
+import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+# Make the repo root importable when run as `python scripts/verify_...py`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("phase-a-verify")
 
+_EVENT_SELECT = (
+    "event_id,raw_title,source_tier,score_breakdown,risk_rating,"
+    "canonical_signal_id,cluster_similarity,signal_status,collected_at"
+)
 
-def trigger_collection():
-    """Call the daily collection job directly."""
-    log.info("Triggering daily collection job...")
+
+def trigger_collection() -> bool:
+    """Run the daily collection job — this is the path Phase A enrichment is wired
+    into (scheduler._daily_collection_job -> phase_a_enrichment.enrich_and_save)."""
+    log.info("Triggering daily collection job (_daily_collection_job)...")
     try:
-        # Import and run the collection job
         from intelligence.scheduler import _daily_collection_job
         _daily_collection_job()
-        log.info("✅ Daily collection job completed")
+        log.info("Collection job completed.")
         return True
     except Exception as exc:
-        log.error("❌ Collection job failed: %s", exc)
+        log.error("Collection job failed: %s", exc)
         return False
 
 
-def verify_field_population():
-    """Query Supabase to verify new fields are populated."""
-    log.info("\nVerifying field population in intelligence_events...")
-    try:
-        from intelligence.persistence import intelligence_store as store
+def verify_events() -> bool:
+    """Query the 5 most recent events via PostgREST and report field population."""
+    from intelligence.persistence import intelligence_store as store
 
-        # Get recent events (last 5) to check field population
-        events = store.db.table("intelligence_events").select(
-            "id_text,raw_title,source_tier,score_breakdown,fuzzy_cluster_id,collected_at",
-            count="exact"
-        ).order("collected_at", desc=True).limit(5).execute()
-
-        if not events.data:
-            log.warning("⚠️  No events found in intelligence_events")
-            return False
-
-        log.info(f"Found {len(events.data)} recent events. Checking fields:")
-
-        all_populated = True
-        for evt in events.data:
-            title = evt.get("raw_title", "")[:50]
-            source_tier = evt.get("source_tier")
-            score_breakdown = evt.get("score_breakdown")
-            fuzzy_cluster_id = evt.get("fuzzy_cluster_id")
-
-            log.info(f"  Event: {title}...")
-            log.info(f"    - source_tier: {source_tier} {'✅' if source_tier else '❌'}")
-            log.info(f"    - score_breakdown: {'populated' if score_breakdown else 'NULL'} {'✅' if score_breakdown else '❌'}")
-            log.info(f"    - fuzzy_cluster_id: {fuzzy_cluster_id} {'✅' if fuzzy_cluster_id else '❌'}")
-
-            if not (source_tier and score_breakdown):
-                all_populated = False
-
-        if all_populated:
-            log.info("✅ All Phase A fields populated successfully")
-        else:
-            log.warning("⚠️  Some fields not populated — Phase A enrichment may have fallen back")
-
-        return all_populated
-    except Exception as exc:
-        log.error("❌ Field verification failed: %s", exc)
+    if not (store.SUPABASE_URL and store.SUPABASE_KEY):
+        log.warning("Supabase not configured (SUPABASE_URL/KEY absent) — "
+                    "cannot verify live population. Caveat #3 remains OPEN.")
         return False
 
-
-def verify_watchlist_materialization():
-    """Verify watchlist_items table has new entries."""
-    log.info("\nVerifying watchlist tracking materialization...")
-    try:
-        from intelligence.persistence import intelligence_store as store
-
-        result = store.db.table("watchlist_items").select(
-            "id,brief_id,event_ids_included,created_at",
-            count="exact"
-        ).order("created_at", desc=True).limit(3).execute()
-
-        if not result.data:
-            log.warning("⚠️  No entries in watchlist_items (expected if no RED incidents)")
-            return True  # Not a failure, just no RED incidents today
-
-        log.info(f"Found {len(result.data)} watchlist entries:")
-        for entry in result.data:
-            log.info(f"  - {entry.get('brief_id')[:8]}: {len(entry.get('event_ids_included', []))} events")
-
-        log.info("✅ Watchlist materialization working")
-        return True
-    except Exception as exc:
-        log.error("❌ Watchlist verification failed: %s", exc)
+    rows = store._get(
+        f"intelligence_events?order=collected_at.desc&limit=5&select={_EVENT_SELECT}")
+    if not rows:
+        log.warning("No events returned — nothing to verify. Caveat #3 remains OPEN.")
         return False
 
+    log.info("Checking Phase A fields on %d recent events:", len(rows))
+    populated = 0
+    for r in rows:
+        st = r.get("source_tier")
+        sb = r.get("score_breakdown")
+        status = r.get("signal_status")
+        ok = bool(st) and bool(sb)
+        log.info("  %s | tier=%s score_breakdown=%s risk=%s status=%s %s",
+                 (r.get("event_id") or "?")[:8], st, "yes" if sb else "no",
+                 r.get("risk_rating"), status, "OK" if ok else "MISSING")
+        if ok:
+            populated += 1
 
-def generate_caveat_closure_report(collection_ok, fields_ok, watchlist_ok):
-    """Generate closure report for Caveat #3."""
-    log.info("\n" + "="*70)
-    log.info("PHASE A CAVEAT #3 CLOSURE REPORT")
-    log.info("="*70)
+    covered = populated == len(rows)
+    log.info("Phase A field population: %d/%d events fully populated.", populated, len(rows))
+    return covered
 
-    timestamp = datetime.now(timezone.utc).isoformat()
-    log.info(f"Timestamp: {timestamp}")
-    log.info(f"Collection job: {'✅ PASS' if collection_ok else '❌ FAIL'}")
-    log.info(f"Field population: {'✅ PASS' if fields_ok else '❌ FAIL'}")
-    log.info(f"Watchlist materialization: {'✅ PASS' if watchlist_ok else '❌ FAIL'}")
 
-    overall = collection_ok and fields_ok and watchlist_ok
-    log.info(f"\nOverall: {'✅ CAVEAT CLOSED' if overall else '⚠️  CAVEAT REQUIRES INVESTIGATION'}")
+def verify_watchlist() -> None:
+    """Best-effort peek at watchlist_items (real columns: item_text, query)."""
+    from intelligence.persistence import intelligence_store as store
+    if not (store.SUPABASE_URL and store.SUPABASE_KEY):
+        return
+    rows = store._get("watchlist_items?limit=5&select=id,brief_id,item_text,query,approved_by")
+    log.info("watchlist_items present: %d", len(rows))
 
-    if overall:
-        log.info("\nCaveat #3 (Live-DB population) is verified and closed.")
-        log.info("Phase B workbench will receive real source_tier + score_breakdown data.")
-    else:
-        log.warning("\nCaveat #3 requires additional investigation before Phase B Go.")
 
-    log.info("="*70)
-    return overall
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Phase A live verification")
+    parser.add_argument("--collect", action="store_true",
+                        help="trigger the daily collection job before verifying")
+    args = parser.parse_args()
+
+    if args.collect:
+        trigger_collection()
+
+    ok = verify_events()
+    verify_watchlist()
+
+    if ok:
+        log.info("Caveat #3 CLOSED — source_tier + score_breakdown are live.")
+        return 0
+    log.warning("Caveat #3 OPEN — configure Supabase creds and/or run --collect, "
+                "then re-run to confirm field population.")
+    return 2
 
 
 if __name__ == "__main__":
-    log.info("Starting Phase A Live Verification...")
-
-    # Run verification sequence
-    collection_ok = trigger_collection()
-    fields_ok = verify_field_population() if collection_ok else False
-    watchlist_ok = verify_watchlist_materialization() if collection_ok else False
-
-    # Generate report
-    caveat_closed = generate_caveat_closure_report(collection_ok, fields_ok, watchlist_ok)
-
-    # Exit with appropriate code
-    sys.exit(0 if caveat_closed else 1)
+    sys.exit(main())
