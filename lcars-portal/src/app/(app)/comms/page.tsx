@@ -34,12 +34,12 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOUR: Record<string, string> = {
-  opportunity:      'text-lcars-muted border-lcars-muted/30 bg-lcars-muted/5',
+  opportunity:      'text-[#61718c] border-[#d9e1f0] bg-[#eef1f8]',
   draft:            'text-blue-400 border-blue-400/30 bg-blue-400/5',
   review:           'text-yellow-400 border-yellow-400/30 bg-yellow-400/5',
   approved:         'text-green-400 border-green-400/30 bg-green-400/5',
   ready_to_publish: 'text-purple-400 border-purple-400/30 bg-purple-400/5',
-  published:        'text-science border-science/30 bg-science/5',
+  published:        'text-[#243b7a] border-[#243b7a]/30 bg-[#243b7a]/5',
 };
 
 const PILLAR_LABEL: Record<string, string> = {
@@ -65,7 +65,7 @@ const FORMATS = [
 // ── Pipeline status badge ─────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_COLOUR[status] ?? 'text-lcars-muted border-lcars-muted/30 bg-lcars-muted/5';
+  const cls = STATUS_COLOUR[status] ?? 'text-[#61718c] border-[#d9e1f0] bg-[#eef1f8]';
   return (
     <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
       {STATUS_LABEL[status] ?? status}
@@ -78,12 +78,12 @@ function StatusBadge({ status }: { status: string }) {
 function PipelineBar({ counts }: { counts: Record<string, number> }) {
   const order = ['opportunity', 'draft', 'review', 'approved', 'ready_to_publish', 'published'];
   return (
-    <div className="flex flex-wrap gap-3 rounded-lcars border border-edge bg-panel/20 p-3">
-      <p className="w-full text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Content Pipeline</p>
+    <div className="flex flex-wrap gap-3 rounded-lcars border border-[#d9e1f0] bg-white/20 p-3">
+      <p className="w-full text-[10px] uppercase tracking-widest text-[#61718c] mb-1">Content Pipeline</p>
       {order.map(s => (
         <div key={s} className="text-center">
-          <p className="text-lg font-bold text-lcars-text">{counts[s] ?? 0}</p>
-          <p className="text-[10px] text-lcars-muted capitalize">{s.replace(/_/g, ' ')}</p>
+          <p className="text-lg font-bold text-[#18223a]">{counts[s] ?? 0}</p>
+          <p className="text-[10px] text-[#61718c] capitalize">{s.replace(/_/g, ' ')}</p>
         </div>
       ))}
     </div>
@@ -110,7 +110,12 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      setMsg(`Moved to ${STATUS_LABEL[d.to]}`);
+      // EOS Phase 2 Priority 5: mark_published no longer publishes directly
+      // - it queues a governed proposal (api/comms/[id]/advance/route.ts),
+      // so the response here is { proposed: true }, not { to: 'published' }.
+      // The status badge correctly stays "Ready to Publish" until the
+      // Captain approves it in Decide.
+      setMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : `Moved to ${STATUS_LABEL[d.to]}`);
       onRefresh();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Error');
@@ -155,17 +160,17 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
   const urlLine    = notes.match(/URL: (.+)/)?.[1] ?? '';
 
   return (
-    <div className="rounded-lcars border border-edge bg-panel/30">
+    <div className="rounded-lcars border border-[#d9e1f0] bg-white/30">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-start gap-3 p-3 text-left hover:bg-panel/50 transition-colors"
+        className="w-full flex items-start gap-3 p-3 text-left hover:bg-white/50 transition-colors"
       >
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap gap-2 items-center mb-1">
             <StatusBadge status={item.status} />
             {item.pillar && (
-              <span className="text-[10px] text-lcars-muted">
+              <span className="text-[10px] text-[#61718c]">
                 {PILLAR_LABEL[item.pillar] ?? item.pillar}
               </span>
             )}
@@ -175,27 +180,27 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
               </span>
             )}
           </div>
-          <p className="font-medium text-sm text-lcars-text leading-snug">{item.title}</p>
+          <p className="font-medium text-sm text-[#18223a] leading-snug">{item.title}</p>
           {signalLine && !open && (
-            <p className="text-xs text-lcars-muted/70 italic mt-0.5 line-clamp-1">{signalLine}</p>
+            <p className="text-xs text-[#61718c]/70 italic mt-0.5 line-clamp-1">{signalLine}</p>
           )}
         </div>
-        <span className="text-[10px] text-lcars-muted shrink-0 mt-1">{open ? '▲' : '▼'}</span>
+        <span className="text-[10px] text-[#61718c] shrink-0 mt-1">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
-        <div className="border-t border-edge/50 px-4 py-3 space-y-3 text-sm">
+        <div className="border-t border-[#d9e1f0]/50 px-4 py-3 space-y-3 text-sm">
 
           {/* Suggested angle / signal context */}
           {signalLine && (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">Signal Angle</p>
-              <p className="text-xs italic text-lcars-text">{signalLine}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#61718c] mb-1">Signal Angle</p>
+              <p className="text-xs italic text-[#18223a]">{signalLine}</p>
             </div>
           )}
           {urlLine && (
             <a href={urlLine} target="_blank" rel="noopener noreferrer"
-               className="text-xs text-science hover:underline">
+               className="text-xs text-[#243b7a] hover:underline">
               View source ↗
             </a>
           )}
@@ -203,21 +208,21 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
           {/* Draft body */}
           {item.body ? (
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-lcars-muted mb-1">
+              <p className="text-[10px] uppercase tracking-widest text-[#61718c] mb-1">
                 Draft
                 {item.draft_generated_at && (
                   <span className="ml-2 normal-case">· generated {item.draft_generated_at.slice(0, 10)}</span>
                 )}
               </p>
               <textarea
-                className="w-full rounded border border-edge bg-panel/40 px-3 py-2 text-xs text-lcars-text font-mono leading-relaxed resize-y"
+                className="w-full rounded border border-[#d9e1f0] bg-white/40 px-3 py-2 text-xs text-[#18223a] font-mono leading-relaxed resize-y"
                 rows={12}
                 value={editBody}
                 onChange={e => setEditBody(e.target.value)}
               />
             </div>
           ) : (
-            <p className="text-xs text-lcars-muted">No draft yet.</p>
+            <p className="text-xs text-[#61718c]">No draft yet.</p>
           )}
 
           {/* Generate draft controls (opportunity only) */}
@@ -226,7 +231,7 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
               <select
                 value={format}
                 onChange={e => setFormat(e.target.value)}
-                className="rounded border border-edge bg-panel/40 px-2 py-1 text-xs text-lcars-text"
+                className="rounded border border-[#d9e1f0] bg-white/40 px-2 py-1 text-xs text-[#18223a]"
               >
                 {FORMATS.map(f => (
                   <option key={f.key} value={f.key}>{f.label}</option>
@@ -236,7 +241,7 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
                 type="button"
                 onClick={generate}
                 disabled={busy}
-                className="text-xs border border-science/40 rounded px-2 py-1 text-science hover:bg-science/10 disabled:opacity-50 transition-colors"
+                className="text-xs border border-[#243b7a]/40 rounded px-2 py-1 text-[#243b7a] hover:bg-[#243b7a]/10 disabled:opacity-50 transition-colors"
               >
                 {busy ? 'Generating…' : '✍ Generate Draft'}
               </button>
@@ -265,17 +270,17 @@ function ItemCard({ item, onRefresh }: { item: CommItem; onRefresh: () => void }
             )}
             {item.status === 'ready_to_publish' && (
               <button type="button" onClick={() => advance('mark_published')} disabled={busy}
-                className="text-xs border border-science/40 rounded px-3 py-1 text-science hover:bg-science/10 disabled:opacity-50 transition-colors">
-                ✓ Mark Published
+                className="text-xs border border-[#243b7a]/40 rounded px-3 py-1 text-[#243b7a] hover:bg-[#243b7a]/10 disabled:opacity-50 transition-colors">
+                Submit for Publish Approval →
               </button>
             )}
           </div>
 
           {msg && (
-            <p className="text-xs text-lcars-muted">{msg}</p>
+            <p className="text-xs text-[#61718c]">{msg}</p>
           )}
 
-          <p className="text-[10px] text-lcars-muted pt-1">
+          <p className="text-[10px] text-[#61718c] pt-1">
             Created {item.created_at.slice(0, 10)}
             {item.updated_at !== item.created_at && ` · Updated ${item.updated_at.slice(0, 10)}`}
             {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
@@ -317,10 +322,10 @@ export default function CommsPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
       <header>
-        <h1 className="text-xl font-semibold uppercase tracking-wider text-lcars-text">
+        <h1 className="text-xl font-semibold uppercase tracking-wider text-[#18223a]">
           Communications Pipeline
         </h1>
-        <p className="text-sm text-lcars-muted">
+        <p className="text-sm text-[#61718c]">
           Content lifecycle — from signal to published thought-leadership
         </p>
       </header>
@@ -332,7 +337,7 @@ export default function CommsPage() {
         <button
           type="button"
           onClick={() => setFilter('')}
-          className={`text-xs px-3 py-1 rounded border transition-colors ${!filter ? 'border-science text-science bg-science/10' : 'border-edge text-lcars-muted hover:text-lcars-text'}`}
+          className={`text-xs px-3 py-1 rounded border transition-colors ${!filter ? 'border-[#243b7a] text-[#243b7a] bg-[#243b7a]/10' : 'border-[#d9e1f0] text-[#61718c] hover:text-[#18223a]'}`}
         >
           All
         </button>
@@ -341,24 +346,24 @@ export default function CommsPage() {
             key={s}
             type="button"
             onClick={() => setFilter(filter === s ? '' : s)}
-            className={`text-xs px-3 py-1 rounded border transition-colors ${filter === s ? 'border-science text-science bg-science/10' : 'border-edge text-lcars-muted hover:text-lcars-text'}`}
+            className={`text-xs px-3 py-1 rounded border transition-colors ${filter === s ? 'border-[#243b7a] text-[#243b7a] bg-[#243b7a]/10' : 'border-[#d9e1f0] text-[#61718c] hover:text-[#18223a]'}`}
           >
             {STATUS_LABEL[s]} {counts[s] ? `(${counts[s]})` : ''}
           </button>
         ))}
       </div>
 
-      {loading && <p className="text-sm text-lcars-muted">Loading…</p>}
+      {loading && <p className="text-sm text-[#61718c]">Loading…</p>}
       {error && (
         <p className="rounded-lcars border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="text-sm text-lcars-muted space-y-2">
+        <div className="text-sm text-[#61718c] space-y-2">
           <p>No content in the pipeline yet.</p>
           <p className="text-xs">
-            Go to <span className="text-science">IC → Content tab</span> and click
-            {' '}<span className="text-science">+ Request draft</span> on a signal to add the first opportunity.
+            Go to <span className="text-[#243b7a]">IC → Content tab</span> and click
+            {' '}<span className="text-[#243b7a]">+ Request draft</span> on a signal to add the first opportunity.
           </p>
         </div>
       )}

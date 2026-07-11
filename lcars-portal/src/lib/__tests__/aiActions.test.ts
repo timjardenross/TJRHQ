@@ -11,12 +11,26 @@ const singleMock = vi.fn();
 const selectAfterInsertMock = vi.fn(() => ({ single: singleMock }));
 const fromCalls: string[] = [];
 
+// EOS Phase 2 Priority 5: publishContent() uses .update().eq().eq().select()
+// .maybeSingle() (guards on status='ready_to_publish') rather than the
+// .insert().select().single() chain every other execution function here
+// uses - the mock chain below supports both without changing any existing
+// test's expectations.
+const updateMock = vi.fn();
+const maybeSingleMock = vi.fn();
+const selectAfterUpdateMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
+
 const fromMock = vi.fn((table: string) => {
   fromCalls.push(table);
   return {
     insert: (row: Record<string, unknown>) => {
       insertMock(table, row);
       return { select: selectAfterInsertMock };
+    },
+    update: (row: Record<string, unknown>) => {
+      updateMock(table, row);
+      const chain = { eq: () => chain, select: selectAfterUpdateMock };
+      return chain;
     },
   };
 });
@@ -30,12 +44,13 @@ vi.mock('@/lib/id-registry', () => ({
   appendToRegistry: vi.fn(),
 }));
 
-import { parseAndProposeActions, validateActionPayload, createMission, logDecision, createHandoff } from '@/lib/ai-actions';
+import { parseAndProposeActions, validateActionPayload, createMission, logDecision, createHandoff, publishContent, proposeAction } from '@/lib/ai-actions';
 
 beforeEach(() => {
   vi.clearAllMocks();
   fromCalls.length = 0;
   singleMock.mockResolvedValue({ data: { id: 'row-1' }, error: null });
+  maybeSingleMock.mockResolvedValue({ data: { id: 'content-1' }, error: null });
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-key';
 });
@@ -72,6 +87,15 @@ describe('validateActionPayload', () => {
 
   it('accepts log_decision with just a decision string', () => {
     expect(validateActionPayload('log_decision', { decision: 'Ship it' }).ok).toBe(true);
+  });
+
+  it('rejects publish_content with no content_id', () => {
+    expect(validateActionPayload('publish_content', {}).ok).toBe(false);
+    expect(validateActionPayload('publish_content', { content_id: '  ' }).ok).toBe(false);
+  });
+
+  it('accepts a valid publish_content payload', () => {
+    expect(validateActionPayload('publish_content', { content_id: 'content-1' }).ok).toBe(true);
   });
 });
 
@@ -147,6 +171,33 @@ describe('parseAndProposeActions never mutates operational state directly', () =
     expect(results).toEqual([]);
     expect(insertMock).not.toHaveBeenCalled();
   });
+
+  it('queues a publish_content proposal into build_request_inbox, never touches comms_content directly', async () => {
+    const text = `<starfleet-action type="publish_content">{"content_id": "content-1", "title": "Executive Brief — 2026-07-10"}</starfleet-action>`;
+    const results = await parseAndProposeActions(text);
+
+    expect(results[0].success).toBe(true);
+    expect(fromCalls).toEqual(['build_request_inbox']);
+    expect(fromCalls).not.toContain('comms_content');
+    expect(updateMock).not.toHaveBeenCalled();
+    const [, row] = insertMock.mock.calls[0];
+    expect(row.status).toBe('awaiting_review');
+    expect(row.action_type).toBe('publish_content');
+    expect(row.action_payload).toEqual({ content_id: 'content-1', title: 'Executive Brief — 2026-07-10' });
+  });
+});
+
+// ── proposeAction is exported so api/comms/[id]/advance/route.ts can queue
+// ── a publish_content proposal outside the <starfleet-action> parser path -
+// ── verified directly here (EOS Phase 2 Priority 5). ───────────────────────
+describe('proposeAction (exported for non-chat callers, e.g. the comms advance route)', () => {
+  it('queues, never executes, and the response never claims completion', async () => {
+    const result = await proposeAction('publish_content', { content_id: 'content-1', title: 'A brief' });
+    expect(result.success).toBe(true);
+    expect(fromCalls).toEqual(['build_request_inbox']);
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(result.detail).toMatch(/proposed/i);
+  });
 });
 
 // ── The execution functions themselves - only ever called from the ────────
@@ -168,5 +219,20 @@ describe('execution functions (called only from the approve-action route)', () =
     const result = await createHandoff();
     expect(result.success).toBe(true);
     expect(fromCalls).toEqual([]);
+  });
+
+  it('publishContent updates comms_content, guarded on status=ready_to_publish', async () => {
+    const result = await publishContent({ content_id: 'content-1' });
+    expect(result.success).toBe(true);
+    expect(fromCalls).toContain('comms_content');
+    const [, row] = updateMock.mock.calls[0];
+    expect(row.status).toBe('published');
+  });
+
+  it('publishContent fails closed when the row is no longer ready_to_publish (stale proposal)', async () => {
+    maybeSingleMock.mockResolvedValueOnce({ data: null, error: null });
+    const result = await publishContent({ content_id: 'content-1' });
+    expect(result.success).toBe(false);
+    expect(result.detail.toLowerCase()).toMatch(/ready_to_publish|no longer/);
   });
 });

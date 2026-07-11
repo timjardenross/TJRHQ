@@ -167,6 +167,13 @@ export async function fetchDecideCount(): Promise<number> {
   return items.length;
 }
 
+/** Returns the written row's id (EOS Phase 3 Priority 2: this is the id
+ * Communications Studio's Decision Brief needs to launch with automatic
+ * context - see lib/commsStudio.ts's assembleDecisionBrief()) - or null on
+ * any failure. A ledger write failure must never block the real decision
+ * it's recording, so this degrades to null rather than throwing; the
+ * caller just won't be able to offer a "Draft a Decision Brief" link for
+ * that one action. */
 async function writeLedger(entry: {
   question: string;
   source: DecideSource;
@@ -174,18 +181,17 @@ async function writeLedger(entry: {
   action: DecideAction;
   undo_available: boolean;
   prior_status?: string;
-}): Promise<void> {
+}): Promise<string | null> {
   try {
     const supabase = createSupabaseBrowserClient();
-    await supabase.from('decide_ledger').insert(entry);
+    const { data } = await supabase.from('decide_ledger').insert(entry).select('id').single();
+    return data?.id ?? null;
   } catch {
-    // Ledger write failure must never block the real decision it's
-    // recording - the source-of-truth action already happened (or, for
-    // hold, deliberately didn't).
+    return null;
   }
 }
 
-export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string }> {
+export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string; ledgerId?: string | null }> {
   let result: { ok: boolean; error?: string };
   if (item.source === 'mission') {
     try {
@@ -216,7 +222,7 @@ export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean
     result = await setQueueItemStatus(fakeQueueItem, 'approved');
   }
 
-  await writeLedger({
+  const ledgerId = await writeLedger({
     question: item.question,
     source: item.source,
     item_ref: item.rawId,
@@ -225,22 +231,22 @@ export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean
     prior_status: item.priorStatus,
   });
 
-  return result;
+  return { ...result, ledgerId };
 }
 
 /** Hold defers - it deliberately does not call any source route. The item's
  * underlying status is untouched, so it simply reappears in the queue next
  * time. This is the honest behaviour for "come back to this later": nothing
  * was decided, so nothing should look decided. */
-export async function holdDecideItem(item: DecideItem): Promise<{ ok: boolean }> {
-  await writeLedger({
+export async function holdDecideItem(item: DecideItem): Promise<{ ok: boolean; ledgerId?: string | null }> {
+  const ledgerId = await writeLedger({
     question: item.question,
     source: item.source,
     item_ref: item.rawId,
     action: 'hold',
     undo_available: true,
   });
-  return { ok: true };
+  return { ok: true, ledgerId };
 }
 
 /** Reverses an approval just made. Only ever called when item.undoAvailable
@@ -250,7 +256,7 @@ export async function holdDecideItem(item: DecideItem): Promise<{ ok: boolean }>
  * setQueueItemStatus already uses, rather than a generic "rejected" call -
  * a real reversal to the prior state, not a second terminal decision
  * relabelled as one. */
-export async function undoDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string }> {
+export async function undoDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string; ledgerId?: string | null }> {
   if (!item.undoAvailable || item.source !== 'engineering' || !item.priorStatus) {
     return { ok: false, error: "Undo is not supported for this decision's source." };
   }
@@ -267,7 +273,7 @@ export async function undoDecideItem(item: DecideItem): Promise<{ ok: boolean; e
     return { ok: false, error: String(e) };
   }
 
-  await writeLedger({
+  const ledgerId = await writeLedger({
     question: item.question,
     source: item.source,
     item_ref: item.rawId,
@@ -276,5 +282,5 @@ export async function undoDecideItem(item: DecideItem): Promise<{ ok: boolean; e
     prior_status: item.priorStatus,
   });
 
-  return { ok: true };
+  return { ok: true, ledgerId };
 }

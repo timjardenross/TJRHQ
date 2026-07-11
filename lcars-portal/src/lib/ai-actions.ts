@@ -103,7 +103,37 @@ export async function createHandoff(): Promise<ActionResult> {
   return { type: 'create_handoff', success: true, detail: 'Handoff approved' };
 }
 
-const ACTION_TYPES = ['create_mission', 'create_handoff', 'log_decision'] as const;
+/** EOS Phase 2 Priority 5 (Executive Communications Studio): closes the one
+ * governance gap the Phase 1 Capability Composition Audit found still open
+ * - comms_content's ready_to_publish -> published transition used to be an
+ * immediate, ungated update (api/comms/[id]/advance/route.ts). It now
+ * routes through this same propose-then-approve path as every other
+ * AI/system-proposed mutation (docs/EOS-CANONICAL-ARCHITECTURE-DECISIONS.md
+ * §4, "no exceptions"). Called ONLY from the approve-action route, on
+ * explicit Captain approval. Guards on status='ready_to_publish' so a
+ * stale proposal (the row moved on some other way since it was queued)
+ * fails closed instead of silently publishing from an unexpected state. */
+export async function publishContent(payload: ActionPayload): Promise<ActionResult> {
+  const contentId = String(payload.content_id ?? '');
+  const { data, error } = await supabaseAdmin()
+    .from('comms_content')
+    .update({ status: 'published', updated_at: new Date().toISOString() })
+    .eq('id', contentId)
+    .eq('status', 'ready_to_publish')
+    .select('id')
+    .maybeSingle();
+  if (error) return { type: 'publish_content', success: false, detail: error.message };
+  if (!data) {
+    return {
+      type: 'publish_content',
+      success: false,
+      detail: 'Content is no longer in ready_to_publish state - it may have changed since this was proposed',
+    };
+  }
+  return { type: 'publish_content', success: true, detail: `Content ${contentId} published`, id: data.id };
+}
+
+const ACTION_TYPES = ['create_mission', 'create_handoff', 'log_decision', 'publish_content'] as const;
 export type ProposableActionType = (typeof ACTION_TYPES)[number];
 
 function isProposableActionType(t: string): t is ProposableActionType {
@@ -135,6 +165,9 @@ export function validateActionPayload(actionType: string, payload: unknown): { o
   if (actionType === 'log_decision' && !nonEmptyString(p.decision) && !nonEmptyString(p.title)) {
     return { ok: false, error: 'log_decision requires a non-empty "decision" or "title"' };
   }
+  if (actionType === 'publish_content' && !nonEmptyString(p.content_id)) {
+    return { ok: false, error: 'publish_content requires a non-empty "content_id"' };
+  }
   return { ok: true };
 }
 
@@ -160,14 +193,23 @@ function describeProposal(actionType: ProposableActionType, payload: ActionPaylo
         summary: String(payload.description ?? ''),
         rationale: `Priority: ${payload.priority ?? 'P1'}${payload.mission_id ? ` · Mission: ${payload.mission_id}` : ''}`,
       };
+    case 'publish_content':
+      return {
+        title: String(payload.title ?? 'Untitled content'),
+        summary: `Proposed publish: ${String(payload.title ?? 'Untitled content')}`,
+        rationale: 'Advances this item from Ready to Publish to Published in the Communications pipeline.',
+      };
   }
 }
 
 /** Queues one proposed action as a real build_request_inbox row awaiting
  * Captain review - never executes it. Returns a result describing the
  * proposal, not a completed action, so the model's own reply can be
- * honest about what actually happened. */
-async function proposeAction(actionType: ProposableActionType, payload: ActionPayload): Promise<ActionResult> {
+ * honest about what actually happened. Exported (EOS Phase 2 Priority 5)
+ * so api/comms/[id]/advance/route.ts can queue a publish_content proposal
+ * the same governed way parseAndProposeActions queues everything else -
+ * one proposal mechanism, not a second one reimplemented per caller. */
+export async function proposeAction(actionType: ProposableActionType, payload: ActionPayload): Promise<ActionResult> {
   const { title, summary, rationale } = describeProposal(actionType, payload);
   const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
   const rand = Math.random().toString(36).slice(2, 8).toUpperCase();

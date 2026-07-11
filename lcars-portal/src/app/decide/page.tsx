@@ -25,6 +25,11 @@ interface PostAction {
   ok: boolean;
   error?: string;
   undone?: boolean;
+  /** EOS Phase 3 Priority 2: the decide_ledger row this action just wrote -
+   * lets the Captain launch a Decision Brief with automatic context
+   * (Communications Studio, lib/commsStudio.ts's assembleDecisionBrief())
+   * instead of hunting down and pasting the id by hand. */
+  ledgerId?: string | null;
 }
 
 export default function DecidePage() {
@@ -59,15 +64,15 @@ export default function DecidePage() {
     setBusy(true);
     const res = await approveDecideItem(item);
     setDecidedIds((prev) => new Set(prev).add(item.id));
-    setPost({ item, kind: 'approve', ok: res.ok, error: res.error });
+    setPost({ item, kind: 'approve', ok: res.ok, error: res.error, ledgerId: res.ledgerId });
     setBusy(false);
   }, []);
 
   const handleHold = useCallback(async (item: DecideItem) => {
     setBusy(true);
-    await holdDecideItem(item);
+    const res = await holdDecideItem(item);
     setHeldIds((prev) => new Set(prev).add(item.id));
-    setPost({ item, kind: 'hold', ok: true });
+    setPost({ item, kind: 'hold', ok: true, ledgerId: res.ledgerId });
     setBusy(false);
   }, []);
 
@@ -199,8 +204,9 @@ function PostActionBanner({
 
   if (post.kind === 'hold') {
     return (
-      <div className="rounded-md border border-[rgba(147,161,176,0.2)] bg-[#101722] px-4 py-3 text-[14px] text-[#93A1B0]">
-        Held. &ldquo;{post.item.question}&rdquo; will come back later — nothing changed.
+      <div className="rounded-md border border-[rgba(147,161,176,0.2)] bg-[#101722] px-4 py-3 text-[14px] text-[#93A1B0] flex items-center justify-between gap-3 flex-wrap">
+        <span>Held. &ldquo;{post.item.question}&rdquo; will come back later — nothing changed.</span>
+        <DecisionBriefLink ledgerId={post.ledgerId} />
       </div>
     );
   }
@@ -216,17 +222,38 @@ function PostActionBanner({
   return (
     <div className="rounded-md border border-[#58C0A8]/30 bg-[#58C0A8]/10 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
       <span className="text-[14px] text-[#E8EDF2]">Approved &ldquo;{post.item.question}&rdquo;.</span>
-      {post.item.undoAvailable ? (
-        <button
-          disabled={busy}
-          onClick={() => onUndo(post.item)}
-          className="text-[13px] text-[#6FB3C9] underline underline-offset-2 hover:text-[#93A1B0] disabled:opacity-50"
-        >
-          Undo
-        </button>
-      ) : (
-        <span className="text-[12.5px] text-[#5A6875]">This decision can&rsquo;t be undone.</span>
-      )}
+      <div className="flex items-center gap-3">
+        <DecisionBriefLink ledgerId={post.ledgerId} />
+        {post.item.undoAvailable ? (
+          <button
+            disabled={busy}
+            onClick={() => onUndo(post.item)}
+            className="text-[13px] text-[#6FB3C9] underline underline-offset-2 hover:text-[#93A1B0] disabled:opacity-50"
+          >
+            Undo
+          </button>
+        ) : (
+          <span className="text-[12.5px] text-[#5A6875]">This decision can&rsquo;t be undone.</span>
+        )}
+      </div>
     </div>
+  );
+}
+
+/** EOS Phase 3 Priority 2: automatic context, no manual ID entry - the
+ * decide_ledger row this action just wrote is the exact refId Communications
+ * Studio's Decision Brief assembler (lib/commsStudio.ts) needs. Renders
+ * nothing if the ledger write itself failed (writeLedger degrades to null
+ * rather than throwing - see lib/decide.ts) so this never links to a
+ * document that can't actually be assembled. */
+function DecisionBriefLink({ ledgerId }: { ledgerId?: string | null }) {
+  if (!ledgerId) return null;
+  return (
+    <Link
+      href={`/comms-studio?type=decision_brief&refId=${encodeURIComponent(ledgerId)}`}
+      className="text-[13px] text-[#6FB3C9] underline underline-offset-2 hover:text-[#93A1B0]"
+    >
+      Draft a Decision Brief →
+    </Link>
   );
 }

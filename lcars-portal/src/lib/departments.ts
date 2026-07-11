@@ -85,13 +85,20 @@ export const DEPARTMENTS: Record<DepartmentKey, DepartmentTheme> = {
   }
 };
 
-/** Map a status tone (incl. neutral) to text/border/dot classes. */
+/** Map a status tone (incl. neutral) to text/border/dot classes.
+ *
+ * Real-Captain-walkthrough revision (2026-07-10): every department tone
+ * (command/engineering/operations/medical/science/status) now renders the
+ * same single brand accent rather than five decorative colours - StatusBadge
+ * and every other caller of toneClasses() across Missions/Comms/Advisory
+ * Council/etc. gets this fix in one place. Genuinely semantic status
+ * (ok/warn/crit/unknown) is a completely separate system - stateToneClasses()
+ * below - and is deliberately untouched by this change. */
 export function toneClasses(tone: StatusTone): { text: string; border: string; bg: string; dot: string } {
   if (tone === 'neutral') {
-    return { text: 'text-lcars-muted', border: 'border-edge', bg: 'bg-edge/30', dot: 'bg-lcars-muted' };
+    return { text: 'text-[#61718c]', border: 'border-[#d9e1f0]', bg: 'bg-[#eef1f8]', dot: 'bg-[#61718c]' };
   }
-  const d = DEPARTMENTS[tone];
-  return { text: d.text, border: d.border, bg: d.bgSoft, dot: d.bg };
+  return { text: 'text-[#243b7a]', border: 'border-[#243b7a]/30', bg: 'bg-[#243b7a]/10', dot: 'bg-[#243b7a]' };
 }
 
 /**

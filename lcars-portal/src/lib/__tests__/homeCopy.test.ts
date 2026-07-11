@@ -203,7 +203,17 @@ describe('needsYouText', () => {
   });
 
   it('Home never shows a list of decision items - only the count line', () => {
+    // Real-Captain-walkthrough revision (2026-07-10): Home now has a real
+    // "Explore" hub of navigation links (a static, hardcoded array, not a
+    // fetched list of decision items) - the original blanket "no .map()
+    // anywhere" assertion was a proxy for "never renders the Decide queue
+    // as a list," not a ban on all array rendering. Narrowed to what it
+    // actually meant: Home must fetch only the queue's count
+    // (fetchDecideCount), never the queue itself (fetchDecideQueue), so it
+    // has no individual decide items available to render as a list even if
+    // it wanted to.
     const src = readFileSync(join(__dirname, '../../components/home/HomeScreen.tsx'), 'utf-8');
-    expect(src).not.toMatch(/\.map\(/); // no array rendering anywhere in Home
+    expect(src).toMatch(/fetchDecideCount/);
+    expect(src).not.toMatch(/fetchDecideQueue/);
   });
 });

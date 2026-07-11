@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { createMission, createHandoff, logDecision, supabaseAdmin, validateActionPayload, type ActionResult } from '@/lib/ai-actions';
+import { createMission, createHandoff, logDecision, publishContent, supabaseAdmin, validateActionPayload, type ActionResult } from '@/lib/ai-actions';
 
 // MSN-0352: Conversational Governance Enforcement.
 //
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (row.action_type === 'create_mission') execution = await createMission(payload);
     else if (row.action_type === 'log_decision') execution = await logDecision(payload);
     else if (row.action_type === 'create_handoff') execution = await createHandoff();
+    else if (row.action_type === 'publish_content') execution = await publishContent(payload);
     else {
       // Unreachable given validateActionPayload above, but fail closed
       // explicitly rather than falling through to an implicit no-op.

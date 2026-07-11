@@ -5,53 +5,49 @@
 // core/coordination/recommendation_engine.py's generate_recommendation_package()
 // is real, tested, deterministic, health-aware (check_health_constraints()) and
 // evidence-cited (_explain_recommendation()) - none of that is re-derived here.
-// core/context-assembly/context_service.py already has a `recommendations` CLI
-// command (get_recommendations()) that wraps generate_recommendation_package()
-// in output-ready JSON (RecommendationPackage.to_dict()) - this route reuses
-// that CLI verbatim rather than adding a second wrapper.
 //
-// Same shell-out pattern as src/app/api/captain-brief/route.ts (the existing,
-// working precedent for bridging a pure-Python object with no HTTP surface of
-// its own): execFile a Python CLI, cwd at the repo root, parse its stdout JSON.
-// context_service.py lives under a hyphenated directory (core/context-assembly)
-// so it is invoked as a script path, not via `python3 -m` dotted-module import
-// (which the hyphen would break) - the same invocation shape its own tests use
-// (core/context-assembly/tests/test_captain_brief_integration.py references
-// "python3 core/context-assembly/context_service.py serve").
+// 2026-07-10: this route used to execFile a local python3 CLI
+// (core/context-assembly/context_service.py) directly from this API route -
+// a pattern confirmed broken once deployed to Vercel's Node.js serverless
+// runtime, which has no python3 available at all. Real Captain walkthrough
+// found this: /recommended showed nothing, but the underlying engine (tested
+// directly against real production data) returns genuinely good, evidence-
+// cited output - the bridge was the entire problem, not the engine.
+//
+// Fixed to call context_service.py's new /recommendations/full HTTP endpoint
+// (added this same session) instead - the exact same get_recommendations()
+// function, now reachable over a plain fetch() from wherever this Next.js
+// app actually runs, rather than shelling out to a local interpreter that
+// may not exist in that environment. CONTEXT_SERVICE_URL must point at a
+// real, persistently-running instance of `python3 context_service.py serve`
+// (see core/context-assembly/context_service.py's own serve command) -
+// this is infrastructure this route depends on now existing somewhere
+// reachable, not something this route can stand up itself.
 
 import { NextResponse } from 'next/server';
-import { execFile } from 'child_process';
-import * as path from 'path';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
-
-function repoRoot(): string {
-  return process.env.REPO_ROOT ? path.resolve(process.env.REPO_ROOT) : path.resolve(process.cwd(), '..');
-}
+import { contextServiceUrl, contextServiceHeaders } from '@/lib/contextService';
 
 export async function GET() {
   try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['core/context-assembly/context_service.py', 'recommendations'],
-      { cwd: repoRoot(), timeout: 15000, maxBuffer: 10 * 1024 * 1024 },
-    );
-    const pkg = JSON.parse(stdout);
-    // context_service.py's own main() catches every exception internally and
-    // still exits 0 in some paths with an {"error": ...} body (see get_recommendations
-    // -> generate_recommendation_package) - so a parsed-but-error-shaped body
-    // must be treated as a real failure, not silently returned as success.
-    if (pkg && typeof pkg === 'object' && 'error' in pkg) {
+    const resp = await fetch(`${contextServiceUrl()}/recommendations/full`, {
+      headers: contextServiceHeaders(),
+      signal: AbortSignal.timeout(15000),
+    });
+    const pkg = await resp.json();
+    // The Flask route returns a 500 with an {"error": ...} body on any
+    // internal failure (context_service.py's own try/except pattern,
+    // unchanged by this bridge swap) - a parsed-but-error-shaped body must
+    // be treated as a real failure, not silently returned as success.
+    if (!resp.ok || (pkg && typeof pkg === 'object' && 'error' in pkg)) {
       return NextResponse.json(
-        { error: 'Recommendation engine reported a failure', detail: String(pkg.error) },
+        { error: 'Recommendation engine reported a failure', detail: String(pkg?.detail ?? pkg?.error ?? resp.statusText) },
         { status: 502 },
       );
     }
     return NextResponse.json(pkg);
   } catch (err) {
     return NextResponse.json(
-      { error: 'Failed to generate recommendations', detail: String(err) },
+      { error: 'Failed to reach the Recommendation Engine service', detail: String(err) },
       { status: 502 },
     );
   }
