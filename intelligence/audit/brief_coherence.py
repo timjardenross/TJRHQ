@@ -85,10 +85,10 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
                 for e in top_events[:3]  # First 3 for brevity
             ],
             "narrative": {
-                "executive_snapshot": brief["executive_snapshot"][:200] + "...",
-                "emerging_themes": brief["emerging_themes"][:150] + "...",
-                "forward_watch": brief["forward_watch"][:150] + "...",
-                "bottom_line": brief["bottom_line"][:200] + "...",
+                "executive_snapshot": str(brief.get("executive_snapshot", ""))[:200] + "...",
+                "emerging_themes": str(brief.get("emerging_themes", ""))[:150] + "...",
+                "forward_watch": str(brief.get("forward_watch", ""))[:150] + "...",
+                "bottom_line": str(brief.get("bottom_line", ""))[:200] + "...",
             },
             "cps230_implications": cps230[:200] + "...",
         }
