@@ -1,0 +1,22 @@
+[Unit]
+Description=USS TJR Self-Improving Loop
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/USSTJROS
+ExecStart=/usr/bin/python3 /root/USSTJROS/scripts/self_improving_loop.py run
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=self-improving-loop
+
+# Safety limits
+TimeoutStartSec=600
+TimeoutStopSec=60
+
+# Prevent overlapping runs
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target

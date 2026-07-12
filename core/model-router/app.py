@@ -102,6 +102,10 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
+    # Self-improvement system (MSN-0099 Phase 1)
+    "self-improvement-analyse": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    "self-improvement-critique": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    "self-improvement-mission":  {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
@@ -380,6 +384,9 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/engineering-review":   "engineering-review",
             "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
             "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
+            "/api/model/self-improvement-analyse": "self-improvement-analyse",
+            "/api/model/self-improvement-critique": "self-improvement-critique",
+            "/api/model/self-improvement-mission": "self-improvement-mission",
         }
         task_type = route_map.get(path)
         if task_type is None:
