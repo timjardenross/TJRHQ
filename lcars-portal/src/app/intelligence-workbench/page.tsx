@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Card, RiskPill, Shell } from './_components/Shell';
+import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
 
 type Domain = 'operational' | 'health';
 
@@ -26,12 +27,23 @@ type Signal = {
   source_tier: number | null;
 };
 
+type SourceArticle = {
+  title: string;
+  url: string;
+  summary?: string;
+  published_date?: string;
+  source_type?: string;
+};
+
 type HealthInsight = {
   insight_id: string;
   created_at: string;
   overall_status: string | null;
   wellness_narrative: string | null;
   key_findings: string | null;
+  source_articles?: SourceArticle[] | null;
+  committed_to_memory?: boolean;
+  committed_at?: string | null;
 };
 
 type HealthEvent = {
@@ -92,10 +104,35 @@ function DomainToggle({ domain, onChange }: { domain: Domain; onChange: (d: Doma
   );
 }
 
+function SourceArticleCard({ article }: { article: SourceArticle }) {
+  return (
+    <a
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block rounded-md border border-wb-line bg-wb-line/30 p-3 transition hover:border-wb-sage-deep hover:bg-wb-line/60"
+    >
+      <div className="font-medium text-wb-ink">{article.title}</div>
+      {article.summary && (
+        <p className="mt-1 text-[12px] text-wb-ink2 line-clamp-2">{article.summary}</p>
+      )}
+      <div className="mt-2 flex items-center gap-2 text-[11px] text-wb-ink2">
+        {article.source_type && (
+          <span className="rounded bg-wb-sage-deep/20 px-1.5 py-0.5 text-wb-sage-deep">
+            {article.source_type}
+          </span>
+        )}
+        {article.published_date && <span>{new Date(article.published_date).toLocaleDateString()}</span>}
+      </div>
+    </a>
+  );
+}
+
 export default function Overview() {
   const [domain, setDomain] = useState<Domain>('operational');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -111,6 +148,30 @@ export default function Overview() {
       )
       .finally(() => setLoading(false));
   }, [domain]);
+
+  const handleCommitInsight = async (insightId: string) => {
+    setActionInProgress(insightId);
+    const result = await commitHealthInsight(insightId);
+    if (result.status === '200') {
+      // Refresh insights
+      const response = await fetch(`/api/intelligence-workbench?domain=health`);
+      const newData = await response.json();
+      setData(newData);
+    }
+    setActionInProgress(null);
+  };
+
+  const handleDiscardInsight = async (insightId: string) => {
+    setActionInProgress(insightId);
+    const result = await discardHealthInsight(insightId);
+    if (result.status === '200') {
+      // Refresh insights
+      const response = await fetch(`/api/intelligence-workbench?domain=health`);
+      const newData = await response.json();
+      setData(newData);
+    }
+    setActionInProgress(null);
+  };
 
   const briefTitle = (b: Brief) =>
     (b.executive_snapshot ?? '').split('.')[0]?.slice(0, 80) || `Brief ${b.brief_id.slice(0, 8)}`;
@@ -206,21 +267,63 @@ export default function Overview() {
             ))}
           </div>
 
-          {/* Health insights / synthesis */}
-          <Card title="Weekly synthesis">
+          {/* Health insights with source articles */}
+          <Card title="Weekly synthesis & source articles">
             {loading ? (
               <p className="text-[13px] text-wb-ink2">Loading…</p>
             ) : (healthData?.insights.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No synthesis available.</p>
             ) : (
               healthData!.insights.map((i) => (
-                <div key={i.insight_id} className="mb-4 rounded-md border border-wb-line p-3 last:mb-0">
-                  <div className="text-[13px] font-medium text-wb-ink">{i.overall_status ?? 'OK'}</div>
-                  <p className="mt-2 text-[13px] text-wb-ink2">{i.wellness_narrative ?? 'No narrative available.'}</p>
-                  {i.key_findings && (
-                    <p className="mt-2 text-[12px] text-wb-ink2">
-                      <span className="font-semibold">Key findings:</span> {i.key_findings}
-                    </p>
+                <div key={i.insight_id} className="mb-6 rounded-md border border-wb-line p-4 last:mb-0">
+                  {/* Insight header with status and actions */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-[13px] font-medium text-wb-ink">{i.overall_status ?? 'OK'}</div>
+                      <p className="mt-2 text-[13px] text-wb-ink">{i.wellness_narrative ?? 'No narrative available.'}</p>
+                      {i.key_findings && (
+                        <p className="mt-2 text-[12px] text-wb-ink2">
+                          <span className="font-semibold">Key findings:</span> {i.key_findings}
+                        </p>
+                      )}
+                    </div>
+                    {/* Commit/Discard buttons */}
+                    <div className="ml-4 flex gap-2">
+                      <button
+                        onClick={() => handleCommitInsight(i.insight_id)}
+                        disabled={actionInProgress === i.insight_id || i.committed_to_memory}
+                        className={`rounded px-2 py-1.5 text-[11px] font-medium transition ${
+                          i.committed_to_memory
+                            ? 'bg-wb-ok/20 text-wb-ok-on cursor-default'
+                            : 'border border-wb-sage-deep bg-wb-sage-deep text-white hover:-translate-y-px disabled:opacity-50'
+                        }`}
+                      >
+                        {i.committed_to_memory ? '✓ Committed' : 'Commit'}
+                      </button>
+                      <button
+                        onClick={() => handleDiscardInsight(i.insight_id)}
+                        disabled={actionInProgress === i.insight_id || i.committed_to_memory}
+                        className={`rounded px-2 py-1.5 text-[11px] font-medium transition ${
+                          i.committed_to_memory
+                            ? 'text-wb-ink2 cursor-default opacity-50'
+                            : 'border border-wb-line text-wb-ink2 hover:bg-wb-line disabled:opacity-50'
+                        }`}
+                      >
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Source articles section */}
+                  {i.source_articles && Array.isArray(i.source_articles) && i.source_articles.length > 0 && (
+                    <div className="mt-4 border-t border-wb-line pt-4">
+                      <div className="text-[12px] font-semibold text-wb-ink2 mb-3">Source Articles ({i.source_articles.length})</div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {i.source_articles.map((article, idx) => (
+                          <SourceArticleCard key={idx} article={article} />
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))

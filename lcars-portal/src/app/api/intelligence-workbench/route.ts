@@ -52,15 +52,15 @@ async function getOperationalData(sb: any, since: string) {
 }
 
 async function getHealthData(sb: any, since: string) {
-  // Latest health insights (synthesis-level).
+  // Latest health insights (synthesis-level) WITH source articles.
   const { data: insights } = await sb
     .from('health_insights')
-    .select('insight_id,created_at,synthesis_period_start,synthesis_period_end,overall_status,wellness_narrative,key_findings')
+    .select('insight_id,created_at,synthesis_period_start,synthesis_period_end,overall_status,wellness_narrative,key_findings,source_articles,committed_to_memory,committed_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(10);
 
-  // Health events (7d) for detail view.
+  // Health events (7d) for detail view with source tracking.
   const { data: events } = await sb
     .from('health_events')
     .select('event_id,logged_at,event_type,value,notes,source')
