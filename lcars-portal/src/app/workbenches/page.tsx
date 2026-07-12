@@ -46,6 +46,11 @@ const TILES: Tile[] = [
     description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces.',
   },
   {
+    href: '/capture-workbench',
+    title: 'Capture Workbench',
+    description: 'Capture anything in one box, then triage the inbox — classify, route, and promote, review-first. Live from every capture channel.',
+  },
+  {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Findings, decisions, and audit trail from the self-improvement system.',

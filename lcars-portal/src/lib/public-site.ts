@@ -138,6 +138,7 @@ export const PRIVATE_ROBOTS_DISALLOWS = [
   '/search',
   '/timeline',
   '/capture',
+  '/capture-workbench',
   '/engineering-queue',
   '/engineering',
   '/intelligence',

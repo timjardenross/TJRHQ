@@ -80,7 +80,7 @@ export function MobileOperatingPicture() {
           <Link href="/recovery-brief" className="flex-1 rounded-lcars border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
             Recovery brief
           </Link>
-          <Link href="/capture" className="flex-1 rounded-lcars border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
+          <Link href="/capture-workbench" className="flex-1 rounded-lcars border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
             Quick capture
           </Link>
         </div>

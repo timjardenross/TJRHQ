@@ -85,9 +85,9 @@ async function searchCaptures(q: string): Promise<SearchOutcome> {
     timestamp: r.captured_at,
     // MSN-0328 (WP-C): /captains-notebook reads intelligence_notes, never
     // captured_items — this search queries captured_items, so a hit here
-    // never appeared on the page it linked to. /capture is the real
-    // captured_items consumer (its Inbox tab).
-    href:      '/capture',
+    // never appeared on the page it linked to. The Capture Workbench Inbox is
+    // the real captured_items consumer.
+    href:      '/capture-workbench?domain=inbox',
   }));
   return { ok: !error, results };
 }
