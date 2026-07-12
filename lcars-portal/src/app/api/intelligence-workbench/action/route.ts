@@ -49,12 +49,17 @@ async function viaProxy(req: object): Promise<Result> {
 }
 
 // --- transport 2: local subprocess (off-Vercel fallback) ---
-function pythonEnv(): NodeJS.ProcessEnv {
+// `selfUrl` is the portal's own absolute origin, used as the last-resort value
+// for LCARS_PORTAL_URL. The dispatcher (intelligence/workflow/service.py
+// _deep_link) builds absolute Telegram escalation deep-links from it, so an
+// empty value would yield a relative, broken link. Falling back to the request
+// origin keeps deep-links valid even when neither env var is set.
+function pythonEnv(selfUrl: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
     SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-    LCARS_PORTAL_URL: process.env.LCARS_PORTAL_URL || process.env.NEXT_PUBLIC_SITE_URL || '',
+    LCARS_PORTAL_URL: process.env.LCARS_PORTAL_URL || process.env.NEXT_PUBLIC_SITE_URL || selfUrl,
   };
 }
 
@@ -63,13 +68,13 @@ function localCredsReady(): boolean {
   return Boolean(url && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-function viaLocal(req: object): Promise<Result> {
+function viaLocal(req: object, selfUrl: string): Promise<Result> {
   const repoRoot = path.resolve(process.cwd(), '..');
   const python = process.env.PYTHON_BIN || 'python3';
   return new Promise((resolve) => {
     const child = spawn(python, ['-m', 'intelligence.workflow.cli', '--json', JSON.stringify(req)], {
       cwd: repoRoot,
-      env: pythonEnv(),
+      env: pythonEnv(selfUrl),
     });
     let out = '';
     let err = '';
@@ -122,7 +127,7 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    const { status, body: result } = await viaLocal(req);
+    const { status, body: result } = await viaLocal(req, request.nextUrl.origin);
     return NextResponse.json(result, { status });
   }
 }
