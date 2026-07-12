@@ -24,10 +24,10 @@ import { SourceBadge, ClassBadge, AiBadge, VoiceMeta, AiSuggestion, parseSummary
 
 const ROUTE_DEST: Record<string, { label: string; href: string }> = {
   personal:  { label: "Captain's Log", href: '/captains-log' },
-  reference: { label: 'Knowledge Hub', href: '/knowledge' },
-  decision:  { label: 'Decisions', href: '/knowledge?tab=decisions' },
+  reference: { label: 'Knowledge Hub', href: '/knowledge-workbench?domain=memory' },
+  decision:  { label: 'Decisions', href: '/knowledge-workbench?domain=memory&innerTab=decisions' },
   mission:   { label: 'Missions', href: '/missions' },
-  research:  { label: 'Knowledge Hub', href: '/knowledge' },
+  research:  { label: 'Knowledge Hub', href: '/knowledge-workbench?domain=memory' },
 };
 
 type BtnTone = 'ok' | 'sage' | 'neutral';

@@ -38,32 +38,37 @@ const TILES: Tile[] = [
   {
     href: '/mission-workbench',
     title: 'Mission Workbench',
-    description: 'Mission Registry — capacity-aware filtering, governed approve/reject, status updates. Live from the missions table.',
+    description: 'Mission Registry - capacity-aware filtering, governed approve/reject, status updates. Live from the missions table.',
   },
   {
     href: '/human-systems-workbench',
     title: 'Human Systems Workbench',
-    description: 'Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal.',
+    description: 'Recovery posture, medical tracking, and physical readiness in one collection - live from the recovery-pulse signal.',
   },
   {
     href: '/advisory-workbench',
     title: 'Advisory Workbench',
-    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces.',
+    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
   },
   {
     href: '/capture-workbench',
     title: 'Capture Workbench',
-    description: 'Capture anything in one box, then triage the inbox — classify, route, and promote, review-first. Live from every capture channel.',
+    description: 'Capture anything in one box, then triage the inbox - classify, route, and promote, review-first. Live from every capture channel.',
   },
   {
     href: '/captains-brief-workbench',
-    title: 'Captain’s Brief Workbench',
-    description: 'The continuous Captain’s Brief (MSN-0313) — summary, priorities, warnings, interrupts, and by-domain signals, assembled on request from the live event pipeline.',
+    title: 'Captains Brief Workbench',
+    description: 'The continuous Captains Brief (MSN-0313) - summary, priorities, warnings, interrupts, and by-domain signals, assembled on request from the live event pipeline.',
   },
   {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Findings, decisions, and audit trail from the self-improvement system.',
+  },
+  {
+    href: '/knowledge-workbench',
+    title: 'Knowledge Workbench',
+    description: 'Access organisational decisions, lessons, architecture, and review personal documents for approval into Command Memory.',
   },
 ];
 

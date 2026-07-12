@@ -97,8 +97,8 @@ function routeLabel(route: string | null): string | null {
 const _ARTEFACT_NAV: Record<string, string> = {
   MISSION:                  '/missions',
   BUILD_REQUEST:            '/engineering',
-  IMPROVEMENT:              '/knowledge',
-  KNOWLEDGE_ARTICLE:        '/knowledge',
+  IMPROVEMENT:              '/knowledge-workbench?domain=memory',
+  KNOWLEDGE_ARTICLE:        '/knowledge-workbench?domain=memory',
   COMMUNICATION_OPPORTUNITY: '/comms',
 };
 
