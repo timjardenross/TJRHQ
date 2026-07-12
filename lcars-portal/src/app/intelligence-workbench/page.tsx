@@ -271,7 +271,7 @@ export default function Overview() {
           <Card title="Weekly synthesis & source articles">
             {loading ? (
               <p className="text-[13px] text-wb-ink2">Loading…</p>
-            ) : (healthData?.insights.length ?? 0) === 0 ? (
+            ) : (healthData?.insights?.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No synthesis available.</p>
             ) : (
               healthData!.insights.map((i) => (
