@@ -36,6 +36,11 @@ const TILES: Tile[] = [
     description: 'Signals to opportunities, pipeline, and portfolio for comms content.',
   },
   {
+    href: '/human-systems-workbench',
+    title: 'Human Systems Workbench',
+    description: 'Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal.',
+  },
+  {
     href: '/comms-studio',
     title: 'Communications Studio',
     description: 'Assemble a brief, decision, or mission report from canonical platform data.',

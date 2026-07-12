@@ -6,7 +6,8 @@
   "overrides": [
     {
       "files": [
-        "src/app/intelligence-workbench/**/*.tsx"
+        "src/app/intelligence-workbench/**/*.tsx",
+        "src/app/human-systems-workbench/**/*.tsx"
       ],
       "extends": [
         "plugin:jsx-a11y/recommended"
@@ -19,6 +20,7 @@
       "files": [
         "src/app/comms-workbench/**/*.tsx",
         "src/app/intelligence-workbench/**/*.tsx",
+        "src/app/human-systems-workbench/**/*.tsx",
         "src/components/ui/**/*.tsx"
       ],
       "rules": {
