@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""
+Self-Improvement Orchestrator: Coordinates the full improvement workflow.
+
+1. Collect evidence from codebase
+2. Analyze with model
+3. Classify findings
+4. Process user decisions
+5. Auto-remediate if confident
+6. Report results
+"""
+
+import json
+import logging
+import sys
+from pathlib import Path
+from datetime import datetime, timezone
+
+from collector import EvidenceCollector
+from router_client import ModelRouterClient
+from policy import PolicyEngine
+from decision_processor import DecisionProcessor
+from auto_remediation import AutoRemediationExecutor
+
+log = logging.getLogger("orchestrator")
+
+
+class SelfImprovementOrchestrator:
+    """Orchestrates the full self-improvement workflow."""
+
+    def __init__(self, repo_root: Path, data_root: Path, router_url: str = "http://127.0.0.1:8891"):
+        self.repo_root = repo_root
+        self.data_root = data_root
+        self.router_url = router_url
+
+        self.collector = EvidenceCollector(repo_root)
+        self.router = ModelRouterClient(router_url)
+        self.policy = PolicyEngine()
+        self.decision_processor = DecisionProcessor(data_root)
+        self.executor = AutoRemediationExecutor(repo_root, data_root)
+
+    def run_full_cycle(self, dry_run: bool = False, remediate: bool = True) -> dict:
+        """Run the complete self-improvement cycle."""
+        log.info("=" * 80)
+        log.info("SELF-IMPROVEMENT CYCLE START")
+        log.info("=" * 80)
+
+        # Phase 1: Collect evidence
+        log.info("\nPhase 1: Collecting evidence...")
+        evidence = self.collector.collect_all()
+        log.info(f"Collected {len(evidence)} evidence sections")
+
+        # Phase 2: Analyze with model
+        log.info("\nPhase 2: Analyzing evidence...")
+        if not self.router.health_check():
+            log.error("Model Router unreachable - stopping")
+            return {"success": False, "error": "Model Router unavailable"}
+
+        analysis_result = self.router.analyse_evidence(evidence)
+        if not analysis_result.get("success"):
+            log.error(f"Analysis failed: {analysis_result.get('error')}")
+            return {"success": False, "error": analysis_result.get("error")}
+
+        findings = analysis_result.get("findings", [])
+        log.info(f"Analysis produced {len(findings)} findings")
+
+        # Phase 3: Classify findings
+        log.info("\nPhase 3: Classifying findings...")
+        classified = self.policy.classify_findings(findings)
+        log.info(f"Classified: {len(classified['findings'])} valid, {len(classified['errors'])} errors")
+
+        # Phase 4: Process decisions
+        log.info("\nPhase 4: Processing user decisions...")
+        decision_report = self.decision_processor.process(classified["findings"])
+        log.info(f"Decision report: {decision_report['total_decisions']} decisions")
+        log.info(f"Model confidence: {decision_report['model_confidence']:.0%}")
+        log.info(f"Auto-remediation eligible: {decision_report['auto_remediation_eligible_count']} findings")
+
+        # Phase 5: Auto-remediation (if enabled and confident)
+        remediation_result = {"skipped": True}
+        if remediate and decision_report["model_confidence"] >= 0.75:
+            log.info("\nPhase 5: Auto-remediating approved findings...")
+            remediation_result = self.executor.execute(
+                model_confidence=decision_report["model_confidence"],
+                dry_run=dry_run,
+            )
+            log.info(f"Remediation: {remediation_result['remediated_count']} applied, {remediation_result['failed_count']} failed")
+        else:
+            log.info("\nPhase 5: Skipped (model confidence too low or remediation disabled)")
+
+        # Summary
+        log.info("\n" + "=" * 80)
+        log.info("SELF-IMPROVEMENT CYCLE COMPLETE")
+        log.info("=" * 80)
+
+        summary = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "success": True,
+            "evidence_collected": len(evidence),
+            "findings_analyzed": len(findings),
+            "findings_classified": len(classified["findings"]),
+            "findings_errors": len(classified["errors"]),
+            "decisions_processed": decision_report["total_decisions"],
+            "model_confidence": decision_report["model_confidence"],
+            "auto_remediation_eligible": decision_report["auto_remediation_eligible_count"],
+            "auto_remediation": remediation_result,
+            "decision_report": decision_report,
+            "recommendations": decision_report.get("recommendations", []),
+        }
+
+        # Save summary
+        summary_file = self.data_root / "review" / "cycle_summary.json"
+        summary_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(summary_file, "w") as f:
+            json.dump(summary, f, indent=2)
+
+        log.info(f"\nSummary saved: {summary_file}")
+        return summary
+
+
+def main():
+    """CLI entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run self-improvement cycle")
+    parser.add_argument("--repo-root", type=Path, default=Path("/root/USSTJROS"), help="Repository root")
+    parser.add_argument("--data-root", type=Path, default=Path("/tmp/usstjros-findings"), help="Data directory")
+    parser.add_argument("--router-url", default="http://127.0.0.1:8891", help="Model Router URL")
+    parser.add_argument("--dry-run", action="store_true", help="Don't apply changes")
+    parser.add_argument("--no-remediate", action="store_true", help="Skip auto-remediation")
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
+    orchestrator = SelfImprovementOrchestrator(
+        repo_root=args.repo_root,
+        data_root=args.data_root,
+        router_url=args.router_url,
+    )
+
+    result = orchestrator.run_full_cycle(
+        dry_run=args.dry_run,
+        remediate=not args.no_remediate,
+    )
+
+    # Print summary
+    print("\n" + "=" * 80)
+    print("FINAL SUMMARY")
+    print("=" * 80)
+    print(json.dumps(result, indent=2, default=str))
+
+    return 0 if result.get("success") else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
