@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Improving System Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #0a0e27;
+            color: #e0e6ed;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #0f1223;
+            border-right: 1px solid #1a1f3a;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1f3a 0%, #0f1223 100%);
+            border-bottom: 1px solid #1a1f3a;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #00d9ff;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: #7a8199;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        .status-item {
+            background: #1a1f3a;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border-left: 3px solid #00d9ff;
+        }
+
+        .status-item strong {
+            display: block;
+            color: #00d9ff;
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+
+        .findings-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .finding-item {
+            background: #1a1f3a;
+            border: 1px solid #2a2f4a;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .finding-item:hover {
+            background: #252b47;
+            border-color: #00d9ff;
+        }
+
+        .finding-item.active {
+            background: #2a3055;
+            border-color: #00d9ff;
+            box-shadow: 0 0 10px rgba(0, 217, 255, 0.2);
+        }
+
+        .finding-item.decided {
+            opacity: 0.6;
+            background: #1a2030;
+        }
+
+        .finding-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #e0e6ed;
+        }
+
+        .finding-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 11px;
+        }
+
+        .badge {
+            background: #1f2d4a;
+            padding: 2px 8px;
+            border-radius: 3px;
+            color: #7a8199;
+        }
+
+        .badge.severity-high {
+            background: #4a2a2a;
+            color: #ff6b6b;
+        }
+
+        .badge.severity-medium {
+            background: #4a3a2a;
+            color: #ffa500;
+        }
+
+        .badge.severity-low {
+            background: #2a4a2a;
+            color: #51cf66;
+        }
+
+        .badge.decided-approved {
+            background: #2a4a2a;
+            color: #51cf66;
+        }
+
+        .badge.decided-rejected {
+            background: #4a2a2a;
+            color: #ff6b6b;
+        }
+
+        .main {
+            flex: 1;
+            background: #0a0e27;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .detail-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .detail-view.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7a8199;
+            font-size: 16px;
+        }
+
+        .finding-detail h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #00d9ff;
+        }
+
+        .detail-section {
+            margin-bottom: 24px;
+        }
+
+        .detail-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #7a8199;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .detail-content {
+            background: #1a1f3a;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #00d9ff;
+            line-height: 1.8;
+        }
+
+        .evidence-list {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .evidence-list li {
+            background: #252b47;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .evidence-list li strong {
+            color: #00d9ff;
+        }
+
+        .action-bar {
+            border-top: 1px solid #1a1f3a;
+            padding: 20px 30px;
+            background: #0f1223;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .action-bar textarea {
+            width: 100%;
+            background: #1a1f3a;
+            border: 1px solid #2a2f4a;
+            color: #e0e6ed;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+            min-height: 60px;
+            margin-bottom: 12px;
+        }
+
+        .action-bar textarea::placeholder {
+            color: #7a8199;
+        }
+
+        .button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .button-approve {
+            background: #2a5a2a;
+            color: #51cf66;
+            border: 1px solid #3a7a3a;
+        }
+
+        .button-approve:hover {
+            background: #3a7a3a;
+            box-shadow: 0 0 10px rgba(81, 207, 102, 0.3);
+        }
+
+        .button-reject {
+            background: #5a2a2a;
+            color: #ff6b6b;
+            border: 1px solid #7a3a3a;
+        }
+
+        .button-reject:hover {
+            background: #7a3a3a;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+        }
+
+        .button-more-evidence {
+            background: #3a4a5a;
+            color: #ffa500;
+            border: 1px solid #4a5a7a;
+        }
+
+        .button-more-evidence:hover {
+            background: #4a5a7a;
+            box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .decision-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .decision-badge.approved {
+            background: #2a5a2a;
+            color: #51cf66;
+        }
+
+        .decision-badge.rejected {
+            background: #5a2a2a;
+            color: #ff6b6b;
+        }
+
+        .decision-badge.more-evidence {
+            background: #3a4a5a;
+            color: #ffa500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7a8199;
+        }
+
+        .spinner {
+            border: 2px solid #2a2f4a;
+            border-top: 2px solid #00d9ff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h1>🔍 Findings</h1>
+                <p>Self-Improvement System</p>
+                <div class="status-bar">
+                    <div class="status-item">
+                        <strong id="total-count">0</strong>
+                        Total
+                    </div>
+                    <div class="status-item">
+                        <strong id="pending-count">0</strong>
+                        Pending
+                    </div>
+                </div>
+            </div>
+            <div class="findings-list" id="findings-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading findings...
+                </div>
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="detail-view empty" id="detail-view">
+                <div>Select a finding to review</div>
+            </div>
+
+            <div class="action-bar" id="action-bar" style="display: none;">
+                <textarea id="reasoning" placeholder="Add notes/reasoning for your decision (optional)..."></textarea>
+                <button class="button button-approve" onclick="makeDecision('approved')">✓ Approve</button>
+                <button class="button button-more-evidence" onclick="makeDecision('more_evidence')">? More Evidence</button>
+                <button class="button button-reject" onclick="makeDecision('rejected')">✗ Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let findings = [];
+        let selectedFinding = null;
+
+        async function loadFindings() {
+            try {
+                const resp = await fetch('/api/findings');
+                const data = await resp.json();
+                findings = data.findings || [];
+
+                document.getElementById('total-count').textContent = data.total || 0;
+                document.getElementById('pending-count').textContent = data.findings.filter(f => !f.decision).length || 0;
+
+                renderFindings();
+            } catch (err) {
+                console.error('Failed to load findings:', err);
+                document.getElementById('findings-list').innerHTML = '<div class="loading">Failed to load findings</div>';
+            }
+        }
+
+        function renderFindings() {
+            const list = document.getElementById('findings-list');
+            if (findings.length === 0) {
+                list.innerHTML = '<div class="loading">No findings yet</div>';
+                return;
+            }
+
+            list.innerHTML = findings.map(f => `
+                <div class="finding-item ${selectedFinding?.finding_id === f.finding_id ? 'active' : ''} ${f.decision ? 'decided' : ''}" onclick="selectFinding(${findings.indexOf(f)})">
+                    <div class="finding-title">${f.title || 'Untitled'}</div>
+                    <div class="finding-meta">
+                        <span class="badge">${f.category}</span>
+                        <span class="badge severity-${f.severity}">${f.severity}</span>
+                        ${f.decision ? `<span class="badge decided-${f.decision}">${f.decision.replace('_', ' ')}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectFinding(index) {
+            selectedFinding = findings[index];
+            renderFindings();
+            renderDetail();
+        }
+
+        function renderDetail() {
+            const view = document.getElementById('detail-view');
+            const actionBar = document.getElementById('action-bar');
+
+            if (!selectedFinding) {
+                view.classList.add('empty');
+                view.innerHTML = '<div>Select a finding to review</div>';
+                actionBar.style.display = 'none';
+                return;
+            }
+
+            view.classList.remove('empty');
+            actionBar.style.display = 'flex';
+
+            const evidence = selectedFinding.evidence || [];
+            const evidenceHTML = evidence.length > 0 ? `
+                <ul class="evidence-list">
+                    ${evidence.map(e => `
+                        <li>
+                            <strong>${e.type}:</strong> ${e.observation}
+                            ${e.location ? `<br><em>${e.location}</em>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            ` : '<p>No evidence provided</p>';
+
+            const decisionHTML = selectedFinding.decision ? `
+                <div class="decision-badge ${selectedFinding.decision}">
+                    Decision: ${selectedFinding.decision.replace('_', ' ').toUpperCase()}
+                    ${selectedFinding.decision_reasoning ? `<br>${selectedFinding.decision_reasoning}` : ''}
+                </div>
+            ` : '';
+
+            view.innerHTML = `
+                <div>
+                    <h2>${selectedFinding.title || 'Untitled'}</h2>
+
+                    <div class="detail-section">
+                        <h3>Category</h3>
+                        <div class="detail-content">${selectedFinding.category}</div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Severity & Risk</h3>
+                        <div class="detail-content">
+                            Severity: <strong>${selectedFinding.severity}</strong><br>
+                            Risk: <strong>${selectedFinding.risk_level || 'N/A'}</strong><br>
+                            Confidence: <strong>${(selectedFinding.confidence * 100).toFixed(0)}%</strong>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Description</h3>
+                        <div class="detail-content">${selectedFinding.description || selectedFinding.proposed_action?.description || 'No description provided'}</div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Evidence</h3>
+                        <div class="detail-content">${evidenceHTML}</div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h3>Proposed Action</h3>
+                        <div class="detail-content">${selectedFinding.proposed_action?.type || 'N/A'}: ${selectedFinding.proposed_action?.description || 'N/A'}</div>
+                    </div>
+
+                    ${decisionHTML}
+                </div>
+            `;
+
+            document.getElementById('reasoning').value = selectedFinding.decision_reasoning || '';
+        }
+
+        async function makeDecision(decision) {
+            if (!selectedFinding) return;
+
+            const reasoning = document.getElementById('reasoning').value;
+            try {
+                const resp = await fetch('/api/decide', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        finding_id: selectedFinding.finding_id,
+                        decision: decision,
+                        reasoning: reasoning
+                    })
+                });
+
+                if (resp.ok) {
+                    selectedFinding.decision = decision;
+                    selectedFinding.decision_reasoning = reasoning;
+                    await loadFindings();
+                    renderDetail();
+                } else {
+                    alert('Failed to save decision');
+                }
+            } catch (err) {
+                console.error('Failed to save decision:', err);
+                alert('Error saving decision');
+            }
+        }
+
+        // Initial load
+        loadFindings();
+        // Refresh every 5 seconds
+        setInterval(loadFindings, 5000);
+    </script>
+</body>
+</html>
