@@ -35,7 +35,8 @@ class SelfImprovementOrchestrator:
 
         self.collector = EvidenceCollector(repo_root)
         self.router = ModelRouterClient(router_url)
-        self.policy = PolicyEngine()
+        policy_file = repo_root / "config" / "self_improvement_policy.json"
+        self.policy = PolicyEngine(policy_file)
         self.decision_processor = DecisionProcessor(data_root)
         self.executor = AutoRemediationExecutor(repo_root, data_root)
 
