@@ -67,12 +67,19 @@ class SelfImprovementOrchestrator:
 
         # Phase 3: Classify findings
         log.info("\nPhase 3: Classifying findings...")
-        classified = self.policy.classify_findings(findings)
-        log.info(f"Classified: {len(classified['findings'])} valid, {len(classified['errors'])} errors")
+        classified_findings = []
+        errors = []
+        for finding in findings:
+            result = self.policy.classify_finding(finding)
+            if result.get("valid"):
+                classified_findings.append(result.get("finding", finding))
+            else:
+                errors.append({"finding_id": finding.get("finding_id"), "error": result.get("reason")})
+        log.info(f"Classified: {len(classified_findings)} valid, {len(errors)} errors")
 
         # Phase 4: Process decisions
         log.info("\nPhase 4: Processing user decisions...")
-        decision_report = self.decision_processor.process(classified["findings"])
+        decision_report = self.decision_processor.process(classified_findings)
         log.info(f"Decision report: {decision_report['total_decisions']} decisions")
         log.info(f"Model confidence: {decision_report['model_confidence']:.0%}")
         log.info(f"Auto-remediation eligible: {decision_report['auto_remediation_eligible_count']} findings")
@@ -99,8 +106,8 @@ class SelfImprovementOrchestrator:
             "success": True,
             "evidence_collected": len(evidence),
             "findings_analyzed": len(findings),
-            "findings_classified": len(classified["findings"]),
-            "findings_errors": len(classified["errors"]),
+            "findings_classified": len(classified_findings),
+            "findings_errors": len(errors),
             "decisions_processed": decision_report["total_decisions"],
             "model_confidence": decision_report["model_confidence"],
             "auto_remediation_eligible": decision_report["auto_remediation_eligible_count"],
