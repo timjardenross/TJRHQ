@@ -516,10 +516,13 @@ async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # ── Bot restart ──────────────────────────────────────────────────────────────
 
+# XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
+# tg-engineering-dept are retired. The "telegram" group is therefore empty here —
+# XO self-restarts tg-xo.service separately below (restart_xo).
 _RESTARTABLE_SERVICES = {
     "slack":    ["starfleet-slack-bot.service"],
-    "telegram": ["tg-engineer.service", "tg-engineering-dept.service"],
-    "all":      ["starfleet-slack-bot.service", "tg-engineer.service", "tg-engineering-dept.service"],
+    "telegram": [],
+    "all":      ["starfleet-slack-bot.service"],
 }
 
 
