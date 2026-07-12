@@ -13,146 +13,204 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #0a0e27;
-            color: #e0e6ed;
+            background: #FAF8F3;
+            color: #2D2D2D;
             line-height: 1.6;
         }
 
         .container {
             display: flex;
             height: 100vh;
+            flex-direction: column;
+        }
+
+        header {
+            border-bottom: 1px solid #E8E5DC;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+            padding: 0;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            width: 100%;
+        }
+
+        .header-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #52604F;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .header-title {
+            flex: 1;
+        }
+
+        .header-title h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2D2D2D;
+            margin: 0;
+        }
+
+        .header-title p {
+            font-size: 10px;
+            color: #5A5A5A;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            margin: 2px 0 0 0;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
         }
 
         .sidebar {
-            width: 350px;
-            background: #0f1223;
-            border-right: 1px solid #1a1f3a;
+            width: 320px;
+            background: #FFFFFF;
+            border-right: 1px solid #E8E5DC;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
 
-        .header {
+        .sidebar-header {
             padding: 20px;
-            background: linear-gradient(135deg, #1a1f3a 0%, #0f1223 100%);
-            border-bottom: 1px solid #1a1f3a;
+            border-bottom: 1px solid #E8E5DC;
         }
 
-        .header h1 {
-            font-size: 18px;
+        .sidebar-title {
+            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 8px;
-            color: #00d9ff;
+            color: #2D2D2D;
+            margin-bottom: 12px;
         }
 
-        .header p {
-            font-size: 12px;
-            color: #7a8199;
-        }
-
-        .status-bar {
+        .status-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            font-size: 12px;
-            margin-top: 12px;
+            gap: 8px;
+            font-size: 11px;
         }
 
         .status-item {
-            background: #1a1f3a;
-            padding: 8px 12px;
+            background: #FAF8F3;
+            padding: 8px;
             border-radius: 4px;
-            border-left: 3px solid #00d9ff;
+            border-left: 2px solid #52604F;
         }
 
         .status-item strong {
             display: block;
-            color: #00d9ff;
-            font-size: 16px;
+            color: #52604F;
+            font-size: 18px;
             margin-bottom: 2px;
+        }
+
+        .status-item label {
+            color: #5A5A5A;
+            font-size: 10px;
         }
 
         .findings-list {
             flex: 1;
             overflow-y: auto;
-            padding: 10px;
+            padding: 8px;
         }
 
         .finding-item {
-            background: #1a1f3a;
-            border: 1px solid #2a2f4a;
+            background: #FFFFFF;
+            border: 1px solid #E8E5DC;
             border-radius: 6px;
             padding: 12px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .finding-item:hover {
-            background: #252b47;
-            border-color: #00d9ff;
+            border-color: #52604F;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
 
         .finding-item.active {
-            background: #2a3055;
-            border-color: #00d9ff;
-            box-shadow: 0 0 10px rgba(0, 217, 255, 0.2);
+            background: #FAF8F3;
+            border-color: #52604F;
         }
 
         .finding-item.decided {
-            opacity: 0.6;
-            background: #1a2030;
+            opacity: 0.7;
         }
 
         .finding-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             margin-bottom: 6px;
-            color: #e0e6ed;
+            color: #2D2D2D;
         }
 
         .finding-meta {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .badge {
-            background: #1f2d4a;
-            padding: 2px 8px;
+            background: #E8E5DC;
+            padding: 2px 6px;
             border-radius: 3px;
-            color: #7a8199;
+            color: #5A5A5A;
+        }
+
+        .badge.category {
+            background: #FAF8F3;
+            color: #52604F;
+            border: 1px solid #E8E5DC;
         }
 
         .badge.severity-high {
-            background: #4a2a2a;
-            color: #ff6b6b;
+            background: #C85A54;
+            color: #A23A34;
         }
 
         .badge.severity-medium {
-            background: #4a3a2a;
-            color: #ffa500;
+            background: #B57A34;
+            color: #8A5A1B;
         }
 
         .badge.severity-low {
-            background: #2a4a2a;
-            color: #51cf66;
+            background: #6B8E6B;
+            color: #3F633F;
         }
 
         .badge.decided-approved {
-            background: #2a4a2a;
-            color: #51cf66;
+            background: #6B8E6B;
+            color: #3F633F;
         }
 
         .badge.decided-rejected {
-            background: #4a2a2a;
-            color: #ff6b6b;
+            background: #C85A54;
+            color: #A23A34;
         }
 
         .main {
             flex: 1;
-            background: #0a0e27;
+            background: #FAF8F3;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -161,21 +219,22 @@
         .detail-view {
             flex: 1;
             overflow-y: auto;
-            padding: 30px;
+            padding: 32px;
+            max-width: 800px;
         }
 
         .detail-view.empty {
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #7a8199;
-            font-size: 16px;
+            color: #5A5A5A;
+            font-size: 14px;
         }
 
         .finding-detail h2 {
             font-size: 24px;
-            margin-bottom: 20px;
-            color: #00d9ff;
+            margin-bottom: 24px;
+            color: #2D2D2D;
         }
 
         .detail-section {
@@ -183,19 +242,21 @@
         }
 
         .detail-section h3 {
-            font-size: 12px;
+            font-size: 10px;
             text-transform: uppercase;
-            color: #7a8199;
+            color: #5A5A5A;
             margin-bottom: 8px;
-            letter-spacing: 1px;
+            letter-spacing: 0.1em;
+            font-weight: 600;
         }
 
         .detail-content {
-            background: #1a1f3a;
+            background: #FFFFFF;
             padding: 12px;
-            border-radius: 4px;
-            border-left: 3px solid #00d9ff;
+            border-radius: 6px;
+            border-left: 3px solid #52604F;
             line-height: 1.8;
+            color: #2D2D2D;
         }
 
         .evidence-list {
@@ -204,21 +265,22 @@
         }
 
         .evidence-list li {
-            background: #252b47;
+            background: #FAF8F3;
             padding: 10px;
             margin-bottom: 8px;
             border-radius: 4px;
             font-size: 12px;
+            border-left: 2px solid #E8E5DC;
         }
 
         .evidence-list li strong {
-            color: #00d9ff;
+            color: #52604F;
         }
 
         .action-bar {
-            border-top: 1px solid #1a1f3a;
-            padding: 20px 30px;
-            background: #0f1223;
+            border-top: 1px solid #E8E5DC;
+            padding: 20px 32px;
+            background: #FFFFFF;
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
@@ -226,65 +288,66 @@
 
         .action-bar textarea {
             width: 100%;
-            background: #1a1f3a;
-            border: 1px solid #2a2f4a;
-            color: #e0e6ed;
+            background: #FAF8F3;
+            border: 1px solid #E8E5DC;
+            color: #2D2D2D;
             padding: 10px;
             border-radius: 4px;
             font-family: monospace;
-            font-size: 12px;
+            font-size: 11px;
             resize: vertical;
             min-height: 60px;
             margin-bottom: 12px;
         }
 
         .action-bar textarea::placeholder {
-            color: #7a8199;
+            color: #5A5A5A;
         }
 
         .button {
-            padding: 10px 16px;
-            border: none;
+            padding: 8px 14px;
+            border: 1px solid;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.05em;
         }
 
         .button-approve {
-            background: #2a5a2a;
-            color: #51cf66;
-            border: 1px solid #3a7a3a;
+            background: #6B8E6B;
+            color: #3F633F;
+            border-color: #52604F;
         }
 
         .button-approve:hover {
-            background: #3a7a3a;
-            box-shadow: 0 0 10px rgba(81, 207, 102, 0.3);
+            background: #52604F;
+            color: #3F633F;
+            opacity: 0.9;
         }
 
         .button-reject {
-            background: #5a2a2a;
-            color: #ff6b6b;
-            border: 1px solid #7a3a3a;
+            background: #C85A54;
+            color: #A23A34;
+            border-color: #B55A50;
         }
 
         .button-reject:hover {
-            background: #7a3a3a;
-            box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+            background: #B55A50;
+            opacity: 0.9;
         }
 
         .button-more-evidence {
-            background: #3a4a5a;
-            color: #ffa500;
-            border: 1px solid #4a5a7a;
+            background: #B57A34;
+            color: #8A5A1B;
+            border-color: #A56A2A;
         }
 
         .button-more-evidence:hover {
-            background: #4a5a7a;
-            box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+            background: #A56A2A;
+            opacity: 0.9;
         }
 
         .button:disabled {
@@ -294,37 +357,37 @@
 
         .decision-badge {
             display: inline-block;
-            padding: 4px 12px;
+            padding: 4px 10px;
             border-radius: 12px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             margin-top: 12px;
         }
 
         .decision-badge.approved {
-            background: #2a5a2a;
-            color: #51cf66;
+            background: #6B8E6B;
+            color: #3F633F;
         }
 
         .decision-badge.rejected {
-            background: #5a2a2a;
-            color: #ff6b6b;
+            background: #C85A54;
+            color: #A23A34;
         }
 
         .decision-badge.more-evidence {
-            background: #3a4a5a;
-            color: #ffa500;
+            background: #B57A34;
+            color: #8A5A1B;
         }
 
         .loading {
             text-align: center;
             padding: 40px;
-            color: #7a8199;
+            color: #5A5A5A;
         }
 
         .spinner {
-            border: 2px solid #2a2f4a;
-            border-top: 2px solid #00d9ff;
+            border: 2px solid #E8E5DC;
+            border-top: 2px solid #52604F;
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -339,39 +402,50 @@
 </head>
 <body>
     <div class="container">
-        <div class="sidebar">
-            <div class="header">
-                <h1>🔍 Findings</h1>
-                <p>Self-Improvement System</p>
-                <div class="status-bar">
-                    <div class="status-item">
-                        <strong id="total-count">0</strong>
-                        Total
+        <header>
+            <div class="header-content">
+                <div class="header-logo">TJR</div>
+                <div class="header-title">
+                    <h1>Self-Improving System</h1>
+                    <p>Operational Resilience</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title">🔍 Findings</div>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <strong id="total-count">0</strong>
+                            <label>Total</label>
+                        </div>
+                        <div class="status-item">
+                            <strong id="pending-count">0</strong>
+                            <label>Pending</label>
+                        </div>
                     </div>
-                    <div class="status-item">
-                        <strong id="pending-count">0</strong>
-                        Pending
+                </div>
+                <div class="findings-list" id="findings-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading findings...
                     </div>
                 </div>
             </div>
-            <div class="findings-list" id="findings-list">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading findings...
+
+            <div class="main">
+                <div class="detail-view empty" id="detail-view">
+                    <div>Select a finding to review</div>
                 </div>
-            </div>
-        </div>
 
-        <div class="main">
-            <div class="detail-view empty" id="detail-view">
-                <div>Select a finding to review</div>
-            </div>
-
-            <div class="action-bar" id="action-bar" style="display: none;">
-                <textarea id="reasoning" placeholder="Add notes/reasoning for your decision (optional)..."></textarea>
-                <button class="button button-approve" onclick="makeDecision('approved')">✓ Approve</button>
-                <button class="button button-more-evidence" onclick="makeDecision('more_evidence')">? More Evidence</button>
-                <button class="button button-reject" onclick="makeDecision('rejected')">✗ Reject</button>
+                <div class="action-bar" id="action-bar" style="display: none;">
+                    <textarea id="reasoning" placeholder="Add notes/reasoning for your decision (optional)..."></textarea>
+                    <button class="button button-approve" onclick="makeDecision('approved')">✓ Approve</button>
+                    <button class="button button-more-evidence" onclick="makeDecision('more_evidence')">? More Evidence</button>
+                    <button class="button button-reject" onclick="makeDecision('rejected')">✗ Reject</button>
+                </div>
             </div>
         </div>
     </div>
@@ -407,7 +481,7 @@
                 <div class="finding-item ${selectedFinding?.finding_id === f.finding_id ? 'active' : ''} ${f.decision ? 'decided' : ''}" onclick="selectFinding(${findings.indexOf(f)})">
                     <div class="finding-title">${f.title || 'Untitled'}</div>
                     <div class="finding-meta">
-                        <span class="badge">${f.category}</span>
+                        <span class="badge category">${f.category}</span>
                         <span class="badge severity-${f.severity}">${f.severity}</span>
                         ${f.decision ? `<span class="badge decided-${f.decision}">${f.decision.replace('_', ' ')}</span>` : ''}
                     </div>

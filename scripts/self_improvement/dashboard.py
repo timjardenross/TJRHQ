@@ -18,11 +18,17 @@ log = logging.getLogger("dashboard")
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-# Paths
+# Paths - prefer /tmp on VM (where /root is read-only), fall back to REPO_ROOT
 REPO_ROOT = Path(__file__).parent.parent.parent
-DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
+_tmp_data_root = Path("/tmp/usstjros-findings")
+DATA_ROOT = _tmp_data_root if _tmp_data_root.exists() else REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+
+log.info(f"DATA_ROOT: {DATA_ROOT}")
+log.info(f"RUNS_DIR exists: {RUNS_DIR.exists()}")
+if RUNS_DIR.exists():
+    log.info(f"Run directories: {list(RUNS_DIR.iterdir())}")
 
 
 def get_latest_run():
