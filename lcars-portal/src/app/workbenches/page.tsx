@@ -41,6 +41,11 @@ const TILES: Tile[] = [
     description: 'Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal.',
   },
   {
+    href: '/advisory-workbench',
+    title: 'Advisory Workbench',
+    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces.',
+  },
+  {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Findings, decisions, and audit trail from the self-improvement system.',
