@@ -1476,9 +1476,6 @@ async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 # ── Advisory CLI (MSN-0200-P3A) ──────────────────────────────────────────────
 
-_ADVISORY_PERSONAS = {"xo", "cmo", "cto", "cdo", "strategic", "staff-briefing"}
-
-
 def _advisory_cli_call(cli_args: list[str], timeout: int) -> str:
     """Run core/advisory/cli.py with the given args; return stdout/stderr text.
     Raises FileNotFoundError if the CLI is absent, subprocess.TimeoutExpired on timeout."""
@@ -1514,33 +1511,18 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
 
 
 async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Advisory consult. Usage: /advise [officer] <question>
-    Officers: staff-briefing (default panel), xo, cmo, cto, cdo, strategic."""
-    args = context.args or []
-    if not args:
+    """Advisory consult (full officer panel). Usage: /advise <question>"""
+    question = " ".join(context.args or []).strip()
+    if not question:
         await update.message.reply_text(
-            "Usage: /advise [officer] &lt;question&gt;\n"
-            "Officers: staff-briefing (default) · xo · cmo · cto · cdo · strategic\n"
-            "Example: /advise cmo What does my pain pattern suggest?",
+            "Usage: /advise &lt;question&gt;\n"
+            "Example: /advise What should I focus on this week?",
             parse_mode="HTML",
         )
         return
 
-    persona = "staff-briefing"
-    if args[0].lower() in _ADVISORY_PERSONAS:
-        persona = args[0].lower()
-        question_parts = args[1:]
-    else:
-        question_parts = args
-
-    question = " ".join(question_parts).strip()
-    if not question:
-        await update.message.reply_text("Please include a question after the officer name.")
-        return
-
-    label = "Advisory Panel" if persona == "staff-briefing" else f"{persona.upper()} Advisory"
-    await _run_advisory(update, label, ["--persona", persona, "--question", question],
-                        f"⚙️ Consulting {persona}…")
+    await _run_advisory(update, "Advisory Panel", ["--action", "advice", "--question", question],
+                        "⚙️ Consulting the officer panel…")
 
 
 # ── Narrative intelligence + outcome capture (MSN-0087) ──────────────────────
@@ -2165,7 +2147,7 @@ _BOT_COMMANDS = [
     ("missions",        "Active missions  e.g. /missions active  or  /missions blocked"),
     ("note",            "Quick capture  e.g. /note Follow up on sleep tracker"),
     # Advisory
-    ("advise",          "Advisory consult  e.g. /advise What to focus this week?  ·  /advise cmo <q>"),
+    ("advise",          "Advisory consult (full officer panel)  e.g. /advise What to focus this week?"),
     ("challenge",       "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
     # Daily debrief
     ("debrief_close",   "Force-close the active debrief and get today's log"),
