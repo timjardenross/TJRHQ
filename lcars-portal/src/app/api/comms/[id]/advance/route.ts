@@ -1,5 +1,5 @@
 // POST /api/comms/[id]/advance — advance a comms_content item through the pipeline.
-// Body: { trigger: 'officer_drafted' | 'officer_submitted' | 'captain_approved' | 'captain_confirmed' | 'mark_published' }
+// Body: { trigger: 'officer_drafted' | 'officer_submitted' | 'captain_approved' | 'captain_confirmed' | 'mark_published' | 'discard' }
 //
 // EOS Phase 2 Priority 5 (Executive Communications Studio): mark_published
 // is the one trigger here that makes content visible outside this
@@ -12,17 +12,25 @@
 // exact item in Decide, via POST /api/build-request/[id]/approve-action.
 // Every earlier transition (officer_drafted through captain_confirmed) is
 // unchanged - those are internal drafting states, not a publish action.
+//
+// discard -> archived is available from every pre-published stage (Phase 1C
+// Communications Workbench: no way existed to drop a pipeline item that had
+// lost editorial value). Unlike mark_published this does NOT go through
+// Decide - it makes nothing newly visible, only hides an item from the
+// active pipeline (comms_content rows are never deleted, so it's reversible
+// by a direct status flip if ever needed). Once 'published' an item is the
+// reputation portfolio record and isn't discardable via this route.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { proposeAction } from '@/lib/ai-actions';
 
 const TRANSITIONS: Record<string, Record<string, string>> = {
-  opportunity:      { officer_drafted: 'draft' },
-  draft:            { officer_submitted: 'review' },
-  review:           { captain_approved: 'approved' },
-  approved:         { captain_confirmed: 'ready_to_publish' },
-  ready_to_publish: { mark_published: 'published' },
+  opportunity:      { officer_drafted: 'draft', discard: 'archived' },
+  draft:            { officer_submitted: 'review', discard: 'archived' },
+  review:           { captain_approved: 'approved', discard: 'archived' },
+  approved:         { captain_confirmed: 'ready_to_publish', discard: 'archived' },
+  ready_to_publish: { mark_published: 'published', discard: 'archived' },
 };
 
 function serviceClient() {

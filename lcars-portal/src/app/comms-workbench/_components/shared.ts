@@ -14,6 +14,7 @@ export const STATUS_LABEL: Record<string, string> = {
   approved: 'Approved',
   ready_to_publish: 'Ready to Publish',
   published: 'Published',
+  archived: 'Discarded',
 };
 
 export const STATUS_BADGE: Record<string, BadgeStatus> = {
@@ -23,6 +24,7 @@ export const STATUS_BADGE: Record<string, BadgeStatus> = {
   approved: 'success',
   ready_to_publish: 'info',
   published: 'neutral',
+  archived: 'neutral',
 };
 
 export const PILLAR_LABEL: Record<string, string> = {

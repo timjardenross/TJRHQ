@@ -39,6 +39,7 @@ function PipelineCard({
   const [editBody, setEditBody] = useState(item.body ?? '');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   const next = NEXT_TRIGGER[item.status];
   const signalLine = (item.notes ?? '').match(/Signal: (.+?)(?:\.|$)/)?.[1] ?? item.notes ?? '';
@@ -166,6 +167,29 @@ function PipelineCard({
             >
               {next.label} →
             </Button>
+          )}
+
+          {!confirmingDiscard ? (
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => setConfirmingDiscard(true)}
+              disabled={busy}
+              aria-label={`Discard "${item.title}" — no longer relevant to comms`}
+              className="w-full"
+            >
+              Discard
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
+              <p className="flex-1 text-[11px] text-wb-crit-on">Discard this item? It&rsquo;s removed from the pipeline, not deleted.</p>
+              <Button size="sm" variant="danger" onClick={() => onAdvance(item.id, 'discard')} disabled={busy}>
+                {busy ? 'Discarding…' : 'Confirm'}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmingDiscard(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
           )}
 
           {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
