@@ -60,7 +60,7 @@ from telegram_bots.recovery_officer.engagement_dispatcher import (
     get_recovery_status,
     run_dispatch_check,
 )
-from telegram_bots.llm import generate_conversational_async as generate_async
+from telegram_bots.llm import generate_async
 from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
 from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
 
