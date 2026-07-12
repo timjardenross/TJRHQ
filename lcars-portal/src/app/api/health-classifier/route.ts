@@ -99,9 +99,10 @@ async function handleValidate(req: NextRequest) {
     const sb = await createSupabaseServerClient();
     const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
+    // PHASE 1C: Query available columns (rank_score + sensitive calculated in Python backend)
     const { data: insights, error } = await sb
       .from('health_insights')
-      .select('id, created_at, llm_narrative, rank_score, committed_to_memory, source_articles')
+      .select('id, created_at, llm_narrative, narrative_available, deterministic_findings, committed_to_memory, source_articles')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(30);

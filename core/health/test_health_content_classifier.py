@@ -24,31 +24,33 @@ class TestHealthContentClassifierValidation:
     """Test Solution #1: Classifier validation on real data."""
 
     def test_score_above_threshold_is_publishable(self):
-        """High-scoring insight should be publishable."""
+        """High-quality insight (with narrative) should be publishable."""
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
+        # PHASE 1C: Use narrative_available to indicate quality
+        # narrative_available=True → quality_score=0.8 (above 0.7 threshold)
         insight = {
             "id": "test-1",
-            "rank_score": 0.85,
-            "sensitive": False,
+            "narrative_available": True,
+            "llm_narrative": {"situation": "test"},
             "committed_to_memory": True,
         }
 
         signal = classifier.score_for_content(insight)
         assert signal is not None
         assert signal.publishable is True
-        assert signal.rank_score == 0.85
+        assert signal.rank_score == 0.8  # Calculated from narrative_available
 
     def test_score_below_threshold_is_rejected(self):
-        """Low-scoring insight should be rejected."""
+        """Low-quality insight (no narrative, no findings) should be rejected."""
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
+        # No narrative_available, no deterministic_findings → quality_score=0.3 (below 0.7 threshold)
         insight = {
             "id": "test-2",
-            "rank_score": 0.5,
-            "sensitive": False,
+            "narrative_available": False,
             "committed_to_memory": True,
         }
 
@@ -60,14 +62,15 @@ class TestHealthContentClassifierValidation:
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
-        # Mock low pass rate scenario
+        # Mock low pass rate scenario using calculated quality scores
+        # No narrative_available, no findings → 0.3 quality (below 0.7 threshold)
         mock_sb.from_.return_value.select.return_value.gte.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[
-                {"id": "i1", "rank_score": 0.5, "sensitive": False, "committed_to_memory": True},
-                {"id": "i2", "rank_score": 0.55, "sensitive": False, "committed_to_memory": True},
-                {"id": "i3", "rank_score": 0.65, "sensitive": False, "committed_to_memory": True},
-                {"id": "i4", "rank_score": 0.6, "sensitive": False, "committed_to_memory": True},
-                {"id": "i5", "rank_score": 0.58, "sensitive": False, "committed_to_memory": True},
+                {"id": "i1", "narrative_available": False, "committed_to_memory": True},
+                {"id": "i2", "narrative_available": False, "committed_to_memory": True},
+                {"id": "i3", "narrative_available": False, "committed_to_memory": True},
+                {"id": "i4", "narrative_available": False, "committed_to_memory": True},
+                {"id": "i5", "narrative_available": False, "committed_to_memory": True},
             ]
         )
 
@@ -137,9 +140,10 @@ class TestSensitivityInheritance:
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
+        # PHASE 1C: sensitive defaults to False; test explicit True
         insight = {
             "id": "sensitive-1",
-            "rank_score": 0.95,  # High score, but sensitive
+            "narrative_available": True,  # Would normally pass quality check
             "sensitive": True,
             "committed_to_memory": True,
         }
@@ -154,10 +158,10 @@ class TestSensitivityInheritance:
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
+        # Good quality, but Captain discarded
         insight = {
             "id": "discarded-1",
-            "rank_score": 0.95,
-            "sensitive": False,
+            "narrative_available": True,
             "committed_to_memory": False,  # Captain discarded
         }
 
@@ -171,16 +175,16 @@ class TestSensitivityInheritance:
         classifier = HealthContentClassifier(mock_sb)
 
         insights = [
-            {"id": "s1", "rank_score": 0.95, "sensitive": True, "committed_to_memory": True},
-            {"id": "s2", "rank_score": 0.95, "sensitive": False, "committed_to_memory": False},
-            {"id": "s3", "rank_score": 0.95, "sensitive": False, "committed_to_memory": True},
+            {"id": "s1", "narrative_available": True, "sensitive": True, "committed_to_memory": True},
+            {"id": "s2", "narrative_available": True, "committed_to_memory": False},
+            {"id": "s3", "narrative_available": True, "committed_to_memory": True},
         ]
 
         for insight in insights:
             classifier.score_for_content(insight)
 
         audit_log = classifier.get_audit_log()
-        assert len(audit_log) == 2  # 2 suppressed
+        assert len(audit_log) == 2  # 2 suppressed (s1, s2)
         assert all("timestamp" in entry for entry in audit_log)
         assert all("reason" in entry for entry in audit_log)
 
@@ -191,8 +195,7 @@ class TestSensitivityInheritance:
 
         insight = {
             "id": "public-1",
-            "rank_score": 0.85,
-            "sensitive": False,
+            "narrative_available": True,  # Good quality score (0.8)
             "committed_to_memory": True,
         }
 
@@ -211,20 +214,20 @@ class TestIntegration:
         classifier = HealthContentClassifier(mock_sb)
 
         # Scenario 1: Good insight, not sensitive
+        # narrative_available=True → quality_score=0.8 (above 0.7 threshold)
         insight1 = {
             "id": "good-1",
-            "rank_score": 0.85,
-            "sensitive": False,
+            "narrative_available": True,
             "committed_to_memory": True,
         }
         signal1 = classifier.score_for_content(insight1, WellnessCategory.TEAM_WELLNESS)
         assert signal1 is not None
         assert signal1.primary_pillar == ContentPillar.WELLNESS_SUSTAINABLE
 
-        # Scenario 2: Good score but sensitive
+        # Scenario 2: Good quality but sensitive
         insight2 = {
             "id": "sensitive-2",
-            "rank_score": 0.90,
+            "narrative_available": True,
             "sensitive": True,
             "committed_to_memory": True,
         }
@@ -232,11 +235,10 @@ class TestIntegration:
         assert signal2 is None
         assert len(classifier.suppressed_signals) == 1
 
-        # Scenario 3: Low score
+        # Scenario 3: Low quality (no narrative, no findings)
         insight3 = {
             "id": "low-3",
-            "rank_score": 0.5,
-            "sensitive": False,
+            "narrative_available": False,
             "committed_to_memory": True,
         }
         signal3 = classifier.score_for_content(insight3, WellnessCategory.RESILIENCE_PROGRAMS)
@@ -250,15 +252,14 @@ class TestIntegration:
         # Create multiple insights with different suppression reasons
         classifier.score_for_content({
             "id": "s1",
-            "rank_score": 0.95,
+            "narrative_available": True,
             "sensitive": True,
             "committed_to_memory": True,
         })
 
         classifier.score_for_content({
             "id": "s2",
-            "rank_score": 0.95,
-            "sensitive": False,
+            "narrative_available": True,
             "committed_to_memory": False,
         })
 
@@ -270,28 +271,30 @@ class TestIntegration:
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
-    def test_missing_rank_score(self):
-        """Insight without rank_score should default to 0."""
+    def test_missing_narrative_available(self):
+        """Insight without narrative_available should default to low quality (0.3)."""
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
-        insight = {"id": "no-score", "sensitive": False, "committed_to_memory": True}
+        # No narrative_available, no deterministic_findings → quality_score=0.3 (below threshold)
+        insight = {"id": "no-narrative", "committed_to_memory": True}
         signal = classifier.score_for_content(insight)
-        assert signal is None  # 0 < 0.7
+        assert signal is None  # 0.3 < 0.7
 
-    def test_invalid_rank_score_type(self):
-        """Non-numeric rank_score should be handled gracefully."""
+    def test_quality_boost_from_findings(self):
+        """Deterministic findings should boost quality score."""
         mock_sb = Mock()
         classifier = HealthContentClassifier(mock_sb)
 
+        # No narrative but has findings → quality_score=0.5 (below threshold, but demonstrates boost logic)
         insight = {
-            "id": "bad-score",
-            "rank_score": "not-a-number",
-            "sensitive": False,
+            "id": "findings-only",
+            "narrative_available": False,
+            "deterministic_findings": ["Finding 1", "Finding 2"],
             "committed_to_memory": True,
         }
         signal = classifier.score_for_content(insight)
-        assert signal is None  # Defaults to 0
+        assert signal is None  # 0.5 < 0.7, but would be higher without numeric type check
 
     def test_unknown_wellness_category(self):
         """Unknown category should default to team wellness."""
@@ -300,8 +303,7 @@ class TestEdgeCases:
 
         insight = {
             "id": "unknown-cat",
-            "rank_score": 0.85,
-            "sensitive": False,
+            "narrative_available": True,
             "committed_to_memory": True,
         }
         signal = classifier.score_for_content(insight, WellnessCategory("Unknown"))

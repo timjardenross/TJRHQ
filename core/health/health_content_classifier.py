@@ -140,6 +140,33 @@ class HealthContentClassifier:
         self.sb = supabase_client
         self.suppressed_signals = []  # Audit trail
 
+    def _calculate_quality_score(self, health_insight: dict) -> float:
+        """
+        Calculate quality/publishability score from available insight data.
+
+        PHASE 1C TEMPORARY IMPLEMENTATION:
+        rank_score column does not exist on health_insights yet (Phase 2 addition).
+        This calculates score from: narrative_available + deterministic_findings.
+        Phase 2: Replace with real rank_score column value from weekly_synthesis.
+        """
+        score = 0.3  # Base score if minimal data
+
+        # Narrative quality (if LLM narrative exists and marked available)
+        if health_insight.get('narrative_available'):
+            score = 0.8
+        elif health_insight.get('llm_narrative'):
+            score = 0.6
+
+        # Boost if structured findings exist
+        findings = health_insight.get('deterministic_findings')
+        if findings:
+            if isinstance(findings, (list, dict)) and len(findings) > 0:
+                score = min(1.0, score + 0.2)
+            elif isinstance(findings, str) and findings.strip():
+                score = min(1.0, score + 0.15)
+
+        return score
+
     def score_for_content(
         self,
         health_insight: dict,
@@ -157,7 +184,12 @@ class HealthContentClassifier:
         insight_id = health_insight.get("id")
 
         # Solution #3: Check sensitivity flag
-        if health_insight.get("sensitive") or health_insight.get("committed_to_memory") is False:
+        # PHASE 1C TEMPORARY: sensitive column doesn't exist; default False
+        # Phase 2: Add NER + source event inheritance
+        is_sensitive = health_insight.get("sensitive", False)
+        is_discarded = health_insight.get("committed_to_memory") is False
+
+        if is_sensitive or is_discarded:
             reason = "Marked as sensitive or discarded by Captain"
             log.warning(f"Suppressing health_insight {insight_id}: {reason}")
             self.suppressed_signals.append({
@@ -168,12 +200,11 @@ class HealthContentClassifier:
             return None
 
         # Solution #1: Apply min_rank_score threshold
-        rank_score = health_insight.get("rank_score", 0.0)
-        if not isinstance(rank_score, (int, float)):
-            rank_score = 0.0
+        # PHASE 1C TEMPORARY: Calculate from available data; Phase 2: use real rank_score column
+        rank_score = self._calculate_quality_score(health_insight)
 
         if rank_score < self.MIN_RANK_SCORE:
-            log.debug(f"health_insight {insight_id} below threshold ({rank_score} < {self.MIN_RANK_SCORE})")
+            log.debug(f"health_insight {insight_id} below threshold ({rank_score:.2f} < {self.MIN_RANK_SCORE})")
             return None
 
         # Solution #2: Map wellness category to pillar
@@ -229,8 +260,10 @@ class HealthContentClassifier:
         since_iso = since.isoformat()
 
         try:
+            # PHASE 1C: Query only columns that exist on health_insights
+            # rank_score + sensitive will be calculated/defaulted (Phase 2: use real columns)
             response = self.sb.from_("health_insights").select(
-                "id, created_at, llm_narrative, rank_score, committed_to_memory, sensitive"
+                "id, created_at, llm_narrative, narrative_available, deterministic_findings, committed_to_memory"
             ).gte("created_at", since_iso).order(
                 "created_at", ascending=False
             ).limit(sample_size).execute()
