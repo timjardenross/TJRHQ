@@ -10,7 +10,10 @@
 // lands or the whole request fails and nothing is written. No client-side
 // rollback step exists or is needed.
 //
-// Body: { limit?: number, min_rank_score?: number, domain?: 'health' | 'operational' | null }
+// Body: { signal_ids?: string[], limit?: number, min_rank_score?: number, domain?: 'health' | 'operational' | null }
+// If signal_ids is given, that exact set is used (the Signals tab's checkbox
+// selection) — otherwise the top `limit` signals by rank_score are taken
+// (the "batch create top N" one-click flow).
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -29,11 +32,12 @@ function serviceClient() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
+  const signalIds: string[] | null = Array.isArray(body.signal_ids) && body.signal_ids.length > 0 ? body.signal_ids : null;
   const limit: number = Number.isFinite(body.limit) ? body.limit : 5;
   const minRankScore: number = Number.isFinite(body.min_rank_score) ? body.min_rank_score : 0.7;
   const domain: string | null = body.domain === 'health' || body.domain === 'operational' ? body.domain : null;
 
-  if (limit < 1) {
+  if (!signalIds && limit < 1) {
     return NextResponse.json({ error: 'limit must be >= 1' }, { status: 400 });
   }
 
@@ -43,14 +47,27 @@ export async function POST(req: NextRequest) {
     let query = sb
       .from('content_signals')
       .select('id,event_id_text,raw_title,pillar_key,rank_score,domain,suggested_angle')
-      .gte('rank_score', minRankScore)
-      .eq('suppressed', false)
-      .order('rank_score', { ascending: false })
-      .limit(limit);
-    if (domain) query = query.eq('domain', domain);
+      .eq('suppressed', false);
+
+    if (signalIds) {
+      query = query.in('event_id_text', signalIds);
+    } else {
+      query = query.gte('rank_score', minRankScore).order('rank_score', { ascending: false }).limit(limit);
+      if (domain) query = query.eq('domain', domain);
+    }
 
     const { data: signals, error: fetchErr } = await query;
     if (fetchErr) throw fetchErr;
+
+    if (signalIds && signals && signals.length !== signalIds.length) {
+      // Some selected signals were suppressed/removed since the UI loaded them — abort rather
+      // than silently create a partial batch of a different size than the user chose.
+      return NextResponse.json({
+        domain, min_rank_score: minRankScore,
+        status: 'failed', requested: signalIds.length, created: 0, opportunity_ids: [],
+        error: `${signalIds.length - signals.length} selected signal(s) are no longer eligible (suppressed or removed) — batch not created`,
+      });
+    }
 
     const base = { domain, min_rank_score: minRankScore };
 
@@ -63,7 +80,7 @@ export async function POST(req: NextRequest) {
     // board's Condition 2).
     const errors: string[] = [];
     const rows: Record<string, unknown>[] = [];
-    const signalIds: string[] = [];
+    const writtenSignalIds: string[] = [];
     for (const s of signals) {
       if (!s.raw_title || !s.event_id_text) {
         errors.push(`signal ${s.id}: missing raw_title or event_id_text`);
@@ -80,7 +97,7 @@ export async function POST(req: NextRequest) {
         format: DOMAIN_FORMAT_DEFAULT[s.domain as string] ?? 'executive_insight',
         notes: s.suggested_angle ?? null,
       });
-      signalIds.push(s.event_id_text);
+      writtenSignalIds.push(s.event_id_text);
     }
 
     if (errors.length > 0) {
@@ -105,7 +122,7 @@ export async function POST(req: NextRequest) {
         status: 'failed',
         requested: signals.length,
         created: 0,
-        signal_ids: signalIds,
+        signal_ids: writtenSignalIds,
         opportunity_ids: [],
         error: `batch insert failed — 0 opportunities created, entire batch rolled back: ${insertErr.message}`,
       });
@@ -123,7 +140,7 @@ export async function POST(req: NextRequest) {
       status: 'completed',
       requested: signals.length,
       created: created?.length ?? 0,
-      signal_ids: signalIds,
+      signal_ids: writtenSignalIds,
       opportunity_ids: (created ?? []).map((r: { id: string }) => r.id),
     });
   } catch (err) {

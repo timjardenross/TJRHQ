@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
     if (status) query = query.eq('status', status);
     const { data, error } = await query;
     if (error) throw error;
-    let items = data ?? [];
+    const rawItems = data ?? [];
 
-    const signalIds = [...new Set(items.map(i => i.signal_source_id).filter(Boolean))];
-    let domainMap: Record<string, string> = {};
+    const signalIds = [...new Set(rawItems.map(i => i.signal_source_id).filter(Boolean))];
+    const domainMap: Record<string, string> = {};
     if (signalIds.length > 0) {
       const { data: sigRows } = await sb
         .from('content_signals')
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         .in('event_id_text', signalIds);
       for (const r of sigRows ?? []) domainMap[r.event_id_text] = r.domain;
     }
-    items = items.map(i => ({
+    let items = rawItems.map(i => ({
       ...i,
       domain: (i.signal_source_id && domainMap[i.signal_source_id]) || 'operational',
     }));
