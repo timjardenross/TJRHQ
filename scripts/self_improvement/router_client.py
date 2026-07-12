@@ -116,40 +116,44 @@ class ModelRouterClient:
 
     def _build_analysis_prompt(self, evidence: dict[str, Any], context: Optional[str] = None) -> str:
         """Build prompt for evidence analysis."""
-        prompt = """You are an expert code auditor for USS TJR. Analyze the provided evidence and identify concrete improvement opportunities.
+        prompt = """TASK: Analyze USS TJR repository evidence and produce JSON findings.
 
-For EACH finding:
-1. Cite specific evidence (file paths, line numbers, git commits)
-2. Assign a category (doc_drift, dead_code, placeholder_code, etc.)
-3. Estimate severity (info/low/medium/high/critical)
-4. Propose concrete action
-5. Be honest about confidence (0.0-1.0)
+CRITICAL: Output ONLY valid JSON. Do NOT output any text before or after JSON. Do NOT output markdown. Do NOT output explanations.
 
-Output ONLY valid JSON. No markdown, no explanation, no preamble.
-
-Evidence:
+EVIDENCE:
 """
         prompt += json.dumps(evidence, indent=2)
 
         if context:
-            prompt += f"\n\nAdditional context:\n{context}"
+            prompt += f"\n\nCONTEXT:\n{context}"
 
         prompt += """
 
-Respond with JSON object:
+OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
+```json
 {
   "findings": [
     {
-      "category": "...",
-      "title": "...",
-      "evidence": [...],
+      "category": "doc_drift|duplicate_implementation|placeholder_code|dead_code|missing_test|config_drift|stale_adr|observability_gap|security_gap|resilience_gap|router_bypass|route_policy_drift|silent_fallback|model_catalogue_drift|knowledge_health|performance_gap|operational_failure|governance_violation|automation_opportunity",
+      "title": "SHORT_TITLE",
+      "evidence": [{"type": "file_exists|file_missing|code_reference|git_history|test_result|config_value|service_status|log_entry|broken_link|duplicate_file|unreferenced_code|timing_data|model_output|manual_inspection", "observation": "WHAT_WAS_FOUND", "location": "PATH_OR_URL"}],
       "confidence": 0.95,
-      "severity": "...",
-      "proposed_action": { "type": "...", "description": "..." },
-      "expected_benefit": "..."
+      "severity": "info|low|medium|high|critical",
+      "proposed_action": {"type": "delete|add|modify|consolidate|document|refactor|test|configure|monitor", "description": "ACTION_DESC"},
+      "expected_benefit": "WHAT_IMPROVES"
     }
   ]
 }
+```
+
+RULES:
+- Output ONLY the JSON object, nothing else
+- Do NOT output markdown code blocks
+- Do NOT output explanations before or after
+- Category must be from the list above
+- Severity must be: info, low, medium, high, or critical
+- confidence must be a number between 0.0 and 1.0
+- If no findings, output: {"findings": []}
 """
         return prompt
 
