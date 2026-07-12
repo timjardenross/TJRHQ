@@ -3,10 +3,11 @@
 // Phase B — Intelligence Workbench · Screen 1 (Overview). Domain-toggled view.
 // Supports both Operational Signals (Phase A) and Health Intelligence modes.
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, RiskPill, Shell } from './_components/Shell';
 import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
 import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
+import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 
 type Domain = 'operational' | 'health';
 
@@ -134,43 +135,54 @@ export default function Overview() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [live, setLive] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/intelligence-workbench?domain=${domain}`)
+  const load = useCallback((withSpinner: boolean) => {
+    if (withSpinner) setLoading(true);
+    return fetch(`/api/intelligence-workbench?domain=${domain}`)
       .then((r) => r.json())
-      .then(setData)
-      .catch(() => 
-        setData({ 
-          domain, 
-          kpis: {}, 
+      .then((d) => {
+        setData(d);
+        setLastUpdated(new Date());
+      })
+      .catch(() =>
+        setData({
+          domain,
+          kpis: {},
           ...(domain === 'operational' ? { briefs: [], hotSignals: [] } : { insights: [], recentEvents: [], dailyMetrics: [] })
         } as Payload)
       )
-      .finally(() => setLoading(false));
+      .finally(() => { if (withSpinner) setLoading(false); });
   }, [domain]);
+
+  useEffect(() => {
+    load(true);
+  }, [load]);
+
+  // Live UI reflection: intelligence_events is populated by ORI ingestion
+  // (currently a daily GitHub Actions cron) - this doesn't make ingestion
+  // any faster, it just means a row that already landed shows up here the
+  // moment it does, instead of waiting for the next page load/domain switch.
+  useRealtimeRefresh({
+    table: 'intelligence_events',
+    events: ['INSERT'],
+    enabled: domain === 'operational',
+    onChange: () => load(false),
+    onStatusChange: (status) => setLive(status === 'SUBSCRIBED'),
+  });
 
   const handleCommitInsight = async (insightId: string) => {
     setActionInProgress(insightId);
     const result = await commitHealthInsight(insightId);
-    if (result.status === '200') {
-      // Refresh insights
-      const response = await fetch(`/api/intelligence-workbench?domain=health`);
-      const newData = await response.json();
-      setData(newData);
-    }
+    if (result.status === '200') await load(false);
     setActionInProgress(null);
   };
 
   const handleDiscardInsight = async (insightId: string) => {
     setActionInProgress(insightId);
     const result = await discardHealthInsight(insightId);
-    if (result.status === '200') {
-      // Refresh insights
-      const response = await fetch(`/api/intelligence-workbench?domain=health`);
-      const newData = await response.json();
-      setData(newData);
-    }
+    if (result.status === '200') await load(false);
     setActionInProgress(null);
   };
 
@@ -203,8 +215,13 @@ export default function Overview() {
               </div>
             ))}
             <div className="rounded-lg border border-wb-line bg-wb-surface p-4 shadow-sm">
-              <div className="font-serif text-3xl text-wb-sage-deep">Live</div>
-              <div className="text-[12px] text-wb-ink2">Pipeline status</div>
+              <div className="flex items-center gap-2 font-serif text-3xl text-wb-sage-deep">
+                {live && <span className="h-2 w-2 rounded-full bg-wb-sage-deep animate-pulse" aria-hidden />}
+                {live ? 'Live' : 'Connecting…'}
+              </div>
+              <div className="text-[12px] text-wb-ink2">
+                {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Pipeline status'}
+              </div>
             </div>
           </div>
 
