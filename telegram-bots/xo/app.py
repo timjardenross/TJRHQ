@@ -33,6 +33,31 @@ _REPO_ROOT = _BOT_DIR.parents[1]
 
 load_dotenv(_BOT_DIR / ".env")
 
+
+def _ensure_mistral_env() -> None:
+    """Single-source the Mistral embeddings key: this process loads only its
+    own telegram-bots/xo/.env, but core/advisory/cli.py's embedding path
+    (tools/supabase/embedding_client.py) needs MISTRAL_API_KEY when invoked
+    as a subprocess — which inherits this process's environment. Pull it from
+    platform-runtime/.env, the canonical credentials file for Mistral (see
+    STARSHIP-ENDEAVOUR-VM-CONTEXT.md), if not already set locally. Existing
+    env always wins; no other secrets are imported. Mirrors the equivalent
+    GLM-borrowing pattern used elsewhere in the Telegram bot lineage."""
+    if os.environ.get("MISTRAL_API_KEY"):
+        return
+    envf = _REPO_ROOT / "platform-runtime" / ".env"
+    try:
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("MISTRAL_API_KEY") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception:
+        pass
+
+
+_ensure_mistral_env()
+
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
@@ -1660,26 +1685,38 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     text = (update.message.text or "").strip()
     if not text:
         return
-    db = _get_supabase()
+    # Unlike every other handler in this file, this path had no try/except —
+    # any exception here (debrief routing, recovery/wellness/mission lookups)
+    # crashed silently: the Captain saw the message marked delivered and
+    # never got a reply, with no error visible anywhere except the service
+    # log. Wrapped so a failure is always at least visible + logged.
+    try:
+        db = _get_supabase()
 
-    if db:
-        from telegram_bots.xo import debrief_engine as de
-        debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
-        if debrief_result["handled"]:
-            await update.message.reply_text(debrief_result["reply"])
-            return
+        if db:
+            from telegram_bots.xo import debrief_engine as de
+            debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+            if debrief_result["handled"]:
+                await update.message.reply_text(debrief_result["reply"])
+                return
 
-    status   = get_recovery_status(db)
-    snap     = get_wellness_snapshot(db)
-    missions = _get_open_missions(db)
-    await update.message.chat.send_action("typing")
-    reply = await generate_async(text, _xo_system_prompt(status, snap, missions))
-    if reply:
-        await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
-    else:
+        status   = get_recovery_status(db)
+        snap     = get_wellness_snapshot(db)
+        missions = _get_open_missions(db)
+        await update.message.chat.send_action("typing")
+        reply = await generate_async(text, _xo_system_prompt(status, snap, missions))
+        if reply:
+            await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
+        else:
+            await update.message.reply_text(
+                "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
+                parse_mode="MarkdownV2",
+            )
+    except Exception as exc:
+        log.exception("[cmd_message] failed: %s", exc)
         await update.message.reply_text(
-            "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
-            parse_mode="MarkdownV2",
+            "⚠️ Something went wrong processing that — try /recovery_status or /dispatch, "
+            "or resend your message."
         )
 
 
@@ -2174,10 +2211,20 @@ async def _post_init(app) -> None:
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
 
 
+async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Belt-and-suspenders: no handler in this file previously had a backstop,
+    so any exception outside an individual handler's own try/except vanished
+    with no trace. Logs the full exception so a silent-to-the-Captain failure
+    is at least diagnosable via journalctl. Does not attempt to reply — the
+    update may be partial or missing depending on where the error occurred."""
+    log.exception("[unhandled] %s", context.error)
+
+
 def main() -> None:
     log.info("XO Bot starting")
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(_post_init).build()
+    app.add_error_handler(_on_error)
 
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
