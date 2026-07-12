@@ -323,6 +323,31 @@ describe('assembleInterrupts', () => {
     const result = await assembleInterrupts(supabase);
     expect(result.interrupts.find((i) => i.domain === 'Engineering review')).toBeUndefined();
   });
+
+  // MSN-0358: captured missions awaiting triage - resolves the file header's
+  // own reconciliation note above (this file used to claim Decide already
+  // covered this case; it doesn't - fetchDecideQueue()/fetchMissionDecisions()
+  // never read captured_items).
+
+  it('nominates a captured-missions interrupt when unreviewed captured missions exist', async () => {
+    const supabase = fakeSupabase({ captured_items: { data: null, count: 3 } });
+    const result = await assembleInterrupts(supabase);
+    const captured = result.interrupts.find((i) => i.domain === 'Captured missions');
+    expect(captured?.text).toContain('3 captured missions awaiting triage');
+  });
+
+  it('does not nominate a captured-missions interrupt when the unreviewed count is zero', async () => {
+    const supabase = fakeSupabase({ captured_items: { data: null, count: 0 } });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Captured missions')).toBeUndefined();
+  });
+
+  it('marks Captured missions unchecked (never Sure) when its nominator query fails', async () => {
+    const supabase = fakeSupabase({ captured_items: Promise.reject(new Error('down')) });
+    const result = await assembleInterrupts(supabase);
+    expect(result.uncheckedDomains).toContain('Captured missions');
+    expect(result.complete).toBe(false);
+  });
 });
 
 describe('selectPrimaryInterrupt', () => {
