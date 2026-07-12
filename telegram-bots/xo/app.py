@@ -1520,8 +1520,11 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
     advisory CLI off-thread, and reply with the result. Never raises."""
     await update.message.reply_text(working_msg)
     try:
+        # --format markdown gives the CLI's own AdvisoryResponse.to_markdown()
+        # (sections, bullets, prose) instead of a raw json.dumps() blob — the
+        # default json format was what was actually landing in Telegram before.
         response = await asyncio.get_event_loop().run_in_executor(
-            None, _advisory_cli_call, cli_args, timeout)
+            None, _advisory_cli_call, [*cli_args, "--format", "markdown"], timeout)
     except FileNotFoundError:
         await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
         return
@@ -1532,7 +1535,12 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
         log.error("[advisory] %s failed: %s", title, exc)
         await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
         return
-    await update.message.reply_text(f"<b>{title}</b>\n\n{response[:3800]}", parse_mode="HTML")
+    # Plain text, no parse_mode: response is now GFM markdown (# headers, **bold**),
+    # not HTML — HTML parse_mode would show the raw ** / # characters literally,
+    # and Telegram's MarkdownV2 is strict enough that unescaped LLM-generated
+    # punctuation would risk an outright send failure. Plain text renders the
+    # section breaks/bullets/prose fine without either risk.
+    await update.message.reply_text(f"{title}\n\n{response[:3800]}")
 
 
 async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
