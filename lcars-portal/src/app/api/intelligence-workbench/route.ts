@@ -52,10 +52,11 @@ async function getOperationalData(sb: any, since: string) {
 }
 
 async function getHealthData(sb: any, since: string) {
-  // Latest health insights (synthesis-level) WITH source articles.
+  // Latest health insights (synthesis-level) WITH source articles (Phase 1B).
+  // Note: source_articles columns require migration 0078 to be applied.
   const { data: insights } = await sb
     .from('health_insights')
-    .select('insight_id,created_at,synthesis_period_start,synthesis_period_end,overall_status,wellness_narrative,key_findings,source_articles,committed_to_memory,committed_at')
+    .select('id as insight_id,created_at,period_start as synthesis_period_start,period_end as synthesis_period_end,auto_health_status as overall_status,llm_narrative as wellness_narrative,deterministic_findings as key_findings')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(10);
@@ -76,7 +77,13 @@ async function getHealthData(sb: any, since: string) {
     .limit(7);
 
   const latest = dailyMetrics?.[0] ?? {};
-  const insightList = insights ?? [];
+  const insightList = (insights ?? []).map((i: any) => ({
+    ...i,
+    source_articles: null, // Phase 1B: will be populated after migration 0078
+    committed_to_memory: false,
+    committed_at: null,
+    reviewed_at: null,
+  }));
 
   return {
     domain: 'health',
