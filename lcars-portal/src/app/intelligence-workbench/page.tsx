@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Card, RiskPill, Shell } from './_components/Shell';
 import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
+import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
 
 type Domain = 'operational' | 'health';
 
@@ -349,6 +350,14 @@ export default function Overview() {
               ))
             )}
           </Card>
+
+          {/* Phase 1C — Classifier Dashboard */}
+          <div className="grid gap-3.5 lg:grid-cols-2">
+            <ClassifierValidationCard />
+            <PillarMappingsCard />
+          </div>
+
+          <AuditLogCard />
         </>
       )}
     </Shell>
