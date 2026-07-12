@@ -9,7 +9,8 @@
         "src/app/intelligence-workbench/**/*.tsx",
         "src/app/human-systems-workbench/**/*.tsx",
         "src/app/advisory-workbench/**/*.tsx",
-        "src/app/capture-workbench/**/*.tsx"
+        "src/app/capture-workbench/**/*.tsx",
+        "src/app/captains-brief-workbench/**/*.tsx"
       ],
       "extends": [
         "plugin:jsx-a11y/recommended"
@@ -25,6 +26,7 @@
         "src/app/human-systems-workbench/**/*.tsx",
         "src/app/advisory-workbench/**/*.tsx",
         "src/app/capture-workbench/**/*.tsx",
+        "src/app/captains-brief-workbench/**/*.tsx",
         "src/components/ui/**/*.tsx"
       ],
       "rules": {

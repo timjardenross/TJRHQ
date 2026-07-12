@@ -117,13 +117,22 @@ function ItemRow({ item }: { item: CaptainBriefItem }) {
 export default function CaptainsBriefPage() {
   const [doc, setDoc] = useState<CaptainBriefDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The api/captain-brief route already returns a `detail` field carrying the
+  // real upstream cause (401 unauthorized, `full_captain_brief_failed` with the
+  // exception text, or the fetch/timeout error). This page previously discarded
+  // it and showed only the generic `error`, leaving "Failed to assemble Captain
+  // Brief" un-diagnosable to the Captain. Surface it.
+  const [detail, setDetail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/captain-brief')
       .then(async (r) => {
         const body = await r.json();
-        if (!r.ok) throw new Error(body.error ?? 'Failed to load Captain Brief');
+        if (!r.ok) {
+          if (typeof body?.detail === 'string' && body.detail) setDetail(body.detail);
+          throw new Error(body.error ?? 'Failed to load Captain Brief');
+        }
         setDoc(body);
       })
       .catch((e) => setError(String(e)))
@@ -134,7 +143,14 @@ export default function CaptainsBriefPage() {
     <div className="flex flex-col gap-4">
       <LCARSPanel title="Captain's Brief" accent="command" eyebrow="Continuous Captain Brief Orchestration · MSN-0313">
         {loading && <p className="text-sm text-lcars-muted animate-pulse">Assembling brief…</p>}
-        {error && <p className="text-sm text-operations">{error}</p>}
+        {error && (
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-operations">{error}</p>
+            {detail && (
+              <p className="text-xs text-lcars-muted/80 font-mono break-words">Cause: {detail}</p>
+            )}
+          </div>
+        )}
         {doc && (
           <div className="flex flex-col gap-3">
             <ConfidenceIndicator score={doc.confidence} label="Document confidence" />

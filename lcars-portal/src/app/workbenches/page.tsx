@@ -56,6 +56,11 @@ const TILES: Tile[] = [
     description: 'Capture anything in one box, then triage the inbox — classify, route, and promote, review-first. Live from every capture channel.',
   },
   {
+    href: '/captains-brief-workbench',
+    title: 'Captain’s Brief Workbench',
+    description: 'The continuous Captain’s Brief (MSN-0313) — summary, priorities, warnings, interrupts, and by-domain signals, assembled on request from the live event pipeline.',
+  },
+  {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Findings, decisions, and audit trail from the self-improvement system.',
