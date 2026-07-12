@@ -40,14 +40,6 @@ SUPABASE_KEY       = os.environ.get("SUPABASE_KEY", "")
 # MSN-0172: LCARS portal base URL for POST /api/missions (no trailing slash)
 LCARS_PORTAL_URL   = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
 LCARS_API_SECRET   = os.environ.get("LCARS_API_SECRET", "")
-# USS-TJR-MSN-0207C: intelligence/scheduler.py is the single owner of
-# scheduled Captain's Brief jobs (morning/midday/eod/weekly) — this bot's
-# own copy of that schedule (registered unconditionally in _post_init
-# below, MSN-0200-P3B) was found to be running in parallel with it,
-# producing duplicate Telegram messages every day (see MSN-0207B). OFF by
-# default; set to "1" only for local testing when intelligence/scheduler.py's
-# daemon is not running and you need this bot to stand in for it temporarily.
-XO_SCHEDULED_BRIEFS_ENABLED = os.environ.get("XO_SCHEDULED_BRIEFS_ENABLED", "0") == "1"
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -89,8 +81,6 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -1488,21 +1478,55 @@ async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 _ADVISORY_PERSONAS = {"xo", "cmo", "cto", "cdo", "strategic", "staff-briefing"}
 
+
+def _advisory_cli_call(cli_args: list[str], timeout: int) -> str:
+    """Run core/advisory/cli.py with the given args; return stdout/stderr text.
+    Raises FileNotFoundError if the CLI is absent, subprocess.TimeoutExpired on timeout."""
+    advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
+    if not advisory_cli.exists():
+        raise FileNotFoundError("advisory cli.py not present")
+    result = subprocess.run(
+        [sys.executable, str(advisory_cli), *cli_args],
+        capture_output=True, text=True, timeout=timeout, cwd=str(_REPO_ROOT),
+    )
+    return (result.stdout or result.stderr or "No response.").strip()
+
+
+async def _run_advisory(update: Update, title: str, cli_args: list[str],
+                        working_msg: str, timeout: int = 90) -> None:
+    """Shared path for /advise and /challenge: post a working message, run the
+    advisory CLI off-thread, and reply with the result. Never raises."""
+    await update.message.reply_text(working_msg)
+    try:
+        response = await asyncio.get_event_loop().run_in_executor(
+            None, _advisory_cli_call, cli_args, timeout)
+    except FileNotFoundError:
+        await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
+        return
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text(f"⚠️ Advisory timed out ({timeout}s).")
+        return
+    except Exception as exc:
+        log.error("[advisory] %s failed: %s", title, exc)
+        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
+        return
+    await update.message.reply_text(f"<b>{title}</b>\n\n{response[:3800]}", parse_mode="HTML")
+
+
 async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Invoke advisory CLI. Usage: /advise [persona] <question>
-    Personas: xo (default), cmo, cto, cdo, strategic, staff-briefing"""
+    """Advisory consult. Usage: /advise [officer] <question>
+    Officers: staff-briefing (default panel), xo, cmo, cto, cdo, strategic."""
     args = context.args or []
     if not args:
         await update.message.reply_text(
-            "Usage: /advise [persona] &lt;question&gt;\n"
-            "Personas: xo · cmo · cto · cdo · strategic · staff-briefing\n"
+            "Usage: /advise [officer] &lt;question&gt;\n"
+            "Officers: staff-briefing (default) · xo · cmo · cto · cdo · strategic\n"
             "Example: /advise cmo What does my pain pattern suggest?",
             parse_mode="HTML",
         )
         return
 
-    # Detect optional persona as first arg
-    persona = "xo"
+    persona = "staff-briefing"
     if args[0].lower() in _ADVISORY_PERSONAS:
         persona = args[0].lower()
         question_parts = args[1:]
@@ -1511,38 +1535,12 @@ async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     question = " ".join(question_parts).strip()
     if not question:
-        await update.message.reply_text("Please include a question after the persona name.")
+        await update.message.reply_text("Please include a question after the officer name.")
         return
 
-    await update.message.reply_text(f"⚙️ Consulting {persona.upper()} advisor…")
-
-    try:
-        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
-        if not advisory_cli.exists():
-            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
-            return
-
-        def _run_advisory() -> str:
-            result = subprocess.run(
-                [sys.executable, str(advisory_cli), "--persona", persona, "--question", question],
-                capture_output=True,
-                text=True,
-                timeout=60,
-                cwd=str(_REPO_ROOT),
-            )
-            return (result.stdout or result.stderr or "No response.").strip()
-
-        response = await asyncio.get_event_loop().run_in_executor(None, _run_advisory)
-        # Trim to Telegram limit, preserve HTML where safe
-        text = f"<b>{persona.upper()} Advisory Response</b>\n\n{response[:3800]}"
-        await update.message.reply_text(text, parse_mode="HTML")
-        log.info("[advise] persona=%s question=%s…", persona, question[:40])
-
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("⚠️ Advisory response timed out (60s).")
-    except Exception as exc:
-        log.error("[advise] failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
+    label = "Advisory Panel" if persona == "staff-briefing" else f"{persona.upper()} Advisory"
+    await _run_advisory(update, label, ["--persona", persona, "--question", question],
+                        f"⚙️ Consulting {persona}…")
 
 
 # ── Narrative intelligence + outcome capture (MSN-0087) ──────────────────────
@@ -2110,93 +2108,6 @@ class _BotAdapter:
             log.error("send_message failed: %s", exc)
 
 
-# ── Scheduled dispatch (XO only) ──────────────────────────────────────────────
-
-# Shared state for midday conditional check
-_morning_brief_sent_at: str | None = None
-
-
-async def _scheduled_morning_brief(bot) -> None:
-    """07:00 AEST — Captain's Morning Brief (MSN-0200-P3B)."""
-    global _morning_brief_sent_at
-    log.info("[scheduler] morning brief")
-    try:
-        from intelligence.captains_brief import generate_morning_brief
-        text = await asyncio.get_event_loop().run_in_executor(None, generate_morning_brief)
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
-        _morning_brief_sent_at = datetime.now(_TZ).isoformat()
-        log.info("[scheduler] morning brief sent")
-    except Exception as exc:
-        log.error("[scheduler] morning brief failed: %s", exc)
-
-
-async def _scheduled_midday_check(bot) -> None:
-    """12:30 AEST — Conditional midday update: only delivers if new signals found (MSN-0200-P3B)."""
-    log.info("[scheduler] midday signal check")
-    try:
-        from intelligence.captains_brief import check_midday_signals, generate_midday_update
-        from datetime import timezone as _utc
-
-        since = _morning_brief_sent_at
-        if not since:
-            # Morning brief timestamp unknown — use 06:00 UTC as baseline
-            today = datetime.now(_utc.utc).strftime("%Y-%m-%dT06:00:00Z")
-            since = today
-
-        def _check():
-            return check_midday_signals(since)
-
-        signals = await asyncio.get_event_loop().run_in_executor(None, _check)
-        if not signals:
-            log.info("[scheduler] midday check: no new signals — suppressing brief")
-            return
-
-        log.info("[scheduler] midday check: %d new signals — delivering update", len(signals))
-
-        def _gen():
-            return generate_midday_update(signals)
-
-        text = await asyncio.get_event_loop().run_in_executor(None, _gen)
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
-        log.info("[scheduler] midday update sent")
-    except Exception as exc:
-        log.error("[scheduler] midday check failed: %s", exc)
-
-
-async def _scheduled_eod_brief(bot) -> None:
-    """18:00 AEST — End-of-Day Summary (MSN-0200-P3B)."""
-    log.info("[scheduler] EOD brief")
-    try:
-        from intelligence.captains_brief import generate_eod_summary
-        text = await asyncio.get_event_loop().run_in_executor(None, generate_eod_summary)
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
-        log.info("[scheduler] EOD brief sent")
-    except Exception as exc:
-        log.error("[scheduler] EOD brief failed: %s", exc)
-
-
-async def _scheduled_weekly_brief(bot) -> None:
-    """Monday 07:00 AEST — Weekly Intelligence Report (MSN-0200-P3B)."""
-    log.info("[scheduler] weekly brief")
-    try:
-        from intelligence.captains_brief import generate_weekly_report
-        text = await asyncio.get_event_loop().run_in_executor(None, generate_weekly_report)
-        await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text, parse_mode="HTML")
-        log.info("[scheduler] weekly brief sent")
-    except Exception as exc:
-        log.error("[scheduler] weekly brief failed: %s", exc)
-
-
-async def _scheduled_dispatch(bot) -> None:
-    log.info("[scheduler] xo dispatch tick")
-    try:
-        result = run_dispatch_check(_BotAdapter(bot), TELEGRAM_CHAT_ID, supabase_client=_get_supabase())
-        log.info("[scheduler] action=%s sent=%s conf=%s%%",
-                 result.get("action"), result.get("message_sent"), result.get("confidence"))
-    except Exception as exc:
-        log.error("[scheduler] dispatch failed: %s", exc)
-
-
 async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Quick capture: /note <content>  — writes to captured_items as a reference."""
     content = " ".join(context.args or []).strip()
@@ -2225,44 +2136,6 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"⚠️ Capture failed: {str(exc)[:120]}")
 
 
-async def cmd_advisor(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Multi-officer advisory: /advisor <question>  — routes to staff-briefing panel."""
-    args = context.args or []
-    if not args:
-        await update.message.reply_text(
-            "Usage: /advisor &lt;question&gt;\nExample: /advisor What should I focus on this week?",
-            parse_mode="HTML",
-        )
-        return
-
-    question = " ".join(args).strip()
-    await update.message.reply_text("⚙️ Convening advisory panel…")
-
-    try:
-        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
-        if not advisory_cli.exists():
-            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
-            return
-
-        def _run() -> str:
-            result = subprocess.run(
-                [sys.executable, str(advisory_cli), "--persona", "staff-briefing", "--question", question],
-                capture_output=True, text=True, timeout=90, cwd=str(_REPO_ROOT),
-            )
-            return (result.stdout or result.stderr or "No response.").strip()
-
-        response = await asyncio.get_event_loop().run_in_executor(None, _run)
-        text = f"<b>Advisory Panel</b>\n\n{response[:3800]}"
-        await update.message.reply_text(text, parse_mode="HTML")
-        log.info("[advisor] question=%s…", question[:40])
-
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("⚠️ Advisory response timed out (90s).")
-    except Exception as exc:
-        log.error("[advisor] failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
-
-
 async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Red-team / challenge advisory: /challenge <question>  — adversarial review."""
     args = context.args or []
@@ -2274,31 +2147,8 @@ async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     question = " ".join(args).strip()
-    await update.message.reply_text("⚙️ Running red-team challenge…")
-
-    try:
-        advisory_cli = _REPO_ROOT / "core" / "advisory" / "cli.py"
-        if not advisory_cli.exists():
-            await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
-            return
-
-        def _run() -> str:
-            result = subprocess.run(
-                [sys.executable, str(advisory_cli), "--action", "challenge", "--question", question],
-                capture_output=True, text=True, timeout=90, cwd=str(_REPO_ROOT),
-            )
-            return (result.stdout or result.stderr or "No response.").strip()
-
-        response = await asyncio.get_event_loop().run_in_executor(None, _run)
-        text = f"<b>Challenge Assessment</b>\n\n{response[:3800]}"
-        await update.message.reply_text(text, parse_mode="HTML")
-        log.info("[challenge] question=%s…", question[:40])
-
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("⚠️ Challenge timed out (90s).")
-    except Exception as exc:
-        log.error("[challenge] failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Challenge failed: {str(exc)[:120]}")
+    await _run_advisory(update, "Challenge Assessment", ["--action", "challenge", "--question", question],
+                        "⚙️ Running red-team challenge…")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -2315,7 +2165,7 @@ _BOT_COMMANDS = [
     ("missions",        "Active missions  e.g. /missions active  or  /missions blocked"),
     ("note",            "Quick capture  e.g. /note Follow up on sleep tracker"),
     # Advisory
-    ("advisor",         "Multi-officer advisory panel  e.g. /advisor What to focus on this week?"),
+    ("advise",          "Advisory consult  e.g. /advise What to focus this week?  ·  /advise cmo <q>"),
     ("challenge",       "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
     # Daily debrief
     ("debrief_close",   "Force-close the active debrief and get today's log"),
@@ -2336,36 +2186,10 @@ _BOT_COMMANDS = [
 
 
 async def _post_init(app) -> None:
-    """Register the command menu and start the scheduler inside the running event loop."""
+    """Register the command menu inside the running event loop."""
     from telegram import BotCommand
     await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
-
-    bot = app.bot
-    tz  = "Australia/Brisbane"
-
-    # USS-TJR-MSN-0207C: intelligence/scheduler.py owns this schedule now —
-    # see MSN-0207B for how this bot's identical, unconditionally-registered
-    # copy of it caused duplicate Telegram briefs in production. Nothing
-    # else runs on this scheduler instance (dispatch checks etc. are
-    # triggered elsewhere), so when disabled there is simply no scheduler
-    # to start.
-    if XO_SCHEDULED_BRIEFS_ENABLED:
-        scheduler = AsyncIOScheduler(timezone=tz)
-        # Mon 07:00 — weekly brief (registered first so it takes priority over daily morning on Mondays)
-        scheduler.add_job(_scheduled_weekly_brief,  CronTrigger(day_of_week="mon", hour=7,  minute=0,  timezone=tz), id="weekly",  args=[bot])
-        # Tue-Sun 07:00 — morning brief
-        scheduler.add_job(_scheduled_morning_brief, CronTrigger(day_of_week="tue-sun", hour=7, minute=0, timezone=tz), id="morning", args=[bot])
-        # 12:30 — conditional midday check
-        scheduler.add_job(_scheduled_midday_check,  CronTrigger(hour=12, minute=30, timezone=tz), id="midday",  args=[bot])
-        # 18:00 — EOD summary
-        scheduler.add_job(_scheduled_eod_brief,     CronTrigger(hour=18, minute=0,  timezone=tz), id="eod",     args=[bot])
-        scheduler.start()
-        log.info("[startup] Scheduler started — morning 07:00 (Tue-Sun), weekly Mon 07:00, midday 12:30, EOD 18:00 "
-                 "(XO_SCHEDULED_BRIEFS_ENABLED=1 — this bot is standing in for intelligence/scheduler.py)")
-    else:
-        log.info("[startup] Scheduled Captain's Brief jobs disabled in this bot (owned by intelligence/scheduler.py — "
-                 "see MSN-0207C). Set XO_SCHEDULED_BRIEFS_ENABLED=1 to re-enable here if that daemon is down.")
 
 
 def main() -> None:
@@ -2390,7 +2214,6 @@ def main() -> None:
     app.add_handler(CommandHandler("source_status",       cmd_source_status))
     app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
     app.add_handler(CommandHandler("advise",              cmd_advise))
-    app.add_handler(CommandHandler("advisor",             cmd_advisor))
     app.add_handler(CommandHandler("challenge",           cmd_challenge))
     app.add_handler(CommandHandler("note",                cmd_note))
     app.add_handler(CommandHandler("missions",            cmd_mission_list))
