@@ -306,7 +306,10 @@ class TestEdgeCases:
             "narrative_available": True,
             "committed_to_memory": True,
         }
-        signal = classifier.score_for_content(insight, WellnessCategory("Unknown"))
+        # No/unknown category → the Optional[WellnessCategory]=None default path
+        # (WellnessCategory("Unknown") is not a valid enum member and raised in
+        # the test's own setup before score_for_content ever ran).
+        signal = classifier.score_for_content(insight, None)
         # Should still score, with default mapping
         assert signal is not None or signal is None  # Depends on implementation
 
