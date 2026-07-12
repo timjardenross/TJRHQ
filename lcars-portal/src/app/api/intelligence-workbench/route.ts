@@ -107,7 +107,7 @@ async function getHealthData(sb: any, since: string) {
 export async function GET(req: NextRequest) {
   try {
     const sb = await createSupabaseServerClient();
-    const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const domain = req.nextUrl.searchParams.get('domain') ?? 'operational';
 
     if (domain === 'health') {
