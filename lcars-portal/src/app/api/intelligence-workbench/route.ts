@@ -63,16 +63,16 @@ async function getHealthData(sb: any, since: string) {
   // Health events (7d) for detail view with source tracking.
   const { data: events } = await sb
     .from('health_events')
-    .select('event_id,logged_at,event_type,value,notes,source')
-    .gte('logged_at', since)
-    .order('logged_at', { ascending: false })
+    .select('id as event_id,event_date as logged_at,event_type,title as value,description as notes,source')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
     .limit(20);
 
   // KPI-like metrics (fetch latest).
   const { data: dailyMetrics } = await sb
     .from('analytics_health_daily')
-    .select('date,capacity_score,readiness_score,sleep_hours,pain_level')
-    .order('date', { ascending: false })
+    .select('log_date as date,physical_capacity as capacity_score,overall_note as readiness_score,sleep_hours,pain_score as pain_level')
+    .order('log_date', { ascending: false })
     .limit(7);
 
   const latest = dailyMetrics?.[0] ?? {};
