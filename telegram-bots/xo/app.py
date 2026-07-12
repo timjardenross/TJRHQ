@@ -2105,7 +2105,7 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         db.table("captured_items").insert({
             "source": "telegram-xo-note",
             "classification": "reference",
-            "raw_content": content,
+            "raw_text": content,
             "processing_status": "pending",
         }).execute()
         await update.message.reply_text(
