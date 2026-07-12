@@ -39,7 +39,7 @@ const TABS: Tab[] = [
   { href: '/home', label: 'Home', glyph: '⌂' },
   { href: '/decide', label: 'Decide', glyph: '✓' },
   { href: '/ask', label: 'Ask', glyph: '?' },
-  { href: '/capture', label: 'Capture', glyph: '＋' },
+  { href: '/capture-workbench', label: 'Capture', glyph: '＋' },
   { href: '/physical-readiness', label: 'Readiness', glyph: '✚' },
 ];
 

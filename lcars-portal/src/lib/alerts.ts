@@ -291,7 +291,7 @@ async function decisionAlerts(): Promise<MobileAlert[]> {
         // to a page that could never show what it counted. /capture
         // is the real captured_items consumer; ?filter=mission
         // deep-links straight to the classification this alert counts.
-        href: '/capture?filter=mission',
+        href: '/capture-workbench?filter=mission',
         at: nowIso(),
       });
     }

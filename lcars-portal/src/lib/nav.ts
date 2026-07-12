@@ -20,7 +20,10 @@ const VALID_NAV_HREFS = [
   // /advisory-workbench (kept first-class per Captain decision 2026-07-12).
   // /advisory-council stays valid — it now redirects to the workbench.
   '/captains-chair', '/advisory-council', '/advisory-workbench', '/knowledge', '/knowledge-library',
-  '/search', '/timeline', '/capture',
+  // Capture reskinned onto the wb- design system at /capture-workbench (kept
+  // first-class per Captain decision 2026-07-12). /capture stays valid — it
+  // now redirects to the workbench.
+  '/search', '/timeline', '/capture', '/capture-workbench',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
   '/captains-brief', '/delivery', '/automation-centre', '/model-crew',

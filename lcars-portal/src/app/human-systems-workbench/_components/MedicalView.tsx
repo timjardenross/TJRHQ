@@ -51,6 +51,14 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <Card title="Quick actions">
+        <div className="flex flex-wrap gap-3">
+          <Link href="/human-systems-workbench/medical/check-in" className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition hover:opacity-90">Check-in</Link>
+          <Link href="/human-systems-workbench/medical/log-activity" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Log activity</Link>
+          <Link href="/human-systems-workbench/medical/pulse" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Recovery pulse</Link>
+        </div>
+      </Card>
+
       <Card title="Life Participation">
         <p className="mb-3 text-[13px] text-wb-ink2">
           Measures participation in life — not productivity. Recovery follows when the conditions for
@@ -122,13 +130,6 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
         </p>
       </Card>
 
-      <Card title="Quick actions">
-        <div className="flex flex-wrap gap-3">
-          <Link href="/human-systems-workbench/medical/check-in" className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition hover:opacity-90">Check-in</Link>
-          <Link href="/human-systems-workbench/medical/log-activity" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Log activity</Link>
-          <Link href="/human-systems-workbench/medical/pulse" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Recovery pulse</Link>
-        </div>
-      </Card>
     </div>
   );
 }
