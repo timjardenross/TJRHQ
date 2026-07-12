@@ -71,7 +71,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
         <p className="text-[13px] text-wb-ink2">Brief not found.</p>
       ) : (
         <>
-          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-on to-[#8a2f2a] px-5 py-4 text-white">
+          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-on to-wb-crit-deep px-5 py-4 text-white">
             <span className="h-3 w-3 animate-pulse rounded-full bg-white" aria-hidden />
             <div>
               <div className="font-serif text-[20px]" role="status" aria-live="assertive">

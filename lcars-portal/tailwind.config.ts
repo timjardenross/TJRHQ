@@ -64,6 +64,10 @@ const config: Config = {
           'ok-on':   '#3F633F',
           'warn-on': '#8A5A1B',
           'crit-on': '#A23A34',
+          // Gradient endpoint for the escalation "critical incident" banner
+          // (white text on top — high contrast preserved at both ends).
+          // Promoted from a hardcoded bg-[#8a2f2a] arbitrary value.
+          'crit-deep': '#8a2f2a',
         },
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
