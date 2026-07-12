@@ -38,7 +38,7 @@ export function ReadinessView({ data }: { data: ReadinessPayload }) {
           the gym — no generic plan, no decisions once you walk in.
         </p>
         <Link
-          href="/physical-readiness/start"
+          href="/human-systems-workbench/readiness/start"
           className="mt-4 inline-flex flex-col items-center gap-1 rounded-md bg-wb-sage-deep px-6 py-4 text-center text-[15px] font-semibold uppercase tracking-[0.14em] text-white transition hover:opacity-90"
         >
           Start check-in
@@ -71,10 +71,9 @@ export function ReadinessView({ data }: { data: ReadinessPayload }) {
       </Card>
 
       <Card title="Quick links">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Link href="/physical-readiness/library" className="rounded-md border border-wb-line px-4 py-3 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Exercise library</Link>
-          <Link href="/physical-readiness/history" className="rounded-md border border-wb-line px-4 py-3 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">History</Link>
-          <Link href="/physical-readiness" className="rounded-md border border-wb-line px-4 py-3 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Readiness hub</Link>
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/human-systems-workbench/readiness/library" className="rounded-md border border-wb-line px-4 py-3 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Exercise library</Link>
+          <Link href="/human-systems-workbench/readiness/history" className="rounded-md border border-wb-line px-4 py-3 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">History</Link>
         </div>
       </Card>
     </div>
