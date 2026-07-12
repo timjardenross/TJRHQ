@@ -10,6 +10,11 @@ const STATUS_ORDER = [
 
 export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get('status');
+  // Phase 1C: domain filter — best-effort, derived via signal_source_id join
+  // below (comms_content itself has no domain column; items created outside
+  // the signal flow, e.g. via capture, have no domain and are treated as
+  // 'operational' to match content_signals' own default).
+  const domain = req.nextUrl.searchParams.get('domain');
   try {
     const sb = await createSupabaseServerClient();
     let query = sb
@@ -20,7 +25,24 @@ export async function GET(req: NextRequest) {
     if (status) query = query.eq('status', status);
     const { data, error } = await query;
     if (error) throw error;
-    const items = data ?? [];
+    const rawItems = data ?? [];
+
+    const signalIds = [...new Set(rawItems.map(i => i.signal_source_id).filter(Boolean))];
+    const domainMap: Record<string, string> = {};
+    if (signalIds.length > 0) {
+      const { data: sigRows } = await sb
+        .from('content_signals')
+        .select('event_id_text,domain')
+        .in('event_id_text', signalIds);
+      for (const r of sigRows ?? []) domainMap[r.event_id_text] = r.domain;
+    }
+    let items = rawItems.map(i => ({
+      ...i,
+      domain: (i.signal_source_id && domainMap[i.signal_source_id]) || 'operational',
+    }));
+    if (domain === 'health' || domain === 'operational') {
+      items = items.filter(i => i.domain === domain);
+    }
 
     // Pipeline counts
     const counts: Record<string, number> = {};

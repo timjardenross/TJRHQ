@@ -117,15 +117,18 @@ export async function GET(req: NextRequest) {
     if (view === 'content_signals') {
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
       const pillar = req.nextUrl.searchParams.get('pillar');
+      // Phase 1C: domain filter — 'health' | 'operational' | omitted for both
+      const domain = req.nextUrl.searchParams.get('domain');
 
       let sigQuery = sb
         .from('content_signals')
-        .select('event_id_text,source_name,pillar_key,pillar_name,content_relevance,rank_score,captain_focus,suggested_angle,scored_at,suppressed,raw_title,raw_summary,canonical_url,collected_at')
+        .select('event_id_text,source_name,pillar_key,pillar_name,content_relevance,rank_score,captain_focus,suggested_angle,scored_at,suppressed,raw_title,raw_summary,canonical_url,collected_at,domain')
         .eq('suppressed', false)
         .gte('scored_at', since)
         .order('rank_score', { ascending: false })
         .limit(limit * 2);
       if (pillar) sigQuery = sigQuery.eq('pillar_key', pillar);
+      if (domain === 'health' || domain === 'operational') sigQuery = sigQuery.eq('domain', domain);
 
       const { data: sigData, error: sigErr } = await sigQuery;
       if (sigErr) throw sigErr;

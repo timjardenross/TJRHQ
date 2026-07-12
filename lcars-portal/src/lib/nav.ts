@@ -16,7 +16,10 @@ export interface NavItem {
 // LCARSBottomNav — is kept, now sourced from a plain href list instead of
 // a duplicate, driftable copy of nav item data.
 const VALID_NAV_HREFS = [
-  '/captains-chair', '/advisory-council', '/knowledge', '/knowledge-library',
+  // MSN: Advisory Council reskinned onto the wb- design system at
+  // /advisory-workbench (kept first-class per Captain decision 2026-07-12).
+  // /advisory-council stays valid — it now redirects to the workbench.
+  '/captains-chair', '/advisory-council', '/advisory-workbench', '/knowledge', '/knowledge-library',
   '/search', '/timeline', '/capture',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',

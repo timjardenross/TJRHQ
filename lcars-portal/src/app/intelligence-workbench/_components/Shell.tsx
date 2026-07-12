@@ -3,6 +3,9 @@
 // Standalone brand shell for the Intelligence Workbench (no LCARS app chrome).
 import Link from 'next/link';
 import { ReactNode } from 'react';
+import { Badge, riskToStatus } from '@/components/ui';
+
+export { Card } from '@/components/ui';
 
 export function Shell({
   title,
@@ -59,28 +62,19 @@ export function Shell({
   );
 }
 
-export function Card({ title, children }: { title?: string; children: ReactNode }) {
-  return (
-    <section className="mb-6 rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
-      {title && <h2 className="mb-3 border-b border-wb-line pb-3 font-serif text-lg">{title}</h2>}
-      {children}
-    </section>
-  );
-}
+const STATUS_TINT_CLASSES: Record<ReturnType<typeof riskToStatus>, string> = {
+  error: 'bg-wb-crit/15 text-wb-crit-on',
+  warning: 'bg-wb-warn/15 text-wb-warn-on',
+  success: 'bg-wb-ok/15 text-wb-ok-on',
+  info: 'bg-wb-sage/15 text-wb-sage-deep',
+  neutral: 'bg-wb-line text-wb-ink2',
+};
 
+/** RED/AMBER/GREEN/HIGH/MEDIUM/LOW -> tint className. Kept for callers composing custom elements. */
 export function riskClass(r: string | null | undefined) {
-  const v = (r ?? '').toUpperCase();
-  // *-on text hues are AA-safe (>=4.5:1) on the light tint backgrounds.
-  if (v === 'RED' || v === 'HIGH') return 'bg-wb-crit/15 text-wb-crit-on';
-  if (v === 'AMBER' || v === 'MEDIUM') return 'bg-wb-warn/15 text-wb-warn-on';
-  if (v === 'GREEN' || v === 'LOW') return 'bg-wb-ok/15 text-wb-ok-on';
-  return 'bg-wb-line text-wb-ink2';
+  return STATUS_TINT_CLASSES[riskToStatus(r)];
 }
 
 export function RiskPill({ value }: { value: string | null | undefined }) {
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${riskClass(value)}`}>
-      {value ?? '—'}
-    </span>
-  );
+  return <Badge status={riskToStatus(value)}>{value ?? '—'}</Badge>;
 }

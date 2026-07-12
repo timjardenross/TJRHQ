@@ -1,0 +1,246 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Shell, Card, riskClass, RiskPill } from '../intelligence-workbench/_components/Shell';
+
+interface Finding {
+  finding_id: string;
+  category: string;
+  title: string;
+  description: string;
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  risk_level: string;
+  confidence: number;
+  evidence: Array<{ type: string; observation: string; location?: string }>;
+  proposed_action: { type: string; description: string };
+  decision?: string;
+}
+
+interface Decision {
+  finding_id: string;
+  decision: 'approved' | 'rejected' | 'more_evidence';
+  reasoning: string;
+  timestamp: string;
+}
+
+export default function SelfImprovementFindings() {
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [decisions, setDecisions] = useState<Map<string, Decision>>(new Map());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reasoning, setReasoning] = useState('');
+
+  useEffect(() => {
+    loadFindings();
+    const interval = setInterval(loadFindings, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadFindings() {
+    try {
+      const res = await fetch('http://localhost:8892/api/findings');
+      const data = await res.json();
+      setFindings(data.findings || []);
+
+      const decisionMap = new Map<string, Decision>();
+      for (const f of data.findings || []) {
+        if (f.decision) {
+          decisionMap.set(f.finding_id, {
+            finding_id: f.finding_id,
+            decision: f.decision,
+            reasoning: f.decision_reasoning || '',
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      setDecisions(decisionMap);
+      setLoading(false);
+    } catch (err) {
+      console.error('Failed to load findings:', err);
+      setLoading(false);
+    }
+  }
+
+  async function makeDecision(decision: 'approved' | 'rejected' | 'more_evidence') {
+    if (!selectedId) return;
+    try {
+      await fetch('http://localhost:8892/api/decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          finding_id: selectedId,
+          decision,
+          reasoning,
+        }),
+      });
+      setReasoning('');
+      await loadFindings();
+    } catch (err) {
+      console.error('Failed to save decision:', err);
+    }
+  }
+
+  const selectedFinding = findings.find((f) => f.finding_id === selectedId);
+  const pendingCount = findings.filter((f) => !f.decision).length;
+
+  if (loading) {
+    return (
+      <Shell title="Self-Improvement Findings" eyebrow="Automated Discovery">
+        <div className="text-center py-8 text-wb-ink2">Loading findings...</div>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell title="Self-Improvement Findings" eyebrow="Automated Discovery">
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <Card>
+          <div className="text-3xl font-semibold text-wb-ink">{findings.length}</div>
+          <div className="text-sm text-wb-ink2 mt-1">Total Findings</div>
+        </Card>
+        <Card>
+          <div className="text-3xl font-semibold text-wb-ok">{findings.filter((f) => f.decision === 'approved').length}</div>
+          <div className="text-sm text-wb-ink2 mt-1">Approved</div>
+        </Card>
+        <Card>
+          <div className="text-3xl font-semibold text-wb-crit">{findings.filter((f) => f.decision === 'rejected').length}</div>
+          <div className="text-sm text-wb-ink2 mt-1">Rejected</div>
+        </Card>
+        <Card>
+          <div className="text-3xl font-semibold text-wb-warn">{pendingCount}</div>
+          <div className="text-sm text-wb-ink2 mt-1">Pending Review</div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-3 gap-6">
+        {/* Findings List */}
+        <div className="col-span-1">
+          <Card title="Findings">
+            <div className="space-y-2">
+              {findings.map((f) => (
+                <button
+                  key={f.finding_id}
+                  onClick={() => setSelectedId(f.finding_id)}
+                  className={`w-full text-left p-3 rounded border transition-all ${
+                    selectedId === f.finding_id
+                      ? 'bg-wb-surface border-wb-sage-deep'
+                      : 'bg-wb-bg border-wb-line hover:border-wb-sage-deep'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-wb-ink">{f.title}</div>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <span className="text-xs bg-wb-line text-wb-ink2 px-2 py-1 rounded">{f.category}</span>
+                    <RiskPill value={f.severity} />
+                    {f.decision && (
+                      <span className={`text-xs px-2 py-1 rounded font-semibold ${riskClass(f.decision)}`}>
+                        {f.decision.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Finding Details */}
+        <div className="col-span-2">
+          {selectedFinding ? (
+            <Card title="Finding Details">
+              <h2 className="text-2xl font-serif text-wb-ink mb-6">{selectedFinding.title}</h2>
+
+              <section className="mb-6">
+                <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">Category</h3>
+                <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-wb-ink">
+                  {selectedFinding.category}
+                </div>
+              </section>
+
+              <section className="mb-6">
+                <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">Severity & Confidence</h3>
+                <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-sm text-wb-ink">
+                  <div>Severity: <strong>{selectedFinding.severity}</strong></div>
+                  <div>Risk: <strong>{selectedFinding.risk_level || 'N/A'}</strong></div>
+                  <div>Confidence: <strong>{(selectedFinding.confidence * 100).toFixed(0)}%</strong></div>
+                </div>
+              </section>
+
+              <section className="mb-6">
+                <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">Description</h3>
+                <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-sm text-wb-ink">
+                  {selectedFinding.description}
+                </div>
+              </section>
+
+              <section className="mb-6">
+                <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">Evidence</h3>
+                <div className="space-y-2">
+                  {selectedFinding.evidence.map((e, i) => (
+                    <div key={i} className="bg-wb-bg p-3 rounded border-l-4 border-wb-line text-sm text-wb-ink">
+                      <strong className="text-wb-sage-deep">{e.type}:</strong> {e.observation}
+                      {e.location && <div className="text-xs text-wb-ink2 mt-1">{e.location}</div>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="mb-6">
+                <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">Proposed Action</h3>
+                <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-sm text-wb-ink">
+                  <strong>{selectedFinding.proposed_action.type}:</strong> {selectedFinding.proposed_action.description}
+                </div>
+              </section>
+
+              {!selectedFinding.decision && (
+                <section>
+                  <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-3">Your Decision</h3>
+                  <textarea
+                    value={reasoning}
+                    onChange={(e) => setReasoning(e.target.value)}
+                    placeholder="Add reasoning (optional)..."
+                    className="w-full p-2 rounded border border-wb-line bg-wb-bg text-wb-ink text-sm mb-3 font-mono"
+                    rows={3}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => makeDecision('approved')}
+                      className="flex-1 px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90"
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={() => makeDecision('more_evidence')}
+                      className="flex-1 px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90"
+                    >
+                      ? More Evidence
+                    </button>
+                    <button
+                      onClick={() => makeDecision('rejected')}
+                      className="flex-1 px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90"
+                    >
+                      ✗ Reject
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              {selectedFinding.decision && (
+                <div className={`p-3 rounded ${riskClass(selectedFinding.decision)} text-sm font-semibold`}>
+                  Decision: {selectedFinding.decision.replace('_', ' ').toUpperCase()}
+                </div>
+              )}
+            </Card>
+          ) : (
+            <Card title="Finding Details">
+              <div className="text-center py-12 text-wb-ink2">Select a finding to review</div>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <div className="text-center text-xs text-wb-ink2 mt-8">
+        Findings auto-refresh every 5 seconds · Decisions saved to decisions.jsonl
+      </div>
+    </Shell>
+  );
+}

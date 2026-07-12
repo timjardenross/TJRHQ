@@ -53,7 +53,7 @@ const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [
   { href: '/decide', label: 'Decide', description: 'One place for judgement, one item at a time' },
   { href: '/ask', label: 'Ask', description: 'Ask Starship what it knows' },
   { href: '/recommended', label: 'Recommended', description: 'Ranked mission priorities from the Recommendation Engine' },
-  { href: '/advisory-council', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },
+  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },
   { href: '/comms-studio', label: 'Communications Studio', description: 'Assemble an executive brief, decision brief, or mission report' },
   { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },

@@ -27,3 +27,6 @@ next-env.d.ts.bak
 # misc
 .DS_Store
 *.pem
+
+*storybook.log
+storybook-static

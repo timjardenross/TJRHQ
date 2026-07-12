@@ -14,9 +14,12 @@ import {
   approveDecideItem,
   holdDecideItem,
   undoDecideItem,
+  fetchDecideHistory,
+  updateDecideOutcome,
   DECIDE_EMPTY_TITLE,
   DECIDE_EMPTY_DETAIL,
   type DecideItem,
+  type DecideHistoryEntry,
 } from '@/lib/decide';
 
 interface PostAction {
@@ -38,6 +41,8 @@ export default function DecidePage() {
   const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [post, setPost] = useState<PostAction | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<DecideHistoryEntry[] | null>(null);
 
   const load = useCallback(async () => {
     const q = await fetchDecideQueue();
@@ -74,6 +79,22 @@ export default function DecidePage() {
     setHeldIds((prev) => new Set(prev).add(item.id));
     setPost({ item, kind: 'hold', ok: true, ledgerId: res.ledgerId });
     setBusy(false);
+  }, []);
+
+  const toggleHistory = useCallback(async () => {
+    const opening = !historyOpen;
+    setHistoryOpen(opening);
+    if (opening && history === null) {
+      setHistory(await fetchDecideHistory());
+    }
+  }, [historyOpen, history]);
+
+  const handleSaveOutcome = useCallback(async (entryId: string, outcome: string) => {
+    const res = await updateDecideOutcome(entryId, outcome);
+    if (res.ok) {
+      setHistory((prev) => prev && prev.map((e) => (e.id === entryId ? { ...e, outcome } : e)));
+    }
+    return res;
   }, []);
 
   const handleUndo = useCallback(async (item: DecideItem) => {
@@ -179,8 +200,93 @@ export default function DecidePage() {
             </p>
           </div>
         )}
+
+        <div className="mt-10 pt-6 border-t border-[rgba(147,161,176,0.15)]">
+          <button
+            onClick={toggleHistory}
+            className="text-[13px] text-[#5A6875] hover:text-[#93A1B0]"
+          >
+            {historyOpen ? '▾' : '▸'} Past decisions
+          </button>
+          {historyOpen && (
+            <HistorySection history={history} onSaveOutcome={handleSaveOutcome} />
+          )}
+        </div>
       </div>
     </main>
+  );
+}
+
+/** Retrospective outcome capture. Read-only list of past decide_ledger rows
+ * with an inline field to record what actually happened - the only writer
+ * for decide_ledger.outcome anywhere in the app (see lib/decide.ts). Judgment
+ * about whether a decision was right is never inferred automatically; it's
+ * always a Captain typing it in, same principle as tools/rate_decision.py's
+ * manual retrospective rating of the older decisions table. */
+function HistorySection({
+  history,
+  onSaveOutcome,
+}: {
+  history: DecideHistoryEntry[] | null;
+  onSaveOutcome: (entryId: string, outcome: string) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
+
+  if (history === null) {
+    return <p className="text-[13px] text-[#5A6875] mt-3">Loading…</p>;
+  }
+  if (history.length === 0) {
+    return <p className="text-[13px] text-[#5A6875] mt-3">No past decisions yet.</p>;
+  }
+
+  const save = async (entryId: string) => {
+    const draft = (drafts[entryId] ?? '').trim();
+    if (!draft) return;
+    setSavingId(entryId);
+    setErrorId(null);
+    const res = await onSaveOutcome(entryId, draft);
+    setSavingId(null);
+    if (!res.ok) setErrorId(entryId);
+  };
+
+  return (
+    <ul className="mt-4 flex flex-col gap-4">
+      {history.map((entry) => (
+        <li key={entry.id} className="text-[13.5px] text-[#93A1B0]">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[#E8EDF2]">{entry.question}</span>
+            <span className="text-[11px] text-[#5A6875] whitespace-nowrap">
+              {entry.action} · {new Date(entry.decided_at).toLocaleDateString()}
+            </span>
+          </div>
+          {entry.outcome ? (
+            <p className="mt-1 text-[13px] text-[#6FB3C9]">Outcome: {entry.outcome}</p>
+          ) : (
+            <div className="mt-1.5 flex gap-2 items-start">
+              <input
+                type="text"
+                placeholder="What actually happened?"
+                value={drafts[entry.id] ?? ''}
+                onChange={(e) => setDrafts((prev) => ({ ...prev, [entry.id]: e.target.value }))}
+                className="flex-1 bg-transparent border border-[rgba(147,161,176,0.25)] rounded px-2.5 py-1.5 text-[13px] text-[#E8EDF2] placeholder:text-[#5A6875] focus:outline-none focus:border-[#6FB3C9]/50"
+              />
+              <button
+                disabled={savingId === entry.id || !(drafts[entry.id] ?? '').trim()}
+                onClick={() => save(entry.id)}
+                className="text-[12.5px] text-[#6FB3C9] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+            </div>
+          )}
+          {errorId === entry.id && (
+            <p className="mt-1 text-[12px] text-[#D8A65A]">Couldn&rsquo;t save outcome — try again.</p>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

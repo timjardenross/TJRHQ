@@ -16,11 +16,17 @@ import { join } from 'path';
 const insertSingleMock = vi.fn().mockResolvedValue({ data: { id: 'ledger-1' }, error: null });
 const insertMock = vi.fn((row: Record<string, unknown>) => ({ select: (_cols: string) => ({ single: insertSingleMock }) }));
 const updateEqSelectMock = vi.fn().mockResolvedValue({ data: [{ id: 'x' }], error: null });
+const historyLimitMock = vi.fn().mockResolvedValue({ data: [], error: null });
 const fromMock = vi.fn((table: string) => ({
   insert: insertMock,
   update: (payload: Record<string, unknown>) => ({
     eq: (_col: string, _val: string) => ({
       select: (_cols: string) => updateEqSelectMock(table, payload),
+    }),
+  }),
+  select: (_cols: string) => ({
+    order: (_col: string, _opts: unknown) => ({
+      limit: (n: number) => historyLimitMock(table, n),
     }),
   }),
 }));
@@ -50,6 +56,8 @@ import {
   approveDecideItem,
   holdDecideItem,
   undoDecideItem,
+  updateDecideOutcome,
+  fetchDecideHistory,
   missionReasoning,
   engineeringReasoning,
   DECIDE_EMPTY_TITLE,
@@ -84,6 +92,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   insertSingleMock.mockResolvedValue({ data: { id: 'ledger-1' }, error: null });
   updateEqSelectMock.mockResolvedValue({ data: [{ id: 'x' }], error: null });
+  historyLimitMock.mockResolvedValue({ data: [], error: null });
   global.fetch = vi.fn();
 });
 
@@ -232,6 +241,53 @@ describe('Undo is honest about what the source actually supports', () => {
     expect(res.ok).toBe(true);
     expect(fromMock).toHaveBeenCalledWith('build_request_inbox');
     expect(updateEqSelectMock).toHaveBeenCalledWith('build_request_inbox', { status: 'awaiting_review' });
+  });
+});
+
+// ── Retrospective outcome capture ───────────────────────────────────────
+describe('updateDecideOutcome writes to the existing decide_ledger row by id', () => {
+  it('updates outcome on the ledger row and reports success', async () => {
+    const res = await updateDecideOutcome('ledger-1', 'Deferral was correct; competitor exited market.');
+    expect(res.ok).toBe(true);
+    expect(fromMock).toHaveBeenCalledWith('decide_ledger');
+    expect(updateEqSelectMock).toHaveBeenCalledWith('decide_ledger', { outcome: 'Deferral was correct; competitor exited market.' });
+  });
+
+  it('surfaces an honest error when the update fails, no silent success', async () => {
+    updateEqSelectMock.mockResolvedValueOnce({ data: null, error: { message: 'row not found' } });
+    const res = await updateDecideOutcome('missing-id', 'irrelevant');
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe('row not found');
+  });
+
+  it('never inserts a new row - only updates the existing one', async () => {
+    await updateDecideOutcome('ledger-1', 'Outcome text');
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Past decisions list ──────────────────────────────────────────────────
+describe('fetchDecideHistory reads decide_ledger, most recent first', () => {
+  it('returns the rows from decide_ledger', async () => {
+    historyLimitMock.mockResolvedValueOnce({
+      data: [{ id: 'l-2', question: 'Q2', source: 'mission', action: 'approve', decided_at: '2026-07-10T00:00:00Z', outcome: null }],
+      error: null,
+    });
+    const rows = await fetchDecideHistory();
+    expect(fromMock).toHaveBeenCalledWith('decide_ledger');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe('l-2');
+  });
+
+  it('degrades to an empty array on error rather than throwing', async () => {
+    historyLimitMock.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+    const rows = await fetchDecideHistory();
+    expect(rows).toEqual([]);
+  });
+
+  it('passes the requested limit through', async () => {
+    await fetchDecideHistory(5);
+    expect(historyLimitMock).toHaveBeenCalledWith('decide_ledger', 5);
   });
 });
 

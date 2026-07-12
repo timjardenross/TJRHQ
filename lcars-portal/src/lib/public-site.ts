@@ -132,6 +132,7 @@ export const PRIVATE_ROBOTS_DISALLOWS = [
   '/auth/',
   '/captains-chair',
   '/advisory-council',
+  '/advisory-workbench',
   '/knowledge',
   '/knowledge-library',
   '/search',

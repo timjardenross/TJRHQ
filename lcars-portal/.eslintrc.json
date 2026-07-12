@@ -1,10 +1,43 @@
 {
-  "extends": "next/core-web-vitals",
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:storybook/recommended"
+  ],
   "overrides": [
     {
-      "files": ["src/app/intelligence-workbench/**/*.tsx"],
-      "extends": ["plugin:jsx-a11y/recommended"],
-      "plugins": ["jsx-a11y"]
+      "files": [
+        "src/app/intelligence-workbench/**/*.tsx",
+        "src/app/human-systems-workbench/**/*.tsx",
+        "src/app/advisory-workbench/**/*.tsx"
+      ],
+      "extends": [
+        "plugin:jsx-a11y/recommended"
+      ],
+      "plugins": [
+        "jsx-a11y"
+      ]
+    },
+    {
+      "files": [
+        "src/app/comms-workbench/**/*.tsx",
+        "src/app/intelligence-workbench/**/*.tsx",
+        "src/app/human-systems-workbench/**/*.tsx",
+        "src/app/advisory-workbench/**/*.tsx",
+        "src/components/ui/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "Literal[value=/\\[#[0-9a-fA-F]{3,8}\\]/]",
+            "message": "Hardcoded hex color in a Tailwind arbitrary-value class (e.g. bg-[#1234]). Use a wb-* design token instead — see TJR-DESIGN-TOKENS.md and lcars-portal/tailwind.config.ts theme.extend.colors.wb."
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\[#[0-9a-fA-F]{3,8}\\]/]",
+            "message": "Hardcoded hex color in a Tailwind arbitrary-value class (e.g. bg-[#1234]). Use a wb-* design token instead — see TJR-DESIGN-TOKENS.md and lcars-portal/tailwind.config.ts theme.extend.colors.wb."
+          }
+        ]
+      }
     }
   ]
 }
