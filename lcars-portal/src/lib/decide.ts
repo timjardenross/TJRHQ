@@ -256,6 +256,56 @@ export async function holdDecideItem(item: DecideItem): Promise<{ ok: boolean; l
  * setQueueItemStatus already uses, rather than a generic "rejected" call -
  * a real reversal to the prior state, not a second terminal decision
  * relabelled as one. */
+export interface DecideHistoryEntry {
+  id: string;
+  question: string;
+  source: DecideSource;
+  action: DecideAction;
+  decided_at: string;
+  outcome: string | null;
+}
+
+/** Past decide_ledger rows, most recent first - read-only, for retrospective
+ * outcome capture (see updateDecideOutcome below). Degrades to an empty list
+ * on any failure rather than throwing, same convention as the rest of this
+ * file's read paths. */
+export async function fetchDecideHistory(limit = 20): Promise<DecideHistoryEntry[]> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from('decide_ledger')
+      .select('id, question, source, action, decided_at, outcome')
+      .order('decided_at', { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data as DecideHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+/** Retrospective outcome capture for a past Decide action. decide_ledger.outcome
+ * is nullable and, until this function, had no writer anywhere in the codebase
+ * (see migration 0074's own comment: "no outcome-tracking mechanism exists yet").
+ * Deliberately separate from writeLedger - this updates an existing row by its
+ * id rather than inserting a new one, since the action (approve/hold/undo) was
+ * already recorded at decision time and outcome is learned later, if ever. */
+export async function updateDecideOutcome(ledgerId: string, outcome: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from('decide_ledger')
+      .update({ outcome })
+      .eq('id', ledgerId)
+      .select('id');
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: 'No row updated.' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export async function undoDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string; ledgerId?: string | null }> {
   if (!item.undoAvailable || item.source !== 'engineering' || !item.priorStatus) {
     return { ok: false, error: "Undo is not supported for this decision's source." };
