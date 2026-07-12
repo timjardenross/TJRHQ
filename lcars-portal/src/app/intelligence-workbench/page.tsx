@@ -334,7 +334,7 @@ export default function Overview() {
           <Card title="Recent health events">
             {loading ? (
               <p className="text-[13px] text-wb-ink2">Loading…</p>
-            ) : (healthData?.recentEvents.length ?? 0) === 0 ? (
+            ) : (healthData?.recentEvents?.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No events logged.</p>
             ) : (
               healthData!.recentEvents.map((e) => (
