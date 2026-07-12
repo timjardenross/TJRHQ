@@ -161,7 +161,10 @@ class SelfImprovementOrchestrator:
                 if evidence:
                     report_lines.append(f"   - Evidence:")
                     for ev in evidence[:3]:  # limit to 3
-                        report_lines.append(f"     - {ev.get('observation', 'N/A')} ({ev.get('type')})")
+                        if isinstance(ev, dict):
+                            report_lines.append(f"     - {ev.get('observation', 'N/A')} ({ev.get('type')})")
+                        else:
+                            report_lines.append(f"     - {ev}")
                     if len(evidence) > 3:
                         report_lines.append(f"     - ... and {len(evidence) - 3} more")
 

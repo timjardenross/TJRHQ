@@ -14,15 +14,17 @@ Endpoints:
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
     POST /api/model/escalate            mistral-small  keep_alive 15m
-    POST /api/model/billing-report      gemini-flash-latest  (cloud, no keep_alive)
+    POST /api/model/billing-report       gemini-flash-latest  (cloud, GEMINI_BILLING_API_KEY)
+    POST /api/model/self-improvement-analyse   gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/self-improvement-critique  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
 
 Port: MODEL_ROUTER_PORT (default 8891)
 Ollama: OLLAMA_BASE_URL (default http://localhost:11434)
-Gemini (billing-report only): GEMINI_BILLING_API_KEY — dedicated key, kept
-separate from the shared GEMINI_API_KEY used elsewhere, so billing-report
-usage/cost is isolated.
+Gemini: GEMINI_API_KEY (self-improvement routes) and GEMINI_BILLING_API_KEY
+(billing-report only, kept separate so its usage/cost stays isolated).
 
 No external dependencies — stdlib only.
 """
@@ -109,15 +111,19 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
-    # Self-improvement system (MSN-0099 Phase 1)
-    # Use MODEL_MID (gemma3:4b) for speed on CPU-only VMs; increased timeout for cold starts
-    "self-improvement-analyse": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600, "num_predict": 2000},
-    "self-improvement-critique": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600, "num_predict": 2000},
-    "self-improvement-mission":  {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
     # Gemini API (not Ollama) — separate provider branch in _run_task.
     # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
     # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
-    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "timeout": 120},
+    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120},
+    # Self-improvement system (MSN-0099): moved from local MODEL_MID
+    # (gemma3:4b) to Gemini — evidence-analysis quality needs a stronger
+    # model than the CPU-only VM can serve locally in reasonable time.
+    # Uses the shared GEMINI_API_KEY (not the billing-report key — this
+    # isn't a billing/cost-report call, so it doesn't belong on that
+    # isolated key).
+    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
@@ -173,11 +179,11 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         return json.loads(resp.read().decode())
 
 
-def _gemini_generate(model: str, prompt: str, timeout: int) -> dict[str, Any]:
+def _gemini_generate(model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY") -> dict[str, Any]:
     """POST /v1beta/models/{model}:generateContent. Returns parsed response dict."""
-    api_key = os.environ.get("GEMINI_BILLING_API_KEY", "").strip()
+    api_key = os.environ.get(api_key_env, "").strip()
     if not api_key:
-        raise RuntimeError("GEMINI_BILLING_API_KEY is not set. Add it to .env before using billing-report.")
+        raise RuntimeError(f"{api_key_env} is not set. Add it to .env before using this Gemini-backed route.")
     url = f"{_GEMINI_BASE}/models/{model}:generateContent"
     payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
     req = urllib.request.Request(
@@ -277,7 +283,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     t0 = time.time()
     try:
         if policy.get("provider") == "gemini":
-            raw = _gemini_generate(model, prompt, timeout)
+            raw = _gemini_generate(model, prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
@@ -423,10 +429,10 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/engineering-review":   "engineering-review",
             "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
             "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
+            "/api/model/billing-report":        "billing-report",
             "/api/model/self-improvement-analyse": "self-improvement-analyse",
             "/api/model/self-improvement-critique": "self-improvement-critique",
             "/api/model/self-improvement-mission": "self-improvement-mission",
-            "/api/model/billing-report":        "billing-report",
         }
         task_type = route_map.get(path)
         if task_type is None:
