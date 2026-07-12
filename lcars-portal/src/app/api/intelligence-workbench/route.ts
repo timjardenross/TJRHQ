@@ -53,17 +53,17 @@ async function getOperationalData(sb: any, since: string) {
 
 async function getHealthData(sb: any, since: string) {
   // Latest health insights (synthesis-level) WITH source articles (Phase 1B).
-  const { data: insights } = await sb
+  const { data: rawInsights } = await sb
     .from('health_insights')
-    .select('id as insight_id,created_at,period_start as synthesis_period_start,period_end as synthesis_period_end,auto_health_status as overall_status,llm_narrative as wellness_narrative,deterministic_findings as key_findings,source_articles,committed_to_memory,committed_at,reviewed_at')
+    .select('id, created_at, period_start, period_end, auto_health_status, llm_narrative, deterministic_findings, source_articles, committed_to_memory, committed_at, reviewed_at')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(10);
 
-  // Health events (7d) for detail view with source tracking.
-  const { data: events } = await sb
+  // Health events for detail view with source tracking.
+  const { data: rawEvents } = await sb
     .from('health_events')
-    .select('id as event_id,event_date as logged_at,event_type,title as value,description as notes,source')
+    .select('id, event_date, event_type, title, description, source')
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(20);
@@ -71,35 +71,44 @@ async function getHealthData(sb: any, since: string) {
   // KPI-like metrics (fetch latest).
   const { data: dailyMetrics } = await sb
     .from('analytics_health_daily')
-    .select('log_date as date,physical_capacity as capacity_score,overall_note as readiness_score,sleep_hours,pain_score as pain_level')
+    .select('log_date, physical_capacity, overall_note, sleep_hours, pain_score')
     .order('log_date', { ascending: false })
     .limit(7);
 
   const latest = dailyMetrics?.[0] ?? {};
-  const insightList = (insights ?? []).map((i: any) => ({
-    insight_id: i.insight_id,
+  const insightList = (rawInsights ?? []).map((i: any) => ({
+    insight_id: i.id,
     created_at: i.created_at,
-    synthesis_period_start: i.synthesis_period_start,
-    synthesis_period_end: i.synthesis_period_end,
-    overall_status: i.overall_status,
-    wellness_narrative: i.wellness_narrative,
-    key_findings: i.key_findings,
+    synthesis_period_start: i.period_start,
+    synthesis_period_end: i.period_end,
+    overall_status: i.auto_health_status,
+    wellness_narrative: i.llm_narrative,
+    key_findings: i.deterministic_findings,
     source_articles: i.source_articles || null,
     committed_to_memory: i.committed_to_memory || false,
     committed_at: i.committed_at || null,
     reviewed_at: i.reviewed_at || null,
   }));
 
+  const eventList = (rawEvents ?? []).map((e: any) => ({
+    event_id: e.id,
+    logged_at: e.event_date,
+    event_type: e.event_type,
+    value: e.title,
+    notes: e.description,
+    source: e.source,
+  }));
+
   return {
     domain: 'health',
     kpis: {
-      capacity_score: latest.capacity_score ?? 0,
-      readiness_score: latest.readiness_score ?? 0,
+      capacity_score: latest.physical_capacity ?? 0,
+      readiness_score: latest.overall_note ? (latest.overall_note.length > 0 ? 1 : 0) : 0,
       sleep_hours: latest.sleep_hours ?? 0,
-      pain_level: latest.pain_level ?? 0,
+      pain_level: latest.pain_score ?? 0,
     },
     insights: insightList,
-    recentEvents: events ?? [],
+    recentEvents: eventList,
     dailyMetrics: dailyMetrics ?? [],
   };
 }
