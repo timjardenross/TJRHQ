@@ -103,9 +103,10 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
     # Self-improvement system (MSN-0099 Phase 1)
-    "self-improvement-analyse": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
-    "self-improvement-critique": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
-    "self-improvement-mission":  {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # Use MODEL_MID (gemma3:4b) for speed on CPU-only VMs; increased timeout for cold starts
+    "self-improvement-analyse": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
+    "self-improvement-critique": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
+    "self-improvement-mission":  {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
