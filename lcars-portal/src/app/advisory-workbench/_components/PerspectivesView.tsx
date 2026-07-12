@@ -170,8 +170,12 @@ export function PerspectivesView() {
             body: JSON.stringify({ question: trimmed, responses: sessionResponses }),
           })
             .then((r) => r.json())
-            .then((d: { synthesis?: string }) => { setSynthesis(d.synthesis ?? ''); })
-            .catch(() => { setSynthesis('Synthesis unavailable.'); })
+            .then((d: { synthesis?: string; error?: string }) => {
+              // Never fail silently: if the panel synthesis didn't come back,
+              // say so rather than collapsing to just the individual voices.
+              setSynthesis(d.synthesis || `Panel synthesis unavailable${d.error ? ` — ${d.error}` : '.'}`);
+            })
+            .catch(() => { setSynthesis('Panel synthesis unavailable — could not reach the synthesis service.'); })
             .finally(() => setSynthesising(false));
         }
       }
