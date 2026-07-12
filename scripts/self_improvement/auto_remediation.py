@@ -29,29 +29,43 @@ class RemediationStrategy:
 
 
 class DeleteFileStrategy(RemediationStrategy):
-    """Delete unused/dead files."""
+    """Delete unused/dead files and code."""
 
     def can_remediate(self, finding: dict[str, Any]) -> bool:
         action = finding.get("proposed_action", {})
-        return action.get("type") == "delete" and "file" in str(action.get("description", "")).lower()
+        category = finding.get("category", "")
+        return action.get("type") == "delete" or category == "dead_code"
 
     def remediate(self, repo_root: Path, finding: dict[str, Any]) -> dict[str, Any]:
-        """Delete the file."""
+        """Delete unused file or code."""
         evidence = finding.get("evidence", [])
-        for ev in evidence:
-            if ev.get("type") == "unreferenced_code" or ev.get("type") == "file_exists":
-                location = ev.get("location", "")
-                if location:
-                    file_path = repo_root / location.split(":")[0]
-                    if file_path.exists():
-                        try:
-                            file_path.unlink()
-                            log.info(f"Deleted: {file_path}")
-                            return {"success": True, "message": f"Deleted {file_path}"}
-                        except Exception as exc:
-                            return {"success": False, "error": str(exc)}
 
-        return {"success": False, "error": "Could not determine file to delete"}
+        # Try to find file location from evidence
+        for ev in evidence:
+            location = ev.get("location", "")
+            if not location:
+                continue
+
+            # Extract file path (format: path/to/file.py or path/to/file.py:123)
+            file_path_str = location.split(":")[0]
+            file_path = repo_root / file_path_str
+
+            # Only delete .pyc, .tmp, or __pycache__ for safety
+            if file_path.exists() and (str(file_path).endswith('.pyc') or
+                                       str(file_path).endswith('.tmp') or
+                                       '__pycache__' in str(file_path)):
+                try:
+                    if file_path.is_dir():
+                        import shutil
+                        shutil.rmtree(file_path)
+                    else:
+                        file_path.unlink()
+                    log.info(f"Deleted: {file_path}")
+                    return {"success": True, "message": f"Deleted {file_path}"}
+                except Exception as exc:
+                    return {"success": False, "error": str(exc)}
+
+        return {"success": False, "error": "No safe files to delete (code deletions require manual review)"}
 
 
 class ModifyConfigStrategy(RemediationStrategy):
@@ -78,10 +92,104 @@ class DocumentStrategy(RemediationStrategy):
         return action.get("type") == "document" or category == "doc_drift"
 
     def remediate(self, repo_root: Path, finding: dict[str, Any]) -> dict[str, Any]:
-        """Update docs (placeholder - requires careful review)."""
+        """Update README for version/requirement drift."""
+        description = finding.get("description", "").lower()
+        title = finding.get("title", "").lower()
+        evidence = finding.get("evidence", [])
+
+        # Handle Python version updates
+        if "python" in description or "python" in title:
+            readme_path = repo_root / "README.md"
+            if readme_path.exists():
+                try:
+                    content = readme_path.read_text()
+                    # Update Python 3.8 references to 3.11+
+                    if "python 3.8" in content.lower() or "requires python 3.8" in content.lower():
+                        updated = content.replace("Python 3.8", "Python 3.11+")
+                        updated = updated.replace("python 3.8", "python 3.11+")
+                        readme_path.write_text(updated)
+                        log.info(f"Updated {readme_path} - Python version requirement")
+                        return {
+                            "success": True,
+                            "message": f"Updated README.md: Python version requirement changed to 3.11+"
+                        }
+                except Exception as exc:
+                    return {"success": False, "error": f"Failed to update README: {exc}"}
+
         return {
             "success": False,
-            "error": "Documentation changes require manual review (not yet automated)",
+            "error": "Documentation change type not yet supported (requires manual review)"
+        }
+
+
+class ObservabilityStrategy(RemediationStrategy):
+    """Add monitoring/observability improvements."""
+
+    def can_remediate(self, finding: dict[str, Any]) -> bool:
+        action = finding.get("proposed_action", {})
+        category = finding.get("category", "")
+        return action.get("type") == "monitor" or category == "observability_gap"
+
+    def remediate(self, repo_root: Path, finding: dict[str, Any]) -> dict[str, Any]:
+        """Create monitoring template for observability gaps."""
+        description = finding.get("description", "")
+
+        # Handle decision metrics
+        if "decision" in description.lower() and "acceptance rate" in description.lower():
+            metrics_file = repo_root / "scripts" / "self_improvement" / "metrics_template.py"
+            if not metrics_file.exists():
+                try:
+                    metrics_code = '''#!/usr/bin/env python3
+"""Prometheus metrics for self-improvement system."""
+
+from prometheus_client import Counter, Gauge, Histogram
+
+# Decision metrics
+decisions_total = Counter(
+    'self_improvement_decisions_total',
+    'Total decisions made by users',
+    ['decision_type']  # approved, rejected, more_evidence
+)
+
+approval_rate = Gauge(
+    'self_improvement_approval_rate',
+    'Current approval rate (0-1)'
+)
+
+model_confidence = Gauge(
+    'self_improvement_model_confidence',
+    'Model confidence score (0-1)'
+)
+
+remediation_duration = Histogram(
+    'self_improvement_remediation_seconds',
+    'Time taken to remediate findings'
+)
+
+def record_decision(decision_type: str):
+    """Record a user decision."""
+    decisions_total.labels(decision_type=decision_type).inc()
+
+def set_approval_rate(rate: float):
+    """Update approval rate metric."""
+    approval_rate.set(rate)
+
+def set_model_confidence(score: float):
+    """Update model confidence metric."""
+    model_confidence.set(score)
+'''
+                    metrics_file.write_text(metrics_code)
+                    log.info(f"Created metrics template: {metrics_file}")
+                    return {
+                        "success": True,
+                        "message": f"Created metrics template at {metrics_file} - integrate with dashboard"
+                    }
+                except Exception as exc:
+                    return {"success": False, "error": f"Failed to create metrics: {exc}"}
+
+        return {
+            "success": False,
+            "error": "Observability improvement type not yet supported"
         }
 
 
@@ -94,8 +202,9 @@ class AutoRemediationExecutor:
         self.result_file = data_root / "review" / "remediation_results.jsonl"
         self.strategies = [
             DeleteFileStrategy(),
-            ModifyConfigStrategy(),
             DocumentStrategy(),
+            ObservabilityStrategy(),
+            ModifyConfigStrategy(),
         ]
 
     def load_latest_findings(self) -> tuple[list[dict[str, Any]], str]:
