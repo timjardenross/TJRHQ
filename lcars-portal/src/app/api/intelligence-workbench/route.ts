@@ -33,10 +33,10 @@ async function getOperationalData(sb: any, since: string) {
     .gte('collected_at', since);
 
   const briefList = briefs ?? [];
-  const redActive = briefList.filter((b) => b.overall_risk === 'RED').length;
+  const redActive = briefList.filter((b: any) => b.overall_risk === 'RED').length;
 
   const hot = (signals ?? []).slice().sort(
-    (a, b) => (RISK_ORDER[a.risk_rating] ?? 3) - (RISK_ORDER[b.risk_rating] ?? 3),
+    (a: any, b: any) => (RISK_ORDER[a.risk_rating] ?? 3) - (RISK_ORDER[b.risk_rating] ?? 3),
   );
 
   return {
