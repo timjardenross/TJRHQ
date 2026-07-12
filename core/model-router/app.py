@@ -14,11 +14,15 @@ Endpoints:
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
     POST /api/model/escalate            mistral-small  keep_alive 15m
+    POST /api/model/billing-report      gemini-flash-latest  (cloud, no keep_alive)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
 
 Port: MODEL_ROUTER_PORT (default 8891)
 Ollama: OLLAMA_BASE_URL (default http://localhost:11434)
+Gemini (billing-report only): GEMINI_BILLING_API_KEY — dedicated key, kept
+separate from the shared GEMINI_API_KEY used elsewhere, so billing-report
+usage/cost is isolated.
 
 No external dependencies — stdlib only.
 """
@@ -55,6 +59,9 @@ MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
 MODEL_EMBED = "nomic-embed-text"      # embeddings
 MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
+MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
+
+_GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 # keep_alive values per task type
 TASK_POLICY: dict[str, dict[str, Any]] = {
@@ -104,9 +111,13 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
     # Self-improvement system (MSN-0099 Phase 1)
     # Use MODEL_MID (gemma3:4b) for speed on CPU-only VMs; increased timeout for cold starts
-    "self-improvement-analyse": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
-    "self-improvement-critique": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
+    "self-improvement-analyse": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600, "num_predict": 2000},
+    "self-improvement-critique": {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600, "num_predict": 2000},
     "self-improvement-mission":  {"model": MODEL_MID, "keep_alive": "15m", "timeout": 600},
+    # Gemini API (not Ollama) — separate provider branch in _run_task.
+    # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
+    # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
+    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "timeout": 120},
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
@@ -158,6 +169,22 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         "keep_alive": keep_alive,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _gemini_generate(model: str, prompt: str, timeout: int) -> dict[str, Any]:
+    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict."""
+    api_key = os.environ.get("GEMINI_BILLING_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("GEMINI_BILLING_API_KEY is not set. Add it to .env before using billing-report.")
+    url = f"{_GEMINI_BASE}/models/{model}:generateContent"
+    payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
+        method="POST",
+    )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
 
@@ -242,14 +269,25 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
 
     model = policy["model"]
-    keep_alive = policy["keep_alive"]
+    keep_alive = policy.get("keep_alive", "n/a")
     timeout = policy["timeout"]
     escalated = False
     escalation_reason = ""
 
     t0 = time.time()
     try:
-        if task_type == "embed":
+        if policy.get("provider") == "gemini":
+            raw = _gemini_generate(model, prompt, timeout)
+            candidates = raw.get("candidates", [])
+            parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+            response_text = "".join(p.get("text", "") for p in parts).strip()
+            embeddings = None
+            usage = raw.get("usageMetadata", {})
+            token_info = {
+                "prompt_eval_count": usage.get("promptTokenCount"),
+                "eval_count": usage.get("candidatesTokenCount"),
+            }
+        elif task_type == "embed":
             raw = _ollama_embed(model, prompt, keep_alive, timeout)
             response_text = ""
             embeddings = raw.get("embeddings", raw.get("embedding", []))
@@ -388,6 +426,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/self-improvement-analyse": "self-improvement-analyse",
             "/api/model/self-improvement-critique": "self-improvement-critique",
             "/api/model/self-improvement-mission": "self-improvement-mission",
+            "/api/model/billing-report":        "billing-report",
         }
         task_type = route_map.get(path)
         if task_type is None:
@@ -426,7 +465,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             {
                 "task_type": name,
                 "model": policy["model"],
-                "keep_alive": policy["keep_alive"],
+                "keep_alive": policy.get("keep_alive", "n/a"),
             }
             for name, policy in TASK_POLICY.items()
         ]
