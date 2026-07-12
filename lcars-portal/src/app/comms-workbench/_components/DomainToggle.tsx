@@ -10,7 +10,7 @@ const OPTIONS: { key: Domain; label: string }[] = [
 
 export function DomainToggle({ domain, onChange }: { domain: Domain; onChange: (d: Domain) => void }) {
   return (
-    <div role="radiogroup" aria-label="Filter by domain" className="flex gap-1 rounded-lcars border border-[#d9e1f0] bg-white/20 p-1">
+    <div role="radiogroup" aria-label="Filter by domain" className="flex gap-1 rounded-md border border-wb-line bg-wb-surface p-1">
       {OPTIONS.map(opt => (
         <button
           key={opt.key}
@@ -18,10 +18,11 @@ export function DomainToggle({ domain, onChange }: { domain: Domain; onChange: (
           role="radio"
           aria-checked={domain === opt.key}
           onClick={() => onChange(opt.key)}
-          className={`text-xs px-3 py-1 rounded transition-colors ${
+          className={`rounded px-3 py-1 text-[12px] transition-colors focus-visible:outline
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             domain === opt.key
-              ? 'bg-[#243b7a] text-white'
-              : 'text-[#61718c] hover:text-[#18223a]'
+              ? 'bg-wb-sage-deep text-white'
+              : 'text-wb-ink2 hover:text-wb-ink'
           }`}
         >
           {opt.label}

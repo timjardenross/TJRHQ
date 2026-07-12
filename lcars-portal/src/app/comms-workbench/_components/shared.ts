@@ -1,8 +1,8 @@
 // Shared constants for the Communications Workbench (Phase 1C).
-// Mirrors the palette already established by comms/page.tsx and
-// intelligence/page.tsx — the dark cyan/gold mockup in
-// COMMS-UI-REDESIGN-SPEC.md was a design exploration, not what the rest of
-// the live app looks like, so this follows the shipped light LCARS theme.
+// Mirrors intelligence-workbench: standalone Shell (no LCARS app chrome),
+// TJR Design System components (@/components/ui), wb-* tokens.
+
+import type { BadgeStatus } from '@/components/ui';
 
 export type Domain = 'health' | 'operational' | 'both';
 export type Status = 'opportunity' | 'draft' | 'review' | 'approved' | 'ready_to_publish' | 'published';
@@ -16,13 +16,13 @@ export const STATUS_LABEL: Record<string, string> = {
   published: 'Published',
 };
 
-export const STATUS_COLOUR: Record<string, string> = {
-  opportunity: 'text-[#61718c] border-[#d9e1f0] bg-[#eef1f8]',
-  draft: 'text-blue-400 border-blue-400/30 bg-blue-400/5',
-  review: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5',
-  approved: 'text-green-400 border-green-400/30 bg-green-400/5',
-  ready_to_publish: 'text-purple-400 border-purple-400/30 bg-purple-400/5',
-  published: 'text-[#243b7a] border-[#243b7a]/30 bg-[#243b7a]/5',
+export const STATUS_BADGE: Record<string, BadgeStatus> = {
+  opportunity: 'neutral',
+  draft: 'info',
+  review: 'warning',
+  approved: 'success',
+  ready_to_publish: 'info',
+  published: 'neutral',
 };
 
 export const PILLAR_LABEL: Record<string, string> = {
@@ -36,10 +36,19 @@ export const PILLAR_LABEL: Record<string, string> = {
   decision_quality_governance: 'Decision Quality',
 };
 
-export const DOMAIN_BADGE: Record<string, string> = {
-  health: 'text-cyan-500 border-cyan-500/30 bg-cyan-500/5',
-  operational: 'text-blue-500 border-blue-500/30 bg-blue-500/5',
+export const DOMAIN_BADGE: Record<string, BadgeStatus> = {
+  health: 'info',
+  operational: 'neutral',
 };
+
+export const FORMATS = [
+  { key: 'linkedin_post', label: 'LinkedIn Post' },
+  { key: 'executive_insight', label: 'Executive Insight' },
+  { key: 'lessons_learned', label: 'Lessons Learned' },
+  { key: 'case_study', label: 'Case Study' },
+  { key: 'industry_commentary', label: 'Industry Commentary' },
+  { key: 'article_draft', label: 'Article Draft' },
+];
 
 // Pipeline stages a card can advance through, in order, and the trigger
 // each transition needs. Mirrors TRANSITIONS in
