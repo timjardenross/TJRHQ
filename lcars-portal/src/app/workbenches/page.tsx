@@ -41,11 +41,6 @@ const TILES: Tile[] = [
     description: 'Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal.',
   },
   {
-    href: '/comms-studio',
-    title: 'Communications Studio',
-    description: 'Assemble a brief, decision, or mission report from canonical platform data.',
-  },
-  {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Findings, decisions, and audit trail from the self-improvement system.',
