@@ -128,9 +128,15 @@ class DecisionProcessor:
         ]
 
         # Findings needing manual review (rejected or low confidence model)
+        # Previously iterated the finding dicts themselves as "fid" and used
+        # them directly as by_finding keys - never triggered because
+        # classified_findings was always empty (the Phase 3 bug fixed
+        # upstream), so this only crashed once real findings started flowing
+        # through.
         manual_review_needed = [
-            fid for fid in findings
-            if fid not in by_finding or (fid in by_finding and by_finding[fid]["decision"] == "rejected")
+            f.get("finding_id") for f in findings
+            if f.get("finding_id") not in by_finding
+            or by_finding.get(f.get("finding_id"), {}).get("decision") == "rejected"
         ]
 
         return {
