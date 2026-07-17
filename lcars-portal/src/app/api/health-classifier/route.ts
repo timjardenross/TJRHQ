@@ -168,8 +168,7 @@ async function handleAuditLog(req: NextRequest) {
     // Get recent insights that were discarded or marked sensitive
     const { data: suppressedInsights, error } = await sb
       .from('health_insights')
-      .select('id, created_at, llm_narrative, rank_score, committed_to_memory, reviewed_at')
-      .or('committed_to_memory.is.false,reviewed_at.not.is.null')
+      .select('id, created_at, llm_narrative, committed_to_memory, reviewed_at')
       .order('reviewed_at', { ascending: false })
       .limit(20);
 
@@ -181,7 +180,6 @@ async function handleAuditLog(req: NextRequest) {
       insight_id: i.id,
       reason: i.committed_to_memory === false ? 'Discarded by Captain' : 'Reviewed (possibly sensitive)',
       timestamp: i.reviewed_at || i.created_at,
-      rank_score: i.rank_score,
     }));
 
     return NextResponse.json({
