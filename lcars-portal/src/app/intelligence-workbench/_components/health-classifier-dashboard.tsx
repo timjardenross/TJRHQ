@@ -10,22 +10,24 @@
 import { useEffect, useState } from 'react';
 import { Card, RiskPill } from './Shell';
 
-type ClassifierValidation = {
-  status: string;
-  samples_analyzed: number;
-  signals_published: number;
-  signals_suppressed: number;
-  pass_rate: number;
-  current_threshold: number;
-  recommendation: string;
-  scored_signals: any[];
-};
+type ClassifierValidation =
+  | { status: 'no_data'; message: string }
+  | {
+      status: 'success';
+      samples_analyzed: number;
+      signals_published: number;
+      signals_suppressed: number;
+      pass_rate: number;
+      current_threshold: number;
+      recommendation: string;
+      scored_signals: any[];
+    };
 
 type AuditLogEntry = {
   insight_id: string;
   reason: string;
   timestamp: string;
-  rank_score: number;
+  rank_score?: number;
 };
 
 type PillarMapping = {
@@ -73,6 +75,14 @@ export function ClassifierValidationCard() {
     );
   }
 
+  if (validation.status === 'no_data') {
+    return (
+      <Card title="Phase 1C: Classifier Validation">
+        <p className="text-[13px] text-wb-ink2">{validation.message}</p>
+      </Card>
+    );
+  }
+
   const passRateColor =
     validation.pass_rate < 0.6 ? 'text-wb-crit' : validation.pass_rate > 0.85 ? 'text-wb-warn' : 'text-wb-ok';
 
@@ -114,7 +124,7 @@ export function ClassifierValidationCard() {
           <div className="space-y-2">
             {validation.scored_signals.map((signal: any, idx: number) => (
               <div key={idx} className="flex items-center gap-2 text-[12px]">
-                <span className="font-mono text-wb-ink">{signal.rank_score.toFixed(2)}</span>
+                <span className="font-mono text-wb-ink">{typeof signal.rank_score === 'number' ? signal.rank_score.toFixed(2) : '—'}</span>
                 <span className="text-wb-ink2">→</span>
                 <span className="text-wb-ink flex-1">{signal.pillar}</span>
                 {signal.has_articles && <span className="text-wb-ok">📄</span>}
@@ -171,7 +181,7 @@ export function AuditLogCard() {
                 <div className="text-wb-ink2">{entry.reason}</div>
               </div>
               <div className="text-right">
-                <div className="text-wb-ink">{entry.rank_score.toFixed(2)}</div>
+                <div className="text-wb-ink">{typeof entry.rank_score === 'number' ? entry.rank_score.toFixed(2) : '—'}</div>
                 <div className="text-[11px] text-wb-ink2">
                   {new Date(entry.timestamp).toLocaleDateString()}
                 </div>

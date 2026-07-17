@@ -1839,7 +1839,10 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Import here to avoid circular deps at module load
     from telegram_bots.xo import voice_capture as vc
-    from telegram_bots.xo import debrief_engine as de
+    try:
+        from telegram_bots.xo import debrief_engine as de
+    except ImportError:
+        de = None
 
     vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
     audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
@@ -1889,7 +1892,9 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         log.info("[voice-timing] %s", timings)
 
     # Active debrief always continues, regardless of what this voice note says.
-    session = de.get_active_session(db, update.effective_chat.id)
+    # debrief_engine missing (de is None) degrades to plain quick-capture below —
+    # no active-session check, no intent scoring, always tier == "low".
+    session = de.get_active_session(db, update.effective_chat.id) if de else None
     if session is not None:
         debrief_result = await de.route_debrief_interaction(
             db, update.effective_chat.id, transcript,
@@ -1904,7 +1909,7 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # together, so a rich reflective narrative isn't silently boxed into a
     # quick-capture card just because it happened to match a keyword rule.
     voice_type, confidence = vc.classify_text(transcript)
-    tier = de.score_debrief_intent(transcript, voice_type, confidence)
+    tier = de.score_debrief_intent(transcript, voice_type, confidence) if de else "low"
     timings["routed_ms"] = round((time.monotonic() - t0) * 1000)
 
     if tier == "high":
@@ -2138,11 +2143,27 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     try:
+        import uuid
+        from datetime import timezone
+
         db = _get_supabase()
+        now_iso = datetime.now(timezone.utc).isoformat()
         db.table("captured_items").insert({
-            "source": "telegram-xo-note",
+            # Canonical portal envelope (see voice_capture.py's proven insert) —
+            # captured_items has no "source" column; source_type is a checked
+            # enum (0031b) and source_channel_id/source_message_id/_ts/title
+            # are all NOT NULL.
+            "id": str(uuid.uuid4()),
+            "captured_by": "captain-tjr",
+            "captured_at": now_iso,
+            "source_type": "channel_message",
+            "source_channel_id": "telegram-xo-note",
+            "source_message_id": str(update.message.message_id),
+            "source_message_ts": str(int(time.time() * 1000)),
+            "item_type": "text_note",
+            "title": content[:200],
             "classification": "reference",
-            "raw_content": content,
+            "raw_text": content,
             "processing_status": "pending",
         }).execute()
         await update.message.reply_text(

@@ -38,7 +38,7 @@ export default function SelfImprovementFindings() {
 
   async function loadFindings() {
     try {
-      const res = await fetch('http://localhost:8892/api/findings');
+      const res = await fetch('/api/self-improvement/findings');
       const data = await res.json();
       setFindings(data.findings || []);
 
@@ -64,7 +64,7 @@ export default function SelfImprovementFindings() {
   async function makeDecision(decision: 'approved' | 'rejected' | 'more_evidence') {
     if (!selectedId) return;
     try {
-      await fetch('http://localhost:8892/api/decide', {
+      await fetch('/api/self-improvement/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

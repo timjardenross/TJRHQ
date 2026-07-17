@@ -134,7 +134,7 @@ class HealthContentClassifier:
     """Validates and scores health insights for content integration."""
 
     # Phase 1C: Validated threshold (will be tuned after validation)
-    MIN_RANK_SCORE = 0.7
+    MIN_RANK_SCORE = 0.65
 
     def __init__(self, supabase_client: Any):
         self.sb = supabase_client

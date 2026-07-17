@@ -88,7 +88,36 @@ const PILLAR_MAPPINGS: Record<WellnessCategory, any> = {
   },
 };
 
-const MIN_RANK_SCORE = 0.7;
+const MIN_RANK_SCORE = 0.65;
+
+/**
+ * Quality/publishability score from available insight data.
+ *
+ * PHASE 1C TEMPORARY: rank_score isn't a real column on health_insights yet
+ * (Phase 2 addition). Mirrors core/health/health_content_classifier.py's
+ * _calculate_quality_score() — narrative_available + deterministic_findings.
+ * Phase 2: replace with the real rank_score column from weekly_synthesis.
+ */
+function calculateQualityScore(insight: any): number {
+  let score = 0.3;
+  if (insight.narrative_available) {
+    score = 0.8;
+  } else if (insight.llm_narrative) {
+    score = 0.6;
+  }
+
+  const findings = insight.deterministic_findings;
+  if (findings) {
+    if (Array.isArray(findings) || typeof findings === 'object') {
+      const count = Array.isArray(findings) ? findings.length : Object.keys(findings).length;
+      if (count > 0) score = Math.min(1.0, score + 0.2);
+    } else if (typeof findings === 'string' && findings.trim()) {
+      score = Math.min(1.0, score + 0.15);
+    }
+  }
+
+  return score;
+}
 
 /**
  * GET /api/health-classifier/validate
@@ -120,11 +149,13 @@ async function handleValidate(req: NextRequest) {
 
     // Score insights
     const scored = insights
-      .filter((i: any) => i.rank_score >= MIN_RANK_SCORE && !i.committed_to_memory === false)
+      .filter((i: any) => i.committed_to_memory !== false)
+      .map((i: any) => ({ ...i, rank_score: calculateQualityScore(i) }))
+      .filter((i: any) => i.rank_score >= MIN_RANK_SCORE)
       .map((i: any) => ({
         insight_id: i.id,
         rank_score: i.rank_score,
-        publishable: i.rank_score >= MIN_RANK_SCORE,
+        publishable: true,
         pillar: ContentPillar.WELLNESS_SUSTAINABLE,
         has_articles: !!i.source_articles,
       }));
