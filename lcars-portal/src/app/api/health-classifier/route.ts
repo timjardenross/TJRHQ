@@ -200,6 +200,7 @@ async function handleAuditLog(req: NextRequest) {
     const { data: suppressedInsights, error } = await sb
       .from('health_insights')
       .select('id, created_at, llm_narrative, committed_to_memory, reviewed_at')
+      .or('committed_to_memory.is.false,reviewed_at.not.is.null')
       .order('reviewed_at', { ascending: false })
       .limit(20);
 

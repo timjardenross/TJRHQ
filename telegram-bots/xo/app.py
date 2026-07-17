@@ -1520,8 +1520,11 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
     advisory CLI off-thread, and reply with the result. Never raises."""
     await update.message.reply_text(working_msg)
     try:
+        # --format markdown gives the CLI's own AdvisoryResponse.to_markdown()
+        # (sections, bullets, prose) instead of a raw json.dumps() blob — the
+        # default json format was what was actually landing in Telegram before.
         response = await asyncio.get_event_loop().run_in_executor(
-            None, _advisory_cli_call, cli_args, timeout)
+            None, _advisory_cli_call, [*cli_args, "--format", "markdown"], timeout)
     except FileNotFoundError:
         await update.message.reply_text("⚠️ Advisory CLI not available in this environment.")
         return
@@ -1532,7 +1535,12 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
         log.error("[advisory] %s failed: %s", title, exc)
         await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
         return
-    await update.message.reply_text(f"<b>{title}</b>\n\n{response[:3800]}", parse_mode="HTML")
+    # Plain text, no parse_mode: response is now GFM markdown (# headers, **bold**),
+    # not HTML — HTML parse_mode would show the raw ** / # characters literally,
+    # and Telegram's MarkdownV2 is strict enough that unescaped LLM-generated
+    # punctuation would risk an outright send failure. Plain text renders the
+    # section breaks/bullets/prose fine without either risk.
+    await update.message.reply_text(f"{title}\n\n{response[:3800]}")
 
 
 async def cmd_advise(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1694,11 +1702,15 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         db = _get_supabase()
 
         if db:
-            from telegram_bots.xo import debrief_engine as de
-            debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
-            if debrief_result["handled"]:
-                await update.message.reply_text(debrief_result["reply"])
-                return
+            try:
+                from telegram_bots.xo import debrief_engine as de
+            except ImportError:
+                de = None
+            if de is not None:
+                debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+                if debrief_result["handled"]:
+                    await update.message.reply_text(debrief_result["reply"])
+                    return
 
         status   = get_recovery_status(db)
         snap     = get_wellness_snapshot(db)
@@ -1968,7 +1980,11 @@ async def cmd_debrief_close(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text("⚠️ Supabase unavailable.")
         return
 
-    from telegram_bots.xo import debrief_engine as de
+    try:
+        from telegram_bots.xo import debrief_engine as de
+    except ImportError:
+        await update.message.reply_text("⚠️ Debrief is unavailable — the module isn't present on this deploy.")
+        return
     session = de.get_active_session(db, update.effective_chat.id)
     if not session:
         await update.message.reply_text("No active debrief session, Captain.")
@@ -2099,7 +2115,11 @@ async def handle_voice_debrief_decision_callback(update: Update, context: Contex
             return
 
         if action == "debrief":
-            from telegram_bots.xo import debrief_engine as de
+            try:
+                from telegram_bots.xo import debrief_engine as de
+            except ImportError:
+                await query.edit_message_text("⚠️ Debrief is unavailable — the module isn't present on this deploy.")
+                return
             transcript = row.get("raw_text", "")
             db.table("captured_items").delete().eq("id", capture_id).execute()
             result = await de.start_session_with_first_turn(db, update.effective_chat.id, transcript)
