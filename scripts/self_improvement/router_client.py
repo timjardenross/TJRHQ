@@ -28,9 +28,40 @@ class ModelRouterClient:
 
         Expected route: /api/model/self-improvement-analyse
         Expects response: JSON with findings array
+
+        The router itself is generic infra - its result dict never has a
+        "findings" key, only a raw "response" string (the model's text
+        completion). orchestrator.py does analysis_result.get("findings", [])
+        directly on the router's dict, which silently returned [] on every
+        single run regardless of what the model actually produced - the
+        real cause of 5 straight days of "0 findings" (not the oversized
+        evidence payload fixed in collector.py, though that was worth
+        fixing too). Parse "response" as the JSON the prompt asked for and
+        surface "findings" on the returned dict so the caller's .get()
+        actually finds something.
         """
         prompt = self._build_analysis_prompt(evidence, context)
-        return self._call_router("self-improvement-analyse", prompt)
+        result = self._call_router("self-improvement-analyse", prompt)
+        if result.get("success"):
+            result["findings"] = self._parse_findings(result.get("response", ""))
+        return result
+
+    @staticmethod
+    def _parse_findings(response_text: str) -> list[dict[str, Any]]:
+        """Extract the findings array from the model's raw JSON text response."""
+        text = response_text.strip()
+        # The prompt forbids markdown fences, but models don't always comply.
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as exc:
+            log.error(f"Failed to parse findings JSON from model response: {exc}")
+            return []
+        return parsed.get("findings", []) if isinstance(parsed, dict) else []
 
     def critique_findings(self, findings: list[dict[str, Any]], context: Optional[str] = None) -> dict[str, Any]:
         """
