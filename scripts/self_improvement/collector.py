@@ -146,14 +146,29 @@ class FileSystemAudit:
             return []
         return [f.name for f in test_dir.glob("test_*.py")]
 
-    def _find_doc_files(self) -> list[str]:
-        """Find documentation files."""
+    def _find_doc_files(self) -> dict[str, Any]:
+        """
+        Summarize documentation files instead of dumping every path.
+
+        A raw **/*.md glob over the whole repo (including archive/) hit
+        2,399 files / ~172KB by itself — ~94% of the entire evidence
+        payload, drowning out the small, actually-analyzable sections
+        (code_analysis, model_router_audit, repository_state) and
+        correlating with 5 straight days of the model returning 0
+        findings. Count + a small recency sample is enough signal for
+        "is documentation stale/sprawling" without the noise.
+        """
         docs = []
         for pattern in ["*.md", "docs/**/*.md", "**/*.md"]:
             for f in self.repo_root.glob(pattern):
-                if f.is_file():
-                    docs.append(str(f.relative_to(self.repo_root)))
-        return list(set(docs))  # dedup
+                if f.is_file() and "archive/" not in str(f.relative_to(self.repo_root)):
+                    docs.append(f)
+        docs = list(set(docs))  # dedup
+        docs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        return {
+            "count": len(docs),
+            "most_recent": [str(f.relative_to(self.repo_root)) for f in docs[:15]],
+        }
 
     def _find_config_files(self) -> list[str]:
         """Find configuration files."""
