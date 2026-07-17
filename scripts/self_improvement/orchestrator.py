@@ -46,10 +46,22 @@ class SelfImprovementOrchestrator:
         log.info("SELF-IMPROVEMENT CYCLE START")
         log.info("=" * 80)
 
+        # Every run needs its own runs/<run_id>/ directory - previously
+        # nothing ever wrote one after the initial 2026-07-12 run, so
+        # dashboard.py and AutoRemediationExecutor.load_latest_findings()
+        # (both of which just pick the newest runs/ subdirectory) kept
+        # reprocessing that same stale batch regardless of what a given
+        # day's analysis/classification actually produced.
+        run_id = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M%S")
+        run_dir = self.data_root / "runs" / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+
         # Phase 1: Collect evidence
         log.info("\nPhase 1: Collecting evidence...")
         evidence = self.collector.collect_all()
         log.info(f"Collected {len(evidence)} evidence sections")
+        with open(run_dir / "evidence.json", "w") as f:
+            json.dump(evidence, f, indent=2, default=str)
 
         # Phase 2: Analyze with model
         log.info("\nPhase 2: Analyzing evidence...")
@@ -64,18 +76,35 @@ class SelfImprovementOrchestrator:
 
         findings = analysis_result.get("findings", [])
         log.info(f"Analysis produced {len(findings)} findings")
+        with open(run_dir / "findings_raw.json", "w") as f:
+            json.dump({"findings": findings}, f, indent=2)
 
         # Phase 3: Classify findings
+        #
+        # classify_finding() returns {**finding, automation_eligibility,
+        # risk_level, policy_decision_rationale} - it never raises for a
+        # structurally reasonable finding and never returns "valid"/
+        # "reason"/"finding" keys. The old check here (result.get("valid"))
+        # was reading keys that never existed, so every finding landed in
+        # errors regardless of evidence quality - the actual reason
+        # classification always showed "0 valid" before this fix, separate
+        # from (and on top of) the router "findings" key bug fixed earlier.
+        #
+        # The model's schema also never asks for finding_id, but
+        # decision_processor.py and auto_remediation.py both key off it -
+        # assign one here so decisions persist against something stable.
         log.info("\nPhase 3: Classifying findings...")
         classified_findings = []
         errors = []
-        for finding in findings:
-            result = self.policy.classify_finding(finding)
-            if result.get("valid"):
-                classified_findings.append(result.get("finding", finding))
-            else:
-                errors.append({"finding_id": finding.get("finding_id"), "error": result.get("reason")})
+        for i, finding in enumerate(findings):
+            finding.setdefault("finding_id", f"FND-{i + 1:03d}")
+            try:
+                classified_findings.append(self.policy.classify_finding(finding))
+            except Exception as exc:
+                errors.append({"finding_id": finding.get("finding_id"), "error": str(exc)})
         log.info(f"Classified: {len(classified_findings)} valid, {len(errors)} errors")
+        with open(run_dir / "findings_classified.json", "w") as f:
+            json.dump({"findings": classified_findings, "errors": errors}, f, indent=2)
 
         # Phase 4: Process decisions
         log.info("\nPhase 4: Processing user decisions...")
@@ -103,6 +132,7 @@ class SelfImprovementOrchestrator:
 
         summary = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "run_id": run_id,
             "success": True,
             "evidence_collected": len(evidence),
             "findings_analyzed": len(findings),
