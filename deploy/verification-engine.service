@@ -9,8 +9,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
-EnvironmentFile=/opt/starship-endeavour/.env
-ExecStart=/bin/sh -c '/opt/starship-endeavour/slack-bot/.venv/bin/python -m core.platform.verification_engine >> /opt/starship-endeavour/outputs/verification_engine.log 2>&1'
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.platform.verification_engine >> /opt/starship-endeavour/outputs/verification_engine.log 2>&1'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=verification-engine

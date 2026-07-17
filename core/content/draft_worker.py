@@ -52,6 +52,8 @@ log = logging.getLogger("content-draft")
 from dotenv import load_dotenv
 load_dotenv(_REPO_ROOT / ".env")
 
+from core.platform.heartbeat import record_heartbeat_ok, record_heartbeat_failed
+
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY       = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "").strip()
@@ -342,6 +344,7 @@ def main() -> None:
     items = fetch_pending(limit=args.limit, single_id=args.id)
     if not items:
         log.info("No pending opportunity items with empty body — nothing to do")
+        record_heartbeat_ok("content_intelligence", detail="no pending items")
         return
 
     ok = failed = 0
@@ -357,6 +360,10 @@ def main() -> None:
         time.sleep(2)
 
     log.info("Done — %d succeeded, %d failed", ok, failed)
+    if failed and not ok:
+        record_heartbeat_failed("content_intelligence", error_message=f"{failed} item(s) failed, 0 succeeded")
+    else:
+        record_heartbeat_ok("content_intelligence", detail=f"{ok} succeeded, {failed} failed")
 
 
 if __name__ == "__main__":
