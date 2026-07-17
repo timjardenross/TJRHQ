@@ -15,7 +15,7 @@ const { cacheManager } = require('../cache/cache-manager');
  * Structured error response builder
  */
 class ApiError extends Error {
-  constructor(message, statusCode = 500, cacheKey = null) {
+  constructor(statusCode = 500, message, cacheKey = null) {
     super(message);
     this.statusCode = statusCode;
     this.cacheKey = cacheKey;
@@ -91,7 +91,7 @@ const validateRequest = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.query);
     if (error) {
-      const err = new ApiError(error.details[0].message, 400);
+      const err = new ApiError(400, error.details[0].message);
       return next(err);
     }
     next();

@@ -155,7 +155,7 @@ router.get('/mission/:id', asyncHandler(async (req, res) => {
   const data = adapter.getMissionContext(missionId);
 
   if (!data) {
-    throw new ApiError(`Mission context unavailable for ${missionId}`, 404, null);
+    throw new ApiError(404, `Mission context unavailable for ${missionId}`, null);
   }
   if (data.error) {
     // Python returned an error object (e.g. mission not found)
