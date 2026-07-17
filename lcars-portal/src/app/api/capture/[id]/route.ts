@@ -48,12 +48,18 @@ export async function POST(
       method: 'POST',
       headers: ccHeaders(),
       body: body || undefined,
+      // A hung Command Centre backend previously hung this request (and the
+      // UI) indefinitely - no timeout existed at all (WORKBENCH-REVIEW.md
+      // Medium finding, 2026-07-18). 15s matches captain-brief/route.ts's
+      // own convention for proxying to a live backend service.
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await upstream.json();
     return NextResponse.json(data, { status: upstream.status });
   } catch (err) {
+    console.error('[capture proxy] POST failed:', err);
     return NextResponse.json(
-      { ok: false, error: 'Command Centre unreachable', detail: String(err) },
+      { ok: false, error: 'Command Centre unreachable' },
       { status: 502 },
     );
   }
@@ -76,12 +82,14 @@ export async function PATCH(
       method: 'PATCH',
       headers: ccHeaders(),
       body,
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await upstream.json();
     return NextResponse.json(data, { status: upstream.status });
   } catch (err) {
+    console.error('[capture proxy] PATCH failed:', err);
     return NextResponse.json(
-      { ok: false, error: 'Command Centre unreachable', detail: String(err) },
+      { ok: false, error: 'Command Centre unreachable' },
       { status: 502 },
     );
   }

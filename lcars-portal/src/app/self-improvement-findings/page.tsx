@@ -28,19 +28,42 @@ export default function SelfImprovementFindings() {
   const [decisions, setDecisions] = useState<Map<string, Decision>>(new Map());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
 
   useEffect(() => {
     loadFindings();
-    const interval = setInterval(loadFindings, 5000);
-    return () => clearInterval(interval);
+    // Visibility-gated: an unreachable backend previously meant one failed
+    // fetch every 5s forever, tab visible or not (WORKBENCH-REVIEW.md H10,
+    // 2026-07-18). Pause while hidden, refresh immediately on return rather
+    // than waiting up to 5s for the next tick.
+    let interval: ReturnType<typeof setInterval> | null = null;
+    function start() {
+      if (interval) return;
+      interval = setInterval(loadFindings, 5000);
+    }
+    function stop() {
+      if (interval) { clearInterval(interval); interval = null; }
+    }
+    function onVisibilityChange() {
+      if (document.hidden) { stop(); } else { loadFindings(); start(); }
+    }
+    if (!document.hidden) start();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   async function loadFindings() {
     try {
       const res = await fetch('/api/self-improvement/findings');
       const data = await res.json();
+      if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to load findings');
+
       setFindings(data.findings || []);
+      setError(null);
 
       const decisionMap = new Map<string, Decision>();
       for (const f of data.findings || []) {
@@ -57,6 +80,7 @@ export default function SelfImprovementFindings() {
       setLoading(false);
     } catch (err) {
       console.error('Failed to load findings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load findings');
       setLoading(false);
     }
   }
@@ -64,7 +88,7 @@ export default function SelfImprovementFindings() {
   async function makeDecision(decision: 'approved' | 'rejected' | 'more_evidence') {
     if (!selectedId) return;
     try {
-      await fetch('/api/self-improvement/decide', {
+      const res = await fetch('/api/self-improvement/decide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -73,10 +97,13 @@ export default function SelfImprovementFindings() {
           reasoning,
         }),
       });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to save decision');
       setReasoning('');
       await loadFindings();
     } catch (err) {
       console.error('Failed to save decision:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save decision');
     }
   }
 
@@ -93,6 +120,11 @@ export default function SelfImprovementFindings() {
 
   return (
     <Shell title="Self-Improvement Findings" eyebrow="Automated Discovery">
+      {error && (
+        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
+          {error}. Showing last known data, not current.
+        </p>
+      )}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <Card>
           <div className="text-3xl font-semibold text-wb-ink">{findings.length}</div>

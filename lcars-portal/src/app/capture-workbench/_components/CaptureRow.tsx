@@ -200,7 +200,14 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
               <span className="text-[10px] uppercase tracking-wide text-wb-ink2">AI enrichment</span>
               <button type="button" disabled={busy || item.ai_enrichment_status === 'queued'}
                 onClick={() => act(async () => {
-                  const resp = await fetch(`/api/capture/${item.id}?action=enrich`, { method: 'POST' });
+                  // Server-side proxy now bounds this to 15s on its own
+                  // (WORKBENCH-REVIEW.md Medium finding, 2026-07-18), but a
+                  // client-side ceiling too means a Next.js-server-level
+                  // hang (unrelated to Command Centre) can't hang this UI.
+                  const resp = await fetch(`/api/capture/${item.id}?action=enrich`, {
+                    method: 'POST',
+                    signal: AbortSignal.timeout(20_000),
+                  });
                   const json = await resp.json().catch(() => ({}));
                   if (!resp.ok) return { ok: false, error: json?.error ?? 'Command Centre unreachable' };
                   if (json?.data?.enriched === false) return { ok: false, error: json?.data?.error ?? 'Enrichment failed' };
