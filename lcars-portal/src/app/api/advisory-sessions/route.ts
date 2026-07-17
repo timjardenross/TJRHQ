@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/ai-actions';
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+// Advisory transcripts are Captain-only content - require a real session
+// before reading or writing (WORKBENCH-REVIEW.md finding C3, 2026-07-18:
+// this route previously used a bare anon-key client with no session check,
+// and advisory_sessions' own RLS was role=public - together, fully open).
+async function requireSession() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
 }
 
 // POST /api/advisory-sessions — save a consult message or board result
 export async function POST(req: NextRequest) {
   try {
+    const session = await requireSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = (await req.json()) as {
       mode: 'consult' | 'board';
       advisor_id?: string;
@@ -32,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'result is required for board mode' }, { status: 400 });
     }
 
-    const supabase = getSupabase();
+    const supabase = supabaseAdmin();
     const { data, error } = await supabase
       .from('advisory_sessions')
       .insert({ mode, advisor_id: advisor_id ?? null, question, response: response ?? null, result: result ?? null, metadata: metadata ?? null })
@@ -49,12 +58,17 @@ export async function POST(req: NextRequest) {
 // GET /api/advisory-sessions?mode=consult&advisor_id=xo&limit=50
 export async function GET(req: NextRequest) {
   try {
+    const session = await requireSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = req.nextUrl;
     const mode      = searchParams.get('mode') as 'consult' | 'board' | null;
     const advisorId = searchParams.get('advisor_id');
     const limit     = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 200);
 
-    const supabase = getSupabase();
+    const supabase = supabaseAdmin();
     let query = supabase
       .from('advisory_sessions')
       .select('id, created_at, mode, advisor_id, question, response, result')
