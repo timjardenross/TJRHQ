@@ -88,7 +88,7 @@ const PILLAR_MAPPINGS: Record<WellnessCategory, any> = {
   },
 };
 
-const MIN_RANK_SCORE = 0.7;
+const MIN_RANK_SCORE = 0.65;
 
 /**
  * Quality/publishability score from available insight data.
