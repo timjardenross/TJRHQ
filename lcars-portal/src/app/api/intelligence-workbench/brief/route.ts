@@ -55,9 +55,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ brief, signals, audit: audit ?? [] });
   } catch (err) {
+    console.error('[intelligence-workbench/brief] read failed:', err);
     return NextResponse.json(
-      { error: 'brief_read_failed', detail: String(err), brief: null, signals: [], audit: [] },
-      { status: 200 },
+      { error: 'brief_read_failed' },
+      { status: 500 },
     );
   }
 }

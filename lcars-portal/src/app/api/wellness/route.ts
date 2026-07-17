@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/lib/supabase-server';
 
 function getSupabase() {
   return createClient(
@@ -9,15 +10,26 @@ function getSupabase() {
 }
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const supabase = getSupabase();
     const today = new Date().toISOString().slice(0, 10);
 
     const [insightsRes, dailyRes, pulseRes] = await Promise.all([
       supabase
+        // health_insights has no insight_date column (WORKBENCH-REVIEW.md
+        // H7, 2026-07-18) - this select 400'd every call, silently returning
+        // null insights to the 2 real live callers (WellnessInsightPanel on
+        // /medical and /recovery-brief). created_at is the real recency
+        // column, confirmed against the live schema and against
+        // api/human-systems/route.ts's own already-correct query.
         .from('health_insights')
-        .select('insight_date,llm_narrative,risk_flags,positive_flags,wins_this_week,cpap_compliance_rate,dow_pain_pattern')
-        .order('insight_date', { ascending: false })
+        .select('created_at,llm_narrative,risk_flags,positive_flags,wins_this_week,cpap_compliance_rate,dow_pain_pattern')
+        .order('created_at', { ascending: false })
         .limit(1),
       supabase
         .from('health_daily_logs')

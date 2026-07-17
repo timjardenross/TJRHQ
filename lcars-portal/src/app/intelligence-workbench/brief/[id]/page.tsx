@@ -32,14 +32,20 @@ export default function BriefReview({ params }: { params: { id: string } }) {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     fetch(`/api/intelligence-workbench/brief?id=${id}`)
-      .then((r) => r.json())
-      .then((d) => { setBrief(d.brief); setSignals(d.signals ?? []); })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
+        setBrief(d.brief); setSignals(d.signals ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
   }, [id]);
   useEffect(load, [load]);
@@ -64,6 +70,8 @@ export default function BriefReview({ params }: { params: { id: string } }) {
            right={brief ? <RiskPill value={brief.overall_risk} /> : ''}>
       {loading ? (
         <p className="text-[13px] text-wb-ink2">Loading…</p>
+      ) : error ? (
+        <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
       ) : !brief ? (
         <p className="text-[13px] text-wb-ink2">Brief not found.</p>
       ) : (

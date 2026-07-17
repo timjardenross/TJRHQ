@@ -26,8 +26,14 @@
 
 import { NextResponse } from 'next/server';
 import { contextServiceUrl, contextServiceHeaders } from '@/lib/contextService';
+import { requireSession } from '@/lib/supabase-server';
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const resp = await fetch(`${contextServiceUrl()}/brief/full?limit=200`, {
       headers: contextServiceHeaders(),

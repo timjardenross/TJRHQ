@@ -134,6 +134,7 @@ export default function Overview() {
   const [domain, setDomain] = useState<Domain>('operational');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
@@ -141,18 +142,27 @@ export default function Overview() {
   const load = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
     return fetch(`/api/intelligence-workbench?domain=${domain}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        // A read failure must be visibly distinct from "no signals" - this
+        // tool exists to monitor operational resilience, so a silently-
+        // empty result is the one failure mode it can't afford
+        // (WORKBENCH-REVIEW.md H4, 2026-07-18). Data is still populated
+        // with an empty-but-valid shape below so the rest of the page
+        // doesn't crash - the error banner is what tells the real story.
+        if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
+        setError(null);
         setData(d);
         setLastUpdated(new Date());
       })
-      .catch(() =>
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load');
         setData({
           domain,
           kpis: {},
           ...(domain === 'operational' ? { briefs: [], hotSignals: [] } : { insights: [], recentEvents: [], dailyMetrics: [] })
-        } as Payload)
-      )
+        } as Payload);
+      })
       .finally(() => { if (withSpinner) setLoading(false); });
   }, [domain]);
 
@@ -200,6 +210,11 @@ export default function Overview() {
       eyebrow={eyebrow}
       right={<DomainToggle domain={domain} onChange={setDomain} />}
     >
+      {error && (
+        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
+          Could not refresh: {error}. Showing last known data, not current.
+        </p>
+      )}
       {domain === 'operational' && operationalData ? (
         <>
           {/* Operational mode KPIs */}

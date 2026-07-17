@@ -24,6 +24,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { proposeAction } from '@/lib/ai-actions';
+import { requireSession } from '@/lib/supabase-server';
 
 const TRANSITIONS: Record<string, Record<string, string>> = {
   opportunity:      { officer_drafted: 'draft', discard: 'archived' },
@@ -44,6 +45,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { trigger } = await req.json();
     const sb = serviceClient();

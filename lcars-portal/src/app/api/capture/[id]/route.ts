@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/supabase-server';
 
 const CC_API = (process.env.COMMAND_CENTRE_API_URL ?? 'http://localhost:5050/api/v1').replace(/\/$/, '');
 const CC_SECRET = process.env.COMMAND_CENTRE_API_SECRET ?? '';
@@ -23,6 +24,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = params;
   const url = req.nextUrl;
   const action = url.searchParams.get('action') ?? url.pathname.split('/').pop();
@@ -58,6 +64,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = params;
   try {
     const body = await req.text();

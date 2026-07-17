@@ -1,6 +1,10 @@
-// Content pipeline API — fetch and update comms_content items.
-// GET  /api/content/pipeline          — list all non-archived items
+// Content pipeline API — update comms_content items.
 // PATCH /api/content/pipeline?id=...  — update notes, body
+//
+// GET removed 2026-07-18 (WORKBENCH-REVIEW.md Medium finding, Group E):
+// redundant with /api/comms's own GET over the same table, and confirmed
+// zero real callers (comms-workbench/_components/PipelineTab.tsx only ever
+// calls the PATCH, with ?id=).
 //
 // EOS Phase 3 Priority 4/6 (Canonical Architecture Audit / Governance
 // Validation): this PATCH used to also accept an arbitrary `status`
@@ -17,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/lib/supabase-server';
 
 function serviceClient() {
   return createClient(
@@ -25,24 +30,12 @@ function serviceClient() {
   );
 }
 
-export async function GET() {
-  try {
-    const sb = serviceClient();
-    const { data, error } = await sb
-      .from('comms_content')
-      .select('id, title, pillar, status, format, source_kind, source_ref, signal_source_id, classification, notes, body, sensitive, created_at, updated_at')
-      .neq('status', 'archived')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return NextResponse.json({ items: data ?? [] });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal error';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
 export async function PATCH(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const id = req.nextUrl.searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });

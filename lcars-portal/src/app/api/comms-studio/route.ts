@@ -8,13 +8,19 @@
 // distinguishes 'internal_only' from 'publishable'. This route only
 // creates the row at status='draft'; the existing /comms page and its
 // governed advance/route.ts (including the publish-approval gate closed by
-// this same mission) handle everything from there on. Mirrors
-// api/content/draft/route.ts's own precedent: an insert with no immediate
-// external effect doesn't require a session check, since nothing here can
-// leave draft/review without a separate, already-governed action.
+// this same mission) handle everything from there on.
+//
+// Session check added 2026-07-18 (WORKBENCH-REVIEW.md H1): this file
+// previously argued a session check wasn't needed since nothing can leave
+// draft/review without separate governance — true for privilege escalation,
+// but an unauthenticated insert is still real write abuse (arbitrary junk
+// rows an actual Captain review queue then has to see). Gating costs
+// nothing here; the "no immediate external effect" argument justifies
+// skipping the *governance* gate, not skipping auth entirely.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/lib/supabase-server';
 
 function serviceClient() {
   return createClient(
@@ -26,6 +32,11 @@ function serviceClient() {
 const VALID_TYPES = ['executive_brief', 'decision_brief', 'mission_report'];
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { type, refId, title, body, evidence } = await req.json();
 

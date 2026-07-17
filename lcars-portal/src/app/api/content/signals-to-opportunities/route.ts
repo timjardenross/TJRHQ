@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createOpportunitiesFromSignals } from '@/lib/signalsToOpportunities';
+import { requireSession } from '@/lib/supabase-server';
 
 function serviceClient() {
   return createClient(
@@ -30,6 +31,11 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const body = await req.json().catch(() => ({}));
   const signalIds: string[] | null = Array.isArray(body.signal_ids) && body.signal_ids.length > 0 ? body.signal_ids : null;
   const limit: number = Number.isFinite(body.limit) ? body.limit : 5;

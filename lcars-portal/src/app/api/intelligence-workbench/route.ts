@@ -126,16 +126,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(await getOperationalData(sb, since));
   } catch (err) {
+    // A real read failure (outage, RLS change, schema drift) must not look
+    // like "no signals" - this tool exists to monitor operational
+    // resilience, so a silently-empty result here is the one failure mode
+    // it can't afford (WORKBENCH-REVIEW.md H4, 2026-07-18). Detail is
+    // logged server-side only, not echoed to the client.
+    console.error('[intelligence-workbench] read failed:', err);
     return NextResponse.json(
-      {
-        error: 'workbench_read_failed',
-        detail: String(err),
-        domain: 'operational',
-        kpis: {},
-        briefs: [],
-        hotSignals: [],
-      },
-      { status: 200 },
+      { error: 'workbench_read_failed' },
+      { status: 500 },
     );
   }
 }

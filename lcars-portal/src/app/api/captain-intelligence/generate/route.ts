@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import * as path from 'path';
 import { promisify } from 'util';
+import { requireSession } from '@/lib/supabase-server';
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +26,13 @@ function repoRoot(): string {
 }
 
 export async function POST() {
+  // Unauthenticated access here isn't just a read leak - it's a free trigger
+  // for a real 50-260s LLM pipeline run (WORKBENCH-REVIEW.md H1, 2026-07-18).
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // 290s client-side ceiling, just under the model router's own 300s
     // server-side TASK_POLICY timeout for these task types. NOTE: if
