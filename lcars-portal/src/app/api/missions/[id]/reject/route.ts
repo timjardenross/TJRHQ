@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
 
 // MSN-0175: Statuses eligible for captain rejection
@@ -21,6 +22,14 @@ export async function POST(
     return NextResponse.json({ error: 'Mission ID required' }, { status: 400 });
   }
 
+  // See approve/route.ts's own comment (WORKBENCH-REVIEW.md H2) - actor
+  // must come from the real session, not a client-supplied body field.
+  const session = await requireSession();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const owner = session.user.email;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -37,7 +46,6 @@ export async function POST(
   }
 
   const source = typeof body.source === 'string' ? body.source.trim() : 'API';
-  const owner  = typeof body.owner  === 'string' ? body.owner.trim()  : 'Captain';
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -75,14 +83,25 @@ export async function POST(
 
     if (updateErr) throw updateErr;
 
-    // Audit record — non-blocking
-    void (async () => { try { await supabase.from('mission_state_transitions').insert({
-      mission_id: mission.mission_id,
-      from_state: prevStatus,
-      to_state:   'Requires Rework',
-      actor:      owner,
-      evidence:   JSON.stringify({ decision: 'reject', reason, source }),
-    }); } catch { /* non-fatal */ } })();
+    // Audit record — non-blocking. Uses a service-role client, not the SSR
+    // `supabase` above: mission_state_transitions has RLS with zero anon/
+    // authenticated policies (see approve/route.ts's own comment for the
+    // full 3-week-silent-failure finding, 2026-07-18).
+    void (async () => {
+      try {
+        const svc = createSupabaseServiceRoleClient();
+        const { error } = await svc.from('mission_state_transitions').insert({
+          mission_id: mission.mission_id,
+          from_state: prevStatus,
+          to_state:   'Requires Rework',
+          actor:      owner,
+          evidence:   JSON.stringify({ decision: 'reject', reason, source }),
+        });
+        if (error) console.error('[missions/reject] audit insert failed:', error.message);
+      } catch (err) {
+        console.error('[missions/reject] audit insert failed:', err);
+      }
+    })();
 
     // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts.
     // Service-role wrapper: core_events RLS denies the anon/SSR `supabase`

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
 
 // MSN-0175: Statuses eligible for captain approval
@@ -19,11 +20,22 @@ export async function POST(
     return NextResponse.json({ error: 'Mission ID required' }, { status: 400 });
   }
 
+  // The audit actor must be who actually authorised this, not whatever the
+  // request body claims (WORKBENCH-REVIEW.md H2, 2026-07-18: a caller could
+  // set owner: 'Captain' regardless of who they really are). RLS on
+  // missions.UPDATE already requires `authenticated`, so this session check
+  // doesn't newly restrict who can approve - it makes the audit trail
+  // actually trustworthy about who did.
+  const session = await requireSession();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const owner = session.user.email;
+
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* empty body ok — defaults used */ }
 
   const source = typeof body.source === 'string' ? body.source.trim() : 'API';
-  const owner  = typeof body.owner  === 'string' ? body.owner.trim()  : 'Captain';
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -61,14 +73,29 @@ export async function POST(
 
     if (updateErr) throw updateErr;
 
-    // Audit record — non-blocking; mission update already succeeded
-    void (async () => { try { await supabase.from('mission_state_transitions').insert({
-      mission_id: mission.mission_id,
-      from_state: prevStatus,
-      to_state:   'Approved',
-      actor:      owner,
-      evidence:   JSON.stringify({ decision: 'approve', source }),
-    }); } catch { /* non-fatal */ } })();
+    // Audit record — non-blocking; mission update already succeeded.
+    // mission_state_transitions has RLS enabled with ZERO anon/authenticated
+    // policies (confirmed live, 2026-07-18) - the SSR `supabase` client above
+    // was silently denied on every call (the swallowed catch hid it; the
+    // real table sat at 18 rows, none newer than 2026-06-27, for 3+ weeks of
+    // real approvals/rejections). Same class of bug core-events.ts's own
+    // docstring already names for Physical Readiness/mission-lifecycle/
+    // knowledge-library - this call site just hadn't been migrated yet.
+    void (async () => {
+      try {
+        const svc = createSupabaseServiceRoleClient();
+        const { error } = await svc.from('mission_state_transitions').insert({
+          mission_id: mission.mission_id,
+          from_state: prevStatus,
+          to_state:   'Approved',
+          actor:      owner,
+          evidence:   JSON.stringify({ decision: 'approve', source }),
+        });
+        if (error) console.error('[missions/approve] audit insert failed:', error.message);
+      } catch (err) {
+        console.error('[missions/approve] audit insert failed:', err);
+      }
+    })();
 
     // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts.
     // Service-role wrapper: core_events RLS denies the anon/SSR `supabase`

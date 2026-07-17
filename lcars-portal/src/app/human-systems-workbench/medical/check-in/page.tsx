@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/app/human-systems-workbench/_components/Shell';
 import { Card, Button, Input, Textarea } from '@/components/ui';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type NSState = 'calm' | 'activated' | 'dysregulated';
 type EnergyLevel = 'low' | 'moderate' | 'high';
@@ -114,14 +113,16 @@ export default function HealthCheckInPage() {
     if (sittingTol)   payload.sitting_tolerance_minutes = parseInt(sittingTol, 10);
     if (notes)        payload.notes                     = notes;
 
-    const supabase = createSupabaseBrowserClient();
-    const { error: dbError } = await supabase
-      .from('health_daily_logs')
-      .upsert(payload, { onConflict: 'log_date' });
+    const res = await fetch('/api/human-systems/check-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const resBody = await res.json().catch(() => ({}));
 
     setSaving(false);
-    if (dbError) {
-      setError(dbError.message);
+    if (!res.ok) {
+      setError(resBody.error ?? 'Failed to save check-in.');
     } else {
       setSaved(true);
       setTimeout(() => router.push('/human-systems-workbench?domain=medical'), 1500);

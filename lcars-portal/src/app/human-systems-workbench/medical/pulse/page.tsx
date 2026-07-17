@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/app/human-systems-workbench/_components/Shell';
 import { Card, Badge, Button, Input, Textarea } from '@/components/ui';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -268,11 +267,13 @@ export default function RecoveryPulsePage() {
     setSaving(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: dbError } = await supabase
-        .from('recovery_pulses')
-        .upsert(data, { onConflict: 'log_date,pulse_type' });
-      if (dbError) throw new Error(dbError.message);
+      const res = await fetch('/api/human-systems/pulse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(resBody.error ?? 'Failed to save pulse.');
       setSavedLabel(activePulse?.label ?? 'Pulse');
       setSaved(true);
       setTimeout(() => router.push('/human-systems-workbench?domain=medical'), 1800);

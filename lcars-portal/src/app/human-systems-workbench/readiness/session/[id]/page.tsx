@@ -216,21 +216,24 @@ export default function WorkoutRunnerPage() {
 
   async function logCurrentStep(skipped: boolean) {
     if (!currentStep || !sessionRow) return;
-    const supabase = createSupabaseBrowserClient();
     const isTimed = TIMED_PATTERNS.has(currentStep.plan.exercise.movement_pattern);
-    await supabase.from('physical_workout_exercise_logs').insert({
-      workout_session_id: sessionRow.id,
-      exercise_id: currentStep.plan.exercise.id,
-      planned_sets: currentStep.plan.sets,
-      planned_reps: currentStep.plan.reps,
-      completed_sets: skipped ? 0 : isTimed ? 1 : Number(setsCompleted) || 0,
-      completed_reps: skipped ? 0 : isTimed ? 0 : Number(repsCompleted) || 0,
-      weight_used: skipped ? null : weightUsed || null,
-      effort_score: skipped ? null : effortScore,
-      pain_during: skipped ? null : painDuring,
-      skipped,
-      skip_reason: skipped ? stepNotes || 'Not specified' : null,
-      notes: skipped ? null : stepNotes || null,
+    await fetch('/api/human-systems/readiness/exercise-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workout_session_id: sessionRow.id,
+        exercise_id: currentStep.plan.exercise.id,
+        planned_sets: currentStep.plan.sets,
+        planned_reps: currentStep.plan.reps,
+        completed_sets: skipped ? 0 : isTimed ? 1 : Number(setsCompleted) || 0,
+        completed_reps: skipped ? 0 : isTimed ? 0 : Number(repsCompleted) || 0,
+        weight_used: skipped ? null : weightUsed || null,
+        effort_score: skipped ? null : effortScore,
+        pain_during: skipped ? null : painDuring,
+        skipped,
+        skip_reason: skipped ? stepNotes || 'Not specified' : null,
+        notes: skipped ? null : stepNotes || null,
+      }),
     });
     if (skipped) setSkippedCount((c) => c + 1);
     else setCompletedCount((c) => c + 1);
@@ -264,7 +267,6 @@ export default function WorkoutRunnerPage() {
   async function handleSubmitCompletion() {
     if (!sessionRow) return;
     setSaving(true);
-    const supabase = createSupabaseBrowserClient();
     const startedAtMs = new Date(sessionRow.started_at).getTime();
     const durationMinutes = Math.max(1, Math.round((Date.now() - startedAtMs) / 60000));
     const totalSteps = steps.length;
@@ -277,9 +279,10 @@ export default function WorkoutRunnerPage() {
         ? 'partially_completed'
         : 'completed';
 
-    await supabase
-      .from('physical_workout_sessions')
-      .update({
+    await fetch(`/api/human-systems/readiness/session/${sessionRow.id}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         status,
         completed_at: new Date().toISOString(),
         duration_minutes: durationMinutes,
@@ -287,8 +290,8 @@ export default function WorkoutRunnerPage() {
         pain_after_json: { back_pain: painAfterBack, general_pain: painAfterGeneral },
         mood_after: moodAfter || null,
         notes: completionNotes || null,
-      })
-      .eq('id', sessionRow.id);
+      }),
+    });
 
     // core_events has RLS with no anon/authenticated policies (service_role
     // only) — must go through a server route, not the browser client.

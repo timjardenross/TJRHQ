@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/app/human-systems-workbench/_components/Shell';
 import { Card, Button, Input, Textarea } from '@/components/ui';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type ActivityType = 'walk' | 'swim' | 'physio' | 'stretch' | 'strength' | 'cycle' | 'yoga' | 'other';
 type Intensity    = 'light' | 'moderate' | 'vigorous';
@@ -57,9 +56,13 @@ export default function LogActivityPage() {
     if (notes)     payload.notes              = notes;
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: dbErr } = await supabase.from('activity_logs').insert(payload);
-      if (dbErr) throw new Error(dbErr.message);
+      const res = await fetch('/api/human-systems/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(resBody.error ?? 'Failed to save activity.');
       setSaved(true);
       setTimeout(() => router.push('/human-systems-workbench?domain=medical'), 1500);
     } catch (err) {
