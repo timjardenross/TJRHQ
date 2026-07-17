@@ -27,7 +27,7 @@ type AuditLogEntry = {
   insight_id: string;
   reason: string;
   timestamp: string;
-  rank_score: number;
+  rank_score?: number;
 };
 
 type PillarMapping = {
@@ -124,7 +124,7 @@ export function ClassifierValidationCard() {
           <div className="space-y-2">
             {validation.scored_signals.map((signal: any, idx: number) => (
               <div key={idx} className="flex items-center gap-2 text-[12px]">
-                <span className="font-mono text-wb-ink">{signal.rank_score.toFixed(2)}</span>
+                <span className="font-mono text-wb-ink">{typeof signal.rank_score === 'number' ? signal.rank_score.toFixed(2) : '—'}</span>
                 <span className="text-wb-ink2">→</span>
                 <span className="text-wb-ink flex-1">{signal.pillar}</span>
                 {signal.has_articles && <span className="text-wb-ok">📄</span>}
@@ -181,7 +181,7 @@ export function AuditLogCard() {
                 <div className="text-wb-ink2">{entry.reason}</div>
               </div>
               <div className="text-right">
-                <div className="text-wb-ink">{entry.rank_score.toFixed(2)}</div>
+                <div className="text-wb-ink">{typeof entry.rank_score === 'number' ? entry.rank_score.toFixed(2) : '—'}</div>
                 <div className="text-[11px] text-wb-ink2">
                   {new Date(entry.timestamp).toLocaleDateString()}
                 </div>
