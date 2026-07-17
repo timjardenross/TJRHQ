@@ -10,16 +10,18 @@
 import { useEffect, useState } from 'react';
 import { Card, RiskPill } from './Shell';
 
-type ClassifierValidation = {
-  status: string;
-  samples_analyzed: number;
-  signals_published: number;
-  signals_suppressed: number;
-  pass_rate: number;
-  current_threshold: number;
-  recommendation: string;
-  scored_signals: any[];
-};
+type ClassifierValidation =
+  | { status: 'no_data'; message: string }
+  | {
+      status: 'success';
+      samples_analyzed: number;
+      signals_published: number;
+      signals_suppressed: number;
+      pass_rate: number;
+      current_threshold: number;
+      recommendation: string;
+      scored_signals: any[];
+    };
 
 type AuditLogEntry = {
   insight_id: string;
@@ -69,6 +71,14 @@ export function ClassifierValidationCard() {
     return (
       <Card title="Phase 1C: Classifier Validation">
         <p className="text-[13px] text-wb-ink2">No validation data available</p>
+      </Card>
+    );
+  }
+
+  if (validation.status === 'no_data') {
+    return (
+      <Card title="Phase 1C: Classifier Validation">
+        <p className="text-[13px] text-wb-ink2">{validation.message}</p>
       </Card>
     );
   }
