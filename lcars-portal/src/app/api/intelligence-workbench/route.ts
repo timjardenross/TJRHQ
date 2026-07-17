@@ -53,19 +53,20 @@ async function getOperationalData(sb: any, since: string) {
 
 async function getHealthData(sb: any, since: string) {
   // Latest health insights (synthesis-level) WITH source articles (Phase 1B).
+  // Query only core columns that definitely exist; gracefully omit optional ones.
   const { data: rawInsights } = await sb
     .from('health_insights')
-    .select('id, created_at, period_start, period_end, auto_health_status, llm_narrative, deterministic_findings, source_articles, committed_to_memory, committed_at, reviewed_at')
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
+    .select('id, period_start, period_end, summary, auto_health_status, llm_narrative, deterministic_findings')
+    .gte('period_start', since)
+    .order('period_start', { ascending: false })
     .limit(10);
 
   // Health events for detail view with source tracking.
   const { data: rawEvents } = await sb
     .from('health_events')
     .select('id, event_date, event_type, title, description, source')
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
+    .gte('event_date', since)
+    .order('event_date', { ascending: false })
     .limit(20);
 
   // KPI-like metrics (fetch latest).
@@ -78,25 +79,25 @@ async function getHealthData(sb: any, since: string) {
   const latest = dailyMetrics?.[0] ?? {};
   const insightList = (rawInsights ?? []).map((i: any) => ({
     insight_id: i.id,
-    created_at: i.created_at,
+    created_at: i.period_start,
     synthesis_period_start: i.period_start,
     synthesis_period_end: i.period_end,
-    overall_status: i.auto_health_status,
-    wellness_narrative: i.llm_narrative,
+    overall_status: i.auto_health_status || 'OK',
+    wellness_narrative: i.llm_narrative || i.summary,
     key_findings: i.deterministic_findings,
-    source_articles: i.source_articles || null,
-    committed_to_memory: i.committed_to_memory || false,
-    committed_at: i.committed_at || null,
-    reviewed_at: i.reviewed_at || null,
+    source_articles: null,
+    committed_to_memory: false,
+    committed_at: null,
+    reviewed_at: null,
   }));
 
   const eventList = (rawEvents ?? []).map((e: any) => ({
     event_id: e.id,
-    logged_at: e.event_date,
-    event_type: e.event_type,
-    value: e.title,
-    notes: e.description,
-    source: e.source,
+    logged_at: e.event_date || new Date().toISOString(),
+    event_type: e.event_type || 'unknown',
+    value: e.title || '—',
+    notes: e.description || null,
+    source: e.source || '—',
   }));
 
   return {
