@@ -26,11 +26,16 @@ type Signal = {
   risk_rating: string | null; rank_score: number | null; source_tier: number | null;
   confidence_level: string | null; cluster_similarity: number | null; analysis_summary: string | null;
 };
+type AuditEvent = {
+  id: string; category: string | null; actor: string | null; action: string | null;
+  outcome: string | null; details: Record<string, unknown> | null; created_at: string;
+};
 
 export default function BriefReview({ params }: { params: { id: string } }) {
   const id = params.id;
   const [brief, setBrief] = useState<Brief | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [auditTrail, setAuditTrail] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -43,7 +48,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
-        setBrief(d.brief); setSignals(d.signals ?? []);
+        setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
@@ -156,6 +161,30 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
             {msg && <p className="mt-3 text-[12px]" aria-live="polite">{msg}</p>}
           </Card>
+
+          {/* Audit trail — fetched by the brief API since it was built, never
+              rendered until now (WORKBENCH-REVIEW.md H11, 2026-07-18). Every
+              QA gate/publish/escalate action on this brief, real provenance. */}
+          {auditTrail.length > 0 && (
+            <Card title="Audit trail">
+              <div className="flex flex-col gap-2.5">
+                {auditTrail.map((a) => (
+                  <div key={a.id} className="flex items-start gap-3 border-b border-wb-line py-2 text-[12.5px] last:border-0">
+                    <span className="w-[140px] shrink-0 text-wb-ink2">
+                      {new Date(a.created_at).toLocaleString()}
+                    </span>
+                    <span className="flex-1">
+                      <span className="font-medium">{a.actor ?? 'unknown'}</span>
+                      {' — '}{a.action ?? a.category ?? 'event'}
+                      {a.outcome && a.outcome !== 'success' && (
+                        <span className="ml-1.5 text-wb-crit-on">({a.outcome})</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </>
       )}
     </Shell>

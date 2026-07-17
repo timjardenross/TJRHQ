@@ -43,8 +43,11 @@ export async function POST(
     const { data: mission, error: fetchErr } = await supabase
       .from('missions')
       .select('mission_id, title, status')
-      .ilike('mission_id', `%${id}%`)
-      .limit(1)
+      // Exact match, not substring (WORKBENCH-REVIEW.md H3, 2026-07-18):
+      // .ilike('%'+id+'%') meant `MSN-1` matched `MSN-10`/`MSN-100` too,
+      // with .limit(1) silently picking whichever sorted first. Every real
+      // caller already passes the full canonical mission_id.
+      .eq('mission_id', id)
       .maybeSingle();
 
     if (fetchErr) throw fetchErr;

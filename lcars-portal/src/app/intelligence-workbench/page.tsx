@@ -68,7 +68,6 @@ type HealthPayload = {
   domain: 'health';
   kpis: {
     capacity_score?: number;
-    readiness_score?: number;
     sleep_hours?: number;
     pain_level?: number;
   };
@@ -286,10 +285,9 @@ export default function Overview() {
       ) : (
         <>
           {/* Health mode KPIs */}
-          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
             {[
               { n: Math.round(healthData?.kpis.capacity_score ?? 0), l: 'Capacity score', unit: '' },
-              { n: Math.round(healthData?.kpis.readiness_score ?? 0), l: 'Readiness index', unit: '' },
               { n: (healthData?.kpis.sleep_hours ?? 0).toFixed(1), l: 'Sleep quality (7d avg)', unit: 'h' },
               { n: Math.round(healthData?.kpis.pain_level ?? 0), l: 'Pain level', unit: '/10' },
             ].map((c) => (

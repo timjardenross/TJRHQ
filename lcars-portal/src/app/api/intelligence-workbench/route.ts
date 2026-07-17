@@ -56,7 +56,7 @@ async function getHealthData(sb: any, since: string) {
   // Query only core columns that definitely exist; gracefully omit optional ones.
   const { data: rawInsights } = await sb
     .from('health_insights')
-    .select('id, period_start, period_end, summary, auto_health_status, llm_narrative, deterministic_findings')
+    .select('id, period_start, period_end, summary, auto_health_status, llm_narrative, deterministic_findings, source_articles, committed_to_memory, committed_at, reviewed_at')
     .gte('period_start', since)
     .order('period_start', { ascending: false })
     .limit(10);
@@ -85,10 +85,14 @@ async function getHealthData(sb: any, since: string) {
     overall_status: i.auto_health_status || 'OK',
     wellness_narrative: i.llm_narrative || i.summary,
     key_findings: i.deterministic_findings,
-    source_articles: null,
-    committed_to_memory: false,
-    committed_at: null,
-    reviewed_at: null,
+    // Real columns (WORKBENCH-REVIEW.md H11, 2026-07-18): this used to
+    // hardcode all 4 of these regardless of the row's actual data, so the
+    // SourceArticleCard UI never rendered and the "committed" checkbox
+    // state was lost on every reload.
+    source_articles: i.source_articles ?? null,
+    committed_to_memory: i.committed_to_memory ?? false,
+    committed_at: i.committed_at ?? null,
+    reviewed_at: i.reviewed_at ?? null,
   }));
 
   const eventList = (rawEvents ?? []).map((e: any) => ({
@@ -102,9 +106,13 @@ async function getHealthData(sb: any, since: string) {
 
   return {
     domain: 'health',
+    // readiness_score removed (WORKBENCH-REVIEW.md H11, 2026-07-18): this
+    // was `overall_note ? 1 : 0` presented as an index next to real 0-100/
+    // hours/pain values - actively misleading, not just incomplete. No
+    // real composite readiness formula exists yet to replace it with;
+    // reintroduce only with a real one, not another placeholder.
     kpis: {
       capacity_score: latest.physical_capacity ?? 0,
-      readiness_score: latest.overall_note ? (latest.overall_note.length > 0 ? 1 : 0) : 0,
       sleep_hours: latest.sleep_hours ?? 0,
       pain_level: latest.pain_score ?? 0,
     },
