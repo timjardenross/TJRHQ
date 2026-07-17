@@ -9,11 +9,27 @@ import { scanEscalation } from './human-systems';
 // confidence display.
 //
 // Deliberately narrower than the Change Assembly's domain list:
-// Decide-adjacent, Captured Items, Captain's Log, Lessons Learned, and
-// Communications do NOT nominate interrupts here, because their genuine
-// "needs judgement" cases already surface via Decide's "Needs you" count -
-// adding a second interrupt for the same underlying fact would be the
-// duplicate truth this system exists to avoid.
+// Decide-adjacent, Captain's Log, Lessons Learned, and Communications do
+// NOT nominate interrupts here, because their genuine "needs judgement"
+// cases already surface via Decide's "Needs you" count - adding a second
+// interrupt for the same underlying fact would be the duplicate truth this
+// system exists to avoid.
+//
+// MSN-0358 correction: Captured Items used to be on that exclusion list
+// too, on the same documented assumption as the MSN-0354 Missions
+// correction below - that Decide's queue already covered its "needs
+// judgement" case. It didn't: fetchDecideQueue() (lib/decide.ts) and its
+// mission source, fetchMissionDecisions() (lib/decisions.ts), only ever
+// read `missions` and `build_request_inbox`, never `captured_items` - a
+// captured item flagged as a mission but not yet triaged was invisible to
+// Decide by design, not by bug. The fix is a new nominator here
+// (capturedMissionNominator below), not a widened Decide query: triaging a
+// capture is a routing decision (review/route/promote via /capture), not
+// an approve/reject action, and decide.ts's own header already declines to
+// invent a mapping onto its Approve/Hold/Undo model for exactly this shape
+// of item (Knowledge Library review). Home's passive "this needs your
+// attention" nominator is the right fit; Decide's governed queue is
+// intentionally not widened to cover it.
 //
 // MSN-0354 correction: Missions used to be on that exclusion list too, on
 // the documented assumption that Decide's queue already covered mission
@@ -195,19 +211,25 @@ async function missionNominator(supabase: SupabaseClient): Promise<Interrupt | n
 // and reconciled as new nominators only where the underlying condition is
 // genuinely not visible anywhere else today:
 //
-//   decision (captured missions awaiting triage, captured_items table) - NOT
-//   added here. This file's own header above already excludes Captured Items
-//   by name, on the stated basis that its "needs judgement" cases surface via
-//   Decide's "Needs you" count. That stated basis does not in fact hold today
-//   - fetchDecideQueue() (lib/decide.ts) only reads `missions` and
-//   `build_request_inbox`, never `captured_items` - so this alert class is a
-//   real, currently-uncovered gap, not a duplicate. It is deliberately left
-//   out of this reconciliation pass anyway: overturning an explicit, named
-//   exclusion this file already states is a design call (does Captured Items
-//   get its own nominator, or does Decide's queue grow to include it - two
-//   different fixes with different implications for the "duplicate truth"
-//   goal this file exists to serve), not a mechanical bridge. Flagged here so
-//   it is not silently lost, not resolved by this pass.
+//   decision (captured missions awaiting triage, captured_items table) -
+//   MSN-0358: ADDED as capturedMissionNominator below, resolving the design
+//   call this note used to leave open (a new nominator here, or a widened
+//   Decide query - two different fixes with different implications for the
+//   "duplicate truth" goal this file exists to serve). Direction: a new
+//   nominator, for two grounded reasons, not a coin flip. (1) EOS Canonical
+//   Architecture Decisions §1 directs alerts.ts's real logic to be
+//   "reconciled into interruptAssembly.ts's nominator pattern (as additional
+//   nominators)" - this is exactly that, for the one alert class this file's
+//   own header incorrectly claimed was already covered. (2) decide.ts's own
+//   header states its sources are "exactly the two governed, already-real
+//   approve/reject routes" and already declines to fold in Knowledge Library
+//   review items for the identical reason: no governed approve/reject action
+//   exists for them, and collapsing a different action shape onto Decide's
+//   Approve/Hold/Undo model would be inventing governance, not reusing it.
+//   Captured-item triage is that same shape - review/route/promote via
+//   /capture, not approve/reject - so it fails Decide's own stated inclusion
+//   bar exactly as Knowledge Library did. Home's passive nominator is the
+//   correct fit; Decide's queue is intentionally left unwidened.
 //
 //   escalation / wellness (lib/alerts.ts wellnessAlerts()) - genuinely new.
 //   These read recovery_pulses / the get_recovery_posture RPC, sources
@@ -380,6 +402,30 @@ async function engineeringReviewNominator(supabase: SupabaseClient): Promise<Int
   };
 }
 
+/** captured_items is the real "Quick Capture" table (EOS Canonical
+ * Architecture Decisions §3). Mirrors lib/alerts.ts's decisionAlerts()
+ * exactly - same two-field filter (classification='mission',
+ * review_status='unreviewed'), same count-only query - the captains-chair
+ * companion of this nominator, not a re-derived threshold. evidenceAt is
+ * the evaluation time, same rationale as failedDispatchNominator above: the
+ * count of unreviewed captured missions is a continuously-true-until-it-
+ * changes fact, not a point-in-time event. See the reconciliation note
+ * above this section for why this is a new nominator rather than a widened
+ * Decide query. */
+async function capturedMissionNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
+  const { count } = await supabase
+    .from('captured_items')
+    .select('*', { count: 'exact', head: true })
+    .eq('classification', 'mission')
+    .eq('review_status', 'unreviewed');
+  if (!count || count <= 0) return null;
+  return {
+    domain: 'Captured missions',
+    text: `${count} captured mission${count > 1 ? 's' : ''} awaiting triage - flagged as missions but not yet routed into the pipeline.`,
+    evidenceAt: new Date().toISOString(),
+  };
+}
+
 // Exported (MSN-0357) so Integrity Audit / Redundancy Reconciliation
 // investigations (lib/investigations/integrityAudit.ts) can read the real,
 // live nominator wiring directly - by identity, not by re-declaring a
@@ -398,6 +444,7 @@ export const NOMINATORS: Nominator[] = [
   deliveryBlockedNominator,
   failedDispatchNominator,
   engineeringReviewNominator,
+  capturedMissionNominator,
 ];
 export const DOMAIN_NAMES = [
   'Health',
@@ -410,6 +457,7 @@ export const DOMAIN_NAMES = [
   'Delivery',
   'Delivery dispatch',
   'Engineering review',
+  'Captured missions',
 ];
 
 export async function assembleInterrupts(supabase: SupabaseClient): Promise<InterruptAssemblyResult> {

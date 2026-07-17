@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from 'next';
+import { Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
 import { PUBLIC_SITE_DESCRIPTION, PUBLIC_SITE_NAME, PUBLIC_SOCIAL_IMAGE_PATH } from '@/lib/public-site';
+
+const sourceSerif = Source_Serif_4({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-serif',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -59,7 +67,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={sourceSerif.variable}>
       <body>
         {children}
       </body>

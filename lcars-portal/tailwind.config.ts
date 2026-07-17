@@ -64,6 +64,10 @@ const config: Config = {
           'ok-on':   '#3F633F',
           'warn-on': '#8A5A1B',
           'crit-on': '#A23A34',
+          // Gradient endpoint for the escalation "critical incident" banner
+          // (white text on top — high contrast preserved at both ends).
+          // Promoted from a hardcoded bg-[#8a2f2a] arbitrary value.
+          'crit-deep': '#8a2f2a',
         },
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
@@ -109,6 +113,9 @@ const config: Config = {
         sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         lcars: ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        // TJR Design System — locked serif for wb.* headings (Card/Shell titles).
+        // Loaded via next/font/google in src/app/layout.tsx as --font-serif.
+        serif: ['var(--font-serif)', 'ui-serif', 'Georgia', 'serif'],
       },
       borderRadius: {
         lcars: '1.25rem'

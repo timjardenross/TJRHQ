@@ -442,7 +442,7 @@ export async function routeCapture(
   classification: CaptureClassification,
 ): Promise<ActionResult & { routing?: Record<string, unknown> }> {
   try {
-    const resp = await fetch(`/api/capture/${id}/route`, {
+    const resp = await fetch(`/api/capture/${id}?action=route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ classification }),

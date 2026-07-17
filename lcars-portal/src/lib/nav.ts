@@ -16,11 +16,17 @@ export interface NavItem {
 // LCARSBottomNav — is kept, now sourced from a plain href list instead of
 // a duplicate, driftable copy of nav item data.
 const VALID_NAV_HREFS = [
-  '/captains-chair', '/advisory-council', '/knowledge', '/knowledge-library',
-  '/search', '/timeline', '/capture',
+  // MSN: Advisory Council reskinned onto the wb- design system at
+  // /advisory-workbench (kept first-class per Captain decision 2026-07-12).
+  // /advisory-council stays valid — it now redirects to the workbench.
+  '/captains-chair', '/advisory-council', '/advisory-workbench', '/knowledge', '/knowledge-library',
+  // Capture reskinned onto the wb- design system at /capture-workbench (kept
+  // first-class per Captain decision 2026-07-12). /capture stays valid — it
+  // now redirects to the workbench.
+  '/search', '/timeline', '/capture', '/capture-workbench',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
-  '/captains-brief', '/delivery', '/automation-centre', '/model-crew',
+  '/captains-brief', '/captains-brief-workbench', '/delivery', '/automation-centre', '/model-crew',
   '/physical-readiness',
   // MSN-0344: found missing here despite being live in NAV_SECTIONS since
   // MSN-0328 (WP-B) — this list had silently drifted from the real nav.

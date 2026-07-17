@@ -86,8 +86,9 @@ _SERVICES = {
     "starfleet-slack-bot.service":      "CRITICAL",
     "starfleet-backend.service":        "CRITICAL",
     "tg-xo.service":                    "HIGH",
-    "tg-engineer.service":              "HIGH",
-    "tg-engineering-dept.service":      "HIGH",
+    # tg-engineer / tg-engineering-dept retired 2026-07-05 (XO is the only
+    # Telegram bot). Removed from monitoring so their permanent-down state
+    # stops raising phantom HIGH alerts.
     # MSN-0330: found unmonitored by audit — Captain Intelligence's
     # Insight/Reasoning Engines depend on this being up (MSN-0329
     # Phase 3-5); wasn't in this dict at all before.

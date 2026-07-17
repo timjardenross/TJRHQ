@@ -1,0 +1,12 @@
+-- Adds intelligence_events to the supabase_realtime publication so the
+-- Intelligence Workbench can subscribe to inserts over websockets (see
+-- lcars-portal/src/lib/realtime/useRealtimeRefresh.ts). Without this, the
+-- table's existing anon SELECT policy (0035_intelligence_anon_read_policies)
+-- covers normal reads but Realtime never fires - publication membership is
+-- a separate gate from RLS.
+--
+-- This does not change ingestion cadence (still the daily ORI GitHub brief
+-- cron, .github/workflows/ori-daily-sync.yml) - it only makes an already-
+-- landed row visible to subscribed clients immediately instead of on next
+-- page load.
+alter publication supabase_realtime add table intelligence_events;

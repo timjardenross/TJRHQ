@@ -100,7 +100,19 @@ Be direct, honest about disagreement, and structured. Do not flatten real differ
 
     const userMessage = `**Question:** ${body.question}\n\n---\n\n${panel}`;
 
-    const aiRes = await fetch(`${process.env.NEXTAUTH_URL ?? ''}/api/ai/chat`, {
+    // Server-side self-call needs an ABSOLUTE URL. NEXTAUTH_URL is unset in
+    // this app (it uses Supabase auth, not NextAuth), so the old
+    // `${NEXTAUTH_URL ?? ''}/api/ai/chat` resolved to a relative URL and threw
+    // server-side — synthesis 500'd and the client silently fell back to
+    // showing only individual responses. Derive the origin from the incoming
+    // request (with env overrides for proxy setups).
+    const selfBase =
+      process.env.NEXTAUTH_URL ||
+      process.env.LCARS_PORTAL_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      request.nextUrl.origin;
+
+    const aiRes = await fetch(`${selfBase}/api/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') ?? '' },
       body: JSON.stringify({
