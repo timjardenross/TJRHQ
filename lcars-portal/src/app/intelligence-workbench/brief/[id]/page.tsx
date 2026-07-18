@@ -5,14 +5,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
 import { runAction } from '../../_components/actions';
 
-const GATE_FLOW = [
-  'IN_REVIEW', 'DATA_QA_PASSED', 'FACTUAL_QA_PASSED', 'ANALYTICAL_QA_PASSED',
-  'QA_READY', 'EXECUTIVE_APPROVED', 'PUBLISHED',
-];
+// 2026-07-18: consolidated from the original 7-stage ladder (In Review / Data
+// QA / Factual QA / Analytical QA / QA Ready / Approved / Published) per
+// Captain feedback — live data showed the three QA gates were never used
+// distinctly (one brief ever published, all three passed by the same actor
+// in one sitting) while every other brief sat permanently at In Review.
+const GATE_FLOW = ['IN_REVIEW', 'QA_PASSED', 'PUBLISHED'];
 const GATE_LABEL: Record<string, string> = {
-  IN_REVIEW: 'In Review', DATA_QA_PASSED: 'Data QA', FACTUAL_QA_PASSED: 'Factual QA',
-  ANALYTICAL_QA_PASSED: 'Analytical QA', QA_READY: 'QA Ready',
-  EXECUTIVE_APPROVED: 'Approved', PUBLISHED: 'Published',
+  IN_REVIEW: 'In Review', QA_PASSED: 'QA Passed', PUBLISHED: 'Published',
 };
 
 type Brief = {
@@ -139,28 +139,25 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             </div>
           </Card>
 
-          {/* Screen 3 — approval gate */}
+          {/* Screen 3 — approval gate. 2026-07-18: consolidated from three
+              separate data_qa/factual_qa/analytical_qa rows + a "Mark QA
+              Ready" step into one QA row + Publish, matching the 3-state
+              workflow above. */}
           <Card title="Approval gate">
-            {(['data_qa', 'factual_qa', 'analytical_qa'] as const).map((g) => (
-              <div key={g} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-[13.5px] last:border-0">
-                <span className={`grid h-5 w-5 place-items-center rounded text-[11px] text-white ${gatePassed(g) ? 'bg-wb-ok' : 'bg-wb-line'}`}>
-                  {gatePassed(g) ? '✓' : ''}
-                </span>
-                <span className="flex-1 capitalize">{g.replace('_', ' ')}</span>
-                {audit?.[g]?.approved_by && <span className="text-[11.5px] text-wb-ink2">{audit[g].approved_by}</span>}
-                {!gatePassed(g) && (
-                  <button disabled={!!busy} onClick={() => act('brief.qa_gate', { gate: g }, `${g} pass`)}
-                    className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
-                    Pass
-                  </button>
-                )}
-              </div>
-            ))}
+            <div className="flex items-center gap-3 border-b border-wb-line py-2.5 text-[13.5px] last:border-0">
+              <span className={`grid h-5 w-5 place-items-center rounded text-[11px] text-white ${gatePassed('qa') ? 'bg-wb-ok' : 'bg-wb-line'}`}>
+                {gatePassed('qa') ? '✓' : ''}
+              </span>
+              <span className="flex-1">QA</span>
+              {audit?.qa?.approved_by && <span className="text-[11.5px] text-wb-ink2">{audit.qa.approved_by}</span>}
+              {!gatePassed('qa') && (
+                <button disabled={!!busy} onClick={() => act('brief.qa_pass', {}, 'QA pass')}
+                  className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+                  Pass
+                </button>
+              )}
+            </div>
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <button disabled={!!busy} onClick={() => act('brief.mark_qa_ready', {}, 'Mark QA ready')}
-                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
-                Mark QA Ready
-              </button>
               <button disabled={!!busy} onClick={() => act('brief.publish', {}, 'Publish')}
                 className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Publish

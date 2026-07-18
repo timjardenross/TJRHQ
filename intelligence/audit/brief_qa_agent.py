@@ -1,14 +1,15 @@
 """
-Automated data_qa gate agent — the "agent recommends, human decides" pre-screen
+Automated QA agent — the "agent recommends, human decides" pre-screen
 for intelligence_briefs sitting in IN_REVIEW.
 
-This composes with the governed QA-gate state machine that already exists
+This composes with the governed QA state machine that already exists
 (intelligence/workflow/service.py + governance/workflow_gate.py, migration
-0077) rather than building parallel infrastructure: it only ever writes
-through set_qa_gate(..., gate='data_qa', ...) — the one gate that code
-already documents as automatable ("actor 'system' allowed"). factual_qa and
-analytical_qa stay human-only; nothing here can advance a brief past
-DATA_QA_PASSED or touch approval beyond that.
+0084) rather than building parallel infrastructure: it only ever writes
+through qa_pass(..., actor='system', ...) — consolidated 2026-07-18 from
+the original 3-gate ladder (data_qa/factual_qa/analytical_qa) into one
+step. This agent can pass or fail that single QA gate automatically; a
+'RED' brief always fails regardless of score, so it still gets human eyes
+via the Captain re-running qa_pass with actor='intelligence_lead'.
 
 Reuses intelligence/audit/brief_coherence.py's checks 1-4 (executive_snapshot/
 emerging_themes/forward_watch/cps230_implications grounding) via
@@ -199,7 +200,7 @@ def score_brief(brief: dict, now: Optional[datetime] = None) -> dict:
 
 def run_data_qa_agent(repo, brief_id: str, dry_run: bool = True, actor: str = "system") -> dict:
     """Score one brief and, unless dry_run, record the result via the real
-    set_qa_gate() gate - never a bespoke write path."""
+    qa_pass() gate - never a bespoke write path."""
     brief = repo.get_brief(brief_id)
     if brief is None:
         raise RepositoryError(f"no brief {brief_id}")
@@ -209,8 +210,8 @@ def run_data_qa_agent(repo, brief_id: str, dry_run: bool = True, actor: str = "s
 
     if not dry_run:
         gate_status = "passed" if result["passed"] else "failed"
-        service.set_qa_gate(
-            repo, actor, brief_id, "data_qa", gate_status,
+        service.qa_pass(
+            repo, actor, brief_id, gate_status,
             details={k: v for k, v in result.items() if k not in ("brief_id", "dry_run")},
         )
         result["gate_status"] = gate_status
@@ -240,7 +241,7 @@ def _main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--brief-id", help="Score a single brief instead of the full IN_REVIEW batch")
     parser.add_argument("--live", action="store_true",
-                        help="Actually call set_qa_gate (default is dry-run: score and print only)")
+                        help="Actually call qa_pass (default is dry-run: score and print only)")
     args = parser.parse_args(argv)
 
     from intelligence.workflow.repository import SupabaseRepository

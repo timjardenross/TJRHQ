@@ -23,7 +23,6 @@ from intelligence.governance.workflow_gate import (  # noqa: F401
     GovernanceError,
     NotFoundError,
     can,
-    check_brief_gates,
     log_mutation,
     require,
     validate_brief_transition,
@@ -42,6 +41,5 @@ __all__ = [
     "require",
     "validate_signal_transition",
     "validate_brief_transition",
-    "check_brief_gates",
     "log_mutation",
 ]

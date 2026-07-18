@@ -26,19 +26,11 @@ from intelligence.governance.workflow_gate import (
     INTELLIGENCE_LEAD,
     GovernanceError,
     NotFoundError,
-    check_brief_gates,
     log_mutation,
     require,
     validate_brief_transition,
     validate_signal_transition,
 )
-
-# Gate name -> the approval_status a passing gate advances the brief to.
-_GATE_STATUS = {
-    "data_qa": "DATA_QA_PASSED",
-    "factual_qa": "FACTUAL_QA_PASSED",
-    "analytical_qa": "ANALYTICAL_QA_PASSED",
-}
 
 
 def _signal_from_event(event: dict) -> dict:
@@ -170,36 +162,38 @@ def curate_watchlist(repo, actor_role: str, brief_id: str, items: list[dict]) ->
     return created
 
 
-# ─── QA gates + publish ──────────────────────────────────────────────────────
-def set_qa_gate(repo, actor_role: str, brief_id: str, gate: str,
-                status: str = "passed", details: Optional[dict[str, Any]] = None) -> dict:
-    """Record a QA gate result and advance approval_status in sequence.
+# ─── QA pass + publish ────────────────────────────────────────────────────────
+# 2026-07-18: consolidated from the original data_qa/factual_qa/analytical_qa
+# 3-gate ladder + separate mark_qa_ready step into a single qa_pass action.
+# Live data showed the three gates were never meaningfully distinct — the one
+# brief ever published had all three passed by the same actor in one sitting.
+def qa_pass(repo, actor_role: str, brief_id: str,
+            status: str = "passed", details: Optional[dict[str, Any]] = None) -> dict:
+    """Record the QA outcome and advance IN_REVIEW -> QA_PASSED.
 
-    data_qa is automated (actor 'system' allowed); factual/analytical require the
-    Intelligence Lead. Gates must pass in order (data -> factual -> analytical);
-    the brief-transition check enforces the sequence.
+    Automated (actor_role == 'system', e.g. brief_qa_agent.py) or the
+    Intelligence Lead may call this — same authority split the old data_qa
+    gate had (automated-allowed) vs. factual/analytical (Lead-only), now
+    expressed as one step instead of three.
 
-    `details` is an optional free-form dict (e.g. the automated data_qa agent's
-    sub-scores) merged into this gate's audit entry alongside status/approved_by
-    - additive, no existing caller passes it so nothing else changes shape."""
-    if gate not in _GATE_STATUS:
-        raise GovernanceError(f"unknown QA gate '{gate}'")
-    if gate != "data_qa":
-        require(actor_role, "brief.mark_qa_ready")  # Intelligence Lead authority
+    `details` is an optional free-form dict (e.g. the QA agent's sub-scores)
+    merged into the audit entry alongside status/approved_by. A 'failed'
+    status records the attempt but leaves the brief at IN_REVIEW."""
+    if actor_role != "system":
+        require(actor_role, "brief.qa_pass")
 
     brief = repo.get_brief(brief_id)
     if brief is None:
         raise NotFoundError(f"no brief {brief_id}")
 
     audit = dict(brief.get("approval_audit") or {})
-    audit[gate] = {"status": status, "approved_by": actor_role, **({"details": details} if details else {})}
+    audit["qa"] = {"status": status, "approved_by": actor_role, **({"details": details} if details else {})}
     fields: dict[str, Any] = {"approval_audit": audit}
 
     if status == "passed":
         current = brief.get("approval_status", "IN_REVIEW")
-        target = _GATE_STATUS[gate]
-        _require_brief_transition(current, target)
-        fields["approval_status"] = target
+        _require_brief_transition(current, "QA_PASSED")
+        fields["approval_status"] = "QA_PASSED"
 
     updated = repo.update_brief(brief_id, fields)
     log_mutation("intelligence_briefs", brief_id, "UPDATE", actor_role,
@@ -208,39 +202,16 @@ def set_qa_gate(repo, actor_role: str, brief_id: str, gate: str,
     return updated
 
 
-def mark_qa_ready(repo, actor_role: str, brief_id: str) -> dict:
-    """Intelligence Lead marks a brief QA_READY once all mandatory gates pass."""
-    require(actor_role, "brief.mark_qa_ready")
-    brief = repo.get_brief(brief_id)
-    if brief is None:
-        raise NotFoundError(f"no brief {brief_id}")
-
-    ready, missing = check_brief_gates(brief.get("approval_audit"))
-    if not ready:
-        raise GovernanceError(f"QA gates not passed: {', '.join(missing)}")
-
-    current = brief.get("approval_status", "ANALYTICAL_QA_PASSED")
-    _require_brief_transition(current, "QA_READY")
-    updated = repo.update_brief(brief_id, {"approval_status": "QA_READY"})
-    log_mutation("intelligence_briefs", brief_id, "UPDATE", actor_role,
-                 before_state={"approval_status": current},
-                 after_state={"approval_status": "QA_READY"})
-    return updated
-
-
 def publish_brief(repo, actor_role: str, brief_id: str,
                   published_at: Optional[str] = None) -> dict:
-    """Executive Approver publishes a QA_READY brief -> PUBLISHED."""
+    """Executive Approver publishes a QA_PASSED brief -> PUBLISHED."""
     require(actor_role, "brief.publish")
     brief = repo.get_brief(brief_id)
     if brief is None:
         raise NotFoundError(f"no brief {brief_id}")
 
-    current = brief.get("approval_status", "QA_READY")
-    # QA_READY -> EXECUTIVE_APPROVED -> PUBLISHED (both legal single steps).
-    _require_brief_transition(current, "EXECUTIVE_APPROVED")
-    repo.update_brief(brief_id, {"approval_status": "EXECUTIVE_APPROVED"})
-    _require_brief_transition("EXECUTIVE_APPROVED", "PUBLISHED")
+    current = brief.get("approval_status", "QA_PASSED")
+    _require_brief_transition(current, "PUBLISHED")
     fields = {"approval_status": "PUBLISHED"}
     if published_at is not None:
         fields["published_at"] = published_at

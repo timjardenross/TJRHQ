@@ -7,16 +7,17 @@ everywhere (server, jobs, tests).
 Three human roles (Phase A §1.4):
 
     Analyst            collects/cleans/tiers/scores signals (no sign-off authority)
-    Intelligence Lead  verifies facts, selects events, curates watchlist, marks QA ready
+    Intelligence Lead  verifies facts, selects events, curates watchlist, passes QA
     Executive Approver publishes the brief (final gate)
 
 Two enforced invariants:
 
     1. RBAC          — a role may only perform its allowed actions (`can`/`require`)
     2. Lifecycle     — signal & brief status may only move along legal transitions
-                       (`validate_signal_transition`, `validate_brief_transition`),
-                       and a brief may only reach QA_READY once the mandatory QA
-                       gates are green (`check_brief_gates`).
+                       (`validate_signal_transition`, `validate_brief_transition`).
+                       Brief approval is IN_REVIEW -> QA_PASSED -> PUBLISHED
+                       (consolidated 2026-07-18 from an original 7-state ladder —
+                       see BRIEF_TRANSITIONS below).
 
 Every mutation is written to the shared append-only audit trail via `log_mutation`.
 """
@@ -45,7 +46,7 @@ ROLE_ACTIONS: dict[str, frozenset[str]] = {
     }),
     INTELLIGENCE_LEAD: frozenset({
         "signal.verify", "signal.select",
-        "brief.curate_watchlist", "brief.mark_qa_ready", "brief.record_lesson",
+        "brief.curate_watchlist", "brief.qa_pass", "brief.record_lesson",
         # Phase B crisis-mode actions (Screen 4/5).
         "brief.escalate", "brief.notify_telegram", "brief.stand_down",
     }),
@@ -115,21 +116,21 @@ def validate_signal_transition(current: str, target: str) -> tuple[bool, str]:
     return False, f"illegal signal transition {current} -> {target}"
 
 
-# ─── Brief approval state machine + QA gates ─────────────────────────────────
-# Mirrors the approval_status CHECK constraint in migration 0077.
+# ─── Brief approval state machine + QA gate ──────────────────────────────────
+# Mirrors the approval_status CHECK constraint in migration 0084.
+#
+# 2026-07-18: consolidated from the original 7-state ladder (IN_REVIEW ->
+# DATA_QA_PASSED -> FACTUAL_QA_PASSED -> ANALYTICAL_QA_PASSED -> QA_READY ->
+# EXECUTIVE_APPROVED -> PUBLISHED). Live data showed the three QA gates were
+# never meaningfully distinct in practice — the one brief that was ever
+# published had all three passed by the same actor in one sitting — and
+# every other brief sat permanently at IN_REVIEW. Captain-requested
+# consolidation: one QA pass (automated or Captain), then publish.
 BRIEF_TRANSITIONS: dict[str, frozenset[str]] = {
-    "IN_REVIEW":            frozenset({"DATA_QA_PASSED"}),
-    "DATA_QA_PASSED":       frozenset({"FACTUAL_QA_PASSED"}),
-    "FACTUAL_QA_PASSED":    frozenset({"ANALYTICAL_QA_PASSED"}),
-    "ANALYTICAL_QA_PASSED": frozenset({"QA_READY"}),
-    "QA_READY":             frozenset({"EXECUTIVE_APPROVED"}),
-    "EXECUTIVE_APPROVED":   frozenset({"PUBLISHED"}),
-    "PUBLISHED":            frozenset(),
+    "IN_REVIEW":  frozenset({"QA_PASSED"}),
+    "QA_PASSED":  frozenset({"PUBLISHED"}),
+    "PUBLISHED":  frozenset(),
 }
-
-# Gates that must be 'passed' in approval_audit before a brief may become QA_READY.
-# Executive approval is a separate gate applied at publish, not here.
-MANDATORY_QA_GATES = ("data_qa", "factual_qa", "analytical_qa")
 
 
 def validate_brief_transition(current: str, target: str) -> tuple[bool, str]:
@@ -141,20 +142,6 @@ def validate_brief_transition(current: str, target: str) -> tuple[bool, str]:
     if target in BRIEF_TRANSITIONS[current]:
         return True, "permitted"
     return False, f"illegal brief transition {current} -> {target}"
-
-
-def check_brief_gates(approval_audit: Optional[dict[str, Any]]) -> tuple[bool, list[str]]:
-    """Check the mandatory QA gates.
-
-    Returns (ready, missing_gates). `ready` is True only when every gate in
-    MANDATORY_QA_GATES has status == 'passed' in approval_audit.
-    """
-    audit = approval_audit or {}
-    missing = [
-        gate for gate in MANDATORY_QA_GATES
-        if (audit.get(gate) or {}).get("status") != "passed"
-    ]
-    return (not missing), missing
 
 
 # ─── Mutation audit (reuses migration 0054 audit_events) ─────────────────────
