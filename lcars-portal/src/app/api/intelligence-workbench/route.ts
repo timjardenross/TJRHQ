@@ -19,9 +19,10 @@ async function getOperationalData(sb: any, since: string) {
   // Hot signals (7d) — real risk_rating / source_tier from Phase A.
   const { data: signals } = await sb
     .from('intelligence_events')
-    .select('event_id,raw_title,sector,geography,risk_rating,rank_score,source_tier,operational_relevance,signal_status')
+    .select('event_id,raw_title,sector,geography,risk_rating,rank_score,source_tier,operational_relevance,signal_status,canonical_url')
     .eq('suppressed', false)
     .gte('collected_at', since)
+    .not('raw_title', 'ilike', 'CVE-%')
     .order('operational_relevance', { ascending: false })
     .order('rank_score', { ascending: false })
     .limit(8);

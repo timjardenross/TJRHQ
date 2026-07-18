@@ -21,9 +21,6 @@ interface BottomTab {
 // public-site brand tokens - one accent colour, not four decorative
 // department-coloured tiles.
 const BOTTOM_TABS: BottomTab[] = [
-  { href: '/home', label: 'Home', glyph: '⌂' },
-  { href: '/decide', label: 'Decide', glyph: '✓' },
-  { href: '/ask', label: 'Ask', glyph: '?' },
   { href: '/capture-workbench', label: 'Capture', glyph: '+' },
 ];
 
