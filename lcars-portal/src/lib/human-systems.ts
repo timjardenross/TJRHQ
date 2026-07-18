@@ -10,7 +10,16 @@
  * Evidence-informed, non-diagnostic. Bands: good | moderate | limited | depleted.
  */
 
-import { supabase } from './supabase';
+import { createSupabaseBrowserClient } from './supabase-browser';
+
+// Session-aware client (WORKBENCH-REVIEW.md follow-up, 2026-07-18): same fix
+// as lib/ros-data.ts - human_systems_daily is analytics_health_daily LEFT
+// JOIN health_daily_logs, so the old anon-only client started 401ing here
+// too once health_daily_logs' anon_read policy was correctly dropped.
+// Constructed fresh per call, matching every other caller in this codebase.
+function client() {
+  return createSupabaseBrowserClient();
+}
 import type { StatusTone } from './types';
 
 export type EnergyBand = 'good' | 'moderate' | 'limited' | 'depleted';
@@ -371,7 +380,7 @@ interface FetchResult<T> {
 
 /** Fetch recent rows from human_systems_daily. */
 async function fetchLogRows(days: number): Promise<FetchResult<HealthRow>> {
-  if (!supabase) return { rows: [], failed: false };
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('human_systems_daily')
@@ -387,7 +396,7 @@ async function fetchLogRows(days: number): Promise<FetchResult<HealthRow>> {
 
 /** Fetch recent recovery pulses — most recent per day returned. */
 async function fetchPulseRows(days: number): Promise<FetchResult<RecoveryPulse>> {
-  if (!supabase) return { rows: [], failed: false };
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('recovery_pulses')
@@ -452,7 +461,7 @@ const SUSTAINABLE_ACTIVE: Record<EnergyBand, number> = {
 
 /** Count open (in-flight) missions. Returns null when Supabase is unavailable. */
 export async function fetchOpenMissionCount(): Promise<number | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase.from('missions').select('status');
     if (error || !data) return null;
