@@ -216,6 +216,19 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
                     )
                 except Exception:
                     pass
+                # ADR-024 second-pass audit: the 'missions' domain_registry row
+                # (migration 0071) has had zero record_heartbeat() calls anywhere
+                # in the repo since it was registered — verification_state has
+                # reported it never_succeeded despite the live table being
+                # actively written to. Same non-blocking contract as the event
+                # above.
+                try:
+                    if str(_REPO_ROOT) not in sys.path:
+                        sys.path.insert(0, str(_REPO_ROOT))
+                    from core.platform.heartbeat import record_heartbeat
+                    record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
+                except Exception:
+                    pass
                 return True
         return False
     except Exception as exc:

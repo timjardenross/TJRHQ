@@ -79,12 +79,7 @@ class TestDispatcher(unittest.TestCase):
 
     def test_publish_flow_via_dispatch(self):
         b = self.repo.insert_brief({"period_start": "a", "period_end": "b"})["brief_id"]
-        for gate, role in [("data_qa", "system"), ("factual_qa", INTELLIGENCE_LEAD),
-                           ("analytical_qa", INTELLIGENCE_LEAD)]:
-            s, _ = api.dispatch(self.repo, "brief.qa_gate", role,
-                                {"brief_id": b, "gate": gate})
-            self.assertEqual(s, 200)
-        s, _ = api.dispatch(self.repo, "brief.mark_qa_ready", INTELLIGENCE_LEAD, {"brief_id": b})
+        s, _ = api.dispatch(self.repo, "brief.qa_pass", "system", {"brief_id": b})
         self.assertEqual(s, 200)
         s, body = api.dispatch(self.repo, "brief.publish", EXECUTIVE_APPROVER, {"brief_id": b})
         self.assertEqual(s, 200)
@@ -111,9 +106,9 @@ class TestEscalation(unittest.TestCase):
         self.assertEqual(ids, {"old"})
         self.assertEqual(found[0]["escalate_to"], escalation.ESCALATE_XO)
 
-    def test_stuck_brief_qa_ready_escalates_to_captain(self):
+    def test_stuck_brief_qa_passed_escalates_to_captain(self):
         old = (self.now - timedelta(hours=90)).isoformat()
-        self.repo.insert_brief({"brief_id": "b1", "approval_status": "QA_READY", "generated_at": old})
+        self.repo.insert_brief({"brief_id": "b1", "approval_status": "QA_PASSED", "generated_at": old})
         self.repo.insert_brief({"brief_id": "b2", "approval_status": "PUBLISHED", "generated_at": old})
         found = escalation.find_stuck_briefs(self.repo, self.now)
         self.assertEqual(len(found), 1)

@@ -375,6 +375,18 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
     else:
         log.warning("[health-check] Supabase unavailable — check-in not persisted")
 
+    if saved:
+        # ADR-024 second-pass audit: 'health_daily_logs' domain_registry row
+        # (migration 0071) has had zero record_heartbeat() calls anywhere in
+        # the repo — never_succeeded in verification_state despite this write
+        # path being live. Non-blocking, never affects check-in delivery.
+        try:
+            sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+            from heartbeat import record_heartbeat
+            record_heartbeat("health_daily_logs", status="ok", detail=f"log_date={today}")
+        except Exception:
+            pass
+
     # ── Build confirmation message ────────────────────────────────────────────
     ns_label = {
         "calm": "Calm",

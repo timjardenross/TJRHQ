@@ -52,19 +52,21 @@ class TestServiceEdges(unittest.TestCase):
         with self.assertRaises(GovernanceError):
             service.verify_event(self.repo, INTELLIGENCE_LEAD, "nope", "Confirmed")
 
-    def test_qa_gate_out_of_order_blocked(self):
+    def test_qa_pass_requires_lead_or_system(self):
         b = self.repo.insert_brief({"period_start": "a", "period_end": "b"})["brief_id"]
-        # factual before data -> illegal brief transition (IN_REVIEW -> FACTUAL_QA_PASSED)
         with self.assertRaises(GovernanceError):
-            service.set_qa_gate(self.repo, INTELLIGENCE_LEAD, b, "factual_qa")
+            service.qa_pass(self.repo, ANALYST, b)
+
+    def test_publish_before_qa_pass_blocked(self):
+        b = self.repo.insert_brief({"period_start": "a", "period_end": "b"})["brief_id"]
+        # IN_REVIEW -> PUBLISHED directly is illegal; QA_PASSED must come first.
+        with self.assertRaises(GovernanceError):
+            service.publish_brief(self.repo, EXECUTIVE_APPROVER, b)
 
     def test_full_qa_sequence(self):
         b = self.repo.insert_brief({"period_start": "a", "period_end": "b"})["brief_id"]
-        service.set_qa_gate(self.repo, "system", b, "data_qa")
-        service.set_qa_gate(self.repo, INTELLIGENCE_LEAD, b, "factual_qa")
-        service.set_qa_gate(self.repo, INTELLIGENCE_LEAD, b, "analytical_qa")
-        out = service.mark_qa_ready(self.repo, INTELLIGENCE_LEAD, b)
-        self.assertEqual(out["approval_status"], "QA_READY")
+        out = service.qa_pass(self.repo, "system", b)
+        self.assertEqual(out["approval_status"], "QA_PASSED")
         pub = service.publish_brief(self.repo, EXECUTIVE_APPROVER, b)
         self.assertEqual(pub["approval_status"], "PUBLISHED")
 

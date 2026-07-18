@@ -111,6 +111,14 @@ def score_for_content(
     if pillar_score == 0:
         return None
 
+    # A signal with no real title has nothing to display or write about —
+    # scoring and persisting it just pushes an empty/placeholder title
+    # downstream to comms_content, where it surfaces as a genuinely useless
+    # draft (2026-07-18 audit found 3 of 12 comms_content rows with
+    # "(no title)" as their literal title). Skip at the source instead.
+    if not (event.get("raw_title") or "").strip():
+        return None
+
     # ── Captain focus ─────────────────────────────────────────────────────────
     text_lower = text.lower()
     focus_keywords = _CAPTAIN_FOCUS_BASE + (active_mission_keywords or [])

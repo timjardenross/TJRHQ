@@ -94,21 +94,21 @@ class TestRunDataQaAgent(unittest.TestCase):
         self.repo = InMemoryRepository()
         self.repo.insert_brief(_good_brief())
 
-    def test_dry_run_never_calls_set_qa_gate(self):
+    def test_dry_run_never_calls_qa_pass(self):
         result = run_data_qa_agent(self.repo, "brf-1", dry_run=True)
         self.assertTrue(result["dry_run"])
         brief = self.repo.get_brief("brf-1")
         self.assertEqual(brief["approval_status"], "IN_REVIEW")
         self.assertEqual(brief.get("approval_audit"), {})
 
-    def test_live_run_advances_a_passing_brief_to_data_qa_passed(self):
+    def test_live_run_advances_a_passing_brief_to_qa_passed(self):
         result = run_data_qa_agent(self.repo, "brf-1", dry_run=False)
         self.assertEqual(result["gate_status"], "passed")
         brief = self.repo.get_brief("brf-1")
-        self.assertEqual(brief["approval_status"], "DATA_QA_PASSED")
-        self.assertEqual(brief["approval_audit"]["data_qa"]["status"], "passed")
-        self.assertEqual(brief["approval_audit"]["data_qa"]["approved_by"], "system")
-        self.assertIn("details", brief["approval_audit"]["data_qa"])
+        self.assertEqual(brief["approval_status"], "QA_PASSED")
+        self.assertEqual(brief["approval_audit"]["qa"]["status"], "passed")
+        self.assertEqual(brief["approval_audit"]["qa"]["approved_by"], "system")
+        self.assertIn("details", brief["approval_audit"]["qa"])
 
     def test_live_run_on_a_red_brief_leaves_it_in_review(self):
         self.repo.insert_brief(_good_brief(brief_id="brf-2", overall_risk="RED"))
@@ -121,14 +121,10 @@ class TestRunDataQaAgent(unittest.TestCase):
         with self.assertRaises(RepositoryError):
             run_data_qa_agent(self.repo, "does-not-exist", dry_run=True)
 
-    def test_only_ever_touches_the_data_qa_gate(self):
+    def test_only_ever_touches_the_qa_gate(self):
         run_data_qa_agent(self.repo, "brf-1", dry_run=False)
         brief = self.repo.get_brief("brf-1")
-        self.assertEqual(set(brief["approval_audit"].keys()), {"data_qa"})
-        # factual_qa/analytical_qa untouched - a passing data_qa run must never
-        # itself grant the human-only gates.
-        self.assertNotIn("factual_qa", brief["approval_audit"])
-        self.assertNotIn("analytical_qa", brief["approval_audit"])
+        self.assertEqual(set(brief["approval_audit"].keys()), {"qa"})
 
 
 class TestRunNightly(unittest.TestCase):

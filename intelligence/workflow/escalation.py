@@ -8,7 +8,7 @@ Captain per the ori officer manifest (requires_xo / requires_captain).
 
 Rules implemented:
   * No signal stuck mid-workflow (SCORED/VERIFYING/VERIFIED/READY_FOR_BRIEF) > 72h.
-  * No brief stuck pre-publication (IN_REVIEW..QA_READY) > 72h.
+  * No brief stuck pre-publication (IN_REVIEW/QA_PASSED) > 72h.
   * Intelligence-Lead-unavailable > 48h -> escalate to backup / XO.
 
 Times are passed in (now, last_lead_activity) so the watchdog is deterministic
@@ -26,10 +26,10 @@ LEAD_UNAVAILABLE_HOURS = 48
 
 # Signal / brief statuses that are "in flight" (not terminal / not published).
 _SIGNAL_IN_FLIGHT = ("SCORED", "VERIFYING", "VERIFIED", "READY_FOR_BRIEF")
-_BRIEF_PRE_PUBLISH = (
-    "IN_REVIEW", "DATA_QA_PASSED", "FACTUAL_QA_PASSED",
-    "ANALYTICAL_QA_PASSED", "QA_READY",
-)
+# 2026-07-18: consolidated from the original 5-state pre-publish ladder
+# (IN_REVIEW/DATA_QA_PASSED/FACTUAL_QA_PASSED/ANALYTICAL_QA_PASSED/QA_READY)
+# down to the 2 states that remain under migration 0084.
+_BRIEF_PRE_PUBLISH = ("IN_REVIEW", "QA_PASSED")
 
 # Where an escalation goes (per governance/authority/ori.yaml).
 ESCALATE_XO = "xo"
@@ -85,9 +85,9 @@ def find_stuck_briefs(repo, now: datetime, hours: int = BRIEF_STUCK_HOURS) -> li
             continue
         age = _age_hours(br.get("generated_at") or br.get("created_at"), now)
         if age is not None and age >= hours:
-            # A brief already QA_READY awaiting the Executive Approver escalates
-            # to the Captain; earlier stalls escalate to the XO.
-            escalate = ESCALATE_CAPTAIN if status == "QA_READY" else ESCALATE_XO
+            # A brief already QA_PASSED awaiting the Executive Approver escalates
+            # to the Captain; earlier stalls (still IN_REVIEW) escalate to the XO.
+            escalate = ESCALATE_CAPTAIN if status == "QA_PASSED" else ESCALATE_XO
             findings.append({
                 "type": "stuck_brief", "brief_id": br.get("brief_id"),
                 "approval_status": status, "age_hours": round(age, 1),

@@ -24,7 +24,6 @@ from intelligence.governance import (
     INTELLIGENCE_LEAD,
     GovernanceError,
     can,
-    check_brief_gates,
     log_mutation,
     require,
     validate_brief_transition,
@@ -42,7 +41,7 @@ class TestRBAC(unittest.TestCase):
 
     def test_intelligence_lead_actions(self):
         for a in ("signal.verify", "signal.select", "brief.curate_watchlist",
-                  "brief.mark_qa_ready", "brief.record_lesson"):
+                  "brief.qa_pass", "brief.record_lesson"):
             self.assertTrue(can(INTELLIGENCE_LEAD, a)[0], a)
         # Lead cannot publish (Executive-only).
         self.assertFalse(can(INTELLIGENCE_LEAD, "brief.publish")[0])
@@ -88,39 +87,14 @@ class TestSignalLifecycle(unittest.TestCase):
 
 class TestBriefApprovalAndGates(unittest.TestCase):
     def test_brief_path(self):
-        path = ["IN_REVIEW", "DATA_QA_PASSED", "FACTUAL_QA_PASSED",
-                "ANALYTICAL_QA_PASSED", "QA_READY", "EXECUTIVE_APPROVED", "PUBLISHED"]
+        # 2026-07-18: consolidated from the original 7-state ladder to 3
+        # (IN_REVIEW -> QA_PASSED -> PUBLISHED) — see workflow_gate.py.
+        path = ["IN_REVIEW", "QA_PASSED", "PUBLISHED"]
         for cur, nxt in zip(path, path[1:]):
             self.assertTrue(validate_brief_transition(cur, nxt)[0], f"{cur}->{nxt}")
 
     def test_cannot_skip_to_published(self):
-        self.assertFalse(validate_brief_transition("QA_READY", "PUBLISHED")[0])
         self.assertFalse(validate_brief_transition("IN_REVIEW", "PUBLISHED")[0])
-
-    def test_gates_all_passed(self):
-        audit = {
-            "data_qa": {"status": "passed"},
-            "factual_qa": {"status": "passed"},
-            "analytical_qa": {"status": "passed"},
-        }
-        ready, missing = check_brief_gates(audit)
-        self.assertTrue(ready)
-        self.assertEqual(missing, [])
-
-    def test_gates_one_pending_blocks(self):
-        audit = {
-            "data_qa": {"status": "passed"},
-            "factual_qa": {"status": "pending"},
-            "analytical_qa": {"status": "passed"},
-        }
-        ready, missing = check_brief_gates(audit)
-        self.assertFalse(ready)
-        self.assertIn("factual_qa", missing)
-
-    def test_gates_empty_blocks(self):
-        ready, missing = check_brief_gates(None)
-        self.assertFalse(ready)
-        self.assertEqual(set(missing), {"data_qa", "factual_qa", "analytical_qa"})
 
 
 class TestMutationAudit(unittest.TestCase):

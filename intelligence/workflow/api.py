@@ -49,12 +49,8 @@ def _h_curate(repo, role, p):
     return service.curate_watchlist(repo, role, p["brief_id"], p["items"])
 
 
-def _h_qa_gate(repo, role, p):
-    return service.set_qa_gate(repo, role, p["brief_id"], p["gate"], p.get("status", "passed"))
-
-
-def _h_mark_qa_ready(repo, role, p):
-    return service.mark_qa_ready(repo, role, p["brief_id"])
+def _h_qa_pass(repo, role, p):
+    return service.qa_pass(repo, role, p["brief_id"], p.get("status", "passed"))
 
 
 def _h_publish(repo, role, p):
@@ -84,8 +80,7 @@ ACTIONS: dict[str, tuple[Callable, tuple[str, ...]]] = {
     "signal.verify":         (_h_verify, ("event_id", "confidence_level")),
     "signal.select":         (_h_select, ("brief_id", "event_ids")),
     "brief.curate_watchlist": (_h_curate, ("brief_id", "items")),
-    "brief.qa_gate":         (_h_qa_gate, ("brief_id", "gate")),
-    "brief.mark_qa_ready":   (_h_mark_qa_ready, ("brief_id",)),
+    "brief.qa_pass":         (_h_qa_pass, ("brief_id",)),
     "brief.publish":         (_h_publish, ("brief_id",)),
     "brief.record_lesson":   (_h_lesson, ("brief_id", "lesson_text")),
     # Phase B crisis-mode actions (Screen 4/5)

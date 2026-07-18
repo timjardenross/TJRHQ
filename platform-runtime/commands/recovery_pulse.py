@@ -294,6 +294,19 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
     else:
         log.warning("[recovery-pulse] Supabase unavailable — pulse not persisted")
 
+    if saved:
+        # ADR-024 second-pass audit: 'recovery_pulses' domain_registry row
+        # (migration 0071) has had zero record_heartbeat() calls across any of
+        # its write paths (Slack, Telegram voice, Telegram structured) — never
+        # _succeeded in verification_state despite being the platform's most
+        # actively-used health logging surface. Non-blocking.
+        try:
+            sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+            from heartbeat import record_heartbeat
+            record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=slack")
+        except Exception:
+            pass
+
     meta = _PULSE_META.get(pulse_type, _PULSE_META["morning"])
     status_icon = ":white_check_mark:" if saved else ":warning:"
     status_line = f"{status_icon} {meta['label']} logged." if saved else f"{status_icon} Received but could not save to database."

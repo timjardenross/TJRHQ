@@ -23,23 +23,31 @@ export async function GET(req: NextRequest) {
     const brief = briefRows?.[0] ?? null;
     if (!brief) return NextResponse.json({ brief: null, signals: [], audit: [] });
 
+    // 2026-07-18: expanded to include canonical_url/published_at/collected_at
+    // and the OR-specific classification columns (operational_relevance,
+    // customer_impact, banking_relevance, cps230_relevance, dependency_risk,
+    // confidence, event_type) — these existed on intelligence_events but were
+    // never selected here, so the signal detail view had nothing to show
+    // beyond title/sector/geography/score even though the data was there.
+    const SIGNAL_COLUMNS =
+      'event_id,raw_title,raw_summary,sector,geography,risk_rating,rank_score,source_tier,' +
+      'score_breakdown,confidence_level,cluster_similarity,analysis_summary,signal_status,' +
+      'canonical_url,published_at,collected_at,event_type,operational_relevance,customer_impact,' +
+      'banking_relevance,cps230_relevance,dependency_risk,confidence';
+
     const ids: string[] = brief.signal_ids ?? [];
     let signals: unknown[] = [];
     if (ids.length) {
       const { data } = await sb
         .from('intelligence_events')
-        .select(
-          'event_id,raw_title,raw_summary,sector,geography,risk_rating,rank_score,source_tier,score_breakdown,confidence_level,cluster_similarity,analysis_summary,signal_status',
-        )
+        .select(SIGNAL_COLUMNS)
         .in('event_id', ids)
         .order('rank_score', { ascending: false });
       signals = data ?? [];
     } else {
       const { data } = await sb
         .from('intelligence_events')
-        .select(
-          'event_id,raw_title,raw_summary,sector,geography,risk_rating,rank_score,source_tier,score_breakdown,confidence_level,cluster_similarity,analysis_summary,signal_status',
-        )
+        .select(SIGNAL_COLUMNS)
         .eq('brief_id', id)
         .order('rank_score', { ascending: false })
         .limit(20);
