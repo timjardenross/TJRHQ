@@ -1,18 +1,12 @@
-// Direct-URL only, deliberately not added to nav.ts or linked from Home.
+// WORKBENCHES IS NOW THE HOME PAGE (after login).
 //
-// docs/EOS-CANONICAL-ARCHITECTURE-DECISIONS.md §5 (Canonical Navigation &
-// Experience Model) found zero of 22 real investigation journeys began by
-// browsing a menu, and explicitly rejects a persistent, browsable sidebar
-// for exactly that reason - a standing link is itself a checking-habit cue.
-// A tile grid of every workbench is the same shape as that rejected menu,
-// so this page follows the one precedent already accepted for this
-// situation instead: comms-workbench/page.tsx's own header comment says
-// it is "Direct-URL only (not yet in nav) per COMMS-UI-REDESIGN-SPEC.md
-// rollout plan" - i.e. an unlisted URL is the sanctioned way to make a
-// build-phase surface reachable without promoting it into the platform's
-// real navigation model. This page is that same pattern applied to "which
-// workbenches exist right now", not a new navigation surface: bookmark the
-// URL, it is not meant to be discovered by browsing.
+// Per MSN-0350/EOS redesign: after authentication, users land on this
+// workbench hub instead of a static Home screen. Every experience is
+// reachable from here as a direct tile, emphasizing choice and deliberate
+// navigation over passive info-pushing.
+//
+// This page replaces the previous Home (HomeScreen) per design decision
+// 2026-07-18. Root redirect now goes to /workbenches instead of /home.
 'use client';
 
 import Link from 'next/link';
@@ -25,6 +19,11 @@ interface Tile {
 }
 
 const TILES: Tile[] = [
+  {
+    href: '/captains-chair-workbench',
+    title: 'Captain\'s Chair',
+    description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
+  },
   {
     href: '/intelligence-workbench',
     title: 'Intelligence Workbench',
@@ -76,10 +75,9 @@ export default function Workbenches() {
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <main className="mx-auto max-w-4xl px-6 py-10">
-        <BackLink href="/home" label="Home" />
-        <h1 className="mb-1 font-serif text-2xl text-wb-ink">Workbenches</h1>
+        <h1 className="mb-1 font-serif text-2xl text-wb-ink">Welcome</h1>
         <p className="mb-8 text-[13px] text-wb-ink2">
-          Direct links to build-phase surfaces not yet in Home&rsquo;s contextual flow.
+          Choose a workbench or surface to navigate to. Every real experience is reachable from here.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           {TILES.map((t) => (

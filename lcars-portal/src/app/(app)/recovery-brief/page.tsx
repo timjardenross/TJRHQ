@@ -150,7 +150,7 @@ export default function RecoveryBriefPage() {
           Live mission load and fleet status are maintained on the Captain&apos;s Chair.
         </p>
         <Link
-          href="/captains-chair"
+          href="/captains-chair-workbench"
           className="mt-2 block text-xs text-command-on hover:opacity-70"
         >
           Full mission detail and fleet status → Captain&apos;s Chair
