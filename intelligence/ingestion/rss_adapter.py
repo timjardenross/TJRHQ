@@ -62,7 +62,15 @@ class RSSAdapter(BaseSourceAdapter):
                 continue
 
             summary = self._get_summary(entry)
-            url = entry.get("link") or entry.get("id") or None
+            # 2026-07-18: confirmed live against OAIC's real feed — some feeds
+            # (e.g. oaic.gov.au/rss) only populate <title> per item, with no
+            # <link>/<guid>/<description> anywhere in the item. raw_summary
+            # genuinely has nothing to recover from in that case, but the
+            # <channel>-level link (feed.feed.link) is a real destination —
+            # falls back through it, then the source registry's own URL,
+            # rather than leaving canonical_url null when a link does exist
+            # one level up.
+            url = entry.get("link") or entry.get("id") or feed.feed.get("link") or self.source.url
             published = self._parse_date(entry)
 
             items.append(self._make_item(
