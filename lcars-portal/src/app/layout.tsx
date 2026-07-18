@@ -2,7 +2,14 @@ import type { Metadata, Viewport } from 'next';
 import { Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
-import { PUBLIC_SITE_DESCRIPTION, PUBLIC_SITE_NAME, PUBLIC_SOCIAL_IMAGE_PATH } from '@/lib/public-site';
+
+// This is the internal ops portal (USS TJR) — deliberately its own brand,
+// not the public marketing site's (@/lib/public-site is for the still-live
+// /login and other publicly-indexable pages only). Previously this file
+// imported PUBLIC_SITE_NAME et al., so every authenticated page (including
+// /home) showed "TJR Mind & Body" in the tab title and favicon.
+const OPS_PORTAL_NAME = 'TJR HQ';
+const OPS_PORTAL_DESCRIPTION = 'USS TJR — Command Centre for missions, intelligence, and recovery operations.';
 
 const sourceSerif = Source_Serif_4({
   subsets: ['latin'],
@@ -14,47 +21,30 @@ const sourceSerif = Source_Serif_4({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: PUBLIC_SITE_NAME,
-    template: `%s | ${PUBLIC_SITE_NAME}`,
+    default: OPS_PORTAL_NAME,
+    template: `%s | ${OPS_PORTAL_NAME}`,
   },
-  applicationName: PUBLIC_SITE_NAME,
-  description: PUBLIC_SITE_DESCRIPTION,
+  applicationName: OPS_PORTAL_NAME,
+  description: OPS_PORTAL_DESCRIPTION,
   authors: [{ name: 'Tim Jarden-Ross' }],
   creator: 'Tim Jarden-Ross',
-  publisher: PUBLIC_SITE_NAME,
-  category: 'Health and wellness education',
+  publisher: OPS_PORTAL_NAME,
+  category: 'Productivity',
   robots: {
     index: false,
     follow: false,
   },
   openGraph: {
-    title: PUBLIC_SITE_NAME,
-    description: PUBLIC_SITE_DESCRIPTION,
+    title: OPS_PORTAL_NAME,
+    description: OPS_PORTAL_DESCRIPTION,
     url: SITE_URL,
-    siteName: PUBLIC_SITE_NAME,
+    siteName: OPS_PORTAL_NAME,
     type: 'website',
-    images: [
-      {
-        url: PUBLIC_SOCIAL_IMAGE_PATH,
-        width: 1200,
-        height: 630,
-        alt: 'TJR Mind & Body social sharing image',
-      },
-    ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: PUBLIC_SITE_NAME,
-    description: PUBLIC_SITE_DESCRIPTION,
-    images: [PUBLIC_SOCIAL_IMAGE_PATH],
-  },
-  icons: {
-    icon: [
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    shortcut: [{ url: '/icon-192.png', type: 'image/png' }],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    card: 'summary',
+    title: OPS_PORTAL_NAME,
+    description: OPS_PORTAL_DESCRIPTION,
   },
 };
 
