@@ -35,7 +35,7 @@ export function BatchTriageBar({
         Batch Decide ({checkedIds.size} selected)
       </h3>
       {flash && (
-        <div className={`mb-2 rounded border px-3 py-2 text-xs ${flash.ok ? 'border-status/40 bg-status/10 text-status' : 'border-wb-crit/40 bg-operations/10 text-wb-crit-on'}`}>
+        <div className={`mb-2 rounded border px-3 py-2 text-xs ${flash.ok ? 'border-wb-ok/40 bg-wb-ok/10 text-wb-ok-on' : 'border-wb-crit/40 bg-wb-crit/10 text-wb-crit-on'}`}>
           {flash.msg}
         </div>
       )}
@@ -52,7 +52,7 @@ export function BatchTriageBar({
             <button
               disabled={!batchReasonDraft.trim() || batchActing}
               onClick={() => batchDecide(batchReasonFor, batchReasonDraft.trim())}
-              className="flex-1 rounded border border-wb-crit/60 bg-operations/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-operations/20 disabled:opacity-40 transition-colors"
+              className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 disabled:opacity-40 transition-colors"
             >
               {batchActing ? 'Working…' : `Confirm ${DECISION_LABELS[batchReasonFor]}`}
             </button>
@@ -75,14 +75,14 @@ export function BatchTriageBar({
           <button
             disabled={batchActing}
             onClick={() => batchDecide('approved_chunks')}
-            className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
           >
             {batchActing ? 'Working…' : 'Approve'}
           </button>
           <button
             disabled={batchActing}
             onClick={() => batchDecide('approved_metadata')}
-            className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
           >
             {DECISION_LABELS.approved_metadata}
           </button>
@@ -90,14 +90,14 @@ export function BatchTriageBar({
             <button
               disabled={batchActing}
               onClick={() => setBatchReasonFor('needs_review')}
-              className="flex-1 rounded border border-command/40 bg-command/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-command hover:bg-command/10 disabled:opacity-40 transition-colors"
+              className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 disabled:opacity-40 transition-colors"
             >
               Needs Review
             </button>
             <button
               disabled={batchActing}
               onClick={() => setBatchReasonFor('rejected')}
-              className="flex-1 rounded border border-wb-crit/40 bg-operations/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-operations/10 disabled:opacity-40 transition-colors"
+              className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 disabled:opacity-40 transition-colors"
             >
               Reject
             </button>

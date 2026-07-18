@@ -9,11 +9,15 @@
 
 import { Suspense, useCallback, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { MemoryView } from './_components/MemoryView';
 import { LibraryView } from './_components/LibraryView';
 import type { Domain } from './_components/types';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'memory', label: 'Memory' },
+  { key: 'library', label: 'Library' },
+];
 
 const EYEBROW: Record<Domain, string> = {
   memory: 'Command Memory',
@@ -38,7 +42,7 @@ function Workbench() {
     router.replace(`/knowledge-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = <DomainToggle domain={domain} onChange={changeDomain} />;
+  const right = <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Knowledge domain" />;
 
   return (
     <WorkbenchShell title="Knowledge Workbench" eyebrow={EYEBROW[domain]}

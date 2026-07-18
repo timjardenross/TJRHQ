@@ -18,12 +18,16 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { BriefView } from './_components/BriefView';
 import { DomainsView } from './_components/DomainsView';
 import { EYEBROW, isDomain, type CaptainBriefDocument, type Domain } from './_components/types';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'brief', label: 'Brief' },
+  { key: 'domains', label: 'Domains' },
+];
 
 function Workbench() {
   const router = useRouter();
@@ -85,7 +89,7 @@ function Workbench() {
       >
         {loading ? 'Refreshing…' : '↻ Refresh'}
       </button>
-      <DomainToggle domain={domain} onChange={changeDomain} />
+      <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Captain’s Brief view" />
     </div>
   );
 

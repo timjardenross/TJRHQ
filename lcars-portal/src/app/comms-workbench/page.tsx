@@ -9,13 +9,17 @@
  */
 
 import { useState } from 'react';
-import { Tabs } from '@/components/ui';
-import { WorkbenchShell } from '@/components/ui';
-import { DomainToggle } from './_components/DomainToggle';
+import { Tabs, WorkbenchShell, DomainToggle } from '@/components/ui';
 import { SignalsTab } from './_components/SignalsTab';
 import { PipelineTab } from './_components/PipelineTab';
 import { PortfolioTab } from './_components/PortfolioTab';
 import type { Domain } from './_components/shared';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'both', label: 'Both' },
+  { key: 'health', label: 'Health' },
+  { key: 'operational', label: 'Operational' },
+];
 
 type Tab = 'signals' | 'pipeline' | 'portfolio';
 
@@ -42,7 +46,7 @@ export default function CommsWorkbenchPage() {
       homeHref="/comms-workbench"
       homeAriaLabel="Communications Workbench home"
       tagline="USS TJR · Communications · Signals to opportunities, pipeline, and portfolio"
-      right={<DomainToggle domain={domain} onChange={setDomain} />}
+      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Filter by domain" />}
     >
       <Tabs tabs={TABS} active={tab} onChange={selectTab} ariaLabel="Communications Workbench sections" />
 

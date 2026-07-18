@@ -4,7 +4,7 @@
 // Supports both Operational Signals (Phase A) and Health Intelligence modes.
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
+import { Card, RiskPill, WorkbenchShell, DomainToggle } from '@/components/ui';
 import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
 import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
@@ -78,32 +78,14 @@ type HealthPayload = {
 
 type Payload = OperationalPayload | HealthPayload;
 
-function DomainToggle({ domain, onChange }: { domain: Domain; onChange: (d: Domain) => void }) {
-  return (
-    <div className="flex gap-1 rounded-md border border-wb-line bg-wb-surface px-1.5 py-1">
-      <button
-        onClick={() => onChange('operational')}
-        className={`rounded px-3 py-1.5 text-[13px] font-medium transition ${
-          domain === 'operational'
-            ? 'bg-wb-sage-deep text-white'
-            : 'text-wb-ink2 hover:bg-wb-line'
-        }`}
-      >
-        Operational Signals
-      </button>
-      <button
-        onClick={() => onChange('health')}
-        className={`rounded px-3 py-1.5 text-[13px] font-medium transition ${
-          domain === 'health'
-            ? 'bg-wb-sage-deep text-white'
-            : 'text-wb-ink2 hover:bg-wb-line'
-        }`}
-      >
-        Health Intelligence
-      </button>
-    </div>
-  );
-}
+// Local inline toggle removed (WORKBENCH-REVIEW.md H9/H12, 2026-07-18) - it
+// had no role/aria-selected/keyboard handling at all, the least accessible
+// of every *-workbench domain toggle. Replaced with the shared, properly
+// keyboard-navigable DomainToggle from @/components/ui.
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'operational', label: 'Operational Signals' },
+  { key: 'health', label: 'Health Intelligence' },
+];
 
 function SourceArticleCard({ article }: { article: SourceArticle }) {
   return (
@@ -209,7 +191,7 @@ export default function Overview() {
       eyebrow={eyebrow}
       homeHref="/intelligence-workbench"
       tagline="USS TJR · Operational Resilience Intelligence · Phase B"
-      right={<DomainToggle domain={domain} onChange={setDomain} />}
+      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Intelligence domain" />}
     >
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">

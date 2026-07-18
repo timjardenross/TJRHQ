@@ -405,7 +405,7 @@ function LibraryViewInner() {
                     <button
                       onClick={() => setSelectedId(doc.id)}
                       className={`w-full rounded border p-3 text-left transition-colors ${
-                        selectedId === doc.id ? 'border-wb-sage-deep bg-science/10' : 'border-wb-line bg-wb-surface-2/60 hover:border-wb-sage-deep/40'
+                        selectedId === doc.id ? 'border-wb-sage-deep bg-wb-sage/10' : 'border-wb-line bg-wb-surface-2/60 hover:border-wb-sage-deep/40'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">

@@ -14,8 +14,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { CaptureView } from './_components/CaptureView';
 import { InboxView } from './_components/InboxView';
@@ -79,7 +78,15 @@ function Workbench() {
       <span className="hidden text-[11px] text-wb-ink2 sm:inline">
         {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
       </span>
-      <DomainToggle domain={domain} onChange={changeDomain} pendingCount={stats?.pending} />
+      <DomainToggle
+        value={domain}
+        onChange={changeDomain}
+        ariaLabel="Capture domain"
+        options={[
+          { key: 'capture' as const, label: 'Capture' },
+          { key: 'inbox' as const, label: 'Inbox', badge: stats?.pending },
+        ]}
+      />
     </div>
   );
 

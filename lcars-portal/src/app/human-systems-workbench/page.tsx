@@ -11,8 +11,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { RecoveryView } from './_components/RecoveryView';
 import { MedicalView } from './_components/MedicalView';
@@ -25,6 +24,12 @@ const EYEBROW: Record<Domain, string> = {
   medical: 'Health Tracking',
   readiness: 'Fitness Readiness',
 };
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'recovery', label: 'Recovery' },
+  { key: 'medical', label: 'Medical' },
+  { key: 'readiness', label: 'Readiness' },
+];
 
 function isDomain(v: string | null): v is Domain {
   return v === 'recovery' || v === 'medical' || v === 'readiness';
@@ -89,7 +94,7 @@ function Workbench() {
       <span className="hidden text-[11px] text-wb-ink2 sm:inline">
         {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
       </span>
-      <DomainToggle domain={domain} onChange={changeDomain} />
+      <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />
     </div>
   );
 
