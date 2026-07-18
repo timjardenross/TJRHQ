@@ -27,6 +27,7 @@ type Signal = {
   risk_rating: string | null;
   rank_score: number | null;
   source_tier: number | null;
+  canonical_url: string | null;
 };
 
 type SourceArticle = {
@@ -253,16 +254,33 @@ export default function Overview() {
             ) : (operationalData.hotSignals.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No signals in the last 7 days.</p>
             ) : (
-              operationalData.hotSignals.map((s) => (
-                <div key={s.event_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
-                  <RiskPill value={s.risk_rating} />
-                  <span className="flex-1">{s.raw_title}</span>
-                  <span className="text-[11px] text-wb-ink2">
-                    {s.source_tier ? `Tier ${s.source_tier}` : '—'} · {s.sector ?? '—'}
-                  </span>
-                  <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}</span>
-                </div>
-              ))
+              operationalData.hotSignals.map((s) => {
+                const row = (
+                  <>
+                    <RiskPill value={s.risk_rating} />
+                    <span className="flex-1">{s.raw_title}</span>
+                    <span className="text-[11px] text-wb-ink2">
+                      {s.source_tier ? `Tier ${s.source_tier}` : '—'} · {s.sector ?? '—'}
+                    </span>
+                    <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}</span>
+                  </>
+                );
+                return s.canonical_url ? (
+                  <a
+                    key={s.event_id}
+                    href={s.canonical_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0 transition hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+                  >
+                    {row}
+                  </a>
+                ) : (
+                  <div key={s.event_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
+                    {row}
+                  </div>
+                );
+              })
             )}
           </Card>
         </>
