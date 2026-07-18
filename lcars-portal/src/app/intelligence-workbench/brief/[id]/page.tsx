@@ -218,7 +218,13 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                   </span>
                 </div>
 
-                {openSignal.raw_summary && <p className="text-wb-ink">{openSignal.raw_summary}</p>}
+                {openSignal.raw_summary ? (
+                  <p className="text-wb-ink">{openSignal.raw_summary}</p>
+                ) : (
+                  <p className="text-[12px] italic text-wb-ink2">
+                    Source provides title only — no summary available.
+                  </p>
+                )}
                 {openSignal.analysis_summary && (
                   <p className="rounded-md bg-wb-line/30 p-2.5 text-[12.5px] text-wb-ink2">
                     {openSignal.analysis_summary}
