@@ -15,6 +15,8 @@ import { Modal } from '../Modal';
 import { Input, Textarea, Select, Checkbox } from '../Input';
 import { ProgressBar, ProgressSteps } from '../Progress';
 import { Tabs } from '../Navigation';
+import { WorkbenchShell } from '../WorkbenchShell';
+import { DomainToggle } from '../DomainToggle';
 
 declare module 'vitest' {
   // eslint-disable-next-line
@@ -53,6 +55,21 @@ function TabsHarness() {
       active={active}
       onChange={setActive}
       ariaLabel="Test sections"
+    />
+  );
+}
+
+function DomainToggleHarness() {
+  const [value, setValue] = useState<'intel' | 'capture'>('intel');
+  return (
+    <DomainToggle
+      value={value}
+      onChange={setValue}
+      ariaLabel="Test domains"
+      options={[
+        { key: 'intel', label: 'Intelligence' },
+        { key: 'capture', label: 'Capture', badge: 3 },
+      ]}
     />
   );
 }
@@ -109,6 +126,25 @@ describe('TJR Design System — component accessibility (axe-core, jsdom)', () =
 
   it('Tabs and BackLink have no axe violations', async () => {
     const { container } = render(<TabsHarness />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('WorkbenchShell has no axe violations', async () => {
+    const { container } = render(
+      <WorkbenchShell
+        title="Test Workbench"
+        homeHref="/test-workbench"
+        tagline="USS TJR · Test tagline"
+        back={{ href: '/test-workbench', label: 'Back to Workbench' }}
+      >
+        <p>Body content</p>
+      </WorkbenchShell>
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it('DomainToggle has no axe violations', async () => {
+    const { container } = render(<DomainToggleHarness />);
     expect(await axe(container)).toHaveNoViolations();
   });
 });

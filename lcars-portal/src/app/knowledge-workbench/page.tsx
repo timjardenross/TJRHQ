@@ -9,11 +9,15 @@
 
 import { Suspense, useCallback, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { MemoryView } from './_components/MemoryView';
 import { LibraryView } from './_components/LibraryView';
 import type { Domain } from './_components/types';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'memory', label: 'Memory' },
+  { key: 'library', label: 'Library' },
+];
 
 const EYEBROW: Record<Domain, string> = {
   memory: 'Command Memory',
@@ -38,13 +42,16 @@ function Workbench() {
     router.replace(`/knowledge-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = <DomainToggle domain={domain} onChange={changeDomain} />;
+  const right = <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Knowledge domain" />;
 
   return (
-    <Shell title="Knowledge Workbench" eyebrow={EYEBROW[domain]} right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+    <WorkbenchShell title="Knowledge Workbench" eyebrow={EYEBROW[domain]}
+      homeHref="/knowledge-workbench"
+      tagline="USS TJR · Knowledge · Memory · Library · Organisational decisions and personal documents"
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       {domain === 'memory' && <MemoryView />}
       {domain === 'library' && <LibraryView />}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

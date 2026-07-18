@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Badge } from '@/components/ui';
+import { WorkbenchShell, Card, Badge } from '@/components/ui';
 import type { BadgeStatus } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { youtubeSearchUrl, type ExerciseRow } from '@/lib/physical-readiness';
@@ -40,21 +39,23 @@ export default function ExerciseLibraryPage() {
   const shellProps = {
     title: 'Exercise Library',
     eyebrow: 'Fitness Readiness',
+    homeHref: '/human-systems-workbench',
+    tagline: 'USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic',
     back: { href: '/human-systems-workbench?domain=readiness', label: 'Readiness' },
   } as const;
 
   if (loading) {
     return (
-      <Shell {...shellProps}>
+      <WorkbenchShell {...shellProps}>
         <p className="p-6 text-center text-[13px] text-wb-ink2">Loading exercise library…</p>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   const groups = groupByEquipment(exercises);
 
   return (
-    <Shell {...shellProps}>
+    <WorkbenchShell {...shellProps}>
       <div className="flex flex-col gap-4">
         <Card title="Exercise Library">
           <p className="mb-3 text-[12px] uppercase tracking-wide text-wb-ink2">{exercises.length} exercises</p>
@@ -115,6 +116,6 @@ export default function ExerciseLibraryPage() {
           </Card>
         ))}
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

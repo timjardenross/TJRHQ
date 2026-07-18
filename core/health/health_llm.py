@@ -2,8 +2,10 @@
 Health Intelligence LLM Provider — Sprint A
 
 Single-call LLM provider for personal health synthesis narrative.
-Uses the same provider-chain pattern as OR Intelligence (intelligence/brief/llm_provider.py)
-but is a standalone module requiring no intelligence/ package imports.
+Uses the same provider-chain pattern as OR Intelligence (intelligence/brief/llm_provider.py).
+Both share request/response mechanics via core/llm/provider_chain.py (ADR-024);
+this module owns none of the intelligence/ package's domain logic (source
+registry, classification, workflow gate) and imports nothing from it.
 
 Provider order:
   1. Gemini 2.5 Flash   (cloud — if GEMINI_API_KEY set)
@@ -25,10 +27,10 @@ import json
 import logging
 import os
 import re
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Optional
+
+from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
 log = logging.getLogger(__name__)
 
@@ -109,70 +111,23 @@ class HealthLLMProvider:
         return None, None
 
     def _gemini(self, prompt: str) -> Optional[str]:
-        if not _GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY not set")
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.5-flash:generateContent?key={_GEMINI_API_KEY}"
+        return call_gemini(
+            _SYSTEM_PROMPT, prompt,
+            api_key=_GEMINI_API_KEY, max_output_tokens=1024, temperature=0.3, timeout=30,
         )
-        body = json.dumps({
-            "system_instruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.3},
-        }).encode()
-        req = urllib.request.Request(
-            url, data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise RuntimeError("Gemini returned no candidates")
-        return candidates[0]["content"]["parts"][0]["text"].strip()
 
     def _mistral(self, prompt: str) -> Optional[str]:
-        if not _MISTRAL_API_KEY:
-            raise RuntimeError("MISTRAL_API_KEY not set")
-        body = json.dumps({
-            "model": "mistral-small-latest",
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": prompt},
-            ],
-            "max_tokens": 1024,
-            "temperature": 0.3,
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.mistral.ai/v1/chat/completions",
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {_MISTRAL_API_KEY}",
-            },
-            method="POST",
+        return call_mistral(
+            _SYSTEM_PROMPT, prompt,
+            api_key=_MISTRAL_API_KEY, max_tokens=1024, temperature=0.3, timeout=30,
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-        return data["choices"][0]["message"]["content"].strip()
 
     def _ollama(self, prompt: str) -> Optional[str]:
-        body = json.dumps({
-            "model": _OLLAMA_MODEL,
-            "prompt": f"{_SYSTEM_PROMPT}\n\n{prompt}",
-            "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 800},
-        }).encode()
-        req = urllib.request.Request(
-            f"{_OLLAMA_BASE_URL}/api/generate",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        return call_ollama(
+            _SYSTEM_PROMPT, prompt,
+            base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL,
+            temperature=0.3, num_predict=800, timeout=60,
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
-        return data.get("response", "").strip()
 
 
 def parse_llm_narrative(raw: str) -> Optional[dict]:

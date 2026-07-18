@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Badge } from '@/components/ui';
+import { WorkbenchShell, Card, Badge } from '@/components/ui';
 import type { BadgeStatus } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { SESSION_TYPE_LABELS, type SessionType } from '@/lib/physical-readiness';
@@ -80,14 +79,16 @@ export default function WorkoutHistoryPage() {
   const shellProps = {
     title: 'Workout History',
     eyebrow: 'Fitness Readiness',
+    homeHref: '/human-systems-workbench',
+    tagline: 'USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic',
     back: { href: '/human-systems-workbench?domain=readiness', label: 'Readiness' },
   } as const;
 
   if (loading) {
     return (
-      <Shell {...shellProps}>
+      <WorkbenchShell {...shellProps}>
         <p className="p-6 text-center text-[13px] text-wb-ink2">Loading history…</p>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
@@ -180,7 +181,7 @@ export default function WorkoutHistoryPage() {
   const durationInsight = bucketRanked.length ? `You are most consistent with ${bucketRanked[0].minutes}-minute sessions (highest completion rate).` : null;
 
   return (
-    <Shell {...shellProps}>
+    <WorkbenchShell {...shellProps}>
       <div className="flex flex-col gap-4">
         <Card title="Workout History">
           <p className="mb-3 text-[12px] uppercase tracking-wide text-wb-ink2">
@@ -284,6 +285,6 @@ export default function WorkoutHistoryPage() {
           </ul>
         </Card>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

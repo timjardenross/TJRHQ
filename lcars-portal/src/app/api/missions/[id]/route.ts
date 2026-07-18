@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
 
 // MSN-0305: governed, audited status update — replaces the Mission Detail
@@ -19,6 +20,15 @@ export async function PATCH(
     return NextResponse.json({ error: 'Mission ID required' }, { status: 400 });
   }
 
+  // See api/missions/[id]/approve/route.ts's own comment (WORKBENCH-REVIEW.md
+  // H2) - actor must come from the real session, not a client-supplied
+  // body field.
+  const session = await requireSession();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const owner = session.user.email;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -28,7 +38,6 @@ export async function PATCH(
 
   const status = typeof body.status === 'string' ? body.status.trim() : '';
   const notes  = typeof body.notes  === 'string' ? body.notes.trim()  : undefined;
-  const owner  = typeof body.owner  === 'string' ? body.owner.trim()  : 'Captain';
   const source = typeof body.source === 'string' ? body.source.trim() : 'lcars-portal:mission-detail';
 
   if (!status) {
@@ -41,8 +50,11 @@ export async function PATCH(
     const { data: mission, error: fetchErr } = await supabase
       .from('missions')
       .select('mission_id, title, status')
-      .ilike('mission_id', `%${id}%`)
-      .limit(1)
+      // Exact match, not substring (WORKBENCH-REVIEW.md H3, 2026-07-18):
+      // .ilike('%'+id+'%') meant `MSN-1` matched `MSN-10`/`MSN-100` too,
+      // with .limit(1) silently picking whichever sorted first. Every real
+      // caller already passes the full canonical mission_id.
+      .eq('mission_id', id)
       .maybeSingle();
 
     if (fetchErr) throw fetchErr;
@@ -66,14 +78,25 @@ export async function PATCH(
     // Audit record — same mission_state_transitions table the governed
     // approve/reject/submit routes already write to. Non-blocking, but the
     // mission write above is server-side (not a browser-direct table
-    // write), which is the actual governance fix.
-    void (async () => { try { await supabase.from('mission_state_transitions').insert({
-      mission_id: mission.mission_id,
-      from_state: prevStatus,
-      to_state:   status,
-      actor:      owner,
-      evidence:   JSON.stringify({ action: 'status_update', notes: notes ?? null, source }),
-    }); } catch { /* non-fatal */ } })();
+    // write), which is the actual governance fix. Service-role client: see
+    // approve/route.ts's comment for the full 3-week-silent-failure finding
+    // (2026-07-18) - the SSR client is denied by mission_state_transitions'
+    // own RLS (enabled, zero anon/authenticated policies).
+    void (async () => {
+      try {
+        const svc = createSupabaseServiceRoleClient();
+        const { error } = await svc.from('mission_state_transitions').insert({
+          mission_id: mission.mission_id,
+          from_state: prevStatus,
+          to_state:   status,
+          actor:      owner,
+          evidence:   JSON.stringify({ action: 'status_update', notes: notes ?? null, source }),
+        });
+        if (error) console.error('[missions/[id] PATCH] audit insert failed:', error.message);
+      } catch (err) {
+        console.error('[missions/[id] PATCH] audit insert failed:', err);
+      }
+    })();
 
     // MSN-0328 Wave 2: canonical Captain Brief pipeline event — see lib/core-events.ts.
     // Service-role wrapper: core_events RLS denies the anon/SSR `supabase`
@@ -111,8 +134,11 @@ export async function GET(
     const { data, error } = await supabase
       .from('missions')
       .select('*')
-      .ilike('mission_id', `%${id}%`)
-      .limit(1)
+      // Exact match, not substring (WORKBENCH-REVIEW.md H3, 2026-07-18):
+      // .ilike('%'+id+'%') meant `MSN-1` matched `MSN-10`/`MSN-100` too,
+      // with .limit(1) silently picking whichever sorted first. Every real
+      // caller already passes the full canonical mission_id.
+      .eq('mission_id', id)
       .maybeSingle();
 
     if (error) throw error;

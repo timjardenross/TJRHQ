@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Button, Input, Textarea } from '@/components/ui';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { WorkbenchShell, Card, Button, Input, Textarea } from '@/components/ui';
 
 type ActivityType = 'walk' | 'swim' | 'physio' | 'stretch' | 'strength' | 'cycle' | 'yoga' | 'other';
 type Intensity    = 'light' | 'moderate' | 'vigorous';
@@ -57,9 +55,13 @@ export default function LogActivityPage() {
     if (notes)     payload.notes              = notes;
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: dbErr } = await supabase.from('activity_logs').insert(payload);
-      if (dbErr) throw new Error(dbErr.message);
+      const res = await fetch('/api/human-systems/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(resBody.error ?? 'Failed to save activity.');
       setSaved(true);
       setTimeout(() => router.push('/human-systems-workbench?domain=medical'), 1500);
     } catch (err) {
@@ -71,7 +73,7 @@ export default function LogActivityPage() {
 
   if (saved) {
     return (
-      <Shell title="Log Activity" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+      <WorkbenchShell title="Log Activity" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span aria-hidden className="text-2xl text-wb-ok-on">✓</span>
@@ -79,12 +81,12 @@ export default function LogActivityPage() {
           <p className="font-serif text-lg font-bold text-wb-ok-on">Activity logged</p>
           <p className="text-sm text-wb-ink2">Returning to Medical…</p>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   return (
-    <Shell title="Log Activity" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+    <WorkbenchShell title="Log Activity" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
       <div className="flex flex-col gap-4">
         <Card title={today}>
           <p className="text-xs leading-relaxed text-wb-ink2">
@@ -184,6 +186,6 @@ export default function LogActivityPage() {
           {saving ? 'Logging activity…' : 'Log Activity'}
         </Button>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

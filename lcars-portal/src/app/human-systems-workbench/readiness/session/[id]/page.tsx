@@ -3,8 +3,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Badge, Button, Input } from '@/components/ui';
+import { WorkbenchShell, Card, Badge, Button, Input } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   makeEasier,
@@ -216,21 +215,24 @@ export default function WorkoutRunnerPage() {
 
   async function logCurrentStep(skipped: boolean) {
     if (!currentStep || !sessionRow) return;
-    const supabase = createSupabaseBrowserClient();
     const isTimed = TIMED_PATTERNS.has(currentStep.plan.exercise.movement_pattern);
-    await supabase.from('physical_workout_exercise_logs').insert({
-      workout_session_id: sessionRow.id,
-      exercise_id: currentStep.plan.exercise.id,
-      planned_sets: currentStep.plan.sets,
-      planned_reps: currentStep.plan.reps,
-      completed_sets: skipped ? 0 : isTimed ? 1 : Number(setsCompleted) || 0,
-      completed_reps: skipped ? 0 : isTimed ? 0 : Number(repsCompleted) || 0,
-      weight_used: skipped ? null : weightUsed || null,
-      effort_score: skipped ? null : effortScore,
-      pain_during: skipped ? null : painDuring,
-      skipped,
-      skip_reason: skipped ? stepNotes || 'Not specified' : null,
-      notes: skipped ? null : stepNotes || null,
+    await fetch('/api/human-systems/readiness/exercise-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workout_session_id: sessionRow.id,
+        exercise_id: currentStep.plan.exercise.id,
+        planned_sets: currentStep.plan.sets,
+        planned_reps: currentStep.plan.reps,
+        completed_sets: skipped ? 0 : isTimed ? 1 : Number(setsCompleted) || 0,
+        completed_reps: skipped ? 0 : isTimed ? 0 : Number(repsCompleted) || 0,
+        weight_used: skipped ? null : weightUsed || null,
+        effort_score: skipped ? null : effortScore,
+        pain_during: skipped ? null : painDuring,
+        skipped,
+        skip_reason: skipped ? stepNotes || 'Not specified' : null,
+        notes: skipped ? null : stepNotes || null,
+      }),
     });
     if (skipped) setSkippedCount((c) => c + 1);
     else setCompletedCount((c) => c + 1);
@@ -264,7 +266,6 @@ export default function WorkoutRunnerPage() {
   async function handleSubmitCompletion() {
     if (!sessionRow) return;
     setSaving(true);
-    const supabase = createSupabaseBrowserClient();
     const startedAtMs = new Date(sessionRow.started_at).getTime();
     const durationMinutes = Math.max(1, Math.round((Date.now() - startedAtMs) / 60000));
     const totalSteps = steps.length;
@@ -277,9 +278,10 @@ export default function WorkoutRunnerPage() {
         ? 'partially_completed'
         : 'completed';
 
-    await supabase
-      .from('physical_workout_sessions')
-      .update({
+    await fetch(`/api/human-systems/readiness/session/${sessionRow.id}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         status,
         completed_at: new Date().toISOString(),
         duration_minutes: durationMinutes,
@@ -287,8 +289,8 @@ export default function WorkoutRunnerPage() {
         pain_after_json: { back_pain: painAfterBack, general_pain: painAfterGeneral },
         mood_after: moodAfter || null,
         notes: completionNotes || null,
-      })
-      .eq('id', sessionRow.id);
+      }),
+    });
 
     // core_events has RLS with no anon/authenticated policies (service_role
     // only) — must go through a server route, not the browser client.
@@ -328,14 +330,14 @@ export default function WorkoutRunnerPage() {
 
   if (loading) {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <p className="p-6 text-center text-sm text-wb-ink2">Loading session…</p>
-      </Shell>
+      </WorkbenchShell>
     );
   }
   if (error || !plan || !sessionRow) {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-3">
           <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 px-4 py-3 text-sm text-wb-crit-on">
             {error ?? 'Session could not be loaded.'}
@@ -344,13 +346,13 @@ export default function WorkoutRunnerPage() {
             Back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'done') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span className="font-serif text-2xl text-wb-ok-on">✓</span>
@@ -363,13 +365,13 @@ export default function WorkoutRunnerPage() {
             Back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'completion') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title="Finishing Up">
             <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-wb-ink2">{SESSION_TYPE_LABELS[plan.sessionType]}</p>
@@ -451,13 +453,13 @@ export default function WorkoutRunnerPage() {
             {saving ? 'Saving…' : 'Finish & Log Session'}
           </Button>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'overview') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title={SESSION_TYPE_LABELS[plan.sessionType]}>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -512,7 +514,7 @@ export default function WorkoutRunnerPage() {
             Not now — back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
@@ -523,7 +525,7 @@ export default function WorkoutRunnerPage() {
   const videoUrl = ex.preferred_video_url || youtubeSearchUrl(ex.video_search_query);
 
   return (
-    <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+    <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
@@ -631,6 +633,6 @@ export default function WorkoutRunnerPage() {
           </button>
         </div>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

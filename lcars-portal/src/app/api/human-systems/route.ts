@@ -348,6 +348,7 @@ export async function GET(req: NextRequest) {
     if (domain === 'readiness') return NextResponse.json(await buildReadiness(sb, ctx, kpis));
     return NextResponse.json(await buildRecovery(sb, ctx, kpis));
   } catch (err) {
-    return NextResponse.json({ error: 'human_systems_read_failed', detail: String(err), domain }, { status: 200 });
+    console.error('[human-systems] read failed:', err);
+    return NextResponse.json({ error: 'human_systems_read_failed', domain }, { status: 500 });
   }
 }

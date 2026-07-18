@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/supabase-server';
 
 const CC_API = (process.env.COMMAND_CENTRE_API_URL ?? 'http://localhost:5050/api/v1').replace(/\/$/, '');
 const CC_SECRET = process.env.COMMAND_CENTRE_API_SECRET ?? '';
@@ -23,6 +24,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = params;
   const url = req.nextUrl;
   const action = url.searchParams.get('action') ?? url.pathname.split('/').pop();
@@ -42,12 +48,18 @@ export async function POST(
       method: 'POST',
       headers: ccHeaders(),
       body: body || undefined,
+      // A hung Command Centre backend previously hung this request (and the
+      // UI) indefinitely - no timeout existed at all (WORKBENCH-REVIEW.md
+      // Medium finding, 2026-07-18). 15s matches captain-brief/route.ts's
+      // own convention for proxying to a live backend service.
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await upstream.json();
     return NextResponse.json(data, { status: upstream.status });
   } catch (err) {
+    console.error('[capture proxy] POST failed:', err);
     return NextResponse.json(
-      { ok: false, error: 'Command Centre unreachable', detail: String(err) },
+      { ok: false, error: 'Command Centre unreachable' },
       { status: 502 },
     );
   }
@@ -58,6 +70,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = params;
   try {
     const body = await req.text();
@@ -65,12 +82,14 @@ export async function PATCH(
       method: 'PATCH',
       headers: ccHeaders(),
       body,
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await upstream.json();
     return NextResponse.json(data, { status: upstream.status });
   } catch (err) {
+    console.error('[capture proxy] PATCH failed:', err);
     return NextResponse.json(
-      { ok: false, error: 'Command Centre unreachable', detail: String(err) },
+      { ok: false, error: 'Command Centre unreachable' },
       { status: 502 },
     );
   }

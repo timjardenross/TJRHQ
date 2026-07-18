@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
 
@@ -36,6 +36,17 @@ export async function POST(
     return NextResponse.json({ error: 'Document ID required' }, { status: 400 });
   }
 
+  // decided_by must come from the real session, not a client-supplied body
+  // field (WORKBENCH-REVIEW.md Medium finding, 2026-07-18: any bot-secret
+  // holder could set it). RLS on processing_documents.UPDATE already
+  // requires `authenticated`, so this doesn't newly restrict who can
+  // decide - it makes the record of who did trustworthy.
+  const session = await requireSession();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const decidedBy = session.user.email;
+
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* empty body — decision is still required below */ }
 
@@ -47,7 +58,6 @@ export async function POST(
     );
   }
   const reason = typeof body.reason === 'string' ? body.reason.trim() : null;
-  const decidedBy = typeof body.decided_by === 'string' && body.decided_by.trim() ? body.decided_by.trim() : 'Captain';
 
   try {
     const supabase = await createSupabaseServerClient();

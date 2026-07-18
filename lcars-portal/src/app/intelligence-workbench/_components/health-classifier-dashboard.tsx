@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Card, RiskPill } from './Shell';
+import { Card, RiskPill } from '@/components/ui';
 
 type ClassifierValidation =
   | { status: 'no_data'; message: string }
@@ -48,6 +48,18 @@ export function ClassifierValidationCard() {
       try {
         const res = await fetch('/api/health-classifier?action=validate');
         const data = await res.json();
+        // A crash bug (2026-07-18): the route's error responses are
+        // {error: string} with no `status` field at all - falling through
+        // both the !validation and status==='no_data' checks below straight
+        // into the 'success' render path, which then reads
+        // validation.scored_signals.length on an object that never had that
+        // field, throwing "Cannot read properties of undefined". res.ok must
+        // be checked before trusting the body shape.
+        if (!res.ok || 'error' in data) {
+          console.error('Failed to fetch classifier validation:', data?.error ?? res.statusText);
+          setValidation(null);
+          return;
+        }
         setValidation(data);
       } catch (err) {
         console.error('Failed to fetch classifier validation:', err);

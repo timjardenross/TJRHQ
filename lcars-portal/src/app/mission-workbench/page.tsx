@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge, Card } from '@/components/ui';
-import { Shell } from '../intelligence-workbench/_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { MissionCard } from './_components/MissionCard';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -114,7 +114,10 @@ export default function MissionWorkbenchPage() {
   ];
 
   return (
-    <Shell title="Mission Workbench" eyebrow="Mission Registry">
+    <WorkbenchShell title="Mission Workbench" eyebrow="Mission Registry"
+      homeHref="/mission-workbench"
+      homeAriaLabel="Mission Workbench home"
+      tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering, governed approve/reject">
       <div className="flex flex-col gap-4">
         <Card>
           {isLoading ? (
@@ -210,6 +213,6 @@ export default function MissionWorkbenchPage() {
           )}
         </Card>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

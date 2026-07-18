@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
+import { requireSession } from '@/lib/supabase-server';
 
 /**
  * Advisory Runtime endpoint — USS-TJR-MSN-0092 / MSN-0093 (Advisor Hub).
@@ -48,8 +49,13 @@ function tryHttpBackend(body: object): Promise<unknown> {
         'Content-Length': Buffer.byteLength(payload),
         ...(COMMAND_CENTRE_API_KEY ? { 'X-Api-Key': COMMAND_CENTRE_API_KEY } : {}),
       },
-      // Allow self-signed certs on the VM (bare-IP Caddy TLS)
-      ...(isHttps ? { agent: new https.Agent({ rejectUnauthorized: false }) } : {}),
+      // Allow self-signed certs on the VM's own bare-IP Caddy TLS only - if
+      // COMMAND_CENTRE_API_URL is ever pointed at a real external HTTPS
+      // endpoint, cert validation must stay on (WORKBENCH-REVIEW.md H6,
+      // 2026-07-18: this used to disable verification for any HTTPS target).
+      ...(isHttps && (target.hostname === 'localhost' || target.hostname === '127.0.0.1')
+        ? { agent: new https.Agent({ rejectUnauthorized: false }) }
+        : {}),
       timeout: 10_000,
     };
     const transport = isHttps ? https : require('node:http');
@@ -112,6 +118,11 @@ function runCli(root: string, args: string[]): Promise<unknown> {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: {
     action?: string;
     question?: string;

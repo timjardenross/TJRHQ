@@ -58,7 +58,7 @@ export function DocumentDetail({
         </button>
       </div>
       {detailError ? (
-        <div className="rounded border border-wb-crit/40 bg-operations/10 px-3 py-2 text-xs text-wb-crit-on">
+        <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-xs text-wb-crit-on">
           {detailError.includes('session has expired') ? (
             <>
               {detailError} <a href="/login" className="font-semibold underline">
@@ -95,7 +95,7 @@ export function DocumentDetail({
           </div>
 
           {(detail.sensitivity === 'sensitive' || detail.sensitivity === 'restricted') && (
-            <div className="rounded border border-wb-crit/40 bg-operations/10 px-3 py-2 text-[11px] text-wb-crit-on">
+            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-[11px] text-wb-crit-on">
               Flagged {detail.sensitivity} — review carefully before approving into memory.
             </div>
           )}
@@ -125,7 +125,7 @@ export function DocumentDetail({
           )}
 
           {detail.failure_reason && (
-            <div className="rounded border border-wb-crit/40 bg-operations/10 px-3 py-2 text-[11px] text-wb-crit-on">
+            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-[11px] text-wb-crit-on">
               Failed: {detail.failure_reason}
             </div>
           )}
@@ -147,7 +147,7 @@ export function DocumentDetail({
           )}
 
           {flash && (
-            <div className={`rounded border px-3 py-2 text-xs ${flash.ok ? 'border-status/40 bg-status/10 text-status' : 'border-wb-crit/40 bg-operations/10 text-wb-crit-on'}`}>
+            <div className={`rounded border px-3 py-2 text-xs ${flash.ok ? 'border-wb-ok/40 bg-wb-ok/10 text-wb-ok-on' : 'border-wb-crit/40 bg-wb-crit/10 text-wb-crit-on'}`}>
               {flash.msg}
             </div>
           )}
@@ -175,7 +175,7 @@ export function DocumentDetail({
                 <button
                   disabled={!reasonDraft.trim() || acting === detail.id}
                   onClick={() => onDecide(detail.id, reasonFor, reasonDraft.trim())}
-                  className="flex-1 rounded border border-wb-crit/60 bg-operations/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-operations/20 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 disabled:opacity-40 transition-colors"
                 >
                   {acting === detail.id ? 'Working…' : `Confirm ${DECISION_LABELS[reasonFor]}`}
                 </button>
@@ -193,7 +193,7 @@ export function DocumentDetail({
           ) : (
             <div className="flex flex-col gap-1.5">
               {detail.review_status === 'awaiting_followup' && (
-                <div className="rounded border border-command/40 bg-command/10 px-3 py-2 text-[11px] text-command">
+                <div className="rounded border border-wb-warn/40 bg-wb-warn/10 px-3 py-2 text-[11px] text-wb-warn-on">
                   Awaiting follow-up — previously marked &ldquo;Needs Review&rdquo;
                   {detail.review_reason ? `: "${detail.review_reason}"` : ''}. Choose a decision below to resolve it.
                 </div>
@@ -207,14 +207,14 @@ export function DocumentDetail({
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_chunks')}
-                className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
               >
                 Approve
               </button>
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_metadata')}
-                className="rounded border border-status/60 bg-status/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-status hover:bg-status/20 disabled:opacity-40 transition-colors"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
               >
                 {DECISION_LABELS.approved_metadata}
               </button>
@@ -222,14 +222,14 @@ export function DocumentDetail({
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('needs_review')}
-                  className="flex-1 rounded border border-command/40 bg-command/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-command hover:bg-command/10 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 disabled:opacity-40 transition-colors"
                 >
                   Needs Review
                 </button>
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('rejected')}
-                  className="flex-1 rounded border border-wb-crit/40 bg-operations/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-operations/10 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 disabled:opacity-40 transition-colors"
                 >
                   Reject
                 </button>

@@ -2,8 +2,8 @@
  * ROS-001 v1.1 — Phase 2 live data fetchers.
  *
  * Each function fetches from Supabase and maps onto the existing TypeScript
- * types used by all ROS pages. When supabase client is null (env vars absent)
- * or a query fails, the function returns null — callers fall back to mock data.
+ * types used by all ROS pages. When the underlying env vars are absent or a
+ * query fails, the function returns null — callers fall back to mock data.
  *
  * Sources:
  *   get_recovery_posture(date)     → RecoveryPosture
@@ -12,8 +12,22 @@
  *   analytics_health_daily (21d)   → WeeklyPatternSummary + EmotionalLoadFlag
  */
 
-import { supabase } from './supabase';
+import { createSupabaseBrowserClient } from './supabase-browser';
 import { pulseNsState } from './human-systems';
+
+// Session-aware client (WORKBENCH-REVIEW.md follow-up, 2026-07-18): the old
+// plain `./supabase` client sent the anon key with no user JWT attached, so
+// every query here ran as `anon`, not `authenticated`. That was silently
+// covered by health_daily_logs' own anon_read policy until tonight's RLS fix
+// (advisory_sessions leak closure) correctly dropped it - which broke every
+// analytics_health_daily/get_recovery_posture(_range) call in this file with
+// a real 401, not a graceful empty-data fallback. createSupabaseBrowserClient
+// carries the real session cookie, so these now run as the actual user.
+// Constructed fresh per call (matches every other caller in this codebase -
+// @supabase/ssr's browser client isn't meant to be hoisted to module scope).
+function client() {
+  return createSupabaseBrowserClient();
+}
 import type {
   BodyContext,
   CapacityBand,
@@ -53,7 +67,7 @@ interface RawPostureRow {
 }
 
 export async function fetchRecoveryPosture(date?: string): Promise<RecoveryPosture | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .rpc('get_recovery_posture', { p_date: date ?? today() })
@@ -103,7 +117,7 @@ interface RawHealthRow {
 }
 
 export async function fetchBodyContext(date?: string): Promise<BodyContext | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('analytics_health_daily')
@@ -146,7 +160,7 @@ export async function fetchBodyContext(date?: string): Promise<BodyContext | nul
 // ── analytics_health_daily (7d) → PostureHistory ────────────────────────────
 
 export async function fetchPostureHistory(days = 7): Promise<PostureHistory | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const from = daysAgo(days - 1);
     const to   = today();
@@ -242,7 +256,7 @@ function derivePostureFromRow(row: RawPostureDayRow): { posture: RecoveryPosture
 }
 
 async function fetchPostureHistoryFallback(days: number): Promise<PostureHistory | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const from = daysAgo(days - 1);
     // The get_recovery_posture_range RPC is absent — derive each day's posture
@@ -362,7 +376,7 @@ function worseNsState(a: string | null, b: string | null): string | null {
  * masked by a later calmer one.
  */
 export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const from = daysAgo(6);
     const to = today();
@@ -424,7 +438,7 @@ export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null
 // ── Life Participation Score (today) ─────────────────────────────────────────
 
 export async function fetchLifeParticipation(date?: string): Promise<LifeParticipationScore | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('analytics_health_daily')
@@ -481,7 +495,7 @@ export async function fetchLifeParticipation(date?: string): Promise<LifePartici
 // ── Recovery Indexes (derived from today's analytics_health_daily) ───────────
 
 export async function fetchRecoveryIndexes(date?: string): Promise<RecoveryIndex[] | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('analytics_health_daily')

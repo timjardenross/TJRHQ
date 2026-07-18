@@ -6,11 +6,11 @@ the in-memory repository (no network, deterministic):
 
   collect -> classify (real classifier) -> source-tier (real) -> fuzzy dedup (real)
   -> 10-dim score (Analyst heuristic) -> HUMAN GATE verify -> HUMAN GATE select
-  -> QA gates (data/factual/analytical) -> mark_qa_ready -> curate watchlist
-  -> publish (Executive) -> next-cycle watchlist materialisation.
+  -> QA pass -> curate watchlist -> publish (Executive) -> next-cycle watchlist
+  materialisation.
 
 Also asserts the governance gates actually block: analyst can't publish, publish
-before QA_READY fails, selecting <3 fails.
+before QA_PASSED fails, selecting <3 fails.
 """
 
 import os
@@ -158,12 +158,9 @@ class TestTelstraPoC(unittest.TestCase):
         for eid in to_select:
             self.assertEqual(self.repo.get_event(eid)["signal_status"], "IN_BRIEF")
 
-        # QA gates in order, then mark QA ready.
-        service.set_qa_gate(self.repo, "system", brief_id, "data_qa")
-        service.set_qa_gate(self.repo, INTELLIGENCE_LEAD, brief_id, "factual_qa")
-        service.set_qa_gate(self.repo, INTELLIGENCE_LEAD, brief_id, "analytical_qa")
-        service.mark_qa_ready(self.repo, INTELLIGENCE_LEAD, brief_id)
-        self.assertEqual(self.repo.get_brief(brief_id)["approval_status"], "QA_READY")
+        # QA pass (consolidated 2026-07-18 from the original 3-gate + mark_qa_ready sequence).
+        service.qa_pass(self.repo, "system", brief_id)
+        self.assertEqual(self.repo.get_brief(brief_id)["approval_status"], "QA_PASSED")
 
         # Stage 14 human gate: curate the forward watchlist.
         watch = service.curate_watchlist(self.repo, INTELLIGENCE_LEAD, brief_id, [
@@ -222,11 +219,7 @@ class TestTelstraPoC(unittest.TestCase):
         with self.assertRaises(GovernanceError):
             service.select_events(self.repo, INTELLIGENCE_LEAD, bid, event_ids[:2])
 
-        # Cannot mark QA ready before gates pass.
-        with self.assertRaises(GovernanceError):
-            service.mark_qa_ready(self.repo, INTELLIGENCE_LEAD, bid)
-
-        # Cannot publish before QA_READY.
+        # Cannot publish before QA_PASSED.
         with self.assertRaises(GovernanceError):
             service.publish_brief(self.repo, EXECUTIVE_APPROVER, bid)
 

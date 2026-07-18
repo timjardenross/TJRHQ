@@ -18,12 +18,16 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { BriefView } from './_components/BriefView';
 import { DomainsView } from './_components/DomainsView';
 import { EYEBROW, isDomain, type CaptainBriefDocument, type Domain } from './_components/types';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'brief', label: 'Brief' },
+  { key: 'domains', label: 'Domains' },
+];
 
 function Workbench() {
   const router = useRouter();
@@ -85,14 +89,17 @@ function Workbench() {
       >
         {loading ? 'Refreshing…' : '↻ Refresh'}
       </button>
-      <DomainToggle domain={domain} onChange={changeDomain} />
+      <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Captain’s Brief view" />
     </div>
   );
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Captain’s Brief"
       eyebrow={EYEBROW[domain]}
+      homeHref="/captains-brief-workbench"
+      homeAriaLabel="Captain’s Brief Workbench home"
+      tagline="USS TJR · Captain’s Brief · assembled on request — reports the signals received, not an all-clear"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
@@ -123,7 +130,7 @@ function Workbench() {
           {domain === 'domains' && <DomainsView doc={doc} />}
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/lib/supabase-server';
 
 function serviceClient() {
   return createClient(
@@ -12,6 +13,11 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const sb = serviceClient();
 

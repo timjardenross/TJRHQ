@@ -32,6 +32,7 @@ from intelligence.config import (
     MISTRAL_BRIEFING_AGENT_ID, MISTRAL_BRIEFING_AGENT_VERSION,
     MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
+from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
 log = logging.getLogger(__name__)
 
@@ -291,79 +292,24 @@ class LLMProvider:
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
     def _gemini(self, prompt: str) -> Optional[str]:
-        if not GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY not set")
-
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+        return call_gemini(
+            _SYSTEM_PROMPT, prompt,
+            api_key=GEMINI_API_KEY, max_output_tokens=2048, temperature=0.3, timeout=30,
         )
-        body = json.dumps({
-            "system_instruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.3},
-        }).encode()
-
-        req = urllib.request.Request(
-            url, data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise RuntimeError("Gemini returned no candidates")
-        return candidates[0]["content"]["parts"][0]["text"].strip()
 
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
     def _mistral(self, prompt: str) -> Optional[str]:
-        if not MISTRAL_API_KEY:
-            raise RuntimeError("MISTRAL_API_KEY not set")
-
-        body = json.dumps({
-            "model": "mistral-small-latest",
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": prompt},
-            ],
-            "max_tokens": 2048,
-            "temperature": 0.3,
-        }).encode()
-
-        req = urllib.request.Request(
-            "https://api.mistral.ai/v1/chat/completions",
-            data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            },
-            method="POST",
+        return call_mistral(
+            _SYSTEM_PROMPT, prompt,
+            api_key=MISTRAL_API_KEY, max_tokens=2048, temperature=0.3, timeout=30,
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-
-        return data["choices"][0]["message"]["content"].strip()
 
     # ─── Ollama ───────────────────────────────────────────────────────────────
 
     def _ollama(self, prompt: str) -> Optional[str]:
-        body = json.dumps({
-            "model": OLLAMA_MODEL,
-            "prompt": f"{_SYSTEM_PROMPT}\n\n{prompt}",
-            "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 1200},
-        }).encode()
-
-        req = urllib.request.Request(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        return call_ollama(
+            _SYSTEM_PROMPT, prompt,
+            base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,
+            temperature=0.3, num_predict=1200, timeout=60,
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
-
-        return data.get("response", "").strip()

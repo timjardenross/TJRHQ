@@ -14,13 +14,18 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
-import { DomainToggle } from './_components/DomainToggle';
+import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { ConsultView } from './_components/ConsultView';
 import { BoardView } from './_components/BoardView';
 import { PerspectivesView } from './_components/PerspectivesView';
 import { ProactiveBanner } from './_components/ProactiveBanner';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
+
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'consult', label: 'Consult' },
+  { key: 'board', label: 'Board' },
+  { key: 'perspectives', label: 'Perspectives' },
+];
 
 function Workbench() {
   const router = useRouter();
@@ -44,12 +49,15 @@ function Workbench() {
     router.replace(`/advisory-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = <DomainToggle domain={domain} onChange={changeDomain} />;
+  const right = <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory domain" />;
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Advisory"
       eyebrow={EYEBROW[domain]}
+      homeHref="/advisory-workbench"
+      homeAriaLabel="Advisory Workbench home"
+      tagline="USS TJR · Advisory · Consult · Board · Perspectives · Advisory only — the Captain decides"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
@@ -61,7 +69,7 @@ function Workbench() {
         <BoardView investigationType={investigationType} investigationReason={investigationReason} />
       )}
       {domain === 'perspectives' && <PerspectivesView />}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

@@ -4,7 +4,7 @@
 // Supports both Operational Signals (Phase A) and Health Intelligence modes.
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, Shell } from './_components/Shell';
+import { Card, RiskPill, WorkbenchShell, DomainToggle } from '@/components/ui';
 import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
 import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
@@ -68,7 +68,6 @@ type HealthPayload = {
   domain: 'health';
   kpis: {
     capacity_score?: number;
-    readiness_score?: number;
     sleep_hours?: number;
     pain_level?: number;
   };
@@ -79,32 +78,14 @@ type HealthPayload = {
 
 type Payload = OperationalPayload | HealthPayload;
 
-function DomainToggle({ domain, onChange }: { domain: Domain; onChange: (d: Domain) => void }) {
-  return (
-    <div className="flex gap-1 rounded-md border border-wb-line bg-wb-surface px-1.5 py-1">
-      <button
-        onClick={() => onChange('operational')}
-        className={`rounded px-3 py-1.5 text-[13px] font-medium transition ${
-          domain === 'operational'
-            ? 'bg-wb-sage-deep text-white'
-            : 'text-wb-ink2 hover:bg-wb-line'
-        }`}
-      >
-        Operational Signals
-      </button>
-      <button
-        onClick={() => onChange('health')}
-        className={`rounded px-3 py-1.5 text-[13px] font-medium transition ${
-          domain === 'health'
-            ? 'bg-wb-sage-deep text-white'
-            : 'text-wb-ink2 hover:bg-wb-line'
-        }`}
-      >
-        Health Intelligence
-      </button>
-    </div>
-  );
-}
+// Local inline toggle removed (WORKBENCH-REVIEW.md H9/H12, 2026-07-18) - it
+// had no role/aria-selected/keyboard handling at all, the least accessible
+// of every *-workbench domain toggle. Replaced with the shared, properly
+// keyboard-navigable DomainToggle from @/components/ui.
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'operational', label: 'Operational Signals' },
+  { key: 'health', label: 'Health Intelligence' },
+];
 
 function SourceArticleCard({ article }: { article: SourceArticle }) {
   return (
@@ -134,6 +115,7 @@ export default function Overview() {
   const [domain, setDomain] = useState<Domain>('operational');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
@@ -141,18 +123,27 @@ export default function Overview() {
   const load = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
     return fetch(`/api/intelligence-workbench?domain=${domain}`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then(async (r) => {
+        const d = await r.json();
+        // A read failure must be visibly distinct from "no signals" - this
+        // tool exists to monitor operational resilience, so a silently-
+        // empty result is the one failure mode it can't afford
+        // (WORKBENCH-REVIEW.md H4, 2026-07-18). Data is still populated
+        // with an empty-but-valid shape below so the rest of the page
+        // doesn't crash - the error banner is what tells the real story.
+        if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
+        setError(null);
         setData(d);
         setLastUpdated(new Date());
       })
-      .catch(() =>
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load');
         setData({
           domain,
           kpis: {},
           ...(domain === 'operational' ? { briefs: [], hotSignals: [] } : { insights: [], recentEvents: [], dailyMetrics: [] })
-        } as Payload)
-      )
+        } as Payload);
+      })
       .finally(() => { if (withSpinner) setLoading(false); });
   }, [domain]);
 
@@ -195,11 +186,18 @@ export default function Overview() {
   const eyebrow = domain === 'operational' ? 'Operational Resilience' : 'Health Intelligence';
 
   return (
-    <Shell 
-      title="Intelligence Workbench" 
+    <WorkbenchShell
+      title="Intelligence Workbench"
       eyebrow={eyebrow}
-      right={<DomainToggle domain={domain} onChange={setDomain} />}
+      homeHref="/intelligence-workbench"
+      tagline="USS TJR · Operational Resilience Intelligence · Phase B"
+      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Intelligence domain" />}
     >
+      {error && (
+        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
+          Could not refresh: {error}. Showing last known data, not current.
+        </p>
+      )}
       {domain === 'operational' && operationalData ? (
         <>
           {/* Operational mode KPIs */}
@@ -271,10 +269,9 @@ export default function Overview() {
       ) : (
         <>
           {/* Health mode KPIs */}
-          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
             {[
               { n: Math.round(healthData?.kpis.capacity_score ?? 0), l: 'Capacity score', unit: '' },
-              { n: Math.round(healthData?.kpis.readiness_score ?? 0), l: 'Readiness index', unit: '' },
               { n: (healthData?.kpis.sleep_hours ?? 0).toFixed(1), l: 'Sleep quality (7d avg)', unit: 'h' },
               { n: Math.round(healthData?.kpis.pain_level ?? 0), l: 'Pain level', unit: '/10' },
             ].map((c) => (
@@ -377,6 +374,6 @@ export default function Overview() {
           <AuditLogCard />
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }

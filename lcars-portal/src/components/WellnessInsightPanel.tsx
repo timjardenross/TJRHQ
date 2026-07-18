@@ -5,13 +5,13 @@ import { LCARSPanel } from './LCARSPanel';
 import { DataSourceIndicator } from './DataSourceIndicator';
 
 interface HealthInsights {
-  insight_date:         string | null;
-  llm_narrative:        string | null;
-  risk_flags:           string[] | null;
-  positive_flags:       string[] | null;
-  wins_this_week:       string[] | null;
-  cpap_compliance_rate: number | null;
-  dow_pain_pattern:     string | null;
+  created_at:            string | null;
+  llm_narrative:         string | null;
+  risk_flags:            string[] | null;
+  positive_flags:        string[] | null;
+  wins_this_week:        string[] | null;
+  cpap_compliance_rate:  number | null;
+  dow_pain_pattern:      string | null;
 }
 
 interface DailyLog {
@@ -62,7 +62,7 @@ export function WellnessInsightPanel() {
   const daily    = data?.daily ?? null;
 
   const hasData = !loading && (insights !== null || daily !== null);
-  const date    = insights?.insight_date ?? daily?.log_date ?? null;
+  const date    = insights?.created_at ?? daily?.log_date ?? null;
 
   return (
     <LCARSPanel

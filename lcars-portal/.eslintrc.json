@@ -41,6 +41,14 @@
           {
             "selector": "TemplateElement[value.raw=/\\[#[0-9a-fA-F]{3,8}\\]/]",
             "message": "Hardcoded hex color in a Tailwind arbitrary-value class (e.g. bg-[#1234]). Use a wb-* design token instead — see TJR-DESIGN-TOKENS.md and lcars-portal/tailwind.config.ts theme.extend.colors.wb."
+          },
+          {
+            "selector": "Literal[value=/\\b(bg|text|border|ring|from|to|via|divide|outline|fill|stroke)-(command|engineering|operations|medical|science|status)\\b/]",
+            "message": "Legacy LCARS palette token (command/engineering/operations/medical/science/status) used inside a *-workbench route (WORKBENCH-REVIEW.md H9, 2026-07-18). Workbenches are wb-* only — use the matching wb-* token from lcars-portal/tailwind.config.ts theme.extend.colors.wb instead."
+          },
+          {
+            "selector": "TemplateElement[value.raw=/\\b(bg|text|border|ring|from|to|via|divide|outline|fill|stroke)-(command|engineering|operations|medical|science|status)\\b/]",
+            "message": "Legacy LCARS palette token (command/engineering/operations/medical/science/status) used inside a *-workbench route (WORKBENCH-REVIEW.md H9, 2026-07-18). Workbenches are wb-* only — use the matching wb-* token from lcars-portal/tailwind.config.ts theme.extend.colors.wb instead."
           }
         ]
       }

@@ -24,3 +24,15 @@ export async function createSupabaseServerClient() {
     }
   );
 }
+
+/** Real Captain session or null. Single-tenant app - any authenticated
+ * session is the Captain - but a route with no session check at all is
+ * reachable by anyone (WORKBENCH-REVIEW.md, 2026-07-18: found on 9 routes
+ * that either mutated state, ran an expensive LLM/subprocess call, or read
+ * Captain-only content with no gate beyond middleware.ts's page-level
+ * redirect, which a direct API hit bypasses entirely). */
+export async function requireSession() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}

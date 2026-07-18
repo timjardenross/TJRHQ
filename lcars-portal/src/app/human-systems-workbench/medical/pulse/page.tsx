@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Badge, Button, Input, Textarea } from '@/components/ui';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { WorkbenchShell, Card, Badge, Button, Input, Textarea } from '@/components/ui';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -268,11 +266,13 @@ export default function RecoveryPulsePage() {
     setSaving(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: dbError } = await supabase
-        .from('recovery_pulses')
-        .upsert(data, { onConflict: 'log_date,pulse_type' });
-      if (dbError) throw new Error(dbError.message);
+      const res = await fetch('/api/human-systems/pulse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(resBody.error ?? 'Failed to save pulse.');
       setSavedLabel(activePulse?.label ?? 'Pulse');
       setSaved(true);
       setTimeout(() => router.push('/human-systems-workbench?domain=medical'), 1800);
@@ -285,7 +285,7 @@ export default function RecoveryPulsePage() {
 
   if (saved) {
     return (
-      <Shell title="Recovery Pulse" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+      <WorkbenchShell title="Recovery Pulse" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span aria-hidden className="text-2xl text-wb-ok-on">✓</span>
@@ -293,12 +293,12 @@ export default function RecoveryPulsePage() {
           <p className="font-serif text-lg font-bold text-wb-ok-on">{savedLabel} logged</p>
           <p className="text-sm text-wb-ink2">Returning to Medical…</p>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   return (
-    <Shell title="Recovery Pulse" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+    <WorkbenchShell title="Recovery Pulse" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
       <div className="flex flex-col gap-4">
         <Card title={`D-055 · ${now.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
           <p className="text-xs leading-relaxed text-wb-ink2">
@@ -353,6 +353,6 @@ export default function RecoveryPulsePage() {
           </Card>
         )}
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

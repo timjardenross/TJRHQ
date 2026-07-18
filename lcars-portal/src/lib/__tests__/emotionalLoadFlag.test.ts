@@ -39,10 +39,10 @@ function makeChain(table: string) {
   return chain;
 }
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
+vi.mock('@/lib/supabase-browser', () => ({
+  createSupabaseBrowserClient: () => ({
     from: (table: string) => makeChain(table),
-  },
+  }),
 }));
 
 import { fetchEmotionalLoadFlag } from '@/lib/ros-data';

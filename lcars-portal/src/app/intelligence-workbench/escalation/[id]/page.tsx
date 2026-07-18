@@ -2,7 +2,7 @@
 
 // Phase B — Screens 4/5/6: RED Escalation + Stand-Down + Telegram deep-link target.
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, Shell } from '../../_components/Shell';
+import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { runAction } from '../../_components/actions';
 
 const DIM_LABEL: Record<string, string> = {
@@ -20,12 +20,18 @@ type Signal = {
   event_id: string; raw_title: string; risk_rating: string | null; rank_score: number | null;
   score_breakdown: Record<string, number> | null;
 };
+type AuditEvent = {
+  id: string; category: string | null; actor: string | null; action: string | null;
+  outcome: string | null; details: Record<string, unknown> | null; created_at: string;
+};
 
 export default function Escalation({ params }: { params: { id: string } }) {
   const id = params.id;
   const [brief, setBrief] = useState<Brief | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [auditTrail, setAuditTrail] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [fromTelegram, setFromTelegram] = useState(false);
@@ -33,9 +39,14 @@ export default function Escalation({ params }: { params: { id: string } }) {
 
   const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     fetch(`/api/intelligence-workbench/brief?id=${id}`)
-      .then((r) => r.json())
-      .then((d) => { setBrief(d.brief); setSignals(d.signals ?? []); })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
+        setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
   }, [id]);
   useEffect(load, [load]);
@@ -58,7 +69,9 @@ export default function Escalation({ params }: { params: { id: string } }) {
   const dims = top?.score_breakdown ?? null;
 
   return (
-    <Shell title="RED Escalation" eyebrow="Crisis mode"
+    <WorkbenchShell title="RED Escalation" eyebrow="Crisis mode"
+           homeHref="/intelligence-workbench"
+           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
            back={{ href: `/intelligence-workbench/brief/${id}`, label: 'Brief' }}>
       {fromTelegram && (
         <p className="mb-4 rounded border-l-[3px] border-wb-sage bg-wb-sage/10 px-3 py-2 text-[12px] text-wb-ink2">
@@ -67,6 +80,8 @@ export default function Escalation({ params }: { params: { id: string } }) {
       )}
       {loading ? (
         <p className="text-[13px] text-wb-ink2">Loading…</p>
+      ) : error ? (
+        <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
       ) : !brief ? (
         <p className="text-[13px] text-wb-ink2">Brief not found.</p>
       ) : (
@@ -124,8 +139,31 @@ export default function Escalation({ params }: { params: { id: string } }) {
               Record lesson &amp; close
             </button>
           </Card>
+
+          {/* Audit trail — fetched by the brief API since it was built, never
+              rendered until now (WORKBENCH-REVIEW.md H11, 2026-07-18). */}
+          {auditTrail.length > 0 && (
+            <Card title="Audit trail">
+              <div className="flex flex-col gap-2.5">
+                {auditTrail.map((a) => (
+                  <div key={a.id} className="flex items-start gap-3 border-b border-wb-line py-2 text-[12.5px] last:border-0">
+                    <span className="w-[140px] shrink-0 text-wb-ink2">
+                      {new Date(a.created_at).toLocaleString()}
+                    </span>
+                    <span className="flex-1">
+                      <span className="font-medium">{a.actor ?? 'unknown'}</span>
+                      {' — '}{a.action ?? a.category ?? 'event'}
+                      {a.outcome && a.outcome !== 'success' && (
+                        <span className="ml-1.5 text-wb-crit-on">({a.outcome})</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }

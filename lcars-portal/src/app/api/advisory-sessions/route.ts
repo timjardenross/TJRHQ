@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { requireSession } from '@/lib/supabase-server';
 import { supabaseAdmin } from '@/lib/ai-actions';
 
 // Advisory transcripts are Captain-only content - require a real session
 // before reading or writing (WORKBENCH-REVIEW.md finding C3, 2026-07-18:
 // this route previously used a bare anon-key client with no session check,
 // and advisory_sessions' own RLS was role=public - together, fully open).
-async function requireSession() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
-}
 
 // POST /api/advisory-sessions — save a consult message or board result
 export async function POST(req: NextRequest) {
