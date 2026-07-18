@@ -70,6 +70,8 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_msrc(data)
         if "miro" in name:
             return self._parse_statuspage_incidents(data)
+        if "vicemergency" in name:
+            return self._parse_vicemergency(data)
 
         return self._parse_generic(data)
 
@@ -301,6 +303,55 @@ class APIAdapter(BaseSourceAdapter):
             published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))
         return items
+
+    def _parse_vicemergency(self, data) -> list[IntelligenceItem]:
+        """VicEmergency (Emergency Management Victoria) `getIncidentJSON` feed.
+
+        Real shape confirmed live 2026-07-18: {"results": [{incidentNo,
+        incidentType, incidentLocation, incidentStatus, incidentSize, name,
+        category1, category2, agency, municipality, lastUpdatedDt (epoch ms),
+        originDateTime ("DD/MM/YYYY HH:MM:SS"), ...}]}. There is no
+        summary/description/url/link field anywhere in this schema — that's
+        why _parse_generic() silently produced a title (matching on `name`)
+        but left raw_summary/canonical_url null for every VicEmergency event.
+        """
+        results = data.get("results", []) if isinstance(data, dict) else []
+        items = []
+        for inc in results[:MAX_ITEMS_PER_SOURCE]:
+            incident_type = inc.get("incidentType") or "Incident"
+            location = inc.get("incidentLocation") or inc.get("name") or "unknown location"
+            title = f"{incident_type.title()} — {location}"
+
+            summary_parts = [
+                f"Status: {inc['incidentStatus']}" if inc.get("incidentStatus") else None,
+                f"Size: {inc['incidentSize']}" if inc.get("incidentSize") else None,
+                f"Agency: {inc['agency']}" if inc.get("agency") else None,
+                f"Municipality: {inc['municipality']}" if inc.get("municipality") else None,
+            ]
+            summary = " | ".join(p for p in summary_parts if p) or None
+
+            # No per-incident deep link exists in this feed — fall back to the
+            # source's general public page, the same pattern _parse_servicenow
+            # and _parse_msrc use above when no true incident-level URL exists.
+            url = self.source.url
+
+            last_updated_ms = inc.get("lastUpdatedDt")
+            if isinstance(last_updated_ms, (int, float)) and last_updated_ms > 0:
+                published = datetime.fromtimestamp(last_updated_ms / 1000, tz=timezone.utc)
+            else:
+                published = self._parse_vicemergency_datetime(inc.get("originDateTime"))
+
+            items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_vicemergency_datetime(self, val) -> Optional[datetime]:
+        """VicEmergency timestamps are DD/MM/YYYY HH:MM:SS (Australian order), not ISO."""
+        if not val:
+            return None
+        try:
+            return datetime.strptime(val, "%d/%m/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
 
     def _parse_generic(self, data) -> list[IntelligenceItem]:
         """Best-effort extraction from unknown JSON shape."""
