@@ -10,17 +10,17 @@ interface BottomTab {
   glyph: string;
 }
 
-// Starship rewrite (docs/REMOVAL-PLAN.md): this bar only renders inside the
-// legacy (app) layout - Home/Decide/Ask live outside it and are never
-// wrapped by this component - so its job now is purely "give the Captain a
-// quick way back to the three MVP surfaces while on a legacy page", plus
-// Capture, kept because it's a real task tool with no other quick-access
-// path once the sidebar (NAV_SECTIONS) stopped listing it.
+// This bar only renders inside the legacy (app) layout, giving the Captain
+// a quick way back to current surfaces while on a legacy page.
 //
-// Real-Captain-walkthrough revision (2026-07-10): restyled on the real
-// public-site brand tokens - one accent colour, not four decorative
-// department-coloured tiles.
+// 2026-07-18: /home, /decide, /ask were decommissioned in favor of
+// /workbenches as the new home (lib/nav.ts) but this bar still pointed at
+// them, which broke the build (stale hrefs failed the NavHref type check).
+// Workbenches replaces them as the way back to the new home; Capture stays
+// because it's a real task tool with no other quick-access path once the
+// sidebar (NAV_SECTIONS) stopped listing it.
 const BOTTOM_TABS: BottomTab[] = [
+  { href: '/workbenches', label: 'Workbenches', glyph: '⌂' },
   { href: '/capture-workbench', label: 'Capture', glyph: '+' },
 ];
 

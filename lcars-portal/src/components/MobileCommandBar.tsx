@@ -26,16 +26,17 @@ interface Tab {
   glyph: string;
 }
 
-// Starship rewrite (docs/REMOVAL-PLAN.md): Home/Decide/Ask are now the
-// primary surfaces and take the first three slots - this is the ONLY nav
-// on mobile (see doc comment above), so without this change mobile had
-// zero path to any of them. Capture and Physical Readiness are kept -
-// both are real task tools (docs/INVENTORY.md: MIGRATE/TASK-TOOL), not
-// dashboards, and mobile is their primary device with no other nav path
-// once NAV_SECTIONS stopped listing them. Chair/Advisory/Queue/Alerts
-// dropped - all four are superseded (see docs/REMOVAL-PLAN.md Category A)
-// and remain reachable by direct URL for now, not deleted.
+// 2026-07-18: /home, /decide, /ask were decommissioned in favor of
+// /workbenches as the new home (lib/nav.ts) but this bar was never
+// updated, which broke the build (stale hrefs failed the NavHref type
+// check) and, worse, left mobile with zero path back to the new home -
+// this is the ONLY nav on mobile (see doc comment above). Workbenches
+// takes the first slot for that reason. Capture and Physical Readiness
+// are kept - both are real task tools (docs/INVENTORY.md:
+// MIGRATE/TASK-TOOL), not dashboards, and mobile is their primary device
+// with no other nav path once NAV_SECTIONS stopped listing them.
 const TABS: Tab[] = [
+  { href: '/workbenches', label: 'Workbenches', glyph: '⌂' },
   { href: '/capture-workbench', label: 'Capture', glyph: '＋' },
   { href: '/physical-readiness', label: 'Readiness', glyph: '✚' },
 ];
