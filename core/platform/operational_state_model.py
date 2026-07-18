@@ -19,17 +19,25 @@ domains (missions, engineering, health, operational resilience,
 knowledge, research, calendar, communications, documents, automation,
 historical activity). Verified against real code before writing this
 module, not assumed:
-  - 5 have a real emitter today: missions (mission-lifecycle), health
+  - 8 have a real emitter today: missions (mission-lifecycle), health
     (health-intelligence, also covers decision/capacity per MSN-0328
     Wave 3), operational resilience (operational-resilience-intelligence),
     engineering delivery (engineering-delivery), communications
-    (content-intelligence).
+    (content-intelligence), wellness (wellness-coaching), strategic
+    alignment (strategic-planning), knowledge (knowledge), research
+    (research), platform operations (platform-operations).
+    (ADR-024 second-pass audit, 2026-07-18: this list had drifted from
+    captain_brief_orchestrator.py's _DOMAIN_SECTION_MAP, which already
+    mapped knowledge/research/platform-operations to real sections —
+    those three domains' events were silently absent from this module's
+    output despite having real emitters. Re-synced against the orchestrator's
+    map, which is the more actively maintained of the two.)
   - 1 is a dead mapping: `research-learning`/`research-learning-intelligence`
     are recognised by captain_brief_orchestrator.py's
     _DOMAIN_SECTION_MAP but zero real code calls publish_event with
     either domain string — confirmed by repo-wide grep, not assumed.
-  - 4 have no intelligence layer at all: knowledge, calendar, documents,
-    automation. No emitter, no mapping, nothing to read.
+  - 2 have no intelligence layer at all: calendar, documents, automation.
+    No emitter, no mapping, nothing to read.
   - "Historical activity" is not a domain — it's `core_events` itself,
     over a wider `since` window; this module treats it as such.
 
@@ -54,6 +62,9 @@ _REAL_DOMAINS: dict[str, str] = {
     "content-intelligence": "Communications",
     "wellness-coaching": "Wellness",
     "strategic-planning": "Strategic Alignment",
+    "knowledge": "Knowledge",
+    "research": "Research",
+    "platform-operations": "Platform Operations",
 }
 
 # Recognised by captain_brief_orchestrator.py's _DOMAIN_SECTION_MAP but
@@ -70,7 +81,7 @@ _MAPPED_BUT_DEAD_DOMAINS: dict[str, str] = {
 # No domain mapping and no emitter exist for these at all, per MSN-0329's
 # own charter naming them as candidate inputs. Listed explicitly so the
 # gap is a documented fact, not a silent omission.
-_NO_SIGNAL_SOURCE_DOMAINS: list[str] = ["Knowledge", "Calendar", "Documents", "Automation"]
+_NO_SIGNAL_SOURCE_DOMAINS: list[str] = ["Calendar", "Documents", "Automation"]
 
 
 @dataclass
