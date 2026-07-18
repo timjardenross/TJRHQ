@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Card, RiskPill } from './Shell';
+import { Card, RiskPill } from '@/components/ui';
 
 type ClassifierValidation =
   | { status: 'no_data'; message: string }

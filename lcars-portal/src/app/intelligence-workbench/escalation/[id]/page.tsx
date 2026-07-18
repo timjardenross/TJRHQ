@@ -2,7 +2,7 @@
 
 // Phase B — Screens 4/5/6: RED Escalation + Stand-Down + Telegram deep-link target.
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, Shell } from '../../_components/Shell';
+import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { runAction } from '../../_components/actions';
 
 const DIM_LABEL: Record<string, string> = {
@@ -69,7 +69,9 @@ export default function Escalation({ params }: { params: { id: string } }) {
   const dims = top?.score_breakdown ?? null;
 
   return (
-    <Shell title="RED Escalation" eyebrow="Crisis mode"
+    <WorkbenchShell title="RED Escalation" eyebrow="Crisis mode"
+           homeHref="/intelligence-workbench"
+           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
            back={{ href: `/intelligence-workbench/brief/${id}`, label: 'Brief' }}>
       {fromTelegram && (
         <p className="mb-4 rounded border-l-[3px] border-wb-sage bg-wb-sage/10 px-3 py-2 text-[12px] text-wb-ink2">
@@ -162,6 +164,6 @@ export default function Escalation({ params }: { params: { id: string } }) {
           )}
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }

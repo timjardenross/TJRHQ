@@ -2,7 +2,7 @@
 
 // Phase B — Screens 2 & 3: Brief Review + Approval Gate (standalone brand).
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, Shell } from '../../_components/Shell';
+import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { runAction } from '../../_components/actions';
 
 const GATE_FLOW = [
@@ -71,7 +71,9 @@ export default function BriefReview({ params }: { params: { id: string } }) {
   const title = (brief?.executive_snapshot ?? '').split('.')[0]?.slice(0, 90) || `Brief ${id.slice(0, 8)}`;
 
   return (
-    <Shell title="Brief Review" back={{ href: '/intelligence-workbench', label: 'Overview' }}
+    <WorkbenchShell title="Brief Review" homeHref="/intelligence-workbench"
+           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
+           back={{ href: '/intelligence-workbench', label: 'Overview' }}
            right={brief ? <RiskPill value={brief.overall_risk} /> : ''}>
       {loading ? (
         <p className="text-[13px] text-wb-ink2">Loading…</p>
@@ -187,6 +189,6 @@ export default function BriefReview({ params }: { params: { id: string } }) {
           )}
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }

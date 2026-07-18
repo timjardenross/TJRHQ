@@ -4,7 +4,7 @@
 // Intelligence / Engineering / Learning / Opportunities), each a grid of
 // ItemRows. Direct port of the LCARS page's DOMAIN_SECTIONS block.
 
-import { Card } from './Shell';
+import { Card } from '@/components/ui';
 import { ItemRow } from './ItemRow';
 import type { CaptainBriefDocument } from './types';
 import { DOMAIN_SECTIONS } from './types';

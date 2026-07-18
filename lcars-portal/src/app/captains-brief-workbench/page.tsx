@@ -18,7 +18,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { DomainToggle } from './_components/DomainToggle';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { BriefView } from './_components/BriefView';
@@ -90,9 +90,12 @@ function Workbench() {
   );
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Captain’s Brief"
       eyebrow={EYEBROW[domain]}
+      homeHref="/captains-brief-workbench"
+      homeAriaLabel="Captain’s Brief Workbench home"
+      tagline="USS TJR · Captain’s Brief · assembled on request — reports the signals received, not an all-clear"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
@@ -123,7 +126,7 @@ function Workbench() {
           {domain === 'domains' && <DomainsView doc={doc} />}
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

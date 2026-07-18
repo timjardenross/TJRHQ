@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Shell, Card, riskClass, RiskPill } from '../intelligence-workbench/_components/Shell';
+import { WorkbenchShell, Card, riskClass, RiskPill } from '@/components/ui';
 
 interface Finding {
   finding_id: string;
@@ -112,14 +112,14 @@ export default function SelfImprovementFindings() {
 
   if (loading) {
     return (
-      <Shell title="Self-Improvement Findings" eyebrow="Automated Discovery">
+      <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" homeHref="/self-improvement-findings" homeAriaLabel="Self-Improvement Findings home" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
         <div className="text-center py-8 text-wb-ink2">Loading findings...</div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   return (
-    <Shell title="Self-Improvement Findings" eyebrow="Automated Discovery">
+    <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" homeHref="/self-improvement-findings" homeAriaLabel="Self-Improvement Findings home" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
           {error}. Showing last known data, not current.
@@ -273,6 +273,6 @@ export default function SelfImprovementFindings() {
       <div className="text-center text-xs text-wb-ink2 mt-8">
         Findings auto-refresh every 5 seconds · Decisions saved to decisions.jsonl
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

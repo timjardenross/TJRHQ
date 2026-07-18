@@ -14,7 +14,7 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { DomainToggle } from './_components/DomainToggle';
 import { ConsultView } from './_components/ConsultView';
 import { BoardView } from './_components/BoardView';
@@ -47,9 +47,12 @@ function Workbench() {
   const right = <DomainToggle domain={domain} onChange={changeDomain} />;
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Advisory"
       eyebrow={EYEBROW[domain]}
+      homeHref="/advisory-workbench"
+      homeAriaLabel="Advisory Workbench home"
+      tagline="USS TJR · Advisory · Consult · Board · Perspectives · Advisory only — the Captain decides"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
@@ -61,7 +64,7 @@ function Workbench() {
         <BoardView investigationType={investigationType} investigationReason={investigationReason} />
       )}
       {domain === 'perspectives' && <PerspectivesView />}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

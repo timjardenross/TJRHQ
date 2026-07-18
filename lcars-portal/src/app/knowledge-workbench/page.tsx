@@ -9,7 +9,7 @@
 
 import { Suspense, useCallback, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { DomainToggle } from './_components/DomainToggle';
 import { MemoryView } from './_components/MemoryView';
 import { LibraryView } from './_components/LibraryView';
@@ -41,10 +41,13 @@ function Workbench() {
   const right = <DomainToggle domain={domain} onChange={changeDomain} />;
 
   return (
-    <Shell title="Knowledge Workbench" eyebrow={EYEBROW[domain]} right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+    <WorkbenchShell title="Knowledge Workbench" eyebrow={EYEBROW[domain]}
+      homeHref="/knowledge-workbench"
+      tagline="USS TJR · Knowledge · Memory · Library · Organisational decisions and personal documents"
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       {domain === 'memory' && <MemoryView />}
       {domain === 'library' && <LibraryView />}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

@@ -5,7 +5,7 @@
 // / Human Systems Workbenches. Confidence gets a meter; warnings / priorities /
 // next-actions are stat tiles. A tile click jumps to the relevant view/section.
 
-import { Card } from './Shell';
+import { Card } from '@/components/ui';
 import { ConfidenceMeter } from './cards';
 import type { CaptainBriefDocument } from './types';
 

@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Button, Input, Textarea } from '@/components/ui';
+import { WorkbenchShell, Card, Button, Input, Textarea } from '@/components/ui';
 
 type NSState = 'calm' | 'activated' | 'dysregulated';
 type EnergyLevel = 'low' | 'moderate' | 'high';
@@ -131,7 +130,7 @@ export default function HealthCheckInPage() {
 
   if (saved) {
     return (
-      <Shell title="Daily Check-In" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+      <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span aria-hidden className="text-2xl text-wb-ok-on">✓</span>
@@ -139,12 +138,12 @@ export default function HealthCheckInPage() {
           <p className="font-serif text-lg font-bold text-wb-ok-on">Check-in logged</p>
           <p className="text-sm text-wb-ink2">Returning to Medical…</p>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   return (
-    <Shell title="Daily Check-In" eyebrow="Health Tracking" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+    <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
       <div className="flex flex-col gap-4">
         <Card title={today}>
           <p className="text-xs text-wb-ink2">
@@ -289,6 +288,6 @@ export default function HealthCheckInPage() {
           {saving ? 'Logging check-in…' : 'Log Check-In'}
         </Button>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

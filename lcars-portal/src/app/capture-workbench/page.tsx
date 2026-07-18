@@ -14,7 +14,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { DomainToggle } from './_components/DomainToggle';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { CaptureView } from './_components/CaptureView';
@@ -84,7 +84,11 @@ function Workbench() {
   );
 
   return (
-    <Shell title="Capture" eyebrow={EYEBROW[domain]} right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+    <WorkbenchShell title="Capture" eyebrow={EYEBROW[domain]}
+      homeHref="/capture-workbench"
+      homeAriaLabel="Capture Workbench home"
+      tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       <KpiDashboard stats={stats} loading={loading} onFilter={filterToInbox} />
       {domain === 'capture' && <CaptureView onCaptured={refresh} />}
       {domain === 'inbox' && (
@@ -95,7 +99,7 @@ function Workbench() {
           onMutated={() => loadStats(false)}
         />
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

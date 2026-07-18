@@ -6,7 +6,7 @@
 // (MSN-0329) — real content the old UI carried in the document but never showed
 // (Captain decision 2026-07-12: render them).
 
-import { Card } from './Shell';
+import { Card } from '@/components/ui';
 import { WarningBanner, RecCard } from './cards';
 import { ItemRow } from './ItemRow';
 import type { CaptainBriefDocument, CaptainBriefItem, Insight, Recommendation } from './types';

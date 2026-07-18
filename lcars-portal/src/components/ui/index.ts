@@ -18,3 +18,7 @@ export type { ProgressBarProps, ProgressStep, ProgressStepsProps } from './Progr
 
 export { Tabs, BackLink } from './Navigation';
 export type { TabItem, TabsProps, BackLinkProps } from './Navigation';
+
+export { RiskPill, riskClass } from './RiskPill';
+
+export { WorkbenchShell } from './WorkbenchShell';

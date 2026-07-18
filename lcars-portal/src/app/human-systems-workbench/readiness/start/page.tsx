@@ -2,8 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Button, Textarea } from '@/components/ui';
+import { WorkbenchShell, Card, Button, Textarea } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   generateSession,
@@ -158,9 +157,11 @@ export default function ReadinessCheckInPage() {
   }
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Today's Readiness"
       eyebrow="Fitness Readiness"
+      homeHref="/human-systems-workbench"
+      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench?domain=readiness', label: 'Readiness' }}
     >
       <div className="flex flex-col gap-4">
@@ -286,6 +287,6 @@ export default function ReadinessCheckInPage() {
           {generating ? 'Building session…' : 'Generate Session'}
         </Button>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

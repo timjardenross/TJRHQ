@@ -11,7 +11,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Shell } from './_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { DomainToggle } from './_components/DomainToggle';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { RecoveryView } from './_components/RecoveryView';
@@ -94,7 +94,10 @@ function Workbench() {
   );
 
   return (
-    <Shell title="Human Systems" eyebrow={EYEBROW[domain]} right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+    <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[domain]}
+      homeHref="/human-systems-workbench"
+      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
       {data && !('error' in data) && (
@@ -111,7 +114,7 @@ function Workbench() {
           Couldn&rsquo;t load Human Systems data. The workbench stays read-only and safe; try again shortly.
         </div>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }
 

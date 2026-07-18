@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { Card, Button, Textarea } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -103,9 +103,11 @@ export default function CaptainsLogPage() {
 
   if (saved) {
     return (
-      <Shell
+      <WorkbenchShell
         title="Captain's Log"
         eyebrow="Recovery & Capacity"
+        homeHref="/human-systems-workbench"
+        tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
         back={{ href: '/human-systems-workbench?domain=recovery', label: 'Recovery' }}
       >
         <div className="flex flex-col items-center justify-center gap-4 py-16">
@@ -115,14 +117,16 @@ export default function CaptainsLogPage() {
           <p className="font-serif text-lg text-wb-ink">Log entry saved</p>
           <p className="text-sm text-wb-ink2">Returning to Recovery…</p>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Captain's Log"
       eyebrow="Recovery & Capacity"
+      homeHref="/human-systems-workbench"
+      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench?domain=recovery', label: 'Recovery' }}
     >
       <div className="flex flex-col gap-4">
@@ -231,6 +235,6 @@ export default function CaptainsLogPage() {
           {saving ? 'Saving…' : 'Save Log Entry'}
         </Button>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

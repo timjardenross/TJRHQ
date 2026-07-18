@@ -4,7 +4,7 @@
 // Supports both Operational Signals (Phase A) and Health Intelligence modes.
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, Shell } from './_components/Shell';
+import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
 import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
@@ -204,9 +204,11 @@ export default function Overview() {
   const eyebrow = domain === 'operational' ? 'Operational Resilience' : 'Health Intelligence';
 
   return (
-    <Shell 
-      title="Intelligence Workbench" 
+    <WorkbenchShell
+      title="Intelligence Workbench"
       eyebrow={eyebrow}
+      homeHref="/intelligence-workbench"
+      tagline="USS TJR · Operational Resilience Intelligence · Phase B"
       right={<DomainToggle domain={domain} onChange={setDomain} />}
     >
       {error && (
@@ -390,6 +392,6 @@ export default function Overview() {
           <AuditLogCard />
         </>
       )}
-    </Shell>
+    </WorkbenchShell>
   );
 }

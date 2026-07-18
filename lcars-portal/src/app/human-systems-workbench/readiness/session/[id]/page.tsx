@@ -3,8 +3,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Shell } from '@/app/human-systems-workbench/_components/Shell';
-import { Card, Badge, Button, Input } from '@/components/ui';
+import { WorkbenchShell, Card, Badge, Button, Input } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   makeEasier,
@@ -331,14 +330,14 @@ export default function WorkoutRunnerPage() {
 
   if (loading) {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <p className="p-6 text-center text-sm text-wb-ink2">Loading session…</p>
-      </Shell>
+      </WorkbenchShell>
     );
   }
   if (error || !plan || !sessionRow) {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-3">
           <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 px-4 py-3 text-sm text-wb-crit-on">
             {error ?? 'Session could not be loaded.'}
@@ -347,13 +346,13 @@ export default function WorkoutRunnerPage() {
             Back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'done') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span className="font-serif text-2xl text-wb-ok-on">✓</span>
@@ -366,13 +365,13 @@ export default function WorkoutRunnerPage() {
             Back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'completion') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title="Finishing Up">
             <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-wb-ink2">{SESSION_TYPE_LABELS[plan.sessionType]}</p>
@@ -454,13 +453,13 @@ export default function WorkoutRunnerPage() {
             {saving ? 'Saving…' : 'Finish & Log Session'}
           </Button>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (phase === 'overview') {
     return (
-      <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title={SESSION_TYPE_LABELS[plan.sessionType]}>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -515,7 +514,7 @@ export default function WorkoutRunnerPage() {
             Not now — back to Readiness
           </Link>
         </div>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
@@ -526,7 +525,7 @@ export default function WorkoutRunnerPage() {
   const videoUrl = ex.preferred_video_url || youtubeSearchUrl(ex.video_search_query);
 
   return (
-    <Shell title="Session" eyebrow="Fitness Readiness" back={shellBack}>
+    <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
@@ -634,6 +633,6 @@ export default function WorkoutRunnerPage() {
           </button>
         </div>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }

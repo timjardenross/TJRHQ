@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
-import { Shell } from '../../intelligence-workbench/_components/Shell';
+import { WorkbenchShell } from '@/components/ui';
 import { ApprovalQueue, type ApprovalQueueFlash } from '../_components/ApprovalQueue';
 import { STATUS_OPTIONS, APPROVAL_ELIGIBLE, REJECTION_ELIGIBLE, statusToBadge, fmtDate } from '../_components/shared';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -121,15 +121,15 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'loading') {
     return (
-      <Shell title="Mission Workbench" eyebrow="Loading">
+      <WorkbenchShell title="Mission Workbench" eyebrow="Loading" homeHref="/mission-workbench" homeAriaLabel="Mission Workbench home" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering, governed approve/reject">
         <p className="py-16 text-center text-[13px] text-wb-ink2">Loading mission…</p>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (loadState === 'error') {
     return (
-      <Shell title="Mission Data Unavailable" eyebrow="Fetch error" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell title="Mission Data Unavailable" eyebrow="Fetch error" homeHref="/mission-workbench" homeAriaLabel="Mission Workbench home" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering, governed approve/reject" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
           <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
             <p className="text-[13px] font-semibold text-wb-crit-on">Couldn&rsquo;t load this mission right now.</p>
@@ -139,26 +139,26 @@ export default function MissionWorkbenchDetailPage() {
             </p>
           </div>
         </Card>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   if (loadState === 'notfound' || !mission) {
     return (
-      <Shell title="Mission Not Found" eyebrow="No such record" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell title="Mission Not Found" eyebrow="No such record" homeHref="/mission-workbench" homeAriaLabel="Mission Workbench home" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering, governed approve/reject" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
           <p className="text-[13px] text-wb-ink2">
             No mission with ID <span className="font-mono text-wb-ink">{id}</span> exists in the registry.
           </p>
         </Card>
-      </Shell>
+      </WorkbenchShell>
     );
   }
 
   const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';
 
   return (
-    <Shell title={mission.mission_id} eyebrow={eyebrow} back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
+    <WorkbenchShell title={mission.mission_id} eyebrow={eyebrow} homeHref="/mission-workbench" homeAriaLabel="Mission Workbench home" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering, governed approve/reject" back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
       <div className="flex flex-col gap-4">
         <Card>
           <h2 className="font-serif text-xl text-wb-ink">{mission.title}</h2>
@@ -276,6 +276,6 @@ export default function MissionWorkbenchDetailPage() {
           </div>
         </Card>
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }
