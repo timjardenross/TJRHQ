@@ -20,6 +20,14 @@ from typing import Optional
 
 log = logging.getLogger("captains-brief")
 
+# ADR-024 fix #5 (RESIL-INFRA narrative synthesis) — guarded import so a
+# problem in the infra-verification module degrades that one section, never
+# the whole brief.
+try:
+    from core.platform.infra_narrative import generate_infra_narrative
+except Exception:  # pragma: no cover — import-time guard, not a runtime path
+    generate_infra_narrative = None  # type: ignore[assignment]
+
 # Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
 try:
     from zoneinfo import ZoneInfo
@@ -120,6 +128,19 @@ def _get_todays_health() -> Optional[dict]:
 def _get_recovery_status() -> Optional[dict]:
     rows = _sb_get("recovery_confidence_today", "limit=1")
     return rows[0] if rows else None
+
+
+def _get_infra_verification() -> Optional[dict]:
+    """ADR-024 fix #5 — RESIL-INFRA narrative synthesis. Returns None (section
+    omitted) whenever verification hasn't run or the module isn't available;
+    never treated as evidence the platform is healthy."""
+    if generate_infra_narrative is None:
+        return None
+    try:
+        return generate_infra_narrative()
+    except Exception as exc:
+        log.warning("Infra verification narrative failed: %s", exc)
+        return None
 
 
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
@@ -283,6 +304,7 @@ def generate_morning_brief() -> str:
     health = _get_todays_health()
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
+    infra = _get_infra_verification()
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
@@ -358,6 +380,16 @@ def generate_morning_brief() -> str:
             )
         lines.append("")
 
+    # Platform self-health — only surfaced when something is actually
+    # degraded; silence is a valid, positive state (per verification engine
+    # design intent, STARSHIP-REDESIGN.md §9).
+    if infra and infra.get("state") == "unsure":
+        lines += [
+            "<b>🛰 PLATFORM HEALTH</b>",
+            f"  ⚠️ {infra['narrative'][:400]}",
+            "",
+        ]
+
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -383,6 +415,7 @@ def generate_eod_summary() -> str:
     missions = _get_active_missions(limit=8)
     health = _get_todays_health()
     recovery = _get_recovery_status()
+    infra = _get_infra_verification()
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
@@ -433,6 +466,13 @@ def generate_eod_summary() -> str:
                 f"  {p} {m.get('title', '—')}  [{m.get('status', '?')}]"
             )
         lines.append("")
+
+    if infra and infra.get("state") == "unsure":
+        lines += [
+            "<b>🛰 PLATFORM HEALTH</b>",
+            f"  ⚠️ {infra['narrative'][:400]}",
+            "",
+        ]
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",
