@@ -309,6 +309,15 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
             saved = True
             log.info("Pulse written: %s energy=%s ns=%s body=%s rows=%s",
                      pt, energy, nervous_system, body_signals, len(res.data) if res.data else 0)
+            # ADR-024 second-pass audit: 'recovery_pulses' had zero
+            # record_heartbeat() calls across any write path — never_succeeded
+            # in verification_state despite this being the primary Telegram
+            # pulse surface. Non-blocking.
+            try:
+                from core.platform.heartbeat import record_heartbeat
+                record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pt} source=telegram")
+            except Exception:
+                pass
         except Exception as exc:
             err_msg = str(exc)
             log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s", exc, energy, nervous_system, body_signals)

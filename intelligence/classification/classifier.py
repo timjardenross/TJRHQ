@@ -39,9 +39,17 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
     ("telecom_outage",       ["telstra", "optus", "tpg", "vodafone", "nbn", "network outage",
                               "mobile network", "broadband", "telecommunications", "telco",
                               "internet outage", "connectivity"]),
-    ("payments_disruption",  ["payment", "eftpos", "bpay", "osko", "npp", "rba payment",
-                              "clearing", "settlement", "swift", "cards", "atm",
-                              "auspaynet", "direct entry", "pe/cs", "high value", "hvcs"]),
+    # 2026-07-18: removed "payment" (bare), "cards", "atm", "settlement", "swift"
+    # (bare) after live-data review found 44/44 events in this category over 30
+    # days were false positives — "payment" matched lawsuit/donation/budget
+    # articles, "cards" matched "recession off the cards", "atm" matched
+    # substrings inside unrelated words, "swift" matched Taylor Swift, not the
+    # SWIFT payments network. Kept only terms specific enough that a genuine
+    # hit means an actual payments-system story.
+    ("payments_disruption",  ["eftpos", "bpay", "osko", "npp", "rba payment",
+                              "clearing", "swift network", "swift payment",
+                              "payments outage", "payment system outage", "payments system",
+                              "auspaynet", "direct entry", "pe/cs", "high value payment", "hvcs"]),
     ("energy_disruption",    ["aemo", "power outage", "electricity", "gas supply", "energy",
                               "grid", "load shedding", "blackout", "generation", "nem"]),
     ("severe_weather",       ["storm", "cyclone", "flood", "bushfire", "fire", "heatwave",
@@ -206,7 +214,16 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         cps230_confidence = 3
     elif medium_hits >= 2:
         cps230_confidence = 2
-    elif medium_hits >= 1 and event_type in ("technology_outage", "cyber", "telecom_outage", "third_party_disruption"):
+    elif medium_hits >= 1 and event_type in (
+        "technology_outage", "cyber", "telecom_outage", "third_party_disruption", "payments_disruption",
+    ):
+        # payments_disruption added 2026-07-18: live data showed 44 payments_disruption
+        # events over 30 days (avg operational_relevance 1.0, the maximum) with zero
+        # flagged cps230_relevance — this event_type was missing from the medium-hits
+        # path even though payments/clearing/settlement disruption is CPS230 heartland
+        # (a "critical operation" almost by definition). It could previously only be
+        # flagged via high_hits>=1 (literal "CPS 230" text), which payments-outage news
+        # essentially never contains.
         cps230_confidence = 2
     elif event_type == "regulatory" and not _routine_publication and banking_hits >= 2:
         cps230_confidence = 2

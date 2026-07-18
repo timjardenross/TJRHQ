@@ -277,6 +277,19 @@ def promote_recovery_pulse(supabase, capture_id: str, transcript: str, captured_
         "routed_to_table": "recovery_pulses",
     }).eq("id", capture_id).execute()
 
+    # ADR-024 second-pass audit: 'recovery_pulses' had zero record_heartbeat()
+    # calls across any write path — never_succeeded in verification_state
+    # despite this voice-capture route being a live surface. Non-blocking.
+    try:
+        import sys
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.heartbeat import record_heartbeat
+        record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=telegram_voice action={action}")
+    except Exception:
+        pass
+
     return {"action": action, "recovery_pulse_id": pulse_id, "pulse_type": pulse_type, "log_date": log_date}
 
 
