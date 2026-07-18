@@ -36,9 +36,6 @@ interface Tab {
 // dropped - all four are superseded (see docs/REMOVAL-PLAN.md Category A)
 // and remain reachable by direct URL for now, not deleted.
 const TABS: Tab[] = [
-  { href: '/home', label: 'Home', glyph: '⌂' },
-  { href: '/decide', label: 'Decide', glyph: '✓' },
-  { href: '/ask', label: 'Ask', glyph: '?' },
   { href: '/capture-workbench', label: 'Capture', glyph: '＋' },
   { href: '/physical-readiness', label: 'Readiness', glyph: '✚' },
 ];

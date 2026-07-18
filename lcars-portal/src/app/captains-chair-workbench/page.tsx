@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Shell } from '@/components/ui/workbench';
-import { Badge } from '@/components/ui/Badge';
+import { WorkbenchShell } from '@/components/ui';
+import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
@@ -145,7 +145,7 @@ function useTodaysBriefing(): {
 
 export default function CaptainsChalrWorkbench() {
   const { posture: currentPosture, bodyContext } = useROSData();
-  const { alerts: liveAlerts, loading: alertsLoading } = useAlerts();
+  const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
   const { stats: missionStats, loading: missionStatsLoading } = useLiveMissionStats();
   const { data: engQueueData, loading: engQueueLoading } = useLiveEngineeringQueue();
   const { stats: briefingStats, loading: briefingLoading, operationalPicture } = useTodaysBriefing();
@@ -155,12 +155,15 @@ export default function CaptainsChalrWorkbench() {
     loadSinceLastSession().then(setSummary);
   }, []);
 
-  const postureTone = currentPosture === 'STRONG' ? 'status' : currentPosture === 'STABLE' ? 'command' : 'operations';
+  const postureBand = currentPosture.posture;
+  const postureTone = postureBand === 'STRONG' ? 'status' : postureBand === 'STABLE' ? 'command' : 'operations';
 
   return (
-    <Shell
+    <WorkbenchShell
       title="Captain's Chair"
       eyebrow="Operational Dashboard"
+      homeHref="/captains-chair-workbench"
+      tagline="USS TJR · Captain's Chair · Operational Dashboard"
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {/* ── Always-visible panels ── */}
@@ -215,7 +218,7 @@ export default function CaptainsChalrWorkbench() {
         </div>
 
         {/* Fleet Section — Hidden on FRAGILE/REST */}
-        {currentPosture !== 'FRAGILE' && currentPosture !== 'REST' && (
+        {postureBand !== 'FRAGILE' && postureBand !== 'REST' && (
           <div className="space-y-4">
             {/* Mission Overview */}
             <div className="grid gap-4 md:grid-cols-2">
@@ -272,7 +275,7 @@ export default function CaptainsChalrWorkbench() {
             {/* Today's Briefing & Engineering Queue */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border border-wb-border bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today's Briefing</h3>
+                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
                 {briefingLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
                 ) : (
@@ -363,14 +366,14 @@ export default function CaptainsChalrWorkbench() {
         )}
 
         {/* Posture Warning */}
-        {(currentPosture === 'FRAGILE' || currentPosture === 'REST') && (
+        {(postureBand === 'FRAGILE' || postureBand === 'REST') && (
           <div className="rounded-lg border border-wb-border bg-wb-bg p-4">
             <p className="text-sm text-wb-ink">
-              Recovery posture is <Badge label={currentPosture} tone={postureTone} /> — operational detail is hidden. Focus on recovery and immediate priorities.
+              Recovery posture is <StatusBadge label={postureBand} tone={postureTone} /> — operational detail is hidden. Focus on recovery and immediate priorities.
             </p>
           </div>
         )}
       </div>
-    </Shell>
+    </WorkbenchShell>
   );
 }
