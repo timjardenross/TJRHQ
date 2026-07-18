@@ -172,12 +172,16 @@ def curate_watchlist(repo, actor_role: str, brief_id: str, items: list[dict]) ->
 
 # ─── QA gates + publish ──────────────────────────────────────────────────────
 def set_qa_gate(repo, actor_role: str, brief_id: str, gate: str,
-                status: str = "passed") -> dict:
+                status: str = "passed", details: Optional[dict[str, Any]] = None) -> dict:
     """Record a QA gate result and advance approval_status in sequence.
 
     data_qa is automated (actor 'system' allowed); factual/analytical require the
     Intelligence Lead. Gates must pass in order (data -> factual -> analytical);
-    the brief-transition check enforces the sequence."""
+    the brief-transition check enforces the sequence.
+
+    `details` is an optional free-form dict (e.g. the automated data_qa agent's
+    sub-scores) merged into this gate's audit entry alongside status/approved_by
+    - additive, no existing caller passes it so nothing else changes shape."""
     if gate not in _GATE_STATUS:
         raise GovernanceError(f"unknown QA gate '{gate}'")
     if gate != "data_qa":
@@ -188,7 +192,7 @@ def set_qa_gate(repo, actor_role: str, brief_id: str, gate: str,
         raise NotFoundError(f"no brief {brief_id}")
 
     audit = dict(brief.get("approval_audit") or {})
-    audit[gate] = {"status": status, "approved_by": actor_role}
+    audit[gate] = {"status": status, "approved_by": actor_role, **({"details": details} if details else {})}
     fields: dict[str, Any] = {"approval_audit": audit}
 
     if status == "passed":
