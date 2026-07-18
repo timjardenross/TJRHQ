@@ -7,8 +7,19 @@
  * (lib/delivery/analysis.py).
  */
 
-import { supabase } from './supabase';
+import { createSupabaseBrowserClient } from './supabase-browser';
 import type { StatusTone } from './types';
+
+// Session-aware client (2026-07-18): mission_delivery/mission_delivery_metrics
+// have never granted anon any privilege at all (checked live via
+// information_schema.table_privileges - only authenticated/postgres/
+// service_role) - this file's queries never worked through the plain anon
+// client, on any night, independent of tonight's RLS changes elsewhere.
+// Same fix as lib/ros-data.ts/lib/human-systems.ts. Constructed fresh per
+// call, matching every other caller in this codebase.
+function client() {
+  return createSupabaseBrowserClient();
+}
 
 export interface DeliveryRow {
   title: string;
@@ -50,7 +61,7 @@ export const STATE_TONE: Record<string, StatusTone> = {
 };
 
 export async function fetchDeliveryRows(): Promise<DeliveryRow[]> {
-  if (!supabase) return [];
+  const supabase = client();
   try {
     const { data, error } = await supabase
       .from('mission_delivery')
@@ -64,7 +75,7 @@ export async function fetchDeliveryRows(): Promise<DeliveryRow[]> {
 }
 
 export async function fetchDeliveryMetrics(): Promise<DeliveryMetrics | null> {
-  if (!supabase) return null;
+  const supabase = client();
   try {
     const { data, error } = await supabase.from('mission_delivery_metrics').select('*').limit(1);
     if (error || !data || !data.length) return null;

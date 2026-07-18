@@ -16,10 +16,18 @@
  *   wellness         — critical wellness / readiness signal
  */
 
-import { supabase } from './supabase';
+import { createSupabaseBrowserClient } from './supabase-browser';
 import { loadHumanSystems } from './human-systems';
 import { loadDelivery } from './delivery';
 import { fetchRecoveryPosture, fetchEmotionalLoadFlag } from './ros-data';
+
+// Session-aware client (2026-07-18): recovery_pulses/build_request_inbox/
+// mission_execution_events either never had an anon grant or (recovery_pulses)
+// were tightened tonight - same fix as ros-data.ts/human-systems.ts/
+// delivery.ts. Constructed fresh per call, matching every other caller.
+function client() {
+  return createSupabaseBrowserClient();
+}
 
 export type AlertKind = 'decision' | 'escalation' | 'delivery_failure' | 'eng_review' | 'wellness';
 export type AlertSeverity = 'critical' | 'high' | 'warning';
@@ -53,6 +61,7 @@ function nowIso() {
 // ── Wellness + escalation (reuse human-systems + ROS posture) ─────────────────
 
 async function wellnessAlerts(): Promise<MobileAlert[]> {
+  const supabase = client();
   const out: MobileAlert[] = [];
   try {
     const [hs, posture, emo] = await Promise.all([
@@ -173,6 +182,7 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
 // ── Delivery failures + engineering review (reuse delivery + targeted reads) ───
 
 async function engineeringAlerts(): Promise<MobileAlert[]> {
+  const supabase = client();
   const out: MobileAlert[] = [];
   try {
     const del = await loadDelivery();
@@ -270,8 +280,8 @@ async function engineeringAlerts(): Promise<MobileAlert[]> {
 // ── Decision required (captured missions awaiting triage) ─────────────────────
 
 async function decisionAlerts(): Promise<MobileAlert[]> {
+  const supabase = client();
   const out: MobileAlert[] = [];
-  if (!supabase) return out;
   try {
     const { count } = await supabase
       .from('captured_items')
