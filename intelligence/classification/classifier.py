@@ -50,14 +50,35 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
                               "clearing", "swift network", "swift payment",
                               "payments outage", "payment system outage", "payments system",
                               "auspaynet", "direct entry", "pe/cs", "high value payment", "hvcs"]),
-    ("energy_disruption",    ["aemo", "power outage", "electricity", "gas supply", "energy",
-                              "grid", "load shedding", "blackout", "generation", "nem"]),
-    ("severe_weather",       ["storm", "cyclone", "flood", "bushfire", "fire", "heatwave",
+    # 2026-07-18: same substring-collision defect found and fixed in
+    # payments_disruption (see below) also present here, confirmed against
+    # real data — "generation" false-matched "next-generation monetary and
+    # financial system" (an unrelated finance piece) and "nem" is a substring
+    # of "enemy", a common word in any conflict/rivalry article. Tightened to
+    # phrases specific enough that a hit means genuine energy-grid content.
+    ("energy_disruption",    ["aemo", "power outage", "electricity", "gas supply", "energy grid",
+                              "grid", "load shedding", "blackout", "power generation",
+                              "electricity generation", "nem market", "national electricity market"]),
+    # 2026-07-18: "ses" (bare) false-matched "purposes" — "ses" is a common
+    # English suffix (causes, expenses, licenses, businesses), so this was a
+    # near-guaranteed false positive on any text discussing reasons/effects.
+    # Tightened to require the acronym in an unambiguous SES context.
+    ("severe_weather",       ["storm", "cyclone", "flood", "bushfire", "fire warning", "wildfire",
+                              "grassfire", "heatwave",
                               "bom", "bureau of meteorology", "emergency warning", "evacuation",
-                              "cfa", "ses", "rfs", "severe weather", "rainfall", "wind warning"]),
-    ("transport_disruption", ["ptv", "train", "tram", "bus", "airport", "flight", "disruption",
+                              "cfa", "nsw ses", "state emergency service", "rfs",
+                              "severe weather", "rainfall", "wind warning"]),
+    # 2026-07-18: "disruption" (bare) is the transport-category equivalent of
+    # the payments_disruption bug — a generic word that appears in any
+    # market/industry/political "disruption" story regardless of domain.
+    # "train" false-matched "constraints" (consTRAINts) and the ML sense of
+    # "train a model"; "bus" false-matched "abuse" (aBUSe). Tightened all
+    # three; kept "airport"/"transurban"/"freeway"/etc as-is since compound,
+    # multi-syllable terms don't have the same collision risk.
+    ("transport_disruption", ["ptv", "train delay", "train cancelled", "train service", "trains cancelled",
+                              "tram", "bus service", "bus route", "buses cancelled", "airport", "flight",
                               "transurban", "toll", "road closure", "freeway", "motorway",
-                              "sydney trains", "metro", "transport"]),
+                              "sydney trains", "metro", "transport disruption", "transport delay"]),
     ("physical_security",    ["physical security", "bomb threat", "suspicious package",
                               "armed robbery", "protest", "blockade", "building evacuation",
                               "lockdown", "security incident"]),
@@ -66,8 +87,13 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
     ("geopolitical",         ["sanctions", "geopolitical", "nation state", "espionage",
                               "critical infrastructure attack", "state-sponsored", "tariff",
                               "trade disruption", "diplomatic"]),
-    ("supply_chain",         ["supply chain", "logistics disruption", "port", "customs",
-                              "import", "shipping delay", "procurement"]),
+    # 2026-07-18: "port" (bare) false-matched "support" and "reported" —
+    # a 4-letter substring embedded in extremely common English words.
+    # "import" is literally embedded in "important" (imPORTant). Tightened
+    # to compound terms specific to actual port/import disruption.
+    ("supply_chain",         ["supply chain", "logistics disruption", "port congestion", "port closure",
+                              "port delay", "container port", "customs",
+                              "import delay", "import ban", "shipping delay", "procurement"]),
     ("workforce",            ["strike", "industrial action", "workforce", "staffing",
                               "pandemic", "covid", "illness", "absenteeism"]),
 ]
