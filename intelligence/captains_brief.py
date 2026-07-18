@@ -143,6 +143,18 @@ def _get_infra_verification() -> Optional[dict]:
         return None
 
 
+def _get_content_review_queue(limit: int = 5) -> list[dict]:
+    """Content pipeline items awaiting the Captain's own review/publish
+    decision — the intelligence-to-writing loop, distinct from RESIL-EXT's
+    intelligence signals. 2026-07-18 audit: this pipeline had produced real
+    drafts that were never surfaced anywhere, so nobody knew to look."""
+    return _sb_get(
+        "comms_content",
+        "status=in.(draft,review,ready_to_publish)&order=draft_generated_at.desc.nullslast"
+        f"&limit={limit}&select=title,pillar,status,draft_generated_at",
+    )
+
+
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
     since = (date.today() - timedelta(days=days)).isoformat()
     return _sb_get(
@@ -305,6 +317,7 @@ def generate_morning_brief() -> str:
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
     infra = _get_infra_verification()
+    content_queue = _get_content_review_queue()
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
@@ -390,6 +403,17 @@ def generate_morning_brief() -> str:
             "",
         ]
 
+    # Content pipeline — intelligence-to-writing drafts awaiting the
+    # Captain's own review/publish decision. Only shown when non-empty.
+    if content_queue:
+        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
+        for c in content_queue:
+            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+            lines.append(
+                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+            )
+        lines.append("")
+
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -416,6 +440,7 @@ def generate_eod_summary() -> str:
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
+    content_queue = _get_content_review_queue()
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
@@ -473,6 +498,15 @@ def generate_eod_summary() -> str:
             f"  ⚠️ {infra['narrative'][:400]}",
             "",
         ]
+
+    if content_queue:
+        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
+        for c in content_queue:
+            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+            lines.append(
+                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+            )
+        lines.append("")
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",

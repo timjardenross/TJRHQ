@@ -808,6 +808,42 @@ def _job_mission_registry_sync(client) -> None:
         _shakedown_log("mission_registry_sync", "skipped", "Registry already up to date")
 
 
+def _job_content_pipeline(client) -> None:
+    """Daily: the intelligence-to-writing pipeline this Captain actually asked
+    for. Promotes top-ranked content_signals to comms_content opportunities,
+    then runs the two-pass research+writing draft worker over whatever is
+    pending. Previously existed only as manual CLI scripts — 2026-07-18 audit
+    found 1,200 signals had produced only 13 opportunities ever, because
+    nothing ever ran this. Silent on success/no-op; only logs on failure —
+    the CONTENT REVIEW section in the morning/EOD brief is what surfaces
+    pending drafts to the Captain, not this job."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT))
+        from core.content.signal_opportunity_converter import create_opportunities_from_signals
+        promoted = create_opportunities_from_signals(limit=5, min_rank_score=70.0)
+        log.info(
+            "[scheduler] Content signal promotion: %s (%d/%d created)",
+            promoted.get("status"), promoted.get("created", 0), promoted.get("requested", 0),
+        )
+    except Exception as exc:
+        log.error("[scheduler] Content signal promotion failed: %s", exc)
+        _shakedown_log("content_pipeline", "failure", f"promotion: {exc}")
+        return
+
+    try:
+        from core.content.draft_worker import fetch_pending, process_item
+        items = fetch_pending(limit=5)
+        drafted = sum(1 for item in items if process_item(item, dry_run=False))
+        log.info("[scheduler] Content drafting: %d/%d item(s) drafted", drafted, len(items))
+        _shakedown_log(
+            "content_pipeline", "success",
+            f"promoted={promoted.get('created', 0)} drafted={drafted}/{len(items)}",
+        )
+    except Exception as exc:
+        log.error("[scheduler] Content drafting failed: %s", exc)
+        _shakedown_log("content_pipeline", "failure", f"drafting: {exc}")
+
+
 def _job_knowledge_freshness(client) -> None:
     """Weekly: flag knowledge files not updated in 90+ days."""
     stale = _get_stale_knowledge_files()
@@ -1217,6 +1253,19 @@ def start_scheduler(client) -> None:
         args=[client],
         id="mission_registry_sync",
         name="Mission Registry Sync (ADR-024)",
+        replace_existing=True,
+    )
+
+    # Content pipeline — daily 06:15, before the morning brief so any drafts
+    # generated this run are already reflected in its CONTENT REVIEW section.
+    # 2026-07-18 audit: this was never scheduled at all — 1,200 content
+    # signals had produced 13 opportunities, ever, entirely by hand.
+    scheduler.add_job(
+        _job_content_pipeline,
+        CronTrigger(hour=6, minute=15),
+        args=[client],
+        id="content_pipeline",
+        name="Content Signal-to-Draft Pipeline",
         replace_existing=True,
     )
 

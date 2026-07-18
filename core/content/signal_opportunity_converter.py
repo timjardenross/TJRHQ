@@ -14,7 +14,7 @@ writes nothing.
 
 Usage:
     from core.content.signal_opportunity_converter import create_opportunities_from_signals
-    result = create_opportunities_from_signals(limit=5, min_rank_score=0.7, domain="health")
+    result = create_opportunities_from_signals(limit=5, min_rank_score=70.0, domain="health")
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def _log_batch_operation(result: dict) -> None:
 
 def create_opportunities_from_signals(
     limit: int = 5,
-    min_rank_score: float = 0.7,
+    min_rank_score: float = 70.0,
     domain: Optional[str] = None,
 ) -> dict:
     """
@@ -115,7 +115,13 @@ def create_opportunities_from_signals(
 
     Args:
         limit: max opportunities to create (default 5)
-        min_rank_score: only signals at or above this score are eligible
+        min_rank_score: only signals at or above this score are eligible.
+            content_ranker.rank() returns a 0-100 scale score (real production
+            distribution: min 36.6, median 66.8, p75 70.3, p90 79.6, max 94.9 —
+            checked 2026-07-18). The previous default of 0.7 was a 0-1 scale
+            value applied to a 0-100 scale column, so every signal trivially
+            cleared it (1200/1200 signals passed) and the "top-ranked" filter
+            was not filtering anything. 70.0 targets roughly the top quartile.
         domain: 'health', 'operational', or None for both
 
     Returns:
@@ -234,7 +240,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Batch-create comms opportunities from content_signals")
     parser.add_argument("--limit", type=int, default=5)
-    parser.add_argument("--min-rank-score", type=float, default=0.7)
+    parser.add_argument("--min-rank-score", type=float, default=70.0)
     parser.add_argument("--domain", choices=["health", "operational"], default=None)
     args = parser.parse_args()
 
