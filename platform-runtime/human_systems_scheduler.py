@@ -115,6 +115,42 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
 
 
+# _JOB_DOMAIN above uses memory.record_recommendation()'s domain vocabulary
+# (resilience/medical/communications); core_events uses a different, already-
+# established vocabulary (wellness-coaching/health-intelligence/content-
+# intelligence per intelligence_store.py, engagement_dispatcher.py,
+# portfolio.py) — mapped explicitly rather than reusing _JOB_DOMAIN's values
+# directly, so this doesn't invent a fourth domain-string vocabulary.
+_CORE_EVENT_DOMAIN = {
+    "resilience":     "wellness-coaching",
+    "medical":        "health-intelligence",
+    "communications": "content-intelligence",
+}
+_SEVERITY_IMPORTANCE = {"info": 20, "notice": 40, "warning": 70, "urgent": 95}
+
+
+def _publish_core_event(job: str, message, report: dict) -> None:
+    """ADR-024 second-pass audit fix: RESIL-HUMAN's scheduled pushes were
+    never mirrored into the shared Event Bus (core_events), unlike RESIL-EXT
+    (intelligence_store.py) and other RESIL-HUMAN paths (engagement_
+    dispatcher.py's wellness-coaching escalation events). Best-effort,
+    non-blocking — never affects delivery, matching every other emitter's
+    existing pattern."""
+    try:
+        from core.platform.event_bus import publish_event
+        domain = _CORE_EVENT_DOMAIN.get(_JOB_DOMAIN.get(job, "resilience"), "wellness-coaching")
+        publish_event(
+            "human_systems.push_delivered",
+            domain=domain,
+            source="platform-runtime:human_systems_scheduler",
+            importance=_SEVERITY_IMPORTANCE.get(message.severity, 20),
+            recommended_action=message.title,
+            metrics={"job": job, "delivered": report.get("delivered"), "dry_run": report.get("dry_run")},
+        )
+    except Exception:
+        pass
+
+
 def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
             record: bool = True) -> dict:
     """Run one proactive job: generate → record → deliver. Returns a report dict."""
@@ -144,6 +180,7 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
         log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
                  job, report["delivered"], report["dry_run"])
         _record_heartbeat("ok", detail=f"job={job} delivered={report['delivered']} dry_run={report['dry_run']}")
+        _publish_core_event(job, message, report)
         return report
     except Exception as exc:
         _record_heartbeat("failed", detail=f"job={job}", error_message=str(exc))

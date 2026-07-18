@@ -82,4 +82,26 @@ def collect_all(
         len(all_items), len(all_health), ok, failed, stale,
     )
 
+    # ADR-024 second-pass audit fix: this run's own health summary was never
+    # mirrored into the shared Event Bus (core_events), unlike the individual
+    # intelligence items it collects (see intelligence_store.py's
+    # _mirror_to_event_bus). Best-effort, non-blocking — never affects
+    # collection itself, matching that module's existing pattern exactly.
+    try:
+        from core.platform.event_bus import publish_event
+        publish_event(
+            "intelligence.collection_run_completed",
+            domain="operational-resilience-intelligence",
+            source="intelligence:collection_engine",
+            metrics={
+                "items_collected": len(all_items),
+                "sources_ok": ok,
+                "sources_failed": failed,
+                "sources_degraded": stale,
+                "sources_total": len(all_health),
+            },
+        )
+    except Exception:
+        pass
+
     return all_items, all_health
