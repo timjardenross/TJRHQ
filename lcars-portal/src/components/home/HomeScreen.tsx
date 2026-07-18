@@ -49,13 +49,7 @@ function changeEyebrow(session: SessionBoundary): string {
  * ?type=&reason= a specific journey already knows (its own page says so:
  * "reach this from a link on Home or Recommended") - a blind link here
  * would just be a dead end, not a genuine entry point. */
-const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [
-  { href: '/decide', label: 'Decide', description: 'One place for judgement, one item at a time' },
-  { href: '/ask', label: 'Ask', description: 'Ask Starship what it knows' },
-  { href: '/recommended', label: 'Recommended', description: 'Ranked mission priorities from the Recommendation Engine' },
-  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },
-  { href: '/comms-studio', label: 'Communications Studio', description: 'Assemble an executive brief, decision brief, or mission report' },
-  { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
+const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },  { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },
   { href: '/captains-brief', label: "Captain's Brief", description: 'The composed intelligence document' },
   { href: '/comms', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
@@ -133,7 +127,7 @@ export function HomeScreen({
         <Section eyebrow="Needs you" ringColor={copy.ringColor}>
           {needsYou.status === 'ok' && needsYou.count > 0 ? (
             <Link
-              href="/decide"
+              href="/workbenches"
               className="text-[18px] font-normal text-[#18223a] leading-relaxed underline underline-offset-4 decoration-[#c3cee3] hover:decoration-[#243b7a]"
             >
               {needsYouText(needsYou)}

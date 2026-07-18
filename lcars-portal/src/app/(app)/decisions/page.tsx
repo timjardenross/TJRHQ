@@ -15,9 +15,7 @@ export default function DecisionsPage() {
       <LCARSPanel title="Decisions" accent="command" eyebrow="Moved">
         <p className="text-sm text-lcars-text/90 leading-relaxed">
           This page moved.{' '}
-          <Link href="/decide" className="text-command underline underline-offset-2 hover:text-status-on">
-            Go to Decide
-          </Link>{' '}
+          {' '}
           for mission and engineering approvals, one at a time.
         </p>
       </LCARSPanel>
