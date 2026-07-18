@@ -780,6 +780,34 @@ def _job_decision_review(client) -> None:
                    f"{len(pending)} decisions surfaced", _BRIEF_CHANNEL)
 
 
+def _job_mission_registry_sync(client) -> None:
+    """Daily: sync Supabase `missions` into the plain-text
+    core/mission-control/registry/mission-index.txt (ADR-024 second-pass
+    audit fix #3). Additive-only (tools/sync_supabase_to_registry.py never
+    deletes/modifies existing rows), silent on success — this closes the
+    gap where the registry was found ~150 mission numbers behind the live
+    table because the sync script existed but nothing ever ran it."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "tools"))
+        from sync_supabase_to_registry import sync, load_registry_ids
+        # sync()'s return value is a CLI exit code (always 0 on success, not
+        # a count), so diff the registry ourselves to know what actually
+        # happened.
+        before = load_registry_ids()
+        sync(dry_run=False)
+        added = len(load_registry_ids()) - len(before)
+    except Exception as exc:
+        log.error("[scheduler] Mission registry sync failed: %s", exc)
+        _shakedown_log("mission_registry_sync", "failure", str(exc))
+        return
+    if added > 0:
+        log.info("[scheduler] Mission registry sync: %d new mission(s) appended", added)
+        _shakedown_log("mission_registry_sync", "success", f"{added} new mission(s) appended")
+    else:
+        log.info("[scheduler] Mission registry sync: already up to date")
+        _shakedown_log("mission_registry_sync", "skipped", "Registry already up to date")
+
+
 def _job_knowledge_freshness(client) -> None:
     """Weekly: flag knowledge files not updated in 90+ days."""
     stale = _get_stale_knowledge_files()
@@ -1177,6 +1205,20 @@ def start_scheduler(client) -> None:
     brief_hour, brief_minute = _parse_time(_BRIEF_TIME)
 
     scheduler = BackgroundScheduler(timezone="Australia/Sydney")
+
+    # Mission registry sync — daily 06:45, before the morning brief.
+    # ADR-024 second-pass audit fix #3: mission-index.txt had no scheduled
+    # sync at all (tools/sync_supabase_to_registry.py existed but nothing
+    # ever ran it), so it drifted ~150 mission numbers behind the live
+    # Supabase `missions` table. Additive-only, silent on success.
+    scheduler.add_job(
+        _job_mission_registry_sync,
+        CronTrigger(hour=6, minute=45),
+        args=[client],
+        id="mission_registry_sync",
+        name="Mission Registry Sync (ADR-024)",
+        replace_existing=True,
+    )
 
     # Morning brief — every day at BRIEF_TIME
     scheduler.add_job(
