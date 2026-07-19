@@ -1,0 +1,334 @@
+{
+  "communities": {
+    "0": [
+      "context_bridge",
+      "context_bridge_build_hierarchy_context",
+      "context_bridge_entity_context_block",
+      "context_bridge_extract_ids",
+      "context_bridge_format_nav_response",
+      "context_bridge_format_path_response",
+      "context_bridge_format_slack",
+      "context_bridge_rationale_1",
+      "context_bridge_rationale_141",
+      "context_bridge_rationale_37",
+      "context_bridge_rationale_62",
+      "context_bridge_rationale_80",
+      "graph",
+      "graph_rationale_1",
+      "models",
+      "models_governancecontext",
+      "models_governancecontext_as_text",
+      "models_hierarchynode_short_label",
+      "models_impactanalysis",
+      "models_impactanalysis_as_text",
+      "models_implementationview",
+      "models_implementationview_as_text",
+      "models_navigationpath",
+      "models_navigationpath_as_text",
+      "models_rationale_1",
+      "models_rationale_102",
+      "models_rationale_122",
+      "models_rationale_140",
+      "models_rationale_51",
+      "models_rationale_70",
+      "models_rationale_84",
+      "models_reasoningpath",
+      "models_reasoningpath_as_text",
+      "navigator",
+      "navigator_rationale_1"
+    ],
+    "1": [
+      "graph_hierarchygraph",
+      "graph_hierarchygraph_add_edge",
+      "graph_hierarchygraph_ancestors",
+      "graph_hierarchygraph_bfs",
+      "graph_hierarchygraph_clear",
+      "graph_hierarchygraph_descendants",
+      "graph_hierarchygraph_edge_count",
+      "graph_hierarchygraph_in_edges",
+      "graph_hierarchygraph_init",
+      "graph_hierarchygraph_node_count",
+      "graph_hierarchygraph_out_edges",
+      "graph_hierarchygraph_predecessors",
+      "graph_hierarchygraph_repr",
+      "graph_hierarchygraph_shortest_path",
+      "graph_hierarchygraph_successors",
+      "graph_rationale_113",
+      "graph_rationale_16",
+      "graph_rationale_73",
+      "graph_rationale_77",
+      "graph_rationale_85",
+      "tests_test_graph",
+      "tests_test_graph_edge",
+      "tests_test_graph_node",
+      "tests_test_graph_rationale_1",
+      "tests_test_graph_rationale_83",
+      "tests_test_graph_test_add_node_and_edge",
+      "tests_test_graph_test_ancestors",
+      "tests_test_graph_test_clear",
+      "tests_test_graph_test_dedup_edge",
+      "tests_test_graph_test_descendants",
+      "tests_test_graph_test_shortest_path_direct",
+      "tests_test_graph_test_shortest_path_not_found",
+      "tests_test_graph_test_shortest_path_reverse",
+      "tests_test_graph_test_shortest_path_through_common_ancestor",
+      "tests_test_graph_test_successors_predecessors"
+    ],
+    "2": [
+      "any",
+      "graph_hierarchygraph_add_node",
+      "graph_hierarchygraph_get_node",
+      "graph_hierarchygraph_get_nodes",
+      "index",
+      "index_env_creds",
+      "index_get_graph",
+      "index_get_index",
+      "index_hierarchyindex",
+      "index_hierarchyindex_enabled",
+      "index_hierarchyindex_graph",
+      "index_hierarchyindex_init",
+      "index_hierarchyindex_load",
+      "index_hierarchyindex_upsert_edges",
+      "index_hierarchyindex_upsert_nodes",
+      "index_rationale_1",
+      "index_rationale_108",
+      "index_reload_graph",
+      "index_rest_get",
+      "index_rest_upsert",
+      "models_hierarchynode",
+      "navigator_hierarchynavigator_get_lessons_from_entity",
+      "navigator_hierarchynavigator_get_sibling_missions",
+      "navigator_hierarchynavigator_init",
+      "navigator_rationale_148",
+      "navigator_rationale_205"
+    ],
+    "3": [
+      "navigator_hierarchynavigator",
+      "navigator_hierarchynavigator_find_reasoning_path",
+      "navigator_hierarchynavigator_get_context_chain",
+      "navigator_hierarchynavigator_get_governing_framework",
+      "navigator_hierarchynavigator_get_impact_analysis",
+      "navigator_hierarchynavigator_get_implementation_status",
+      "navigator_rationale_120",
+      "navigator_rationale_161",
+      "navigator_rationale_178",
+      "navigator_rationale_30",
+      "navigator_rationale_40",
+      "navigator_rationale_86",
+      "tests_test_navigator",
+      "tests_test_navigator_build_graph",
+      "tests_test_navigator_e",
+      "tests_test_navigator_n",
+      "tests_test_navigator_rationale_1",
+      "tests_test_navigator_test_context_chain_unknown_entity",
+      "tests_test_navigator_test_context_chain_up",
+      "tests_test_navigator_test_governing_framework",
+      "tests_test_navigator_test_impact_analysis",
+      "tests_test_navigator_test_implementation_status_down",
+      "tests_test_navigator_test_lessons_from_entity",
+      "tests_test_navigator_test_reasoning_path",
+      "tests_test_navigator_test_reasoning_path_not_found",
+      "tests_test_navigator_test_sibling_missions"
+    ],
+    "4": [
+      "models_hierarchyedge",
+      "path",
+      "sync_parse_decisions",
+      "sync_parse_overrides",
+      "sync_parse_principles",
+      "sync_rationale_128",
+      "sync_rationale_430",
+      "sync_rationale_521",
+      "sync_run_sync",
+      "sync_syncresult",
+      "sync_syncresult_init",
+      "tests_test_sync_test_parse_overrides"
+    ],
+    "5": [
+      "sync",
+      "sync_extract_body_edges",
+      "sync_infer_rel",
+      "sync_norm_adr",
+      "sync_parse_adrs",
+      "sync_parse_simple_yaml",
+      "sync_rationale_1",
+      "sync_rationale_307",
+      "sync_rationale_566",
+      "sync_rationale_636",
+      "tests_test_sync_test_norm_adr"
+    ],
+    "6": [
+      "sync_norm_ini",
+      "sync_norm_msn",
+      "sync_parse_active_missions",
+      "sync_rationale_461",
+      "tests_test_sync",
+      "tests_test_sync_rationale_1",
+      "tests_test_sync_test_norm_ini",
+      "tests_test_sync_test_norm_msn_plain",
+      "tests_test_sync_test_norm_msn_short",
+      "tests_test_sync_test_norm_msn_with_letter"
+    ],
+    "7": [
+      "sync_extract_missions_block",
+      "sync_parse_initiatives",
+      "sync_parse_md_table",
+      "sync_rationale_107",
+      "sync_rationale_232",
+      "sync_rationale_625",
+      "tests_test_sync_test_parse_initiatives",
+      "tests_test_sync_test_parse_md_table_basic"
+    ],
+    "8": [
+      "sync_extract_prose",
+      "sync_norm_ll",
+      "sync_parse_lessons",
+      "sync_rationale_361",
+      "sync_rationale_594",
+      "tests_test_sync_test_extract_prose_skips_tables",
+      "tests_test_sync_test_norm_ll"
+    ],
+    "9": [
+      "sync_norm_cd",
+      "sync_norm_obj",
+      "sync_parse_objectives",
+      "sync_rationale_178",
+      "tests_test_sync_test_norm_obj",
+      "tests_test_sync_test_parse_objectives"
+    ],
+    "10": [
+      "init",
+      "init_rationale_1"
+    ],
+    "11": [
+      "tests_init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.08739495798319327,
+    "1": 0.11596638655462185,
+    "2": 0.11384615384615385,
+    "3": 0.13538461538461538,
+    "4": 0.25757575757575757,
+    "5": 0.2545454545454545,
+    "6": 0.26666666666666666,
+    "7": 0.25,
+    "8": 0.2857142857142857,
+    "9": 0.3333333333333333,
+    "10": 1.0,
+    "11": 1.0
+  },
+  "gods": [
+    {
+      "id": "graph_hierarchygraph",
+      "label": "HierarchyGraph",
+      "degree": 42
+    },
+    {
+      "id": "navigator_hierarchynavigator",
+      "label": "HierarchyNavigator",
+      "degree": 31
+    },
+    {
+      "id": "models_hierarchynode",
+      "label": "HierarchyNode",
+      "degree": 25
+    },
+    {
+      "id": "models_hierarchyedge",
+      "label": "HierarchyEdge",
+      "degree": 22
+    },
+    {
+      "id": "index_hierarchyindex",
+      "label": "HierarchyIndex",
+      "degree": 14
+    },
+    {
+      "id": "sync_parse_initiatives",
+      "label": "_parse_initiatives()",
+      "degree": 14
+    },
+    {
+      "id": "sync_run_sync",
+      "label": "run_sync()",
+      "degree": 13
+    },
+    {
+      "id": "tests_test_navigator_build_graph",
+      "label": "_build_graph()",
+      "degree": 13
+    },
+    {
+      "id": "tests_test_graph_node",
+      "label": "_node()",
+      "degree": 12
+    },
+    {
+      "id": "sync_parse_objectives",
+      "label": "_parse_objectives()",
+      "degree": 11
+    }
+  ],
+  "surprises": [
+    {
+      "source": "HierarchyGraph",
+      "target": "HierarchyEdge",
+      "source_files": [
+        "graph.py",
+        "models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "HierarchyGraph",
+      "target": "HierarchyNode",
+      "source_files": [
+        "graph.py",
+        "models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "HierarchyIndex",
+      "target": "HierarchyGraph",
+      "source_files": [
+        "index.py",
+        "graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "HierarchyNavigator",
+      "target": "HierarchyGraph",
+      "source_files": [
+        "navigator.py",
+        "graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "HierarchyIndex",
+      "target": "HierarchyEdge",
+      "source_files": [
+        "index.py",
+        "models.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

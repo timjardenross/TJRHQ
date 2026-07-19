@@ -1,0 +1,30 @@
+{
+  "assembled_at": "2026-06-13T06:24:19.343416Z",
+  "source_file": "supabase:captains_log_entries",
+  "status_summary": {
+    "pain_level": "moderate",
+    "mood": "stable",
+    "energy": "moderate",
+    "stress": null,
+    "sleep_quality": "good"
+  },
+  "trend_summary": {
+    "pain_trend": "unknown",
+    "energy_trend": "unknown",
+    "overall_direction": "unknown"
+  },
+  "recovery_priorities": [
+    "Tomorrow: medicines",
+    "Recent win: Bali packing"
+  ],
+  "health_themes": [
+    "none today same as yesterday",
+    "Blockers: faitgue after long sleep"
+  ],
+  "medical_officer_note": "Capacity 74% (Amber)",
+  "safety_flags": [],
+  "workload_constraint": "normal",
+  "capacity_score": 74,
+  "capacity_status": "Amber",
+  "data_quality": "complete"
+}

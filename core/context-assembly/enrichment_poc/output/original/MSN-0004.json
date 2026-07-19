@@ -1,0 +1,36 @@
+{
+  "entity_id": "MSN-0004",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:08.996022Z",
+  "overview": {
+    "title": "MSN-0004",
+    "status": "",
+    "owner": "",
+    "priority": "",
+    "created": "USS TJR knowledge assets available",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/original/MSN-0004.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [],
+  "related_decisions": [],
+  "relationships": [],
+  "completeness_score": 0.12,
+  "gaps": [
+    "owner identified",
+    "status known",
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified",
+    "governing ADRs found",
+    "relationships extracted"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record.",
+    "No governing ADRs identified \u2014 check whether an ADR applies.",
+    "Context completeness is low \u2014 enrich mission document with explicit ID references."
+  ]
+}

@@ -1,0 +1,18 @@
+[Unit]
+# STARSHIP-REDESIGN.md §4.2: "the watcher's watcher". Deliberately independent
+# of verification-engine.service - reads Supabase directly and sends Telegram
+# directly, so an outage in the verification engine (or the app tier it
+# partly checks) doesn't also take down the thing that's supposed to notice.
+# See core/platform/deadmans_switch.py for the full design rationale.
+Description=Starship dead-man's switch (alerts if verification itself has gone silent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.platform.deadmans_switch >> /opt/starship-endeavour/outputs/deadmans_switch.log 2>&1'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deadmans-switch

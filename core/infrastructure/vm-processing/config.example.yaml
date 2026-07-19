@@ -1,0 +1,47 @@
+# USS-TJR-MSN-0205C — VM Knowledge Processing Engine
+# Copy this file to config.yaml and adjust for this VM.
+# Secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are NOT set here — they
+# come from the repo-root .env file, same as every other worker in this repo.
+
+inbox:
+  # Root of the VM inbox — the same base_path configured in vm-transfer's
+  # (MSN-0205B) config.yaml. This worker scans <base_path>/received/<source>/**
+  # for files ready to process; it never touches pending/ or failed/.
+  base_path: "/opt/starship/inbox"
+
+model_router:
+  url: "http://127.0.0.1:8891"
+  timeout_seconds: 300
+
+processing:
+  # Batch size per worker invocation (systemd timer, one-shot).
+  batch_limit: 20
+  chunk_chars: 1200
+  chunk_overlap_chars: 150
+  # PDF pages averaging fewer extractable characters than this are treated
+  # as scanned/low-text and routed to OCR instead of straight extraction.
+  low_text_chars_per_page: 50
+  # USS-TJR-MSN-0206J-4: how many times `worker.py retry --id ID` may be
+  # called for a single failed document before it is moved to the
+  # `permanently_failed` terminal state instead of `retry_pending`.
+  # `worker.py override --id ID` is still available to force a
+  # permanently_failed document back to `received` beyond this cap.
+  max_retries: 3
+
+ocr:
+  # Scratch directory for ocrmypdf's OCR'd PDF output before re-extraction.
+  workdir: "./ocr-work"
+  # ocrmypdf/Tesseract language code, e.g. "eng", or "eng+fra" for
+  # multi-language documents (MSN-0206A). Only "eng" traineddata ships with
+  # the base `tesseract` Homebrew formula — additional languages need
+  # `brew install tesseract-lang` (see README.md "OCR installation").
+  language: "eng"
+
+# USS-TJR-MSN-0207A: optional. Thresholds for healthcheck.py's `healthy`
+# verdict — omit this section entirely to use the built-in defaults shown
+# below (see README.md "Monitoring" for the reasoning behind each default).
+# Both are also overridable per-run via --failed-threshold /
+# --permanently-failed-threshold CLI flags, which win over this file.
+# healthcheck:
+#   permanently_failed_threshold: 0
+#   failed_threshold: 5

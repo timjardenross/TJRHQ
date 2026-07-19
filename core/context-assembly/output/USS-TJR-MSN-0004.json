@@ -1,0 +1,88 @@
+{
+  "entity_id": "USS-TJR-MSN-0004",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:16:07.116654Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0004",
+    "status": "",
+    "owner": "Captain TJR",
+    "priority": "",
+    "created": "USS TJR knowledge assets available",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/Missions/Active/USS-TJR-MSN-0004.txt",
+    "completed": false,
+    "_source_text": "File: missions/USS-TJR-MSN-0004.txt\nPurpose: Mission definition for Supabase prototype implementation.\nDependencies/Notes:\n- Supabase project already created\n- USS TJR knowledge assets available\n\nMISSION: USS-TJR-MSN-0004\nTITLE: Build Supabase Prototype\n\nObjectives:\n1. Create schema\n2. Create collections\n3. Load ADRs\n4. Load Architecture documents\n5. Load Crew files\n6. Run retrieval tests\n7. Validate specialist access\n\nSuccess Criteria:\n- Knowledge successfully loaded\n- Retrieval returns relevant results\n- Specialists can access authorised content\n- Prototype ready for integration testing\n\n---\n\n## Context Relationships\n\n```yaml\ngoverned_by:\n  - ADR-006\n  - ADR-001\n\ntriggered_by:\n  - UNKNOWN\n\ndepends_on:\n  - UNKNOWN\n\nsupports:\n  - CAP-1\n  - CAP-2\n\nrelated_to:\n  - UNKNOWN\n\nowner: Captain TJR\n```\n"
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [
+    {
+      "id": "CAP-1",
+      "type": "capability",
+      "title": "Mission Registry System",
+      "status": "FULLY OPERATIONAL"
+    },
+    {
+      "id": "CAP-2",
+      "type": "capability",
+      "title": "Decisions Registry System",
+      "status": "FULLY OPERATIONAL"
+    }
+  ],
+  "governing_adrs": [
+    {
+      "id": "ADR-006",
+      "type": "adr",
+      "title": "Supabase Memory Layer Architecture",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "USS-TJR-MSN-0004",
+      "target_id": "ADR-006",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 1.0,
+      "evidence": "s authorised content - Prototype ready for integration testing  ---  ## Context Relationships  ```yaml governed_by:   - ADR-006   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - CAP-1   - CAP-2  related_to:   - UNKNOWN"
+    },
+    {
+      "source_id": "USS-TJR-MSN-0004",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 1.0,
+      "evidence": "content - Prototype ready for integration testing  ---  ## Context Relationships  ```yaml governed_by:   - ADR-006   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - CAP-1   - CAP-2  related_to:   - UNKNOWN  owner: Cap"
+    },
+    {
+      "source_id": "USS-TJR-MSN-0004",
+      "target_id": "CAP-1",
+      "target_type": "capability",
+      "relationship_type": "triggered_by",
+      "confidence": 0.9,
+      "evidence": "nships  ```yaml governed_by:   - ADR-006   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - CAP-1   - CAP-2  related_to:   - UNKNOWN  owner: Captain TJR ```"
+    },
+    {
+      "source_id": "USS-TJR-MSN-0004",
+      "target_id": "CAP-2",
+      "target_type": "capability",
+      "relationship_type": "triggered_by",
+      "confidence": 0.9,
+      "evidence": "`yaml governed_by:   - ADR-006   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - CAP-1   - CAP-2  related_to:   - UNKNOWN  owner: Captain TJR ```"
+    }
+  ],
+  "completeness_score": 0.88,
+  "gaps": [
+    "status known"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}

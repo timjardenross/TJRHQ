@@ -1,0 +1,197 @@
+{
+  "advisory_memory_formatter.py": {
+    "mtime": 1782807561.7346687,
+    "ast_hash": "1629f8b0852ef44943dea4042c7ea03f",
+    "semantic_hash": "1629f8b0852ef44943dea4042c7ea03f"
+  },
+  "command_bus.py": {
+    "mtime": 1782807561.7347586,
+    "ast_hash": "8888b463bf0a4dcf824ca6641892c2cd",
+    "semantic_hash": "8888b463bf0a4dcf824ca6641892c2cd"
+  },
+  "command_memory_reader.py": {
+    "mtime": 1781174147.2810688,
+    "ast_hash": "70213acaa4e94a7ba94d88cd6a728bfb",
+    "semantic_hash": "70213acaa4e94a7ba94d88cd6a728bfb"
+  },
+  "commander_memory_adapter.py": {
+    "mtime": 1782807561.7349,
+    "ast_hash": "4ebad6f90da81f80a854c2f9da3e07a7",
+    "semantic_hash": "4ebad6f90da81f80a854c2f9da3e07a7"
+  },
+  "decision_registry_memory_adapter.py": {
+    "mtime": 1782807561.7350388,
+    "ast_hash": "64f77878e07f4374f5c3f70ef4f50862",
+    "semantic_hash": "64f77878e07f4374f5c3f70ef4f50862"
+  },
+  "delivery_reconciler.py": {
+    "mtime": 1782807561.7351224,
+    "ast_hash": "6e07ea3cda9d5a5fc8098a800dee883e",
+    "semantic_hash": "6e07ea3cda9d5a5fc8098a800dee883e"
+  },
+  "engineering_handoff_reader.py": {
+    "mtime": 1782807561.73528,
+    "ast_hash": "22e56f9d3b15d6d016eb9bc7497342e1",
+    "semantic_hash": "22e56f9d3b15d6d016eb9bc7497342e1"
+  },
+  "engineering_prep.py": {
+    "mtime": 1782807561.735371,
+    "ast_hash": "f3ae1d923c58995ebdde600b4cd799ad",
+    "semantic_hash": "f3ae1d923c58995ebdde600b4cd799ad"
+  },
+  "exception_router.py": {
+    "mtime": 1782807561.7355118,
+    "ast_hash": "a7259b042ba3a08a102bf5ac5903384a",
+    "semantic_hash": "a7259b042ba3a08a102bf5ac5903384a"
+  },
+  "execution_engine.py": {
+    "mtime": 1782807561.7355971,
+    "ast_hash": "3ffb2b2962756ef5d8a8614c4b504318",
+    "semantic_hash": "3ffb2b2962756ef5d8a8614c4b504318"
+  },
+  "governance_service.py": {
+    "mtime": 1782807561.735732,
+    "ast_hash": "b4dbd56f0c8b8c011b274cd7c33076c7",
+    "semantic_hash": "b4dbd56f0c8b8c011b274cd7c33076c7"
+  },
+  "health_context_adapter.py": {
+    "mtime": 1782807561.7358108,
+    "ast_hash": "314faeed0699ac4fc3567455dc623028",
+    "semantic_hash": "314faeed0699ac4fc3567455dc623028"
+  },
+  "hierarchy_memory_adapter.py": {
+    "mtime": 1782807561.7358727,
+    "ast_hash": "8c26e515d4fa9fba9016017982b91950",
+    "semantic_hash": "8c26e515d4fa9fba9016017982b91950"
+  },
+  "intelligence_store.py": {
+    "mtime": 1782807561.7362316,
+    "ast_hash": "188bd8ce2ce5f87d465907773ea4e3c0",
+    "semantic_hash": "188bd8ce2ce5f87d465907773ea4e3c0"
+  },
+  "lifecycle_advancer.py": {
+    "mtime": 1782807561.7363758,
+    "ast_hash": "d33e6a43dd23b158ba0d47116f660d46",
+    "semantic_hash": "d33e6a43dd23b158ba0d47116f660d46"
+  },
+  "lifecycle_coverage.py": {
+    "mtime": 1782807561.7365139,
+    "ast_hash": "6f1e64a5f58ae54bc96678656a0153c8",
+    "semantic_hash": "6f1e64a5f58ae54bc96678656a0153c8"
+  },
+  "lifecycle_reconciler.py": {
+    "mtime": 1782807561.7365975,
+    "ast_hash": "5f2a3a84e8627262ca125e5f3adcb5e2",
+    "semantic_hash": "5f2a3a84e8627262ca125e5f3adcb5e2"
+  },
+  "lifecycle_status_map.py": {
+    "mtime": 1782807561.7366776,
+    "ast_hash": "7a58dd93606324dd95fa15ffdbfc5d2e",
+    "semantic_hash": "7a58dd93606324dd95fa15ffdbfc5d2e"
+  },
+  "memory_metrics.py": {
+    "mtime": 1782807561.7367535,
+    "ast_hash": "1868642a9fd4cc9608dc6a7cbe2f0d24",
+    "semantic_hash": "1868642a9fd4cc9608dc6a7cbe2f0d24"
+  },
+  "message_chunking.py": {
+    "mtime": 1782807561.7369008,
+    "ast_hash": "5dc62d30a2ba93f7ace7c5e14768f218",
+    "semantic_hash": "5dc62d30a2ba93f7ace7c5e14768f218"
+  },
+  "mission_registry_memory_adapter.py": {
+    "mtime": 1782807561.7369874,
+    "ast_hash": "1d77c38e878940e38891ab9d31323618",
+    "semantic_hash": "1d77c38e878940e38891ab9d31323618"
+  },
+  "number_one.py": {
+    "mtime": 1782807561.737161,
+    "ast_hash": "faa6bf8b32644d42dc2edc782ef1f84f",
+    "semantic_hash": "faa6bf8b32644d42dc2edc782ef1f84f"
+  },
+  "number_one_advisory.py": {
+    "mtime": 1782807561.7372255,
+    "ast_hash": "fac70a9a06ad323aeb6cf3243b9e056b",
+    "semantic_hash": "fac70a9a06ad323aeb6cf3243b9e056b"
+  },
+  "number_one_exporter.py": {
+    "mtime": 1782807561.737361,
+    "ast_hash": "56b2ba4f66cbc3daf7f86572a3f76805",
+    "semantic_hash": "56b2ba4f66cbc3daf7f86572a3f76805"
+  },
+  "number_one_memory_adapter.py": {
+    "mtime": 1782807561.7374456,
+    "ast_hash": "d971dbeb0a6ae210192fab24bc9a480e",
+    "semantic_hash": "d971dbeb0a6ae210192fab24bc9a480e"
+  },
+  "pending_actions.py": {
+    "mtime": 1782882932.3048549,
+    "ast_hash": "234ed1810573c3fb713c923affb5eb1c",
+    "semantic_hash": "234ed1810573c3fb713c923affb5eb1c"
+  },
+  "recommendation_engine.py": {
+    "mtime": 1782807561.737658,
+    "ast_hash": "9961aded8ab7e7b25e6cb73ba2ee6599",
+    "semantic_hash": "9961aded8ab7e7b25e6cb73ba2ee6599"
+  },
+  "research_metrics.py": {
+    "mtime": 1781174147.2814934,
+    "ast_hash": "cc08cc6e371d5ccc8b4d75cd3f6957f2",
+    "semantic_hash": "cc08cc6e371d5ccc8b4d75cd3f6957f2"
+  },
+  "research_orchestration.py": {
+    "mtime": 1782807561.73787,
+    "ast_hash": "7e27b1cc96464822f755133ef09373bf",
+    "semantic_hash": "7e27b1cc96464822f755133ef09373bf"
+  },
+  "review_package.py": {
+    "mtime": 1782807561.7379742,
+    "ast_hash": "d1eb2ec23fb1e483b0bbe0829a533d51",
+    "semantic_hash": "d1eb2ec23fb1e483b0bbe0829a533d51"
+  },
+  "telegram_build_executor.py": {
+    "mtime": 1782807561.7381167,
+    "ast_hash": "755109cef1ec55cc5bdc714b9b1e7c0c",
+    "semantic_hash": "755109cef1ec55cc5bdc714b9b1e7c0c"
+  },
+  "telegram_inbox_reader.py": {
+    "mtime": 1782807561.738202,
+    "ast_hash": "cd3ab7be26ca66c019cb5a955f5c448f",
+    "semantic_hash": "cd3ab7be26ca66c019cb5a955f5c448f"
+  },
+  "test_number_one.py": {
+    "mtime": 1782807561.7383356,
+    "ast_hash": "fc77335615493f787084cf38c07ad661",
+    "semantic_hash": "fc77335615493f787084cf38c07ad661"
+  },
+  "tests/__init__.py": {
+    "mtime": 1782807561.7384062,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "tests/test_health_adapter.py": {
+    "mtime": 1782807561.7385063,
+    "ast_hash": "7308500f0518b71eb2b9060bbd3cd88b",
+    "semantic_hash": "7308500f0518b71eb2b9060bbd3cd88b"
+  },
+  "tests/test_recommendation_engine.py": {
+    "mtime": 1782807561.7385883,
+    "ast_hash": "309a967824d7614ae5b1d0cd9bac0b21",
+    "semantic_hash": "309a967824d7614ae5b1d0cd9bac0b21"
+  },
+  "tests/test_telegram_build_executor.py": {
+    "mtime": 1782807561.7387376,
+    "ast_hash": "3f0d583d69230f075124d475e2762359",
+    "semantic_hash": "3f0d583d69230f075124d475e2762359"
+  },
+  "triage_package.py": {
+    "mtime": 1782807561.7388225,
+    "ast_hash": "652a0bbb00803ec3b1ec124eb05736c3",
+    "semantic_hash": "652a0bbb00803ec3b1ec124eb05736c3"
+  },
+  "xo_advisory.py": {
+    "mtime": 1782807561.7388983,
+    "ast_hash": "01b715ea066f6ddabc1c234f0296ec23",
+    "semantic_hash": "01b715ea066f6ddabc1c234f0296ec23"
+  }
+}

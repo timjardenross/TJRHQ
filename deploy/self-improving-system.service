@@ -1,0 +1,28 @@
+[Unit]
+Description=USS TJR Self-Improving System
+Documentation=file:///root/USSTJROS/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/USSTJROS
+Environment="PATH=/root/USSTJROS/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+
+# Run full cycle: collect → analyze → classify → decide → remediate
+ExecStart=/root/USSTJROS/venv/bin/python3 /root/USSTJROS/scripts/self_improvement/orchestrator.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=self-improving-system
+
+# Restart on failure (wait 5 min before retrying)
+Restart=on-failure
+RestartSec=300
+
+# Timeout after 30 minutes
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
