@@ -177,6 +177,25 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Gratitude nudges — twice-daily, separate from the operational brief ────
+    # Morning: 06:45 AEST, ahead of the 07:00 Captain's Brief so it's the day's
+    # first ping and reads as its own thing, not a section of the ops brief.
+    scheduler.add_job(
+        _gratitude_morning_job,
+        CronTrigger(hour=6, minute=45, timezone=tz),
+        id="gratitude_morning_nudge",
+        replace_existing=True,
+    )
+
+    # Afternoon: 14:30 AEST, the mid-afternoon lull — clear of both the 12:30
+    # midday check and the 18:00 EOD summary.
+    scheduler.add_job(
+        _gratitude_afternoon_job,
+        CronTrigger(hour=14, minute=30, timezone=tz),
+        id="gratitude_afternoon_nudge",
+        replace_existing=True,
+    )
+
     # ── USS-TJR-MSN-0207A: Knowledge Platform daily digest ──────────────────────
     # 08:00 AEST — after the morning brief, before midday. Telegram only per
     # Captain's explicit direction (no Slack routing for this pipeline).
@@ -241,9 +260,10 @@ def _start_scheduler() -> None:
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
+        "Gratitude nudges: morning 06:45, afternoon 14:30 (%s) | "
         "Daily collection: 06:00 (%s) | Attention evaluation: every %d min | "
         "Validation suite: 06:30 (%s)",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
     )
 
     try:
@@ -327,6 +347,36 @@ def _weekly_brief_job() -> None:
     except Exception as exc:
         log.error("Weekly brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
+
+
+def _gratitude_morning_job() -> None:
+    from intelligence.gratitude_nudge import send_morning_nudge
+
+    log.info("Morning gratitude nudge job triggered")
+    try:
+        ok = send_morning_nudge()
+        log.info("Morning gratitude nudge %s", "delivered" if ok else "delivery failed")
+        _record_heartbeat("gratitude_nudges", "ok" if ok else "failed",
+                           detail="morning nudge" if ok else None,
+                           error_message=None if ok else "morning nudge delivery failed")
+    except Exception as exc:
+        log.error("Morning gratitude nudge job failed: %s", exc)
+        _record_heartbeat("gratitude_nudges", "failed", error_message=str(exc))
+
+
+def _gratitude_afternoon_job() -> None:
+    from intelligence.gratitude_nudge import send_afternoon_nudge
+
+    log.info("Afternoon gratitude nudge job triggered")
+    try:
+        ok = send_afternoon_nudge()
+        log.info("Afternoon gratitude nudge %s", "delivered" if ok else "delivery failed")
+        _record_heartbeat("gratitude_nudges", "ok" if ok else "failed",
+                           detail="afternoon nudge" if ok else None,
+                           error_message=None if ok else "afternoon nudge delivery failed")
+    except Exception as exc:
+        log.error("Afternoon gratitude nudge job failed: %s", exc)
+        _record_heartbeat("gratitude_nudges", "failed", error_message=str(exc))
 
 
 def _knowledge_ops_brief_job() -> None:
