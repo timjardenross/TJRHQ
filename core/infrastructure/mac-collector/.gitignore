@@ -1,0 +1,5 @@
+config.yaml
+collector.db
+manifests/
+__pycache__/
+*.pyc

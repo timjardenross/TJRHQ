@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-06-12T06:11:09.107514Z",
+  "aggregate": {
+    "missions_assessed": 7,
+    "avg_original_completeness": 0.38,
+    "avg_enriched_completeness": 0.64,
+    "avg_uplift": 0.26,
+    "missions_ge70_original": 0,
+    "missions_ge70_enriched": 1,
+    "field_lift": {
+      "governing_adrs": 6,
+      "triggering_decisions": 1,
+      "capabilities_built": 0
+    },
+    "criterion_met": true,
+    "avg_uplift_pct": "26%"
+  },
+  "per_mission": [
+    {
+      "mission_id": "MSN-0001",
+      "title": "USS-TJR-MSN-0001 \u2014 Number One Assignment Authority",
+      "original_completeness": 0.38,
+      "enriched_completeness": 0.62,
+      "uplift": 0.24,
+      "original_relationships": 0,
+      "enriched_relationships": 2,
+      "new_relationships": 2,
+      "gaps_closed": [
+        "governing ADRs found",
+        "relationships extracted"
+      ],
+      "gaps_remaining": [
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-002",
+        "ADR-001"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0004",
+      "title": "Context Relationships",
+      "original_completeness": 0.12,
+      "enriched_completeness": 0.5,
+      "uplift": 0.38,
+      "original_relationships": 0,
+      "enriched_relationships": 2,
+      "new_relationships": 2,
+      "gaps_closed": [
+        "owner identified",
+        "governing ADRs found",
+        "relationships extracted"
+      ],
+      "gaps_remaining": [
+        "status known",
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-006",
+        "ADR-001"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0008",
+      "title": "USS-TJR-MSN-0008",
+      "original_completeness": 0.62,
+      "enriched_completeness": 0.62,
+      "uplift": 0.0,
+      "original_relationships": 3,
+      "enriched_relationships": 4,
+      "new_relationships": 1,
+      "gaps_closed": [],
+      "gaps_remaining": [
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [
+        "ADR-006"
+      ],
+      "enrich_adrs": [
+        "ADR-006",
+        "ADR-002"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0009",
+      "title": "USS-TJR-MSN-0009",
+      "original_completeness": 0.5,
+      "enriched_completeness": 0.62,
+      "uplift": 0.12,
+      "original_relationships": 2,
+      "enriched_relationships": 3,
+      "new_relationships": 1,
+      "gaps_closed": [
+        "governing ADRs found"
+      ],
+      "gaps_remaining": [
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-002"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0011",
+      "title": "USS-TJR-MSN-0011 \u2014 Slack Supabase Commander Integration",
+      "original_completeness": 0.38,
+      "enriched_completeness": 0.88,
+      "uplift": 0.5,
+      "original_relationships": 0,
+      "enriched_relationships": 4,
+      "new_relationships": 4,
+      "gaps_closed": [
+        "triggering decision found",
+        "dependencies mapped",
+        "governing ADRs found",
+        "relationships extracted"
+      ],
+      "gaps_remaining": [
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-006",
+        "ADR-001"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [
+        "DEC-20260610-120000"
+      ],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0015A",
+      "title": "USS-TJR-MSN-0015A",
+      "original_completeness": 0.38,
+      "enriched_completeness": 0.62,
+      "uplift": 0.24,
+      "original_relationships": 0,
+      "enriched_relationships": 2,
+      "new_relationships": 2,
+      "gaps_closed": [
+        "governing ADRs found",
+        "relationships extracted"
+      ],
+      "gaps_remaining": [
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-002",
+        "ADR-001"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    },
+    {
+      "mission_id": "MSN-0031",
+      "title": "MSN-0031 \u2014 Mission Registry & Workflow Engine",
+      "original_completeness": 0.25,
+      "enriched_completeness": 0.62,
+      "uplift": 0.37,
+      "original_relationships": 0,
+      "enriched_relationships": 2,
+      "new_relationships": 2,
+      "gaps_closed": [
+        "owner identified",
+        "governing ADRs found",
+        "relationships extracted"
+      ],
+      "gaps_remaining": [
+        "triggering decision found",
+        "dependencies mapped",
+        "capabilities identified"
+      ],
+      "orig_adrs": [],
+      "enrich_adrs": [
+        "ADR-001",
+        "ADR-006"
+      ],
+      "orig_decisions": [],
+      "enrich_decisions": [],
+      "orig_caps": [],
+      "enrich_caps": []
+    }
+  ],
+  "recommendation": "PROCEED WITH CORPUS ENRICHMENT FIRST.\nEnrichment produced 26% average completeness uplift, exceeding the 25pp threshold.\nRecommendation: Adopt explicit relationship metadata as a mandatory field in the mission template before designing a relationship storage schema. Template enrichment delivers the same analytical value at zero infrastructure cost."
+}

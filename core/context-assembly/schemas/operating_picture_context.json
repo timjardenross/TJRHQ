@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CaptainOperatingPictureContext",
+  "description": "5-minute executive view — the unified Captain Operating Picture.",
+  "type": "object",
+  "properties": {
+    "assembled_at": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "enum": ["fresh", "cached", "stale"] },
+    "health_snapshot": {
+      "type": "object",
+      "description": "Minimal health indicators for COP display",
+      "properties": {
+        "pain_level": { "type": ["string", "null"] },
+        "energy": { "type": ["string", "null"] },
+        "trend": { "type": ["string", "null"] },
+        "recovery_focus": { "type": ["string", "null"] }
+      }
+    },
+    "top_3_priorities": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "rank": { "type": "integer" },
+          "mission_id": { "type": "string" },
+          "title": { "type": "string" },
+          "due_date": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "blocker_count": { "type": "integer" },
+          "next_action": { "type": "string" }
+        },
+        "required": ["rank", "mission_id", "title", "status", "next_action"]
+      }
+    },
+    "operational_status": {
+      "type": "object",
+      "properties": {
+        "overall": { "type": "string", "enum": ["green", "yellow", "red"] },
+        "alert_count": { "type": "integer" },
+        "active_missions": { "type": "integer" },
+        "services_status": { "type": "string", "enum": ["all_green", "warnings", "critical"] }
+      },
+      "required": ["overall", "alert_count"]
+    },
+    "blockers_summary": {
+      "type": "object",
+      "properties": {
+        "count": { "type": "integer" },
+        "top_blocker": { "type": ["string", "null"] }
+      }
+    },
+    "number_one_says": { "type": ["string", "null"], "description": "XO top recommendation — single sentence" },
+    "quick_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      }
+    }
+  },
+  "required": ["assembled_at", "source", "top_3_priorities", "operational_status"],
+  "additionalProperties": false
+}

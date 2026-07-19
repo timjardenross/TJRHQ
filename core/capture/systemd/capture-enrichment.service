@@ -1,0 +1,14 @@
+[Unit]
+Description=USS TJR Capture Enrichment Worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/usstjros
+EnvironmentFile=/opt/usstjros/.env
+ExecStart=/opt/usstjros/venv/bin/python core/capture/enrichment_worker.py --limit 20
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=capture-enrichment

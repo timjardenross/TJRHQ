@@ -1,0 +1,15 @@
+[Unit]
+Description=USS TJR Self-Improving System Timer
+Documentation=file:///root/USSTJROS/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
+Requires=self-improving-system.service
+
+[Timer]
+# Run daily at 09:00 UTC
+OnCalendar=*-*-* 09:00:00
+# Also run on system startup if missed
+Persistent=true
+# Randomize by up to 5 minutes to avoid thundering herd
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
