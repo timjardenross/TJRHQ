@@ -70,7 +70,7 @@ export async function GET() {
       decisionsOpenCount = recentDecisions.length;
     } catch { /* degrade gracefully */ }
 
-    // Top intelligence signals — high/medium risk, last 7 days, not suppressed
+    // Top intelligence signals — high/medium risk, last 7 days, not suppressed, exclude CVEs
     let topSignals: unknown[] = [];
     try {
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -78,6 +78,7 @@ export async function GET() {
         .from('intelligence_events')
         .select('event_id,raw_title,event_type,customer_impact,banking_relevance,organisation,rank_score,collected_at,canonical_url')
         .eq('suppressed', false)
+        .not('raw_title', 'ilike', 'CVE-%')
         .gte('collected_at', since)
         .in('customer_impact', ['high', 'medium'])
         .order('rank_score', { ascending: false })
@@ -89,6 +90,7 @@ export async function GET() {
           .from('intelligence_events')
           .select('event_id,raw_title,event_type,customer_impact,banking_relevance,organisation,rank_score,collected_at,canonical_url')
           .eq('suppressed', false)
+          .not('raw_title', 'ilike', 'CVE-%')
           .gte('collected_at', since)
           .order('rank_score', { ascending: false })
           .limit(5);

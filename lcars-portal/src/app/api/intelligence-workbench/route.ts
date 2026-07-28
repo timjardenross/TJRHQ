@@ -31,6 +31,8 @@ async function getOperationalData(sb: any, since: string) {
   const { count: signals7d } = await sb
     .from('intelligence_events')
     .select('event_id', { count: 'exact', head: true })
+    .eq('suppressed', false)
+    .not('raw_title', 'ilike', 'CVE-%')
     .gte('collected_at', since);
 
   const briefList = briefs ?? [];
