@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireSession } from '@/lib/supabase-server';
 
 // USS-TJR-MSN-0080 — Learning Intelligence Visibility.
 // Read-only LEARNING STATUS for the Captain's Chair. Mirrors /api/wellness:
-// direct anon Supabase reads (outcome_records has anon-read RLS). The Python
+// direct Supabase reads from authenticated context. The Python
 // outcome_capture.learning_status() remains the authoritative service; this route
 // re-derives the same simple, explainable counts/health for the dashboard.
 
 function getSupabase() {
-  // outcome_records is authenticated/service_role only (no anon) — it holds
-  // sensitive personal_story / not_for_publication content. This is a SERVER-side
-  // route handler, so use the service-role key (never exposed to the browser);
-  // fall back to anon (which will be denied by RLS) so the panel degrades safely.
+  // outcome_records holds sensitive personal_story / not_for_publication content.
+  // This is a SERVER-side route handler, so use the service-role key (never exposed
+  // to the browser). Requires session authentication first.
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
@@ -35,6 +35,11 @@ function health(pending: number, overdue: number, velocity: number): string {
 }
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const supabase = getSupabase();
 

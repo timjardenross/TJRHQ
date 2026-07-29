@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 // USS-TJR-MSN-0206D/J-2: browse/report on Command Memory (knowledge_documents)
 // by retention lifecycle and category. Read-only — the write path into
@@ -26,6 +26,10 @@ const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
 export async function GET(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const retentionPolicy = searchParams.get('retention_policy')?.trim();
   const archiveStatus = searchParams.get('archive_status')?.trim();

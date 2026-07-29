@@ -3,7 +3,7 @@
 // Consumers: LCARS Captain's Chair, Telegram /operating_picture, future mobile app.
 
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -28,6 +28,10 @@ function readCounterState(): Record<string, number> | null {
 }
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const generatedAt = new Date().toISOString();
 
   try {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 // USS-TJR-MSN-0205D: filtered document list for the Knowledge Library.
 // extracted_text is deliberately excluded (large field, not needed for a
@@ -21,6 +21,10 @@ function escapeIlike(term: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search')?.trim();
   const category = searchParams.get('category')?.trim();

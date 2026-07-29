@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selfImprovementApiUrl, selfImprovementHeaders } from '@/lib/selfImprovementApi';
+import { requireSession } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const payload = await req.json();
     const res = await fetch(`${selfImprovementApiUrl()}/api/decide`, {

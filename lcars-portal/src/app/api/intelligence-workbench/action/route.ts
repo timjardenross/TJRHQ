@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { requireSession } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 
@@ -93,6 +94,10 @@ function viaLocal(req: object, selfUrl: string): Promise<Result> {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   let body: { action?: string; payload?: Record<string, unknown> };
   try {
     body = await request.json();

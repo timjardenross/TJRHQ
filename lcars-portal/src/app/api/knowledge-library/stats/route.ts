@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { KnowledgeLibraryStats } from '@/lib/types';
 
 // USS-TJR-MSN-0205D: dashboard card counts for the Knowledge Library.
@@ -20,6 +20,10 @@ import type { KnowledgeLibraryStats } from '@/lib/types';
 const TERMINAL_STATUSES = ['awaiting_review', 'excluded', 'failed', 'permanently_failed'];
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const supabase = await createSupabaseServerClient();
 
