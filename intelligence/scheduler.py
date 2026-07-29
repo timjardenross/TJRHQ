@@ -238,12 +238,24 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Brief QA Pre-screen (automated review) ────────────────────────────────
+    # Runs daily at 02:00 AEST (before morning brief at 07:00). Scores every
+    # brief in IN_REVIEW and automatically advances passing briefs to QA_PASSED.
+    # RED briefs always require human review regardless of score.
+    scheduler.add_job(
+        _brief_qa_nightly_job,
+        CronTrigger(hour=2, minute=0, timezone=tz),
+        id="brief_qa_agent_nightly",
+        replace_existing=True,
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
-        "Daily collection: 06:00 (%s) | Attention evaluation: every %d min | "
+        "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
+        "Attention evaluation: every %d min | "
         "Validation suite: 06:30 (%s)",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
     )
 
     try:
@@ -528,6 +540,33 @@ def _validation_suite_job() -> None:
         )
     except Exception as exc:
         log.error("Validation suite job failed: %s", exc)
+
+
+def _brief_qa_nightly_job() -> None:
+    """Nightly QA pre-screen for briefs sitting in IN_REVIEW status.
+
+    Runs at 02:00 AEST daily. Scores every brief in IN_REVIEW and automatically
+    advances passing briefs to QA_PASSED. RED briefs always require human review
+    regardless of score.
+    """
+    log.info("Brief QA pre-screen job triggered")
+    try:
+        from intelligence.audit.brief_qa_agent import run_nightly
+        from intelligence.workflow.repository import SupabaseRepository
+
+        repo = SupabaseRepository()
+        results = run_nightly(repo, dry_run=False, actor="system")
+
+        passed = sum(1 for r in results if r.get("passed"))
+        failed = sum(1 for r in results if not r.get("passed") and "error" not in r)
+        errors = sum(1 for r in results if "error" in r)
+
+        log.info("Brief QA nightly: %d passed, %d failed, %d errors", passed, failed, errors)
+        _record_heartbeat("brief_qa_agent_nightly", "ok",
+                         detail=f"passed={passed} failed={failed} errors={errors}")
+    except Exception as exc:
+        log.error("Brief QA nightly job failed: %s", exc)
+        _record_heartbeat("brief_qa_agent_nightly", "failed", error_message=str(exc))
 
 
 if __name__ == "__main__":
