@@ -144,6 +144,14 @@ def _start_scheduler() -> None:
 
     scheduler.add_job(_github_job, github_trigger, id="ori_github_sync", replace_existing=True)
 
+    # ── Nightly Ops Brief QA pre-screen ──────────────────────────────────────────
+    scheduler.add_job(
+        _brief_qa_nightly_job,
+        CronTrigger(hour=2, minute=0, timezone=tz),
+        id="brief_qa_agent_nightly",
+        replace_existing=True,
+    )
+
     # ── MSN-0200: Captain's Daily Briefs ─────────────────────────────────────────
     # Morning brief — 07:00 AEST daily
     scheduler.add_job(
@@ -240,10 +248,11 @@ def _start_scheduler() -> None:
 
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
+        "Brief QA pre-screen: 02:00 (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Attention evaluation: every %d min | "
         "Validation suite: 06:30 (%s)",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
     )
 
     try:
@@ -528,6 +537,39 @@ def _validation_suite_job() -> None:
         )
     except Exception as exc:
         log.error("Validation suite job failed: %s", exc)
+
+
+def _brief_qa_nightly_job() -> None:
+    """Nightly sweep of every Ops Brief sitting in IN_REVIEW via the
+    existing, unit-tested brief_qa_agent.run_nightly() — dry_run=False
+    so it actually writes through qa_pass(), which was the missing
+    piece: the agent scored nothing in production because nothing
+    ever called it. A per-brief scoring failure is caught inside
+    run_nightly() itself and doesn't stop the batch; this wrapper
+    only needs to handle the repo/import layer failing outright.
+    """
+    log.info("Nightly Ops Brief QA pre-screen triggered")
+    try:
+        from intelligence.audit.brief_qa_agent import run_nightly
+        from intelligence.workflow.repository import SupabaseRepository
+
+        repo = SupabaseRepository()
+        results = run_nightly(repo, dry_run=False, actor="system")
+        scored = sum(1 for r in results if "error" not in r)
+        failed = len(results) - scored
+        passed = sum(1 for r in results if r.get("passed"))
+        log.info(
+            "Brief QA pre-screen complete: %d brief(s) in IN_REVIEW, "
+            "%d scored (%d passed), %d errored",
+            len(results), scored, passed, failed,
+        )
+        _record_heartbeat(
+            "brief_qa_agent_nightly", "ok" if failed == 0 else "degraded",
+            detail=f"scored={scored} passed={passed} errored={failed}",
+        )
+    except Exception as exc:
+        log.error("Brief QA pre-screen job failed: %s", exc)
+        _record_heartbeat("brief_qa_agent_nightly", "failed", error_message=str(exc))
 
 
 if __name__ == "__main__":
