@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 // Classifier enums
 enum ContentPillar {
@@ -260,6 +260,10 @@ async function handleMappings(req: NextRequest) {
  * Route dispatcher
  */
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
 

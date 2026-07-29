@@ -19,7 +19,7 @@
 // the workbench and the Medical Bay never disagree.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type {
   Band,
   Kpis,
@@ -337,6 +337,10 @@ async function buildReadiness(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const domain = (req.nextUrl.searchParams.get('domain') ?? 'recovery') as 'recovery' | 'medical' | 'readiness';
   try {
     const sb = await createSupabaseServerClient();
