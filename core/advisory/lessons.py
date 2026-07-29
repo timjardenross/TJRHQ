@@ -1,7 +1,7 @@
 """Historical Lesson Integration — USS-TJR-MSN-0092 WP2.
 
 REUSE BEFORE REBUILD: lesson parsing, matching and similar-mission lookup
-already exist in ``core/coordination/intelligence_store.py``
+already exist in ``core/coordination/mission_knowledge_store.py``
 (get_applicable_lessons, get_similar_closed_missions). This module is a thin
 adapter that:
 
@@ -29,14 +29,14 @@ if str(_COORD) not in sys.path:
 
 def _load_store():
     try:
-        import intelligence_store  # noqa: PLC0415
-        return intelligence_store
+        import mission_knowledge_store  # noqa: PLC0415
+        return mission_knowledge_store
     except Exception:  # noqa: BLE001
         return None
 
 
 def related_lessons(mission_type: str, objective: str, limit: int = 3) -> list[LessonRef]:
-    """Reuse intelligence_store.get_applicable_lessons → list[LessonRef]."""
+    """Reuse mission_knowledge_store.get_applicable_lessons → list[LessonRef]."""
     store = _load_store()
     if store is None:
         return []
