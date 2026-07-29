@@ -9,13 +9,13 @@ After=network.target
 [Service]
 # Repo root so `python -m core.coordination.telegram_build_executor` resolves.
 WorkingDirectory=/opt/starship-endeavour
-# Runs in the slack-bot venv (has mistralai); reads the same secrets the Slack
+# Runs in the platform-runtime venv (has mistralai); reads the same secrets the Slack
 # engineering path uses, plus the Telegram bot token for notifications. The
 # worker also self-loads these in _load_env(), so order/optional (-) is safe.
 EnvironmentFile=-/opt/starship-endeavour/.env
-EnvironmentFile=-/opt/starship-endeavour/slack-bot/.env
+EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
 EnvironmentFile=-/opt/starship-endeavour/telegram-bot/.env
-ExecStart=/opt/starship-endeavour/slack-bot/.venv/bin/python -m core.coordination.telegram_build_executor loop --interval 90
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.telegram_build_executor loop --interval 90
 Restart=always
 RestartSec=15
 

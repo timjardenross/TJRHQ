@@ -1,12 +1,17 @@
 [Unit]
-# READ-ONLY reconciliation: cross-references missions + build_request_inbox +
-# handoff/BREQ files against live GitHub PR state and writes the truthful delivery
-# ledger to outputs/delivery_ledger.txt. Does NOT write to the database (report mode).
-Description=Starship delivery lifecycle reconciler (read-only ledger report)
+# Delivery reconciler — runs in two sequential passes every 15 minutes:
+#   1. apply: writes mechanical status corrections (PR merged→Closed,
+#      Closed-but-PR-open→Implemented) directly to Supabase.
+#   2. report: cross-references all sources against live GitHub PR state
+#      and writes the truthful delivery ledger to outputs/delivery_ledger.txt.
+Description=Starship delivery lifecycle reconciler (apply corrections + ledger report)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
-ExecStart=/bin/sh -c '/opt/starship-endeavour/slack-bot/.venv/bin/python -m core.coordination.delivery_reconciler report > /opt/starship-endeavour/outputs/delivery_ledger.txt 2>/opt/starship-endeavour/outputs/delivery_reconciler.err'
+# Pass 1: apply mechanical status corrections (safe, reality-only transitions)
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.delivery_reconciler apply >> /opt/starship-endeavour/outputs/delivery_apply.log 2>&1'
+# Pass 2: regenerate the full ledger report
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.delivery_reconciler report > /opt/starship-endeavour/outputs/delivery_ledger.txt 2>/opt/starship-endeavour/outputs/delivery_reconciler.err'
