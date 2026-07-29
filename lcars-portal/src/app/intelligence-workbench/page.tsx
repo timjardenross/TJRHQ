@@ -224,30 +224,7 @@ export default function Overview() {
             </div>
           </div>
 
-          {/* Operational briefs */}
-          <Card title="Briefs — gate status">
-            {loading ? (
-              <p className="text-[13px] text-wb-ink2">Loading…</p>
-            ) : (operationalData.briefs.length ?? 0) === 0 ? (
-              <p className="text-[13px] text-wb-ink2">No pending briefs.</p>
-            ) : (
-              operationalData.briefs.map((b) => (
-                <div key={b.brief_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
-                  <RiskPill value={b.overall_risk} />
-                  <span className="flex-1">{briefTitle(b)}</span>
-                  <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
-                  <Link
-                    href={`/intelligence-workbench/brief/${b.brief_id}`}
-                    className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
-                  >
-                    Review Brief →
-                  </Link>
-                </div>
-              ))
-            )}
-          </Card>
-
-          {/* Operational hot incidents */}
+          {/* Operational hot incidents — fresh content leads */}
           <Card title="Hot incidents — by operational relevance">
             {loading ? (
               <p className="text-[13px] text-wb-ink2">Loading…</p>
@@ -281,6 +258,29 @@ export default function Overview() {
                   </div>
                 );
               })
+            )}
+          </Card>
+
+          {/* Operational briefs */}
+          <Card title="Briefs — gate status">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (operationalData.briefs.length ?? 0) === 0 ? (
+              <p className="text-[13px] text-wb-ink2">No pending briefs.</p>
+            ) : (
+              operationalData.briefs.map((b) => (
+                <div key={b.brief_id} className="flex items-center gap-3 border-b border-wb-line py-2.5 text-sm last:border-0">
+                  <RiskPill value={b.overall_risk} />
+                  <span className="flex-1">{briefTitle(b)}</span>
+                  <span className="text-[12px] text-wb-ink2">{b.approval_status ?? 'IN_REVIEW'}</span>
+                  <Link
+                    href={`/intelligence-workbench/brief/${b.brief_id}`}
+                    className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3 py-1.5 text-[13px] text-white transition hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+                  >
+                    Review Brief →
+                  </Link>
+                </div>
+              ))
             )}
           </Card>
         </>
