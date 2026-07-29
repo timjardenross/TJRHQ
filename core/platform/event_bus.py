@@ -106,12 +106,17 @@ def poll_events(
     domain: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 100,
+    exclude_cves: bool = True,
 ) -> list[dict[str, Any]]:
     """Poll-based subscription: fetch events matching the given filters.
 
     A "subscriber" is any caller that periodically calls this with an
     advancing `since` timestamp — there is no push/callback mechanism.
     Returns an empty list on any error or if Supabase is disabled.
+
+    Args:
+        exclude_cves: If True (default), filter out CVE-* events from the results.
+            Set to False only for dedicated CVE analysis workflows.
     """
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -131,6 +136,9 @@ def poll_events(
             query = query.eq("domain", domain)
         if status is not None:
             query = query.eq("status", status)
+        if exclude_cves:
+            # Filter out CVE advisories (CVE-*, CWE-*, etc.) from operational event streams
+            query = query.not_("recommended_action", "ilike", "CVE-%")
         result = query.execute()
         return list(result.data or [])
     except Exception as exc:

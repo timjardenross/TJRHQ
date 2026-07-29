@@ -80,6 +80,7 @@ async function intelligenceEventsChanged(supabase: SupabaseClient, sinceISO: str
   const { data, count } = await supabase
     .from('intelligence_events')
     .select('raw_title, published_at, operational_relevance', { count: 'exact' })
+    .not('raw_title', 'ilike', 'CVE-%')
     .gte('published_at', sinceISO)
     .order('operational_relevance', { ascending: false })
     .limit(1);

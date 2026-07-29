@@ -39,6 +39,7 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
     ("telecom_outage",       ["telstra", "optus", "tpg", "vodafone", "nbn", "network outage",
                               "mobile network", "broadband", "telecommunications", "telco",
                               "internet outage", "connectivity"]),
+    ("seismic_event",        ["earthquake", "magnitude", "seismic", "tremor"]),
     # 2026-07-18: removed "payment" (bare), "cards", "atm", "settlement", "swift"
     # (bare) after live-data review found 44/44 events in this category over 30
     # days were false positives — "payment" matched lawsuit/donation/budget
