@@ -1,7 +1,7 @@
 """Historical Evidence & Confidence adapter — USS-TJR-MSN-0092 WP3.
 
 REUSE BEFORE REBUILD: the historical-evidence engine already exists in
-``core/coordination/intelligence_store.py`` (get_intelligence_evidence,
+``core/coordination/mission_knowledge_store.py`` (get_intelligence_evidence,
 historical outcome scoring, confidence_adjustment). MSN-0091 reported
 ``_gather_evidence`` as a null stub; that was stale — the store is wired into
 the mission recommendation engine. This adapter does NOT re-implement it.
@@ -30,7 +30,7 @@ from schema import ConfidenceLevel, EvidenceItem, RelatedDecision
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DECISIONS_DIR = _REPO_ROOT / "logs" / "decisions"
 
-# Make the existing intelligence store importable (flat-import house style).
+# Make the existing mission knowledge store importable (flat-import house style).
 _COORD = _REPO_ROOT / "core" / "coordination"
 if str(_COORD) not in sys.path:
     sys.path.insert(0, str(_COORD))
@@ -48,14 +48,14 @@ def _keywords(text: str) -> set[str]:
 
 
 # ---------------------------------------------------------------------------
-# Existing intelligence store (reused, not rebuilt)
+# Existing mission knowledge store (reused, not rebuilt)
 # ---------------------------------------------------------------------------
 
 def _load_store():
-    """Return the intelligence_store module, or None if unavailable."""
+    """Return the mission_knowledge_store module, or None if unavailable."""
     try:
-        import intelligence_store  # noqa: PLC0415  (flat sibling import)
-        return intelligence_store
+        import mission_knowledge_store  # noqa: PLC0415  (flat sibling import)
+        return mission_knowledge_store
     except Exception:  # noqa: BLE001
         return None
 

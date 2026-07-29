@@ -9,7 +9,7 @@ introduce a new advisory framework — it composes the engines that already exis
     * Decision context                  tools/supabase/decision_context_builder.py
     * Challenge / red-team review       tools/supabase/challenge_review.py
     * Commander synthesis (deterministic/Ollama)  tools/supabase/commander_synthesis.py
-    * Historical evidence + lessons     core/coordination/intelligence_store.py
+    * Historical evidence + lessons     core/coordination/mission_knowledge_store.py
                                         core/advisory/{evidence,lessons}.py
 
 …and projects the result onto the standard AdvisoryResponse (WP4), so every

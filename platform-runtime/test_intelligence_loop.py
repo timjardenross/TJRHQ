@@ -109,7 +109,7 @@ class TestOutcomeScoring:
 # ---------------------------------------------------------------------------
 
 class TestIntelligenceStore:
-    """Tests for intelligence_store.py functions."""
+    """Tests for mission_knowledge_store.py functions."""
 
     def _make_lessons_file(self, tmp_path: Path) -> Path:
         content = textwrap.dedent("""\
@@ -224,7 +224,7 @@ class TestIntelligenceStore:
         return p
 
     def test_applicable_lessons_returns_matches(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         lessons_file = self._make_lessons_file(tmp_path)
         with patch.object(store, "_LESSONS_REGISTER", lessons_file):
             matches = store.get_applicable_lessons("Knowledge Mission", "build a knowledge retrieval system")
@@ -232,14 +232,14 @@ class TestIntelligenceStore:
         assert any("Knowledge" in m.title or "knowledge" in m.title.lower() for m in matches)
 
     def test_applicable_lessons_returns_empty_on_no_overlap(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         lessons_file = self._make_lessons_file(tmp_path)
         with patch.object(store, "_LESSONS_REGISTER", lessons_file):
             matches = store.get_applicable_lessons("Unrelated Xylophone Mission", "play xylophone")
         assert len(matches) == 0
 
     def test_historical_score_requires_min_samples(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         outcomes_file = tmp_path / "mission-outcomes.jsonl"
         # Only 2 entries — below minimum of 3
         entries = [
@@ -253,7 +253,7 @@ class TestIntelligenceStore:
         assert n == 2
 
     def test_historical_score_returns_average(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         outcomes_file = tmp_path / "mission-outcomes.jsonl"
         entries = [
             json.dumps({"mission_id": "M-A", "mission_type": "Test Mission", "outcome_score": 0.8}),
@@ -267,7 +267,7 @@ class TestIntelligenceStore:
         assert n == 3
 
     def test_historical_score_case_insensitive(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         outcomes_file = tmp_path / "mission-outcomes.jsonl"
         entries = [
             json.dumps({"mission_id": "M-A", "mission_type": "knowledge mission", "outcome_score": 0.9}),
@@ -281,7 +281,7 @@ class TestIntelligenceStore:
         assert score is not None
 
     def test_evidence_confidence_positive_for_strong_history(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         outcomes_file = tmp_path / "mission-outcomes.jsonl"
         entries = [
             json.dumps({"mission_id": "M-A", "mission_type": "X", "outcome_score": 0.9}),
@@ -294,7 +294,7 @@ class TestIntelligenceStore:
         assert ev.confidence_adjustment > 0
 
     def test_evidence_confidence_negative_for_poor_history(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         outcomes_file = tmp_path / "mission-outcomes.jsonl"
         entries = [
             json.dumps({"mission_id": "M-A", "mission_type": "Y", "outcome_score": 0.2}),
@@ -324,7 +324,7 @@ class TestGAP001LessonInjection:
         return f
 
     def test_lesson_appears_in_reason_when_applicable(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         lessons_file = Path(tmp_path / "Lessons-Learned.md")
@@ -395,7 +395,7 @@ class TestGAP001LessonInjection:
 
     def test_reason_contains_lesson_id(self, tmp_path):
         """Recommendation reason must reference the lesson ID."""
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         lessons_file = tmp_path / "ll.md"
@@ -481,7 +481,7 @@ class TestGAP003HistoricalScoring:
     """GAP-003: Historical outcome scores must influence recommendation scoring."""
 
     def test_strong_history_boosts_ranking(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         # Two missions: same priority, but Mission A has strong history
@@ -523,7 +523,7 @@ class TestGAP003HistoricalScoring:
         )
 
     def test_poor_history_reduces_confidence(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         outcomes_file = tmp_path / "outcomes.jsonl"
@@ -563,7 +563,7 @@ class TestGAP004Traceability:
     """GAP-004: Recommendation reasons must surface source evidence."""
 
     def test_reason_cites_historical_performance(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         outcomes_file = tmp_path / "outcomes.jsonl"
@@ -605,7 +605,7 @@ class TestGAP005ConfidenceAdjustment:
     """GAP-005: Confidence must move based on historical evidence."""
 
     def test_strong_evidence_increases_confidence(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         outcomes_file = tmp_path / "outcomes.jsonl"
@@ -647,7 +647,7 @@ class TestGAP005ConfidenceAdjustment:
         )
 
     def test_confidence_clamped_to_valid_range(self, tmp_path):
-        import intelligence_store as store
+        import mission_knowledge_store as store
         import recommendation_engine as engine
 
         outcomes_file = tmp_path / "outcomes.jsonl"

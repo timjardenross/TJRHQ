@@ -2,8 +2,8 @@
 Tests — Sprint D / Learning Loop
 
 Covers:
-  - intelligence_store: heading mismatch fix (Future Guidance + Lesson fallback)
-  - intelligence_store: get_decision_quality_stats
+  - mission_knowledge_store: heading mismatch fix (Future Guidance + Lesson fallback)
+  - mission_knowledge_store: get_decision_quality_stats
   - lesson_capture: next_lesson_id, _format_lesson_block, capture_lesson (mock FS)
   - lesson_capture: backfill_lessons_to_supabase (mock Supabase)
 """
@@ -25,7 +25,7 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
 
 # ---------------------------------------------------------------------------
-# intelligence_store heading mismatch fix
+# mission_knowledge_store heading mismatch fix
 # ---------------------------------------------------------------------------
 
 class TestIntelligenceStoreHeadingFix(unittest.TestCase):
@@ -88,7 +88,7 @@ Keep implementation missions narrow and evidence-based
 """
 
     def _parse(self, md: str) -> list[dict]:
-        """Use the same parsing logic as intelligence_store._parse_lessons."""
+        """Use the same parsing logic as mission_knowledge_store._parse_lessons."""
         entries = re.split(r"(?=^## LL-\d+)", md, flags=re.MULTILINE)
         lessons = []
         for entry in entries:
@@ -144,7 +144,7 @@ Keep implementation missions narrow and evidence-based
 
 
 # ---------------------------------------------------------------------------
-# intelligence_store: get_decision_quality_stats
+# mission_knowledge_store: get_decision_quality_stats
 # ---------------------------------------------------------------------------
 
 class TestDecisionQualityStats(unittest.TestCase):
@@ -159,7 +159,7 @@ class TestDecisionQualityStats(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             empty = Path(tmp) / "decision-outcomes.jsonl"
             self._make_jsonl([], empty)
-            import intelligence_store as store
+            import mission_knowledge_store as store
             with patch.object(store, "_DECISION_OUTCOMES_FILE", empty):
                 result = store.get_decision_quality_stats()
         self.assertEqual(result["count"], 0)
@@ -175,7 +175,7 @@ class TestDecisionQualityStats(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "decision-outcomes.jsonl"
             self._make_jsonl(records, path)
-            import intelligence_store as store
+            import mission_knowledge_store as store
             with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
                 result = store.get_decision_quality_stats()
         self.assertEqual(result["count"], 3)
@@ -189,7 +189,7 @@ class TestDecisionQualityStats(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "decision-outcomes.jsonl"
             self._make_jsonl(records, path)
-            import intelligence_store as store
+            import mission_knowledge_store as store
             with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
                 result = store.get_decision_quality_stats()
         # Should be 1 unique decision, latest quality = 4
@@ -201,7 +201,7 @@ class TestDecisionQualityStats(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "decision-outcomes.jsonl"
             self._make_jsonl(records, path)
-            import intelligence_store as store
+            import mission_knowledge_store as store
             with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
                 result = store.get_decision_quality_stats()
         self.assertFalse(result["g008_ready"])
@@ -211,7 +211,7 @@ class TestDecisionQualityStats(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "decision-outcomes.jsonl"
             self._make_jsonl(records, path)
-            import intelligence_store as store
+            import mission_knowledge_store as store
             with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
                 result = store.get_decision_quality_stats()
         self.assertTrue(result["g008_ready"])
