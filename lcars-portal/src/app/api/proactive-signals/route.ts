@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { REVIEW_PENDING_STATUSES } from '@/lib/missionStatus';
 import { dedupeMissionSignals, isHygieneEligible } from '@/lib/hygieneRules';
+import { requireSession } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,10 @@ interface Signal {
 const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, high: 1, medium: 2 };
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

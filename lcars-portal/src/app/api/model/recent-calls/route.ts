@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession } from '@/lib/supabase-server';
 
 const ROUTER_BASE = process.env.MODEL_ROUTER_URL ?? 'http://127.0.0.1:8891';
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const n = req.nextUrl.searchParams.get('n') ?? '20';
   try {
     const res = await fetch(`${ROUTER_BASE}/api/model/recent-calls?n=${n}`, {

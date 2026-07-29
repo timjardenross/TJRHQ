@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
 
 // Valid Supabase status values (CHECK constraint on missions.status)
@@ -12,6 +12,10 @@ const VALID_STATUSES = [
 const CLOSED_STATUSES = ['Closed', 'Archived'];
 
 export async function GET(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const limitParam = parseInt(searchParams.get('limit') ?? '25', 10);
@@ -46,6 +50,10 @@ export async function GET(request: NextRequest) {
 
 // MSN-0171: Mission creation endpoint — single canonical write gate
 export async function POST(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   let body: Record<string, unknown>;
   try {
     body = await request.json();

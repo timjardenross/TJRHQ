@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 const EXTRACTED_TEXT_PREVIEW_CHARS = 4000;
 const CHUNK_PREVIEW_COUNT = 3;
@@ -11,6 +11,10 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const id = decodeURIComponent(params.id ?? '').trim();
   if (!id) {
     return NextResponse.json({ error: 'Document ID required' }, { status: 400 });

@@ -11,8 +11,13 @@
 
 import { NextResponse } from 'next/server';
 import { getVerificationState } from '@/lib/verification';
+import { requireSession } from '@/lib/supabase-server';
 
 export async function GET() {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const data = await getVerificationState();
   return NextResponse.json(data);
 }

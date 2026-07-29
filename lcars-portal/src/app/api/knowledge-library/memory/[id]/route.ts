@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { ArchiveStatus, RetentionPolicy } from '@/lib/types';
 
 // USS-TJR-MSN-0206D: manual retention override. The policy engine
@@ -14,6 +14,10 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const id = decodeURIComponent(params.id ?? '').trim();
   if (!id) {
     return NextResponse.json({ error: 'Document ID required' }, { status: 400 });

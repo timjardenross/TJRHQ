@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openInvestigation } from '@/lib/investigationEngine';
 import { investigationByType } from '@/lib/investigations/registry';
+import { requireSession } from '@/lib/supabase-server';
 
 // EOS Phase 2 Priority 2 (docs/EOS-CANONICAL-ARCHITECTURE-DECISIONS.md,
 // Executive Intelligence): the Investigation Engine (MSN-0357) had zero
@@ -21,6 +22,10 @@ import { investigationByType } from '@/lib/investigations/registry';
 // goes through the existing governed Decide flow, not through this route.
 
 export async function GET(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
   const reason = searchParams.get('reason');

@@ -3,7 +3,7 @@
 // Domain-aware: ?domain=operational (default) or ?domain=health
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 const RISK_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
@@ -126,6 +126,10 @@ async function getHealthData(sb: any, since: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const sb = await createSupabaseServerClient();
     const since = new Date(Date.now() - 30 * 86_400_000).toISOString();

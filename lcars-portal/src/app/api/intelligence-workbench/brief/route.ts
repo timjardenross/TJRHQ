@@ -4,9 +4,13 @@
 // and the audit timeline (audit_events where details.record_id = brief_id).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 });
 

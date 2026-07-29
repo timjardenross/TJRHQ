@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publishEventServerSide } from '@/lib/core-events';
+import { requireSession } from '@/lib/supabase-server';
 
 /**
  * core_events has RLS enabled with zero anon/authenticated policies
@@ -9,6 +10,10 @@ import { publishEventServerSide } from '@/lib/core-events';
  * service-role client — see lib/core-events.ts / lib/supabase-service-role.ts.
  */
 export async function POST(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   let body: { sessionType?: string; metrics?: Record<string, unknown> } = {};
   try {
     body = await request.json();

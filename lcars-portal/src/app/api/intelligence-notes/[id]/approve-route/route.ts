@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
 
 // MSN-0334: Captain's Notebook's "Approve Route" previously only updated
@@ -36,6 +36,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const id = decodeURIComponent(params.id ?? '').trim();
   if (!id) {
     return NextResponse.json({ error: 'Note ID required' }, { status: 400 });

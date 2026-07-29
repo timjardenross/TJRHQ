@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
 
@@ -25,6 +25,10 @@ import type { ReviewDecision } from '@/lib/types';
 const MAX_BATCH = 200;
 
 export async function POST(request: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
