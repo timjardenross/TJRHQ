@@ -9,4 +9,4 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
-ExecStart=/bin/sh -c '/opt/starship-endeavour/slack-bot/.venv/bin/python -m core.coordination.delivery_reconciler report > /opt/starship-endeavour/outputs/delivery_ledger.txt 2>/opt/starship-endeavour/outputs/delivery_reconciler.err'
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.coordination.delivery_reconciler report > /opt/starship-endeavour/outputs/delivery_ledger.txt 2>/opt/starship-endeavour/outputs/delivery_reconciler.err'
