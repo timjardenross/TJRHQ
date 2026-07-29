@@ -2,13 +2,17 @@
 // Optional ?status=opportunity|draft|review|approved|ready_to_publish|published
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 const STATUS_ORDER = [
   'opportunity', 'draft', 'review', 'approved', 'ready_to_publish', 'published',
 ];
 
 export async function GET(req: NextRequest) {
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const status = req.nextUrl.searchParams.get('status');
   // Phase 1C: domain filter — best-effort, derived via signal_source_id join
   // below (comms_content itself has no domain column; items created outside
