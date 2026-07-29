@@ -73,6 +73,16 @@ _MEDIA_OR_SIGNALS = [
 _MIN_TITLE_LENGTH = 10
 _MIN_OP_RELEVANCE = 0.20
 
+# Non-AU earthquake locations that should always be filtered out
+_NON_AU_EARTHQUAKE_LOCATIONS = [
+    "hawaii", "alaska", "california", "montana", "idaho", "wyoming",
+    "washington", "oregon", "nevada", "utah", "colorado", "new mexico",
+    "mexico", "central america", "south sandwich", "sandwich islands",
+    "new zealand", "fiji", "samoa", "tonga", "vanuatu", "solomon",
+    "japan", "philippines", "indonesia", "chile", "peru", "argentina",
+    "iceland", "greenland", "mediterranean", "turkey",
+]
+
 
 def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
     """
@@ -100,9 +110,23 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
     if _ROAD_ALERT_PATTERN.match(title.upper()):
         return True, "road_address_alert"
 
-    # ── Non-AU earthquakes with no Australian operational relevance ────────────
-    if "earthquake" in title_lower and event.geography != "AU":
-        return True, "non_au_earthquake"
+    # ── Earthquakes outside AU (not relevant to AU banking resilience) ─────────
+    # Geoscience Australia's earthquake API includes global seismic data. Non-AU
+    # earthquakes have zero operational relevance for banking resilience unless
+    # the event has explicit banking/infrastructure keywords (undersea cable breaks,
+    # data centre impacts, telecom outages). Suppress by default.
+    if "earthquake" in title_lower or "seismic" in title_lower:
+        # Keep AU earthquakes; suppress non-AU earthquakes unless they have operational relevance
+        au_earthquake = event.geography == "AU"
+        if not au_earthquake:
+            # Check for operational relevance keywords (only these justify non-AU earthquakes)
+            has_op_keywords = any(kw in title_lower for kw in [
+                "banking", "critical infrastructure", "undersea cable", "submarine cable",
+                "telecommunications", "telecom", "power grid", "financial", "stock exchange",
+                "payment system", "data centre", "data center", "infrastructure", "cable break"
+            ])
+            if not has_op_keywords:
+                return True, "non_au_earthquake_suppressed"
 
     # ── Airport/transport website CMS pages ────────────────────────────────────
     if event.event_type == "transport_disruption":
