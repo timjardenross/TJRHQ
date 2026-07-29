@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     if (signalsError) throw signalsError;
 
     // ── Pending QA briefs (IN_REVIEW status) ─────────────────────────────
-    const { data: pendingBriefs, error: briefs Error } = await sb
+    const { data: pendingBriefs, error: briefsError } = await sb
       .from('intelligence_briefs')
       .select('brief_id,overall_risk,approval_status,generated_at,executive_snapshot')
       .eq('approval_status', 'IN_REVIEW')

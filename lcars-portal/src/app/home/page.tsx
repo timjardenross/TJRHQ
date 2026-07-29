@@ -105,7 +105,7 @@ export default function HomePage() {
               href="/captains-chair-workbench"
               className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/10 px-3 py-2 text-[13px] text-wb-sage-deep transition hover:bg-wb-sage-deep/20"
             >
-              Captain's Chair →
+              Captain&apos;s Chair →
             </Link>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function HomePage() {
             href="/captains-chair-workbench"
             className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/10 px-3 py-2 text-[13px] text-wb-sage-deep transition hover:bg-wb-sage-deep/20 text-center"
           >
-            Captain's Dashboard →
+            Captain&apos;s Dashboard →
           </Link>
         </div>
       </div>
