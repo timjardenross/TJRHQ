@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
         .from('intelligence_events')
         .select('event_id,raw_title,raw_summary,event_type,geography,rank_score,collected_at,canonical_url,customer_impact,banking_relevance,cps230_relevance,organisation,sector,source_ref,resilience_themes,executive_relevance,dependency_risk')
         .eq('suppressed', false)
+        .not('raw_title', 'ilike', 'CVE-%')
         .gte('collected_at', since)
         .order('rank_score', { ascending: false })
         .limit(fetchLimit);

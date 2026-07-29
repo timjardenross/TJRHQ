@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         .from('intelligence_events')
         .select(SIGNAL_COLUMNS)
         .in('event_id', ids)
+        .not('raw_title', 'ilike', 'CVE-%')
         .order('rank_score', { ascending: false });
       signals = data ?? [];
     } else {
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
         .from('intelligence_events')
         .select(SIGNAL_COLUMNS)
         .eq('brief_id', id)
+        .not('raw_title', 'ilike', 'CVE-%')
         .order('rank_score', { ascending: false })
         .limit(20);
       signals = data ?? [];

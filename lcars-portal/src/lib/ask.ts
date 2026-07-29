@@ -184,6 +184,7 @@ async function answerIntelligenceSearch(term: string): Promise<AskAnswer> {
   const { data, count, error } = await supabase
     .from('intelligence_events')
     .select('raw_title, organisation, published_at', { count: 'exact' })
+    .not('raw_title', 'ilike', 'CVE-%')
     .or(`raw_title.ilike.${like},raw_summary.ilike.${like},enriched_summary.ilike.${like},organisation.ilike.${like}`)
     .order('published_at', { ascending: false })
     .limit(10);
@@ -281,6 +282,7 @@ async function searchCaptures(supabase: SupabaseClient, like: string): Promise<S
 async function searchIntelligenceEvents(supabase: SupabaseClient, like: string): Promise<SourceSearchResult> {
   const { data, count, error } = await supabase
     .from('intelligence_events').select('raw_title, published_at', { count: 'exact' })
+    .not('raw_title', 'ilike', 'CVE-%')
     .or(`raw_title.ilike.${like},raw_summary.ilike.${like}`).order('published_at', { ascending: false }).limit(3);
   if (error || !data) return { label: 'Intelligence events', count: 0, latest: null, examples: [] };
   return { label: 'Intelligence events', count: count ?? data.length, latest: data[0]?.published_at ?? null, examples: data.map((r) => String(r.raw_title ?? '')).filter(Boolean) };
