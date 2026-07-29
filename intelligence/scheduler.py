@@ -249,13 +249,24 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Source Fidelity Audit ──────────────────────────────────────────────────
+    # Runs daily at 06:45 AEST (after collection at 06:00 and validation at 06:30).
+    # Measures signal-to-noise ratio across all intelligence sources and flags
+    # degraded or stale sources for visibility in the Workbench.
+    scheduler.add_job(
+        _source_fidelity_audit_job,
+        CronTrigger(hour=6, minute=45, timezone=tz),
+        id="source_fidelity_audit",
+        replace_existing=True,
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
-        "Attention evaluation: every %d min | "
-        "Validation suite: 06:30 (%s)",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+        "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
+        "Attention evaluation: every %d min",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
     )
 
     try:
@@ -567,6 +578,38 @@ def _brief_qa_nightly_job() -> None:
     except Exception as exc:
         log.error("Brief QA nightly job failed: %s", exc)
         _record_heartbeat("brief_qa_agent_nightly", "failed", error_message=str(exc))
+
+
+def _source_fidelity_audit_job() -> None:
+    """Daily source fidelity audit — measure signal-to-noise across all sources.
+
+    Runs at 06:45 AEST daily (after collection at 06:00 and validation at 06:30).
+    Generates metrics on source health and flags degraded or stale sources.
+    Results are recorded in heartbeat for visibility in the Workbench.
+    """
+    log.info("Source fidelity audit job triggered")
+    try:
+        from intelligence.audit.source_fidelity import source_fidelity_report
+
+        report = source_fidelity_report(days=30)
+
+        total_sources = report.get("total_sources", 0)
+        high_value = len(report.get("high_value_sources", []))
+        low_value = len(report.get("low_value_sources", []))
+        degraded = len(report.get("degraded_sources", []))
+
+        log.info(
+            "Source fidelity audit complete: %d total sources, %d high-value, "
+            "%d low-value, %d degraded",
+            total_sources, high_value, low_value, degraded,
+        )
+        _record_heartbeat(
+            "source_fidelity_audit", "ok",
+            detail=f"sources={total_sources} high={high_value} low={low_value} degraded={degraded}",
+        )
+    except Exception as exc:
+        log.error("Source fidelity audit job failed: %s", exc)
+        _record_heartbeat("source_fidelity_audit", "failed", error_message=str(exc))
 
 
 if __name__ == "__main__":
