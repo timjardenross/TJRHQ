@@ -1,0 +1,13 @@
+[Unit]
+Description=Weekly health intelligence — every Monday 06:00
+
+[Timer]
+# Run Monday 04:00 Melbourne local time (host TZ set to
+# Australia/Melbourne 2026-07-18). No explicit TZ suffix -> follows system
+# localtime, so this tracks AEST/AEDT across DST automatically.
+OnCalendar=Mon *-*-* 04:00:00
+Persistent=true
+Unit=health-intelligence-weekly.service
+
+[Install]
+WantedBy=timers.target
