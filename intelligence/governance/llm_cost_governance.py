@@ -40,6 +40,13 @@ class LLMCostGovernance:
     """Non-blocking cost governance controller."""
 
     def __init__(self, supabase_url: Optional[str] = None, supabase_key: Optional[str] = None):
+        # Issue 21: default to the shared service-role config so any caller
+        # (not just ones that remember to pass creds explicitly) gets a
+        # working governor instead of a silent permissive no-op.
+        if supabase_url is None or supabase_key is None:
+            from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+            supabase_url = supabase_url if supabase_url is not None else SUPABASE_URL
+            supabase_key = supabase_key if supabase_key is not None else SUPABASE_KEY
         self.supabase_url = supabase_url or ""
         self.supabase_key = supabase_key or ""
         self._config_cache: dict = {}
