@@ -1695,6 +1695,22 @@ if __name__ == "__main__":
     except Exception as _ps_exc:
         log.warning("[startup] Proactive scheduler not started: %s", _ps_exc)
 
+    # ── ADHD Task Nudge Scheduler (Issue 26) ──────────────────────────────────
+    # Sends Telegram nudges for stalled high-priority personal tasks.
+    # Requires: ADHD_NUDGE_ENABLED=true, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+    if os.getenv("ADHD_NUDGE_ENABLED", "true").lower() in ("on", "1", "true", "yes"):
+        try:
+            from adhd_task_scheduler import start_adhd_task_scheduler
+            from tools.supabase.client import CommanderSupabaseClient
+            _sb_client = CommanderSupabaseClient()
+            if _sb_client.is_enabled():
+                start_adhd_task_scheduler(_sb_client)
+                log.info("[startup] ADHD task nudge scheduler enabled")
+            else:
+                log.warning("[startup] ADHD scheduler: Supabase not configured")
+        except Exception as _adhd_exc:
+            log.warning("[startup] ADHD task nudge scheduler not started: %s", _adhd_exc)
+
     handler = SocketModeHandler(app, SLACK_APP_TOKEN)
     try:
         log.info("[startup] SocketModeHandler created; starting connection now")
