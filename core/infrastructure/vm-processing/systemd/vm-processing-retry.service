@@ -1,0 +1,14 @@
+[Unit]
+Description=USS TJR VM Knowledge Processing bounded retry sweep
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=claude
+WorkingDirectory=/opt/starship-endeavour/core/infrastructure/vm-processing
+EnvironmentFile=/opt/starship-endeavour/.env
+ExecStart=/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/bin/python worker.py retry-all
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vm-processing-retry

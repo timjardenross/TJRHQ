@@ -1,0 +1,34 @@
+{
+  "entity_id": "MSN-0001",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:08.987086Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0001 \u2014 Number One Assignment Authority",
+    "status": "DRAFT",
+    "owner": "Captain TJR",
+    "priority": "P1 High",
+    "created": "2026-06-12",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/original/MSN-0001.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [],
+  "related_decisions": [],
+  "relationships": [],
+  "completeness_score": 0.38,
+  "gaps": [
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified",
+    "governing ADRs found",
+    "relationships extracted"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record.",
+    "No governing ADRs identified \u2014 check whether an ADR applies.",
+    "Context completeness is low \u2014 enrich mission document with explicit ID references."
+  ]
+}

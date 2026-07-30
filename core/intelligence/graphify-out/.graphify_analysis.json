@@ -1,0 +1,313 @@
+{
+  "communities": {
+    "0": [
+      "mission_portfolio_analytics",
+      "mission_portfolio_analytics_ageing_analysis",
+      "mission_portfolio_analytics_build_findings",
+      "mission_portfolio_analytics_closure_quality_analysis",
+      "mission_portfolio_analytics_completion_rate_analysis",
+      "mission_portfolio_analytics_compute_mission_analytics",
+      "mission_portfolio_analytics_cycle_time_analysis",
+      "mission_portfolio_analytics_days_open",
+      "mission_portfolio_analytics_fetch_missions_supabase",
+      "mission_portfolio_analytics_is_active",
+      "mission_portfolio_analytics_is_blocked",
+      "mission_portfolio_analytics_is_terminal",
+      "mission_portfolio_analytics_load_all_missions",
+      "mission_portfolio_analytics_load_missions_fallback",
+      "mission_portfolio_analytics_parse_date",
+      "mission_portfolio_analytics_py_any",
+      "mission_portfolio_analytics_py_date",
+      "mission_portfolio_analytics_rationale_1",
+      "mission_portfolio_analytics_rationale_131",
+      "mission_portfolio_analytics_rationale_162",
+      "mission_portfolio_analytics_rationale_203",
+      "mission_portfolio_analytics_rationale_228",
+      "mission_portfolio_analytics_rationale_259",
+      "mission_portfolio_analytics_rationale_283",
+      "mission_portfolio_analytics_rationale_63",
+      "mission_portfolio_analytics_throughput_analysis"
+    ],
+    "1": [
+      "intelligence_reporter",
+      "intelligence_reporter_extract_events_from_report",
+      "intelligence_reporter_fetch_todays_health_entry",
+      "intelligence_reporter_generate_decision_effectiveness",
+      "intelligence_reporter_generate_mission_intelligence",
+      "intelligence_reporter_generate_operating_patterns",
+      "intelligence_reporter_generate_readiness_trend",
+      "intelligence_reporter_main",
+      "intelligence_reporter_persist_readiness_snapshot_if_available",
+      "intelligence_reporter_py_any",
+      "intelligence_reporter_rationale_1",
+      "intelligence_reporter_rationale_218",
+      "intelligence_reporter_rationale_302",
+      "intelligence_reporter_rationale_402",
+      "intelligence_reporter_rationale_451",
+      "intelligence_reporter_rationale_505",
+      "intelligence_reporter_run_all_reports",
+      "intelligence_reporter_run_daily_intelligence",
+      "intelligence_reporter_run_single_report",
+      "intelligence_reporter_sb_post_events",
+      "intelligence_reporter_try_import",
+      "intelligence_reporter_write_report"
+    ],
+    "2": [
+      "counter",
+      "intelligence_reporter_generate_knowledge_utilisation",
+      "knowledge_utilisation",
+      "knowledge_utilisation_build_findings",
+      "knowledge_utilisation_compute_knowledge_utilisation",
+      "knowledge_utilisation_detect_clusters",
+      "knowledge_utilisation_load_adr_inventory",
+      "knowledge_utilisation_load_capability_inventory",
+      "knowledge_utilisation_load_lessons_inventory",
+      "knowledge_utilisation_py_any",
+      "knowledge_utilisation_rationale_1",
+      "knowledge_utilisation_rationale_129",
+      "knowledge_utilisation_rationale_169",
+      "knowledge_utilisation_rationale_210",
+      "knowledge_utilisation_rationale_229",
+      "knowledge_utilisation_rationale_64",
+      "knowledge_utilisation_rationale_83",
+      "knowledge_utilisation_rationale_99",
+      "knowledge_utilisation_scan_decision_logs",
+      "knowledge_utilisation_scan_knowledge_documents",
+      "sleep_lag_modal_energy"
+    ],
+    "3": [
+      "operating_patterns",
+      "operating_patterns_build_findings",
+      "operating_patterns_compute_operating_patterns",
+      "operating_patterns_compute_operating_patterns_from_sources",
+      "operating_patterns_decision_by_weekday",
+      "operating_patterns_enc_energy",
+      "operating_patterns_energy_vs_productivity",
+      "operating_patterns_load_decision_dates",
+      "operating_patterns_load_health",
+      "operating_patterns_load_mission_dates_from_supabase",
+      "operating_patterns_mission_by_weekday",
+      "operating_patterns_pain",
+      "operating_patterns_pain_vs_productivity",
+      "operating_patterns_py_any",
+      "operating_patterns_rank_weekdays",
+      "operating_patterns_rationale_1",
+      "operating_patterns_rationale_251",
+      "operating_patterns_rationale_291",
+      "operating_patterns_rationale_58",
+      "operating_patterns_rationale_74",
+      "operating_patterns_weekday"
+    ],
+    "4": [
+      "intelligence_reporter_generate_health_performance_correlation",
+      "sleep_lag",
+      "sleep_lag_build_findings",
+      "sleep_lag_compute_sleep_lag_analysis",
+      "sleep_lag_compute_sleep_lag_from_supabase",
+      "sleep_lag_cpap_interp",
+      "sleep_lag_cpap_used",
+      "sleep_lag_enc_energy",
+      "sleep_lag_enc_quality",
+      "sleep_lag_find_optimal_sleep_threshold",
+      "sleep_lag_interp",
+      "sleep_lag_pearson",
+      "sleep_lag_py_any",
+      "sleep_lag_rationale_1",
+      "sleep_lag_rationale_110",
+      "sleep_lag_rationale_352",
+      "sleep_lag_sleep_hours",
+      "sleep_lag_sleep_threshold_table_items"
+    ],
+    "5": [
+      "health_mission_correlation",
+      "health_mission_correlation_compute_health_mission_correlations",
+      "health_mission_correlation_cpap_used",
+      "health_mission_correlation_enc_energy",
+      "health_mission_correlation_enc_mood",
+      "health_mission_correlation_fetch_health_entries",
+      "health_mission_correlation_fetch_mission_dates",
+      "health_mission_correlation_generate_findings",
+      "health_mission_correlation_interpret",
+      "health_mission_correlation_mission_count_by_date",
+      "health_mission_correlation_pain",
+      "health_mission_correlation_pearson",
+      "health_mission_correlation_py_any",
+      "health_mission_correlation_rationale_1",
+      "health_mission_correlation_rationale_179",
+      "health_mission_correlation_rationale_64",
+      "health_mission_correlation_sleep"
+    ],
+    "6": [
+      "readiness_history",
+      "readiness_history_build_snapshot",
+      "readiness_history_compute_readiness_trends",
+      "readiness_history_consecutive_low",
+      "readiness_history_days_ago",
+      "readiness_history_detect_recovery",
+      "readiness_history_generate_readiness_trend_report",
+      "readiness_history_load_readiness_history",
+      "readiness_history_persist_readiness_snapshot",
+      "readiness_history_py_any",
+      "readiness_history_py_date",
+      "readiness_history_rationale_1",
+      "readiness_history_rationale_146",
+      "readiness_history_rationale_173",
+      "readiness_history_rationale_247",
+      "readiness_history_rationale_47",
+      "readiness_history_trend_direction"
+    ],
+    "7": [
+      "decision_effectiveness",
+      "decision_effectiveness_compute_decision_effectiveness",
+      "decision_effectiveness_compute_trend",
+      "decision_effectiveness_has_meaningful_review",
+      "decision_effectiveness_load_decision_logs",
+      "decision_effectiveness_normalise_held",
+      "decision_effectiveness_outcome_score",
+      "decision_effectiveness_py_any",
+      "decision_effectiveness_rationale_1",
+      "decision_effectiveness_rationale_101",
+      "path"
+    ],
+    "8": [
+      "operating_picture",
+      "operating_picture_build_health_section",
+      "operating_picture_build_intelligence_section",
+      "operating_picture_build_missions_section",
+      "operating_picture_derive_situation_summary",
+      "operating_picture_get_operating_picture",
+      "operating_picture_rationale_1",
+      "operating_picture_rationale_177",
+      "operating_picture_rationale_209",
+      "operating_picture_sb_get"
+    ],
+    "9": [
+      "init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.16923076923076924,
+    "1": 0.16883116883116883,
+    "2": 0.1523809523809524,
+    "3": 0.18571428571428572,
+    "4": 0.20915032679738563,
+    "5": 0.22058823529411764,
+    "6": 0.19852941176470587,
+    "7": 0.34545454545454546,
+    "8": 0.35555555555555557,
+    "9": 1.0
+  },
+  "gods": [
+    {
+      "id": "health_mission_correlation_compute_health_mission_correlations",
+      "label": "compute_health_mission_correlations()",
+      "degree": 16
+    },
+    {
+      "id": "sleep_lag_compute_sleep_lag_analysis",
+      "label": "compute_sleep_lag_analysis()",
+      "degree": 15
+    },
+    {
+      "id": "knowledge_utilisation_compute_knowledge_utilisation",
+      "label": "compute_knowledge_utilisation()",
+      "degree": 13
+    },
+    {
+      "id": "mission_portfolio_analytics_compute_mission_analytics",
+      "label": "compute_mission_analytics()",
+      "degree": 13
+    },
+    {
+      "id": "decision_effectiveness_compute_decision_effectiveness",
+      "label": "compute_decision_effectiveness()",
+      "degree": 12
+    },
+    {
+      "id": "operating_patterns_compute_operating_patterns",
+      "label": "compute_operating_patterns()",
+      "degree": 10
+    },
+    {
+      "id": "operating_patterns_compute_operating_patterns_from_sources",
+      "label": "compute_operating_patterns_from_sources()",
+      "degree": 9
+    },
+    {
+      "id": "readiness_history_compute_readiness_trends",
+      "label": "compute_readiness_trends()",
+      "degree": 8
+    },
+    {
+      "id": "intelligence_reporter_run_daily_intelligence",
+      "label": "run_daily_intelligence()",
+      "degree": 7
+    },
+    {
+      "id": "intelligence_reporter_run_all_reports",
+      "label": "run_all_reports()",
+      "degree": 7
+    }
+  ],
+  "surprises": [
+    {
+      "source": "_generate_decision_effectiveness()",
+      "target": "compute_decision_effectiveness()",
+      "source_files": [
+        "intelligence_reporter.py",
+        "decision_effectiveness.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "_generate_health_performance_correlation()",
+      "target": "compute_health_mission_correlations()",
+      "source_files": [
+        "intelligence_reporter.py",
+        "health_mission_correlation.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "_generate_mission_intelligence()",
+      "target": "compute_mission_analytics()",
+      "source_files": [
+        "intelligence_reporter.py",
+        "mission_portfolio_analytics.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "_generate_readiness_trend()",
+      "target": "generate_readiness_trend_report()",
+      "source_files": [
+        "intelligence_reporter.py",
+        "readiness_history.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    },
+    {
+      "source": "_generate_operating_patterns()",
+      "target": "compute_operating_patterns_from_sources()",
+      "source_files": [
+        "intelligence_reporter.py",
+        "operating_patterns.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,0 +1,921 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "__init__.py",
+      "file_type": "code",
+      "source_file": "__init__.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "init",
+      "community": 5,
+      "norm_label": "__init__.py"
+    },
+    {
+      "label": "event_listeners.py",
+      "file_type": "code",
+      "source_file": "event_listeners.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "event_listeners",
+      "community": 2,
+      "norm_label": "event_listeners.py"
+    },
+    {
+      "label": "_get_client()",
+      "file_type": "code",
+      "source_file": "event_listeners.py",
+      "source_location": "L29",
+      "_origin": "ast",
+      "id": "event_listeners_get_client",
+      "community": 2,
+      "norm_label": "_get_client()"
+    },
+    {
+      "label": "invalidate_governance_cache_for_artefact()",
+      "file_type": "code",
+      "source_file": "event_listeners.py",
+      "source_location": "L41",
+      "_origin": "ast",
+      "id": "event_listeners_invalidate_governance_cache_for_artefact",
+      "community": 2,
+      "norm_label": "invalidate_governance_cache_for_artefact()"
+    },
+    {
+      "label": "sweep_expired_governance_cache()",
+      "file_type": "code",
+      "source_file": "event_listeners.py",
+      "source_location": "L103",
+      "_origin": "ast",
+      "id": "event_listeners_sweep_expired_governance_cache",
+      "community": 2,
+      "norm_label": "sweep_expired_governance_cache()"
+    },
+    {
+      "label": "Captain's Inbox \u2014 Cache Invalidation Event Listeners (WP3B)  When governance art",
+      "file_type": "rationale",
+      "source_file": "event_listeners.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "event_listeners_rationale_1",
+      "community": 2,
+      "norm_label": "captain's inbox \u2014 cache invalidation event listeners (wp3b)  when governance art"
+    },
+    {
+      "label": "Mark all cached governance assessments that reference artefact_id as expired.",
+      "file_type": "rationale",
+      "source_file": "event_listeners.py",
+      "source_location": "L42",
+      "_origin": "ast",
+      "id": "event_listeners_rationale_42",
+      "community": 2,
+      "norm_label": "mark all cached governance assessments that reference artefact_id as expired."
+    },
+    {
+      "label": "Find items whose governance cache has expired and re-queue them for processing.",
+      "file_type": "rationale",
+      "source_file": "event_listeners.py",
+      "source_location": "L104",
+      "_origin": "ast",
+      "id": "event_listeners_rationale_104",
+      "community": 2,
+      "norm_label": "find items whose governance cache has expired and re-queue them for processing."
+    },
+    {
+      "label": "governance_integration.py",
+      "file_type": "code",
+      "source_file": "governance_integration.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "governance_integration",
+      "community": 0,
+      "norm_label": "governance_integration.py"
+    },
+    {
+      "label": "_cache_is_valid()",
+      "file_type": "code",
+      "source_file": "governance_integration.py",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "governance_integration_cache_is_valid",
+      "community": 0,
+      "norm_label": "_cache_is_valid()"
+    },
+    {
+      "label": "apply_governance_assessment()",
+      "file_type": "code",
+      "source_file": "governance_integration.py",
+      "source_location": "L40",
+      "_origin": "ast",
+      "id": "governance_integration_apply_governance_assessment",
+      "community": 0,
+      "norm_label": "apply_governance_assessment()"
+    },
+    {
+      "label": "Any",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "any",
+      "community": 0,
+      "norm_label": "any"
+    },
+    {
+      "label": "_map_status()",
+      "file_type": "code",
+      "source_file": "governance_integration.py",
+      "source_location": "L85",
+      "_origin": "ast",
+      "id": "governance_integration_map_status",
+      "community": 0,
+      "norm_label": "_map_status()"
+    },
+    {
+      "label": "_max_severity()",
+      "file_type": "code",
+      "source_file": "governance_integration.py",
+      "source_location": "L94",
+      "_origin": "ast",
+      "id": "governance_integration_max_severity",
+      "community": 0,
+      "norm_label": "_max_severity()"
+    },
+    {
+      "label": "Captain's Inbox \u2014 Governance Integration (WP3B)  Bridges the captured_items pipe",
+      "file_type": "rationale",
+      "source_file": "governance_integration.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "governance_integration_rationale_1",
+      "community": 0,
+      "norm_label": "captain's inbox \u2014 governance integration (wp3b)  bridges the captured_items pipe"
+    },
+    {
+      "label": "Return True if the cached governance assessment is still fresh.",
+      "file_type": "rationale",
+      "source_file": "governance_integration.py",
+      "source_location": "L27",
+      "_origin": "ast",
+      "id": "governance_integration_rationale_27",
+      "community": 0,
+      "norm_label": "return true if the cached governance assessment is still fresh."
+    },
+    {
+      "label": "Run (or use cached) governance assessment for item.     Returns a dict of column",
+      "file_type": "rationale",
+      "source_file": "governance_integration.py",
+      "source_location": "L41",
+      "_origin": "ast",
+      "id": "governance_integration_rationale_41",
+      "community": 0,
+      "norm_label": "run (or use cached) governance assessment for item.     returns a dict of column"
+    },
+    {
+      "label": "orchestrator.py",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "orchestrator",
+      "community": 1,
+      "norm_label": "orchestrator.py"
+    },
+    {
+      "label": "_DB",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L34",
+      "_origin": "ast",
+      "id": "orchestrator_db",
+      "community": 3,
+      "norm_label": "_db"
+    },
+    {
+      "label": ".__init__()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L37",
+      "_origin": "ast",
+      "id": "orchestrator_db_init",
+      "community": 3,
+      "norm_label": ".__init__()"
+    },
+    {
+      "label": ".enabled()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L48",
+      "_origin": "ast",
+      "id": "orchestrator_db_enabled",
+      "community": 3,
+      "norm_label": ".enabled()"
+    },
+    {
+      "label": ".get()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L51",
+      "_origin": "ast",
+      "id": "orchestrator_db_get",
+      "community": 3,
+      "norm_label": ".get()"
+    },
+    {
+      "label": ".update()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L61",
+      "_origin": "ast",
+      "id": "orchestrator_db_update",
+      "community": 4,
+      "norm_label": ".update()"
+    },
+    {
+      "label": ".exists_url()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L71",
+      "_origin": "ast",
+      "id": "orchestrator_db_exists_url",
+      "community": 3,
+      "norm_label": ".exists_url()"
+    },
+    {
+      "label": "_classify()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L112",
+      "_origin": "ast",
+      "id": "orchestrator_classify",
+      "community": 1,
+      "norm_label": "_classify()"
+    },
+    {
+      "label": "_rate_importance()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L124",
+      "_origin": "ast",
+      "id": "orchestrator_rate_importance",
+      "community": 1,
+      "norm_label": "_rate_importance()"
+    },
+    {
+      "label": "_summarize()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L132",
+      "_origin": "ast",
+      "id": "orchestrator_summarize",
+      "community": 1,
+      "norm_label": "_summarize()"
+    },
+    {
+      "label": "_build_research_topic()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L158",
+      "_origin": "ast",
+      "id": "orchestrator_build_research_topic",
+      "community": 4,
+      "norm_label": "_build_research_topic()"
+    },
+    {
+      "label": "_run_research()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L169",
+      "_origin": "ast",
+      "id": "orchestrator_run_research",
+      "community": 4,
+      "norm_label": "_run_research()"
+    },
+    {
+      "label": "process_captured_item()",
+      "file_type": "code",
+      "source_file": "orchestrator.py",
+      "source_location": "L208",
+      "_origin": "ast",
+      "id": "orchestrator_process_captured_item",
+      "community": 1,
+      "norm_label": "process_captured_item()"
+    },
+    {
+      "label": "Captain's Inbox \u2014 Processing Orchestrator (WP3B)  Async, best-effort enrichment",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_1",
+      "community": 1,
+      "norm_label": "captain's inbox \u2014 processing orchestrator (wp3b)  async, best-effort enrichment"
+    },
+    {
+      "label": "Minimal read/write Supabase wrapper.",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_35",
+      "community": 3,
+      "norm_label": "minimal read/write supabase wrapper."
+    },
+    {
+      "label": "Return id of existing non-duplicate with same URL, or None.",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L72",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_72",
+      "community": 3,
+      "norm_label": "return id of existing non-duplicate with same url, or none."
+    },
+    {
+      "label": "Return (summary_text, summary_source).",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L133",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_133",
+      "community": 1,
+      "norm_label": "return (summary_text, summary_source)."
+    },
+    {
+      "label": "Compose a research topic string from the captured item (10\u20131000 chars).",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L159",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_159",
+      "community": 4,
+      "norm_label": "compose a research topic string from the captured item (10\u20131000 chars)."
+    },
+    {
+      "label": "Background thread: call ResearchOrchestrator then persist results.     All failu",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L170",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_170",
+      "community": 4,
+      "norm_label": "background thread: call researchorchestrator then persist results.     all failu"
+    },
+    {
+      "label": "Enrich a captured item. Best-effort \u2014 any failure is logged and     processing_s",
+      "file_type": "rationale",
+      "source_file": "orchestrator.py",
+      "source_location": "L209",
+      "_origin": "ast",
+      "id": "orchestrator_rationale_209",
+      "community": 1,
+      "norm_label": "enrich a captured item. best-effort \u2014 any failure is logged and     processing_s"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "event_listeners",
+      "target": "event_listeners_get_client",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "event_listeners",
+      "target": "event_listeners_invalidate_governance_cache_for_artefact",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L103",
+      "weight": 1.0,
+      "source": "event_listeners",
+      "target": "event_listeners_sweep_expired_governance_cache",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "event_listeners_rationale_1",
+      "target": "event_listeners",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L46",
+      "weight": 1.0,
+      "source": "event_listeners_invalidate_governance_cache_for_artefact",
+      "target": "event_listeners_get_client",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L108",
+      "weight": 1.0,
+      "source": "event_listeners_sweep_expired_governance_cache",
+      "target": "event_listeners_get_client",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L42",
+      "weight": 1.0,
+      "source": "event_listeners_rationale_42",
+      "target": "event_listeners_invalidate_governance_cache_for_artefact",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "event_listeners.py",
+      "source_location": "L104",
+      "weight": 1.0,
+      "source": "event_listeners_rationale_104",
+      "target": "event_listeners_sweep_expired_governance_cache",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "source": "governance_integration",
+      "target": "governance_integration_apply_governance_assessment",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "governance_integration",
+      "target": "governance_integration_cache_is_valid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L85",
+      "weight": 1.0,
+      "source": "governance_integration",
+      "target": "governance_integration_map_status",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L94",
+      "weight": 1.0,
+      "source": "governance_integration",
+      "target": "governance_integration_max_severity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "governance_integration_rationale_1",
+      "target": "governance_integration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L47",
+      "weight": 1.0,
+      "source": "governance_integration_apply_governance_assessment",
+      "target": "governance_integration_cache_is_valid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "governance_integration_rationale_27",
+      "target": "governance_integration_cache_is_valid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "generic_arg",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "source": "governance_integration_apply_governance_assessment",
+      "target": "any",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "governance_integration_apply_governance_assessment",
+      "target": "governance_integration_map_status",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "source": "governance_integration_apply_governance_assessment",
+      "target": "governance_integration_max_severity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "governance_integration.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "governance_integration_rationale_41",
+      "target": "governance_integration_apply_governance_assessment",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "orchestrator.py",
+      "source_location": "L250",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "governance_integration_apply_governance_assessment"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L158",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L112",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_classify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_db",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L208",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_process_captured_item",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L124",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_rate_importance",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L169",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_run_research",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L132",
+      "weight": 1.0,
+      "source": "orchestrator",
+      "target": "orchestrator_summarize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_1",
+      "target": "orchestrator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L48",
+      "weight": 1.0,
+      "source": "orchestrator_db",
+      "target": "orchestrator_db_enabled",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "orchestrator_db",
+      "target": "orchestrator_db_exists_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "orchestrator_db",
+      "target": "orchestrator_db_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "orchestrator_db",
+      "target": "orchestrator_db_init",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L61",
+      "weight": 1.0,
+      "source": "orchestrator_db",
+      "target": "orchestrator_db_update",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_35",
+      "target": "orchestrator_db",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L38",
+      "weight": 1.0,
+      "source": "orchestrator_db_init",
+      "target": "orchestrator_db_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L214",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_db_enabled",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L160",
+      "weight": 1.0,
+      "source": "orchestrator_build_research_topic",
+      "target": "orchestrator_db_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L220",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_db_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L134",
+      "weight": 1.0,
+      "source": "orchestrator_summarize",
+      "target": "orchestrator_db_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L219",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_db_update",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "orchestrator_run_research",
+      "target": "orchestrator_db_update",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L241",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_db_exists_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_72",
+      "target": "orchestrator_db_exists_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L229",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_classify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L232",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_rate_importance",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L235",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_summarize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_133",
+      "target": "orchestrator_summarize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L285",
+      "weight": 1.0,
+      "source": "orchestrator_process_captured_item",
+      "target": "orchestrator_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L159",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_159",
+      "target": "orchestrator_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L183",
+      "weight": 1.0,
+      "source": "orchestrator_run_research",
+      "target": "orchestrator_build_research_topic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L170",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_170",
+      "target": "orchestrator_run_research",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "orchestrator.py",
+      "source_location": "L209",
+      "weight": 1.0,
+      "source": "orchestrator_rationale_209",
+      "target": "orchestrator_process_captured_item",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "554fd179c02b40ca2893e1fd0acb2a69c6e485cb"
+}

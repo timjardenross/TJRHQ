@@ -1,0 +1,20 @@
+[Unit]
+# Starship Endeavour Mission Minting Server — canonical ID allocator (MSN-0165).
+# POST /mint  → {"mission_id": "USS-TJR-MSN-NNNN", "type": "MSN", "status": "allocated"}
+# GET  /health → {"status": "ok", "counter_file": "..."}
+# Port: MINT_PORT env var (default 5052).
+# Binds to 127.0.0.1 only — external access via reverse proxy if required.
+# See tools/MISSION-MINTING.md for client integration guide.
+Description=Starship Endeavour Mission Minting Server
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+# Counter file lives at repo root alongside id_registry.py.
+Environment="MINT_PORT=5052"
+ExecStart=/usr/bin/python3 /opt/starship-endeavour/tools/mint_server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

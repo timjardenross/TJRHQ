@@ -1,0 +1,93 @@
+{
+  "entity_id": "MSN-0011",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.081001Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0011 \u2014 Slack Supabase Commander Integration",
+    "status": "IN_PROGRESS",
+    "owner": "Chief Engineer",
+    "priority": "P1 High",
+    "created": "2026-06-06",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/enriched/MSN-0011.md",
+    "completed": false
+  },
+  "triggering_decisions": [
+    {
+      "id": "DEC-20260610-120000",
+      "type": "decision",
+      "title": "Decision Log: Supabase Backend-Only Access Model",
+      "status": "ACTIVE"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "MSN-0009",
+      "type": "mission",
+      "title": "USS-TJR-MSN-0009",
+      "status": "PLANNED"
+    }
+  ],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-006",
+      "type": "adr",
+      "title": "Supabase Memory Layer Architecture",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    }
+  ],
+  "related_decisions": [
+    {
+      "id": "DEC-20260609-001",
+      "type": "decision",
+      "title": "Decision Log: RLS Enablement Approval",
+      "status": "ACTIVE"
+    }
+  ],
+  "relationships": [
+    {
+      "source_id": "MSN-0011",
+      "target_id": "MSN-0009",
+      "target_type": "mission",
+      "relationship_type": "triggered_by",
+      "confidence": 0.8,
+      "evidence": "iscover tests git status --short ```  ---  ## Context Relationships  Triggered By: - DEC-20260610-120000  Depends On: - MSN-0009  Governed By: - ADR-006 - ADR-001  Owner: Chief Engineer  Notes: DEC-20260610-120000 (Supabase Backend-Only Access) dir"
+    },
+    {
+      "source_id": "MSN-0011",
+      "target_id": "DEC-20260610-120000",
+      "target_type": "decision",
+      "relationship_type": "triggered_by",
+      "confidence": 0.8,
+      "evidence": "bot/.venv/*\") python3 -m unittest discover tests git status --short ```  ---  ## Context Relationships  Triggered By: - DEC-20260610-120000  Depends On: - MSN-0009  Governed By: - ADR-006 - ADR-001  Owner: Chief Engineer  Notes: DEC-20260610-120000 (Supabase"
+    },
+    {
+      "source_id": "MSN-0011",
+      "target_id": "ADR-006",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 0.95,
+      "evidence": "--short ```  ---  ## Context Relationships  Triggered By: - DEC-20260610-120000  Depends On: - MSN-0009  Governed By: - ADR-006 - ADR-001  Owner: Chief Engineer  Notes: DEC-20260610-120000 (Supabase Backend-Only Access) directly governs the access"
+    },
+    {
+      "source_id": "MSN-0011",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 0.95,
+      "evidence": "`  ---  ## Context Relationships  Triggered By: - DEC-20260610-120000  Depends On: - MSN-0009  Governed By: - ADR-006 - ADR-001  Owner: Chief Engineer  Notes: DEC-20260610-120000 (Supabase Backend-Only Access) directly governs the access pattern t"
+    }
+  ],
+  "completeness_score": 0.88,
+  "gaps": [
+    "capabilities identified"
+  ],
+  "recommended_actions": []
+}

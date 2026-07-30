@@ -1,0 +1,62 @@
+{
+  "entity_id": "MSN-0009",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.072325Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0009",
+    "status": "PLANNED",
+    "owner": "Captain TJR",
+    "priority": "P1",
+    "created": "2026-06-05",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/enriched/MSN-0009.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-002",
+      "type": "adr",
+      "title": "Mission Control to GitHub Execution Model",
+      "status": "APPROVED"
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0009",
+      "target_id": "MSN-0008",
+      "target_type": "mission",
+      "relationship_type": "references",
+      "confidence": 0.7,
+      "evidence": "sed)  ---  ## Mission Statement  Transform Commander TJR from an implementation advisor into a decision-making engine.  MSN-0008 delivered the infrastructure for collaborative specialist intelligence. MSN-0009 elevates the quality of what that infr"
+    },
+    {
+      "source_id": "MSN-0009",
+      "target_id": "MSN-0011",
+      "target_type": "mission",
+      "relationship_type": "references",
+      "confidence": 0.7,
+      "evidence": "cope  - Slack Runtime refactor (Commander Runtime v1.0) \u2014 this is MSN-0010 - Automated Supabase \u2192 Notion sync \u2014 this is MSN-0011 - Semantic intent routing \u2014 future mission - Specialist-to-specialist discussion rounds \u2014 explicitly deferred - Voice C"
+    },
+    {
+      "source_id": "MSN-0009",
+      "target_id": "ADR-002",
+      "target_type": "adr",
+      "relationship_type": "depends_on",
+      "confidence": 0.9,
+      "evidence": "atus: PLANNED \u2014 Awaiting Captain TJR activation*  ---  ## Context Relationships  Depends On: - MSN-0008  Governed By: - ADR-002  Triggers: - MSN-0011  Owner: Captain TJR  Notes: MSN-0009 explicitly depends on MSN-0008A/B/C/D/E completion (stated i"
+    }
+  ],
+  "completeness_score": 0.62,
+  "gaps": [
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}

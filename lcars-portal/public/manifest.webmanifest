@@ -1,0 +1,24 @@
+{
+  "name": "USS TJR — Command Centre",
+  "short_name": "Endeavour",
+  "description": "Starship Endeavour mobile Command Centre — Captain's Chair, Quick Capture, XO Chat, Engineering Queue, and Push Alerts.",
+  "id": "/captains-chair",
+  "start_url": "/captains-chair",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#05070e",
+  "theme_color": "#05070e",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Quick Capture", "short_name": "Capture", "url": "/capture" },
+    { "name": "XO Chat", "short_name": "XO", "url": "/xo" },
+    { "name": "Engineering Queue", "short_name": "Queue", "url": "/engineering-queue" },
+    { "name": "Alerts", "short_name": "Alerts", "url": "/alerts" }
+  ]
+}

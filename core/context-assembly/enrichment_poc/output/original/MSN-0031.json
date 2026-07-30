@@ -1,0 +1,35 @@
+{
+  "entity_id": "MSN-0031",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:11:09.037551Z",
+  "overview": {
+    "title": "MSN-0031 \u2014 Mission Registry & Workflow Engine",
+    "status": "COMPLETED \u2705",
+    "owner": "",
+    "priority": "P2",
+    "created": "",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/context-assembly/enrichment_poc/original/MSN-0031.md",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [],
+  "related_decisions": [],
+  "relationships": [],
+  "completeness_score": 0.25,
+  "gaps": [
+    "owner identified",
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified",
+    "governing ADRs found",
+    "relationships extracted"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record.",
+    "No governing ADRs identified \u2014 check whether an ADR applies.",
+    "Context completeness is low \u2014 enrich mission document with explicit ID references."
+  ]
+}
