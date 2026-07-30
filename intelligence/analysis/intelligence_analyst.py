@@ -22,10 +22,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 log = logging.getLogger(__name__)
+
+_SCORING_VERSION = 1  # bump on prompt/heuristic changes that affect score comparability
 
 DIMENSIONS: tuple[str, ...] = (
     "criticality",           # Was an essential service unavailable?
@@ -84,6 +88,16 @@ class SignalScore:
         }
 
 
+@dataclass
+class DualPathScoringResult:
+    """Issue 14 shadow-mode result: both scoring paths + Issue 20 provenance."""
+
+    heuristic: SignalScore
+    llm: Optional[SignalScore]
+    agree: Optional[bool]           # risk_rating agreement, None if LLM path didn't run
+    provenance: dict[str, Any]
+
+
 def _clamp(value: Any) -> int:
     """Coerce a model/heuristic value to an int in [1, 5]; default 3 on garbage."""
     try:
@@ -111,13 +125,25 @@ def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None)
 class IntelligenceAnalyst:
     """10-dimension scorer over the shared LLM provider chain, with heuristic fallback."""
 
-    def __init__(self, llm_provider: Optional[Any] = None, use_llm: bool = True):
+    def __init__(
+        self,
+        llm_provider: Optional[Any] = None,
+        use_llm: bool = True,
+        shadow_mode: bool = False,
+        cost_governor: Optional[Any] = None,
+    ):
         # Lazy default so importing this module never requires network/config.
         # use_llm=False forces the deterministic heuristic path — used by batch
         # jobs (daily collection) that must not fire an LLM call per signal.
         self._llm = llm_provider
         self._llm_attempted = llm_provider is not None
         self._use_llm = use_llm
+        # Issue 14: shadow mode runs both paths via score_dual_path(), heuristic
+        # stays authoritative. Issue 21: cost_governor gates/logs the LLM calls
+        # shadow mode fires (batch jobs would otherwise call an LLM per signal
+        # with no ceiling).
+        self._shadow_mode = shadow_mode
+        self._cost_governor = cost_governor
 
     def _get_llm(self):
         if not self._llm_attempted:
@@ -154,6 +180,59 @@ class IntelligenceAnalyst:
             "operational_relevance": getattr(event, "operational_relevance", 0.0),
         }
         return self.score_signal(signal)
+
+    # ── Shadow mode (Issue 14 + 20 + 21) ─────────────────────────────────────
+    def score_dual_path(
+        self, signal: dict, event_id: Optional[str] = None,
+        task_type: str = "signal-scoring",
+    ) -> DualPathScoringResult:
+        """Score a signal via both paths. Heuristic is always authoritative;
+        the LLM path is collected for Issue 15 comparison and never returned
+        to callers as the scored result. Never raises — LLM failures degrade
+        to llm=None, matching score_signal's own fallback guarantee."""
+        heuristic = self._heuristic_score(signal)
+        heuristic_scored_at = datetime.now(timezone.utc).isoformat()
+
+        llm_result: Optional[SignalScore] = None
+        llm_scored_at: Optional[str] = None
+        notes: dict[str, Any] = {}
+
+        check = self._cost_governor.can_call_llm(task_type) if self._cost_governor else None
+        if check is not None and not check.allowed:
+            notes["llm_skipped_reason"] = check.reason
+        else:
+            start = time.monotonic()
+            try:
+                llm_result = self._score_via_llm(signal)
+            except Exception as exc:  # pragma: no cover — _score_via_llm already guards this
+                notes["llm_error"] = str(exc)
+            latency_ms = int((time.monotonic() - start) * 1000)
+
+            if self._cost_governor:
+                self._cost_governor.log_call(
+                    task_type=task_type,
+                    provider=(llm_result.provider if llm_result else "unknown"),
+                    latency_ms=latency_ms,
+                    success=llm_result is not None,
+                    failure_reason=None if llm_result else "no_llm_result_or_unparseable",
+                    event_id=event_id,
+                )
+
+        if llm_result is not None:
+            llm_scored_at = datetime.now(timezone.utc).isoformat()
+
+        agree = (heuristic.risk_rating == llm_result.risk_rating) if llm_result else None
+
+        provenance = {
+            "heuristic_scored_at": heuristic_scored_at,
+            "llm_scored_at": llm_scored_at,
+            "llm_agree_with_heuristic": agree,
+            "scoring_version": _SCORING_VERSION,
+            "notes": notes,
+        }
+        return DualPathScoringResult(
+            heuristic=heuristic, llm=llm_result, agree=agree, provenance=provenance,
+        )
 
     # ── LLM path ──────────────────────────────────────────────────────────────
     def _build_prompt(self, signal: dict) -> str:
