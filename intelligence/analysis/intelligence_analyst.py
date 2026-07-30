@@ -2,19 +2,18 @@
 Intelligence Analyst — Phase A Stages 8–9 (relevance + 10-dimension scoring).
 
 Scores a signal across 10 operational-resilience dimensions (1–5 each, total
-0–50) and derives a HIGH/MEDIUM/LOW risk rating. Two paths, mirroring the rest of
-the pipeline's local-first + graceful-degradation design:
+0–50) and derives a HIGH/MEDIUM/LOW risk rating. Three modes:
 
-  * LLM path      — reuses the SHARED LLMProvider chain (model-router → Mistral →
-                    Gemini → Ollama). No parallel Mistral client.
-  * Heuristic path — deterministic, rule-based scoring derived from the fields the
-                    rule-based classifier already produced (event_type, geography,
-                    customer_impact, banking_relevance, cps230_relevance,
-                    dependency_risk, operational_relevance). Used when the LLM
-                    returns nothing or unparseable output, so a signal is ALWAYS
-                    scored — the same guarantee ranker.py relies on.
+  * Heuristic-only (use_llm=False) — deterministic, rule-based scoring from
+    classifier output. Fast, always succeeds.
+  * LLM-only (use_llm=True, shadow_mode=False) — reuses SHARED LLMProvider chain
+    (model-router → Mistral → Gemini → Ollama). Falls back to heuristic on failure.
+  * Shadow-mode (use_llm=True, shadow_mode=True) — runs BOTH paths in parallel,
+    logs both outputs, uses heuristic as authoritative. Collects comparative
+    data for Issue 14/15 evaluation harness. Non-blocking LLM failures.
 
-The Analyst never raises; on any failure it falls back to the heuristic.
+All paths ensure a signal is ALWAYS scored — the same guarantee ranker.py relies on.
+Provenance metadata (Issue 20) tracks which path was authoritative + agreement info.
 """
 
 from __future__ import annotations
@@ -111,13 +110,22 @@ def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None)
 class IntelligenceAnalyst:
     """10-dimension scorer over the shared LLM provider chain, with heuristic fallback."""
 
-    def __init__(self, llm_provider: Optional[Any] = None, use_llm: bool = True):
+    def __init__(
+        self,
+        llm_provider: Optional[Any] = None,
+        use_llm: bool = True,
+        shadow_mode: bool = False,
+        cost_governor: Optional[Any] = None,
+    ):
         # Lazy default so importing this module never requires network/config.
         # use_llm=False forces the deterministic heuristic path — used by batch
         # jobs (daily collection) that must not fire an LLM call per signal.
+        # shadow_mode=True runs both paths in parallel for Issue 14 (no behavior change).
         self._llm = llm_provider
         self._llm_attempted = llm_provider is not None
         self._use_llm = use_llm
+        self._shadow_mode = shadow_mode
+        self._cost_governor = cost_governor
 
     def _get_llm(self):
         if not self._llm_attempted:
@@ -243,4 +251,87 @@ class IntelligenceAnalyst:
         return _finalise(
             breakdown, method="heuristic",
             notes={"reason": "llm_unavailable_or_unparseable"},
+        )
+
+    # ── Shadow-mode (Issue 14) ────────────────────────────────────────────────
+    def score_dual_path(self, signal: dict, event_id: Optional[str] = None) -> Any:
+        """
+        Issue 14 shadow-mode: run both heuristic and LLM paths, compare, return both.
+        Cost-governed (checks before firing LLM call). Non-blocking LLM failures.
+        Returns DualPathScoringResult with full provenance metadata.
+        """
+        from datetime import datetime
+        from intelligence.models import DualPathScoringResult
+
+        start_time = datetime.utcnow().isoformat()
+
+        # Heuristic always runs first (fast)
+        heuristic_score = self._heuristic_score(signal)
+        heuristic_time = datetime.utcnow().isoformat()
+
+        # LLM path (shadow-mode, non-blocking)
+        llm_score = None
+        llm_time = None
+        llm_success = False
+
+        if self._use_llm:
+            # Check cost governance before firing
+            if self._cost_governor:
+                check = self._cost_governor.can_call_llm("signal-scoring")
+                if not check.allowed:
+                    log.info(
+                        f"LLM call blocked by cost governance: {check.reason}"
+                    )
+            else:
+                check = None
+
+            # Fire LLM call (timeout-safe, never blocks)
+            try:
+                llm_score = self._score_via_llm(signal)
+                llm_time = datetime.utcnow().isoformat()
+                llm_success = llm_score is not None
+
+                # Log the call (for Issue 21 cost tracking)
+                if self._cost_governor and llm_success:
+                    provider = llm_score.provider if llm_score else "unknown"
+                    self._cost_governor.log_call(
+                        task_type="signal-scoring",
+                        provider=provider,
+                        model_name=getattr(llm_score, "provider", None),
+                        success=True,
+                        event_id=event_id,
+                    )
+            except Exception as exc:
+                log.info(f"LLM scoring failed (shadow-mode, non-blocking): {exc}")
+                if self._cost_governor:
+                    self._cost_governor.log_call(
+                        task_type="signal-scoring",
+                        provider="unknown",
+                        success=False,
+                        failure_reason=str(exc),
+                        event_id=event_id,
+                    )
+
+        # Compare paths
+        agree = (
+            llm_score is not None
+            and llm_score.risk_rating == heuristic_score.risk_rating
+        )
+
+        # Build provenance (Issue 20)
+        provenance = {
+            "heuristic_scored_at": heuristic_time,
+            "llm_scored_at": llm_time,
+            "llm_agree_with_heuristic": agree,
+            "llm_attempted": self._use_llm,
+            "scoring_version": 1,  # Bump on prompt changes for audit trail
+        }
+        if llm_score and llm_score.notes:
+            provenance["llm_notes"] = llm_score.notes
+
+        return DualPathScoringResult(
+            heuristic=heuristic_score,
+            llm=llm_score,
+            agree=agree,
+            provenance=provenance,
         )

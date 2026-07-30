@@ -511,6 +511,88 @@ router.post('/:id/promote-mission', asyncHandler(async (req, res) => {
   }, 201));
 }));
 
+// ── POST /api/v1/capture/:id/decompose ────────────────────────────────────────
+// Issue 23: Break down a captured task into a single concrete micro-action.
+// Returns a suggested first step, which can then be created as a personal_task.
+router.post('/:id/decompose', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const rows = await supabaseGet(
+    `captured_items?id=eq.${encodeURIComponent(id)}&select=id,raw_text,title&limit=1`
+  );
+  if (!rows || !rows.length) throw new ApiError(404, `Capture ${id} not found`);
+
+  const item = rows[0];
+  const taskText = (item.raw_text || item.title || '').trim();
+
+  if (!taskText) {
+    throw new ApiError(400, 'Capture has no text to decompose');
+  }
+
+  // Dynamically import the Python task decomposer via a subprocess call
+  // to the intelligence service. For now, this is a placeholder that calls
+  // back to the Python intelligence service running on the same host.
+  const child_process = require('child_process');
+  const py_cmd = [
+    'python3', '-c',
+    `from intelligence.adhd.task_decomposition import decompose_task; print(decompose_task('${taskText.replace(/'/g, "\\'")}') or 'FAILED')`,
+  ].join(' ');
+
+  return new Promise((resolve) => {
+    let output = '';
+    let error = '';
+    const proc = child_process.exec(py_cmd, { timeout: 20000 }, (err, stdout, stderr) => {
+      if (err) {
+        console.error('[decompose] Python call failed:', err);
+        return resolve(res.json(successResponse({
+          action: null,
+          error: 'Decomposition service unavailable',
+        }, 200)));
+      }
+      const action = (stdout || '').trim();
+      if (!action || action === 'FAILED' || action.toUpperCase().includes('FAILED')) {
+        return resolve(res.json(successResponse({
+          action: null,
+          note: 'Could not generate a micro-action — try rewording the task',
+        }, 200)));
+      }
+      resolve(res.json(successResponse({
+        capture_id: id,
+        action,
+      }, 200)));
+    });
+  });
+}));
+
+// ── POST /api/v1/personal-tasks (create from decomposition) ──────────────────
+// Issue 23: Accept a decomposed micro-action and create a personal_task.
+router.post('/personal-tasks/from-decomposition', asyncHandler(async (req, res) => {
+  const { capture_id, action, urgency = 3, importance = 3 } = req.body || {};
+
+  if (!capture_id || !action) {
+    throw new ApiError(400, 'capture_id and action are required');
+  }
+
+  const taskRow = {
+    id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : require('crypto').randomUUID(),
+    title: action,
+    context: action,
+    urgency: Math.min(5, Math.max(1, urgency)),
+    importance: Math.min(5, Math.max(1, importance)),
+    effort_minutes: 15,
+    work_state: 'captured',
+    source_capture_id: capture_id,
+    created_at: new Date().toISOString(),
+  };
+
+  await supabaseUpsert('personal_tasks', taskRow);
+
+  res.json(successResponse({
+    id: taskRow.id,
+    action,
+    note: 'Personal task created — find it on the Home dashboard',
+  }, 201));
+}));
+
 // ── Export known channels (for portal/test consumers) ─────────────────────────
 router.KNOWN_CHANNELS = KNOWN_CHANNELS;
 router.VALID_CLASSIFICATIONS = VALID_CLASSIFICATIONS;

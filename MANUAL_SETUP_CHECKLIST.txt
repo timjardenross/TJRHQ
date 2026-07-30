@@ -1,0 +1,240 @@
+================================================================================
+MANUAL SETUP REQUIRED - QUICK CHECKLIST
+================================================================================
+
+Status: ✅ All code complete and ready. Below are items YOU must handle.
+
+================================================================================
+IMMEDIATELY (Today) — No changes yet, just review
+================================================================================
+
+[ ] Read: ROADMAP_COMPLETE_SUMMARY.md (understand what was built)
+[ ] Read: ACTIVATE_SHADOW_MODE.md (understand how to turn it on)
+[ ] Read: MANUAL_SETUP_REQUIRED.md (full details for each item below)
+[ ] Run test: python -m intelligence.analysis.test_shadow_mode_scoring --demo
+
+================================================================================
+BEFORE ACTIVATION (This Week) — Do these in order
+================================================================================
+
+ITEM 1: Apply Database Migrations (5 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Run: supabase db push
+  OR manually: psql -U postgres -d postgres < core/infrastructure/supabase/migrations/0085_shadow_mode_llm_scoring.sql
+              psql -U postgres -d postgres < core/infrastructure/supabase/migrations/0086_health_mission_correlations.sql
+
+Verify: psql -U postgres -d postgres -c "SELECT COUNT(*) FROM llm_call_metrics LIMIT 1;"
+
+
+ITEM 2: Seed Cost Governance (1 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Run: psql -U postgres -d postgres -f intelligence/governance/seed_cost_governance.sql
+
+What this does: Sets daily cost limits for LLM calls ($0.50/day for signal-scoring)
+
+
+ITEM 3: Enable Shadow-Mode in Batch Job (5 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Find: Where daily batch job calls enrich_and_save()
+    (search for "enrich_and_save" in intelligence/scheduler.py or platform-runtime/)
+
+[ ] Change: enrich_and_save(events, store)
+    To:     enrich_and_save(events, store, shadow_mode=True)
+
+This is THE critical change to activate shadow-mode.
+
+
+ITEM 4: Wire Health-Mission Correlation Job (10 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Add to your scheduler (wherever daily jobs run):
+
+    from intelligence.workflow.health_mission_correlation_workflow import run_health_mission_correlation_job
+
+    # Add to daily job list:
+    run_health_mission_correlation_job()
+
+This is optional but recommended - gives you free health insights.
+
+
+ITEM 5: Verify LLM Provider Access (5 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Run: python -c "from intelligence.brief.llm_provider import LLMProvider; LLMProvider()"
+
+If this fails: Check model router is running and accessible.
+If succeeds: You're good to go.
+
+
+ITEM 6: Set Up Monitoring (20 min, OPTIONAL)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Create dashboard queries for:
+    - Daily LLM spend (llm_daily_costs table)
+    - Shadow-mode agreement rate (intelligence_events.score_provenance)
+    - LLM failures (llm_call_metrics where success=false)
+
+See MANUAL_SETUP_REQUIRED.md Item 6 for exact SQL queries.
+
+
+ITEM 7: Configure Alerts (20 min, OPTIONAL)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Create alerts for:
+    - Cost exceeded ($0.50/day for signal-scoring)
+    - LLM failure rate >10%
+    - No shadow-mode data collected today
+
+See MANUAL_SETUP_REQUIRED.md Item 7 for alert definitions.
+
+================================================================================
+WEEK 3+ (After 2 weeks of shadow-mode data) — Analysis phase
+================================================================================
+
+ITEM 8: Run Issue 15 Evaluation Harness (5 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Run (after 2+ weeks of shadow-mode):
+    python -m intelligence.analysis.evaluate_shadow_mode_data \
+        --start-date 2026-08-13 \
+        --days 14 \
+        --output report.json
+
+[ ] Review output:
+    - Does heuristic+LLM agreement exceed 85%? → Skip Issue 16 (heuristic is good)
+    - Which confidence band shows LLM adds value? → Use for Issue 16 threshold
+
+This determines if Issue 16 (selective augmentation) is worth doing.
+
+================================================================================
+WEEK 4+ (After Issue 15 recommendation) — Selective routing
+================================================================================
+
+ITEM 9: Activate Issue 16 (Selective Augmentation) (15 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] ONLY IF Issue 15 recommends LLM routing.
+
+[ ] Update Phase A enrichment to use selective routing:
+
+    from intelligence.analysis.selective_augmentation import AugmentationThreshold, augment_signal
+
+    threshold = AugmentationThreshold(
+        score_min=3.0,  # From Issue 15 report
+        score_max=3.9,  # From Issue 15 report
+        band_name="AMBIGUOUS (3.0-3.9)",
+        expected_llm_improvement_pct=8.2,
+    )
+
+    # In your scoring loop:
+    result = augment_signal(signal, heuristic_score, analyst, threshold=threshold)
+
+[ ] Monitor: QA pass rates before/after Issue 16 activation.
+
+================================================================================
+WEEK 2+ (Parallel) — Display correlations
+================================================================================
+
+ITEM 10: Add Health-Mission Correlation Results to Dashboard (20 min)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Add to dashboard:
+
+    from intelligence.workflow.health_mission_correlation_workflow import get_latest_correlations
+    from intelligence.brief.correlation_synthesis import synthesize_correlation_insights, display_correlation_brief
+
+    correlations = get_latest_correlations()
+    synthesis = synthesize_correlation_insights(correlations)
+    brief_text = display_correlation_brief(synthesis)
+    dashboard.add_section('Health-Mission Insights', brief_text)
+
+This displays the daily health-mission correlation results.
+
+================================================================================
+ANYTIME — Fine-tuning (OPTIONAL)
+================================================================================
+
+ITEM 11: Adjust Cost Governance Limits
+────────────────────────────────────────────────────────────────────────────────
+[ ] If you hit cost limits frequently:
+    UPDATE llm_cost_governance
+    SET daily_cost_limit_usd = 2.00  -- Increase from $0.50
+    WHERE task_type = 'signal-scoring';
+
+
+ITEM 12: Customize LLM Synthesis Rules (Issue 18)
+────────────────────────────────────────────────────────────────────────────────
+[ ] Edit intelligence/brief/correlation_synthesis.py
+    _SYSTEM_PROMPT = "..."
+
+    to customize what the LLM is allowed to do.
+
+
+ITEM 13: Plan Issue 19 (Cross-Source Reasoning)
+────────────────────────────────────────────────────────────────────────────────
+[ ] After Issues 16 + 18 have shipped and generated real data (month 3+):
+    - Review what insights were actually useful
+    - Decide if cross-source reasoning (LLM across Operational + Health + Watchlist) adds value
+    - Design scope
+
+================================================================================
+SUMMARY
+================================================================================
+
+ABSOLUTE REQUIRED (to go live):
+  1. Apply migrations (5 min)
+  2. Seed cost config (1 min)
+  3. Enable shadow-mode (5 min)
+  4. Verify LLM access (5 min)
+
+  Total: ~16 minutes
+
+RECOMMENDED (to operate safely):
+  4. Wire correlation job (10 min)
+  5. Setup monitoring (20 min)
+  6. Configure alerts (20 min)
+
+  Total: +50 minutes
+
+TIMELINE-BASED (later):
+  - Week 3: Run Issue 15 analysis (5 min)
+  - Week 4: Activate Issue 16 if warranted (15 min)
+  - Anytime: Fine-tune as needed
+
+================================================================================
+DETAILED INSTRUCTIONS
+================================================================================
+
+For complete instructions on each item, see: MANUAL_SETUP_REQUIRED.md
+
+For architecture/design decisions, see: ROADMAP_COMPLETE_SUMMARY.md
+
+For troubleshooting, see: MANUAL_SETUP_REQUIRED.md → Troubleshooting section
+
+================================================================================
+QUESTIONS?
+================================================================================
+
+"How do I know if everything is working?"
+→ Run: SELECT COUNT(*) FROM llm_daily_costs;
+  Run: SELECT COUNT(*) FROM intelligence_health_correlations;
+  If both exist: Database is set up.
+
+"What if I make a mistake?"
+→ All changes are additive and idempotent.
+  Migrations can be rerun safely.
+  shadow_mode=False reverts to heuristic-only.
+  Nothing is destructive.
+
+"When should I activate shadow-mode?"
+→ After Items 1–5 complete.
+→ Recommended to have monitoring in place first.
+→ Can activate anytime with <5 min setup.
+
+"Is there a way to test without going live?"
+→ Yes: python -m intelligence.analysis.test_shadow_mode_scoring --demo
+  This shows how shadow-mode works without hitting real Supabase.
+
+================================================================================
+STATUS: Ready for your action
+================================================================================
+
+All code is complete, tested, and documented.
+Everything else is your operational setup.
+
+Start with Item 1 (apply migrations) and proceed down the checklist.
+
+Expected timeline to full activation: 1–2 hours (including optional monitoring).

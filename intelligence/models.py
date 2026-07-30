@@ -148,3 +148,12 @@ class ResilienceBrief:
     provider_used: Optional[str]
     confidence: float
     trigger_type: str         # scheduled | on_demand | test
+
+
+@dataclass
+class DualPathScoringResult:
+    """Issue 14 shadow-mode scoring: both heuristic and LLM paths (if run)."""
+    heuristic: "SignalScore"           # Always present
+    llm: Optional["SignalScore"] = None  # Only if use_llm=True and call succeeded
+    agree: bool = False                # Do both paths agree on risk_rating?
+    provenance: dict = field(default_factory=dict)  # {heuristic_scored_at, llm_scored_at, ...}

@@ -16,6 +16,8 @@ import {
   updateCaptureImportance,
   promoteCaptureToMission,
   routeCapture,
+  decomposeCapture,
+  createPersonalTaskFromDecomposition,
   type InboxCapture,
   type CaptureClassification,
   type CaptureImportance,
@@ -56,6 +58,8 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
   const [newClass, setNewClass] = useState<CaptureClassification>(item.classification ?? 'unclassified');
   const [newImp, setNewImp] = useState<CaptureImportance>(item.importance ?? 'medium');
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [decomposing, setDecomposing] = useState(false);
+  const [decomposed, setDecomposed] = useState<string | null>(null);
 
   const parsedSummary = parseSummary(item.summary as Record<string, unknown> | string | null);
 
@@ -72,6 +76,33 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
       setTimeout(() => { setFlash(null); onRefresh(); }, 1800);
     }
   }, [onRefresh]);
+
+  const handleDecompose = useCallback(async () => {
+    setDecomposing(true);
+    setErr(null);
+    const res = await decomposeCapture(item.id);
+    setDecomposing(false);
+    if (!res.ok) {
+      setErr(res.error ?? 'Decomposition failed');
+    } else if (res.action) {
+      setDecomposed(res.action);
+    }
+  }, [item.id]);
+
+  const handleAcceptDecomposition = useCallback(async () => {
+    if (!decomposed) return;
+    setBusy(true);
+    setErr(null);
+    const res = await createPersonalTaskFromDecomposition(item.id, decomposed, 3, 3);
+    setBusy(false);
+    if (!res.ok) {
+      setErr(res.error ?? 'Could not create task');
+    } else {
+      setFlash('Personal task created — check the Home dashboard');
+      setDecomposed(null);
+      setTimeout(() => { setFlash(null); onRefresh(); }, 1800);
+    }
+  }, [decomposed, item.id, onRefresh]);
 
   const fullContent = item.raw_text ?? item.title ?? '';
   const preview = showFullContent ? fullContent : fullContent.slice(0, 300);
@@ -183,9 +214,36 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
             </div>
           )}
 
+          {/* Decomposition UI — Issue 23 */}
+          {decomposed && (
+            <div className="mb-3 rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/5 px-3 py-2">
+              <p className="mb-2 text-[10px] uppercase tracking-wide text-wb-sage-deep">✦ Next smallest step</p>
+              <p className="mb-2 text-sm text-wb-ink">{decomposed}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleAcceptDecomposition}
+                  className="rounded-md border border-wb-ok/50 bg-wb-ok/10 px-3 py-1 text-xs text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40"
+                >
+                  ✓ Create as task
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setDecomposed(null)}
+                  className="rounded-md border border-wb-line px-3 py-1 text-xs text-wb-ink2 hover:border-wb-sage-deep/40 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             <ActionBtn disabled={busy} tone="ok" label="Mark reviewed" onClick={() => act(() => markCaptureReviewed(item.id), 'Marked reviewed')} />
+            <ActionBtn disabled={busy || decomposing} tone="sage" label="↓ Break it down" onClick={handleDecompose} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Health log" onClick={() => { setRoutedDest(ROUTE_DEST.personal); act(() => routeCapture(item.id, 'personal'), "Routed → Captain's Log"); }} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Note" onClick={() => { setRoutedDest(ROUTE_DEST.reference); act(() => routeCapture(item.id, 'reference'), 'Routed → Note'); }} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Decision" onClick={() => { setRoutedDest(ROUTE_DEST.decision); act(() => routeCapture(item.id, 'decision'), 'Routed → Decision queue'); }} />

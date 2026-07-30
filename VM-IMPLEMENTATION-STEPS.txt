@@ -1,0 +1,231 @@
+================================================================================
+VM IMPLEMENTATION STEPS: Activate Shadow-Mode LLM Scoring
+================================================================================
+
+Status: Ready to execute on USS TJR VM
+Date: 2026-07-30
+Commit: e177bbf (infrastructure already committed)
+
+================================================================================
+STEP 1: PULL LATEST CHANGES
+================================================================================
+
+On the VM, in the repo directory:
+
+  cd /Volumes/SSK\ SSD/GitHub/TJRHQ
+  git pull origin main
+
+Verify you have commit e177bbf:
+
+  git log --oneline -1
+  # Should show: e177bbf feat: implement shadow-mode LLM scoring...
+
+================================================================================
+STEP 2: CHANGE 1 — ENABLE SHADOW-MODE (5 min)
+================================================================================
+
+Edit file: intelligence/scheduler.py
+Line: 407
+
+BEFORE:
+    _stats = enrich_and_save(ranked, store)
+
+AFTER:
+    _stats = enrich_and_save(ranked, store, shadow_mode=True)
+
+───────────────────────────────────────────────────────────────────────────────
+Option A: Use sed to make the change automatically
+───────────────────────────────────────────────────────────────────────────────
+
+  sed -i '' 's/enrich_and_save(ranked, store)$/enrich_and_save(ranked, store, shadow_mode=True)/' intelligence/scheduler.py
+
+Verify it worked:
+  grep -n "enrich_and_save(ranked, store" intelligence/scheduler.py
+  # Should show line 407 with shadow_mode=True
+
+───────────────────────────────────────────────────────────────────────────────
+Option B: Manual edit with your editor
+───────────────────────────────────────────────────────────────────────────────
+
+  Open: intelligence/scheduler.py
+  Go to line 407
+  Change: enrich_and_save(ranked, store)
+  To:     enrich_and_save(ranked, store, shadow_mode=True)
+  Save file
+
+================================================================================
+STEP 3: CHANGE 2 — OPTIONAL: ADD HEALTH-MISSION JOB (10 min)
+================================================================================
+
+Only do this if you want daily health-mission correlations.
+(Recommended, but not required for basic shadow-mode.)
+
+───────────────────────────────────────────────────────────────────────────────
+STEP 3a: Add the job scheduler trigger
+───────────────────────────────────────────────────────────────────────────────
+
+Edit file: intelligence/scheduler.py
+Location: After line 238, before the log.info() on line 241
+
+INSERT (copy-paste this block):
+
+    # ── Issue 17: Daily health-mission correlation job ──────────────────────
+    # Runs at 07:30 AEST daily (after daily collection, independent of briefs)
+    # Pure statistics — correlates health metrics vs mission activity
+    scheduler.add_job(
+        _health_mission_correlation_job,
+        CronTrigger(hour=7, minute=30, timezone=tz),
+        id="health_mission_correlation",
+        replace_existing=True,
+    )
+
+───────────────────────────────────────────────────────────────────────────────
+STEP 3b: Add the job function
+───────────────────────────────────────────────────────────────────────────────
+
+Edit file: intelligence/scheduler.py
+Location: After the _daily_collection_job() function ends (around line 432)
+
+INSERT (copy-paste this block):
+
+def _health_mission_correlation_job() -> None:
+    """Issue 17: Daily health-mission correlation computation.
+
+    Correlates health metrics (pain, energy, sleep, CPAP, mood) with
+    mission activity. Pure statistics, no LLM required. Results persisted
+    to intelligence_health_correlations table.
+    """
+    log.info("Health-mission correlation job triggered")
+    try:
+        from intelligence.workflow.health_mission_correlation_workflow import run_health_mission_correlation_job
+        result = run_health_mission_correlation_job()
+        log.info("Health-mission correlation complete: status=%s n_health=%d n_missions=%d",
+                 result.get('status'), result.get('n_health_entries', 0), result.get('n_mission_days', 0))
+        _record_heartbeat("health_mission_correlation", "ok", detail=result.get('status'))
+    except Exception as exc:
+        log.error("Health-mission correlation job failed: %s", exc)
+        _record_heartbeat("health_mission_correlation", "failed", error_message=str(exc))
+
+───────────────────────────────────────────────────────────────────────────────
+STEP 3c: Update the startup log message
+───────────────────────────────────────────────────────────────────────────────
+
+Edit file: intelligence/scheduler.py
+Lines: 241–247
+
+BEFORE:
+    log.info(
+        "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
+        "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
+        "Daily collection: 06:00 (%s) | Attention evaluation: every %d min | "
+        "Validation suite: 06:30 (%s)",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+    )
+
+AFTER:
+    log.info(
+        "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
+        "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
+        "Daily collection: 06:00 (%s) | Health-mission correlation: 07:30 (%s) | "
+        "Attention evaluation: every %d min | Validation suite: 06:30 (%s)",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval, SCHEDULE_TZ,
+    )
+
+================================================================================
+STEP 4: TEST THAT CHANGES LOAD WITHOUT ERRORS
+================================================================================
+
+Test Change 1 (required):
+
+  python3 -c "from intelligence.scheduler import _daily_collection_job; print('✅ Scheduler Change 1 loads OK')"
+
+If Change 2 was applied:
+
+  python3 -c "from intelligence.scheduler import _health_mission_correlation_job; print('✅ Scheduler Change 2 loads OK')"
+
+Both should print ✅ with no error messages.
+
+If you see ImportError or SyntaxError, there's a typo in your edits. Go back and fix it.
+
+================================================================================
+STEP 5: COMMIT CHANGES
+================================================================================
+
+Stage your changes:
+
+  git add intelligence/scheduler.py
+
+Verify what's staged:
+
+  git diff --cached intelligence/scheduler.py | head -30
+
+Commit with a message:
+
+  git commit -m "feat: activate shadow-mode LLM scoring + health-mission correlation"
+
+Verify commit:
+
+  git log --oneline -3
+
+================================================================================
+STEP 6: PUSH TO MAIN
+================================================================================
+
+  git push origin main
+
+Verify it pushed:
+
+  git log --oneline -1
+  # Should match your local commit
+
+================================================================================
+STEP 7: VERIFY DEPLOYMENT (Next 24 Hours)
+================================================================================
+
+Monitor the next scheduled runs:
+
+06:00 AEST — Daily collection job runs
+  Check logs for:
+    "Phase A enrichment: canonical=N duplicate=M failed=X"
+    (If you see "plain-save fallback", Phase A had an error — check error logs)
+
+Query to verify shadow-mode is active:
+
+  psql -h <host> -U <user> -d <db> -c \
+    "SELECT COUNT(*) FROM llm_daily_costs WHERE cost_date = CURRENT_DATE;"
+
+  Should return: 1 row with count > 0
+
+If Change 2 was applied, at 07:30 AEST:
+
+  psql -h <host> -U <user> -d <db> -c \
+    "SELECT COUNT(*) FROM intelligence_health_correlations WHERE computed_at >= CURRENT_DATE;"
+
+  Should return: 1 row (the correlation job ran)
+
+================================================================================
+ROLLBACK (If Needed)
+================================================================================
+
+If something goes wrong and you need to revert:
+
+  git revert HEAD
+  git push origin main
+
+This will revert the changes. Next daily collection job will use heuristic-only.
+
+================================================================================
+DONE
+================================================================================
+
+Changes are live. Shadow-mode LLM scoring is now active in the daily pipeline.
+
+Next steps (Week 2+):
+  - After 2 weeks of data: Run Issue 15 evaluation harness
+    python -m intelligence.analysis.evaluate_shadow_mode_data --start-date 2026-08-13 --days 14 --output report.json
+
+  - Monitor agreement rates between heuristic and LLM scores
+
+  - After 3 weeks: Use Issue 15 results to decide if Issue 16 (selective augmentation) is needed
+
+================================================================================

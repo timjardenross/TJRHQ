@@ -468,3 +468,41 @@ export async function promoteCaptureToMission(
     return { ok: false, error: err instanceof Error ? err.message : 'Promote failed.' };
   }
 }
+
+/** Decompose a captured task into a single concrete micro-action (Issue 23). */
+export async function decomposeCapture(
+  id: string,
+): Promise<ActionResult & { action?: string }> {
+  try {
+    const resp = await fetch(`/api/capture/${id}?action=decompose`, { method: 'POST' });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
+    if (!json?.data?.action) {
+      return { ok: false, error: json?.data?.note ?? 'Could not generate a micro-action' };
+    }
+    return { ok: true, action: json.data.action };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Decompose failed.' };
+  }
+}
+
+/** Create a personal task from a decomposed micro-action (Issue 23). */
+export async function createPersonalTaskFromDecomposition(
+  captureId: string,
+  action: string,
+  urgency?: number,
+  importance?: number,
+): Promise<ActionResult & { taskId?: string }> {
+  try {
+    const resp = await fetch('/api/capture/personal-tasks/from-decomposition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capture_id: captureId, action, urgency, importance }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
+    return { ok: true, taskId: json?.data?.id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Create task failed.' };
+  }
+}

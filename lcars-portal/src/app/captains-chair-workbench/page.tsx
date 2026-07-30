@@ -13,6 +13,7 @@ import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
+import { PersonalTasksPanel } from '@/components/PersonalTasksPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { loadSinceLastSession, type SinceLastSessionSummary } from '@/lib/sinceLastSession';
 import { ACTIVE_STATUSES, COMPLETED_STATUSES, AWAITING_CAPTAIN_STATUSES } from '@/lib/missionStatus';
@@ -215,6 +216,11 @@ export default function CaptainsChalrWorkbench() {
               ))}
             </ul>
           )}
+        </div>
+
+        {/* Personal Tasks — Issue 24 */}
+        <div className="rounded-lg border border-wb-border bg-white p-4">
+          <PersonalTasksPanel />
         </div>
 
         {/* Fleet Section — Hidden on FRAGILE/REST */}

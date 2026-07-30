@@ -20,6 +20,7 @@ function ccHeaders() {
 
 // POST /api/capture/[id]/route  — re-classify and route capture
 // POST /api/capture/[id]/promote-mission — promote to mission candidate
+// POST /api/capture/[id]/decompose — break task into micro-action (Issue 23)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -38,6 +39,8 @@ export async function POST(
     ccPath = `/capture/${id}/promote-mission`;
   } else if (action === 'enrich') {
     ccPath = `/capture/${id}/enrich`;
+  } else if (action === 'decompose') {
+    ccPath = `/capture/${id}/decompose`;
   } else {
     ccPath = `/capture/${id}/route`;
   }
