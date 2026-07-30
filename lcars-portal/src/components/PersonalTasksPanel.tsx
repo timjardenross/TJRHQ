@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui';
+import { useTimerLauncher } from '@/lib/useTimerLauncher';
 
 interface PersonalTask {
   id: string;
@@ -57,6 +58,7 @@ export function PersonalTasksPanel() {
   const [tasks, setTasks] = useState<PersonalTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const launchTimer = useTimerLauncher();
 
   useEffect(() => {
     let cancelled = false;
@@ -128,7 +130,14 @@ export function PersonalTasksPanel() {
                 {urgencyLabel(task.urgency)}
               </span>
               <span title="Effort">⏱ {task.effort_minutes}m</span>
-              <span className="ml-auto text-[10px] text-wb-sage-deep">Score: {task.priority_score.toFixed(1)}</span>
+              <button
+                type="button"
+                onClick={() => launchTimer(Math.max(5, Math.min(60, task.effort_minutes)), task.title)}
+                className="ml-auto inline-flex items-center gap-1 rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/10 px-2 py-1 text-[10px] text-wb-sage-deep hover:bg-wb-sage-deep/20"
+                title={`Start ${task.effort_minutes}m timer`}
+              >
+                ▶ Timer
+              </button>
             </div>
           </li>
         ))}

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
+import { RootLayoutClient } from '@/components/RootLayoutClient';
 
 // This is the internal ops portal (USS TJR) — deliberately its own brand,
 // not the public marketing site's (@/lib/public-site is for the still-live
@@ -59,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={sourceSerif.variable}>
       <body>
-        {children}
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );
