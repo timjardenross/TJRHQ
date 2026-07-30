@@ -12,7 +12,7 @@ After=network.target
 WorkingDirectory=/opt/starship-endeavour
 # Counter file lives at repo root alongside id_registry.py.
 Environment="MINT_PORT=5052"
-ExecStart=/opt/starship-endeavour/.venv/bin/python /opt/starship-endeavour/tools/mint_server.py
+ExecStart=/usr/bin/python3 /opt/starship-endeavour/tools/mint_server.py
 Restart=always
 RestartSec=10
 

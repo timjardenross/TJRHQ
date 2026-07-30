@@ -1,16 +1,16 @@
 [Unit]
 Description=USS TJR Self-Improving System
-Documentation=file:///root/USSTJROS/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
+Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
 After=network.target
 
 [Service]
 Type=oneshot
 User=root
-WorkingDirectory=/root/USSTJROS
-Environment="PATH=/root/USSTJROS/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+WorkingDirectory=/opt/starship-endeavour
+Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
 
 # Run full cycle: collect → analyze → classify → decide → remediate
-ExecStart=/root/USSTJROS/venv/bin/python3 /root/USSTJROS/scripts/self_improvement/orchestrator.py
+ExecStart=/opt/starship-endeavour/scripts/self_improvement/.venv/bin/python3 /opt/starship-endeavour/scripts/self_improvement/orchestrator.py
 
 # Logging
 StandardOutput=journal

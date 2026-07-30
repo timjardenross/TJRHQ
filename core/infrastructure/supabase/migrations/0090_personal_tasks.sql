@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 0087 — Personal Tasks Table (ADHD Capabilities Suite)
+-- Migration 0090 — Personal Tasks Table (ADHD Capabilities Suite)
 -- USS Starship Endeavour NCC-170230
 --
 -- Issue 22: New, narrowly-scoped personal task table —
@@ -70,7 +70,7 @@ COMMENT ON COLUMN personal_tasks.effort_minutes IS
 COMMENT ON COLUMN personal_tasks.work_state IS
   'Workflow state: captured (new), in_progress (active), blocked (waiting), '
   'paused (on hold), completed (done), abandoned (dropped). '
-  'Distinct from Task Engine's status field.';
+  'Distinct from Task Engine''s status field.';
 
 COMMENT ON COLUMN personal_tasks.source_capture_id IS
   'Link to captured_items(id) for traceability if this task originated '

@@ -1,146 +1,107 @@
 # Self-Improving System — VM Deployment Guide
 
-Quick deployment steps for the VM (109.123.227.196).
+Quick deployment steps for the VM (109.123.227.196 / `vmi3371936`).
+
+Covers `scripts/self_improvement/orchestrator.py` — the canonical implementation,
+already deployed and running (`self-improving-system.timer`, enabled). A second
+implementation (`self_improving_loop.py`) was retired 2026-07-29 without ever
+being deployed to this VM — see `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
 
 ## Prerequisites Check
 
 ```bash
-# SSH to VM
-ssh root@109.123.227.196
-
-# Verify Python 3 is installed
+# On the VM
 python3 --version
 # Expected: Python 3.x
 
 # Verify Model Router is running
 curl http://127.0.0.1:8891/health
-# Expected: {"status": "ok", "port": 8891}
+# Expected: {"status": "ok", ...}
 
-# Verify git is available
 git --version
-# Expected: git version ...
+```
+
+## Repo Location
+
+```bash
+cd /opt/starship-endeavour
 ```
 
 ## First-Time Setup
 
-### 1. Navigate to Repo Root
+### 1. Verify the venv exists
+
+The systemd unit runs against a dedicated venv, not the repo default:
 
 ```bash
-cd /root/USSTJROS
-# or wherever the repo is cloned
+ls scripts/self_improvement/.venv/bin/python3
 ```
 
-### 2. Verify System Can Run
+### 2. Verify the system can run
 
 ```bash
 # Dry-run (no changes, just collection + classification)
-python3 scripts/self_improving_loop.py run --dry-run
+scripts/self_improvement/.venv/bin/python3 scripts/self_improvement/orchestrator.py --dry-run
 
-# Expected output:
-# - Collects evidence (~15 seconds)
-# - Checks policy (instant)
-# - Generates review.md
-# - Saves to data/self-improvement/runs/<run_id>/
+# Expected: Phase 1-4 log lines, cycle summary printed to stdout
 ```
 
 ### 3. View Results
 
 ```bash
-# Find latest run
-ls -t data/self-improvement/runs | head -1
-
-# Read review
-cat data/self-improvement/runs/<run_id>/review.md
-
-# Check findings
-jq '.findings | length' data/self-improvement/runs/<run_id>/findings_classified.json
+LATEST=$(ls -t /tmp/usstjros-findings/runs | head -1)
+jq . /tmp/usstjros-findings/runs/$LATEST/findings_classified.json
+jq . /tmp/usstjros-findings/review/cycle_summary.json
 ```
 
-## Enable Scheduled Runs
+## Scheduled Runs — Already Enabled
 
-### Option A: Systemd Timer (Recommended)
+`self-improving-system.timer` fires daily 07:00 Melbourne local (±5 min
+randomized delay). To (re)install after a fresh clone:
 
 ```bash
-# Copy service and timer files
-sudo cp systemd/self-improving-loop.service /etc/systemd/system/
-sudo cp systemd/self-improving-loop.timer /etc/systemd/system/
-
-# Reload systemd
+sudo cp deploy/self-improving-system.service /etc/systemd/system/
+sudo cp deploy/self-improvement-dashboard.service /etc/systemd/system/
 sudo systemctl daemon-reload
-
-# Enable and start timer
-sudo systemctl enable self-improving-loop.timer
-sudo systemctl start self-improving-loop.timer
+sudo systemctl enable --now self-improving-system.timer
+sudo systemctl enable --now self-improvement-dashboard.service
 
 # Verify
-sudo systemctl status self-improving-loop.timer
-sudo systemctl list-timers self-improving-loop.timer
-
-# Watch logs
-sudo journalctl -u self-improving-loop.service -f
+sudo systemctl status self-improving-system.timer
+sudo systemctl list-timers self-improving-system.timer
+sudo journalctl -u self-improving-system.service -f
 ```
 
-This will run automatically:
-- **Tuesdays at 09:00 UTC**
-- **Fridays at 09:00 UTC**
-
-### Option B: Manual Cron (Alternative)
-
-If systemd is not available:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add (runs Tue+Fri 09:00 UTC):
-0 9 * * Tue,Fri cd /root/USSTJROS && python3 scripts/self_improving_loop.py run >> /var/log/self-improvement.log 2>&1
-```
+Note: `self-improving-system.service` itself shows `disabled` under
+`systemctl is-enabled` — expected for a oneshot unit triggered by its timer
+(`Requires=self-improving-system.service` in the timer unit), not a sign of
+misconfiguration. What must be `enabled` is the **timer**.
 
 ## Manual Trigger Anytime
 
 ```bash
-# Run analysis immediately
-cd /root/USSTJROS
-python3 scripts/self_improving_loop.py run
+cd /opt/starship-endeavour
+scripts/self_improvement/.venv/bin/python3 scripts/self_improvement/orchestrator.py --dry-run
+scripts/self_improvement/.venv/bin/python3 scripts/self_improvement/orchestrator.py --no-remediate
+scripts/self_improvement/.venv/bin/python3 scripts/self_improvement/orchestrator.py   # full cycle incl. auto-remediation
 
-# Dry-run (test without changes)
-python3 scripts/self_improving_loop.py run --dry-run
-
-# View status
-python3 scripts/self_improving_loop.py status
+# Or force an immediate run of the scheduled unit
+sudo systemctl start self-improving-system.service
 ```
 
 ## Monitor Scheduled Runs
 
-### Via Systemd
-
 ```bash
-# Check next scheduled time
-sudo systemctl list-timers self-improving-loop.timer
+# Next scheduled time
+sudo systemctl list-timers self-improving-system.timer
 
-# View recent runs
-sudo journalctl -u self-improving-loop.service -n 50
+# Recent runs / follow live / errors only
+sudo journalctl -u self-improving-system.service -n 50
+sudo journalctl -u self-improving-system.service -f
+sudo journalctl -u self-improving-system.service -p err
 
-# Follow live
-sudo journalctl -u self-improving-loop.service -f
-
-# Check for errors only
-sudo journalctl -u self-improving-loop.service -p err
-```
-
-### Via Logs
-
-```bash
-# View all runs
-ls -lh data/self-improvement/runs/
-
-# Latest run details
-LATEST=$(ls -t data/self-improvement/runs | head -1)
-cat data/self-improvement/runs/$LATEST/review.md
-
-# Count findings by category
-jq '.findings | group_by(.category) | map({category: .[0].category, count: length})' \
-  data/self-improvement/runs/$LATEST/findings_classified.json
+# Findings dashboard (review API)
+curl http://127.0.0.1:8892/health
 ```
 
 ## Troubleshooting
@@ -148,56 +109,42 @@ jq '.findings | group_by(.category) | map({category: .[0].category, count: lengt
 ### "python3: command not found"
 
 ```bash
-# Install Python 3
 apt-get update && apt-get install -y python3
 ```
 
 ### "Model Router not reachable"
 
 ```bash
-# Check if running
 curl http://127.0.0.1:8891/health
-
-# If fails, start it
-python3 core/model-router/app.py &
-
-# Or via systemd (if available)
-sudo systemctl start model-router.service
+sudo systemctl status model-router.service
 ```
 
 ### "Repository is dirty"
 
-```bash
-# Commit any changes
-git add .
-git commit -m "..."
+The system stops to avoid mixing analysis with local changes:
 
-# Or stash
+```bash
+git status
+git add . && git commit -m "..."
+# or
 git stash
 ```
 
 ### Timer didn't run
 
 ```bash
-# Check if enabled
-sudo systemctl is-enabled self-improving-loop.timer
-# Should output: enabled
-
-# Check if active
-sudo systemctl is-active self-improving-loop.timer
-# Should output: active
+sudo systemctl is-enabled self-improving-system.timer   # should be: enabled
+sudo systemctl is-active self-improving-system.timer    # should be: active
 
 # Force a run
-sudo systemctl start self-improving-loop.service
-
-# Check the result
-sudo journalctl -u self-improving-loop.service -n 20
+sudo systemctl start self-improving-system.service
+sudo journalctl -u self-improving-system.service -n 20
 ```
 
 ## Disable Scheduled Runs
 
 ```bash
-sudo systemctl disable --now self-improving-loop.timer
+sudo systemctl disable --now self-improving-system.timer
 ```
 
 ## Rollback Auto-Remediation
@@ -205,35 +152,37 @@ sudo systemctl disable --now self-improving-loop.timer
 If a run applied changes you want to revert:
 
 ```bash
-# See recent commits
 git log --oneline | head -5
-
-# Revert the most recent one (preserves history)
-git revert HEAD
-
-# Or force-reset to a known state (loses history)
-git reset --hard <commit>
+git revert HEAD             # preserves history
+# or
+git reset --hard <commit>   # loses history — confirm before use
 ```
 
 ## Key Files on VM
 
 ```
-/root/USSTJROS/
-├── scripts/self_improving_loop.py          # Main script
-├── scripts/self_improvement/               # Modules
-├── config/self_improvement_policy.json    # Policy rules
-├── data/self-improvement/
-│   ├── runs/<run_id>/                     # Evidence & findings
-│   ├── review/                            # Review queue
-│   ├── change-log.jsonl                   # All decisions
-│   └── outcomes.jsonl                     # Verification results
-└── docs/self-improvement/                 # Documentation
+/opt/starship-endeavour/
+├── scripts/self_improvement/
+│   ├── orchestrator.py                # entry point (deploy/self-improving-system.service ExecStart)
+│   ├── collector.py, router_client.py, policy.py,
+│   │   decision_processor.py, auto_remediation.py
+│   ├── dashboard.py                   # findings review API, port 8892
+│   └── .venv/                         # dedicated venv used by both systemd units
+├── config/self_improvement_policy.json
+├── deploy/
+│   ├── self-improving-system.service
+│   └── self-improvement-dashboard.service
+└── docs/self-improvement/             # this documentation
 ```
+
+`/tmp/usstjros-findings/` (not repo-relative) holds run data — see
+`docs/self-improvement/README.md` § Data Locations. It does not survive a
+reboot; nothing currently archives it into the repo.
 
 ## Support
 
-- **Logs:** `sudo journalctl -u self-improving-loop.service`
-- **Manual run:** `python3 scripts/self_improving_loop.py run --verbose`
-- **Status:** `python3 scripts/self_improving_loop.py status`
+- **Logs:** `sudo journalctl -u self-improving-system.service`
+- **Manual run:** `scripts/self_improvement/.venv/bin/python3 scripts/self_improvement/orchestrator.py --dry-run`
+- **Dashboard:** `http://127.0.0.1:8892`
 - **README:** `docs/self-improvement/README.md`
 - **OPERATIONS:** `docs/self-improvement/OPERATIONS.md`

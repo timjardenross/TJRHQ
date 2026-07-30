@@ -1,0 +1,12 @@
+[Unit]
+Description=USS TJR Weekly Health Intelligence — RSS import + synthesis + article enrichment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/bin/bash /opt/starship-endeavour/core/health/run_weekly_intelligence.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=health-intelligence-weekly
