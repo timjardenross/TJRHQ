@@ -114,9 +114,51 @@ class TaskNudgeComposer:
         return message
 
 
-async def check_and_nudge_stalled_tasks(supabase_client) -> dict:
+def _fetch_stalled_tasks(threshold_ts: str) -> list[dict]:
+    """Fetch high-priority stalled personal_tasks via PostgREST directly —
+    matches the rest of this codebase's pattern (no supabase-py SDK
+    dependency anywhere else); avoids requiring callers to hand in a
+    fluent-query-builder client that doesn't exist here."""
+    import json
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("[TaskNudge] Supabase not configured; skipping")
+        return []
+
+    query = urllib.parse.urlencode({
+        "select": "id,title,effort_minutes,work_state,created_at,updated_at",
+        "urgency": "gte.4",
+        "work_state": "in.(captured,paused)",
+        "updated_at": f"lt.{threshold_ts}",
+        "limit": "50",
+    })
+    url = f"{SUPABASE_URL}/rest/v1/personal_tasks?{query}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Accept": "application/json",
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except Exception as exc:
+        log.error("[TaskNudge] Failed to fetch stalled tasks: %s", exc)
+        return []
+
+
+async def check_and_nudge_stalled_tasks(supabase_client=None) -> dict:
     """
     Main scheduler function: check for stalled tasks, compose nudges, send.
+
+    supabase_client is accepted-but-unused for call-site compatibility with
+    platform-runtime/adhd_task_scheduler.py — the actual query goes straight
+    to PostgREST (see _fetch_stalled_tasks).
 
     Returns a summary: {checked: N, nudged: N, errors: [...]}.
     """
@@ -126,24 +168,15 @@ async def check_and_nudge_stalled_tasks(supabase_client) -> dict:
     limiter = NudgeRateLimiter()
 
     try:
-        # Query Supabase for high-priority stalled tasks
         threshold_ts = (
             datetime.now(timezone.utc) - timedelta(hours=2)
         ).isoformat()
 
-        response = supabase_client.table("personal_tasks").select(
-            "id, title, effort_minutes, work_state, created_at, updated_at"
-        ).gte("urgency", 4).in_(
-            "work_state", ["captured", "paused"]
-        ).lt(
-            "updated_at", threshold_ts
-        ).limit(50).execute()
-
-        if not response.data:
+        stalled_tasks = _fetch_stalled_tasks(threshold_ts)
+        if not stalled_tasks:
             log.info("[TaskNudge] No stalled high-priority tasks found")
             return summary
 
-        stalled_tasks = response.data
         summary["checked"] = len(stalled_tasks)
 
         # For each task, check rate limit and send nudge
@@ -184,7 +217,7 @@ async def check_and_nudge_stalled_tasks(supabase_client) -> dict:
         return summary
 
 
-def nudge_scheduler_entry_point(supabase_client):
+def nudge_scheduler_entry_point(supabase_client=None):
     """
     Entry point for cron-style invocation from platform-runtime scheduler.
 
