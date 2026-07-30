@@ -113,10 +113,14 @@ def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False
 
     if analyst is None:
         from intelligence.analysis.intelligence_analyst import IntelligenceAnalyst
+        from intelligence.config import SUPABASE_KEY, SUPABASE_URL
         from intelligence.governance import LLMCostGovernance
 
-        # Shadow-mode needs cost governance + LLM support
-        cost_gov = LLMCostGovernance() if shadow_mode else None
+        # Shadow-mode needs cost governance + LLM support. Without real
+        # credentials LLMCostGovernance is a permissive no-op (no limit
+        # enforcement, log_call() silently drops) — pass the same
+        # service-role creds intelligence_store uses so limits/logging work.
+        cost_gov = LLMCostGovernance(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY) if shadow_mode else None
         analyst = IntelligenceAnalyst(
             use_llm=shadow_mode,
             shadow_mode=shadow_mode,
