@@ -2,41 +2,47 @@
 
 Production-usable self-improvement capability that continuously audits USS TJR against its own principles and proposes bounded improvements.
 
+**Canonical implementation only.** A second, parallel implementation
+(`self_improving_loop.py`) existed until 2026-07-29 but was never deployed to
+the VM and had gone stale — see
+`self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`. This document
+covers the one actually running in production.
+
 ## Quick Start
 
-### Manual Run (Interactive)
+### Manual Run
 
 ```bash
-python scripts/self_improving_loop.py collect
-python scripts/self_improving_loop.py analyse
-python scripts/self_improving_loop.py classify
-python scripts/self_improving_loop.py review
+python3 scripts/self_improvement/orchestrator.py --dry-run
 ```
 
-Or all at once:
+Or apply the full cycle (analysis + auto-remediation, if model confidence ≥ 0.75):
 
 ```bash
-python scripts/self_improving_loop.py run
+python3 scripts/self_improvement/orchestrator.py
 ```
+
+Optional flags:
+- `--dry-run` — collect, analyse, classify, decide, but don't apply remediations
+- `--no-remediate` — skip Phase 5 (auto-remediation) entirely
+- `--repo-root PATH` — defaults to `/opt/starship-endeavour`
+- `--data-root PATH` — defaults to `/tmp/usstjros-findings` (not repo-relative — see Data Locations)
+- `--router-url URL` — defaults to `http://127.0.0.1:8891`
 
 Output appears in:
-- `data/self-improvement/runs/<run_id>/evidence.json` — collected facts
-- `data/self-improvement/runs/<run_id>/findings_*.json` — analysis results
-- `data/self-improvement/runs/<run_id>/review.md` — human-readable review
-
-### Dry-Run Mode
-
-Test without any repository changes:
-
-```bash
-python scripts/self_improving_loop.py run --dry-run
-```
+- `<data-root>/runs/<run_id>/evidence.json` — collected facts
+- `<data-root>/runs/<run_id>/findings_raw.json` — raw model findings
+- `<data-root>/runs/<run_id>/findings_classified.json` — policy-classified findings
+- `<data-root>/review/cycle_summary.json` — latest cycle summary (decisions, confidence, recommendations)
 
 ## System Architecture
 
+Five phases, run in sequence by `SelfImprovementOrchestrator.run_full_cycle()`:
+
 ```
 ┌─────────────────────────────────────┐
-│ Evidence Collector (deterministic)  │  Git state, files, config, logs
+│ Phase 1: Evidence Collector          │  Git state, files, config, logs
+│ (deterministic)                     │
 │ - Repository state (branch, commit) │
 │ - File system audit                 │
 │ - Model Router status               │
@@ -175,13 +181,10 @@ Best for:
 ### Scheduled (systemd timer)
 
 ```
-systemd timer (Tue + Fri 09:00 UTC)
-→ self-improving-loop.py run
-→ collect evidence (no Claude Code)
-→ call Model Router (if available)
-→ classify (policy engine)
-→ generate review
-→ log outcomes
+self-improving-system.timer (daily 07:00 Melbourne local, enabled)
+→ self-improving-system.service (oneshot)
+→ orchestrator.py: collect → analyse (Model Router) → classify (policy engine)
+  → process decisions → auto-remediate (if confidence ≥ 0.75) → summarise
 ```
 
 Best for:
@@ -248,56 +251,48 @@ The system is conservative by design:
 
 ## Data Locations
 
-```
-data/self-improvement/
-├── runs/
-│   ├── r_20260712_001/
-│   │   ├── evidence.json
-│   │   ├── findings_raw.json
-│   │   ├── findings_classified.json
-│   │   └── review.md
-│   ├── r_20260712_002/
-│   └── ...
-├── review/
-│   ├── current-review.md
-│   └── current-review.json
-├── change-log.jsonl
-└── outcomes.jsonl
-```
+Default data root is `/tmp/usstjros-findings` (NOT repo-relative — set by
+`orchestrator.py`'s `--data-root` default, matching `deploy/self-improving-system.service`
+which runs with no override). This means findings do **not** survive a reboot
+unless `--data-root` is pointed at a persistent path.
 
-- **evidence.json:** Collected facts (repository state, file system, logs, etc.)
-- **findings_raw.json:** Raw findings from Model Router analysis
-- **findings_classified.json:** Findings with policy classification applied
-- **review.md:** Human-readable review report
-- **change-log.jsonl:** Append-only log of all decisions and implementations
-- **outcomes.jsonl:** Append-only log of verification results
+```
+/tmp/usstjros-findings/
+├── runs/
+│   └── <YYYY-MM-DD-HHMMSS>/
+│       ├── evidence.json              # Phase 1: collected facts
+│       ├── findings_raw.json          # Phase 2: raw model findings
+│       └── findings_classified.json   # Phase 3: policy-classified findings
+└── review/
+    ├── cycle_summary.json             # latest cycle's full summary (overwritten each run)
+    ├── decision_report.json           # latest Phase 4 decision report
+    ├── decisions.jsonl                # append-only decision history
+    └── remediation_results.jsonl      # append-only Phase 5 remediation outcomes
+```
 
 ## Viewing Results
 
 ### Last Run
 
 ```bash
-# List recent runs
-python scripts/self_improving_loop.py status
+# Latest run directory
+LATEST=$(ls -t /tmp/usstjros-findings/runs | head -1)
 
-# View findings (classified)
-cat data/self-improvement/runs/<run_id>/findings_classified.json | jq
+# View classified findings
+jq . /tmp/usstjros-findings/runs/$LATEST/findings_classified.json
 
-# Read review report
-cat data/self-improvement/runs/<run_id>/review.md
+# View latest cycle summary (decisions, model confidence, recommendations)
+jq . /tmp/usstjros-findings/review/cycle_summary.json
 ```
 
 ### Trends
 
 ```bash
-# View change log (all decisions)
-jq '.decision' data/self-improvement/change-log.jsonl | sort | uniq -c
+# All remediation outcomes
+jq . /tmp/usstjros-findings/review/remediation_results.jsonl
 
-# View outcomes (verification results)
-jq '.verification_passed' data/self-improvement/outcomes.jsonl | sort | uniq -c
-
-# Find repeat findings
-jq '.category' data/self-improvement/runs/*/findings_classified.json | sort | uniq -c
+# Repeat findings by category, across all runs
+jq '.findings[].category' /tmp/usstjros-findings/runs/*/findings_classified.json | sort | uniq -c
 ```
 
 ## Operating the Scheduler
@@ -305,50 +300,45 @@ jq '.category' data/self-improvement/runs/*/findings_classified.json | sort | un
 ### Manual Trigger
 
 ```bash
-# Run one cycle immediately
-python scripts/self_improving_loop.py run
+# Run one cycle immediately (full: analysis + auto-remediation)
+python3 scripts/self_improvement/orchestrator.py
 
-# Dry-run (collect & review, no changes)
-python scripts/self_improving_loop.py run --dry-run
+# Dry-run (collect, analyse, classify, decide — no changes applied)
+python3 scripts/self_improvement/orchestrator.py --dry-run
 ```
 
-### Enable Scheduled Runs
+### Scheduled runs — already enabled on the VM
 
-1. Copy systemd units:
-   ```bash
-   sudo cp systemd/self-improving-loop.service /etc/systemd/system/
-   sudo cp systemd/self-improving-loop.timer /etc/systemd/system/
-   ```
+`self-improving-system.timer` is enabled and fires daily at 07:00 Melbourne
+local time (randomized ±5 min). No setup needed; to check or change it:
 
-2. Enable and start:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now self-improving-loop.timer
-   ```
+```bash
+sudo systemctl status self-improving-system.timer
+sudo systemctl cat self-improving-system.timer      # /etc/systemd/system/self-improving-system.timer
+sudo journalctl -u self-improving-system.service -f
+```
 
-3. Check status:
-   ```bash
-   sudo systemctl status self-improving-loop.timer
-   sudo journalctl -u self-improving-loop.service -f
-   ```
+To deploy on a fresh host, unit files live at
+`deploy/self-improving-system.service` and are installed the same way as the
+project's other `deploy/*.service` units (see `docs/self-improvement/VM-DEPLOYMENT.md`).
 
 ### Disable Scheduled Runs
 
 ```bash
-sudo systemctl disable --now self-improving-loop.timer
+sudo systemctl disable --now self-improving-system.timer
 ```
 
 ### View Logs
 
 ```bash
 # Recent runs
-sudo journalctl -u self-improving-loop.service -n 50
+sudo journalctl -u self-improving-system.service -n 50
 
 # Follow live
-sudo journalctl -u self-improving-loop.service -f
+sudo journalctl -u self-improving-system.service -f
 
 # Today's logs
-sudo journalctl -u self-improving-loop.service --since today
+sudo journalctl -u self-improving-system.service --since today
 ```
 
 ## Testing
@@ -371,7 +361,7 @@ Tests cover:
 
 ```bash
 # Dry-run against current repository
-python scripts/self_improving_loop.py run --dry-run --verbose
+python3 scripts/self_improvement/orchestrator.py --dry-run
 ```
 
 Produces real evidence, real analysis (if router running), real classification. No changes applied.
@@ -407,7 +397,7 @@ git stash
 Then retry:
 
 ```bash
-python scripts/self_improving_loop.py run
+python3 scripts/self_improvement/orchestrator.py
 ```
 
 ### "Schema validation failed"
@@ -415,7 +405,7 @@ python scripts/self_improving_loop.py run
 A finding doesn't match the expected schema. Check logs for details:
 
 ```bash
-python scripts/self_improving_loop.py run --verbose 2>&1 | grep -i schema
+sudo journalctl -u self-improving-system.service -n 100 | grep -i schema
 ```
 
 Review `schemas/self_improvement_finding.schema.json` to understand required fields.
@@ -431,20 +421,23 @@ Review `schemas/self_improvement_finding.schema.json` to understand required fie
 
 ## References
 
-- **Skill:** `.claude/skills/improve-system/SKILL.md`
+- **Entry point:** `scripts/self_improvement/orchestrator.py`
+- **Systemd:** `deploy/self-improving-system.service` + `.timer`, `deploy/self-improvement-dashboard.service`
 - **Policy:** `config/self_improvement_policy.json`
 - **Schemas:** `schemas/self_improvement_*.schema.json`
-- **Code:** `scripts/self_improvement/`
-- **Data:** `data/self-improvement/`
-- **Tests:** `tests/test_self_improvement_*.py`
+- **Code:** `scripts/self_improvement/` (collector, router_client, policy, decision_processor, auto_remediation, dashboard)
+- **Data:** `/tmp/usstjros-findings/` (VM default; see Data Locations above)
+- **Tests:** `tests/test_self_improvement_system.py`
 - **Operations:** `docs/self-improvement/OPERATIONS.md`
-- **Architecture:** `docs/self-improvement/ARCHITECTURE.md`
+- **Deployment:** `docs/self-improvement/VM-DEPLOYMENT.md`
+- **Deprecated 2nd implementation:** `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`
 
 ## Support
 
 For questions or issues:
 
-1. Check logs: `python scripts/self_improving_loop.py run --verbose`
+1. Check logs: `sudo journalctl -u self-improving-system.service -f`
 2. Read policy: `config/self_improvement_policy.json`
-3. Check findings: `data/self-improvement/runs/<run_id>/review.md`
-4. Review mission: See MSN-0099 (Self-Improving System)
+3. Check findings: `/tmp/usstjros-findings/runs/<run_id>/findings_classified.json`
+4. Dashboard: `http://127.0.0.1:8892` (findings review API, `self-improvement-dashboard.service`)
+5. Review mission: See MSN-0099 (Self-Improving System)

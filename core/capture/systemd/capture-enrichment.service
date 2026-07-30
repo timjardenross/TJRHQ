@@ -5,10 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=ubuntu
-WorkingDirectory=/opt/usstjros
-EnvironmentFile=/opt/usstjros/.env
-ExecStart=/opt/usstjros/venv/bin/python core/capture/enrichment_worker.py --limit 20
+User=root
+WorkingDirectory=/opt/starship-endeavour
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/core/capture/enrichment_worker.py --limit 20
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=capture-enrichment

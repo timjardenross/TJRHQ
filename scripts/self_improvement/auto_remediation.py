@@ -386,7 +386,7 @@ class AutoRemediationExecutor:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    repo_root = Path("/root/USSTJROS")
+    repo_root = Path("/opt/starship-endeavour")
     data_root = Path("/tmp/usstjros-findings")
 
     executor = AutoRemediationExecutor(repo_root, data_root)
