@@ -21,7 +21,8 @@ log = logging.getLogger(__name__)
 
 
 def persist_health_mission_correlations(
-    results: dict, store=None, supabase_url: Optional[str] = None, supabase_key: Optional[str] = None
+    results: dict, synthesis: Optional[dict] = None, store=None,
+    supabase_url: Optional[str] = None, supabase_key: Optional[str] = None,
 ) -> bool:
     """
     Persist health-mission correlation results to a new table
@@ -29,6 +30,8 @@ def persist_health_mission_correlations(
 
     Args:
         results: Output from core.intelligence.health_mission_correlation.compute_health_mission_correlations()
+        synthesis: Issue 18 output from correlation_synthesis.synthesize_correlation_insights(),
+            or None if synthesis wasn't run.
         store: Persistence layer (optional, uses direct Supabase if None)
         supabase_url: Supabase URL (reads from env if None)
         supabase_key: Supabase key (reads from env if None)
@@ -64,6 +67,7 @@ def persist_health_mission_correlations(
         "correlations": results.get("correlations", {}),
         "findings": results.get("findings", []),
         "pain_productivity_answer": results.get("pain_productivity_answer"),
+        "synthesis": synthesis,
     }
 
     try:
@@ -93,8 +97,20 @@ def run_health_mission_correlation_job() -> dict:
         results = compute_health_mission_correlations(days=90)
         log.info(f"Computed correlations: status={results.get('status')}, n_pairs={results.get('n_paired')}")
 
-        # Persist results
-        persisted = persist_health_mission_correlations(results)
+        # Issue 18: turn the raw r-values into grounded narrative insights.
+        # synthesize_correlation_insights() already no-ops (status='skipped')
+        # when results.status == 'insufficient_data', so it's safe to call
+        # unconditionally rather than duplicating that guard here.
+        synthesis = None
+        try:
+            from intelligence.brief.correlation_synthesis import synthesize_correlation_insights
+            synthesis = synthesize_correlation_insights(results)
+            log.info(f"Correlation synthesis: status={synthesis.get('status')}")
+        except Exception as exc:
+            log.warning(f"Correlation synthesis failed (non-blocking): {exc}")
+
+        # Persist results (+ synthesis if it ran)
+        persisted = persist_health_mission_correlations(results, synthesis=synthesis)
         if persisted:
             log.info("Correlations persisted to intelligence_health_correlations table")
         else:
@@ -104,6 +120,7 @@ def run_health_mission_correlation_job() -> dict:
             "status": "success",
             "message": f"Computed correlations for {results.get('n_paired')} paired health-mission days",
             "results": results,
+            "synthesis": synthesis,
             "persisted": persisted,
         }
     except Exception as exc:
