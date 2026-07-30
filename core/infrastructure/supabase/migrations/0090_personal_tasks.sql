@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration 0087 — Personal Tasks Table (ADHD Capabilities Suite)
+-- Migration 0090 — Personal Tasks Table (ADHD Capabilities Suite)
 -- USS Starship Endeavour NCC-170230
 --
 -- Issue 22: New, narrowly-scoped personal task table —
