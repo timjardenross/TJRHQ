@@ -32,27 +32,36 @@ def source_tier_for(event: Any) -> Optional[int]:
     return classify_source_tier(url) if url else 4
 
 
-def _score_fields(event: Any, analyst, shadow_mode: bool = False) -> dict:
+def _event_to_signal(event: Any) -> dict:
+    return {
+        "title": getattr(event, "raw_title", ""),
+        "summary": getattr(event, "raw_summary", "") or "",
+        "sector": getattr(event, "sector", ""),
+        "event_type": getattr(event, "event_type", ""),
+        "geography": getattr(event, "geography", ""),
+        "customer_impact": getattr(event, "customer_impact", "low"),
+        "banking_relevance": getattr(event, "banking_relevance", "low"),
+        "cps230_relevance": getattr(event, "cps230_relevance", False),
+        "dependency_risk": getattr(event, "dependency_risk", False),
+        "operational_relevance": getattr(event, "operational_relevance", 0.0),
+    }
+
+
+def _score_fields(
+    event: Any, analyst, shadow_mode: bool = False, selective_augmentation: bool = False,
+) -> dict:
     """
     Score an event. If shadow_mode=True, runs both paths and stores provenance.
-    Always uses heuristic as authoritative (Issue 14).
+    Always uses heuristic as authoritative (Issue 14). If selective_augmentation
+    is on (and shadow_mode isn't — shadow mode already covers every signal),
+    ambiguous heuristic scores get one extra LLM call and the LLM result
+    becomes authoritative on success (Issue 16 — see selective_augmentation.py
+    for the provisional-threshold caveat).
     """
     if shadow_mode and hasattr(analyst, "score_dual_path"):
         # Shadow-mode (Issue 14): run both paths, store both, use heuristic
         result = analyst.score_dual_path(
-            {
-                "title": getattr(event, "raw_title", ""),
-                "summary": getattr(event, "raw_summary", "") or "",
-                "sector": getattr(event, "sector", ""),
-                "event_type": getattr(event, "event_type", ""),
-                "geography": getattr(event, "geography", ""),
-                "customer_impact": getattr(event, "customer_impact", "low"),
-                "banking_relevance": getattr(event, "banking_relevance", "low"),
-                "cps230_relevance": getattr(event, "cps230_relevance", False),
-                "dependency_risk": getattr(event, "dependency_risk", False),
-                "operational_relevance": getattr(event, "operational_relevance", 0.0),
-            },
-            event_id=getattr(event, "event_id", None),
+            _event_to_signal(event), event_id=getattr(event, "event_id", None),
         )
         # Return heuristic as authoritative, but store LLM results + provenance
         return {
@@ -69,16 +78,24 @@ def _score_fields(event: Any, analyst, shadow_mode: bool = False) -> dict:
             # Issue 20 provenance
             "score_provenance": result.provenance,
         }
-    else:
-        # Standard mode (non-shadow): heuristic only
-        score = analyst.score_event(event)
-        return {
-            "score_breakdown": score.score_breakdown,
-            "relevance_score": score.relevance_score,
-            "risk_rating": score.risk_rating,
-            "score_method": "heuristic",
-            "score_provenance": {"method": "heuristic"},
-        }
+
+    # Standard mode (non-shadow): heuristic first
+    score = analyst.score_event(event)
+    method = "heuristic"
+
+    if selective_augmentation:
+        from intelligence.ingestion.selective_augmentation import augment_if_ambiguous
+        score, augmented = augment_if_ambiguous(score, _event_to_signal(event), analyst)
+        if augmented:
+            method = "llm"
+
+    return {
+        "score_breakdown": score.score_breakdown,
+        "relevance_score": score.relevance_score,
+        "risk_rating": score.risk_rating,
+        "score_method": method,
+        "score_provenance": {"method": method},
+    }
 
 
 def cluster_events(events: list) -> list:
@@ -94,7 +111,10 @@ def cluster_events(events: list) -> list:
     return SignalDeduplicator().cluster_signals(signals)
 
 
-def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False) -> dict:
+def enrich_and_save(
+    events: list, store, analyst=None, shadow_mode: bool = False,
+    selective_augmentation: bool = False,
+) -> dict:
     """Enrich a ranked-event batch with Phase A fields and persist.
 
     Saves cluster canonicals first (signal_status=SCORED), then near-duplicate
@@ -105,22 +125,31 @@ def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False
         store: Persistence layer (SupabaseRepository).
         analyst: IntelligenceAnalyst instance (creates if None).
         shadow_mode: If True (Issue 14), run both heuristic and LLM paths in parallel.
+        selective_augmentation: If True (Issue 16) and shadow_mode is off, route
+            ambiguous heuristic scores to one LLM call each (see
+            selective_augmentation.py — provisional threshold, ignored when
+            shadow_mode is already on since that covers every signal).
 
     Returns dict with counts.
     """
     if not events:
-        return {"canonical": 0, "duplicate": 0, "failed": 0, "shadow_mode": shadow_mode}
+        return {
+            "canonical": 0, "duplicate": 0, "failed": 0,
+            "shadow_mode": shadow_mode, "selective_augmentation": selective_augmentation,
+        }
 
     if analyst is None:
         from intelligence.analysis.intelligence_analyst import IntelligenceAnalyst
         from intelligence.config import SUPABASE_KEY, SUPABASE_URL
         from intelligence.governance import LLMCostGovernance
 
-        # Shadow-mode needs cost governance + LLM support. Without real
-        # credentials LLMCostGovernance is a permissive no-op (no limit
-        # enforcement, log_call() silently drops) — pass the same
-        # service-role creds intelligence_store uses so limits/logging work.
-        cost_gov = LLMCostGovernance(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY) if shadow_mode else None
+        needs_llm = shadow_mode or selective_augmentation
+        # Shadow-mode / selective augmentation need cost governance + LLM
+        # support. Without real credentials LLMCostGovernance is a
+        # permissive no-op (no limit enforcement, log_call() silently
+        # drops) — pass the same service-role creds intelligence_store
+        # uses so limits/logging work.
+        cost_gov = LLMCostGovernance(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_KEY) if needs_llm else None
         analyst = IntelligenceAnalyst(
             use_llm=shadow_mode,
             shadow_mode=shadow_mode,
@@ -128,7 +157,10 @@ def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False
         )
 
     clusters = cluster_events(events)
-    stats = {"canonical": 0, "duplicate": 0, "failed": 0, "shadow_mode": shadow_mode}
+    stats = {
+        "canonical": 0, "duplicate": 0, "failed": 0,
+        "shadow_mode": shadow_mode, "selective_augmentation": selective_augmentation,
+    }
     idx_to_event_id: dict[int, Optional[str]] = {}
 
     # 1) canonicals first
@@ -137,7 +169,9 @@ def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False
         ev = events[ci]
         pa = {"source_tier": source_tier_for(ev), "signal_status": "SCORED"}
         try:
-            pa.update(_score_fields(ev, analyst, shadow_mode=shadow_mode))
+            pa.update(_score_fields(
+                ev, analyst, shadow_mode=shadow_mode, selective_augmentation=selective_augmentation,
+            ))
         except Exception as exc:  # scoring must never block persistence
             log.warning("Phase A scoring failed for %s: %s", getattr(ev, "raw_title", "")[:60], exc)
         try:
