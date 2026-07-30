@@ -270,6 +270,24 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Issue 26: ADHD task nudge scheduler ──────────────────────────────────
+    # Originally wired into platform-runtime/app.py's startup (the Slack
+    # Commander bot process) — moved here since that process is currently
+    # shut down and this daemon is the live one. Both wirings can coexist
+    # safely if Slack comes back later: NudgeRateLimiter's SQLite dedup is
+    # shared across processes, so no duplicate Telegram sends either way.
+    adhd_nudge_interval = int(os.environ.get("ADHD_NUDGE_INTERVAL_MINUTES", "60"))
+    if os.environ.get("ADHD_NUDGE_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _adhd_nudge_job,
+            IntervalTrigger(minutes=adhd_nudge_interval),
+            id="adhd_task_nudge",
+            replace_existing=True,
+        )
+        log.info("ADHD task nudge scheduler enabled (every %d min)", adhd_nudge_interval)
+    else:
+        log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
@@ -481,6 +499,21 @@ def _health_mission_correlation_job() -> None:
     except Exception as exc:
         log.error("Health-mission correlation job failed: %s", exc)
         _record_heartbeat("health_mission_correlation", "failed", error_message=str(exc))
+
+
+def _adhd_nudge_job() -> None:
+    """Issue 26: Check for stalled high-priority personal_tasks, nudge via
+    Telegram. Rate-limited (8h/task) via NudgeRateLimiter's SQLite cache."""
+    log.info("ADHD task nudge job triggered")
+    try:
+        from intelligence.adhd.task_nudge_scheduler import nudge_scheduler_entry_point
+        result = nudge_scheduler_entry_point()
+        log.info("ADHD task nudge complete: checked=%d nudged=%d errors=%d",
+                 result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
+        _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")
+    except Exception as exc:
+        log.error("ADHD task nudge job failed: %s", exc)
+        _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:
