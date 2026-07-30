@@ -28,8 +28,13 @@ from intelligence.governance.workflow_gate import (  # noqa: F401
     validate_brief_transition,
     validate_signal_transition,
 )
+from intelligence.governance.llm_cost_governance import (  # noqa: F401
+    LLMCostGovernance,
+    CostCheckResult,
+)
 
 __all__ = [
+    # Workflow governance (human curation gates)
     "ANALYST",
     "INTELLIGENCE_LEAD",
     "EXECUTIVE_APPROVER",
@@ -42,4 +47,7 @@ __all__ = [
     "validate_signal_transition",
     "validate_brief_transition",
     "log_mutation",
+    # Cost governance (Issue 21)
+    "LLMCostGovernance",
+    "CostCheckResult",
 ]
