@@ -65,12 +65,13 @@ TJRHQ/
 ├── tools/                # runtime utilities, incl. tools/supabase/ (Commander/Dual-Commander
 │                         #   evaluation scripts, embeddings, decision support)
 ├── services/             # standalone microservices (e.g. transcription)
-├── data/                 # operational data (self-improvement runs/reviews)
+├── data/                 # operational data (data/self-improvement/ is a historical
+│                         #   archive from the deprecated self-improvement loop; live
+│                         #   runs now write to /tmp/usstjros-findings/, not here)
 ├── schemas/              # JSON schemas (self-improvement decision/finding/run records)
 ├── config/               # runtime policy config
 ├── scripts/              # self-improvement automation (collector, orchestrator, dashboard)
 ├── deploy/               # systemd services/timers, launchd, deployment runbooks/checklists
-├── systemd/              # self-improving-loop service/timer
 ├── USS-TJR-Control/      # VM control layer: launchers, start/stop/status scripts
 ├── docs/                 # runbooks (graphify maintenance, security remediation),
 │                         #   self-improvement operations/deployment docs
