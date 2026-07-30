@@ -1,5 +1,0 @@
-config.yaml
-transfer.db
-logs/
-__pycache__/
-*.pyc
