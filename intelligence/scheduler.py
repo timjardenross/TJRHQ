@@ -260,13 +260,23 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Issue 17: Daily health-mission correlation job ──────────────────────
+    # Runs at 07:30 AEST daily (after daily collection, independent of briefs)
+    # Pure statistics — correlates health metrics vs mission activity
+    scheduler.add_job(
+        _health_mission_correlation_job,
+        CronTrigger(hour=7, minute=30, timezone=tz),
+        id="health_mission_correlation",
+        replace_existing=True,
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
-        "Attention evaluation: every %d min",
-        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+        "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
     )
 
     try:
@@ -427,7 +437,7 @@ def _daily_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store)
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
             saved = _stats["canonical"] + _stats["duplicate"]
             log.info("Phase A enrichment: canonical=%d duplicate=%d failed=%d",
                      _stats["canonical"], _stats["duplicate"], _stats["failed"])
@@ -452,6 +462,25 @@ def _daily_collection_job() -> None:
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+
+
+def _health_mission_correlation_job() -> None:
+    """Issue 17: Daily health-mission correlation computation.
+
+    Correlates health metrics (pain, energy, sleep, CPAP, mood) with
+    mission activity. Pure statistics, no LLM required. Results persisted
+    to intelligence_health_correlations table.
+    """
+    log.info("Health-mission correlation job triggered")
+    try:
+        from intelligence.workflow.health_mission_correlation_workflow import run_health_mission_correlation_job
+        result = run_health_mission_correlation_job()
+        log.info("Health-mission correlation complete: status=%s n_health=%d n_missions=%d",
+                 result.get('status'), result.get('n_health_entries', 0), result.get('n_mission_days', 0))
+        _record_heartbeat("health_mission_correlation", "ok", detail=result.get('status'))
+    except Exception as exc:
+        log.error("Health-mission correlation job failed: %s", exc)
+        _record_heartbeat("health_mission_correlation", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:
