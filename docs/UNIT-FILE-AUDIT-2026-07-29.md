@@ -55,33 +55,35 @@ ever triggered by their own timer. Not a mismatch.)
 | — (no repo file) | `health-intelligence-weekly.service` + `.timer` | ❌ **undocumented** | Enabled and live (weekly RSS import + synthesis + article enrichment, Mondays 04:00 local), but has **no corresponding file anywhere in the repo** — not in `deploy/`, not in `systemd/`, not under any `core/**/systemd/`. `ExecStart=/bin/bash /opt/starship-endeavour/core/health/run_weekly_intelligence.sh` is the only trace. |
 | `systemd/self_improving_loop.py`'s unit, `self-improving-loop.service`/`.timer` | *(none)* | N/A | Confirmed never installed on the VM at all (`systemctl cat` → not-found, not in root's crontab, no process). Deprecated under Issue 11, not a "live but undocumented" case — the opposite: documented but never live. |
 
-## Follow-up items (one each, per the issue's success criteria)
+## Follow-up items — status 2026-07-29 (same session, after initial audit)
 
-1. **`deploy/mint-server.service` ExecStart drift** — repo references a venv
-   path that isn't actually used; align repo to `/usr/bin/python3` or confirm
-   intent and fix the live unit instead.
-2. **`deploy/telegram-build-executor.service` venv/env drift** — repo still
-   points at `slack-bot/`; live uses `platform-runtime/`. Also: live service
-   is `active` but `disabled` (won't survive reboot) — separate from the file
-   drift, worth its own fix.
-3. **`deploy/delivery-reconciler.service` missing the `apply` pass** — repo
-   undersells what this unit actually does (writes to Supabase, not read-only).
-   Needs correcting for both accuracy and because anyone redeploying from the
-   repo file today would silently lose the `apply` pass.
-4. **`core/capture/systemd/capture-enrichment.service` stale pre-migration
-   paths** — repo file predates the `/opt/usstjros` → `/opt/starship-endeavour`
-   rename; would not work if redeployed as-is.
-5. **`health-intelligence-weekly.service`/`.timer` has no repo file at all** —
-   add `deploy/health-intelligence-weekly.service` + `.timer` matching the
-   live units so the repo can redeploy this unit and so it shows up in any
-   future "what's enabled" sweep run against the repo alone.
-6. **`deploy/xo-bot.service` filename vs `tg-xo.service`** — lowest priority
-   (bodies match, already self-documented in the file's own header), but
-   rename the repo file to `deploy/tg-xo.service` for consistency, or add an
-   explicit repo-wide note pointing at this fact so future automation doesn't
-   assume filename == unit name.
+1. ✅ **FIXED** — `deploy/mint-server.service` ExecStart drift. Confirmed the
+   repo's referenced venv (`/opt/starship-endeavour/.venv`) doesn't exist on
+   the VM at all; repo file corrected to `/usr/bin/python3` (live truth).
+2. ✅ **FIXED** — `deploy/telegram-build-executor.service` venv/env drift.
+   Repo corrected to `platform-runtime/`. Also re-enabled the live service
+   (`systemctl enable telegram-build-executor.service`) — it was `active` but
+   `disabled` (preset says `enabled`), meaning it would not have survived a
+   reboot. Confirmed still `active` after enabling.
+3. ✅ **FIXED** — `deploy/delivery-reconciler.service` now documents and
+   includes the `apply` pass (was silently missing from the repo file, which
+   also falsely claimed read-only behavior).
+4. ✅ **FIXED** — `core/capture/systemd/capture-enrichment.service` updated
+   from the pre-migration `/opt/usstjros` / `ubuntu` layout to live
+   `/opt/starship-endeavour` / `root` / `platform-runtime`.
+5. ✅ **FIXED** — added `deploy/health-intelligence-weekly.service` +
+   `.timer`, copied verbatim from the live units. Note: the live timer's own
+   `Description=` says "every Monday 06:00" while its `OnCalendar=` comment
+   and value say 04:00 Melbourne local — a pre-existing inconsistency in the
+   *live* unit's own text, copied faithfully rather than silently corrected.
+   Worth a follow-up to fix live if 04:00 is in fact correct.
+6. **Not fixed — deferred.** `deploy/xo-bot.service` filename vs live
+   `tg-xo.service`. Bodies match exactly; only the filename differs, and the
+   file already self-documents this in its header. Left as-is — a rename is
+   cosmetic and not urgent.
 
-None of items 1-6 were applied in this pass — this is the requested written
-match/mismatch record only, each flagged for separate follow-up as the issue
-specified. Item 11's fix (self-improving-loop retirement) was applied
-directly since it was already fully scoped as its own issue.
+All 6 repo files (`mint-server.service`, `telegram-build-executor.service`,
+`delivery-reconciler.service`, `capture-enrichment.service`,
+`health-intelligence-weekly.service`, `health-intelligence-weekly.timer`)
+verified byte-for-byte matching their live `systemctl cat` output after the
+fix.
