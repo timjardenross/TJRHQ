@@ -361,7 +361,7 @@ def main():
     args = parser.parse_args()
 
     harness = EvaluationHarness()
-    report = harness.evaluate(args.start_date, args.days)
+    report = asdict(harness.evaluate(args.start_date, args.days))
 
     # Pretty-print to console
     print("\n" + "=" * 80)
