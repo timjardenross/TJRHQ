@@ -6,9 +6,12 @@ clustering, and 10-dimension scoring to the live collection path
 Kept as a standalone, guarded step so the critical daily job can fall back to a
 plain save if anything here fails. Design notes:
 
-  * Scoring uses the Analyst's HEURISTIC path (use_llm=False) — a daily batch of
+  * Scoring defaults to HEURISTIC path (use_llm=False) — a daily batch of
     30+ signals must not fire an LLM call per signal. Narrative LLM work stays in
     the fortnightly brief job.
+  * Shadow-mode (Issue 14): when shadow_mode=True, runs both heuristic and LLM
+    paths in parallel, logs both, uses heuristic as authoritative. Collects
+    comparative data for Issue 15 evaluation harness without changing behavior.
   * The ranker's composite rank_score stays authoritative; the Analyst only adds
     score_breakdown / relevance_score / risk_rating (ratified separation).
   * Canonicals are saved first so near-duplicate members can reference the real
@@ -29,13 +32,53 @@ def source_tier_for(event: Any) -> Optional[int]:
     return classify_source_tier(url) if url else 4
 
 
-def _score_fields(event: Any, analyst) -> dict:
-    score = analyst.score_event(event)
-    return {
-        "score_breakdown": score.score_breakdown,
-        "relevance_score": score.relevance_score,
-        "risk_rating": score.risk_rating,
-    }
+def _score_fields(event: Any, analyst, shadow_mode: bool = False) -> dict:
+    """
+    Score an event. If shadow_mode=True, runs both paths and stores provenance.
+    Always uses heuristic as authoritative (Issue 14).
+    """
+    if shadow_mode and hasattr(analyst, "score_dual_path"):
+        # Shadow-mode (Issue 14): run both paths, store both, use heuristic
+        result = analyst.score_dual_path(
+            {
+                "title": getattr(event, "raw_title", ""),
+                "summary": getattr(event, "raw_summary", "") or "",
+                "sector": getattr(event, "sector", ""),
+                "event_type": getattr(event, "event_type", ""),
+                "geography": getattr(event, "geography", ""),
+                "customer_impact": getattr(event, "customer_impact", "low"),
+                "banking_relevance": getattr(event, "banking_relevance", "low"),
+                "cps230_relevance": getattr(event, "cps230_relevance", False),
+                "dependency_risk": getattr(event, "dependency_risk", False),
+                "operational_relevance": getattr(event, "operational_relevance", 0.0),
+            },
+            event_id=getattr(event, "event_id", None),
+        )
+        # Return heuristic as authoritative, but store LLM results + provenance
+        return {
+            # Authoritative (heuristic) — Issue 14 keeps these as primary
+            "score_breakdown": result.heuristic.score_breakdown,
+            "relevance_score": result.heuristic.relevance_score,
+            "risk_rating": result.heuristic.risk_rating,
+            "score_method": "heuristic",  # Issue 20 disclosure
+            # Shadow-mode parallel results (Issue 14)
+            "llm_score_breakdown": result.llm.score_breakdown if result.llm else None,
+            "llm_relevance_score": result.llm.relevance_score if result.llm else None,
+            "llm_risk_rating": result.llm.risk_rating if result.llm else None,
+            "llm_provider": result.llm.provider if result.llm else None,
+            # Issue 20 provenance
+            "score_provenance": result.provenance,
+        }
+    else:
+        # Standard mode (non-shadow): heuristic only
+        score = analyst.score_event(event)
+        return {
+            "score_breakdown": score.score_breakdown,
+            "relevance_score": score.relevance_score,
+            "risk_rating": score.risk_rating,
+            "score_method": "heuristic",
+            "score_provenance": {"method": "heuristic"},
+        }
 
 
 def cluster_events(events: list) -> list:
@@ -51,21 +94,37 @@ def cluster_events(events: list) -> list:
     return SignalDeduplicator().cluster_signals(signals)
 
 
-def enrich_and_save(events: list, store, analyst=None) -> dict:
+def enrich_and_save(events: list, store, analyst=None, shadow_mode: bool = False) -> dict:
     """Enrich a ranked-event batch with Phase A fields and persist.
 
     Saves cluster canonicals first (signal_status=SCORED), then near-duplicate
-    members (signal_status=DUPLICATE, canonical_signal_id set). Returns counts.
+    members (signal_status=DUPLICATE, canonical_signal_id set).
+
+    Args:
+        events: List of RankedEvent to enrich.
+        store: Persistence layer (SupabaseRepository).
+        analyst: IntelligenceAnalyst instance (creates if None).
+        shadow_mode: If True (Issue 14), run both heuristic and LLM paths in parallel.
+
+    Returns dict with counts.
     """
     if not events:
-        return {"canonical": 0, "duplicate": 0, "failed": 0}
+        return {"canonical": 0, "duplicate": 0, "failed": 0, "shadow_mode": shadow_mode}
 
     if analyst is None:
         from intelligence.analysis.intelligence_analyst import IntelligenceAnalyst
-        analyst = IntelligenceAnalyst(use_llm=False)  # heuristic-only for batch
+        from intelligence.governance import LLMCostGovernance
+
+        # Shadow-mode needs cost governance + LLM support
+        cost_gov = LLMCostGovernance() if shadow_mode else None
+        analyst = IntelligenceAnalyst(
+            use_llm=shadow_mode,
+            shadow_mode=shadow_mode,
+            cost_governor=cost_gov,
+        )
 
     clusters = cluster_events(events)
-    stats = {"canonical": 0, "duplicate": 0, "failed": 0}
+    stats = {"canonical": 0, "duplicate": 0, "failed": 0, "shadow_mode": shadow_mode}
     idx_to_event_id: dict[int, Optional[str]] = {}
 
     # 1) canonicals first
@@ -74,7 +133,7 @@ def enrich_and_save(events: list, store, analyst=None) -> dict:
         ev = events[ci]
         pa = {"source_tier": source_tier_for(ev), "signal_status": "SCORED"}
         try:
-            pa.update(_score_fields(ev, analyst))
+            pa.update(_score_fields(ev, analyst, shadow_mode=shadow_mode))
         except Exception as exc:  # scoring must never block persistence
             log.warning("Phase A scoring failed for %s: %s", getattr(ev, "raw_title", "")[:60], exc)
         try:
