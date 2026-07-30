@@ -38,7 +38,13 @@ def call_gemini(
     body = json.dumps({
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": max_output_tokens, "temperature": temperature},
+        # thinkingBudget=0 disables Gemini 2.5's internal reasoning tokens —
+        # without this, maxOutputTokens is consumed by hidden thought tokens
+        # before any visible text, silently truncating short responses.
+        "generationConfig": {
+            "maxOutputTokens": max_output_tokens, "temperature": temperature,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }).encode()
     req = urllib.request.Request(
         url, data=body,

@@ -44,26 +44,29 @@ _PROMPT_TEMPLATE = (
     "{system_prompt}\n\n"
     "CORRELATION DATA:\n"
     "{correlation_json}\n\n"
-    "Generate a JSON object with this structure:\n"
+    "Generate a JSON object with this structure. Keep every string field short "
+    "(one sentence, under 25 words) — the whole response must fit in 2048 tokens, "
+    "so a truncated, unparseable response is worse than a terse one:\n"
     "{{\n"
-    '  "insights": [  // Array of 2-5 key insights\n'
+    '  "insights": [  // Array of 2-3 key insights, shortest strongest first\n'
     '    {{\n'
     '      "dimension": "string",  // e.g., "Pain & Mission Activity"\n'
-    '      "finding": "string",    // e.g., "Captain updates 2.3 fewer missions on high-pain days (pain≥7, r=-0.45, n=67)"\n'
+    '      "finding": "string",    // ONE short sentence, e.g., "Captain updates 2.3 fewer missions on high-pain days (r=-0.45, n=67)"\n'
     '      "confidence": "high|medium|low",  // Based on r-value magnitude and n\n'
     '      "r_value": float,       // Correlation coefficient\n'
     '      "sample_size": int      // Number of paired observations\n'
     '    }}\n'
     "  ],\n"
-    '  "operational_implications": [  // 1-3 implications for mission planning\n'
-    '    "string"  // e.g., "Consider scheduling important updates on low-pain days if possible"\n'
+    '  "operational_implications": [  // 1-2 short implications for mission planning\n'
+    '    "string"  // ONE short sentence\n'
     "  ],\n"
-    '  "data_quality": {  // Metadata on data reliability\n'
+    '  "data_quality": {{  // Metadata on data reliability\n'
     '    "status": "ok|insufficient_data",\n'
-    '    "notes": "string"  // e.g., "Only 3 health entries; recommend >14 for reliable correlations"\n'
-    "  }\n"
+    '    "notes": "string"  // ONE short sentence\n'
+    "  }}\n"
     "}}\n\n"
-    "Return ONLY the JSON object above. No preamble, no markdown fence, no markdown formatting."
+    "Return ONLY the JSON object above, complete and with the closing brace. "
+    "No preamble, no markdown fence, no markdown formatting."
 )
 
 
