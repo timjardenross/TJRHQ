@@ -306,7 +306,7 @@ export default function CaptainsChalrWorkbench() {
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
                 ) : engQueueData ? (
                   <div className="space-y-2 text-xs">
-                    {Object.entries(engQueueData).map(([status, count]) => (
+                    {Object.entries(engQueueData.counts).map(([status, count]) => (
                       <div key={status} className="flex justify-between">
                         <span className="text-wb-ink2">{LIFECYCLE_LABEL[status as keyof typeof LIFECYCLE_LABEL] || status}</span>
                         <span className="font-semibold text-wb-ink">{count as number}</span>
