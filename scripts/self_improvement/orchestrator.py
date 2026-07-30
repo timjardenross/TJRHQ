@@ -161,7 +161,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Run self-improvement cycle")
-    parser.add_argument("--repo-root", type=Path, default=Path("/root/USSTJROS"), help="Repository root")
+    parser.add_argument("--repo-root", type=Path, default=Path("/opt/starship-endeavour"), help="Repository root")
     parser.add_argument("--data-root", type=Path, default=Path("/tmp/usstjros-findings"), help="Data directory")
     parser.add_argument("--router-url", default="http://127.0.0.1:8891", help="Model Router URL")
     parser.add_argument("--dry-run", action="store_true", help="Don't apply changes")
