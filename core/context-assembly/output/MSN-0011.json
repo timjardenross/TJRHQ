@@ -1,0 +1,43 @@
+{
+  "entity_id": "MSN-0011",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:02:25.346695Z",
+  "overview": {
+    "title": "MSN-0011 Test Scenarios",
+    "status": "",
+    "owner": "",
+    "priority": "",
+    "created": "",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/Missions/Active/MSN-0011-Test-Scenarios.txt",
+    "completed": false
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [],
+  "related_decisions": [
+    {
+      "id": "DEC-20260609-001",
+      "type": "decision",
+      "title": "Decision Log: RLS Enablement Approval",
+      "status": "** ACTIVE"
+    }
+  ],
+  "relationships": [],
+  "completeness_score": 0.12,
+  "gaps": [
+    "owner identified",
+    "status known",
+    "triggering decision found",
+    "dependencies mapped",
+    "capabilities identified",
+    "governing ADRs found",
+    "relationships extracted"
+  ],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record.",
+    "No governing ADRs identified \u2014 check whether an ADR applies.",
+    "Context completeness is low \u2014 enrich mission document with explicit ID references."
+  ]
+}

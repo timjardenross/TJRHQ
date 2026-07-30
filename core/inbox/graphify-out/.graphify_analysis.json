@@ -1,0 +1,130 @@
+{
+  "communities": {
+    "0": [
+      "any",
+      "governance_integration",
+      "governance_integration_apply_governance_assessment",
+      "governance_integration_cache_is_valid",
+      "governance_integration_map_status",
+      "governance_integration_max_severity",
+      "governance_integration_rationale_1",
+      "governance_integration_rationale_27",
+      "governance_integration_rationale_41"
+    ],
+    "1": [
+      "orchestrator",
+      "orchestrator_classify",
+      "orchestrator_process_captured_item",
+      "orchestrator_rate_importance",
+      "orchestrator_rationale_1",
+      "orchestrator_rationale_133",
+      "orchestrator_rationale_209",
+      "orchestrator_summarize"
+    ],
+    "2": [
+      "event_listeners",
+      "event_listeners_get_client",
+      "event_listeners_invalidate_governance_cache_for_artefact",
+      "event_listeners_rationale_1",
+      "event_listeners_rationale_104",
+      "event_listeners_rationale_42",
+      "event_listeners_sweep_expired_governance_cache"
+    ],
+    "3": [
+      "orchestrator_db",
+      "orchestrator_db_enabled",
+      "orchestrator_db_exists_url",
+      "orchestrator_db_get",
+      "orchestrator_db_init",
+      "orchestrator_rationale_35",
+      "orchestrator_rationale_72"
+    ],
+    "4": [
+      "orchestrator_build_research_topic",
+      "orchestrator_db_update",
+      "orchestrator_rationale_159",
+      "orchestrator_rationale_170",
+      "orchestrator_run_research"
+    ],
+    "5": [
+      "init"
+    ]
+  },
+  "cohesion": {
+    "0": 0.3055555555555556,
+    "1": 0.35714285714285715,
+    "2": 0.38095238095238093,
+    "3": 0.3333333333333333,
+    "4": 0.4,
+    "5": 1.0
+  },
+  "gods": [
+    {
+      "id": "orchestrator_process_captured_item",
+      "label": "process_captured_item()",
+      "degree": 11
+    },
+    {
+      "id": "governance_integration_apply_governance_assessment",
+      "label": "apply_governance_assessment()",
+      "degree": 7
+    },
+    {
+      "id": "orchestrator_db",
+      "label": "_DB",
+      "degree": 7
+    },
+    {
+      "id": "orchestrator_build_research_topic",
+      "label": "_build_research_topic()",
+      "degree": 5
+    },
+    {
+      "id": "orchestrator_summarize",
+      "label": "_summarize()",
+      "degree": 4
+    },
+    {
+      "id": "orchestrator_run_research",
+      "label": "_run_research()",
+      "degree": 4
+    },
+    {
+      "id": "event_listeners_get_client",
+      "label": "_get_client()",
+      "degree": 3
+    },
+    {
+      "id": "event_listeners_invalidate_governance_cache_for_artefact",
+      "label": "invalidate_governance_cache_for_artefact()",
+      "degree": 3
+    },
+    {
+      "id": "event_listeners_sweep_expired_governance_cache",
+      "label": "sweep_expired_governance_cache()",
+      "degree": 3
+    },
+    {
+      "id": "governance_integration_cache_is_valid",
+      "label": "_cache_is_valid()",
+      "degree": 3
+    }
+  ],
+  "surprises": [
+    {
+      "source": "process_captured_item()",
+      "target": "apply_governance_assessment()",
+      "source_files": [
+        "orchestrator.py",
+        "governance_integration.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

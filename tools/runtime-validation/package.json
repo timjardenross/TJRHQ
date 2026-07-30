@@ -1,0 +1,21 @@
+{
+  "name": "@starship/runtime-validation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runtime Render Validation Framework — reusable rendered-UI validation capability (accessibility, visual regression, computed-CSS/runtime-style checks) for Starship Endeavour Captain-facing applications. Complements static guards, engineering tests, and Design Officer / Visual Design Officer review; does not replace any of them.",
+  "main": "src/index.js",
+  "bin": {
+    "runtime-validate": "bin/validate.js"
+  },
+  "scripts": {
+    "validate:command-centre": "node bin/validate.js command-centre",
+    "baseline:command-centre": "node bin/validate.js command-centre --update-baseline",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0",
+    "@axe-core/playwright": "^4.10.0",
+    "pixelmatch": "^5.3.0",
+    "pngjs": "^7.0.0"
+  }
+}

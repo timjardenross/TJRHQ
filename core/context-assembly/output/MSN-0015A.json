@@ -1,0 +1,57 @@
+{
+  "entity_id": "MSN-0015A",
+  "entity_type": "mission",
+  "assembled_at": "2026-06-12T06:16:07.108098Z",
+  "overview": {
+    "title": "USS-TJR-MSN-0015A",
+    "status": "Active",
+    "owner": "Chief of Staff",
+    "priority": "",
+    "created": "",
+    "source": "/Users/timjarden-ross/Documents/GitHub/USSTJROS/Missions/Active/MSN-0015A-Work-Lifecycle-Architecture.txt",
+    "completed": false,
+    "_source_text": "File: Missions/Active/MSN-0015A-Work-Lifecycle-Architecture.txt\nPurpose: Mission charter for USS TJR Work Lifecycle Architecture.\nDependencies/Notes:\n- Depends on Commander, Paperclip, GitHub, and knowledge management integrations.\n- Defines the end-to-end work management lifecycle.\n\n# USS-TJR-MSN-0015A\n\nMission Title: Work Lifecycle Architecture\n\nStatus: Active\n\nOwner: Chief of Staff\n\n## Mission Objective\n\nDesign and formalise the complete USS TJR work lifecycle from idea generation through implementation, review, knowledge capture, and closure.\n\n## Problem Statement\n\nUSS TJR currently supports discussion, planning, specialist collaboration, implementation activity, and emerging Paperclip-based work orchestration.\n\nHowever, the system needs a formal lifecycle to ensure work is:\n\n- Traceable\n- Prioritised\n- Decision-led\n- Executed consistently\n- Reviewed before acceptance\n- Captured for future learning\n- Closed with confidence\n\nWithout a lifecycle, USS TJR risks becoming a collection of disconnected conversations, scripts, issues, and documents.\n\n## Mission Deliverables\n\n1. Lifecycle Architecture Definition\n2. Lifecycle State Model\n3. Commander Decision Routing Model\n4. Governance and Authority Model\n5. Knowledge Capture Standard\n6. Future Automation Readiness\n\n## Target Lifecycle\n\nIdea\n\u2193\nDiscussion\n\u2193\nDecision\n\u2193\nPaperclip Issue\n\u2193\nGitHub Issue\n\u2193\nImplementation\n\u2193\nReview\n\u2193\nKnowledge Capture\n\u2193\nClosed\n\n## Success Criteria\n\n- Every item of work follows a defined path.\n- Commander can determine current lifecycle state.\n- Paperclip issues align to lifecycle stages.\n- GitHub work items align to implementation stages.\n- No implementation starts without a decision.\n- Reviews occur before completion.\n- Knowledge is captured before closure.\n- Mission artefacts can be reused by Codex, Claude, Commander, and future specialists.\n\n## In Scope\n\n- Work lifecycle definition\n- Work states and transitions\n- Commander routing responsibilities\n- Governance rules\n- Knowledge capture requirements\n- Future automation foundations\n\n## Out of Scope\n\n- Building automation code\n- Changing Paperclip APIs\n- Changing GitHub workflows\n- Implementing Slack commands\n- Replacing existing mission documents\n\n## Mission Completion Definition\n\nMSN-0015A is complete when the lifecycle architecture documents are reviewed, accepted, and adopted as the default USS TJR operating model for work progression.\n\n---\n\n## Context Relationships\n\n```yaml\ngoverned_by:\n  - ADR-002\n  - ADR-001\n\ntriggered_by:\n  - UNKNOWN\n\ndepends_on:\n  - UNKNOWN\n\nsupports:\n  - UNKNOWN\n\nrelated_to:\n  - UNKNOWN\n\nowner: Chief of Staff\n```\n"
+  },
+  "triggering_decisions": [],
+  "dependencies": [],
+  "dependent_missions": [],
+  "capabilities_built": [],
+  "governing_adrs": [
+    {
+      "id": "ADR-002",
+      "type": "adr",
+      "title": "Mission Control to GitHub Execution Model",
+      "status": "APPROVED"
+    },
+    {
+      "id": "ADR-001",
+      "type": "adr",
+      "title": "ADR-INDEX 2",
+      "status": null
+    }
+  ],
+  "related_decisions": [],
+  "relationships": [
+    {
+      "source_id": "MSN-0015A",
+      "target_id": "ADR-002",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 1.0,
+      "evidence": "d as the default USS TJR operating model for work progression.  ---  ## Context Relationships  ```yaml governed_by:   - ADR-002   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - UNKNOWN  related_to:   - UNKNOWN  owner:"
+    },
+    {
+      "source_id": "MSN-0015A",
+      "target_id": "ADR-001",
+      "target_type": "adr",
+      "relationship_type": "triggered_by",
+      "confidence": 1.0,
+      "evidence": "ault USS TJR operating model for work progression.  ---  ## Context Relationships  ```yaml governed_by:   - ADR-002   - ADR-001  triggered_by:   - UNKNOWN  depends_on:   - UNKNOWN  supports:   - UNKNOWN  related_to:   - UNKNOWN  owner: Chief of St"
+    }
+  ],
+  "completeness_score": 1.0,
+  "gaps": [],
+  "recommended_actions": [
+    "No triggering decision found \u2014 consider linking to a DEC-* record."
+  ]
+}
