@@ -29,6 +29,19 @@ log = logging.getLogger(__name__)
 _VALID_STATUSES = {"new", "acknowledged", "acted_on", "dismissed", "superseded"}
 
 
+def _record_bus_heartbeat(success: bool) -> None:
+    """Record a heartbeat for the Core Event Bus domain. Non-blocking — never raises."""
+    try:
+        from core.platform.heartbeat import record_heartbeat
+        record_heartbeat(
+            "core_events",
+            status="ok" if success else "failed",
+            error_message=None if success else "publish_event failed",
+        )
+    except Exception as exc:
+        log.debug("[event-bus] heartbeat recording failed (non-critical): %s", exc)
+
+
 def publish_event(
     event_type: str,
     domain: str,
@@ -64,6 +77,7 @@ def publish_event(
         The new event_id (str) if persisted, None otherwise (including when
         Supabase is disabled).
     """
+    event_id = None
     try:
         from tools.supabase.client import CommanderSupabaseClient
 
@@ -93,10 +107,13 @@ def publish_event(
         if not result.ok or not result.data:
             log.warning("[event-bus] publish_event write failed: %s", result.error)
             return None
-        return result.data[0].get("event_id")
+        event_id = result.data[0].get("event_id")
+        return event_id
     except Exception as exc:
         log.warning("[event-bus] publish_event failed (non-blocking): %s", exc)
         return None
+    finally:
+        _record_bus_heartbeat(event_id is not None)
 
 
 def poll_events(
@@ -140,9 +157,11 @@ def poll_events(
             # Filter out CVE advisories (CVE-*, CWE-*, etc.) from operational event streams
             query = query.not_("recommended_action", "ilike", "CVE-%")
         result = query.execute()
+        _record_bus_heartbeat(True)
         return list(result.data or [])
     except Exception as exc:
         log.warning("[event-bus] poll_events failed (non-blocking): %s", exc)
+        _record_bus_heartbeat(False)
         return []
 
 
@@ -159,9 +178,11 @@ def mark_event_status(event_id: str, status: str) -> bool:
         if raw is None:
             return False
         raw.table("core_events").update({"status": status}).eq("event_id", event_id).execute()
+        _record_bus_heartbeat(True)
         return True
     except Exception as exc:
         log.warning("[event-bus] mark_event_status failed (non-blocking): %s", exc)
+        _record_bus_heartbeat(False)
         return False
 
 
