@@ -1,7 +1,6 @@
 'use client';
 
 // OSINT Intelligence Workbench — 4 views aligned to intelligence tradecraft
-// Signal Confidence Matrix | Intelligence Summary | Source Trust Network | Threat Assessment
 
 import { useCallback, useEffect, useState } from 'react';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
@@ -10,6 +9,14 @@ type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 
 
 type Payload = {
   domain: Domain;
+  matrix?: Record<string, Record<string, number>>;
+  high?: any[];
+  medium?: any[];
+  low?: any[];
+  unknowns?: any[];
+  trending?: any[];
+  threats?: any[];
+  gaps?: any[];
   [key: string]: any;
 };
 
@@ -80,20 +87,20 @@ export default function OSINTWorkbench() {
                   <thead>
                     <tr className="border-b border-wb-line">
                       <th className="text-left py-2 px-3 font-semibold">Category</th>
-                      <th className="text-center py-2 px-3 text-wb-tier1">HIGH</th>
-                      <th className="text-center py-2 px-3 text-wb-tier2">MEDIUM</th>
-                      <th className="text-center py-2 px-3 text-wb-tier3">LOW</th>
-                      <th className="text-center py-2 px-3 text-wb-ink2">UNKNOWN</th>
+                      <th className="text-center py-2 px-3 font-semibold">HIGH</th>
+                      <th className="text-center py-2 px-3 font-semibold">MEDIUM</th>
+                      <th className="text-center py-2 px-3 font-semibold">LOW</th>
+                      <th className="text-center py-2 px-3 font-semibold">UNKNOWN</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(data.matrix || {}).map(([cat, counts]: any) => (
+                    {data.matrix && Object.entries(data.matrix).map(([cat, counts]: [string, any]) => (
                       <tr key={cat} className="border-b border-wb-line hover:bg-wb-line/20">
                         <td className="py-2 px-3 font-medium">{cat}</td>
-                        <td className="text-center py-2 px-3 font-semibold text-wb-tier1">{counts.high || 0}</td>
-                        <td className="text-center py-2 px-3 font-semibold text-wb-tier2">{counts.medium || 0}</td>
-                        <td className="text-center py-2 px-3 font-semibold text-wb-tier3">{counts.low || 0}</td>
-                        <td className="text-center py-2 px-3 text-wb-ink2">{counts.unknown || 0}</td>
+                        <td className="text-center py-2 px-3 font-semibold">{counts.high || 0}</td>
+                        <td className="text-center py-2 px-3 font-semibold">{counts.medium || 0}</td>
+                        <td className="text-center py-2 px-3 font-semibold">{counts.low || 0}</td>
+                        <td className="text-center py-2 px-3">{counts.unknown || 0}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -104,9 +111,9 @@ export default function OSINTWorkbench() {
 
           <Card title="Coverage Assessment">
             <div className="space-y-3 text-[12px] text-wb-ink2">
-              <div><span className="text-wb-tier1 font-semibold">Strong:</span> Cybersecurity (TIER_1), Regulatory (TIER_1)</div>
-              <div><span className="text-wb-tier3 font-semibold">Gaps:</span> Infrastructure UNKNOWN, Intelligence UNKNOWN</div>
-              <div><span className="text-wb-tier2 font-semibold">Risk:</span> Over-reliance on single regulatory source (CISA)</div>
+              <div><strong>Strong:</strong> Cybersecurity (TIER_1), Regulatory (TIER_1)</div>
+              <div><strong>Gaps:</strong> Infrastructure UNKNOWN, Intelligence UNKNOWN</div>
+              <div><strong>Risk:</strong> Over-reliance on single regulatory source (CISA)</div>
             </div>
           </Card>
         </div>
@@ -122,10 +129,10 @@ export default function OSINTWorkbench() {
             ) : (data.high?.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No high-confidence signals.</p>
             ) : (
-              data.high.map((sig: any) => (
+              data.high!.map((sig: any) => (
                 <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
-                  <div className="font-medium text-wb-tier1">{sig.raw_title}</div>
-                  <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • SRS {sig.rank_score?.toFixed(0)}</div>
+                  <div className="font-medium">{sig.raw_title}</div>
+                  <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • SRS {(sig.rank_score ?? 0).toFixed(0)}</div>
                 </div>
               ))
             )}
@@ -138,9 +145,9 @@ export default function OSINTWorkbench() {
             ) : (data.medium?.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No medium-confidence signals.</p>
             ) : (
-              data.medium.map((sig: any) => (
+              data.medium!.map((sig: any) => (
                 <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
-                  <div className="font-medium text-wb-tier2">{sig.raw_title}</div>
+                  <div className="font-medium">{sig.raw_title}</div>
                   <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • Needs verification</div>
                 </div>
               ))
@@ -154,9 +161,9 @@ export default function OSINTWorkbench() {
             ) : (data.low?.length ?? 0) === 0 ? (
               <p className="text-[13px] text-wb-ink2">No low-confidence signals.</p>
             ) : (
-              data.low.map((sig: any) => (
+              data.low!.map((sig: any) => (
                 <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
-                  <div className="font-medium text-wb-tier3">{sig.raw_title}</div>
+                  <div className="font-medium">{sig.raw_title}</div>
                   <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • Single source, archive or verify</div>
                 </div>
               ))
@@ -170,8 +177,8 @@ export default function OSINTWorkbench() {
             ) : (
               <div className="space-y-3 text-[12px]">
                 {data.unknowns?.map((u: any, i: number) => (
-                  <div key={i} className="border-l-3 border-wb-ink2/50 pl-3">
-                    <div className="font-medium text-wb-ink">{u.title}</div>
+                  <div key={i} className="border-l-3 border-wb-line pl-3">
+                    <div className="font-medium">{u.title}</div>
                     <div className="text-wb-ink2">Risk: {u.impact}</div>
                     <div className="text-wb-ink2">Fix: {u.need}</div>
                   </div>
@@ -190,16 +197,16 @@ export default function OSINTWorkbench() {
               <p className="text-[13px] text-wb-ink2">Loading…</p>
             ) : (
               <div className="space-y-4 text-[12px]">
-                <div className="border-l-3 border-wb-tier1 pl-4">
-                  <div className="font-medium text-wb-tier1">High-confidence clusters</div>
+                <div className="border-l-3 border-wb-line pl-4">
+                  <div className="font-medium">High-confidence clusters</div>
                   <div className="text-wb-ink2 text-[11px]">Signals confirmed by 3+ TIER_1 sources</div>
                 </div>
-                <div className="border-l-3 border-wb-tier2 pl-4">
-                  <div className="font-medium text-wb-tier2">Medium-confidence isolated</div>
+                <div className="border-l-3 border-wb-line pl-4">
+                  <div className="font-medium">Medium-confidence isolated</div>
                   <div className="text-wb-ink2 text-[11px]">Single TIER_2 source, needs verification</div>
                 </div>
-                <div className="border-l-3 border-wb-tier4 pl-4">
-                  <div className="font-medium text-wb-tier4">Low-confidence noise</div>
+                <div className="border-l-3 border-wb-line pl-4">
+                  <div className="font-medium">Low-confidence noise</div>
                   <div className="text-wb-ink2 text-[11px]">TIER_4 sources, contradicted by higher tiers</div>
                 </div>
               </div>
@@ -215,9 +222,7 @@ export default function OSINTWorkbench() {
                   <div key={i} className="flex justify-between items-center py-2 border-b border-wb-line last:border-0">
                     <div className="font-medium">{t.source}</div>
                     <div className="text-wb-ink2">{t.from} → {t.to}</div>
-                    <div className={t.direction === 'up' ? 'text-wb-tier1' : t.direction === 'stable' ? 'text-wb-ink2' : 'text-wb-tier3'}>
-                      {t.direction === 'up' ? '↗' : t.direction === 'stable' ? '→' : '↘'}
-                    </div>
+                    <div>{t.direction === 'up' ? '↗' : t.direction === 'stable' ? '→' : '↘'}</div>
                   </div>
                 ))}
               </div>
@@ -247,15 +252,13 @@ export default function OSINTWorkbench() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.threats.map((t: any, i: number) => (
+                    {data.threats!.map((t: any, i: number) => (
                       <tr key={i} className="border-b border-wb-line hover:bg-wb-line/20">
-                        <td className="py-2 px-3 text-wb-ink">{t.threat?.slice(0, 40)}...</td>
+                        <td className="py-2 px-3">{(t.threat ?? '').slice(0, 40)}...</td>
                         <td className="text-center py-2 px-3">{t.probability}</td>
-                        <td className="text-center py-2 px-3 font-medium" style={{color: t.impact === 'critical' ? '#c1453b' : '#d87a3a'}}>{t.impact}</td>
-                        <td className="text-center py-2 px-3 font-medium" style={{color: t.confidence === 'high' ? '#2d8659' : '#b8860b'}}>{t.confidence}</td>
-                        <td className="text-center py-2 px-3 font-semibold" style={{color: t.escalation === 'escalate' ? '#c1453b' : t.escalation === 'watch' ? '#b8860b' : '#5a6270'}}>
-                          {t.escalation?.toUpperCase()}
-                        </td>
+                        <td className="text-center py-2 px-3 font-medium">{t.impact}</td>
+                        <td className="text-center py-2 px-3 font-medium">{t.confidence}</td>
+                        <td className="text-center py-2 px-3 font-semibold">{(t.escalation ?? 'monitor').toUpperCase()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -270,8 +273,8 @@ export default function OSINTWorkbench() {
             ) : (
               <div className="space-y-3 text-[12px] text-wb-ink2">
                 {data.gaps?.map((g: any, i: number) => (
-                  <div key={i} className="border-l-3 border-wb-tier3 pl-3">
-                    <div className="font-medium text-wb-ink">{g.area}</div>
+                  <div key={i} className="border-l-3 border-wb-line pl-3">
+                    <div className="font-medium">{g.area}</div>
                     <div>Risk: <span className="font-semibold">{g.risk}</span></div>
                   </div>
                 ))}
