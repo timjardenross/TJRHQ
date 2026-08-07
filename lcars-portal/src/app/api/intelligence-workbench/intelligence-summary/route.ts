@@ -1,5 +1,3 @@
-// Intelligence Summary API — HIGH/MEDIUM/LOW/UNKNOWN confidence sections
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
@@ -10,19 +8,7 @@ async function getIntelligenceSummary(sb: any) {
 
   const { data: signals, error: signalsErr } = await sb
     .from('intelligence_events')
-    .select(`
-      event_id,
-      raw_title,
-      risk_rating,
-      rank_score,
-      collected_at,
-      source_id,
-      intelligence_source_registry (
-        source_name,
-        reliability_tier,
-        reliability_score
-      )
-    `)
+    .select('event_id, raw_title, risk_rating, rank_score, collected_at, source_id, intelligence_source_registry(source_name, reliability_tier, reliability_score)')
     .eq('suppressed', false)
     .gte('collected_at', since7d)
     .gte('rank_score', 50)
@@ -31,7 +17,7 @@ async function getIntelligenceSummary(sb: any) {
 
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);
 
-  const signalList = (signals ?? []).map((s: any) => {
+  const signalList: any[] = (signals ?? []).map((s: any) => {
     const tier = s.intelligence_source_registry?.reliability_tier || 'TIER_4';
     let confidenceLevel = 'low';
     if (tier === 'TIER_1') confidenceLevel = 'high';
@@ -48,9 +34,9 @@ async function getIntelligenceSummary(sb: any) {
 
   return {
     domain: 'intelligence-summary',
-    high: signalList.filter(s => s.confidence_level === 'high').slice(0, 10),
-    medium: signalList.filter(s => s.confidence_level === 'medium').slice(0, 10),
-    low: signalList.filter(s => s.confidence_level === 'low').slice(0, 5),
+    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 10),
+    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 10),
+    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 5),
     unknowns: [
       { title: 'Internal network security', impact: 'Blind to internal compromise', need: 'SIEM integration' },
       { title: 'Supply chain threats', impact: 'Third-party compromise', need: 'Vendor monitoring' },
