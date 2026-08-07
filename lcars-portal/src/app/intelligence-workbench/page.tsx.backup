@@ -9,7 +9,7 @@ import { commitHealthInsight, discardHealthInsight } from './_components/health-
 import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 
-type Domain = 'operational' | 'health' | 'credibility';
+type Domain = 'operational' | 'health';
 
 type Brief = {
   brief_id: string;
@@ -77,42 +77,7 @@ type HealthPayload = {
   dailyMetrics: any[];
 };
 
-type CredibilityPayload = {
-  domain: 'credibility';
-  brief: {
-    brief_id: string | null;
-    executive_snapshot: string | null;
-    generated_at: string | null;
-    overall_risk: string | null;
-    composition: {
-      tier1_pct: number;
-      tier2_pct: number;
-      tier3_pct: number;
-      tier4_pct: number;
-    };
-    tier_counts: Record<string, number>;
-    total_signals: number;
-  };
-  signals: Array<{
-    event_id: string;
-    raw_title: string;
-    risk_rating: string | null;
-    rank_score: number;
-    confidence: number;
-    collected_at: string;
-    source: {
-      source_id: string;
-      source_name: string;
-      category: string;
-      tier: string;
-      srs: number;
-    };
-    corroboration: number;
-    confidence_level: 'high' | 'medium' | 'low';
-  }>;
-};
-
-type Payload = OperationalPayload | HealthPayload | CredibilityPayload;
+type Payload = OperationalPayload | HealthPayload;
 
 // Local inline toggle removed (WORKBENCH-REVIEW.md H9/H12, 2026-07-18) - it
 // had no role/aria-selected/keyboard handling at all, the least accessible
@@ -218,7 +183,6 @@ export default function Overview() {
 
   const operationalData = data as OperationalPayload | null;
   const healthData = data as HealthPayload | null;
-  const credibilityData = data as CredibilityPayload | null;
 
   const eyebrow = domain === 'operational' ? 'Operational Resilience' : 'Health Intelligence';
 
@@ -391,79 +355,6 @@ export default function Overview() {
                         {i.source_articles.map((article, idx) => (
                           <SourceArticleCard key={idx} article={article} />
                         ))}
-                              {domain === 'credibility' && credibilityData ? (
-        <>
-          <div className="rounded-lg border border-wb-line bg-wb-surface-hi p-5 mb-6">
-            <div className="text-[12px] font-semibold text-wb-ink2 uppercase tracking-wide mb-3">
-              Current Brief Composition
-            </div>
-            <div className="mb-3">
-              <div className="text-[16px] font-medium text-wb-ink mb-3">
-                {credibilityData.brief.executive_snapshot?.split('.')[0]?.slice(0, 80) || 'Weekly Synthesis'}
-              </div>
-              <div className="flex gap-1 mb-4 h-2 rounded-sm overflow-hidden bg-wb-line">
-                <div style={{flex: `${credibilityData.brief.composition.tier1_pct}%`}} className="bg-wb-tier1"></div>
-                <div style={{flex: `${credibilityData.brief.composition.tier2_pct}%`}} className="bg-wb-tier2"></div>
-                <div style={{flex: `${credibilityData.brief.composition.tier3_pct}%`}} className="bg-wb-tier3"></div>
-                <div style={{flex: `${credibilityData.brief.composition.tier4_pct}%`}} className="bg-wb-tier4"></div>
-              </div>
-              <div className="grid grid-cols-4 gap-2 text-[12px] text-wb-ink2">
-                <div><strong>{credibilityData.brief.composition.tier1_pct}%</strong> TIER 1</div>
-                <div><strong>{credibilityData.brief.composition.tier2_pct}%</strong> TIER 2</div>
-                <div><strong>{credibilityData.brief.composition.tier3_pct}%</strong> TIER 3</div>
-                <div><strong>{credibilityData.brief.composition.tier4_pct}%</strong> TIER 4</div>
-              </div>
-            </div>
-            {credibilityData.brief.composition.tier4_pct > 5 && (
-              <div className="mt-4 p-3 rounded-md border-l-3 border-orange-500 bg-wb-surface text-[12px] text-wb-ink2">
-                ⚠ {credibilityData.brief.composition.tier4_pct}% of this brief comes from TIER_4 sources. Flag for review.
-              </div>
-            )}
-          </div>
-
-          <Card title="Signals — Ranked by Credibility">
-            {loading ? (
-              <p className="text-[13px] text-wb-ink2">Loading…</p>
-            ) : (credibilityData.signals.length ?? 0) === 0 ? (
-              <p className="text-[13px] text-wb-ink2">No signals in the last 7 days.</p>
-            ) : (
-              credibilityData.signals.map((sig) => (
-                <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[11px] font-semibold px-2 py-1 rounded text-white ${
-                      sig.confidence_level === 'high' ? 'bg-green-600' :
-                      sig.confidence_level === 'medium' ? 'bg-amber-600' :
-                      'bg-red-600'
-                    }`}>
-                      {sig.confidence_level.toUpperCase()}
-                    </span>
-                    <span className="flex-1 text-[13px] font-medium text-wb-ink">{sig.raw_title}</span>
-                    <span className="font-serif text-[14px] font-semibold">{Math.round(sig.rank_score)}</span>
-                  </div>
-                  <div className="flex gap-4 text-[12px] text-wb-ink2">
-                    <span className={`px-2 py-0.5 rounded text-white text-[11px] font-semibold ${
-                      sig.source.tier === 'TIER_1' ? 'bg-green-700' :
-                      sig.source.tier === 'TIER_2' ? 'bg-amber-700' :
-                      sig.source.tier === 'TIER_3' ? 'bg-orange-700' :
-                      'bg-red-700'
-                    }`}>
-                      {sig.source.tier}
-                    </span>
-                    <div>SRS: <span className="font-semibold">{sig.source.srs.toFixed(2)}</span></div>
-                    <div>
-                      {sig.corroboration > 0 ? (
-                        <><span className="font-semibold">{sig.corroboration}</span> confirm</>
-                      ) : (
-                        <>Single source</>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </Card>
-        </>
-      ) : null}
                       </div>
                     </div>
                   )}
