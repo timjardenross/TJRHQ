@@ -121,12 +121,21 @@ CREATE OR REPLACE VIEW source_registry_by_tier AS
 COMMENT ON VIEW source_registry_by_tier IS
   'Quick look at which active sources are TIER_1 (high-reliability) vs TIER_4 (unreliable).';
 
--- ─── RLS Policy: Authenticated users can read validation data ───────────────
+-- ─── RLS: enable + authenticated-read policy on validation data ─────────────
+-- NOTE (fix): the table must be RLS-enabled for any policy below to take
+-- effect — Postgres lets you CREATE POLICY on a table with RLS still off,
+-- and it silently does nothing while the table stays fully open to anon via
+-- Supabase's default anon/authenticated grants. Also: auth.role() returns
+-- 'authenticated', not 'authenticated_user' — the original condition below
+-- would never have matched, so even with RLS on, no one (including
+-- legitimate authenticated users) could have read this table.
+
+ALTER TABLE intelligence_event_validation ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "authenticated can read event validations"
   ON intelligence_event_validation
   FOR SELECT
-  USING (auth.role() = 'authenticated_user');
+  USING (auth.role() = 'authenticated');
 
 -- ─── Grant permissions ──────────────────────────────────────────────────────
 
@@ -142,3 +151,8 @@ GRANT SELECT ON source_registry_by_tier TO authenticated;
 --  WHERE active = true
 --  ORDER BY reliability_score DESC
 --  LIMIT 10;
+
+-- NOTE: with defaults (accuracy_ratio=0.50, false_positive_rate=0.20), max
+-- possible reliability_score is 0.97*0.5*0.8=0.388 — every source starts in
+-- TIER_4 until intelligence_event_validation rows accumulate and
+-- accuracy_ratio is recomputed from real data. Expected, not a bug.
