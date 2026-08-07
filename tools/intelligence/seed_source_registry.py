@@ -97,8 +97,8 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
-        "active":             True,
-        "notes":              "Monetary policy, financial stability, payment system notices.",
+        "active":             False,
+        "notes":              "Monetary policy, financial stability, payment system notices. [DEACTIVATED] SSL certificate verify failed — likely environment issue, investigate on VM.",
     },
     {
         "source_name":        "ACSC Alerts & Advisories",
@@ -203,8 +203,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.93,
-        "active":             True,
-        "notes":              "NSW floods, storms, rescues. RSS feed returns malformed XML — switched to scrape.",
+        "active":             False,
+        "notes":              "NSW floods, storms, rescues. [DEACTIVATED] SSL certificate verify failed — likely environment issue, investigate on VM.",
     },
     {
         "source_name":        "CFA Warnings & Incidents",
@@ -344,7 +344,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.82,
         "active":             False,
-        "notes":              "TPG/Vodafone/iiNet service status. DNS resolution failing — domain may have moved. Deactivated pending verification.",
+        "notes":              "TPG/Vodafone/iiNet service status. DNS resolution failed — likely environment issue, keep TPG Telecom replacement active instead.",
     },
 
     # ─── Category 4: Cloud & Technology Dependency ────────────────────────────
@@ -415,7 +415,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.90,
         "active":             False,
-        "notes":              "ServiceNow ITSM platform status. DNS resolution failing from this network — deactivated. Re-enable when network access confirmed.",
+        "notes":              "ServiceNow ITSM platform status. DNS resolution failing — likely environment issue (test on VM). Keep inactive for now.",
     },
 
     # ─── Category 5: Banking & Payments Infrastructure ─────────────────────────
@@ -430,7 +430,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
         "active":             False,
-        "notes":              "Australian Payments Network. All URL variants return 404 or timeout — deactivated pending site restructure.",
+        "notes":              "Australian Payments Network (old URL). [404] Use AusPayNet Insights replacement instead.",
     },
     {
         "source_name":        "AusPayNet Insights",
@@ -456,7 +456,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.93,
         "active":             False,
-        "notes":              "SWIFT messaging network news. RSS feed consistently times out (>15s) — deactivated. Likely geo-blocked or rate-limited.",
+        "notes":              "SWIFT messaging network news. RSS feed times out (>15s) — likely rate-limited or geo-blocked. Keep deactivated.",
     },
     {
         "source_name":        "RBA Payments & Infrastructure",
@@ -468,8 +468,8 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
-        "active":             True,
-        "notes":              "RBA payments system oversight and operational notices.",
+        "active":             False,
+        "notes":              "RBA payments system oversight and operational notices. [DEACTIVATED] SSL certificate verify failed — likely environment issue, investigate on VM.",
     },
 
     # ─── Category 6: Transport & Workforce Mobility ───────────────────────────
@@ -484,7 +484,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.80,
         "active":             False,
-        "notes":              "Public Transport Victoria service disruptions. Returns HTTP 403 — bot detection active. Deactivated.",
+        "notes":              "Public Transport Victoria service disruptions. 403 Forbidden (bot detection active) — permanently blocked. Use Sydney Trains replacement.",
     },
     {
         "source_name":        "Sydney Trains Alerts",
@@ -510,7 +510,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.80,
         "active":             False,
-        "notes":              "Major toll road incidents. All URL variants return 404 — site restructured. Deactivated.",
+        "notes":              "Major toll road incidents. URL returns 404 — site restructured. Deactivated.",
     },
     {
         "source_name":        "Melbourne Airport",
@@ -551,7 +551,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.80,
         "active":             False,
-        "notes":              "Reuters business news. feeds.reuters.com DNS no longer resolves — Reuters removed public RSS feeds. Deactivated.",
+        "notes":              "Reuters business news. DNS resolution failed — Reuters removed public RSS feeds. Use Financial Times + BBC News replacements.",
     },
     {
         "source_name":        "AP News Business",
@@ -564,12 +564,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.80,
         "active":             False,
-        "notes":              "Reuters replacement — AP News wire service, authoritative global financial/business news, no paywall. RSS confirmed live. "
-                              "USS-TJR-MSN-0339 WP1: feeds.apnews.com no longer resolves (DNS failure, confirmed "
-                              "2026-07-08) — AP appears to have retired this feed subdomain; apnews.com/business "
-                              "itself still loads (HTTP 200) but no working public RSS/API endpoint was found in "
-                              "a quick check. Deactivated pending a real replacement feed rather than left silently "
-                              "failing forever (MSN-0338 §8 Gap #9).",
+        "notes":              "AP News feed DNS resolution failed — feeds.apnews.com retired. Use Financial Times + BBC News replacements.",
     },
     {
         "source_name":        "Guardian Australia",
@@ -634,7 +629,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.82,
         "active":             False,
-        "notes":              "AFR — Australian financial and business news. RSS feed returns malformed XML (paywall redirect). Deactivated.",
+        "notes":              "AFR — Australian financial and business news. URL 404 / paywall blocking. Use ABC News Business replacement.",
     },
     {
         "source_name":        "ABC News Business",
@@ -675,7 +670,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
         "active":             False,
-        "notes":              "FUTURE: APRA Board Member speeches. Forward-looking regulatory signals.",
+        "notes":              "APRA Board Member speeches. [404] URL needs update or replaced.",
     },
     {
         "source_name":        "APRA Consultations",
@@ -687,8 +682,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
-        "active":             False,
-        "notes":              "FUTURE: Open consultation papers. Leading indicator for regulatory change.",
+        "active":             True,
+        "notes":              "Open consultation papers. Leading indicator for regulatory change.",
     },
     {
         "source_name":        "ASIC Enforcement Activity",
@@ -700,8 +695,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
-        "active":             False,
-        "notes":              "FUTURE: ASIC enforcement actions. Peer bank exposure signal.",
+        "active":             True,
+        "notes":              "ASIC enforcement actions. Peer bank exposure signal.",
     },
     {
         "source_name":        "OAIC Breach Notifications",
@@ -713,8 +708,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
-        "active":             False,
-        "notes":              "FUTURE: Office of the Australian Information Commissioner. Data breach reports.",
+        "active":             True,
+        "notes":              "Office of the Australian Information Commissioner. Data breach reports.",
     },
     {
         "source_name":        "ASD Publications",
@@ -726,8 +721,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
-        "active":             False,
-        "notes":              "FUTURE: Australian Signals Directorate publications and threat reports.",
+        "active":             True,
+        "notes":              "Australian Signals Directorate publications and threat reports.",
     },
     {
         "source_name":        "CISA Alerts",
@@ -739,8 +734,8 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.95,
-        "active":             False,
-        "notes":              "FUTURE: US CISA advisories. Often precedes ACSC advisories on global threats.",
+        "active":             True,
+        "notes":              "US CISA advisories. Often precedes ACSC advisories on global threats.",
     },
     {
         "source_name":        "ENISA Advisories",
@@ -753,7 +748,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.90,
         "active":             False,
-        "notes":              "FUTURE: EU Agency for Cybersecurity publications.",
+        "notes":              "EU Agency for Cybersecurity publications. [404] URL needs update.",
     },
     {
         "source_name":        "ASX Operational Notices",
@@ -766,7 +761,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
         "active":             False,
-        "notes":              "FUTURE: ASX market operational notices and trading halts.",
+        "notes":              "ASX market operational notices and trading halts. [404] URL needs update.",
     },
 
     # ─── Category: Regulatory — International & Central Bank ────────────────
@@ -780,8 +775,8 @@ SOURCES = [
         "source_type":        "rss",
         "jurisdiction":       "AU",
         "confidence_weight":  0.95,
-        "active":             True,
-        "notes":              "Semi-annual systemic risk assessment. Key for macro resilience monitoring.",
+        "active":             False,
+        "notes":              "Semi-annual systemic risk assessment. [DEACTIVATED] SSL certificate verify failed — likely environment issue, investigate on VM.",
     },
     {
         "source_name":        "FSB Press Releases",
