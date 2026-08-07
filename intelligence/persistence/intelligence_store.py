@@ -136,6 +136,15 @@ def load_source_registry_all() -> list[dict]:
     return _get("intelligence_source_registry?order=priority_rank.asc,category.asc")
 
 
+def get_source_reliability_scores() -> list[dict]:
+    """
+    Fetch SRS (Source Reliability Scores) for all active sources.
+    Returns: [{"source_id": "...", "reliability_score": 0.75, ...}]
+    Used by ranker.py to weight events by source reliability.
+    """
+    return _get("intelligence_source_registry?select=source_id,source_name,reliability_score,reliability_tier&active=eq.true")
+
+
 # ─── Source Health ────────────────────────────────────────────────────────────
 
 def save_source_health(health: SourceHealth) -> None:

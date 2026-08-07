@@ -10,21 +10,26 @@ rank_score is a value 0–100 computed from:
   cross_source          0.10  (multi-source confirmation)
   geography_priority    0.05
 
-Multiplied by a recency_decay factor:
-  0 days old  → 1.00
-  7 days old  → 0.65
-  14 days old → 0.30
-  >14 days    → 0.10
+Multiplied by:
+  recency_decay factor (0–1.0 based on event age)
+  source_reliability_score (SRS 0–1.0 from intelligence_source_registry)
 
 Top events are determined by highest rank_score among non-suppressed events.
+Sources with low SRS (TIER_4, unreliable) are de-emphasized automatically.
 """
 
 import math
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from intelligence.config import RANK_WEIGHTS, GEOGRAPHY_SCORES, IMPACT_SCORES, TOP_EVENTS_LIMIT
 from intelligence.models import ClassifiedEvent, RankedEvent
+
+log = logging.getLogger(__name__)
+
+# SRS cache (source_id → reliability_score) — refreshed on each brief generation
+_SRS_CACHE: dict[str, float] = {}
 
 
 # Source priority → normalised score (5 = lowest priority = lowest score)
@@ -40,6 +45,26 @@ _PRIORITY_SCORES = {1: 1.0, 2: 0.80, 3: 0.55, 4: 0.30, 5: 0.10}
 # genuine critical regulatory/cyber alerts (which routinely score 85-100).
 _MEDIA_CATEGORIES = {"media"}
 _MEDIA_SCORE_CAP = 80.0  # out of 100
+
+
+def _load_srs_scores():
+    """Load source reliability scores from database into cache."""
+    global _SRS_CACHE
+    try:
+        from intelligence.persistence import intelligence_store as store
+        scores = store.get_source_reliability_scores()
+        _SRS_CACHE = {s["source_id"]: s["reliability_score"] for s in scores}
+        log.debug(f"Loaded SRS scores for {len(_SRS_CACHE)} sources")
+    except Exception as e:
+        log.warning(f"Failed to load SRS scores (will use default 0.75): {e}")
+        _SRS_CACHE = {}
+
+
+def _get_source_reliability_score(source_id: str) -> float:
+    """Get SRS for a source, defaulting to 0.75 (TIER_4 equivalent) if unknown."""
+    if not _SRS_CACHE:
+        _load_srs_scores()
+    return _SRS_CACHE.get(source_id, 0.75)
 
 
 def _recency_decay(collected_at: Optional[datetime]) -> float:
@@ -87,9 +112,13 @@ def rank(
 ) -> list[RankedEvent]:
     """
     Compute rank_score for every non-suppressed event.
+    Applies Source Reliability Scoring (SRS) as a multiplier.
     Returns list of RankedEvent sorted by rank_score descending.
     Suppressed events are included at rank_score = 0.0 for audit trail.
     """
+    # Load SRS scores from database (cached for this brief generation)
+    _load_srs_scores()
+
     ranked: list[RankedEvent] = []
 
     active = [e for e in events if not e.suppressed]
@@ -120,7 +149,10 @@ def rank(
         )
 
         decay = _recency_decay(event.collected_at)
-        final_score = round(raw_score * decay * 100, 4)
+
+        # Apply Source Reliability Score (SRS) multiplier
+        srs = _get_source_reliability_score(event.source_id)
+        final_score = round(raw_score * decay * srs * 100, 4)
 
         # Cap media/general news sources so keyword coincidences don't outrank
         # primary regulatory, cyber, or infrastructure events
