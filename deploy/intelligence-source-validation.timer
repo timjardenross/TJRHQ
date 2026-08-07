@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily source reliability validation — 01:00 UTC (after brief generation)
+
+[Timer]
+OnCalendar=*-*-* 01:00:00 UTC
+Persistent=true
+Unit=intelligence-source-validation.service
+
+[Install]
+WantedBy=timers.target
