@@ -1,70 +1,285 @@
 'use client';
 
-// Phase B — Intelligence Workbench · Screen 1 (Overview). Domain-toggled view.
-// Supports both Operational Signals (Phase A) and Health Intelligence modes.
-import Link from 'next/link';
+// OSINT Intelligence Workbench — 4 views aligned to intelligence tradecraft
+// Signal Confidence Matrix | Intelligence Summary | Source Trust Network | Threat Assessment
+
 import { useCallback, useEffect, useState } from 'react';
-import { Card, RiskPill, WorkbenchShell, DomainToggle } from '@/components/ui';
-import { commitHealthInsight, discardHealthInsight } from './_components/health-memory';
-import { ClassifierValidationCard, AuditLogCard, PillarMappingsCard } from './_components/health-classifier-dashboard';
-import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
+import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
-
-type Brief = {
-  brief_id: string;
-  overall_risk: string | null;
-  approval_status: string | null;
-  executive_snapshot: string | null;
-  signal_ids: string[] | null;
-};
-
-type Signal = {
-  event_id: string;
-  raw_title: string;
-  sector: string | null;
-  geography: string | null;
-  risk_rating: string | null;
-  rank_score: number | null;
-  source_tier: number | null;
-  canonical_url: string | null;
-};
-
-type SourceArticle = {
-  title: string;
-  url: string;
-  summary?: string;
-  published_date?: string;
-  source_type?: string;
-};
-
-type HealthInsight = {
-  insight_id: string;
-  created_at: string;
-  overall_status: string | null;
-  wellness_narrative: string | null;
-  key_findings: string | null;
-  source_articles?: SourceArticle[] | null;
-  committed_to_memory?: boolean;
-  committed_at?: string | null;
-};
-
-type HealthEvent = {
-  event_id: string;
-  logged_at: string;
-  event_type: string;
-  value: number | string | null;
-  notes: string | null;
-  source: string | null;
-};
 
 type Payload = {
   domain: Domain;
   [key: string]: any;
 };
 
-// Local inline toggle removed (WORKBENCH-REVIEW.md H9/H12, 2026-07-18) - it
-// had no role/aria-selected/keyboard handling at all, the least accessible
-// of every *-workbench domain toggle. Replaced with the shared, properly
-// keyboard-navigable DomainToggle from @/components/ui.
-const DOMAIN_OPTIONS: { key: Domain
+const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+  { key: 'confidence-matrix', label: 'Signal Confidence Matrix' },
+  { key: 'intelligence-summary', label: 'Intelligence Summary' },
+  { key: 'source-network', label: 'Source Trust Network' },
+  { key: 'threat-assessment', label: 'Threat Assessment' },
+];
+
+export default function OSINTWorkbench() {
+  const [domain, setDomain] = useState<Domain>('confidence-matrix');
+  const [data, setData] = useState<Payload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback((withSpinner: boolean) => {
+    if (withSpinner) setLoading(true);
+
+    const endpoint = {
+      'confidence-matrix': '/api/intelligence-workbench/confidence-matrix',
+      'intelligence-summary': '/api/intelligence-workbench/intelligence-summary',
+      'source-network': '/api/intelligence-workbench/source-network',
+      'threat-assessment': '/api/intelligence-workbench/threat-assessment',
+    }[domain];
+
+    return fetch(endpoint)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
+        setError(null);
+        setData(d);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load');
+        setData({ domain } as Payload);
+      })
+      .finally(() => { if (withSpinner) setLoading(false); });
+  }, [domain]);
+
+  useEffect(() => {
+    load(true);
+  }, [load]);
+
+  return (
+    <WorkbenchShell
+      title="OSINT Intelligence Workbench"
+      eyebrow="Intelligence Operations"
+      homeHref="/intelligence-workbench"
+      tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"
+      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
+    >
+      {error && (
+        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
+          Could not load: {error}
+        </p>
+      )}
+
+      {/* Signal Confidence Matrix */}
+      {domain === 'confidence-matrix' && data ? (
+        <div className="space-y-6">
+          <Card title="Signal Distribution by Category & Confidence">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-wb-line">
+                      <th className="text-left py-2 px-3 font-semibold">Category</th>
+                      <th className="text-center py-2 px-3 text-wb-tier1">HIGH</th>
+                      <th className="text-center py-2 px-3 text-wb-tier2">MEDIUM</th>
+                      <th className="text-center py-2 px-3 text-wb-tier3">LOW</th>
+                      <th className="text-center py-2 px-3 text-wb-ink2">UNKNOWN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(data.matrix || {}).map(([cat, counts]: any) => (
+                      <tr key={cat} className="border-b border-wb-line hover:bg-wb-line/20">
+                        <td className="py-2 px-3 font-medium">{cat}</td>
+                        <td className="text-center py-2 px-3 font-semibold text-wb-tier1">{counts.high || 0}</td>
+                        <td className="text-center py-2 px-3 font-semibold text-wb-tier2">{counts.medium || 0}</td>
+                        <td className="text-center py-2 px-3 font-semibold text-wb-tier3">{counts.low || 0}</td>
+                        <td className="text-center py-2 px-3 text-wb-ink2">{counts.unknown || 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Coverage Assessment">
+            <div className="space-y-3 text-[12px] text-wb-ink2">
+              <div><span className="text-wb-tier1 font-semibold">Strong:</span> Cybersecurity (TIER_1), Regulatory (TIER_1)</div>
+              <div><span className="text-wb-tier3 font-semibold">Gaps:</span> Infrastructure UNKNOWN, Intelligence UNKNOWN</div>
+              <div><span className="text-wb-tier2 font-semibold">Risk:</span> Over-reliance on single regulatory source (CISA)</div>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Intelligence Summary */}
+      {domain === 'intelligence-summary' && data ? (
+        <div className="space-y-6">
+          {/* HIGH Confidence */}
+          <Card title="🟢 HIGH CONFIDENCE — Act immediately">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (data.high?.length ?? 0) === 0 ? (
+              <p className="text-[13px] text-wb-ink2">No high-confidence signals.</p>
+            ) : (
+              data.high.map((sig: any) => (
+                <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
+                  <div className="font-medium text-wb-tier1">{sig.raw_title}</div>
+                  <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • SRS {sig.rank_score?.toFixed(0)}</div>
+                </div>
+              ))
+            )}
+          </Card>
+
+          {/* MEDIUM Confidence */}
+          <Card title="🟡 MEDIUM CONFIDENCE — Cross-verify">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (data.medium?.length ?? 0) === 0 ? (
+              <p className="text-[13px] text-wb-ink2">No medium-confidence signals.</p>
+            ) : (
+              data.medium.map((sig: any) => (
+                <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
+                  <div className="font-medium text-wb-tier2">{sig.raw_title}</div>
+                  <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • Needs verification</div>
+                </div>
+              ))
+            )}
+          </Card>
+
+          {/* LOW Confidence */}
+          <Card title="🔴 LOW CONFIDENCE — Research/Archive">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (data.low?.length ?? 0) === 0 ? (
+              <p className="text-[13px] text-wb-ink2">No low-confidence signals.</p>
+            ) : (
+              data.low.map((sig: any) => (
+                <div key={sig.event_id} className="py-3 border-b border-wb-line last:border-0">
+                  <div className="font-medium text-wb-tier3">{sig.raw_title}</div>
+                  <div className="text-[11px] text-wb-ink2 mt-1">{sig.source_name} • Single source, archive or verify</div>
+                </div>
+              ))
+            )}
+          </Card>
+
+          {/* Known Unknowns */}
+          <Card title="⚠️ KNOWN UNKNOWNS">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (
+              <div className="space-y-3 text-[12px]">
+                {data.unknowns?.map((u: any, i: number) => (
+                  <div key={i} className="border-l-3 border-wb-ink2/50 pl-3">
+                    <div className="font-medium text-wb-ink">{u.title}</div>
+                    <div className="text-wb-ink2">Risk: {u.impact}</div>
+                    <div className="text-wb-ink2">Fix: {u.need}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Source Trust Network */}
+      {domain === 'source-network' && data ? (
+        <div className="space-y-6">
+          <Card title="Cross-Source Corroboration">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (
+              <div className="space-y-4 text-[12px]">
+                <div className="border-l-3 border-wb-tier1 pl-4">
+                  <div className="font-medium text-wb-tier1">High-confidence clusters</div>
+                  <div className="text-wb-ink2 text-[11px]">Signals confirmed by 3+ TIER_1 sources</div>
+                </div>
+                <div className="border-l-3 border-wb-tier2 pl-4">
+                  <div className="font-medium text-wb-tier2">Medium-confidence isolated</div>
+                  <div className="text-wb-ink2 text-[11px]">Single TIER_2 source, needs verification</div>
+                </div>
+                <div className="border-l-3 border-wb-tier4 pl-4">
+                  <div className="font-medium text-wb-tier4">Low-confidence noise</div>
+                  <div className="text-wb-ink2 text-[11px]">TIER_4 sources, contradicted by higher tiers</div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Source Reliability Trending">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (
+              <div className="space-y-3 text-[12px]">
+                {data.trending?.map((t: any, i: number) => (
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-wb-line last:border-0">
+                    <div className="font-medium">{t.source}</div>
+                    <div className="text-wb-ink2">{t.from} → {t.to}</div>
+                    <div className={t.direction === 'up' ? 'text-wb-tier1' : t.direction === 'stable' ? 'text-wb-ink2' : 'text-wb-tier3'}>
+                      {t.direction === 'up' ? '↗' : t.direction === 'stable' ? '→' : '↘'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Threat Assessment */}
+      {domain === 'threat-assessment' && data ? (
+        <div className="space-y-6">
+          <Card title="Escalation Matrix: Probability × Impact × Confidence">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (data.threats?.length ?? 0) === 0 ? (
+              <p className="text-[13px] text-wb-ink2">No threats requiring assessment.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-wb-line">
+                      <th className="text-left py-2 px-3 font-semibold">Threat</th>
+                      <th className="text-center py-2 px-3 font-semibold">Prob</th>
+                      <th className="text-center py-2 px-3 font-semibold">Impact</th>
+                      <th className="text-center py-2 px-3 font-semibold">Conf</th>
+                      <th className="text-center py-2 px-3 font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.threats.map((t: any, i: number) => (
+                      <tr key={i} className="border-b border-wb-line hover:bg-wb-line/20">
+                        <td className="py-2 px-3 text-wb-ink">{t.threat?.slice(0, 40)}...</td>
+                        <td className="text-center py-2 px-3">{t.probability}</td>
+                        <td className="text-center py-2 px-3 font-medium" style={{color: t.impact === 'critical' ? '#c1453b' : '#d87a3a'}}>{t.impact}</td>
+                        <td className="text-center py-2 px-3 font-medium" style={{color: t.confidence === 'high' ? '#2d8659' : '#b8860b'}}>{t.confidence}</td>
+                        <td className="text-center py-2 px-3 font-semibold" style={{color: t.escalation === 'escalate' ? '#c1453b' : t.escalation === 'watch' ? '#b8860b' : '#5a6270'}}>
+                          {t.escalation?.toUpperCase()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          <Card title="Coverage Gaps vs. Threat Surface">
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : (
+              <div className="space-y-3 text-[12px] text-wb-ink2">
+                {data.gaps?.map((g: any, i: number) => (
+                  <div key={i} className="border-l-3 border-wb-tier3 pl-3">
+                    <div className="font-medium text-wb-ink">{g.area}</div>
+                    <div>Risk: <span className="font-semibold">{g.risk}</span></div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : null}
+    </WorkbenchShell>
+  );
+}
