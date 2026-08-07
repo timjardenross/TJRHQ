@@ -1,0 +1,12 @@
+[Unit]
+Description=USS TJR Daily Source Reliability Validation (SRS, migration 0092)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python tools/intelligence/validate_source_accuracy.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=intelligence-source-validation
