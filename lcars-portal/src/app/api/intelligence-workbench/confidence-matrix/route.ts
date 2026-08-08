@@ -4,13 +4,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
-const DAYS_7 = 7 * 86_400_000;
+async function getConfidenceMatrix(sb: any, days: number, includeSuppressed: boolean) {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
 
-async function getConfidenceMatrix(sb: any) {
-  const since7d = new Date(Date.now() - DAYS_7).toISOString();
-
-  // Get all signals with source reliability context
-  const { data: signals, error: signalsErr } = await sb
+  // osint_confidence_level is persisted server-side by tools/intelligence/
+  // recompute_signal_scores.py (source tier + corroboration count, per
+  // TECHNICAL_OSINT_WORKBENCH.md section 3) — not derived live from tier here
+  // anymore, so it reflects real corroboration, not just source tier alone.
+  let query = sb
     .from('intelligence_events')
     .select(`
       event_id,
@@ -18,7 +19,7 @@ async function getConfidenceMatrix(sb: any) {
       sector,
       risk_rating,
       rank_score,
-      confidence,
+      osint_confidence_level,
       source_id,
       intelligence_source_registry (
         reliability_tier,
@@ -26,32 +27,33 @@ async function getConfidenceMatrix(sb: any) {
         category
       )
     `)
-    .eq('suppressed', false)
-    .gte('collected_at', since7d)
+    .gte('collected_at', since)
     .order('rank_score', { ascending: false });
 
+  if (!includeSuppressed) query = query.eq('suppressed', false);
+
+  const { data: signals, error: signalsErr } = await query;
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);
 
-  // Map signal sectors to OSINT categories
+  // Map signal sectors to OSINT categories. Keys match intelligence_events.sector's
+  // actual values (verified against live data — the prior map used
+  // 'cybersecurity'/'infrastructure'/'operational'/'compliance', none of which
+  // occur in the column; every row fell through to the 'Intelligence' default).
   const categoryMap: Record<string, string> = {
-    'cybersecurity': 'Cybersecurity',
-    'cyber': 'Cybersecurity',
-    'infrastructure': 'Infrastructure',
-    'operational': 'Infrastructure',
-    'regulatory': 'Regulatory',
-    'compliance': 'Regulatory',
-    'intelligence': 'Intelligence',
+    'cyber_security': 'Cybersecurity',
+    'technology': 'Infrastructure',
+    'energy': 'Infrastructure',
+    'transport': 'Infrastructure',
+    'emergency_management': 'Infrastructure',
+    'financial_services': 'Regulatory',
+    'general': 'Intelligence',
+    'cross_sector': 'Intelligence',
   };
 
-  // Determine confidence level from source tier
   const signalList = (signals ?? []).map((s: any) => {
     const tier = s.intelligence_source_registry?.reliability_tier || 'TIER_4';
     const category = categoryMap[s.sector?.toLowerCase() || 'intelligence'] || 'Intelligence';
-
-    let confidenceLevel = 'low';
-    if (tier === 'TIER_1') confidenceLevel = 'high';
-    else if (tier === 'TIER_2') confidenceLevel = 'medium';
-    else if (tier === 'TIER_3') confidenceLevel = 'low';
+    const confidenceLevel = (s.osint_confidence_level || 'UNKNOWN').toLowerCase();
 
     return {
       event_id: s.event_id,
@@ -64,7 +66,6 @@ async function getConfidenceMatrix(sb: any) {
     };
   });
 
-  // Build matrix: category × confidence
   const matrix: Record<string, Record<string, number>> = {
     'Cybersecurity': { high: 0, medium: 0, low: 0, unknown: 0 },
     'Infrastructure': { high: 0, medium: 0, low: 0, unknown: 0 },
@@ -73,7 +74,7 @@ async function getConfidenceMatrix(sb: any) {
   };
 
   signalList.forEach((s: any) => {
-    if (matrix[s.category]) {
+    if (matrix[s.category] && matrix[s.category][s.confidence_level] !== undefined) {
       matrix[s.category][s.confidence_level]++;
     }
   });
@@ -91,9 +92,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const days = Number(req.nextUrl.searchParams.get('days')) || 7;
+  const includeSuppressed = req.nextUrl.searchParams.get('suppressed') === 'true';
+
   try {
     const sb = await createSupabaseServerClient();
-    return NextResponse.json(await getConfidenceMatrix(sb));
+    return NextResponse.json(await getConfidenceMatrix(sb, days, includeSuppressed));
   } catch (err) {
     console.error('[confidence-matrix] read failed:', err);
     return NextResponse.json(

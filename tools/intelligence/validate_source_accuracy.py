@@ -59,23 +59,31 @@ class SourceAccuracyValidator:
         Determine if an event's claim is accurate.
 
         Returns: True (accurate) | False (false positive) | None (unknown)
+
+        FIX (2026-08-08): rules 1 and 2 originally checked event.get("category"),
+        a field that does not exist on intelligence_events (category only exists
+        on intelligence_source_registry). Both rules were permanently dead —
+        only rule 3 below could ever fire, capping validated volume at a trickle
+        and leaving every source stuck at accuracy_ratio/false_positive_rate
+        defaults indefinitely. Rewritten against real columns (event_type, sector).
         """
 
-        # Rule 1: Internal monitoring events are always accurate (direct measurement)
-        if event.get("category") == "internal_monitoring":
+        # Rule 1: Emergency-management sector = official government agencies
+        # (VicEmergency, CFA) reporting direct incidents — treat as authoritative.
+        if event.get("sector") == "emergency_management":
             return True
 
-        # Rule 2: Regulatory sources assumed accurate unless proven otherwise
-        if event.get("category") == "regulatory":
-            return True  # Assume accurate; expert review changes this
+        # Rule 2: Regulatory events (APRA/ASIC/OAIC-style feeds) assumed accurate
+        # unless proven otherwise — event_type, not the nonexistent category field.
+        if event.get("event_type") == "regulatory":
+            return True
 
-        # Rule 3: For operational events, check if we saw corresponding degradation
+        # Rule 3: For operational events, check if we saw corresponding degradation.
+        # Simplified check: if it's from a cloud/status provider, assume accurate
+        # (self-reported outages from the provider itself are ground truth).
         if event.get("event_type") == "technology_outage":
-            # Query: Did we see error rate spike in logs during this window?
-            # For now, simplified check: if it's from a cloud provider, assume accurate
-            if "aws" in event.get("raw_title", "").lower() or \
-               "azure" in event.get("raw_title", "").lower() or \
-               "gcp" in event.get("raw_title", "").lower():
+            title_lower = event.get("raw_title", "").lower()
+            if any(kw in title_lower for kw in ("aws", "azure", "gcp", "cloudflare", "github", "google cloud")):
                 return True  # Cloud provider reports are authoritative
 
         # Rule 4: For other events, mark as unknown
@@ -83,22 +91,40 @@ class SourceAccuracyValidator:
         return None
 
     def get_validated_events_for_source(self, source_id: str, days: int = 30) -> list:
-        """Get events from this source that have not yet been validated."""
+        """Get events from this source that have not yet been validated.
+
+        FIX (2026-08-08): this previously re-fetched every event in the
+        rolling 30-day published_at window on every run with no check
+        against intelligence_event_validation, so the same event got
+        re-validated and re-inserted once per day it stayed in the window —
+        inflating accuracy_sample_size with non-independent repeat samples
+        of the same underlying event. Now excludes event_ids that already
+        have a validation row, so each event is validated exactly once.
+        """
 
         try:
             cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-            # Get events from source not yet validated
+            already_validated = (
+                self.supabase.table("intelligence_event_validation")
+                .select("event_id")
+                .eq("source_id", source_id)
+                .execute()
+            )
+            validated_ids = {row["event_id"] for row in (already_validated.data or [])}
+
+            # sector is needed by validate_event_accuracy()'s rules
             response = (
                 self.supabase.table("intelligence_events")
-                .select("event_id, source_id, raw_title, raw_summary, event_type, published_at")
+                .select("event_id, source_id, raw_title, raw_summary, event_type, sector, published_at")
                 .eq("source_id", source_id)
                 .gt("published_at", cutoff_date)
                 .order("published_at", desc=True)
                 .execute()
             )
 
-            return response.data if response.data else []
+            events = response.data if response.data else []
+            return [e for e in events if e["event_id"] not in validated_ids]
         except Exception as e:
             logger.error(f"Error fetching events for source {source_id}: {e}")
             return []
