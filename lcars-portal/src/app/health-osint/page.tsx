@@ -57,6 +57,28 @@ export default function HealthOSINTWorkbench() {
 
   useEffect(() => { load(true); }, [load]);
 
+  const renderSignal = (s: any) => (
+    <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+      {s.source_url ? (
+        <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+          {domainEmoji(s.health_domain)} {s.title}
+        </a>
+      ) : (
+        <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+      )}
+      <div>
+        {s.source_name}
+        {(s.study_design || s.signal_type) && <> • {s.study_design || s.signal_type}</>}
+        {s.sample_size ? <> • n={s.sample_size}</> : null}
+        {s.p_value != null && <> • p={s.p_value}</>}
+        {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+        {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
+      </div>
+      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+      {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
+    </div>
+  );
+
   return (
     <WorkbenchShell
       title="Health/Performance OSINT Workbench"
@@ -100,38 +122,17 @@ export default function HealthOSINTWorkbench() {
         <div className="space-y-4">
           {data.high?.length > 0 && (
             <Card title="🟢 HIGH CONFIDENCE">
-              <div className="space-y-2">
-                {data.high.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name} • {s.study_design || s.signal_type} {s.sample_size ? `• n=${s.sample_size}` : ''} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.high.map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
             <Card title="🟡 MEDIUM CONFIDENCE">
-              <div className="space-y-2">
-                {data.medium.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.medium.map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
             <Card title="🔴 LOW CONFIDENCE">
-              <div className="space-y-2">
-                {data.low.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.low.map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
