@@ -6,15 +6,20 @@
 // this one only ever creates comms_content opportunities, it doesn't offer
 // the note/mission/health/idea/decision types (that's still the Capture
 // Workbench's job; this workbench starts one step downstream of it).
+//
+// 2026-08 visual redesign: restyled as a "composer" (agency-tool convention —
+// Buffer/Later put the same kind of prominent capture bar at the top of the
+// queue). Same submit() logic and API contract, purely a JSX/styling pass.
 
 import { useRef, useState } from 'react';
-import { Card, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
 
 export function CaptureBox({ onCaptured }: { onCaptured: () => void }) {
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ pillar_name: string; rank_score: number; captain_focus: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   async function submit() {
@@ -50,31 +55,48 @@ export function CaptureBox({ onCaptured }: { onCaptured: () => void }) {
   }
 
   return (
-    <Card className="mb-4">
-      <textarea
-        ref={inputRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={onKeyDown}
-        rows={3}
-        placeholder="Capture a content idea or topic — it's scored and pillar-classified automatically."
-        aria-label="Capture content idea"
-        className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-base text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
-      />
-      <div className="mt-3 flex items-center gap-3">
-        <Button onClick={submit} disabled={saving || !text.trim()}>
-          {saving ? 'Capturing…' : '✉ Capture & Score'}
-        </Button>
-        <p className="text-[10px] uppercase tracking-[0.14em] text-wb-ink2">⌘/Ctrl + Enter</p>
-      </div>
+    <section
+      className={`mb-5 overflow-hidden rounded-xl border bg-wb-surface shadow-sm transition-colors ${
+        focused ? 'border-wb-sage-deep' : 'border-wb-line'
+      }`}
+    >
+      <div className="h-1 bg-gradient-to-r from-wb-sage via-wb-warn to-wb-ok" aria-hidden />
+      <div className="p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-wb-sage-deep text-[12px] text-white" aria-hidden>+</span>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">New content idea</p>
+        </div>
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          rows={3}
+          placeholder="Capture a content idea or topic — it's scored and pillar-classified automatically."
+          aria-label="Capture content idea"
+          className="w-full resize-none rounded-lg border border-wb-line bg-wb-bg px-3 py-3 text-[14px] leading-snug text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button onClick={submit} disabled={saving || !text.trim()}>
+            {saving ? 'Capturing…' : 'Capture & Score'}
+          </Button>
+          <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[10px] font-medium text-wb-ink2">
+            ⌘/Ctrl + Enter
+          </span>
+        </div>
 
-      {result && (
-        <p className="mt-2 text-[12px] text-wb-ok-on" role="status" aria-live="polite">
-          ✓ Captured — {result.pillar_name}, rank {result.rank_score.toFixed(1)}
-          {result.captain_focus ? ' · ⭐ Captain Priority' : ''}. Add a research brief below to move it forward.
-        </p>
-      )}
-      {error && <p className="mt-2 text-[12px] text-wb-crit-on">{error}</p>}
-    </Card>
+        {result && (
+          <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[12px] text-wb-ok-on" role="status" aria-live="polite">
+            <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Captured</span>
+            <span>{result.pillar_name} · rank {result.rank_score.toFixed(1)}</span>
+            {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 font-semibold text-wb-warn-on">⭐ Captain Priority</span>}
+            <span className="text-wb-ink2">— add a research brief below to move it forward.</span>
+          </p>
+        )}
+        {error && <p className="mt-3 text-[12px] text-wb-crit-on">{error}</p>}
+      </div>
+    </section>
   );
 }
