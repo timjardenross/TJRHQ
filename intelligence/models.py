@@ -89,6 +89,7 @@ class ClassifiedEvent:
     confidence: float                 # 0.0–1.0
     suppressed: bool = False
     suppression_reason: Optional[str] = None
+    affected_cves: list[str] = field(default_factory=list)  # CVE IDs extracted from title/summary
 
 
 @dataclass
