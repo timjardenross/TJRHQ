@@ -29,7 +29,7 @@ async function getSourceNetwork(sb: any) {
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);
 
   // Simple corroboration: count signals with similar titles
-  const correlations = {};
+  const correlations: Record<string, any> = {};
   const signalList = signals ?? [];
 
   signalList.forEach((s: any, i: number) => {
