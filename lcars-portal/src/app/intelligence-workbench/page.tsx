@@ -79,7 +79,7 @@ export default function OSINTWorkbench() {
           {data.high?.length > 0 && (
             <Card title="🟢 HIGH CONFIDENCE">
               <div className="space-y-2">
-                {data.high.slice(0, 5).map((s: any) => (
+                {data.high.slice(0, 15).map((s: any) => (
                   <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{s.raw_title}</div>
                     <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
@@ -91,7 +91,7 @@ export default function OSINTWorkbench() {
           {data.medium?.length > 0 && (
             <Card title="🟡 MEDIUM CONFIDENCE">
               <div className="space-y-2">
-                {data.medium.slice(0, 5).map((s: any) => (
+                {data.medium.slice(0, 15).map((s: any) => (
                   <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{s.raw_title}</div>
                     <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
@@ -103,7 +103,7 @@ export default function OSINTWorkbench() {
           {data.low?.length > 0 && (
             <Card title="🔴 LOW CONFIDENCE">
               <div className="space-y-2">
-                {data.low.slice(0, 3).map((s: any) => (
+                {data.low.slice(0, 8).map((s: any) => (
                   <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{s.raw_title}</div>
                     <div>{s.source_name}</div>
