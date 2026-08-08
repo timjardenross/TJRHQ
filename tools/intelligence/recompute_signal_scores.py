@@ -249,7 +249,13 @@ class SignalScoreRecomputer:
 
         updates = []
         for e in events:
-            tier = (e.get("intelligence_source_registry") or {}).get("reliability_tier") or "TIER_4"
+            # No "or TIER_4" fallback here on purpose: TIER_4 is a claim we've
+            # matched a real source and it's proven unreliable — asserting
+            # that for an event whose source join came back empty would be
+            # wrong, not just imprecise. compute_confidence_level(None, ...)
+            # already falls through to "UNKNOWN", which was previously dead
+            # code because this line masked every missing-tier case as TIER_4.
+            tier = (e.get("intelligence_source_registry") or {}).get("reliability_tier")
             corrob = corroboration_counts.get(e["event_id"], 0)
             osint_confidence_level = compute_confidence_level(tier, corrob)
             criticality = compute_criticality(
