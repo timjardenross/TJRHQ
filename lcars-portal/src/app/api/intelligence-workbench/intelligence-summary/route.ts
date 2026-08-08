@@ -12,7 +12,10 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
     // route.ts for why: the corrected SRS scoring means today's realistic
     // ceiling is well under the fixed >=50 this used to require.
     .order('rank_score', { ascending: false })
-    .limit(50);
+    // 50 was too small a pool: a single prolific source (e.g. Cloudflare
+    // Status template entries) can fill most of it, leaving too few
+    // candidates left over for MEDIUM/LOW once HIGH-tier noise is removed.
+    .limit(150);
 
   if (!includeSuppressed) query = query.eq('suppressed', false);
 
@@ -29,9 +32,9 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
 
   return {
     domain: 'intelligence-summary',
-    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 10),
-    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 10),
-    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 5),
+    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 15),
+    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 15),
+    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 8),
     unknowns: [
       { title: 'Internal network security', impact: 'Blind to internal compromise', need: 'SIEM integration' },
       { title: 'Supply chain threats', impact: 'Third-party compromise', need: 'Vendor monitoring' },
