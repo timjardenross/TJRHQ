@@ -326,6 +326,59 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   const [aiReview, setAiReview] = useState<AiReview | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiMsg, setAiMsg] = useState('');
+  const [suggestedBody, setSuggestedBody] = useState<string | null>(null);
+  const [polishInstructions, setPolishInstructions] = useState('');
+  const [polishBusy, setPolishBusy] = useState(false);
+  const [polishMsg, setPolishMsg] = useState('');
+  const [applyingSuggestion, setApplyingSuggestion] = useState(false);
+
+  async function requestPolish() {
+    setPolishBusy(true);
+    setPolishMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/ai-polish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instructions: polishInstructions || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setSuggestedBody(d.suggested_body);
+    } catch (e) {
+      setPolishMsg(e instanceof Error ? e.message : 'AI revision failed');
+    } finally {
+      setPolishBusy(false);
+    }
+  }
+
+  async function applySuggestion() {
+    if (!suggestedBody) return;
+    setApplyingSuggestion(true);
+    setPolishMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/draft`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: suggestedBody }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setSuggestedBody(null);
+      setPolishInstructions('');
+      // The applied text no longer matches whatever the checklist/AI review
+      // was judged against — clear both so the human re-checks the new draft
+      // rather than saving a stale pass/fail against text that changed.
+      setAiReview(null);
+      setChecks(Object.fromEntries(QA_CHECKLIST_ITEMS.map((c) => [c.key, false])));
+      setQaStatus('pending');
+      setPolishMsg('✓ Revision applied — re-run AI review (or re-check manually) before approving.');
+      onChanged();
+    } catch (e) {
+      setPolishMsg(e instanceof Error ? e.message : 'Error applying revision');
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
 
   async function runAiReview() {
     setAiBusy(true);
@@ -476,6 +529,35 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         </Button>
       </div>
       {aiMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>}
+
+      {!suggestedBody ? (
+        <div className="space-y-1.5 rounded-lg border border-dashed border-wb-warn/50 bg-wb-warn/5 p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span aria-hidden className="text-[13px]">✎</span>
+            <p className="text-[12px] text-wb-ink2">Or have AI propose a revised draft that addresses the concerns above.</p>
+            <Button size="sm" variant="secondary" onClick={requestPolish} disabled={polishBusy} className="ml-auto">
+              {polishBusy ? 'Revising…' : 'Ask AI to Revise Draft →'}
+            </Button>
+          </div>
+          <input value={polishInstructions} onChange={(e) => setPolishInstructions(e.target.value)}
+            placeholder="Optional: steer it — e.g. ‘tighten the close’, ‘cut the stat in paragraph 2’"
+            className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-wb-warn/50 bg-wb-warn/5 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-warn-on">AI Suggested Revision</p>
+          <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-surface p-3 leading-relaxed text-wb-ink">{suggestedBody}</div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={applySuggestion} disabled={applyingSuggestion}>
+              {applyingSuggestion ? 'Applying…' : 'Apply This Revision'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setSuggestedBody(null)} disabled={applyingSuggestion}>
+              Discard Suggestion
+            </Button>
+          </div>
+        </div>
+      )}
+      {polishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>}
 
       <div className="space-y-2 rounded-md border border-wb-line bg-wb-surface p-3">
         {QA_CHECKLIST_ITEMS.map((c) => {

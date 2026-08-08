@@ -34,11 +34,12 @@ const TILES: Tile[] = [
     title: 'Health/Performance OSINT',
     description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
   },
-  {
-    href: '/comms-workbench',
-    title: 'Communications Workbench',
-    description: 'Signals to opportunities, pipeline, and portfolio for comms content.',
-  },
+  // Communications Workbench (Signals/Pipeline/Portfolio) removed from this
+  // home list 2026-08 per explicit decision — Content Workbench now covers
+  // capture through publish-submission end to end, superseding it as the
+  // day-to-day surface. The route itself (/comms-workbench) is untouched
+  // and still reachable directly — its Portfolio tab (published items) has
+  // no equivalent here yet, so nothing there was deleted, just unlisted.
   {
     href: '/content-workbench',
     title: 'Content Workbench',
