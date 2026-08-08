@@ -22,15 +22,24 @@
 //
 // 2026-08 visual redesign (Content Workbench only, per user request — see
 // STAGE_ACCENT in shared.ts): every function/handler below is unchanged
-// from the pre-redesign version. This pass only touches JSX structure and
+// from the pre-redesign version. This pass touches JSX structure and
 // Tailwind classes on ItemCard/Column/the board wrapper, plus adds a
 // pipeline-overview strip up top. Still constrained to WorkbenchShell's
-// max-w-4xl (that's shared app chrome, not forked here) — so the polish
-// leans on card/column hierarchy and a horizontally-scrolling board rather
-// than a wider canvas.
+// max-w-4xl (that's shared app chrome, not forked here).
+//
+// 2026-08 follow-up: the narrow 260px column was fine for scanning cards but
+// unusable for actually writing/proofing in — a 9-row textarea at that width
+// is a slot, not an editor. ItemCard now opens its stage body in the shared
+// Modal primitive ('preview' variant, max-w-3xl) instead of expanding
+// in-place; the collapsed card stays a compact preview in the column. Same
+// stage-body components, same handlers, just rendered at a usable width.
+// ProofingStageBody also gained an AI-assisted first pass over the QA
+// checklist (POST .../ai-review) — advisory only, it pre-fills suggested
+// checks/notes but never sets qa_status itself; the human still explicitly
+// saves the checklist, same governance posture as the rest of this pipeline.
 
 import { useEffect, useState } from 'react';
-import { Badge, Button, Textarea, Select } from '@/components/ui';
+import { Badge, Button, Textarea, Select, Modal } from '@/components/ui';
 import {
   STAGE_LABEL,
   STAGE_HINT,
@@ -99,24 +108,24 @@ function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: (
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
         <input
           value={angle}
           onChange={(e) => setAngle(e.target.value)}
           placeholder="Suggested angle — confirm or rewrite"
-          className="w-full rounded-md border border-wb-line bg-wb-surface px-2 py-1.5 text-[12px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+          className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
         />
       </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
-        <Textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[12px]"
+        <Textarea rows={7} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[13.5px] leading-relaxed"
           aria-label={`Research notes for ${item.title}`} />
       </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
-        <Textarea rows={2} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[12px] font-mono"
+        <Textarea rows={3} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[13px] font-mono"
           aria-label={`Sources for ${item.title}`} />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -127,7 +136,7 @@ function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: (
           Mark Research Complete →
         </Button>
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
@@ -160,23 +169,23 @@ function ResearchStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   }
 
   return (
-    <div className="space-y-2 text-[12px]">
+    <div className="space-y-3 text-[13.5px]">
       {item.research_angle && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Angle</p>
-          <p className="italic text-wb-ink">{item.research_angle}</p>
+          <p className="italic leading-relaxed text-wb-ink">{item.research_angle}</p>
         </div>
       )}
       {item.research_notes && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
-          <p className="whitespace-pre-wrap text-wb-ink">{item.research_notes}</p>
+          <p className="whitespace-pre-wrap leading-relaxed text-wb-ink">{item.research_notes}</p>
         </div>
       )}
       {item.research_sources && item.research_sources.length > 0 && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Sources</p>
-          <ul className="list-inside list-disc text-wb-ink">
+          <ul className="list-inside list-disc leading-relaxed text-wb-ink">
             {item.research_sources.map((s, i) => (
               <li key={i}>{s.url ?? s.label}</li>
             ))}
@@ -191,7 +200,7 @@ function ResearchStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
           {generating ? 'Generating…' : '✍ Generate Draft →'}
         </Button>
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
@@ -255,8 +264,8 @@ function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; onChange
   }
 
   return (
-    <div className="space-y-2">
-      <Textarea rows={9} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[12px]"
+    <div className="space-y-3">
+      <Textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[13.5px] leading-relaxed"
         aria-label={`Draft body for ${item.title}`} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={saveEdit} disabled={saving}>
@@ -270,22 +279,37 @@ function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; onChange
         </Button>
       </div>
       {showHistory && (
-        <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-2">
-          {revisions.length === 0 && <p className="text-[11px] text-wb-ink2">No revisions yet.</p>}
+        <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-3">
+          {revisions.length === 0 && <p className="text-[12px] text-wb-ink2">No revisions yet.</p>}
           {revisions.map((r) => (
-            <div key={r.id} className="border-b border-wb-line/60 pb-1 text-[11px] last:border-0">
+            <div key={r.id} className="border-b border-wb-line/60 pb-2 text-[12px] last:border-0">
               <p className="text-wb-ink2">{new Date(r.created_at).toLocaleString('en-AU')} · {r.edited_by ?? '—'}</p>
-              <p className="line-clamp-2 text-wb-ink">{r.body}</p>
+              <p className="line-clamp-3 text-wb-ink">{r.body}</p>
             </div>
           ))}
         </div>
       )}
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
 
-// ── Proofing stage body: QA checklist + approve + publish submission ─────────
+// ── Proofing stage body: AI-assisted QA + approve + publish submission ───────
+
+interface AiReview {
+  accuracy: boolean | null; accuracy_note: string;
+  brand_voice: boolean | null; brand_voice_note: string;
+  compliance: boolean | null; compliance_note: string;
+  links_checked: boolean | null; links_note: string;
+  overall_notes: string;
+}
+
+const AI_NOTE_KEY: Record<string, keyof AiReview> = {
+  accuracy: 'accuracy_note',
+  brand_voice: 'brand_voice_note',
+  compliance: 'compliance_note',
+  links_checked: 'links_note',
+};
 
 function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
   const existing = (item.qa_checklist ?? {}) as Record<string, unknown>;
@@ -299,6 +323,38 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   const [qaStatus, setQaStatus] = useState(item.qa_status);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishMsg, setPublishMsg] = useState('');
+  const [aiReview, setAiReview] = useState<AiReview | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState('');
+
+  async function runAiReview() {
+    setAiBusy(true);
+    setAiMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/ai-review`, { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setAiReview(d.review);
+      if (d.mode === 'llm') {
+        setChecks((prev) => {
+          const next = { ...prev };
+          for (const c of QA_CHECKLIST_ITEMS) {
+            const v = d.review[c.key];
+            if (typeof v === 'boolean') next[c.key] = v;
+          }
+          return next;
+        });
+        setQaNotes((prev) => (prev ? prev : d.review.overall_notes ?? ''));
+        setAiMsg('✓ AI review complete — checklist pre-filled, review before saving.');
+      } else {
+        setAiMsg(d.review.overall_notes || 'AI review unavailable — check manually.');
+      }
+    } catch (e) {
+      setAiMsg(e instanceof Error ? e.message : 'AI review failed');
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function saveQa() {
     setSaving(true);
@@ -381,8 +437,8 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
 
   if (item.status === 'approved') {
     return (
-      <div className="space-y-2 text-[12px]">
-        <p className="flex items-center gap-1.5 text-wb-ok-on">
+      <div className="space-y-2 text-[13.5px]">
+        <p className="flex flex-wrap items-center gap-1.5 text-wb-ok-on">
           <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Approved</span>
           <span className="text-wb-ink2">
             {item.reviewed_by ? `by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}
@@ -391,36 +447,52 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         <Button size="sm" onClick={confirmReady} disabled={publishBusy} className="w-full">
           {publishBusy ? 'Confirming…' : 'Confirm Ready to Publish →'}
         </Button>
-        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
+        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>
     );
   }
 
   if (item.status === 'ready_to_publish') {
     return (
-      <div className="space-y-2 text-[12px]">
+      <div className="space-y-2 text-[13.5px]">
         <p><span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold text-wb-ok-on">✓ Ready to publish</span></p>
         <Button size="sm" onClick={submitForPublish} disabled={publishBusy} className="w-full">
           {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
         </Button>
-        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
+        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 text-[12px]">
-      <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-2 text-[12px] text-wb-ink">{item.body}</div>
-      <div className="space-y-1.5 rounded-md border border-wb-line bg-wb-surface p-2">
-        {QA_CHECKLIST_ITEMS.map((c) => (
-          <label key={c.key} className="flex items-center gap-2">
-            <input type="checkbox" checked={checks[c.key]} onChange={(e) => setChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))}
-              className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
-            {c.label}
-          </label>
-        ))}
+    <div className="space-y-3 text-[13.5px]">
+      <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-wb-sage/50 bg-wb-sage/5 p-2.5">
+        <span aria-hidden className="text-[13px]">🤖</span>
+        <p className="text-[12px] text-wb-ink2">AI can take a first pass at the checklist below — you review and confirm.</p>
+        <Button size="sm" variant="secondary" onClick={runAiReview} disabled={aiBusy} className="ml-auto">
+          {aiBusy ? 'Reviewing…' : 'Run AI Review →'}
+        </Button>
+      </div>
+      {aiMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>}
+
+      <div className="space-y-2 rounded-md border border-wb-line bg-wb-surface p-3">
+        {QA_CHECKLIST_ITEMS.map((c) => {
+          const note = aiReview?.[AI_NOTE_KEY[c.key]];
+          return (
+            <div key={c.key}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={checks[c.key]} onChange={(e) => setChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))}
+                  className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+                {c.label}
+              </label>
+              {note && <p className="ml-6 mt-0.5 text-[11.5px] italic text-wb-ink2">🤖 {note}</p>}
+            </div>
+          );
+        })}
         <input value={qaNotes} onChange={(e) => setQaNotes(e.target.value)} placeholder="QA notes (optional)"
-          className="w-full rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-[12px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={saveQa} disabled={saving}>
@@ -433,12 +505,12 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         )}
         {qaStatus === 'qa_failed' && <Badge status="warning">QA incomplete</Badge>}
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
 
-// ── Card shell ─────────────────────────────────────────────────────────────
+// ── Card shell — collapsed preview + Modal detail view ───────────────────────
 
 function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
@@ -450,57 +522,65 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
     setDiscarding(true);
     try {
       const res = await discard(item.id);
-      if (res.ok) onChanged();
+      if (res.ok) { setOpen(false); onChanged(); }
     } finally {
       setDiscarding(false);
     }
   }
 
+  const chipRow = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <RankBadge score={item.rank_score} />
+      {item.pillar && (
+        <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
+          {PILLAR_LABEL[item.pillar] ?? item.pillar}
+        </span>
+      )}
+      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">⭐ Priority</span>}
+      {item.sensitive && <Badge status="error">⚠ Sensitive</Badge>}
+    </div>
+  );
+
   return (
-    <div
-      className={`overflow-hidden rounded-xl border border-wb-line bg-wb-surface shadow-sm transition-all hover:shadow-md ${
-        open ? 'ring-1 ring-inset ' + accent.ring : ''
-      }`}
-    >
-      <div className="flex">
-        <span className={`w-[3px] shrink-0 ${accent.bar}`} aria-hidden />
-        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-          className="w-full space-y-1.5 p-3 text-left transition-colors hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <RankBadge score={item.rank_score} />
-            {item.pillar && (
-              <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
-                {PILLAR_LABEL[item.pillar] ?? item.pillar}
-              </span>
-            )}
-            {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">⭐ Priority</span>}
-            {item.sensitive && <Badge status="error">⚠ Sensitive</Badge>}
-            <span
-              aria-hidden
-              className={`ml-auto text-[10px] text-wb-ink2 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-            >
-              ▾
-            </span>
-          </div>
-          <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
-        </button>
+    <>
+      <div className="overflow-hidden rounded-xl border border-wb-line bg-wb-surface shadow-sm transition-all hover:shadow-md">
+        <div className="flex">
+          <span className={`w-[3px] shrink-0 ${accent.bar}`} aria-hidden />
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full space-y-1.5 p-3 text-left transition-colors hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {chipRow}
+              <span aria-hidden className="ml-auto text-[13px] text-wb-ink2">⤢</span>
+            </div>
+            <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+          </button>
+        </div>
+        <p className="border-t border-wb-line/70 px-3 py-1.5 text-[10px] text-wb-ink2">
+          Created {item.created_at.slice(0, 10)}
+          {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
+        </p>
       </div>
 
-      {open && (
-        <div className="space-y-3 border-t border-wb-line bg-wb-bg/40 px-3 py-3">
-          {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'content_prep' && <ContentPrepStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
+      <Modal open={open} onClose={() => { setOpen(false); setConfirmingDiscard(false); }} title={item.title} variant="preview">
+        <div className="mb-4 space-y-2">
+          {chipRow}
+          <p className="text-[11px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
+        </div>
 
+        {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'content_prep' && <ContentPrepStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
+
+        <div className="mt-4 border-t border-wb-line pt-3">
           {!confirmingDiscard ? (
             <button type="button" onClick={() => setConfirmingDiscard(true)}
-              className="text-[11px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
+              className="text-[12px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
               Discard this item
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
-              <p className="flex-1 text-[11px] text-wb-crit-on">Discard? It&rsquo;s removed from the board, not deleted.</p>
+              <p className="flex-1 text-[12px] text-wb-crit-on">Discard? It&rsquo;s removed from the board, not deleted.</p>
               <Button size="sm" variant="danger" onClick={doDiscard} disabled={discarding}>
                 {discarding ? 'Discarding…' : 'Confirm'}
               </Button>
@@ -509,14 +589,9 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
               </Button>
             </div>
           )}
-
-          <p className="text-[10px] text-wb-ink2">
-            Created {item.created_at.slice(0, 10)}
-            {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
-          </p>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }
 
