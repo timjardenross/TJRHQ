@@ -26,12 +26,12 @@ const TILES: Tile[] = [
   },
   {
     href: '/intelligence-workbench',
-    title: 'Intelligence Workbench',
-    description: 'Operational resilience signals and health intelligence, live ORI feed.',
+    title: 'Technical OSINT Workbench',
+    description: 'Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation.',
   },
   {
     href: '/health-osint',
-    title: 'Health/Performance OSINT',
+    title: 'Health OSINT Workbench',
     description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
   },
   // Communications Workbench (Signals/Pipeline/Portfolio) removed from this

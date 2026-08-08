@@ -24,8 +24,12 @@
 // STAGE_ACCENT in shared.ts): every function/handler below is unchanged
 // from the pre-redesign version. This pass touches JSX structure and
 // Tailwind classes on ItemCard/Column/the board wrapper, plus adds a
-// pipeline-overview strip up top. Still constrained to WorkbenchShell's
-// max-w-4xl (that's shared app chrome, not forked here).
+// pipeline-overview strip up top.
+//
+// 2026-08 follow-up #2: the 4-column board was cramped inside WorkbenchShell's
+// default max-w-4xl. Added an opt-in `wide` prop to WorkbenchShell itself
+// (max-w-7xl) rather than forking the shell here — this page.tsx now passes
+// `wide`, every other workbench is unaffected.
 //
 // 2026-08 follow-up: the narrow 260px column was fine for scanning cards but
 // unusable for actually writing/proofing in — a 9-row textarea at that width

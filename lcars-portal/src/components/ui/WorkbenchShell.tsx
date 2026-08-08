@@ -23,6 +23,7 @@ export function WorkbenchShell({
   tagline,
   right,
   back,
+  wide = false,
   children,
 }: {
   title: string;
@@ -34,8 +35,14 @@ export function WorkbenchShell({
   tagline: string;
   right?: ReactNode;
   back?: { href: string; label: string };
+  /** Opt into max-w-7xl instead of the default max-w-4xl — for multi-column
+   * board/kanban layouts (e.g. Content Workbench) that feel cramped at the
+   * standard reading-width shell every other workbench uses. Off by default
+   * so this stays a per-page choice, not a blanket layout change. */
+  wide?: boolean;
   children: ReactNode;
 }) {
+  const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
@@ -45,7 +52,7 @@ export function WorkbenchShell({
         Skip to content
       </a>
       <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
+        <div className={`mx-auto flex ${shellWidth} items-center gap-3 px-6 py-4`}>
           <Link
             href={homeHref}
             className="grid h-8 w-8 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
@@ -60,7 +67,7 @@ export function WorkbenchShell({
           <span className="ml-auto text-[12px] text-wb-ink2">{right}</span>
         </div>
       </header>
-      <main id="wb-main" className="mx-auto max-w-4xl px-6 py-8">
+      <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
         {back && (
           <Link
             href={back.href}
