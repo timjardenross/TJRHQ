@@ -44,6 +44,7 @@ export default function ContentWorkbenchPage() {
       tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      wide
     >
       <CaptureBox onCaptured={refresh} />
       <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />

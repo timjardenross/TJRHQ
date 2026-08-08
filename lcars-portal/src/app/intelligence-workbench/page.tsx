@@ -68,11 +68,12 @@ export default function OSINTWorkbench() {
 
   return (
     <WorkbenchShell
-      title="OSINT Intelligence Workbench"
-      eyebrow="Intelligence Operations"
+      title="Technical OSINT Workbench"
+      eyebrow="Cyber & Infrastructure Intelligence"
       homeHref="/intelligence-workbench"
       tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"
       right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
+      back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
