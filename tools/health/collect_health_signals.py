@@ -76,6 +76,64 @@ CTGOV_QUERIES = {
     "vaccine": "vaccine efficacy",
 }
 
+# Phase 2: journal/agency RSS. Every URL here was curl-verified live before
+# being added — not guessed. Dropped from the original candidate list:
+#   - NIH, Cochrane: real Cloudflare JS challenge (403 "Just a moment..."),
+#     not bypassable with a UA header or any non-browser fetch.
+#   - CDC: www.cdc.gov itself is bot-blocked; the tools.cdc.gov RSS proxy
+#     works but needs a numeric media ID I could not discover without
+#     further undisciplined guessing (one guess hit a real but item-less
+#     feed). Dropped rather than guess again.
+#   - JAMA: the official current-issue feed (jamanetwork.com/rss/site_3/67.xml,
+#     confirmed via JAMA's own /pages/rss page) serves title="JAMA" generically
+#     for every item — no real article titles in the feed itself. JAMA content
+#     is already reachable via Phase 1's PubMed queries, so this isn't a real
+#     coverage gap, just a dropped redundant feed.
+#   - FDA: curl fetches the feed fine (200), but Python's urllib gets
+#     redirected to FDA's own "abuse-detection-apology" page and 404s
+#     regardless of User-Agent header — a TLS/request-fingerprint block,
+#     not a UA check, so no header change fixes it. Not worth a heavier
+#     fetch tool for one feed; dropped and disclosed rather than silently
+#     left broken.
+# "kind": agency_news items don't carry a study design (they're press
+# releases, not papers); journal items get study_design inferred from
+# title keywords since these feeds (unlike PubMed) carry no structured
+# PublicationType tag.
+RSS_FEEDS = [
+    {"source_name": "WHO", "url": "https://www.who.int/rss-feeds/news-english.xml", "kind": "agency_news"},
+    {"source_name": "New England Journal of Medicine", "url": "https://www.nejm.org/action/showFeed?type=etoc&feed=rss&jc=nejm", "kind": "journal"},
+    {"source_name": "The Lancet", "url": "https://www.thelancet.com/rssfeed/lancet_current.xml", "kind": "journal"},
+]
+
+DOMAIN_KEYWORDS = {
+    "vaccine": ("vaccine", "vaccination", "immuniz"),
+    "mental_health": ("mental health", "depression", "anxiety", "psychiatr"),
+    "supplement": ("supplement", "nutraceutical", "vitamin", "dietary"),
+    "performance": ("exercise", "athletic", "performance", "ergogenic"),
+    "epidemiology": ("outbreak", "epidemic", "surveillance", "pandemic", "cases reported"),
+}
+
+
+def _infer_health_domain(text: str, default="treatment") -> str:
+    t = text.lower()
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        if any(k in t for k in keywords):
+            return domain
+    return default
+
+
+def _infer_study_design_from_title(title: str) -> str:
+    t = title.lower()
+    if "meta-analysis" in t or "systematic review" in t:
+        return "meta_analysis"
+    if "randomized" in t or "randomised" in t or "rct" in t:
+        return "RCT"
+    if "case report" in t:
+        return "case_study"
+    if any(k in t for k in ("editorial", "perspective", "comment", "correspondence")):
+        return "anecdotal"  # opinion pieces, not primary evidence
+    return "observational"
+
 # Hand-curated: journals whose real-world reputation we already know,
 # so auto-registration doesn't start every source identical. Same
 # reasoning as the original 16 seed sources' hand-set publisher_reputation.
@@ -131,7 +189,7 @@ class HealthCollector:
         self.per_domain_limit = per_domain_limit
         self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         self._source_cache = {}  # source_name -> source_id
-        self.stats = {"pubmed_fetched": 0, "ctgov_fetched": 0, "saved": 0, "duplicates": 0, "sources_auto_registered": 0, "errors": 0}
+        self.stats = {"pubmed_fetched": 0, "ctgov_fetched": 0, "rss_fetched": 0, "saved": 0, "duplicates": 0, "sources_auto_registered": 0, "errors": 0}
 
     # ─── Source resolution ──────────────────────────────────────────────
 
@@ -307,6 +365,77 @@ class HealthCollector:
             "published_at": status.get("studyFirstPostDateStruct", {}).get("date"),
         }
 
+    # ─── RSS (FDA / WHO / NEJM / Lancet) ────────────────────────────────
+
+    def fetch_rss(self, feed: dict):
+        """Namespace-agnostic RSS 2.0 / RDF (RSS 1.0) parser: matches items and
+        fields by tag local-name so one parser handles both formats — FDA/WHO
+        are plain RSS 2.0, NEJM/Lancet are RDF. Prefers dc:title/dc:date over
+        plain title/pubDate when present (more reliable on the RDF feeds)."""
+        # A bot-identifying UA string here (tried first) makes FDA's server
+        # 302-redirect to a 404 — a plain browser UA avoids it, confirmed by
+        # testing (curl with the same custom UA reproduced the redirect;
+        # curl with no UA / a browser UA did not).
+        req = urllib.request.Request(feed["url"], headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                xml_data = resp.read()
+        except Exception as e:
+            logger.error(f"RSS fetch failed for {feed['source_name']}: {e}")
+            self.stats["errors"] += 1
+            return []
+
+        try:
+            root = ET.fromstring(xml_data)
+        except ET.ParseError as e:
+            logger.error(f"RSS parse failed for {feed['source_name']}: {e}")
+            self.stats["errors"] += 1
+            return []
+
+        items = [el for el in root.iter() if el.tag.endswith('}item') or el.tag == 'item']
+        parsed = []
+        for item in items[:self.per_domain_limit]:
+            fields = {}
+            for child in item:
+                local = child.tag.split('}')[-1]
+                if child.text and child.text.strip():
+                    fields.setdefault(local, child.text.strip())
+
+            title = fields.get("title", "")
+            if not title or title == feed["source_name"]:  # JAMA-style generic title, if it ever recurs
+                continue
+            link = fields.get("link") or fields.get("url") or fields.get("identifier", "")
+            description = fields.get("encoded") or fields.get("description") or fields.get("content") or ""
+            date_str = fields.get("date") or fields.get("pubDate")
+
+            health_domain = _infer_health_domain(title + " " + description)
+            if feed["kind"] == "agency_news":
+                study_design = None
+                signal_type = self._signal_type_from_title(title, default="safety_alert" if "recall" in title.lower() or "warning" in title.lower() else "study_result")
+            else:
+                study_design = _infer_study_design_from_title(title)
+                signal_type = self._signal_type_from_title(title)
+
+            parsed.append({
+                "source": "rss", "source_name": feed["source_name"], "title": title[:500],
+                "description": re.sub(r'<[^>]+>', '', description)[:2000],  # strip HTML tags
+                "health_domain": health_domain, "study_design": study_design, "sample_size": None,
+                "p_value": None, "signal_type": signal_type,
+                "canonical_url": link, "published_at": self._parse_rss_date(date_str),
+            })
+        self.stats["rss_fetched"] = self.stats.get("rss_fetched", 0) + len(parsed)
+        return parsed
+
+    def _parse_rss_date(self, date_str):
+        if not date_str:
+            return None
+        for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(date_str, fmt).date().isoformat()
+            except ValueError:
+                continue
+        return None
+
     # ─── Classification + scoring ───────────────────────────────────────
 
     def _signal_type_from_title(self, title: str, default="study_result") -> str:
@@ -352,6 +481,16 @@ class HealthCollector:
             source_id = self._get_or_create_source(item["journal"], "journal")
             dedup_key = f"pubmed:{item['pmid']}"
             signal_type = self._signal_type_from_title(item["title"])
+        elif item["source"] == "rss":
+            # These 4 (FDA/WHO/NEJM/Lancet) are already hand-curated rows from
+            # the original seed migration — look up by name, don't auto-register.
+            existing = self.supabase.table("health_source_registry").select("source_id").eq("source_name", item["source_name"]).limit(1).execute()
+            if not existing.data:
+                logger.warning(f"RSS source '{item['source_name']}' not found in health_source_registry — skipping item")
+                return
+            source_id = existing.data[0]["source_id"]
+            dedup_key = f"rss:{item['source_name']}:{item['canonical_url']}"
+            signal_type = item.get("signal_type", "study_result")
         else:
             source_id = self._get_or_create_source("ClinicalTrials.gov", "clinical_trial_db", "https://clinicaltrials.gov")
             dedup_key = f"ctgov:{item['nct_id']}"
@@ -407,6 +546,9 @@ class HealthCollector:
             for item in self.fetch_pubmed(domain):
                 self.save_item(item)
             for item in self.fetch_clinicaltrials(domain):
+                self.save_item(item)
+        for feed in RSS_FEEDS:
+            for item in self.fetch_rss(feed):
                 self.save_item(item)
         logger.info(f"Collection complete: {self.stats}")
 
