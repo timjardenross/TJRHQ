@@ -19,16 +19,27 @@
  *
  * 2026-08: Communications Workbench was delisted from /workbenches (see
  * workbenches/page.tsx) in favour of this one. Its Portfolio tab (published
- * items + export) had no equivalent here, so a Pipeline/Portfolio Tabs
- * split was added — same shape as comms-workbench's own tab bar — reading
- * PortfolioTab.tsx, a new but intentionally duplicated component (not an
- * import from comms-workbench/_components, per the design-system barrel
- * rule). Nothing on comms-workbench itself changed; its route still works,
- * it's just not the only place to reach this content anymore.
+ * items + export) had no equivalent here, so a Pipeline/Portfolio split
+ * was added — reading PortfolioTab.tsx, a new but intentionally duplicated
+ * component (not an import from comms-workbench/_components, per the
+ * design-system barrel rule). Nothing on comms-workbench itself changed;
+ * its route still works, it's just not the only place to reach this
+ * content anymore.
+ *
+ * 2026-08 follow-up (workbench fault-finding audit): originally used the
+ * `Tabs` component (plain buttons, `aria-current="page"` — semantically
+ * wrong for tab selection, no arrow-key nav). Switched to `DomainToggle`,
+ * the real WAI-ARIA tablist every other *-workbench page uses (see its
+ * own header comment for why it exists) — this was the one page still on
+ * the old inaccessible pattern DomainToggle's consolidation was meant to
+ * retire. Also added URL-sync (?tab=) matching human-systems-workbench's
+ * pattern — previously a refresh on Portfolio silently dropped back to
+ * Pipeline.
  */
 
-import { useState } from 'react';
-import { Tabs, WorkbenchShell } from '@/components/ui';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { CaptureBox } from './_components/CaptureBox';
 import { ContentBoard } from './_components/ContentBoard';
 import { PortfolioTab } from './_components/PortfolioTab';
@@ -36,22 +47,41 @@ import type { Stage } from './_components/shared';
 
 type Tab = 'pipeline' | 'portfolio';
 
-const TABS: { key: Tab; label: string }[] = [
+const TAB_OPTIONS: { key: Tab; label: string }[] = [
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'portfolio', label: 'Portfolio' },
 ];
 
-export default function ContentWorkbenchPage() {
-  const [tab, setTab] = useState<Tab>('pipeline');
+function isTab(v: string | null): v is Tab {
+  return v === 'pipeline' || v === 'portfolio';
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('tab');
+  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'pipeline');
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const refresh = () => setRefreshSignal((n) => n + 1);
 
-  const right = counts ? (
-    <span className="text-[11px] text-wb-ink2">
-      {counts.capture + counts.research + counts.content_prep + counts.proofing} active
-    </span>
-  ) : null;
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('tab', t);
+    router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
+  };
+
+  const right = (
+    <div className="flex items-center gap-3">
+      {counts && (
+        <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+          {counts.capture + counts.research + counts.content_prep + counts.proofing} active
+        </span>
+      )}
+      <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
+    </div>
+  );
 
   return (
     <WorkbenchShell
@@ -64,17 +94,21 @@ export default function ContentWorkbenchPage() {
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
-      <Tabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Content Workbench sections" />
-
-      <div className="mt-4">
-        {tab === 'pipeline' && (
-          <>
-            <CaptureBox onCaptured={refresh} />
-            <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
-          </>
-        )}
-        {tab === 'portfolio' && <PortfolioTab />}
-      </div>
+      {tab === 'pipeline' && (
+        <>
+          <CaptureBox onCaptured={refresh} />
+          <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+        </>
+      )}
+      {tab === 'portfolio' && <PortfolioTab />}
     </WorkbenchShell>
+  );
+}
+
+export default function ContentWorkbenchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" />}>
+      <Workbench />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
@@ -15,8 +16,15 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'credibility', label: 'Signal Credibility' },
 ];
 
-export default function OSINTWorkbench() {
-  const [domain, setDomain] = useState<Domain>('confidence-matrix');
+function isDomain(v: string | null): v is Domain {
+  return DOMAIN_OPTIONS.some((o) => o.key === v);
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('domain');
+  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'confidence-matrix');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +53,16 @@ export default function OSINTWorkbench() {
   }, [domain]);
 
   useEffect(() => { load(true); }, [load]);
+
+  const setDomain = (d: Domain) => {
+    setDomainState(d);
+    // Keep the URL shareable/bookmarkable without a full navigation —
+    // matches human-systems-workbench's pattern. Previously a refresh
+    // on a non-default tab silently dropped back to Confidence Matrix.
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('domain', d);
+    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
+  };
 
   const renderSignal = (s: any) => (
     <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
@@ -75,6 +93,7 @@ export default function OSINTWorkbench() {
       right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
+      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Technical OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
       {domain === 'confidence-matrix' && data && (
@@ -219,5 +238,13 @@ export default function OSINTWorkbench() {
         </div>
       )}
     </WorkbenchShell>
+  );
+}
+
+export default function OSINTWorkbench() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" />}>
+      <Workbench />
+    </Suspense>
   );
 }

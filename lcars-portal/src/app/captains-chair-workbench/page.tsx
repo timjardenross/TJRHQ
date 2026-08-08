@@ -38,17 +38,20 @@ interface LiveMissionStats {
   decisionsCount: number;
 }
 
-function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boolean } {
+function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boolean; error: string | null } {
   const [stats, setStats] = useState<LiveMissionStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const supabase = createSupabaseBrowserClient();
-        const { data } = await supabase.from('missions').select('status');
-        if (cancelled || !data) return;
+        const { data, error: fetchError } = await supabase.from('missions').select('status');
+        if (cancelled) return;
+        if (fetchError) throw fetchError;
+        if (!data) return;
         setStats({
           total: data.length,
           active: data.filter((m) => ACTIVE_STATUSES.includes(m.status)).length,
@@ -57,6 +60,13 @@ function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boole
           completed: data.filter((m) => COMPLETED_STATUSES.includes(m.status)).length,
           decisionsCount: data.filter((m) => AWAITING_CAPTAIN_STATUSES.includes(m.status)).length,
         });
+        // A failed request previously left stats null with no error state —
+        // panels silently rendered 0/"No data", indistinguishable from a
+        // real quiet day. Every other workbench surfaces fetch failures via
+        // an explicit wb-crit banner; this brings Captain's Chair in line.
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load mission stats');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,22 +75,24 @@ function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boole
     return () => { cancelled = true; };
   }, []);
 
-  return { stats, loading };
+  return { stats, loading, error };
 }
 
-function useLiveEngineeringQueue(): { data: EngineeringQueueData | null; loading: boolean } {
+function useLiveEngineeringQueue(): { data: EngineeringQueueData | null; loading: boolean; error: string | null } {
   const [data, setData] = useState<EngineeringQueueData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchEngineeringQueue()
-      .then((d) => { if (!cancelled) setData(d); })
+      .then((d) => { if (!cancelled) { setData(d); setError(null); } })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load engineering queue'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
 
 interface TodaysBriefingStats {
@@ -104,15 +116,20 @@ function useTodaysBriefing(): {
   stats: TodaysBriefingStats | null;
   loading: boolean;
   operationalPicture: OperationalPictureItem[];
+  error: string | null;
 } {
   const [stats, setStats] = useState<TodaysBriefingStats | null>(null);
   const [operationalPicture, setOperationalPicture] = useState<OperationalPictureItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/captain-brief')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error(`Captain's brief unavailable (${r.status})`);
+        return r.json();
+      })
       .then((doc) => {
         if (cancelled || !doc) return;
         setStats({
@@ -133,22 +150,25 @@ function useTodaysBriefing(): {
           if (picture.length >= 5) break;
         }
         setOperationalPicture(picture);
+        setError(null);
       })
+      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load briefing'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  return { stats, loading, operationalPicture };
+  return { stats, loading, operationalPicture, error };
 }
 
 // ── Workbench Shell Layout ──────────────────────────────────────────────────
 
-export default function CaptainsChalrWorkbench() {
+export default function CaptainsChairWorkbench() {
   const { posture: currentPosture, bodyContext } = useROSData();
   const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
-  const { stats: missionStats, loading: missionStatsLoading } = useLiveMissionStats();
-  const { data: engQueueData, loading: engQueueLoading } = useLiveEngineeringQueue();
-  const { stats: briefingStats, loading: briefingLoading, operationalPicture } = useTodaysBriefing();
+  const { stats: missionStats, loading: missionStatsLoading, error: missionStatsError } = useLiveMissionStats();
+  const { data: engQueueData, loading: engQueueLoading, error: engQueueError } = useLiveEngineeringQueue();
+  const { stats: briefingStats, loading: briefingLoading, operationalPicture, error: briefingError } = useTodaysBriefing();
+  const dataErrors = [missionStatsError, engQueueError, briefingError].filter(Boolean) as string[];
   const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
 
   useEffect(() => {
@@ -166,6 +186,11 @@ export default function CaptainsChalrWorkbench() {
       tagline="USS TJR · Captain's Chair · Operational Dashboard"
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
+      {dataErrors.length > 0 && (
+        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
+          {dataErrors.length === 1 ? dataErrors[0] : `${dataErrors.length} panels failed to load: ${dataErrors.join('; ')}`}
+        </p>
+      )}
       {/* ── Always-visible panels ── */}
       <div className="space-y-4">
         {/* Recovery Posture */}
@@ -324,7 +349,7 @@ export default function CaptainsChalrWorkbench() {
                   <Link href="/human-systems-workbench" className="block text-xs text-wb-sage-deep hover:underline">
                     → Medical Bay
                   </Link>
-                  <Link href="/missions" className="block text-xs text-wb-sage-deep hover:underline">
+                  <Link href="/mission-workbench" className="block text-xs text-wb-sage-deep hover:underline">
                     → Mission Registry
                   </Link>
                   <Link href="/captains-brief-workbench" className="block text-xs text-wb-sage-deep hover:underline">
