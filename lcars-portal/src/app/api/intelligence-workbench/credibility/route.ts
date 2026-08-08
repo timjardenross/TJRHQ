@@ -4,13 +4,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
-const DAYS_7 = 7 * 86_400_000;
-const MIN_CONFIDENCE = 60;
+// confidence is stored 0-1 (max observed 0.98), not 0-100 — the original
+// value of 60 here compared a 0-1 column against a 0-100 threshold, so this
+// route always returned zero signals regardless of real data.
+const MIN_CONFIDENCE = 0.6;
 
-async function getCredibilityData(sb: any) {
-  const since7d = new Date(Date.now() - DAYS_7).toISOString();
+async function getCredibilityData(sb: any, days: number) {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
 
-  // Get latest published brief
   const { data: briefs, error: briefErr } = await sb
     .from('intelligence_briefs')
     .select('brief_id,signal_ids,overall_risk,executive_snapshot,generated_at')
@@ -22,7 +23,6 @@ async function getCredibilityData(sb: any) {
 
   const latestBrief = briefs?.[0];
 
-  // Get 7-day signals with source reliability context
   const { data: signals, error: signalsErr } = await sb
     .from('intelligence_events')
     .select(`
@@ -31,6 +31,7 @@ async function getCredibilityData(sb: any) {
       risk_rating,
       rank_score,
       confidence,
+      osint_confidence_level,
       collected_at,
       source_id,
       intelligence_source_registry (
@@ -42,7 +43,7 @@ async function getCredibilityData(sb: any) {
     `)
     .eq('suppressed', false)
     .gte('confidence', MIN_CONFIDENCE)
-    .gte('collected_at', since7d)
+    .gte('collected_at', since)
     .not('raw_title', 'ilike', 'CVE-%')
     .not('raw_title', 'ilike', 'CWE-%')
     .order('rank_score', { ascending: false })
@@ -50,43 +51,25 @@ async function getCredibilityData(sb: any) {
 
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);
 
-  // Corroboration: count other signals with high word overlap
+  const eventIds = (signals ?? []).map((s: any) => s.event_id);
+  const { data: corroborations, error: corrErr } = eventIds.length
+    ? await sb
+        .from('signal_corroboration')
+        .select('signal_id, corroborating_signal_id')
+        .or(`signal_id.in.(${eventIds.join(',')}),corroborating_signal_id.in.(${eventIds.join(',')})`)
+    : { data: [], error: null };
+  if (corrErr) throw new Error(`Failed to fetch corroborations: ${corrErr.message}`);
+
+  const corroborationCount = new Map<string, number>();
+  (corroborations ?? []).forEach((c: any) => {
+    corroborationCount.set(c.signal_id, (corroborationCount.get(c.signal_id) || 0) + 1);
+    corroborationCount.set(c.corroborating_signal_id, (corroborationCount.get(c.corroborating_signal_id) || 0) + 1);
+  });
+
   const signalList = (signals ?? []).map((s: any) => {
-    const titleWords = new Set(
-      (s.raw_title || '')
-        .toLowerCase()
-        .match(/\w{4,}/g) || []
-    );
-
-    const corroboratingCount = (signals ?? []).reduce((count: number, other: any) => {
-      if (other.event_id === s.event_id) return count;
-      if (other.source_id === s.source_id) return count;
-
-      const otherWords = new Set(
-        (other.raw_title || '')
-          .toLowerCase()
-          .match(/\w{4,}/g) || []
-      );
-
-      const overlap = [...titleWords].filter(w => otherWords.has(w)).length;
-      return overlap >= 2 ? count + 1 : count;
-    }, 0);
-
     const source = s.intelligence_source_registry;
     const tier = source?.reliability_tier || 'TIER_4';
     const srs = source?.reliability_score ?? 0.75;
-
-    // Confidence level logic
-    let confidenceLevel = 'low';
-    if ((tier === 'TIER_1' || tier === 'TIER_2') && corroboratingCount >= 1) {
-      confidenceLevel = 'high';
-    } else if (tier === 'TIER_1') {
-      confidenceLevel = 'high';
-    } else if (tier === 'TIER_2' || (tier === 'TIER_3' && corroboratingCount >= 2)) {
-      confidenceLevel = 'medium';
-    } else if (tier === 'TIER_3') {
-      confidenceLevel = 'medium';
-    }
 
     return {
       event_id: s.event_id,
@@ -94,23 +77,23 @@ async function getCredibilityData(sb: any) {
       risk_rating: s.risk_rating,
       rank_score: s.rank_score,
       confidence: s.confidence,
-      collected_at: s.collected_at,
       source: {
         source_id: s.source_id,
         source_name: source?.source_name || 'Unknown',
         category: source?.category || 'unknown',
-        tier: tier,
-        srs: srs,
+        tier,
+        srs,
       },
-      corroboration: corroboratingCount,
-      confidence_level: confidenceLevel,
+      corroboration: corroborationCount.get(s.event_id) || 0,
+      confidence_level: (s.osint_confidence_level || 'unknown').toLowerCase(),
     };
   });
 
-  // Brief composition (tier breakdown)
   const tierCounts = { TIER_1: 0, TIER_2: 0, TIER_3: 0, TIER_4: 0 };
   signalList.forEach((s: any) => {
-    tierCounts[s.source.tier as keyof typeof tierCounts]++;
+    if (tierCounts[s.source.tier as keyof typeof tierCounts] !== undefined) {
+      tierCounts[s.source.tier as keyof typeof tierCounts]++;
+    }
   });
 
   const total = signalList.length;
@@ -128,7 +111,7 @@ async function getCredibilityData(sb: any) {
       executive_snapshot: latestBrief?.executive_snapshot || null,
       generated_at: latestBrief?.generated_at || null,
       overall_risk: latestBrief?.overall_risk || null,
-      composition: composition,
+      composition,
       tier_counts: tierCounts,
       total_signals: total,
     },
@@ -142,9 +125,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const days = Number(req.nextUrl.searchParams.get('days')) || 7;
+
   try {
     const sb = await createSupabaseServerClient();
-    return NextResponse.json(await getCredibilityData(sb));
+    return NextResponse.json(await getCredibilityData(sb, days));
   } catch (err) {
     console.error('[credibility-workbench] read failed:', err);
     return NextResponse.json(

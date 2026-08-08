@@ -119,6 +119,7 @@ export default function OSINTWorkbench() {
                   <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{u.title}</div>
                     <div>{u.impact}</div>
+                    {u.need && <div className="italic">Need: {u.need}</div>}
                   </div>
                 ))}
               </div>
@@ -132,22 +133,24 @@ export default function OSINTWorkbench() {
           <Card title="Cross-Source Corroboration">
             <div className="text-[12px] text-wb-ink2 space-y-1">
               {Object.entries(data.correlations || {})
-                .slice(0, 5)
-                .map(([srcId, info]: any) => (
-                  <div key={srcId}>
-                    Source: {srcId} • {info.signals} signals • {info.confirmCount} confirmations
+                .sort((a: any, b: any) => b[1].signal_count - a[1].signal_count)
+                .slice(0, 8)
+                .map(([sourceName, info]: any) => (
+                  <div key={sourceName}>
+                    {sourceName} • {info.signal_count} signals • {info.corroboration_count} corroborated • avg confirmation {info.avg_confirmation_per_signal}
                   </div>
                 ))}
             </div>
           </Card>
-          <Card title="Source Trending">
+          <Card title="Source Trending (30-day)">
             <div className="text-[12px] text-wb-ink2 space-y-1">
               {data.trending?.map((t: any) => (
                 <div key={t.source}>
-                  {t.source} {t.direction === 'up' ? '↗' : t.direction === 'stable' ? '→' : '↘'} {t.from} → {t.to}
+                  {t.source} {t.direction === 'up' ? '↗' : t.direction === 'down' ? '↘' : t.direction === 'stable' ? '→' : '—'} {t.from ?? '?'} → {t.to ?? '?'}
                 </div>
               ))}
             </div>
+            {data.note && <p className="mt-2 text-[11px] italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -160,15 +163,17 @@ export default function OSINTWorkbench() {
                 <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">{t.threat}</div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()}</div>
+                  <div className="italic">{t.recommendation}</div>
                 </div>
               ))}
+              {!data.threats?.length && <p>No signals above rank_score 70 in this window.</p>}
             </div>
           </Card>
           {data.gaps?.length > 0 && (
             <Card title="Coverage Gaps">
               <div className="text-[12px] text-wb-ink2 space-y-1">
                 {data.gaps.map((g: any) => (
-                  <div key={g.area}>{g.area}: {g.risk}</div>
+                  <div key={g.area}>{g.area}: {g.risk} — {g.blind_spot}</div>
                 ))}
               </div>
             </Card>
