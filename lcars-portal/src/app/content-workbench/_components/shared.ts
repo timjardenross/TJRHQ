@@ -21,7 +21,7 @@ export const STAGE_HINT: Record<Stage, string> = {
   capture: 'Needs a research brief before a draft can be generated.',
   research: 'Briefed — ready to generate a draft.',
   content_prep: 'Drafting and editing. Submit for review when ready.',
-  proofing: 'QA checklist + sign-off. Advancing past Approved happens in the Communications Workbench.',
+  proofing: 'QA checklist, sign-off, and publish submission — the Captain still approves the final publish in Decide.',
 };
 
 export const PILLAR_LABEL: Record<string, string> = {
@@ -39,7 +39,7 @@ export interface ContentItem {
   id: string;
   title: string;
   pillar: string | null;
-  status: 'opportunity' | 'draft' | 'review' | 'approved';
+  status: 'opportunity' | 'draft' | 'review' | 'approved' | 'ready_to_publish';
   stage: Stage;
   source_kind: string | null;
   source_ref: string | null;

@@ -1,22 +1,29 @@
 // GET /api/content-workbench — list comms_content items for the Content
 // Workbench board (COMMS-002): Capture -> Research -> Content Prep -> Proofing.
 //
-// Scope boundary: only opportunity/draft/review/approved are returned.
-// ready_to_publish/published/archived are deliberately excluded — publishing
-// stays out of this workbench, per the Communications Workbench's own
-// ready_to_publish -> published gate in /api/comms/[id]/advance. Reuses the
-// same comms_content table as comms-workbench (additive columns only); does
-// not read or write anything comms-workbench doesn't already own.
+// Scope: opportunity/draft/review/approved/ready_to_publish are returned —
+// i.e. everything up to (not including) 'published'. Submitting for publish
+// approval happens in this workbench too now (Proofing stage, ready_to_publish
+// sub-state), via the same governed publish_content proposal in
+// /api/comms/[id]/advance — the Captain still makes the final call in Decide,
+// this workbench just no longer requires a detour through the Communications
+// Workbench to get there. 'published'/'archived' stay excluded: published
+// items live in comms-workbench's Portfolio tab, not this active board.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
 export type Stage = 'capture' | 'research' | 'content_prep' | 'proofing';
 
+// 'ready_to_publish' stays inside the Proofing stage (same column) rather than
+// becoming a 5th stage — it's still pre-publish, just awaiting the Captain's
+// sign-off in Decide via the same governed publish_content proposal every
+// other publish action already goes through. See ContentBoard.tsx's
+// ProofingStageBody for the ready_to_publish-specific UI within that column.
 function stageOf(item: { status: string; research_completed_at: string | null }): Stage {
   if (item.status === 'opportunity') return item.research_completed_at ? 'research' : 'capture';
   if (item.status === 'draft') return 'content_prep';
-  return 'proofing'; // review | approved
+  return 'proofing'; // review | approved | ready_to_publish
 }
 
 // Inlined as a literal (not built from an array via .join()) — supabase-js's
@@ -54,7 +61,7 @@ export async function GET(_req: NextRequest) {
     const { data, error } = await sb
       .from('comms_content')
       .select(SELECT)
-      .in('status', ['opportunity', 'draft', 'review', 'approved'])
+      .in('status', ['opportunity', 'draft', 'review', 'approved', 'ready_to_publish'])
       .order('created_at', { ascending: false })
       .returns<Row[]>();
     if (error) throw error;
