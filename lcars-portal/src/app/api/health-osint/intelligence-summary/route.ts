@@ -21,19 +21,24 @@ async function getIntelligenceSummary(sb: any) {
   const { data: signals, error: signalsErr } = await sb
     .from('health_signals')
     .select(`
-      signal_id, title, signal_type, health_domain, rank_score, sample_size, study_design, p_value,
-      confidence_level, health_source_registry ( source_name, reliability_tier, reliability_score )
+      signal_id, title, description, signal_type, health_domain, rank_score, sample_size, study_design,
+      p_value, published_at, actionable_recommendation,
+      confidence_level, health_source_registry ( source_name, source_url, reliability_tier, reliability_score )
     `)
     .eq('suppressed', false)
     .gte('collected_at', since)
     .order('rank_score', { ascending: false })
-    .limit(50);
+    // 50 was too small a pool for a single source to not dominate it — see
+    // the same fix on the technical intelligence-summary route.
+    .limit(150);
 
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);
 
   const signalList = (signals ?? []).map((s: any) => ({
     signal_id: s.signal_id,
     title: s.title,
+    summary: s.description ? s.description.slice(0, 220) : null,
+    source_url: s.health_source_registry?.source_url || null,
     signal_type: s.signal_type,
     health_domain: s.health_domain,
     confidence_level: (s.confidence_level || 'UNKNOWN').toLowerCase(),
@@ -42,13 +47,15 @@ async function getIntelligenceSummary(sb: any) {
     sample_size: s.sample_size,
     study_design: s.study_design,
     p_value: s.p_value,
+    published_at: s.published_at,
+    actionable_recommendation: s.actionable_recommendation,
   }));
 
   return {
     domain: 'intelligence-summary',
-    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 10),
-    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 10),
-    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 5),
+    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 15),
+    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 15),
+    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 8),
     unknowns: KNOWN_UNKNOWNS,
   };
 }

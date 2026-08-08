@@ -30,6 +30,11 @@ const TILES: Tile[] = [
     description: 'Operational resilience signals and health intelligence, live ORI feed.',
   },
   {
+    href: '/health-osint',
+    title: 'Health/Performance OSINT',
+    description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
+  },
+  {
     href: '/comms-workbench',
     title: 'Communications Workbench',
     description: 'Signals to opportunities, pipeline, and portfolio for comms content.',
