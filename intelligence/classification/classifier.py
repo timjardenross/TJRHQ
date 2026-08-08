@@ -17,6 +17,7 @@ Rules are additive: later rules can increase scores, not decrease them.
 """
 
 import re
+from typing import Optional
 from intelligence.models import ClassifiedEvent, IntelligenceItem
 from intelligence.classification.deduplicator import compute_hash
 
@@ -168,6 +169,18 @@ _CATEGORY_RELEVANCE = {
 }
 
 
+_CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
+
+
+def extract_cves(title: str, summary: Optional[str]) -> list[str]:
+    """Real CVE IDs found in title/summary text, deduped, uppercased.
+    Cheap regex extraction — no NVD/CISA KEV cross-referencing (that would
+    determine mitigation_available/known_exploit_public, a separate,
+    heavier follow-up requiring an external API integration)."""
+    text = f"{title} {summary or ''}"
+    return sorted({m.upper() for m in _CVE_PATTERN.findall(text)})
+
+
 def classify(item: IntelligenceItem) -> ClassifiedEvent:
     """
     Classify a single IntelligenceItem.
@@ -279,6 +292,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
     )
 
     dedup_hash = compute_hash(item)
+    affected_cves = extract_cves(item.raw_title, item.raw_summary)
 
     return ClassifiedEvent(
         event_id=str(__import__("uuid").uuid4()),
@@ -302,6 +316,7 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
         cps230_relevance=cps230_relevance,
         dependency_risk=dependency_risk,
         confidence=confidence,
+        affected_cves=affected_cves,
     )
 
 

@@ -250,6 +250,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
         "dedup_hash": event.dedup_hash,
         "suppressed": event.suppressed,
         "suppression_reason": event.suppression_reason,
+        "affected_cves": event.affected_cves or None,
     }
     if ori:
         bd = ori.get("brief_date")
