@@ -5,6 +5,12 @@
 // this workbench has zero import dependency on comms-workbench/_components/
 // (per the design-system barrel rule: never reach into a sibling workbench's
 // _components/).
+//
+// 2026-08 visual redesign (agency-tool pass, Content Workbench only — see
+// ContentBoard.tsx/CaptureBox.tsx): STAGE_ACCENT below is the one new piece
+// of shared state it needed — a maturity-gradient palette (neutral -> sage
+// -> amber -> green) reusing only existing wb-* tokens, no new Tailwind
+// config. No other workbench reads this file, so this stays scoped.
 
 import type { BadgeStatus } from '@/components/ui';
 
@@ -21,7 +27,22 @@ export const STAGE_HINT: Record<Stage, string> = {
   capture: 'Needs a research brief before a draft can be generated.',
   research: 'Briefed — ready to generate a draft.',
   content_prep: 'Drafting and editing. Submit for review when ready.',
-  proofing: 'QA checklist + sign-off. Advancing past Approved happens in the Communications Workbench.',
+  proofing: 'QA checklist, sign-off, and publish submission — the Captain still approves the final publish in Decide.',
+};
+
+/**
+ * Maturity-gradient accent per stage — neutral (just captured) through sage
+ * (briefed) and amber (in progress) to green (proofed/ready). Used for the
+ * column top-bar, the card's left rail, and the pipeline overview strip.
+ * Deliberately reuses only existing wb-* tokens (ok/warn/sage/line) — the
+ * same hues STATUS_BADGE already uses over in comms-workbench/shared.ts —
+ * so this reads as "the same app," not a new brand.
+ */
+export const STAGE_ACCENT: Record<Stage, { icon: string; bar: string; chip: string; header: string; ring: string }> = {
+  capture: { icon: '✉', bar: 'bg-wb-ink2/50', chip: 'bg-wb-line text-wb-ink2', header: 'bg-wb-ink2/5', ring: 'border-wb-ink2/30' },
+  research: { icon: '◎', bar: 'bg-wb-sage', chip: 'bg-wb-sage/15 text-wb-sage-deep', header: 'bg-wb-sage/8', ring: 'border-wb-sage/40' },
+  content_prep: { icon: '✎', bar: 'bg-wb-warn', chip: 'bg-wb-warn/15 text-wb-warn-on', header: 'bg-wb-warn/8', ring: 'border-wb-warn/40' },
+  proofing: { icon: '✓', bar: 'bg-wb-ok', chip: 'bg-wb-ok/15 text-wb-ok-on', header: 'bg-wb-ok/8', ring: 'border-wb-ok/40' },
 };
 
 export const PILLAR_LABEL: Record<string, string> = {
@@ -39,7 +60,7 @@ export interface ContentItem {
   id: string;
   title: string;
   pillar: string | null;
-  status: 'opportunity' | 'draft' | 'review' | 'approved';
+  status: 'opportunity' | 'draft' | 'review' | 'approved' | 'ready_to_publish';
   stage: Stage;
   source_kind: string | null;
   source_ref: string | null;
