@@ -40,6 +40,11 @@ const TILES: Tile[] = [
     description: 'Signals to opportunities, pipeline, and portfolio for comms content.',
   },
   {
+    href: '/content-workbench',
+    title: 'Content Workbench',
+    description: 'Capture, research, draft, and proof comms content end-to-end - a QA-gated pipeline that hands off to the Communications Workbench for publishing.',
+  },
+  {
     href: '/mission-workbench',
     title: 'Mission Workbench',
     description: 'Mission Registry - capacity-aware filtering, governed approve/reject, status updates. Live from the missions table.',
