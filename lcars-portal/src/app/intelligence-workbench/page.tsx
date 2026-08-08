@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
-type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
+type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
 type Payload = { domain: Domain; [key: string]: any };
 
@@ -12,6 +12,7 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'intelligence-summary', label: 'Intelligence Summary' },
   { key: 'source-network', label: 'Source Trust Network' },
   { key: 'threat-assessment', label: 'Threat Assessment' },
+  { key: 'credibility', label: 'Signal Credibility' },
 ];
 
 export default function OSINTWorkbench() {
@@ -27,6 +28,7 @@ export default function OSINTWorkbench() {
       'intelligence-summary': '/api/intelligence-workbench/intelligence-summary',
       'source-network': '/api/intelligence-workbench/source-network',
       'threat-assessment': '/api/intelligence-workbench/threat-assessment',
+      'credibility': '/api/intelligence-workbench/credibility',
     };
     return fetch(endpoints[domain])
       .then(async (r) => {
@@ -177,6 +179,42 @@ export default function OSINTWorkbench() {
               </div>
             </Card>
           )}
+        </div>
+      )}
+
+      {domain === 'credibility' && data && (
+        <div className="space-y-6">
+          <Card title="Latest Published Brief">
+            {data.brief?.brief_id ? (
+              <div className="text-[12px] text-wb-ink2 space-y-1">
+                <div>Overall risk: <span className="font-semibold text-wb-ink">{data.brief.overall_risk ?? 'unknown'}</span></div>
+                <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
+                {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
+              </div>
+            ) : (
+              <p className="text-[12px] text-wb-ink2">No published brief in this window.</p>
+            )}
+          </Card>
+          <Card title="Brief Composition by Source Tier">
+            <div className="text-[12px] text-wb-ink2 space-y-1">
+              <div>TIER_1: {data.brief?.tier_counts?.TIER_1 ?? 0} ({data.brief?.composition?.tier1_pct ?? 0}%)</div>
+              <div>TIER_2: {data.brief?.tier_counts?.TIER_2 ?? 0} ({data.brief?.composition?.tier2_pct ?? 0}%)</div>
+              <div>TIER_3: {data.brief?.tier_counts?.TIER_3 ?? 0} ({data.brief?.composition?.tier3_pct ?? 0}%)</div>
+              <div>TIER_4: {data.brief?.tier_counts?.TIER_4 ?? 0} ({data.brief?.composition?.tier4_pct ?? 0}%)</div>
+              <div className="mt-1 font-semibold text-wb-ink">Total signals: {data.brief?.total_signals ?? 0}</div>
+            </div>
+          </Card>
+          <Card title="High-Confidence Signals">
+            <div className="space-y-2">
+              {data.signals?.slice(0, 10).map((s: any) => (
+                <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                  <div className="font-semibold text-wb-ink">{s.raw_title}</div>
+                  <div>{s.source.source_name} ({s.source.tier}, srs={s.source.srs}) • {s.confidence_level} confidence • {s.corroboration} corroborating • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
+                </div>
+              ))}
+              {!data.signals?.length && <p>No signals ≥60% confidence in this window.</p>}
+            </div>
+          </Card>
         </div>
       )}
     </WorkbenchShell>
