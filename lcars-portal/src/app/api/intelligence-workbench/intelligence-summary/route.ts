@@ -6,7 +6,7 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
 
   let query = sb
     .from('intelligence_events')
-    .select('event_id, raw_title, risk_rating, rank_score, collected_at, source_id, osint_confidence_level, intelligence_source_registry(source_name, reliability_tier, reliability_score)')
+    .select('event_id, raw_title, raw_summary, canonical_url, sector, risk_rating, published_at, criticality_score, rank_score, collected_at, source_id, osint_confidence_level, intelligence_source_registry(source_name, reliability_tier, reliability_score)')
     .gte('collected_at', since)
     // Top-N rather than an absolute rank_score cutoff — see threat-assessment/
     // route.ts for why: the corrected SRS scoring means today's realistic
@@ -25,6 +25,12 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
   const signalList: any[] = (signals ?? []).map((s: any) => ({
     event_id: s.event_id,
     raw_title: s.raw_title,
+    summary: s.raw_summary ? s.raw_summary.slice(0, 220) : null,
+    canonical_url: s.canonical_url,
+    sector: s.sector,
+    risk_rating: s.risk_rating,
+    published_at: s.published_at,
+    criticality_score: s.criticality_score,
     confidence_level: (s.osint_confidence_level || 'UNKNOWN').toLowerCase(),
     source_name: s.intelligence_source_registry?.source_name || 'Unknown',
     rank_score: s.rank_score,

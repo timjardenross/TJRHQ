@@ -44,6 +44,26 @@ export default function OSINTWorkbench() {
 
   useEffect(() => { load(true); }, [load]);
 
+  const renderSignal = (s: any) => (
+    <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+      {s.canonical_url ? (
+        <a href={s.canonical_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+          {s.raw_title}
+        </a>
+      ) : (
+        <div className="font-semibold text-wb-ink">{s.raw_title}</div>
+      )}
+      <div>
+        {s.source_name}
+        {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+        {s.risk_rating && <> • Risk: {s.risk_rating}</>}
+        {s.sector && <> • {s.sector.replace(/_/g, ' ')}</>}
+        {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
+      </div>
+      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+    </div>
+  );
+
   return (
     <WorkbenchShell
       title="OSINT Intelligence Workbench"
@@ -78,38 +98,17 @@ export default function OSINTWorkbench() {
         <div className="space-y-4">
           {data.high?.length > 0 && (
             <Card title="🟢 HIGH CONFIDENCE">
-              <div className="space-y-2">
-                {data.high.slice(0, 15).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.high.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
             <Card title="🟡 MEDIUM CONFIDENCE">
-              <div className="space-y-2">
-                {data.medium.slice(0, 15).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.medium.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
             <Card title="🔴 LOW CONFIDENCE">
-              <div className="space-y-2">
-                {data.low.slice(0, 8).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.low.slice(0, 8).map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
