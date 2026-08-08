@@ -5,6 +5,7 @@
 // only the skin is re-expressed in the wb- design system.
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
 import type { ActionResult } from '@/lib/ai-actions';
 import { describeProposalOutcome } from '@/lib/actionProposalCopy';
@@ -108,7 +109,7 @@ export function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
           {p.success && (
             <>
               {' '}
-              <a href="/decide" className="font-normal underline hover:text-wb-sage-deep">Open Decide →</a>
+              <Link href="/decisions" className="font-normal underline hover:text-wb-sage-deep">Open Decide →</Link>
             </>
           )}
         </div>
