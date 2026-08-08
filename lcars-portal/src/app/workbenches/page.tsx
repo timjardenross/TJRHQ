@@ -42,7 +42,7 @@ const TILES: Tile[] = [
   {
     href: '/content-workbench',
     title: 'Content Workbench',
-    description: 'Capture, research, draft, and proof comms content end-to-end - a QA-gated pipeline that hands off to the Communications Workbench for publishing.',
+    description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end - one QA-gated pipeline, Captain approval still required in Decide.',
   },
   {
     href: '/mission-workbench',

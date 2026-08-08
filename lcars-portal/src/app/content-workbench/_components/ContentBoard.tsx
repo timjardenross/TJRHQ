@@ -3,14 +3,22 @@
 // The Content Workbench board (COMMS-002) — one card per comms_content
 // opportunity, moving left to right through Capture -> Research ->
 // Content Prep -> Proofing. Status transitions (draft->review, review->
-// approved) are made through the single canonical
-// POST /api/comms/[id]/advance — unchanged, unforked, same route
-// comms-workbench's own Pipeline tab uses. This board never writes
-// comms_content.status itself for anything except reading it back.
+// approved, approved->ready_to_publish, ready_to_publish->published) are
+// all made through the single canonical POST /api/comms/[id]/advance —
+// unchanged, unforked, same route comms-workbench's own Pipeline tab uses.
+// This board never writes comms_content.status itself for anything except
+// reading it back.
 //
-// Deliberately stops at 'approved'. ready_to_publish/published/archived are
-// excluded server-side (see GET /api/content-workbench) — publishing is the
-// Communications Workbench Pipeline tab's job, not this one's.
+// Proofing now carries the flow through to publish submission: 'approved'
+// and 'ready_to_publish' both render inside the Proofing column (see
+// GET /api/content-workbench's stageOf()), each surfacing the next
+// governed action. mark_published never flips status directly — it queues
+// a publish_content proposal that only becomes real once the Captain
+// approves it in Decide (see the advance route's own comment). This
+// workbench now carries content all the way to "submitted for publish
+// approval" without a detour through the Communications Workbench — the
+// Captain still makes the final call, same as always. 'published' items
+// still live in comms-workbench's Portfolio tab, not this active board.
 
 import { useEffect, useState } from 'react';
 import { Badge, Button, Textarea, Select } from '@/components/ui';
@@ -279,6 +287,8 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState('');
   const [qaStatus, setQaStatus] = useState(item.qa_status);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishMsg, setPublishMsg] = useState('');
 
   async function saveQa() {
     setSaving(true);
@@ -320,11 +330,65 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
     }
   }
 
+  async function confirmReady() {
+    setPublishBusy(true);
+    setPublishMsg('');
+    try {
+      const res = await fetch(`/api/comms/${item.id}/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger: 'captain_confirmed' }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      onChanged();
+    } catch (e) {
+      setPublishMsg(e instanceof Error ? e.message : 'Error confirming');
+    } finally {
+      setPublishBusy(false);
+    }
+  }
+
+  async function submitForPublish() {
+    setPublishBusy(true);
+    setPublishMsg('');
+    try {
+      const res = await fetch(`/api/comms/${item.id}/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger: 'mark_published' }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setPublishMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : '✓ Published');
+      onChanged();
+    } catch (e) {
+      setPublishMsg(e instanceof Error ? e.message : 'Error submitting');
+    } finally {
+      setPublishBusy(false);
+    }
+  }
+
   if (item.status === 'approved') {
     return (
       <div className="space-y-1.5 text-[12px]">
         <p className="text-wb-ok-on">✓ Approved{item.reviewed_by ? ` by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}.</p>
-        <p className="text-wb-ink2">Ready to publish — advance it from the Communications Workbench Pipeline tab. Publishing stays out of this workbench.</p>
+        <Button size="sm" onClick={confirmReady} disabled={publishBusy}>
+          {publishBusy ? 'Confirming…' : 'Confirm Ready to Publish →'}
+        </Button>
+        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
+      </div>
+    );
+  }
+
+  if (item.status === 'ready_to_publish') {
+    return (
+      <div className="space-y-1.5 text-[12px]">
+        <p className="text-wb-ok-on">✓ Ready to publish.</p>
+        <Button size="sm" onClick={submitForPublish} disabled={publishBusy}>
+          {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
+        </Button>
+        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>
     );
   }
