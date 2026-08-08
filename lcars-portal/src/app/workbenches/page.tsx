@@ -40,15 +40,13 @@ const TILES: Tile[] = [
   // day-to-day surface. The route itself (/comms-workbench) is untouched
   // and still reachable directly — its Portfolio tab (published items) has
   // no equivalent here yet, so nothing there was deleted, just unlisted.
+  //
+  // Mission Workbench was delisted the same day, same reasoning — the
+  // route (/mission-workbench) is untouched, just unlisted.
   {
     href: '/content-workbench',
     title: 'Content Workbench',
     description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end - one QA-gated pipeline, Captain approval still required in Decide.',
-  },
-  {
-    href: '/mission-workbench',
-    title: 'Mission Workbench',
-    description: 'Mission Registry - capacity-aware filtering, governed approve/reject, status updates. Live from the missions table.',
   },
   {
     href: '/human-systems-workbench',
