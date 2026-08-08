@@ -9,16 +9,15 @@
 // This board never writes comms_content.status itself for anything except
 // reading it back.
 //
-// Proofing now carries the flow through to publish submission: 'approved'
-// and 'ready_to_publish' both render inside the Proofing column (see
-// GET /api/content-workbench's stageOf()), each surfacing the next
-// governed action. mark_published never flips status directly — it queues
-// a publish_content proposal that only becomes real once the Captain
-// approves it in Decide (see the advance route's own comment). This
-// workbench now carries content all the way to "submitted for publish
-// approval" without a detour through the Communications Workbench — the
-// Captain still makes the final call, same as always. 'published' items
-// still live in comms-workbench's Portfolio tab, not this active board.
+// Proofing now carries the flow through to actual publish: 'approved' and
+// 'ready_to_publish' both render inside the Proofing column (see
+// GET /api/content-workbench's stageOf()) behind a single "Publish"
+// button (ProofingStageBody's publish()) — the Captain is the one
+// clicking Approve, QA, and Publish in this same modal already, so
+// there's no second party for an extra confirmation step to gate
+// against (see the advance route's own comment for why the earlier
+// two-click propose/approve version of this got reverted). 'published'
+// items show up in this workbench's own Portfolio tab.
 //
 // 2026-08 visual redesign (Content Workbench only, per user request — see
 // STAGE_ACCENT in shared.ts): every function/handler below is unchanged
@@ -453,46 +452,45 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
     }
   }
 
-  async function confirmReady() {
+  // Publishing used to be two separate Captain clicks (captain_confirmed
+  // then mark_published) because mark_published briefly queued a Decide
+  // approval on top of this same click. That gate never had a page behind
+  // it, so it just stalled every item at ready_to_publish forever — see
+  // api/comms/[id]/advance/route.ts's header comment. mark_published is a
+  // direct flip again now, so this collapses to one button: from
+  // 'approved' it fires captain_confirmed then mark_published back to
+  // back; from 'ready_to_publish' (an item that reached that state under
+  // the old two-step flow, pre-fix) it only needs the second call.
+  async function publish() {
     setPublishBusy(true);
     setPublishMsg('');
     try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'captain_confirmed' }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      onChanged();
-    } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error confirming');
-    } finally {
-      setPublishBusy(false);
-    }
-  }
-
-  async function submitForPublish() {
-    setPublishBusy(true);
-    setPublishMsg('');
-    try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
+      if (item.status === 'approved') {
+        const r1 = await fetch(`/api/comms/${item.id}/advance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trigger: 'captain_confirmed' }),
+        });
+        const d1 = await r1.json();
+        if (!r1.ok) throw new Error(d1.error);
+      }
+      const r2 = await fetch(`/api/comms/${item.id}/advance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger: 'mark_published' }),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      setPublishMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : '✓ Published');
+      const d2 = await r2.json();
+      if (!r2.ok) throw new Error(d2.error);
+      setPublishMsg('✓ Published');
       onChanged();
     } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error submitting');
+      setPublishMsg(e instanceof Error ? e.message : 'Error publishing');
     } finally {
       setPublishBusy(false);
     }
   }
 
-  if (item.status === 'approved') {
+  if (item.status === 'approved' || item.status === 'ready_to_publish') {
     return (
       <div className="space-y-2 text-[13.5px]">
         <p className="flex flex-wrap items-center gap-1.5 text-wb-ok-on">
@@ -501,20 +499,8 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
             {item.reviewed_by ? `by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}
           </span>
         </p>
-        <Button size="sm" onClick={confirmReady} disabled={publishBusy} className="w-full">
-          {publishBusy ? 'Confirming…' : 'Confirm Ready to Publish →'}
-        </Button>
-        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
-      </div>
-    );
-  }
-
-  if (item.status === 'ready_to_publish') {
-    return (
-      <div className="space-y-2 text-[13.5px]">
-        <p><span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold text-wb-ok-on">✓ Ready to publish</span></p>
-        <Button size="sm" onClick={submitForPublish} disabled={publishBusy} className="w-full">
-          {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
+        <Button size="sm" onClick={publish} disabled={publishBusy} className="w-full">
+          {publishBusy ? 'Publishing…' : 'Publish →'}
         </Button>
         {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>

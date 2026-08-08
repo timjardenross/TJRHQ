@@ -127,12 +127,17 @@ async function fetchDecideEngineeringItems(): Promise<DecideItem[]> {
     const data = await fetchEngineeringQueue();
     const reviewable = data.items.filter((i) => i.lifecycle === 'awaiting_review' && i.source === 'build');
     return reviewable.map((i) => {
-      // MSN-0352: create_mission/log_decision perform a real, irreversible
-      // mutation on approval - same principle as mission approvals already
-      // applied here (undoAvailable: false, "there is no route back").
-      // create_handoff and plain build requests are unchanged: approval is
-      // just a status flip, so undo (restoring priorStatus) is still safe.
-      const isIrreversibleProposal = i.actionType === 'create_mission' || i.actionType === 'log_decision';
+      // MSN-0352: create_mission/log_decision/publish_content each perform a
+      // real, irreversible mutation on approval (a mission row, a decision
+      // row, a comms_content publish) - same principle as mission approvals
+      // already applied here (undoAvailable: false, "there is no route
+      // back"). undoDecideItem only ever restores build_request_inbox's own
+      // priorStatus, never the mutation these route to, so offering undo
+      // here would silently fail to reverse the real effect. create_handoff
+      // and plain build requests are unchanged: approval is just a status
+      // flip, so undo (restoring priorStatus) is still safe.
+      const isIrreversibleProposal =
+        i.actionType === 'create_mission' || i.actionType === 'log_decision' || i.actionType === 'publish_content';
       return {
         id: `eng:${i.id}`,
         source: 'engineering' as const,
@@ -205,7 +210,7 @@ export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean
     } catch (e) {
       result = { ok: false, error: String(e) };
     }
-  } else if (item.actionType === 'create_mission' || item.actionType === 'log_decision') {
+  } else if (item.actionType === 'create_mission' || item.actionType === 'log_decision' || item.actionType === 'publish_content') {
     // MSN-0352: the real mutation only happens here, on explicit Captain
     // approval of this exact item - never before, never automatically.
     try {
