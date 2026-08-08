@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Content Workbench (COMMS-002) — Capture -> Research -> Content Prep -> Proofing.
+ * Content Workbench (COMMS-002) — Capture -> Research -> Content Prep -> Proofing -> Portfolio.
  *
  * A new, standalone workbench, additive to the existing Communications
  * Workbench and Capture Workbench (neither of those is modified by this
@@ -11,20 +11,38 @@
  * transition it makes.
  *
  * Carries the flow end to end through publish submission: the Proofing
- * column now surfaces "Confirm Ready to Publish" and "Submit for Publish
+ * column surfaces "Confirm Ready to Publish" and "Submit for Publish
  * Approval" (see ContentBoard.tsx's ProofingStageBody) instead of handing
  * off to the Communications Workbench. mark_published still only queues a
  * governed proposal — the Captain approves the actual publish in Decide,
  * same as always.
+ *
+ * 2026-08: Communications Workbench was delisted from /workbenches (see
+ * workbenches/page.tsx) in favour of this one. Its Portfolio tab (published
+ * items + export) had no equivalent here, so a Pipeline/Portfolio Tabs
+ * split was added — same shape as comms-workbench's own tab bar — reading
+ * PortfolioTab.tsx, a new but intentionally duplicated component (not an
+ * import from comms-workbench/_components, per the design-system barrel
+ * rule). Nothing on comms-workbench itself changed; its route still works,
+ * it's just not the only place to reach this content anymore.
  */
 
 import { useState } from 'react';
-import { WorkbenchShell } from '@/components/ui';
+import { Tabs, WorkbenchShell } from '@/components/ui';
 import { CaptureBox } from './_components/CaptureBox';
 import { ContentBoard } from './_components/ContentBoard';
+import { PortfolioTab } from './_components/PortfolioTab';
 import type { Stage } from './_components/shared';
 
+type Tab = 'pipeline' | 'portfolio';
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'pipeline', label: 'Pipeline' },
+  { key: 'portfolio', label: 'Portfolio' },
+];
+
 export default function ContentWorkbenchPage() {
+  const [tab, setTab] = useState<Tab>('pipeline');
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const refresh = () => setRefreshSignal((n) => n + 1);
@@ -38,7 +56,7 @@ export default function ContentWorkbenchPage() {
   return (
     <WorkbenchShell
       title="Content Workbench"
-      eyebrow="Capture → Research → Content Prep → Proofing"
+      eyebrow="Capture → Research → Content Prep → Proofing → Portfolio"
       homeHref="/content-workbench"
       homeAriaLabel="Content Workbench home"
       tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
@@ -46,8 +64,17 @@ export default function ContentWorkbenchPage() {
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
-      <CaptureBox onCaptured={refresh} />
-      <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+      <Tabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Content Workbench sections" />
+
+      <div className="mt-4">
+        {tab === 'pipeline' && (
+          <>
+            <CaptureBox onCaptured={refresh} />
+            <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+          </>
+        )}
+        {tab === 'portfolio' && <PortfolioTab />}
+      </div>
     </WorkbenchShell>
   );
 }

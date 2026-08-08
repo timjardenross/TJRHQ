@@ -98,3 +98,45 @@ export const QA_CHECKLIST_ITEMS: Array<{ key: 'accuracy' | 'brand_voice' | 'comp
   { key: 'compliance', label: 'No sensitive workplace, client, or health detail exposed' },
   { key: 'links_checked', label: 'Links (if any) resolve and match the claim' },
 ];
+
+// ── Portfolio export helpers — duplicated from comms-workbench/_components/
+// shared.ts on purpose (same rule as PILLAR_LABEL above: never import across
+// a sibling workbench's _components/). No domain field here — Content
+// Workbench doesn't surface the health/operational split comms-workbench
+// does, Portfolio here is just "everything published," full stop.
+
+export interface PublishedItem {
+  id: string;
+  title: string;
+  pillar: string | null;
+  body: string | null;
+  updated_at: string;
+}
+
+export function toMarkdown(item: PublishedItem) {
+  const lines = [`# ${item.title}`, ''];
+  if (item.body) lines.push(item.body, '');
+  lines.push('---', `**Pillar:** ${PILLAR_LABEL[item.pillar ?? ''] ?? item.pillar ?? '—'}`);
+  lines.push(`**Published:** ${item.updated_at.slice(0, 10)}`);
+  return lines.join('\n');
+}
+
+export function toPlainText(item: PublishedItem) {
+  const lines = [item.title, ''];
+  if (item.body) lines.push(item.body, '');
+  lines.push(`Pillar: ${PILLAR_LABEL[item.pillar ?? ''] ?? item.pillar ?? '—'}`);
+  lines.push(`Published: ${item.updated_at.slice(0, 10)}`);
+  return lines.join('\n');
+}
+
+export function download(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
