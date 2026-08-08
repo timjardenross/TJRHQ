@@ -27,7 +27,7 @@ export const STAGE_HINT: Record<Stage, string> = {
   capture: 'Needs a research brief before a draft can be generated.',
   research: 'Briefed — ready to generate a draft.',
   content_prep: 'Drafting and editing. Submit for review when ready.',
-  proofing: 'QA checklist, sign-off, and publish submission — the Captain still approves the final publish in Decide.',
+  proofing: 'QA checklist, sign-off, and publish.',
 };
 
 /**
