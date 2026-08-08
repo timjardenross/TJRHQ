@@ -10,10 +10,12 @@
  * and the same canonical POST /api/comms/[id]/advance for every status
  * transition it makes.
  *
- * Scope boundary, deliberate: this board stops at 'approved'. Publishing
- * (ready_to_publish -> published) is the Communications Workbench Pipeline
- * tab's job — see ContentBoard.tsx and the Proofing stage's approved-state
- * copy.
+ * Carries the flow end to end through publish submission: the Proofing
+ * column now surfaces "Confirm Ready to Publish" and "Submit for Publish
+ * Approval" (see ContentBoard.tsx's ProofingStageBody) instead of handing
+ * off to the Communications Workbench. mark_published still only queues a
+ * governed proposal — the Captain approves the actual publish in Decide,
+ * same as always.
  */
 
 import { useState } from 'react';
@@ -39,7 +41,7 @@ export default function ContentWorkbenchPage() {
       eyebrow="Capture → Research → Content Prep → Proofing"
       homeHref="/content-workbench"
       homeAriaLabel="Content Workbench home"
-      tagline="USS TJR · Content Workbench · Ends at Approved — publishing lives in the Communications Workbench"
+      tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
