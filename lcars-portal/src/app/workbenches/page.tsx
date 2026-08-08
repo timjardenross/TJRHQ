@@ -58,16 +58,9 @@ const TILES: Tile[] = [
     title: 'Advisory Workbench',
     description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
   },
-  {
-    href: '/capture-workbench',
-    title: 'Capture Workbench',
-    description: 'Capture anything in one box, then triage the inbox - classify, route, and promote, review-first. Live from every capture channel.',
-  },
-  {
-    href: '/knowledge-workbench',
-    title: 'Knowledge Workbench',
-    description: 'Access organisational decisions, lessons, architecture, and review personal documents for approval into Command Memory.',
-  },
+  // Capture Workbench and Knowledge Workbench delisted 2026-08 per explicit
+  // decision — routes (/capture-workbench, /knowledge-workbench) untouched,
+  // still reachable directly, just unlisted here.
 ];
 
 export default function Workbenches() {
