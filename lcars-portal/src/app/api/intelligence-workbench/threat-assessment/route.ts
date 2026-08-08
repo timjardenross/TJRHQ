@@ -32,7 +32,7 @@ async function getThreatAssessment(sb: any) {
 
   const threats = (signals ?? []).map((s: any) => {
     const tier = s.intelligence_source_registry?.reliability_tier || 'TIER_4';
-    const probMap = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
+    const probMap: Record<string, string> = { HIGH: 'high', MEDIUM: 'medium', LOW: 'low' };
     const probability = probMap[s.risk_rating as keyof typeof probMap] || 'medium';
     const impact = s.banking_relevance ? 'critical' : 'high';
 
