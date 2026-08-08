@@ -38,15 +38,16 @@ const TILES: Tile[] = [
   // home list 2026-08 per explicit decision — Content Workbench now covers
   // capture through publish-submission end to end, superseding it as the
   // day-to-day surface. The route itself (/comms-workbench) is untouched
-  // and still reachable directly — its Portfolio tab (published items) has
-  // no equivalent here yet, so nothing there was deleted, just unlisted.
+  // and still reachable directly, but nothing there is orphaned: Content
+  // Workbench gained its own Portfolio tab (content-workbench/_components/
+  // PortfolioTab.tsx) reading the same published comms_content rows.
   //
   // Mission Workbench was delisted the same day, same reasoning — the
   // route (/mission-workbench) is untouched, just unlisted.
   {
     href: '/content-workbench',
     title: 'Content Workbench',
-    description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end - one QA-gated pipeline, Captain approval still required in Decide.',
+    description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end, plus a Portfolio of everything published - one QA-gated pipeline, Captain approval still required in Decide.',
   },
   {
     href: '/human-systems-workbench',
