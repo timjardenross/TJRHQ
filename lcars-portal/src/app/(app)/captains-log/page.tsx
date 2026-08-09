@@ -115,6 +115,11 @@ export default function CaptainsLogPage() {
       setError(dbError.message);
     } else {
       setSaved(true);
+      // Heartbeat side-channel — domain_heartbeats' RLS is service_role-only,
+      // so the browser client above can't record it directly (see
+      // /api/captains-log/heartbeat). Best effort: never blocks the save
+      // UX and never surfaces a heartbeat failure to the Captain.
+      fetch('/api/captains-log/heartbeat', { method: 'POST' }).catch(() => {});
       setTimeout(() => router.push('/workbenches'), 1500);
     }
   }
