@@ -2210,6 +2210,14 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "raw_text": content,
             "processing_status": "pending",
         }).execute()
+        # Chief Engineer 2026-08-09 EOD alert verification: 'captured_items'
+        # had zero record_heartbeat() call sites anywhere in the repo.
+        # Non-blocking.
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat("captured_items", status="ok", detail="voice_type=text_note")
+        except Exception:
+            pass
         await update.message.reply_text(
             f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
             parse_mode="HTML",

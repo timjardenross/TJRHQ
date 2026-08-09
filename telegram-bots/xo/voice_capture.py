@@ -193,6 +193,14 @@ def save_capture(
     result = supabase.table("captured_items").insert(row).execute()
     if not result.data:
         raise RuntimeError("Supabase insert returned no data for captured_items")
+    # Chief Engineer 2026-08-09 EOD alert verification: 'captured_items' had
+    # zero record_heartbeat() call sites anywhere despite this being a live,
+    # regularly-used Telegram capture surface. Non-blocking.
+    try:
+        from core.platform.heartbeat import record_heartbeat
+        record_heartbeat("captured_items", status="ok", detail=f"voice_type={voice_type}")
+    except Exception:
+        pass
     return result.data[0]
 
 
