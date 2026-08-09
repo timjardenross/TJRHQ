@@ -27,12 +27,18 @@ const fromMock = vi.fn(() => ({
   select: () => makeSelectChain(),
 }));
 
+const recordHeartbeatServerSideMock = vi.fn().mockResolvedValue({ ok: true });
+
 vi.mock('@/lib/supabase-server', () => ({
   requireSession: () => requireSessionMock(),
 }));
 
 vi.mock('@/lib/ai-actions', () => ({
   supabaseAdmin: () => ({ from: fromMock }),
+}));
+
+vi.mock('@/lib/heartbeat', () => ({
+  recordHeartbeatServerSide: (...args: unknown[]) => recordHeartbeatServerSideMock(...args),
 }));
 
 import { POST, GET } from '../route';
@@ -52,6 +58,7 @@ describe('POST /api/advisory-sessions', () => {
   beforeEach(() => {
     requireSessionMock.mockReset();
     insertMock.mockClear();
+    recordHeartbeatServerSideMock.mockClear();
   });
 
   it('rejects with 401 when there is no session', async () => {
@@ -59,12 +66,14 @@ describe('POST /api/advisory-sessions', () => {
     const res = await POST(makePostRequest({ mode: 'consult', question: 'q', response: 'r' }));
     expect(res.status).toBe(401);
     expect(insertMock).not.toHaveBeenCalled();
+    expect(recordHeartbeatServerSideMock).not.toHaveBeenCalled();
   });
 
   it('rejects consult mode with 400 when response is missing', async () => {
     requireSessionMock.mockResolvedValue({ user: { email: 'captain@example.com' } });
     const res = await POST(makePostRequest({ mode: 'consult', question: 'q' }));
     expect(res.status).toBe(400);
+    expect(recordHeartbeatServerSideMock).not.toHaveBeenCalled();
   });
 
   it('saves a consult message when authenticated', async () => {
@@ -74,6 +83,23 @@ describe('POST /api/advisory-sessions', () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
     expect(json.id).toBe('sess-1');
+  });
+
+  it('records a heartbeat only after a successful insert', async () => {
+    requireSessionMock.mockResolvedValue({ user: { email: 'captain@example.com' } });
+    await POST(makePostRequest({ mode: 'consult', question: 'q', response: 'r' }));
+    expect(recordHeartbeatServerSideMock).toHaveBeenCalledTimes(1);
+    expect(recordHeartbeatServerSideMock).toHaveBeenCalledWith(
+      expect.objectContaining({ domainKey: 'advisory_sessions' }),
+    );
+  });
+
+  it('does not record a heartbeat when the insert fails', async () => {
+    requireSessionMock.mockResolvedValue({ user: { email: 'captain@example.com' } });
+    insertSingleMock.mockResolvedValueOnce({ data: null, error: { message: 'db exploded' } });
+    const res = await POST(makePostRequest({ mode: 'consult', question: 'q', response: 'r' }));
+    expect(res.status).toBe(500);
+    expect(recordHeartbeatServerSideMock).not.toHaveBeenCalled();
   });
 });
 
