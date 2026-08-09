@@ -75,6 +75,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("xo-bot")
 
+# httpx logs every request at INFO, including the full URL - which for
+# python-telegram-bot's polling/send calls means the bot token in plaintext
+# on every log line. WARNING still surfaces real failures, just not the URL.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
@@ -100,10 +105,12 @@ from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
+    ApplicationHandlerStop,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -2270,11 +2277,24 @@ async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log.exception("[unhandled] %s", context.error)
 
 
+async def _global_auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Runs before every other handler (group -1). Per-handler `_chat_is_allowed`
+    checks only existed on 10 of ~36 handlers - this closes that gap platform-wide
+    in one place instead of auditing every handler individually. Silent drop
+    (no reply) on an unauthorized chat, matching the existing gated handlers'
+    behavior - doesn't confirm the bot's existence/command surface to a stranger."""
+    chat = update.effective_chat
+    if chat is None or not _chat_is_allowed(chat.id, TELEGRAM_CHAT_ID):
+        raise ApplicationHandlerStop
+
+
 def main() -> None:
     log.info("XO Bot starting")
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(_post_init).build()
     app.add_error_handler(_on_error)
+
+    app.add_handler(TypeHandler(Update, _global_auth_gate), group=-1)
 
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
