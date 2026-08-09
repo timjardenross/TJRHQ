@@ -359,6 +359,17 @@ def _relative_age(timestamp: Optional[str]) -> str:
     return f"{weeks} week{'s' if weeks != 1 else ''} old"
 
 
+def _truncate_clean(text: str, limit: int) -> str:
+    """Truncate at a word boundary with an ellipsis, never mid-word - a bare
+    text[:limit] slice was cutting narratives off mid-sentence (sometimes
+    mid-word), and since the action-line the infra-narrative prompt now
+    requires comes last, that was consistently the part getting eaten."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return cut + "…"
+
+
 def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = None) -> list[str]:
     """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
     was copy-pasted verbatim between generate_morning_brief() and
@@ -368,7 +379,7 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     morning)" instead of silently re-rendering the identical warning."""
     if not infra or infra.get("state") != "unsure":
         return []
-    narrative = infra["narrative"][:400]
+    narrative = _truncate_clean(infra["narrative"], 700)
     unchanged = bool(morning_text) and narrative in morning_text
     suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
     return [
