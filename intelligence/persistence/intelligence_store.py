@@ -162,6 +162,92 @@ def _has_outage_language(event: RankedEvent) -> bool:
     return any(kw in text for kw in _OUTAGE_LANGUAGE_KEYWORDS)
 
 
+# 2026-08-10 fix (per .claude/skills/bot-reviews/fixes-2026-08-09/
+# outage-scale-detection-proposal.md, Recommendation 1): customer_impact is a
+# pure dramatic-adjective keyword match in classifier.py ("critical",
+# "significant", "major", "widespread" etc.), not a scale/breadth signal --
+# it fires identically on standard vendor status-page incident-report
+# boilerplate as it does on a genuine nationwide outage. Confirmed against a
+# live 30-day sample: the exact push-eligible bucket (event_type +
+# customer_impact=high + confidence>=0.65 + _has_outage_language, i.e. every
+# other gate above already satisfied) was 62.5% (5 of 8) single-vendor
+# status-page blips -- GitHub "~39% of REST requests failed... in a single
+# region", Supabase one-region "stuck state," DigitalOcean "one AI model on
+# one product," Notion "one company's own customers" -- sitting alongside
+# genuinely nationwide events (3 independently-corroborated ABC News/
+# Guardian Australia stories on Telstra's nationwide mobile/triple-zero
+# outage). All 8 satisfied every existing gate equally -- none of them
+# distinguish blast radius.
+#
+# source_category/source_name (already on the RankedEvent this function
+# receives -- no new join, no new DB read) explain the split: independent
+# media coverage (source_category='media') is left as-is, unrestricted --
+# that's where the real should-trigger signal lives in the sample. Vendor
+# self-reports (source_category in cloud_technology/critical_infrastructure)
+# are gated behind a short "foundational infrastructure" allowlist --
+# hyperscalers and national carriers whose own outages are inherently
+# national/global in blast radius even self-reported. Every other vendor
+# status page in the registry (Notion, DocuSign, Canva, Zoom, Adobe, Miro,
+# Twilio, Okta, ServiceNow, Salesforce, Slack, Atlassian, DigitalOcean,
+# Vercel, Anthropic, OpenAI, GitHub, Oracle Cloud, etc.) is capped at "one
+# company's own customers" scale by construction and suppressed here
+# regardless of customer_impact wording, matching the Captain's own framing
+# ("one company's specific product had a blip"). GitHub deliberately left
+# off this allowlist -- a disclosed judgment call in the proposal doc: the
+# one GitHub incident in the sample was a single-region API degradation, not
+# internet-breaking; narrow-by-default unless redirected.
+#
+# Matched on substring-in-source_name (not an exact-string list) because the
+# registry carries multiple source rows per Tier-A vendor with different
+# exact names (e.g. "AWS Service Health", "AWS Service Health Dashboard",
+# "AWS Sydney (ap-southeast-2)"; "TPG Service Status", "TPG Telecom Service
+# Status") -- an exact-match list would silently miss registry variants.
+#
+# Known, disclosed residual gap (found during this fix's own verification,
+# not by the original proposal): this vendor-identity gate is coarse -- it
+# can't distinguish a Tier-A vendor's genuinely broad self-report from a
+# narrow one on the same vendor's status page. Live data shows this is a
+# real, recurring pattern, not hypothetical: a Google Cloud VMware Engine
+# (GCVE) incident -- a niche enterprise product, explicitly named as one of
+# the 5 false positives in the proposal's own evidence table -- still passes
+# this gate because "Google Cloud" the vendor is Tier-A; likewise a
+# single-availability-zone AWS power-outage self-report (ME-SOUTH-1) and
+# repeated single-region "Delhi/Chennai/Mumbai" Google Cloud latency
+# self-reports found in a 90-day spot check. This gate still closes 4 of the
+# 5 documented false positives cleanly (GitHub, Supabase, DigitalOcean,
+# Notion) and leaves all genuine Telstra media coverage untouched; the
+# residual Tier-A-vendor-narrow-incident case is the exact scenario
+# Recommendation 3's per-candidate LLM blast-radius check (not implemented
+# here, disclosed as a future fallback) would resolve. Flagged for Captain
+# visibility rather than silently expanding this fix's scope to build that
+# now.
+_FOUNDATIONAL_INFRA_VENDORS = (
+    "aws", "amazon web services",
+    "azure",
+    "google cloud",
+    "cloudflare",
+    "nbn",
+    "telstra",
+    "optus",
+    "tpg",
+)
+_VENDOR_SELF_REPORT_CATEGORIES = frozenset({"cloud_technology", "critical_infrastructure"})
+
+
+def _passes_vendor_tier_gate(event: RankedEvent) -> bool:
+    """True if this event is either independent media coverage (unrestricted
+    -- current bar unchanged) or a vendor self-report from a Tier-A
+    foundational-infrastructure vendor. Vendor self-reports from every other
+    source are capped at "one company's own customers" scale by construction
+    and excluded here regardless of customer_impact wording. See the dated
+    comment above _FOUNDATIONAL_INFRA_VENDORS for the live-data verification
+    (and disclosed residual gap) behind this gate."""
+    if event.source_category not in _VENDOR_SELF_REPORT_CATEGORIES:
+        return True
+    name = (event.source_name or "").lower()
+    return any(vendor in name for vendor in _FOUNDATIONAL_INFRA_VENDORS)
+
+
 def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
     """Push a Telegram alert for a newly-saved event that crosses the
     outage-severity threshold above.
@@ -197,6 +283,15 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
                 "threshold but title/summary has no genuine incident "
                 "language (event %s)",
                 event.event_type, event.customer_impact, event_id,
+            )
+            return
+        if not _passes_vendor_tier_gate(event):
+            log.info(
+                "[outage-alert] suppressed — %s/%s from vendor self-report "
+                "%s (%s) is not on the foundational-infrastructure "
+                "allowlist (event %s)",
+                event.event_type, event.customer_impact, event.source_name,
+                event.source_category, event_id,
             )
             return
 
