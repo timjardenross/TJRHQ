@@ -108,7 +108,12 @@ and exits 1 if any prefix's stored counter is behind its true max.
   - Correct counter (`{"MSN": 361}`) → no log emitted, no-op, minted
     `USS-TJR-MSN-0362` normally.
   - Counter ahead of true max (`{"MSN": 400}`) → left untouched, minted
-    `USS-TJR-MSN-0401` normally (never *lowers* a counter).
+    the next sequential number (400 + 1) normally — confirms the check
+    never *lowers* a counter. (Deliberately not spelling that hypothetical
+    ID out in canonical form here — see the note below on why a
+    synthetic-but-real-shaped ID string in a report is exactly the kind of
+    false signal this mechanism has to guard against, and almost fed
+    itself one while drafting this very report.)
 - Ran `next_id('MSN')` for real against the live `.id-counters.json`
   (stored at 361 going in, matching the real state after tonight's
   reconciliation): no drift detected (already correct), returned
@@ -134,6 +139,25 @@ and exits 1 if any prefix's stored counter is behind its true max.
 
 ## Notes / open items (not in scope for this fix)
 
+- **This report almost became the next false-positive itself.** The first
+  draft of the verification section above spelled out a synthetic test
+  result as a literal canonical-form ID string (prefix, hyphen, four
+  digits — deliberately not reproduced contiguously even here, for the
+  reason about to become obvious). Re-running
+  `tools/id_counter_drift_check.py` after committing caught it immediately
+  — the repo scan found that exact string in this report file and (since
+  MSN has a live table, `scan_table_max` correctly returned the real 362,
+  but `true_max_for_prefix` takes the *max* of both signals, and grep's
+  reading was numerically higher) reported real drift sourced to this very
+  file. Reworded the verification section below to describe that test's
+  outcome without spelling out a synthetic ID in canonical form, which
+  resolved it. Left as a live illustration, not scrubbed from history:
+  taking `max(grep, table)` rather than trusting the live table over prose
+  when both are present is a real, disclosed trade-off in this design
+  (protects against the table itself being wrong/incomplete, at the cost
+  of prose being able to push the number up) — worth knowing if a future
+  report ever needs to describe a hypothetical ID again: don't write it as
+  an unbroken `PREFIX-NNNN` string.
 - **`knowledge/SUOC-Platform-Registry.md` isn't tracked in this git repo.**
   It exists in two local backup directories (`/root/USSTJROS.backup-
   20260719/` and `/opt/starship-endeavour.USSTJROS-backup-20260719/`) but
