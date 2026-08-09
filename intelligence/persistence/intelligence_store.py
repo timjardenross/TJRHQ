@@ -214,15 +214,68 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
             f"confidence={float(event.confidence):.2f}\n"
             f"Ref: {ref}"
         )
-        notify(
+        result = notify(
             body,
             title=f"Outage — {event.event_type.replace('_', ' ')}: {event.raw_title}",
             severity=Severity.ALERT,
             template="alert",
             transport=Transport.TELEGRAM,
         )
+        _log_outage_alert_fired(event, event_id, result)
     except Exception as exc:
         log.warning("[outage-alert] push check failed for event %s: %s", event_id, exc)
+
+
+def _log_outage_alert_fired(event: RankedEvent, event_id: Optional[str], result) -> None:
+    """Durable record of this push firing (2026-08-10 fix, XO product review
+    of this feature's first night, finding #5): notification_service.notify()'s
+    only bookkeeping is an in-process `_CALL_LOG` list (core/platform/
+    notification_service.py) that doesn't survive a process restart and isn't
+    queryable -- there was no way to answer "how many outage alerts fired this
+    week, and did the sends actually succeed" without re-running this exact
+    intelligence_events filter by hand.
+
+    Reuses the existing generic audit_events table (migration 0054,
+    core/platform/audit_service.py) rather than adding a new table --
+    audit_service.py's own docstring names 'notification activity' as
+    exactly the kind of event this table exists for, and it's already the
+    established pattern for this exact call (record_audit_event) at three
+    other call sites in this codebase (intelligence/governance/
+    workflow_gate.py's log_mutation, core/coordination/
+    telegram_build_executor.py, platform-runtime/lib/comms/pipeline.py).
+
+    Best-effort and non-blocking, matching this module's own contract (see
+    _maybe_push_outage_alert's docstring) -- a failure here must never affect
+    the alert that already fired or the caller's own persistence result."""
+    try:
+        import sys
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.audit_service import record_audit_event
+
+        record_audit_event(
+            category="notification",
+            actor="outage-alert-service",
+            action="outage_alert_push",
+            outcome="sent" if result.ok else "failed",
+            details={
+                "event_id": event_id,
+                "event_title": event.raw_title,
+                "event_type": event.event_type,
+                "customer_impact": event.customer_impact,
+                "confidence": float(event.confidence) if event.confidence is not None else None,
+                "transport": result.transport.value,
+                "error": result.error,
+            },
+        )
+    except Exception as exc:
+        log.warning(
+            "[outage-alert] audit log write failed (non-blocking) for event %s: %s",
+            event_id, exc,
+        )
 
 
 def _get(path: str) -> list:

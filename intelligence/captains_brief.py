@@ -357,6 +357,22 @@ def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
     )
 
 
+def _get_weekly_outage_alerts(days: int = 7) -> list[dict]:
+    """Durable record of outage-push activity (2026-08-10 fix, XO product
+    review finding #5) -- audit_events rows written by intelligence_store.py's
+    _maybe_push_outage_alert() (see _log_outage_alert_fired there) whenever
+    the outage-severity gate fires and a Telegram push is attempted.
+    category='notification'/action='outage_alert_push' distinguishes these
+    from the 'mutation'/'approval' audit rows the same shared table already
+    carries (migration 0054, core/platform/audit_service.py)."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "audit_events",
+        f"category=eq.notification&action=eq.outage_alert_push&created_at=gte.{since}"
+        f"&order=created_at.desc&select=created_at,outcome,details",
+    )
+
+
 def _get_weekly_capacity(days: int = 7) -> dict:
     """captains_log_entries rows across the last `days` days (inclusive of
     today) — a real weekly trend, not the single-day snapshot the daily
@@ -709,6 +725,36 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
     return lines
 
 
+def _format_weekly_outage_alerts_block(alerts: list[dict]) -> list[str]:
+    """Weekly counterpart to the standalone real-time outage-push feature
+    (2026-08-10 fix, XO product review finding #5) -- surfaces "how many
+    outage alerts fired this week, and did they actually send" so the
+    Captain doesn't have to re-run the intelligence_events qualifying-event
+    filter by hand. Only rendered when at least one alert fired this week --
+    a quiet week produces no section, same "silence is a valid state"
+    convention as _format_infra_block."""
+    if not alerts:
+        return []
+    sent = sum(1 for a in alerts if a.get("outcome") == "sent")
+    failed = len(alerts) - sent
+    status_line = f"  {sent} sent"
+    if failed:
+        status_line += f"  ·  {failed} failed to send"
+    lines = [f"<b>🚨 OUTAGE ALERTS THIS WEEK ({len(alerts)})</b>", status_line]
+    for a in alerts[:5]:
+        details = a.get("details") or {}
+        title = details.get("event_title") or "—"
+        impact = details.get("customer_impact") or "?"
+        try:
+            conf = f"{float(details.get('confidence')):.2f}"
+        except (TypeError, ValueError):
+            conf = "?"
+        icon = "✅" if a.get("outcome") == "sent" else "❌"
+        lines.append(f"  {icon} {_truncate_clean(title, 90)}  [{impact} · conf {conf}]")
+    lines.append("")
+    return lines
+
+
 def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
     """captains_log_entries across the 7-day window — a real weekly
     Green/Amber/Red trend instead of a single day's snapshot.
@@ -988,7 +1034,15 @@ def generate_weekly_report() -> str:
     included (2026-08-10) — decision_records is stale/broken and was showing
     "No decisions logged this week" every week; removed until that pipeline
     is fixed separately, rather than keep showing a section that's always
-    empty."""
+    empty.
+
+    2026-08-10 fix (XO product review finding #5): adds an OUTAGE ALERTS
+    THIS WEEK section, sourced from the durable audit_events record the
+    standalone outage-push feature now writes (see
+    _get_weekly_outage_alerts / intelligence_store.py's
+    _log_outage_alert_fired) — closes the gap where that feature's activity
+    never appeared in any of the three regular briefs and had no queryable
+    history of its own."""
     now = _now_aest()
     week_start = (now - timedelta(days=6)).strftime("%d %b")
 
@@ -998,12 +1052,19 @@ def generate_weekly_report() -> str:
     health_summary = _generate_health_osint_summary(health_signals)
     content_items = _get_weekly_content_activity(days=7)
     capacity_entries = _get_weekly_capacity(days=7)
+    outage_alerts = _get_weekly_outage_alerts(days=7)
 
     lines = [
         "<b>📊 WEEKLY INTELLIGENCE REPORT</b>",
         f"<i>{week_start} – {now.strftime('%d %b %Y')}</i>",
         "",
     ]
+
+    # Leads the report — a fired outage push is the highest-severity single
+    # item any week can contain (it already interrupted the Captain in
+    # real-time); the weekly reference here is retrospective/audit, not the
+    # first notice, so it goes first, ahead of the OSINT roll-up.
+    lines += _format_weekly_outage_alerts_block(outage_alerts)
 
     lines += _format_weekly_osint_block(
         "TECH OSINT", "🛰", tech_signals, "osint_confidence_level", "raw_title",
