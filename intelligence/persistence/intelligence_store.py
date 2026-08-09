@@ -117,6 +117,50 @@ _OUTAGE_EVENT_TYPES = frozenset({"technology_outage", "telecom_outage"})
 _OUTAGE_CUSTOMER_IMPACT_FLOOR = "high"
 _OUTAGE_CONFIDENCE_FLOOR = 0.65
 
+# 2026-08-10 fix (XO product review of this feature's first week): the three
+# gates above alone let one real misclassification through — a political/
+# regulatory story ("Trump wants 'fair treatment' ... Labor's levy on tech
+# giants") landed on event_type='technology_outage' (root cause: bare,
+# generic keywords in classifier.py's technology_outage rule list — notably
+# "platform" and company names like "microsoft" — match any story that
+# mentions a tech platform or vendor, not just outage reports; classifier.py
+# tightened this exact bare-keyword-collision pattern for four other
+# categories on 2026-07-18, but technology_outage itself was never audited).
+# Not fixed at the classifier level here: a live check found 152/510
+# (30%) of ALL technology_outage-tagged events over the last 30 days rely
+# solely on these generic/bare keywords with no genuine incident-language
+# signal — evidence the defect is real and pervasive, but also that
+# reworking the shared keyword list is a platform-wide classification change
+# (it feeds the weekly OSINT roll-up and every other technology_outage
+# consumer, not just this push path) that needs its own scoped review, not
+# a same-night reactive patch bundled with an unrelated UI fix set.
+# This guard is a narrower, additive mitigation scoped to the push-alert
+# trigger only: require genuine incident-language in the title/summary
+# before pushing. Verified against 90 days of push-eligible
+# (event_type in outage types, customer_impact=high, confidence>=0.65)
+# events: excludes exactly 2 of 40 — the misclassified political story
+# above, and a Telstra opinion/commentary piece written well after that
+# outage ("... is a result of prioritising neoliberal 'competition' ...")
+# that is analysis ABOUT an outage, not a report OF one occurring — and
+# every one of the other 38 genuine live-incident reports still passes.
+_OUTAGE_LANGUAGE_KEYWORDS = (
+    "outage", "incident", "degrad", "unavailable", "unable to access",
+    "service disruption", "system failure", "service interruption",
+    "api failure", "latency", "error rate", "elevated error",
+    "restored", "resolved", "mitigat", "impacted",
+)
+
+
+def _has_outage_language(event: RankedEvent) -> bool:
+    """True if the event's own title/summary contains genuine incident-
+    report language, not just an event_type/customer_impact/confidence
+    combination the upstream keyword classifier can mis-assign to a story
+    that merely mentions a tech platform or vendor. See the dated comment
+    above _OUTAGE_LANGUAGE_KEYWORDS for the live-data verification behind
+    this list."""
+    text = f"{event.raw_title or ''} {event.raw_summary or ''}".lower()
+    return any(kw in text for kw in _OUTAGE_LANGUAGE_KEYWORDS)
+
 
 def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
     """Push a Telegram alert for a newly-saved event that crosses the
@@ -146,6 +190,14 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
         if event.customer_impact != _OUTAGE_CUSTOMER_IMPACT_FLOOR:
             return
         if event.confidence is None or float(event.confidence) < _OUTAGE_CONFIDENCE_FLOOR:
+            return
+        if not _has_outage_language(event):
+            log.info(
+                "[outage-alert] suppressed — %s/%s crossed the severity "
+                "threshold but title/summary has no genuine incident "
+                "language (event %s)",
+                event.event_type, event.customer_impact, event_id,
+            )
             return
 
         import sys
