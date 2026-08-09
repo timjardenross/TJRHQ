@@ -243,14 +243,44 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
 
 
 # ── Inline pulse flow ─────────────────────────────────────────────────────────
-# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>
-# Steps: capacity → nervous system → body signals → write to DB
+# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>|w=<day_win>
+#
+# Time-of-day-asymmetric question flow (Captain-approved 2026-08-10, see
+# .claude/skills/bot-reviews/fixes-2026-08-09/recovery-pulse-redesign-proposal.md):
+#   morning: energy → nervous_system → body_signals   (3 taps, unchanged)
+#   midday:  energy → nervous_system                  (2 taps — body_signals dropped;
+#            least-distinguishable axis at the shortest re-ask interval)
+#   evening: energy → nervous_system → day_win         (3 taps — 3rd tap is a NEW
+#            reflective close-out question, not a repeat of body_signals)
+#
+# `_pulse_final_key()` below is the single source of truth for which pulse
+# types ask a 3rd question and what it is; add a new pulse type there (and to
+# _PULSE_LABELS) rather than special-casing pt strings elsewhere.
 
 _PULSE_LABELS = {
     "morning": "🌅 Morning Readiness",
     "midday":  "🌤 Midday Status",
     "evening": "🌃 Evening Recovery",
 }
+
+_DAY_WIN_LABELS = {
+    "something_did": "Something did",
+    "nothing_much":  "Nothing much",
+    "rough_day":     "Rough day",
+}
+
+def _pulse_final_key(pt: str) -> str:
+    """The callback-data key that carries this pulse type's LAST tap:
+    - midday ends after 2 taps, so its own key ('m', nervous_system) is final.
+    - morning ends on body_signals ('s') — unchanged 3-tap diagnostic.
+    - evening ends on day_win ('w') — the new reflective question.
+    Any unrecognised pulse type defaults to the full morning-shaped 3-tap
+    flow (safe fallback, matches _PULSE_LABELS.get(pt, pt)'s pattern)."""
+    if pt == "midday":
+        return "m"
+    if pt == "evening":
+        return "w"
+    return "s"
 
 def _current_pulse_type() -> str:
     # EOS Phase 2 Priority 3: extracted to pulse_time.py so voice_capture.py's
@@ -284,15 +314,39 @@ def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
     ]])
 
 def _kb_stress(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
-    """Step 3: Body signals (PNE framing — context not score)."""
+    """Step 3 — morning only: Body signals (PNE framing — context not score).
+    Midday drops this question entirely; evening replaces it with _kb_day_win."""
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("🤫 Quiet",      callback_data=f"pl|pt={pt}|e={e}|m={m}|s=quiet"),
         InlineKeyboardButton("💬 Present",    callback_data=f"pl|pt={pt}|e={e}|m={m}|s=present"),
         InlineKeyboardButton("📢 Significant", callback_data=f"pl|pt={pt}|e={e}|m={m}|s=significant"),
     ]])
 
+def _kb_day_win(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
+    """Step 3 — evening only: reflective close-out question, replacing a
+    repeat of body_signals (PERMA/Accomplishment gap — see the redesign
+    proposal §2.5/§4). Writes recovery_pulses.day_win, added in migration
+    0119_recovery_pulses_add_day_win.sql."""
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🙂 Something did", callback_data=f"pl|pt={pt}|e={e}|m={m}|w=something_did"),
+        InlineKeyboardButton("😐 Nothing much",  callback_data=f"pl|pt={pt}|e={e}|m={m}|w=nothing_much"),
+        InlineKeyboardButton("😞 Rough day",     callback_data=f"pl|pt={pt}|e={e}|m={m}|w=rough_day"),
+    ]])
 
-async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: str) -> tuple[bool, RecoveryStatus, str | None]:
+
+async def _write_pulse(
+    pt: str,
+    energy: str,
+    nervous_system: str,
+    body_signals: str | None = None,
+    day_win: str | None = None,
+) -> tuple[bool, RecoveryStatus, str | None]:
+    """Write a pulse row. body_signals is only ever passed for morning pulses;
+    day_win only for evening; midday passes neither (2-tap flow) — see the
+    time-of-day-asymmetric flow comment above _PULSE_LABELS. Absent fields
+    are simply left out of the upsert payload rather than written as NULL
+    explicitly, so re-submitting a slot never clobbers a previously-written
+    value for a column this pulse type doesn't ask about."""
     db = _get_supabase()
     saved = False
     err_msg: str | None = None
@@ -301,20 +355,24 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
         log.error("[pulse] %s", err_msg)
     else:
         try:
+            payload = {
+                "log_date":       datetime.now(_TZ).date().isoformat(),
+                "pulse_type":     pt,
+                "energy":         energy,
+                "nervous_system": nervous_system,
+                "source":         "telegram",
+            }
+            if body_signals is not None:
+                payload["body_signals"] = body_signals
+            if day_win is not None:
+                payload["day_win"] = day_win
             res = db.table("recovery_pulses").upsert(
-                {
-                    "log_date":       datetime.now(_TZ).date().isoformat(),
-                    "pulse_type":     pt,
-                    "energy":         energy,
-                    "nervous_system": nervous_system,
-                    "body_signals":   body_signals,
-                    "source":         "telegram",
-                },
+                payload,
                 on_conflict="log_date,pulse_type",
             ).execute()
             saved = True
-            log.info("Pulse written: %s energy=%s ns=%s body=%s rows=%s",
-                     pt, energy, nervous_system, body_signals, len(res.data) if res.data else 0)
+            log.info("Pulse written: %s energy=%s ns=%s body=%s day_win=%s rows=%s",
+                     pt, energy, nervous_system, body_signals, day_win, len(res.data) if res.data else 0)
             # ADR-024 second-pass audit: 'recovery_pulses' had zero
             # record_heartbeat() calls across any write path — never_succeeded
             # in verification_state despite this being the primary Telegram
@@ -326,7 +384,8 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
                 pass
         except Exception as exc:
             err_msg = str(exc)
-            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s", exc, energy, nervous_system, body_signals)
+            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s day_win=%s",
+                       exc, energy, nervous_system, body_signals, day_win)
     status = get_recovery_status(db)
     return saved, status, err_msg
 
@@ -365,7 +424,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/brief — intelligence brief on demand\n\n"
         "*Health \\& Recovery*\n"
         "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/PM\\)\n"
-        "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
+        "/recovery\\_pulse — log a pulse inline \\(tap buttons; 2 taps midday, "
+        "3 taps morning/evening — evening's 3rd tap is a reflection, not a repeat\\)\n\n"
         "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
         "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n"
@@ -1765,10 +1825,18 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     e  = f.get("e")
     m  = f.get("m")
     s  = f.get("s")
+    w  = f.get("w")
     label = _PULSE_LABELS.get(pt, pt)
+    final_key = _pulse_final_key(pt)
+    final_val = {"e": e, "m": m, "s": s, "w": w}.get(final_key)
 
-    if e and m and s:
-        saved, status, err_msg = await _write_pulse(pt, e, m, s)
+    # Terminal state: every tap this pulse type's flow asks for is present.
+    # midday's final_key is 'm' itself, so (e and m) alone is already terminal
+    # for midday — no 3rd tap exists to wait for.
+    if e and m and final_val:
+        body_signals = s if final_key == "s" else None
+        day_win      = w if final_key == "w" else None
+        saved, status, err_msg = await _write_pulse(pt, e, m, body_signals=body_signals, day_win=day_win)
         icon = "✅" if saved else "⚠️"
         conf = status.recovery_confidence
         done = " ".join([
@@ -1778,11 +1846,15 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         ])
         e_cap = _escape(e.capitalize())
         m_cap = _escape(m.capitalize())
-        s_cap = _escape(s.capitalize())
+        summary = f"Capacity: {e_cap} · NS: {m_cap}"
+        if body_signals:
+            summary += f" · Body: {_escape(body_signals.capitalize())}"
+        elif day_win:
+            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
         error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
-            f"Capacity: {e_cap} · NS: {m_cap} · Body: {s_cap}\n\n"
+            f"{summary}\n\n"
             f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
             f"Pulses: {_escape(done)}  AM · Mid · PM"
             f"{error_line}",
@@ -1791,13 +1863,24 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     if e and m:
-        await query.edit_message_text(
-            f"📡 *{_escape(label)}*\n\n"
-            f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
-            "Body signals right now?",
-            parse_mode="MarkdownV2",
-            reply_markup=_kb_stress(pt, e, m),
-        )
+        # Only reached for morning (final_key='s') and evening (final_key='w') —
+        # midday is already terminal above the instant e and m are both set.
+        if final_key == "w":
+            await query.edit_message_text(
+                f"📡 *{_escape(label)}*\n\n"
+                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
+                "One thing that went okay today?",
+                parse_mode="MarkdownV2",
+                reply_markup=_kb_day_win(pt, e, m),
+            )
+        else:
+            await query.edit_message_text(
+                f"📡 *{_escape(label)}*\n\n"
+                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
+                "Body signals right now?",
+                parse_mode="MarkdownV2",
+                reply_markup=_kb_stress(pt, e, m),
+            )
         return
 
     if e:
