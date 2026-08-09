@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    {"text": "Response is short (roughly 2-6 sentences), not a long structured document", "passed": true, "evidence": "4 short paragraphs, no headers, no numbered list - reads as a person talking, not a document."},
+    {"text": "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question", "passed": true, "evidence": "'40% doesn't clear three reviews today... Review work is judgment work, and judgment is exactly what's thin at 40%.'"},
+    {"text": "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging", "passed": true, "evidence": "'What I won't do is help you speed-run all three at 40% and call it reviewed... that's the one thing this seat exists to stop.' First-person, no hedging, no disclaimers."}
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 3},
+  "timing": {"executor_duration_seconds": 28.5}
+}
