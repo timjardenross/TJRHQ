@@ -36,7 +36,7 @@ function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
   const initial = params.get('domain');
-  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'confidence-matrix');
+  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'intelligence-summary');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
