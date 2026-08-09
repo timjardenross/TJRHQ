@@ -691,7 +691,13 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
         return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
     status_counts = Counter(c.get("status", "?") for c in items)
     summary = "  ·  ".join(f"{v} {k.replace('_', ' ')}" for k, v in status_counts.items())
-    status_emoji = {"published": "✅", "ready_to_publish": "🟢", "approved": "🟡", "review": "📝"}
+    # 2026-08-10 fix (XO product review): ready_to_publish/approved were
+    # reusing 🟢/🟡 — the same glyphs _SEVERITY_EMOJI uses for "low/fine" and
+    # "medium/caution" a few lines above in the same weekly message, meaning
+    # opposite things (workflow stage vs. risk severity) in the same
+    # message. Swapped for glyphs outside the severity palette so a single
+    # 🟢 always means "don't worry about it" everywhere in these briefs.
+    status_emoji = {"published": "✅", "ready_to_publish": "📤", "approved": "☑️", "review": "📝"}
     lines = [f"<b>✍️ CONTENT THIS WEEK ({len(items)})</b>", f"  {summary}"]
     for c in items:
         pillar = (c.get("pillar") or "").replace("_", " ") or "—"
