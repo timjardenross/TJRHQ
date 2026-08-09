@@ -75,27 +75,47 @@ function Workbench() {
     router.replace(`/health-osint?${sp.toString()}`, { scroll: false });
   };
 
-  const renderSignal = (s: any) => (
-    <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-      {s.source_url ? (
-        <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
-          {domainEmoji(s.health_domain)} {s.title}
-        </a>
-      ) : (
-        <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-      )}
-      <div>
-        {s.source_name}
-        {(s.study_design || s.signal_type) && <> • {s.study_design || s.signal_type}</>}
-        {s.sample_size ? <> • n={s.sample_size}</> : null}
-        {s.p_value != null && <> • p={s.p_value}</>}
-        {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
-        {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
+  const renderSignal = (s: any) => {
+    // 2026-08-09 gap-closure: a study/trial's published_at can be years old
+    // even when collected_at (when we first found it) is recent — e.g.
+    // ClinicalTrials.gov registrations. Previously only published_at was
+    // shown, so a 2012 trial read as indistinguishable from a genuinely new
+    // one. Surface both so "old study, newly discovered" is legible instead
+    // of just looking like stale data.
+    let discoveredNote: string | null = null;
+    if (s.published_at && s.collected_at) {
+      const publishedMs = new Date(s.published_at).getTime();
+      const collectedMs = new Date(s.collected_at).getTime();
+      const gapDays = Math.round((collectedMs - publishedMs) / 86_400_000);
+      if (gapDays >= 30) {
+        discoveredNote = `new to us ${new Date(s.collected_at).toLocaleDateString()}`;
+      }
+    }
+    return (
+      <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+        {s.source_url ? (
+          <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+            {domainEmoji(s.health_domain)} {s.title}
+          </a>
+        ) : (
+          <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+        )}
+        <div>
+          {s.source_name}
+          {(s.study_design || s.signal_type) && <> • {s.study_design || s.signal_type}</>}
+          {s.sample_size ? <> • n={s.sample_size}</> : null}
+          {s.p_value != null && <> • p={s.p_value}</>}
+          {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+          {s.published_at && <> • Published {new Date(s.published_at).toLocaleDateString()}</>}
+          {discoveredNote && (
+            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[10px] font-medium text-wb-warn-on">{discoveredNote}</span>
+          )}
+        </div>
+        {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+        {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
       </div>
-      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
-      {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
-    </div>
-  );
+    );
+  };
 
   return (
     <WorkbenchShell

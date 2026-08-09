@@ -22,7 +22,7 @@ async function getIntelligenceSummary(sb: any) {
     .from('health_signals')
     .select(`
       signal_id, title, description, signal_type, health_domain, rank_score, sample_size, study_design,
-      p_value, published_at, actionable_recommendation,
+      p_value, published_at, collected_at, actionable_recommendation,
       confidence_level, health_source_registry ( source_name, source_url, reliability_tier, reliability_score )
     `)
     .eq('suppressed', false)
@@ -48,6 +48,7 @@ async function getIntelligenceSummary(sb: any) {
     study_design: s.study_design,
     p_value: s.p_value,
     published_at: s.published_at,
+    collected_at: s.collected_at,
     actionable_recommendation: s.actionable_recommendation,
   }));
 

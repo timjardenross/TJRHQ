@@ -48,6 +48,14 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) else result
+    except urllib.error.HTTPError as exc:
+        # 2026-08-09: str(exc) alone ("HTTP Error 400: Bad Request") gave no
+        # way to diagnose why ~20 events/day were silently failing to
+        # persist -- the actual reason (constraint violation, bad column
+        # value, etc.) is in the response body, which this was discarding.
+        detail = exc.read().decode("utf-8", errors="replace")
+        log.error("Supabase insert failed (%s): HTTP %s: %s", table, exc.code, detail)
+        return None
     except Exception as exc:
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
