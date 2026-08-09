@@ -111,7 +111,7 @@ def _get_active_missions(limit: int = 8) -> list[dict]:
     return _sb_get(
         "missions",
         f"status=not.in.(Closed,Archived,Idea)&order=priority.asc,updated_at.desc"
-        f"&limit={limit}&select=mission_id,title,status,priority,department",
+        f"&limit={limit}&select=mission_id,title,status,priority",
     )
 
 
@@ -120,7 +120,7 @@ def _get_todays_health() -> Optional[dict]:
     rows = _sb_get(
         "captains_log_entries",
         f"log_date=eq.{today}&limit=1"
-        f"&select=capacity_score,energy,pain_score,sleep_hours,health_status",
+        f"&select=captain_capacity_rating,energy,pain_score,sleep_hours,health_status",
     )
     return rows[0] if rows else None
 
@@ -314,12 +314,12 @@ def _priority_label(p: str) -> str:
     return _severity_emoji(level or "none")
 
 
-def _cap_emoji(score) -> str:
-    try:
-        s = int(score)
-    except (TypeError, ValueError):
-        return _severity_emoji("none")
-    return _severity_emoji("green" if s >= 70 else "yellow" if s >= 40 else "red")
+def _rating_emoji(rating) -> str:
+    """captains_log_entries.captain_capacity_rating is a Green/Amber/Red
+    text rating, not a 0-100 score - the prior code queried a capacity_score
+    column that never existed on this table, causing every brief to silently
+    400 on this fetch and render the CAPACITY block as empty."""
+    return _severity_emoji({"green": "green", "amber": "yellow", "red": "red"}.get((rating or "").lower(), "none"))
 
 
 def _confidence_bar(pct) -> str:
@@ -422,13 +422,13 @@ def generate_morning_brief() -> str:
 
     # Capacity block
     if health:
-        cap = health.get("capacity_score", "?")
+        cap = health.get("captain_capacity_rating") or "?"
         pain = health.get("pain_score", 0)
         energy = health.get("energy", "?")
         sleep = health.get("sleep_hours", "?")
         lines += [
             "<b>⚡ CAPACITY</b>",
-            f"  {_cap_emoji(cap)} Score <b>{cap}</b>  ·  Pain {pain}"
+            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}"
             f"  ·  Energy {energy}  ·  Sleep {sleep}h",
             "",
         ]
@@ -537,11 +537,11 @@ def generate_eod_summary() -> str:
     ]
 
     if health:
-        cap = health.get("capacity_score", "?")
+        cap = health.get("captain_capacity_rating") or "?"
         pain = health.get("pain_score", 0)
         lines += [
             "<b>⚡ TODAY</b>",
-            f"  {_cap_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}",
+            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}",
             "",
         ]
 
