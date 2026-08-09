@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+      "passed": false,
+      "evidence": "Response is structured as 'What Chief Engineer should do' with numbered fixes to just execute (stopgap reconciliation, drift-check tool, commit hook, doc update) - no point where it defers the process/governance decision to Captain or Chief of Staff, or frames its own authority as advisory-only."
+    },
+    {
+      "text": "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+      "passed": true,
+      "evidence": "Cites tools/MISSION-MINTING.md, id_registry.py, commits 31d8615/0e7a597, .id-counters.json backup, MSN-0357/0358 references."
+    },
+    {
+      "text": "Gives a concrete next action, not just analysis",
+      "passed": true,
+      "evidence": "Three-part plan: immediate stopgap, durable fix (drift checker + fast mint command + commit hook), explicit 'don't over-invest' scoping."
+    }
+  ],
+  "summary": {"passed": 2, "failed": 1, "total": 3, "pass_rate": 0.67},
+  "execution_metrics": {"total_tool_calls": 19},
+  "timing": {"executor_duration_seconds": 146.9},
+  "eval_feedback": {
+    "overall": "Clearest differentiator of the three evals. Without the persona, the model defaults to just deciding and prescribing action across a cross-cutting process/governance change - the skill's Escalation section is doing real work here, not just cosmetic framing."
+  }
+}

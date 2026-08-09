@@ -1,0 +1,26 @@
+{
+  "expectations": [
+    {
+      "text": "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+      "passed": true,
+      "evidence": "All five headers present verbatim in order."
+    },
+    {
+      "text": "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+      "passed": true,
+      "evidence": "Cites commit 0eec790, migration 0102, specific files, live tsc/eslint runs, and independently verifies the commit is actually pushed to origin/main despite its own message claiming otherwise."
+    },
+    {
+      "text": "Gives a specific, actionable recommendation rather than generic advice",
+      "passed": true,
+      "evidence": "'add at least one automated test for the crew-registry retrieval path... asserting officer_perspectives is non-empty on a successful convene' - named files, named test target."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 53},
+  "timing": {"executor_duration_seconds": 250.6},
+  "regression_check": {
+    "fix_holds": true,
+    "note": "Explicitly marks memory-sourced vs freshly-verified claims throughout. Correctly judges this eval does NOT need platform-wide escalation ('I'm not aware of anything in this module that touches a platform-wide shared utility beyond the already-shared WorkbenchShell/DomainToggle') - shows the new rule isn't over-triggering on everything. Found a different, arguably deeper bug than iteration-1's with-skill run (a pipeline bug that left officer_perspectives empty since inception, just fixed same-day with zero test coverage) rather than iteration-1's UI-test-coverage finding."
+  }
+}

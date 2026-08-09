@@ -1,0 +1,38 @@
+{
+  "skill_name": "chief-engineer",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "We're about to build a new notification sender for the health workbench - is that a good idea or does something like it already exist?",
+      "expected_output": "Response checks the platform for existing notification-sending mechanisms before recommending a new build (composition-first). Should reference actual repo evidence, not assume.",
+      "assertions": [
+        "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+        "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+        "Ends with a specific build/reuse/defer recommendation, not just open analysis"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Can you do an architecture review of the advisory-workbench module before we ship it?",
+      "expected_output": "Full Standard Response Format review (Mission Summary/Assessment/Recommendations/Next Actions/Mission Status) grounded in the actual code found in the repo.",
+      "assertions": [
+        "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+        "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+        "Gives a specific, actionable recommendation rather than generic advice"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Mission ID minting drifted again - a Captain-assigned MSN bypassed the counter. What should Chief Engineer do about it?",
+      "expected_output": "Recognizes this as a governance/technical-debt issue, escalates appropriately (not a unilateral fix decision), gives a concrete recommendation.",
+      "assertions": [
+        "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+        "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+        "Gives a concrete next action, not just analysis"
+      ],
+      "files": []
+    }
+  ]
+}
