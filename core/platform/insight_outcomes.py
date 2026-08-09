@@ -64,6 +64,14 @@ def record_insight(insight: Insight, recommendation: Optional[Recommendation] = 
         if not result.ok or not result.data:
             log.warning("[insight-outcomes] write failed: %s", result.error)
             return None
+        # Chief Engineer 2026-08-09 EOD alert verification: 'insight_outcomes'
+        # had zero record_heartbeat() call sites despite this being the
+        # canonical, single write function every caller goes through.
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat("insight_outcomes", status="ok", detail=f"source_kind={insight.source_kind}")
+        except Exception:
+            pass
         return result.data[0].get("id")
     except Exception as exc:
         log.warning("[insight-outcomes] record_insight failed (non-blocking): %s", exc)
