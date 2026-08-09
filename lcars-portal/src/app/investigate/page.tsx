@@ -110,14 +110,15 @@ function InvestigatePageInner() {
                   real effect goes through Decide.
                 </p>
                 {/* EOS Phase 2 Priority 4: hands this investigation's real
-                    evidence straight to the Advisory Workbench's Board domain
-                    as ambient context, rather than making the Captain restate
-                    it - see advisory-workbench/_components/BoardView.tsx's EvidencePanel. */}
+                    evidence straight to the Advisory Workbench's Ask domain
+                    (internal key 'board') as ambient context, rather than
+                    making the Captain restate it - see
+                    advisory-workbench/_components/AskView.tsx's EvidencePanel. */}
                 <Link
                   href={`/advisory-workbench?domain=board&investigationType=${encodeURIComponent(type ?? '')}&investigationReason=${encodeURIComponent(result.triggerDescription)}`}
                   className="inline-block mt-3 text-[12.5px] text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
                 >
-                  Consult the Advisory Council on this
+                  Ask the Advisory Board about this
                 </Link>
               </div>
             )}

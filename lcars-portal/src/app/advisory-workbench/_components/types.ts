@@ -19,8 +19,8 @@ export function isDomain(v: string | null): v is Domain {
 
 /** Per-domain eyebrow copy shown in the Shell header. */
 export const EYEBROW: Record<Domain, string> = {
+  board: 'Ask',
   consult: 'Officer Advisors',
-  board: 'Strategic Council',
   perspectives: 'Distinguished Voices',
 };
 
