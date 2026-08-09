@@ -72,25 +72,19 @@ function Workbench() {
     router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = (
-    <div className="flex items-center gap-3">
-      {counts && (
-        <span className="hidden text-[11px] text-wb-ink2 sm:inline">
-          {counts.capture + counts.research + counts.content_prep + counts.proofing} active
-        </span>
-      )}
-      <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
-    </div>
-  );
+  const right = counts ? (
+    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+      {counts.capture + counts.research + counts.content_prep + counts.proofing} active
+    </span>
+  ) : null;
 
   return (
     <WorkbenchShell
       title="Content Workbench"
       eyebrow="Capture → Research → Content Prep → Proofing → Portfolio"
-      homeHref="/content-workbench"
-      homeAriaLabel="Content Workbench home"
       tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
       right={right}
+      tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >

@@ -115,7 +115,7 @@ export default function CaptainsLogPage() {
       setError(dbError.message);
     } else {
       setSaved(true);
-      setTimeout(() => router.push('/home'), 1500);
+      setTimeout(() => router.push('/workbenches'), 1500);
     }
   }
 

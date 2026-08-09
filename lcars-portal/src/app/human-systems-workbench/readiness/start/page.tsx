@@ -160,7 +160,6 @@ export default function ReadinessCheckInPage() {
     <WorkbenchShell
       title="Today's Readiness"
       eyebrow="Fitness Readiness"
-      homeHref="/human-systems-workbench"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench?domain=readiness', label: 'Readiness' }}
     >

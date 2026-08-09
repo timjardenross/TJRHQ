@@ -130,7 +130,7 @@ export default function HealthCheckInPage() {
 
   if (saved) {
     return (
-      <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+      <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span aria-hidden className="text-2xl text-wb-ok-on">✓</span>
@@ -143,7 +143,7 @@ export default function HealthCheckInPage() {
   }
 
   return (
-    <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
+    <WorkbenchShell title="Daily Check-In" eyebrow="Health Tracking" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}>
       <div className="flex flex-col gap-4">
         <Card title={today}>
           <p className="text-xs text-wb-ink2">

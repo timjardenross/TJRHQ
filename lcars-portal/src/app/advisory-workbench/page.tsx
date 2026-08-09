@@ -49,16 +49,12 @@ function Workbench() {
     router.replace(`/advisory-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory domain" />;
-
   return (
     <WorkbenchShell
       title="Advisory"
       eyebrow={EYEBROW[domain]}
-      homeHref="/advisory-workbench"
-      homeAriaLabel="Advisory Workbench home"
       tagline="USS TJR · Advisory · Consult · Board · Perspectives · Advisory only — the Captain decides"
-      right={right}
+      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory domain" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       <div className="mb-4">
