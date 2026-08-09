@@ -102,6 +102,77 @@ def _publish_core_event(event_type: str, **kwargs) -> None:
         pass
 
 
+# Part 2 of the 2026-08-09 Telegram usefulness + outage-alerts design
+# (.claude/skills/bot-reviews/fixes-2026-08-09/telegram-usefulness-and-outage-alerts-design.md
+# §2.3): live 30-day query against intelligence_events showed rank_score
+# never crosses a usable threshold for outage-classified events (max 52.2
+# in the sample), so the existing INTERRUPT_NOW path structurally never
+# fires for this event type -- real severe outages sat silently with no
+# push. customer_impact='high' is the field that actually encodes severity
+# (keyword-evidenced critical/severe/widespread language only, 5% of
+# events); confidence>=0.65 is a minimum-corroboration floor chosen from
+# the same data (11/15 genuine severe events over 30 days would have
+# fired at this floor, ~1 push every 2.7 days -- a sustainable cadence).
+_OUTAGE_EVENT_TYPES = frozenset({"technology_outage", "telecom_outage"})
+_OUTAGE_CUSTOMER_IMPACT_FLOOR = "high"
+_OUTAGE_CONFIDENCE_FLOOR = 0.65
+
+
+def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
+    """Push a Telegram alert for a newly-saved event that crosses the
+    outage-severity threshold above.
+
+    Domain-owned check living in save_event() (the single choke point every
+    ranked event passes through, regardless of which scheduler job found
+    it) rather than in core/platform/attention_engine.py -- the Attention
+    Engine's own docstring states it is "a thin, pure routing table, not a
+    rule engine that guesses at domain semantics"; adding outage-specific
+    customer_impact logic there would violate that stated boundary and is
+    a platform-wide-shared-module change requiring its own separate
+    sign-off. Reuses the platform's one canonical
+    core.platform.notification_service.notify() sender -- no new sender is
+    introduced, per this platform's documented history of notification-
+    sender duplication.
+
+    Best-effort and non-blocking: any failure here (import, network,
+    malformed data) is caught and logged, never raised -- it must not
+    affect the caller's own event-persistence success/failure, matching
+    every other post-persist side effect in this module (see
+    _publish_core_event above).
+    """
+    try:
+        if event.event_type not in _OUTAGE_EVENT_TYPES:
+            return
+        if event.customer_impact != _OUTAGE_CUSTOMER_IMPACT_FLOOR:
+            return
+        if event.confidence is None or float(event.confidence) < _OUTAGE_CONFIDENCE_FLOOR:
+            return
+
+        import sys
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.notification_service import notify, Severity, Transport
+
+        ref = event.canonical_url or (f"event_id={event_id}" if event_id else "no reference available")
+        body = (
+            f"Triggered: customer_impact={event.customer_impact}, "
+            f"confidence={float(event.confidence):.2f}\n"
+            f"Ref: {ref}"
+        )
+        notify(
+            body,
+            title=f"Outage — {event.event_type.replace('_', ' ')}: {event.raw_title}",
+            severity=Severity.ALERT,
+            template="alert",
+            transport=Transport.TELEGRAM,
+        )
+    except Exception as exc:
+        log.warning("[outage-alert] push check failed for event %s: %s", event_id, exc)
+
+
 def _get(path: str) -> list:
     if not SUPABASE_URL or not SUPABASE_KEY:
         return []
@@ -291,6 +362,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
             # new judgment about the signal's meaning.
             recommended_action=row["raw_title"],
         )
+        _maybe_push_outage_alert(event, event_id)
         return event_id
     return None
 
