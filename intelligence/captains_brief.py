@@ -357,16 +357,39 @@ def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
     )
 
 
-def _get_weekly_capacity(days: int = 7) -> list[dict]:
+def _get_weekly_capacity(days: int = 7) -> dict:
     """captains_log_entries rows across the last `days` days (inclusive of
     today) — a real weekly trend, not the single-day snapshot the daily
-    briefs use."""
+    briefs use.
+
+    2026-08-10 fix (XO product review): captains_log_entries stopped being
+    written to on 2026-06-28 — this was the one fetcher in the file that
+    still trusted it unconditionally, so the weekly Capacity block silently
+    rendered "No capacity logs this week" every week regardless of reality.
+    Morning/EOD already fall back to recovery_pulses / recovery_confidence_
+    today when captains_log_entries is empty (see _get_todays_health() /
+    _get_recovery_status()) — this applies the same fallback, aggregated
+    across the window instead of a single day. Returns {"source":
+    "log"|"pulse"|"none", "entries": [...]} so the renderer can tell which
+    shape it got."""
     since = (date.today() - timedelta(days=days - 1)).isoformat()
-    return _sb_get(
+    log_entries = _sb_get(
         "captains_log_entries",
         f"log_date=gte.{since}&order=log_date.asc"
         f"&select=log_date,captain_capacity_rating,energy,pain_score,sleep_hours",
     )
+    if log_entries:
+        return {"source": "log", "entries": log_entries}
+
+    pulses = _sb_get(
+        "recovery_pulses",
+        f"log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,pulse_type,energy,nervous_system,body_signals,readiness",
+    )
+    if pulses:
+        return {"source": "pulse", "entries": pulses}
+
+    return {"source": "none", "entries": []}
 
 
 # ── Weekly OSINT LLM exec summaries (2026-08-10) ──────────────────────────────
@@ -680,23 +703,57 @@ def _format_weekly_content_block(items: list[dict]) -> list[str]:
     return lines
 
 
-def _format_weekly_capacity_block(entries: list[dict]) -> list[str]:
+def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
     """captains_log_entries across the 7-day window — a real weekly
-    Green/Amber/Red trend instead of a single day's snapshot."""
-    if not entries:
-        return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs this week.", ""]
-    counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
-    order = ["Green", "Amber", "Red"]
-    parts = [f"{counts[c]} {c}" for c in order if counts.get(c)]
-    parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
-    trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
-    lines = [
-        f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
-        f"  {' · '.join(parts) if parts else 'no ratings logged'}",
-        f"  <code>{trend}</code>",
-        "",
-    ]
-    return lines
+    Green/Amber/Red trend instead of a single day's snapshot.
+
+    2026-08-10 fix (XO product review): when captains_log_entries has
+    nothing this week (see _get_weekly_capacity's fallback), render the
+    recovery_pulses-based signal instead of unconditionally showing "No
+    capacity logs this week" — mirrors Morning/EOD's existing
+    recovery-confidence fallback, aggregated across the window. With
+    pulse-logging currently sparse (per the same audit), the honest output
+    may be as small as "1 pulse logged this week" — that's a real signal
+    about logging adherence, not a bug to hide."""
+    source = capacity.get("source")
+    entries = capacity.get("entries") or []
+
+    if source == "log":
+        counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
+        order = ["Green", "Amber", "Red"]
+        parts = [f"{counts[c]} {c}" for c in order if counts.get(c)]
+        parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
+        trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
+            f"  {' · '.join(parts) if parts else 'no ratings logged'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    if source == "pulse":
+        days_logged = len({e.get("log_date") for e in entries})
+        possible = max(1, days * 3)
+        conf = round(100.0 * len(entries) / possible)
+        latest = entries[-1]  # ordered log_date,captured_at ascending
+        signals_str = [
+            s for s in (
+                f"Energy {latest['energy'].capitalize()}" if latest.get("energy") else None,
+                f"NS {latest['nervous_system'].capitalize()}" if latest.get("nervous_system") else None,
+                f"Body {latest['body_signals'].capitalize()}" if latest.get("body_signals") else None,
+            ) if s
+        ]
+        lines = [
+            "<b>⚡ CAPACITY THIS WEEK</b>",
+            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
+            f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})",
+        ]
+        if signals_str:
+            lines.append(f"  Latest: {' · '.join(signals_str)}")
+        lines.append("")
+        return lines
+
+    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs or recovery pulses this week.", ""]
 
 
 # ── Brief generators ──────────────────────────────────────────────────────────
