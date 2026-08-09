@@ -94,11 +94,45 @@ def sync(dry_run: bool = False) -> int:
     return 0
 
 
+def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort.
+
+    Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+    slack-bot-heartbeat-investigation.md): this script's only prior trigger
+    was platform-runtime/proactive_scheduler.py's daily 06:45 job, which ran
+    inside the now-disabled starfleet-slack-bot.service. The script itself
+    never depended on Slack (the wrapper never used its `client` arg), so it
+    now has its own systemd timer (deploy/mission-registry-sync.timer) —
+    this heartbeat call travels with the script regardless of what triggers it.
+    """
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat("mission_registry_sync", status=status, detail=detail, error_message=error_message)
+    except Exception:
+        pass
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sync Supabase missions to authoritative registry")
     parser.add_argument("--dry-run", action="store_true", help="Print without writing")
     args = parser.parse_args()
-    sys.exit(sync(dry_run=args.dry_run))
+    try:
+        before = load_registry_ids()
+        code = sync(dry_run=args.dry_run)
+        added = len(load_registry_ids()) - len(before)
+        if args.dry_run:
+            _record_heartbeat("skipped", detail="dry-run")
+        elif added > 0:
+            _record_heartbeat("ok", detail=f"{added} new mission(s) appended")
+        else:
+            _record_heartbeat("ok", detail="registry already up to date")
+    except SystemExit:
+        raise
+    except Exception as exc:
+        _record_heartbeat("failed", error_message=str(exc))
+        raise
+    sys.exit(code)
 
 
 if __name__ == "__main__":

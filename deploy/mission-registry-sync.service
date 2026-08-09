@@ -1,0 +1,31 @@
+[Unit]
+# Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+# slack-bot-heartbeat-investigation.md): tools/sync_supabase_to_registry.py
+# (MSN-0145/ADR-024) was previously only triggered by
+# platform-runtime/proactive_scheduler.py's daily 06:45 job, which runs
+# inside starfleet-slack-bot.service — disabled/retired since 2026-07-07
+# (MSN-0337). The sync script itself never used its `client` arg (it never
+# posted to Slack), so it had no real dependency on that bot at all — it
+# was only ever riding along on its scheduler process.
+#
+# Investigation found the registry (core/mission-control/registry/
+# mission-index.txt) had gone missing entirely (not just drifted — the
+# file itself was absent from disk, likely lost in the same class of
+# resync event that separately dropped vm-processing/logs/), causing
+# id_registry.py's downstream consumers (number_one_exporter.py etc.) to
+# silently fall back to sample data. Recreated via a real (non-dry-run)
+# sync on 2026-08-10 (94 missions appended). This unit gives the script
+# its own independent daily trigger so it can never again go this long
+# without running, regardless of what happens to the Slack bot.
+Description=Starship mission registry sync (Supabase -> mission-index.txt, MSN-0145/ADR-024)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python3 tools/sync_supabase_to_registry.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mission-registry-sync
