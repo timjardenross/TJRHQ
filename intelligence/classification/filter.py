@@ -80,6 +80,24 @@ _DATACENTER_MAINTENANCE_PATTERN = re.compile(
     r"^[A-Z]{2,4}\s*\([^)]+\)\s+on\s+\d{4}-\d{2}-\d{2}$"
 )
 
+# 2026-08-10 gap-closure: Captain flagged the weekly OSINT exec summary as
+# "heavily dominated by Cloudflare Status reports" of narrow scope — single
+# component or single region ("network performance problems in various
+# global locations", "specific functionality failures within Workers and
+# R2"). These are genuine (non-maintenance) incidents, so the maintenance
+# rule above doesn't catch them. Statuspage.io's JSON incidents API (see
+# api_adapter.py's _parse_statuspage_incidents, 2026-08-10) carries the
+# feed's own real severity field — impact: none/minor/major/critical — and
+# now tags it onto raw_summary as "[Impact: <level>]". This suppresses only
+# none/minor; major/critical (genuinely widespread) still flows to scoring.
+# Sources still on the RSS/Atom variant of the same feed (no JSON migration
+# yet) never produce this tag and are unaffected — fail-open, not
+# fail-closed. Live-checked against Cloudflare's real feed 2026-08-10: 40/50
+# recent incidents are "minor", 8/50 "none" (exactly the blips the Captain
+# named), 2/50 "major", 0 "critical".
+_STATUSPAGE_IMPACT_PATTERN = re.compile(r"^\[impact:\s*(none|minor|major|critical)\]", re.IGNORECASE)
+_STATUSPAGE_LOW_IMPACT = {"none", "minor"}
+
 # General media: suppress if no direct OR signals in title
 _MEDIA_OR_SIGNALS = [
     "outage", "breach", "cyber", "ransomware", "payment", "banking", "apra",
@@ -171,6 +189,12 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
             return True, "status_page_scheduled_maintenance"
         if _DATACENTER_MAINTENANCE_PATTERN.match(title):
             return True, "status_page_datacenter_maintenance_window"
+
+    # ── Status-page real impact/severity field (non-maintenance incidents) ────
+    if event.raw_summary:
+        m = _STATUSPAGE_IMPACT_PATTERN.match(event.raw_summary)
+        if m and m.group(1).lower() in _STATUSPAGE_LOW_IMPACT:
+            return True, f"status_page_low_impact_{m.group(1).lower()}"
 
     # ── Media sources: suppress if no direct OR signal in title ───────────────
     if event.source_category == "media" or event.source_priority >= 4:

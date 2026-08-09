@@ -68,7 +68,12 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_nvd(data)
         if "msrc" in name or "microsoft security response" in name:
             return self._parse_msrc(data)
-        if "miro" in name:
+        if "miro" in name or (isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/incidents.json")):
+            # Matches by endpoint shape (any Statuspage.io `/api/v2/incidents.json`
+            # source), not just Miro by name — so any source migrated from the
+            # RSS/Atom variant of the same feed onto this JSON endpoint (e.g.
+            # Cloudflare Status, 2026-08-10) gets the real `impact` field for
+            # free without a per-source name check here.
             return self._parse_statuspage_incidents(data)
         if "vicemergency" in name:
             return self._parse_vicemergency(data)
@@ -292,13 +297,41 @@ class APIAdapter(BaseSourceAdapter):
         return items
 
     def _parse_statuspage_incidents(self, data) -> list[IntelligenceItem]:
-        """Generic Statuspage.io `/api/v2/incidents.json` shape."""
+        """Generic Statuspage.io `/api/v2/incidents.json` shape.
+
+        2026-08-10 (Cloudflare Status noise fix): this JSON endpoint carries a
+        genuine severity field — `impact`: none | minor | major | critical —
+        that the RSS/Atom variant of the same feed (`history.atom`) discards
+        entirely (confirmed by diffing the two live: the Atom feed has no
+        impact/severity field anywhere, only title + free-text status-update
+        prose). Captured here as a `[Impact: <level>]` tag prefixed onto
+        raw_summary, plus the real affected-component names from
+        incident_updates[].affected_components — both genuine feed data, not
+        a guessed keyword list. filter.py's should_suppress() reads this tag
+        to keep only major/critical incidents (genuinely widespread) flowing
+        into scoring/the exec summary, while none/minor incidents (the
+        single-component or single-region "blips" — e.g. "R2 Availability
+        Issues", "Network Performance Issues in Istanbul") stay ingested for
+        audit trail but suppressed=true, same convention as the scheduled-
+        maintenance suppression rule above.
+
+        Live-checked against Cloudflare's actual incidents.json 2026-08-10:
+        of the 50 most recent incidents, impact was minor=40, none=8,
+        major=2, critical=0.
+        """
         incidents = data.get("incidents", [])
         items = []
         for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+            impact = (inc.get("impact") or "unknown").strip().lower()
             title = f"{self.source.source_name}: {inc.get('name', 'Incident')} ({inc.get('status', '')})"
             updates = inc.get("incident_updates") or []
-            summary = updates[0].get("body") if updates else None
+            body = updates[0].get("body") if updates else None
+            components = sorted({
+                c.get("name") for u in updates for c in (u.get("affected_components") or [])
+                if c.get("name")
+            })
+            comp_note = f" Affected: {', '.join(components)}." if components else ""
+            summary = f"[Impact: {impact}]{comp_note} {body or ''}".strip()
             url = inc.get("shortlink") or self.source.url
             published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))

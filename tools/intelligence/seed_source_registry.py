@@ -265,12 +265,15 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://www.cloudflarestatus.com/",
         "rss_url":            "https://www.cloudflarestatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://www.cloudflarestatus.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-        "notes":              "CDN/DNS/DDoS protection. Cloudflare outage impacts availability of web-facing services.",
+        "notes":              "CDN/DNS/DDoS protection. Cloudflare outage impacts availability of web-facing services. "
+                              "2026-08-10: switched from history.atom (RSS) to the statuspage.io JSON incidents API "
+                              "so the feed's real impact (none/minor/major/critical) field reaches filter.py's "
+                              "status-page low-impact suppression rule instead of being discarded.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
