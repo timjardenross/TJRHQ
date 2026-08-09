@@ -339,12 +339,21 @@ def _morning_brief_job() -> None:
             _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
             log.info("Morning brief delivered")
             _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered")
+            # Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+            # monitoring-fixes.md): the "morning_brief" domain was seeded against
+            # platform-runtime/proactive_scheduler.py's Slack-bot job, which has
+            # been disabled (superseded) for 5+ weeks — this Telegram-based job is
+            # the actual live morning-brief send today, so it also heartbeats the
+            # legacy domain_key rather than leaving it permanently "never succeeded".
+            _record_heartbeat("morning_brief", "ok", detail="morning brief delivered (via captains_brief/XO Telegram)")
         else:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
+            _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
     except Exception as exc:
         log.error("Morning brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
+        _record_heartbeat("morning_brief", "failed", error_message=str(exc))
 
 
 def _midday_check_job() -> None:
