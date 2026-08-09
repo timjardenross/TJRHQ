@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { nextId, appendToRegistry } from './id-registry';
+import { recordHeartbeatServerSide } from './heartbeat';
 
 export interface ActionResult {
   type: string;
@@ -73,6 +74,17 @@ export async function createMission(payload: ActionPayload): Promise<ActionResul
 
   // MSN-0145: append runtime entry to the authoritative mission registry.
   appendToRegistry(missionId, title, 'LCARS', status);
+
+  // Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+  // final-4-domains.md): this is a genuinely separate live `missions` write
+  // path from api/missions/route.ts — Captain-approved AI-console mission
+  // creation (MSN-0352 governance gate), reached only from
+  // api/build-request/[id]/approve-action/route.ts on explicit approval.
+  void recordHeartbeatServerSide({
+    domainKey: 'missions',
+    status: 'ok',
+    detail: `create (ai-console) mission_id=${missionId}`,
+  });
 
   return { type: 'create_mission', success: true, detail: `Mission ${missionId} registered`, id: missionId };
 }

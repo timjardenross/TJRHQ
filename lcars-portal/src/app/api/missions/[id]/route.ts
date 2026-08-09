@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
+import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 
 // MSN-0305: governed, audited status update — replaces the Mission Detail
 // page's prior direct browser-side Supabase write. Preserves the existing
@@ -104,6 +105,16 @@ export async function PATCH(
     void publishMissionEventServerSide({
       eventType: 'mission.status_changed', missionId: mission.mission_id,
       fromStatus: prevStatus, toStatus: status, source,
+    });
+
+    // Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+    // final-4-domains.md): confirmed-live general status-update path, used
+    // by the Mission Detail page. See that doc for the full multi-writer
+    // disposition of the `missions` domain.
+    void recordHeartbeatServerSide({
+      domainKey: 'missions',
+      status: 'ok',
+      detail: `patch mission_id=${mission.mission_id} ${prevStatus}->${status}`,
     });
 
     return NextResponse.json({
