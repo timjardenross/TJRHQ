@@ -13,7 +13,16 @@ Usage (from an existing bot):
     )
 
 Standalone (cron / APScheduler):
-    python -m telegram_bots.recovery_officer.engagement_dispatcher
+    python -m telegram_bots.recovery_officer.engagement_dispatcher --dispatch
+
+2026-08-10: now actually scheduled — intelligence/scheduler.py's
+_wellness_reminder_job() calls run_dispatch_check() on an interval (see
+that module for the live wiring), using _StandaloneTelegramBot below as the
+`bot` argument since the scheduler daemon has no live python-telegram-bot
+Application/event loop to reuse. run_dispatch_check() de-dups per
+(Brisbane day, pulse window, action) via the wellness_reminder_log table
+(migration 0118), so it's safe to call on a timer without re-sending an
+identical reminder while a pulse window stays open and unlogged.
 
 Environment variables required (set in bot's .env):
     SUPABASE_URL       — Supabase project URL
@@ -251,6 +260,134 @@ def build_daily_summary(status: RecoveryStatus) -> str:
     return "\n".join(lines)
 
 
+# ── De-duplication ────────────────────────────────────────────────────────────
+#
+# run_dispatch_check() is a pure function of *current* pulse state — nothing
+# below this line changes that. What changes is that every send is now gated
+# on "has this exact (Brisbane day, pulse window, action) already gone out?",
+# persisted to Supabase (wellness_reminder_log, migration 0118) rather than
+# in-memory, so the guarantee survives scheduler restarts. See module
+# docstring: this is what makes it safe to call run_dispatch_check() on a
+# timer instead of only ever from a human-triggered /dispatch.
+
+_REMINDER_LOG_TABLE = "wellness_reminder_log"
+
+
+def _brisbane_now() -> datetime:
+    """Brisbane-local now(), matching pulse_time.py's and
+    wellness_officer/intelligence.py::escalation_level()'s own tz handling
+    (MSN-0305 fixed escalation_level's naive-local-time drift risk; the hour
+    used for this module's own should_remind gating had the identical bug
+    and is fixed the same way here)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Australia/Brisbane"))
+    except Exception:
+        return datetime.now()
+
+
+def _current_pulse_window(hour: int) -> str:
+    """Canonical morning/midday/evening bucket for the given Brisbane hour —
+    reuses telegram_bots.xo.pulse_time.pulse_type_for_hour(), the single
+    source of truth for the 3x/day pulse schedule (Captain directive
+    2026-08-10), rather than a second, drifting copy of the same split.
+    Falls back to an inline copy of the identical bucketing only if the
+    import itself fails (e.g. run outside the repo's package layout)."""
+    try:
+        import sys
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from telegram_bots.xo.pulse_time import pulse_type_for_hour
+        return pulse_type_for_hour(hour)
+    except Exception:
+        if 5 <= hour < 12:
+            return "morning"
+        if 12 <= hour < 20:
+            return "midday"
+        return "evening"
+
+
+def _reminder_already_sent(client, window_date: str, pulse_window: str, action: str) -> bool:
+    """Has this exact (day, pulse window, action) already been dispatched?
+
+    Fails CLOSED (treated as "already sent" -> caller skips) on a missing
+    client or any Supabase error — same fail-closed contract as
+    intelligence/adhd/task_nudge_scheduler.py's NudgeRateLimiter.should_nudge
+    ("don't nudge if we can't check"). A reminder skipped this check comes
+    back next window; a Telegram message that already went out cannot be
+    un-sent, so an uncertain check must never resolve to "send".
+    """
+    if client is None:
+        log.warning("[recovery-dispatcher] no Supabase client for dedup check — failing closed (no send)")
+        return True
+    try:
+        result = (
+            client.table(_REMINDER_LOG_TABLE)
+            .select("id")
+            .eq("window_date", window_date)
+            .eq("pulse_window", pulse_window)
+            .eq("action", action)
+            .limit(1)
+            .execute()
+        )
+        return bool(result.data)
+    except Exception as exc:
+        log.error("[recovery-dispatcher] dedup check failed, failing closed (no send): %s", exc)
+        return True
+
+
+def _record_reminder_sent(
+    client, window_date: str, pulse_window: str, action: str, confidence: int | None,
+) -> None:
+    """Persist the dedup marker immediately after a real send. Best-effort:
+    if this write fails the message has already gone out and can't be
+    un-sent — at worst the next check re-sends once more (visible via
+    duplicate wellness-coaching heartbeat detail in the logs), which is the
+    same "log and continue" contract every other best-effort write in this
+    module already uses (see record_heartbeat() in _emit_and_return)."""
+    if client is None:
+        return
+    try:
+        client.table(_REMINDER_LOG_TABLE).insert({
+            "window_date": window_date,
+            "pulse_window": pulse_window,
+            "action": action,
+            "confidence_at_send": confidence,
+        }).execute()
+    except Exception as exc:
+        log.warning("[recovery-dispatcher] failed to persist reminder dedup marker: %s", exc)
+
+
+class _StandaloneTelegramBot:
+    """Minimal synchronous `bot.send_message(chat_id, text, parse_mode)`
+    adapter for callers with no live python-telegram-bot Application/event
+    loop (e.g. intelligence/scheduler.py's BlockingScheduler daemon) — raw
+    HTTP POST to the Bot API, same idiom as
+    core/platform/notification_service.py::_send_telegram() and
+    core/coordination/command_bus.py's private senders. Drop-in for the
+    live-bot _BotAdapter that telegram-bots/xo/app.py's /dispatch command
+    handler uses, satisfying the exact duck-typed contract _send() below
+    expects."""
+
+    def __init__(self, token: str | None = None):
+        self.token = token or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+
+    def send_message(self, chat_id, text, parse_mode="Markdown") -> None:
+        import json
+        import urllib.request
+
+        if not self.token:
+            raise RuntimeError("TELEGRAM_BOT_TOKEN not set")
+        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+        payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": parse_mode}).encode()
+        req = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}, method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+
+
 # ── Dispatch logic ────────────────────────────────────────────────────────────
 
 def run_dispatch_check(
@@ -259,6 +396,7 @@ def run_dispatch_check(
     *,
     supabase_client: Any | None = None,
     force_summary: bool = False,
+    dry_run: bool = False,
 ) -> dict:
     """
     Core dispatch logic. Call this from any bot's scheduled job or command handler.
@@ -269,36 +407,65 @@ def run_dispatch_check(
         chat_id:          Telegram chat/user ID to send messages to
         supabase_client:  Optional pre-built Supabase client; creates one if None
         force_summary:    Send full summary regardless of escalation level
+        dry_run:          Evaluate the full decision, including the de-dup
+                          check, but never actually call bot.send_message()
+                          or persist the de-dup marker. Use this to verify
+                          what a scheduled check WOULD do against live data
+                          without risking a real Telegram send.
 
     Returns:
-        dict with keys: confidence, level, action, message_sent
+        dict with keys: confidence, level, action, message_sent, pulse_window,
+        window_date, deduped, would_send, and (dry_run only) dry_run=True.
     """
-    status = get_recovery_status(supabase_client)
+    client = supabase_client or _get_supabase_client()
+    status = get_recovery_status(client)
     level  = status.escalation_level
-    hour   = datetime.now().hour
+    now    = _brisbane_now()
+    hour   = now.hour
+    window_date  = now.date().isoformat()
+    pulse_window = _current_pulse_window(hour)
 
-    result = {"confidence": status.recovery_confidence, "level": level, "action": "none", "message_sent": False}
+    result = {
+        "confidence": status.recovery_confidence,
+        "level": level,
+        "action": "none",
+        "message_sent": False,
+        "pulse_window": pulse_window,
+        "window_date": window_date,
+        "deduped": False,
+        "would_send": False,
+    }
+
+    def _dispatch(action: str, msg: str) -> dict:
+        result["action"] = action
+        if _reminder_already_sent(client, window_date, pulse_window, action):
+            result["deduped"] = True
+            log.info(
+                "[recovery-dispatcher] skip send: %s already dispatched for %s/%s",
+                action, window_date, pulse_window,
+            )
+            return _emit_and_return(result)
+        result["would_send"] = True
+        if dry_run:
+            result["dry_run"] = True
+            log.info("[recovery-dispatcher] DRY RUN — would send %s to chat_id=%s", action, chat_id)
+            return _emit_and_return(result)
+        _send(bot, chat_id, msg)
+        _record_reminder_sent(client, window_date, pulse_window, action, status.recovery_confidence)
+        result["message_sent"] = True
+        return _emit_and_return(result)
 
     # All 3 pulses done — send end-of-day summary once (at evening time)
     if status.pulses_completed == 3 or force_summary:
-        msg = build_daily_summary(status)
-        _send(bot, chat_id, msg)
-        result.update(action="daily_summary", message_sent=True)
-        return _emit_and_return(result)
+        return _dispatch("daily_summary", build_daily_summary(status))
 
     # L3: Critical — no pulses and it's afternoon+
     if level == 3:
-        msg = build_escalation_message(status, level=3)
-        _send(bot, chat_id, msg)
-        result.update(action="escalation_l3", message_sent=True)
-        return _emit_and_return(result)
+        return _dispatch("escalation_l3", build_escalation_message(status, level=3))
 
     # L2: Low confidence (1 pulse logged, or no pulses before midday)
     if level == 2:
-        msg = build_escalation_message(status, level=2)
-        _send(bot, chat_id, msg)
-        result.update(action="escalation_l2", message_sent=True)
-        return _emit_and_return(result)
+        return _dispatch("escalation_l2", build_escalation_message(status, level=2))
 
     # L1: Friendly reminder — only during appropriate hours
     next_pulse = status.next_suggested_pulse
@@ -310,9 +477,7 @@ def run_dispatch_check(
             (next_pulse == "evening" and 19 <= hour < 23)
         )
         if should_remind:
-            msg = build_pulse_reminder(status, next_pulse)
-            _send(bot, chat_id, msg)
-            result.update(action=f"reminder_{next_pulse}", message_sent=True)
+            return _dispatch(f"reminder_{next_pulse}", build_pulse_reminder(status, next_pulse))
 
     return _emit_and_return(result)
 
@@ -382,15 +547,42 @@ def _send(bot: Any, chat_id: str | int, text: str) -> None:
 # ── CLI entry point ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    """Standalone check — prints current status without sending Telegram messages."""
+    """Standalone check.
+
+    Default (no flags): status preview only, never sends Telegram messages
+    or touches the de-dup ledger — safe to run any time.
+
+    --dispatch:          run the real run_dispatch_check() decision,
+                          including the de-dup gate, against
+                          TELEGRAM_CHAT_ID. Add --dry-run to see exactly
+                          what it WOULD do without an actual Telegram send
+                          or de-dup write.
+    """
+    import argparse
+    import json
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     from dotenv import load_dotenv
     load_dotenv()
 
-    status = get_recovery_status()
-    print(build_daily_summary(status))
-    print(f"\nEscalation level: {status.escalation_level}")
-    if status.next_suggested_pulse:
-        print(f"\n--- L1 Reminder preview ---")
-        print(build_pulse_reminder(status))
+    parser = argparse.ArgumentParser(description="Recovery Officer engagement dispatcher")
+    parser.add_argument("--dispatch", action="store_true", help="Run the real dispatch decision")
+    parser.add_argument("--dry-run", action="store_true", help="With --dispatch: evaluate only, never send/record")
+    args = parser.parse_args()
+
+    if args.dispatch:
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+        if not chat_id:
+            print("TELEGRAM_CHAT_ID not set — cannot dispatch")
+            sys.exit(1)
+        bot = _StandaloneTelegramBot()
+        result = run_dispatch_check(bot, chat_id, dry_run=args.dry_run)
+        print(json.dumps(result, indent=2))
+    else:
+        status = get_recovery_status()
+        print(build_daily_summary(status))
+        print(f"\nEscalation level: {status.escalation_level}")
+        if status.next_suggested_pulse:
+            print(f"\n--- L1 Reminder preview ---")
+            print(build_pulse_reminder(status))

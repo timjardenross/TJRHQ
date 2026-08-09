@@ -306,13 +306,49 @@ def _start_scheduler() -> None:
     else:
         log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
 
+    # ── 2026-08-10: wellness-coaching automation (D-055 Recovery Officer) ─────
+    # Automates telegram-bots/recovery_officer/engagement_dispatcher.py's
+    # run_dispatch_check() — previously reachable only via the Captain
+    # manually running /dispatch in Telegram (see
+    # .claude/skills/bot-reviews/fixes-2026-08-09/final-4-domains.md §4,
+    # "wellness-coaching: left as wired-but-quiet"). Runs on this already-live
+    # scheduler daemon, same IntervalTrigger pattern as
+    # intraday_status_collection/continuous_attention_evaluation/
+    # adhd_task_nudge, rather than standing up a fourth one.
+    #
+    # Safe on a timer because run_dispatch_check() now de-dups per
+    # (Brisbane day, morning/midday/evening pulse window, action) via the
+    # wellness_reminder_log table (migration 0118) before every send — a
+    # window that's already been reminded-for, or already logged, produces
+    # no second Telegram message. The 06:00-23:00 Brisbane hour gate below
+    # is job-level belt-and-braces on top of that (escalation_l2's own
+    # internal gating in wellness_officer/intelligence.py::escalation_level()
+    # has no hour floor once exactly 1 pulse is logged).
+    wellness_interval = int(os.environ.get("WELLNESS_REMINDER_INTERVAL_MINUTES", "45"))
+    if os.environ.get("WELLNESS_REMINDER_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _wellness_reminder_job,
+            IntervalTrigger(minutes=wellness_interval),
+            id="wellness_reminder_check",
+            replace_existing=True,
+            next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+        )
+        log.info(
+            "Wellness reminder check enabled (every %d min, 06:00-23:00 %s)",
+            wellness_interval, SCHEDULE_TZ,
+        )
+    else:
+        log.info("Wellness reminder check disabled (set WELLNESS_REMINDER_ENABLED=true to enable)")
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
-        "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min",
+        "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
+        "Wellness reminder: every %d min (06:00-23:00, %s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+        wellness_interval, SCHEDULE_TZ,
     )
 
     try:
@@ -634,6 +670,78 @@ def _adhd_nudge_job() -> None:
     except Exception as exc:
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
+
+
+def _wellness_reminder_job() -> None:
+    """2026-08-10: automates telegram-bots/recovery_officer/
+    engagement_dispatcher.py::run_dispatch_check(), previously reachable
+    only via the Captain manually running /dispatch in Telegram.
+
+    Job-level hour gate (06:00-23:00 Brisbane) first — belt-and-braces on
+    top of run_dispatch_check()'s own internal per-pulse-type should_remind
+    windows, since its L2/L3 escalation branches have looser (or no) hour
+    floors of their own.
+
+    Builds its own Supabase client explicitly with SUPABASE_SERVICE_ROLE_KEY:
+    this process's env (platform-runtime/.env, this daemon's
+    EnvironmentFile=) has no SUPABASE_KEY — that name is only set in
+    telegram-bots/xo/.env, loaded by tg-xo.service, not this one. Passing
+    supabase_client explicitly avoids run_dispatch_check() silently falling
+    back to its own SUPABASE_KEY-based client lookup, getting None here, and
+    running the whole check against RecoveryStatus's zeroed-out defaults.
+
+    De-duplication (wellness_reminder_log, migration 0118) lives inside
+    run_dispatch_check() itself — this job can safely run every N minutes
+    without any risk of re-sending an identical reminder for a pulse window
+    that already got one, or one already logged by the Captain.
+    """
+    from datetime import datetime as _datetime
+
+    try:
+        from zoneinfo import ZoneInfo
+        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+    except Exception:
+        hour = _datetime.now().hour
+    if not (6 <= hour < 23):
+        log.info("Wellness reminder check skipped (outside 06:00-23:00 Brisbane, hour=%d)", hour)
+        return
+
+    log.info("Wellness reminder check triggered")
+    try:
+        sys.path.insert(0, _REPO_ROOT)
+        from telegram_bots.recovery_officer.engagement_dispatcher import (
+            _StandaloneTelegramBot, run_dispatch_check,
+        )
+
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not token or not chat_id:
+            log.warning("Wellness reminder check skipped: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not set")
+            _record_heartbeat("wellness-coaching", "skipped", detail="missing telegram credentials")
+            return
+        if not supabase_url or not supabase_key:
+            log.warning("Wellness reminder check skipped: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set")
+            _record_heartbeat("wellness-coaching", "skipped", detail="missing supabase credentials")
+            return
+
+        from supabase import create_client
+        client = create_client(supabase_url, supabase_key)
+        bot = _StandaloneTelegramBot(token)
+        result = run_dispatch_check(bot, chat_id, supabase_client=client)
+        log.info(
+            "Wellness reminder check complete: action=%s sent=%s deduped=%s window=%s/%s conf=%s",
+            result.get("action"), result.get("message_sent"), result.get("deduped"),
+            result.get("window_date"), result.get("pulse_window"), result.get("confidence"),
+        )
+        # run_dispatch_check() -> _emit_and_return() already heartbeats
+        # "wellness-coaching" unconditionally on every path (success, no-op,
+        # and deduped alike) — no second heartbeat call needed here for the
+        # normal case, only for the pre-flight credential-missing paths above.
+    except Exception as exc:
+        log.error("Wellness reminder check failed: %s", exc)
+        _record_heartbeat("wellness-coaching", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:
