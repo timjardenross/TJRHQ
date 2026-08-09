@@ -1722,6 +1722,10 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 from telegram_bots.xo import debrief_engine as de
             except ImportError:
                 de = None
+                log.warning(
+                    "[cmd_message] debrief_engine not present on this deploy — "
+                    "degrading to plain LLM reply, no debrief routing available"
+                )
             if de is not None:
                 debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
                 if debrief_result["handled"]:
@@ -1871,6 +1875,10 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         from telegram_bots.xo import debrief_engine as de
     except ImportError:
         de = None
+        log.warning(
+            "[cmd_voice_note] debrief_engine not present on this deploy — "
+            "degrading to plain quick-capture, no active-session check or intent scoring"
+        )
 
     vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
     audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
