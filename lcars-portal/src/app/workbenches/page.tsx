@@ -1,68 +1,21 @@
-// WORKBENCHES IS NOW THE HOME PAGE (after login).
+// WORKBENCHES IS THE HOME PAGE (after login).
 //
-// Per MSN-0350/EOS redesign: after authentication, users land on this
-// workbench hub instead of a static Home screen. Every experience is
-// reachable from here as a direct tile, emphasizing choice and deliberate
-// navigation over passive info-pushing.
+// Per MSN-0350/EOS redesign, then confirmed and made literally true by the
+// 2026-08 UX review: root '/' redirects here (see app/page.tsx), and the
+// prior /home "needs attention" triage feed is retired (see
+// home/page.tsx) — this directory of direct tiles is the one canonical
+// landing surface, not an alternative to something else.
 //
-// This page replaces the previous Home (HomeScreen) per design decision
-// 2026-07-18. Root redirect now goes to /workbenches instead of /home.
+// Tile content now comes from lib/workbenches.ts's LIVE_WORKBENCHES,
+// shared with WorkbenchShell's persistent switcher, so the two lists
+// can't drift the way this file's own local array once did (its Content
+// Workbench description kept describing a "Captain approval in Decide"
+// step for weeks after that step was removed from the actual pipeline).
 'use client';
 
 import Link from 'next/link';
-import { Card, BackLink } from '@/components/ui';
-
-interface Tile {
-  href: string;
-  title: string;
-  description: string;
-}
-
-const TILES: Tile[] = [
-  {
-    href: '/captains-chair-workbench',
-    title: 'Captain\'s Chair',
-    description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
-  },
-  {
-    href: '/intelligence-workbench',
-    title: 'Technical OSINT Workbench',
-    description: 'Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation.',
-  },
-  {
-    href: '/health-osint',
-    title: 'Health OSINT Workbench',
-    description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
-  },
-  // Communications Workbench (Signals/Pipeline/Portfolio) removed from this
-  // home list 2026-08 per explicit decision — Content Workbench now covers
-  // capture through publish-submission end to end, superseding it as the
-  // day-to-day surface. The route itself (/comms-workbench) is untouched
-  // and still reachable directly, but nothing there is orphaned: Content
-  // Workbench gained its own Portfolio tab (content-workbench/_components/
-  // PortfolioTab.tsx) reading the same published comms_content rows.
-  //
-  // Mission Workbench was delisted the same day, same reasoning — the
-  // route (/mission-workbench) is untouched, just unlisted.
-  {
-    href: '/content-workbench',
-    title: 'Content Workbench',
-    description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end, plus a Portfolio of everything published - one QA-gated pipeline, Captain approval still required in Decide.',
-  },
-  {
-    href: '/human-systems-workbench',
-    title: 'Human Systems Workbench',
-    description: 'Recovery posture, medical tracking, and physical readiness in one collection - live from the recovery-pulse signal.',
-  },
-  {
-    href: '/advisory-workbench',
-    title: 'Advisory Workbench',
-    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
-  },
-  // Capture Workbench and Knowledge Workbench delisted 2026-08 per explicit
-  // decision — routes (/capture-workbench, /knowledge-workbench) untouched,
-  // still reachable directly, just unlisted here.
-];
+import { Card, QuickCapture } from '@/components/ui';
+import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 
 export default function Workbenches() {
   return (
@@ -73,7 +26,7 @@ export default function Workbenches() {
           Choose a workbench or surface to navigate to. Every real experience is reachable from here.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          {TILES.map((t) => (
+          {LIVE_WORKBENCHES.map((t) => (
             <Link key={t.href} href={t.href} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep rounded-lg">
               <Card className="h-full transition hover:-translate-y-px hover:border-wb-sage-deep">
                 <h2 className="mb-1.5 font-serif text-[16px] text-wb-ink">{t.title}</h2>
@@ -83,6 +36,7 @@ export default function Workbenches() {
           ))}
         </div>
       </main>
+      <QuickCapture />
     </div>
   );
 }

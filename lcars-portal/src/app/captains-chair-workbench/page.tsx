@@ -182,7 +182,6 @@ export default function CaptainsChairWorkbench() {
     <WorkbenchShell
       title="Captain's Chair"
       eyebrow="Operational Dashboard"
-      homeHref="/captains-chair-workbench"
       tagline="USS TJR · Captain's Chair · Operational Dashboard"
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >

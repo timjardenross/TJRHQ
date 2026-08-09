@@ -101,9 +101,8 @@ function Workbench() {
     <WorkbenchShell
       title="Health OSINT Workbench"
       eyebrow="Medical & Clinical Intelligence"
-      homeHref="/health-osint"
       tagline="USS TJR · Study Confidence, Source Trust, Safety Escalation"
-      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
+      tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Health OSINT…</div>}

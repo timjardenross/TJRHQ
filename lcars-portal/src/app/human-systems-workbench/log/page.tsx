@@ -106,7 +106,6 @@ export default function CaptainsLogPage() {
       <WorkbenchShell
         title="Captain's Log"
         eyebrow="Recovery & Capacity"
-        homeHref="/human-systems-workbench"
         tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
         back={{ href: '/human-systems-workbench?domain=recovery', label: 'Recovery' }}
       >
@@ -125,7 +124,6 @@ export default function CaptainsLogPage() {
     <WorkbenchShell
       title="Captain's Log"
       eyebrow="Recovery & Capacity"
-      homeHref="/human-systems-workbench"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench?domain=recovery', label: 'Recovery' }}
     >

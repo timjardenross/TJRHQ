@@ -90,19 +90,17 @@ function Workbench() {
   });
 
   const right = (
-    <div className="flex items-center gap-3">
-      <span className="hidden text-[11px] text-wb-ink2 sm:inline">
-        {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
-      </span>
-      <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />
-    </div>
+    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+      {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
+    </span>
   );
 
   return (
     <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[domain]}
-      homeHref="/human-systems-workbench"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
-      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+      right={right}
+      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />}
+      back={{ href: '/workbenches', label: 'Workbenches' }}>
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
       {data && !('error' in data) && (

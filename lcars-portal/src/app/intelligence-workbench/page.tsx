@@ -88,9 +88,8 @@ function Workbench() {
     <WorkbenchShell
       title="Technical OSINT Workbench"
       eyebrow="Cyber & Infrastructure Intelligence"
-      homeHref="/intelligence-workbench"
       tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"
-      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
+      tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Technical OSINT…</div>}

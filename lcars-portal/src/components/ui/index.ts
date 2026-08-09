@@ -25,3 +25,5 @@ export { WorkbenchShell } from './WorkbenchShell';
 
 export { DomainToggle } from './DomainToggle';
 export type { DomainToggleOption } from './DomainToggle';
+
+export { QuickCapture } from './QuickCapture';
