@@ -2,8 +2,9 @@
 Captain's Daily Brief Generator — USS TJR MSN-0200.
 
 Produces concise, Telegram-formatted briefs combining:
-- Operational Resilience Intelligence (latest ORI brief)
-- Internal data: active missions, health capacity, decisions
+- Operational Resilience Intelligence (latest ORI brief; weekly report uses a
+  7-day OSINT roll-up instead — see generate_weekly_report())
+- Internal data: health capacity, content pipeline, decisions
 - Formatted for Telegram HTML delivery
 
 Brief types: morning | midday | eod | weekly
@@ -15,6 +16,7 @@ import json
 import logging
 import os
 import urllib.request
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -105,14 +107,6 @@ def _send_telegram(text: str) -> bool:
 def _get_latest_ori_brief() -> Optional[dict]:
     rows = _sb_get("intelligence_briefs", "order=generated_at.desc&limit=1")
     return rows[0] if rows else None
-
-
-def _get_active_missions(limit: int = 8) -> list[dict]:
-    return _sb_get(
-        "missions",
-        f"status=not.in.(Closed,Archived,Idea)&order=priority.asc,updated_at.desc"
-        f"&limit={limit}&select=mission_id,title,status,priority",
-    )
 
 
 def _get_todays_health() -> Optional[dict]:
@@ -287,6 +281,88 @@ def _get_recent_signals(hours: int = 24) -> list[dict]:
     return _with_risk_label(rows)
 
 
+# ── Weekly OSINT roll-up (2026-08-10 weekly report redesign) ──────────────────
+#
+# generate_weekly_report() used to be built on _get_latest_ori_brief() — a
+# single latest-row snapshot from intelligence_briefs. Per Captain's direction
+# it's now built on a real 7-day aggregation across both OSINT domains,
+# reusing the same table/bucketing pattern as each workbench's own
+# "Intelligence Summary" tab (lcars-portal/src/app/api/intelligence-workbench/
+# intelligence-summary/route.ts for Tech OSINT, .../health-osint/
+# intelligence-summary/route.ts for Health OSINT) rather than inventing a new
+# query shape — just windowed to 7 days instead of those routes' single fetch.
+
+def _get_weekly_tech_signals(days: int = 7, limit: int = 1000) -> list[dict]:
+    """Tech/Intelligence Workbench roll-up — same table (intelligence_events)
+    and confidence field (osint_confidence_level) as intelligence-workbench/
+    intelligence-summary/route.ts, windowed to the last `days` days. Unlike
+    that route's UI-display cap of 150, `limit` here is set high enough to
+    capture a full week's volume (~600 rows observed 2026-08-10) so the
+    HIGH/MEDIUM/LOW counts in the weekly report are real totals, not a
+    truncated sample."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "intelligence_events",
+        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=raw_title,sector,rank_score,osint_confidence_level,collected_at",
+    )
+
+
+def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
+    """Health OSINT Workbench roll-up — same table (health_signals) and
+    confidence field (confidence_level) as health-osint/intelligence-summary/
+    route.ts, windowed to the last `days` days. `limit` set high enough to
+    capture a full week's volume (~320 rows observed 2026-08-10) so the
+    HIGH/MEDIUM/LOW counts are real totals, not a truncated sample."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "health_signals",
+        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=title,health_domain,rank_score,confidence_level,collected_at",
+    )
+
+
+def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
+    """Content published or moved to review/approval in the last `days` days —
+    extends _get_content_review_queue's status set with 'published' and
+    'approved' and windows by updated_at (comms_content has no dedicated
+    status-change timestamp) instead of returning the standing pending-queue
+    snapshot the daily briefs use."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "comms_content",
+        f"status=in.(published,review,ready_to_publish,approved)&updated_at=gte.{since}"
+        f"&order=updated_at.desc&limit={limit}&select=title,pillar,status,updated_at",
+    )
+
+
+def _get_weekly_decisions(days: int = 7, limit: int = 6) -> list[dict]:
+    """decision_records rows created in the last `days` days — confirmed
+    2026-08-10 as the canonical decision write path (build_learning_loop.py;
+    see also research_learning_loop.py / comms_learning_loop.py, heartbeated
+    the same way)."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "decision_records",
+        f"decision_timestamp=gte.{since}&order=decision_timestamp.desc&limit={limit}"
+        f"&select=mission_id,recommendation_text,human_decision,decision_maker,decision_timestamp",
+    )
+
+
+def _get_weekly_capacity(days: int = 7) -> list[dict]:
+    """captains_log_entries rows across the last `days` days (inclusive of
+    today) — a real weekly trend, not the single-day snapshot the daily
+    briefs use."""
+    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    return _sb_get(
+        "captains_log_entries",
+        f"log_date=gte.{since}&order=log_date.asc"
+        f"&select=log_date,captain_capacity_rating,energy,pain_score,sleep_hours",
+    )
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
 # Part 1 item 4 (2026-08-09 Telegram usefulness design): unify the three
@@ -410,6 +486,94 @@ def _format_content_review_block(content_queue: list[dict], morning_text: Option
             f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar} · {age}]"
         )
     lines.append("")
+    return lines
+
+
+def _format_weekly_osint_block(
+    title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
+    top_n: int = 3,
+) -> list[str]:
+    """Shared weekly OSINT roll-up renderer for generate_weekly_report() —
+    same HIGH/MEDIUM/LOW bucketing each workbench's Intelligence Summary tab
+    uses (see _get_weekly_tech_signals / _get_weekly_health_signals), applied
+    across the whole 7-day window rather than a single latest row."""
+    if not rows:
+        return [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week.", ""]
+    counts = Counter((r.get(confidence_field) or "UNKNOWN").upper() for r in rows)
+    unknown = len(rows) - counts.get("HIGH", 0) - counts.get("MEDIUM", 0) - counts.get("LOW", 0)
+    summary = (
+        f"  {_risk_emoji('HIGH')} {counts.get('HIGH', 0)} high"
+        f"  ·  {_risk_emoji('MEDIUM')} {counts.get('MEDIUM', 0)} medium"
+        f"  ·  {_risk_emoji('LOW')} {counts.get('LOW', 0)} low"
+    )
+    if unknown:
+        summary += f"  ·  ⚪ {unknown} unscored"
+    lines = [f"<b>{emoji} {title} — WEEKLY ({len(rows)})</b>", summary]
+    # Headline items: prefer HIGH-confidence signals; fall back to the
+    # top-ranked signals overall if nothing hit HIGH this week.
+    headline = [r for r in rows if (r.get(confidence_field) or "").upper() == "HIGH"]
+    if not headline:
+        headline = rows
+    headline = sorted(headline, key=lambda r: r.get("rank_score") or 0, reverse=True)[:top_n]
+    for r in headline:
+        text = r.get(title_field) or "—"
+        lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_truncate_clean(text, 110)}")
+    lines.append("")
+    return lines
+
+
+def _format_weekly_content_block(items: list[dict]) -> list[str]:
+    """Content published or moved to review/approval this week — weekly
+    counterpart to _format_content_review_block's standing pending-queue
+    snapshot."""
+    if not items:
+        return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
+    status_counts = Counter(c.get("status", "?") for c in items)
+    summary = "  ·  ".join(f"{v} {k.replace('_', ' ')}" for k, v in status_counts.items())
+    status_emoji = {"published": "✅", "ready_to_publish": "🟢", "approved": "🟡", "review": "📝"}
+    lines = [f"<b>✍️ CONTENT THIS WEEK ({len(items)})</b>", f"  {summary}"]
+    for c in items:
+        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+        emoji = status_emoji.get(c.get("status"), "•")
+        lines.append(
+            f"  {emoji} <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+        )
+    lines.append("")
+    return lines
+
+
+def _format_weekly_decisions_block(decisions: list[dict]) -> list[str]:
+    """decision_records rows logged this week — real weekly decision log,
+    not a mission list."""
+    if not decisions:
+        return ["<b>📋 DECISIONS THIS WEEK</b>", "  No decisions logged this week.", ""]
+    lines = [f"<b>📋 DECISIONS THIS WEEK ({len(decisions)})</b>"]
+    for d in decisions:
+        text = _truncate_clean(d.get("recommendation_text") or "—", 130)
+        decision = d.get("human_decision") or "?"
+        mission = d.get("mission_id")
+        tag = f"  <i>[{mission}]</i>" if mission else ""
+        lines.append(f"  • <b>{decision}</b> — {text}{tag}")
+    lines.append("")
+    return lines
+
+
+def _format_weekly_capacity_block(entries: list[dict]) -> list[str]:
+    """captains_log_entries across the 7-day window — a real weekly
+    Green/Amber/Red trend instead of a single day's snapshot."""
+    if not entries:
+        return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs this week.", ""]
+    counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
+    order = ["Green", "Amber", "Red"]
+    parts = [f"{counts[c]} {c}" for c in order if counts.get(c)]
+    parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
+    trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
+    lines = [
+        f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
+        f"  {' · '.join(parts) if parts else 'no ratings logged'}",
+        f"  <code>{trend}</code>",
+        "",
+    ]
     return lines
 
 
@@ -629,10 +793,19 @@ def generate_knowledge_ops_brief() -> str:
 
 
 def generate_weekly_report() -> str:
+    """Weekly Intelligence Report — redesigned 2026-08-10 per Captain's
+    direction: primary intelligence content is now a real 7-day roll-up
+    across both OSINT domains (Tech/Intelligence Workbench + Health OSINT),
+    not a single latest-row ORI brief snapshot. Missions are deliberately
+    NOT included — the Captain does not want missions in the weekly report."""
     now = _now_aest()
     week_start = (now - timedelta(days=6)).strftime("%d %b")
-    brief = _get_latest_ori_brief()
-    missions = _get_active_missions(limit=10)
+
+    tech_signals = _get_weekly_tech_signals(days=7)
+    health_signals = _get_weekly_health_signals(days=7)
+    content_items = _get_weekly_content_activity(days=7)
+    decisions = _get_weekly_decisions(days=7)
+    capacity_entries = _get_weekly_capacity(days=7)
 
     lines = [
         "<b>📊 WEEKLY INTELLIGENCE REPORT</b>",
@@ -640,40 +813,15 @@ def generate_weekly_report() -> str:
         "",
     ]
 
-    if brief:
-        risk = brief.get("overall_risk", "Unknown")
-        snap = brief.get("executive_snapshot") or ""
-        themes = brief.get("emerging_themes") or []
-        fw = brief.get("forward_watch") or ""
-
-        lines += [
-            "<b>🌐 OPERATIONAL RESILIENCE</b>",
-            f"  Overall risk: {_risk_emoji(risk)} <b>{risk}</b>",
-        ]
-        if snap:
-            lines.append(f"  {_truncate_clean(snap, 400)}")
-
-        if themes:
-            lines += ["", "<b>📈 EMERGING THEMES</b>"]
-            for t in themes[:4]:
-                if isinstance(t, str):
-                    lines.append(f"  • {t}")
-                elif isinstance(t, dict):
-                    label = t.get("theme") or t.get("title") or str(t)
-                    lines.append(f"  • {label}")
-
-        if fw:
-            lines += ["", "<b>👁 FORWARD WATCH</b>", f"  {_truncate_clean(str(fw), 300)}"]
-        lines.append("")
-
-    if missions:
-        lines.append("<b>🎯 ACTIVE MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} {m.get('title', '—')}  [{m.get('status', '?')}]"
-            )
-        lines.append("")
+    lines += _format_weekly_osint_block(
+        "TECH OSINT", "🛰", tech_signals, "osint_confidence_level", "raw_title",
+    )
+    lines += _format_weekly_osint_block(
+        "HEALTH OSINT", "🩺", health_signals, "confidence_level", "title",
+    )
+    lines += _format_weekly_content_block(content_items)
+    lines += _format_weekly_decisions_block(decisions)
+    lines += _format_weekly_capacity_block(capacity_entries)
 
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
