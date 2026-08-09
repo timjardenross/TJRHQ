@@ -1,0 +1,12 @@
+# Routing rules for tools/supabase/specialist_router.py's route_question()
+# (primary route, highest-scoring row wins) and collaboration_router.py's
+# select_specialists() (fans out to every row with a term match, up to
+# MAX_SPECIALISTS=4). Format: comma-separated terms -> Specialist Name.
+# Terms are matched as case-insensitive substrings of the question text.
+# Companion file: specialist-retrieval-registry.txt (domains/allowed types).
+
+architecture, infrastructure, technical debt, security, github, supabase, platform, system design, integration, scalability, refactor, voice core, capability planning -> Chief Engineer
+priorities, priority, mission, missions, planning, sprint, roadmap, sequencing, coordination, resourcing, cross-specialist alignment, weekly review -> Chief of Staff
+knowledge, documentation, information governance, information architecture, discoverability, taxonomy, knowledge base, knowledge lifecycle, command centre -> Knowledge Manager
+ux, design, usability, accessibility, interaction design, dashboard, cognitive load, navigation, voice experience, workflow design, component design, friction -> Design Officer
+code, testing, review, quality, defects, code review, bug, maintainability, testability, failure modes -> Code Review Specialist

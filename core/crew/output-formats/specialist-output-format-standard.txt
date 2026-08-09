@@ -1,0 +1,12 @@
+Standard specialist response format -- fallback used by any specialist name
+that doesn't have its own dedicated output-format file in this directory
+(see specialist_router.py's _profile()). Numbered lines below are parsed as
+section titles.
+
+1. Question
+2. Position
+3. Retrieved Knowledge
+4. Recommendation
+5. Risks
+6. Next Actions
+7. Sources
