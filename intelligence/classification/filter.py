@@ -61,6 +61,25 @@ _ROAD_ALERT_PATTERN = re.compile(
     r"^[A-Z][A-Z0-9\s]{2,30}\s+(RD|ST|AVE|DR|CT|CR|HWY|FWY|PL|LANE|BLVD|TCE|GRV|CL|WAY|CRES)$"
 )
 
+# 2026-08-09 gap-closure: status-page/statuspage.io-style sources
+# (cloud_technology/critical_infrastructure category — Cloudflare, GitHub,
+# AWS, Telstra, TPG, etc.) mix real incidents with routine SCHEDULED
+# maintenance notices in the same feed. Live-checked Cloudflare's actual
+# feed: 14 of the last 15 entries were maintenance windows, not incidents
+# ("SSL/TLS Certificate Management Maintenance", "EWR (Newark) on
+# 2026-09-02" — one per-datacenter maintenance notice per window). Scoped
+# to this category specifically, not a blanket "maintenance" keyword
+# suppression — "maintenance" means something entirely different in a
+# transport/infrastructure news headline.
+_STATUS_PAGE_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
+_MAINTENANCE_SIGNALS = ["maintenance", "scheduled downtime", "planned downtime"]
+# Cloudflare's per-datacenter maintenance format: "EWR (Newark) on 2026-09-02"
+# — an airport-style location code + city + a bare future date, no incident
+# language at all, so the keyword check above can't catch it.
+_DATACENTER_MAINTENANCE_PATTERN = re.compile(
+    r"^[A-Z]{2,4}\s*\([^)]+\)\s+on\s+\d{4}-\d{2}-\d{2}$"
+)
+
 # General media: suppress if no direct OR signals in title
 _MEDIA_OR_SIGNALS = [
     "outage", "breach", "cyber", "ransomware", "payment", "banking", "apra",
@@ -145,6 +164,13 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
         text = title_lower + " " + (event.raw_summary or "").lower()
         if not any(kw in text for kw in _SPEECH_OR_KEYWORDS):
             return True, "speech_no_or_relevance"
+
+    # ── Status-page scheduled maintenance noise ────────────────────────────────
+    if event.source_category in _STATUS_PAGE_CATEGORIES:
+        if any(sig in title_lower for sig in _MAINTENANCE_SIGNALS):
+            return True, "status_page_scheduled_maintenance"
+        if _DATACENTER_MAINTENANCE_PATTERN.match(title):
+            return True, "status_page_datacenter_maintenance_window"
 
     # ── Media sources: suppress if no direct OR signal in title ───────────────
     if event.source_category == "media" or event.source_priority >= 4:
