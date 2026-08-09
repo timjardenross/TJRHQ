@@ -360,6 +360,24 @@ def _emit_and_return(result: dict) -> dict:
         )
     except Exception:
         pass
+
+    # Chief Engineer 2026-08-09 EOD alert verification: the domain_registry
+    # comment (migration 0083) claimed this publish_event() call above
+    # already fed domain_heartbeats via the Event Bus mirror — it doesn't;
+    # event_bus.py only self-heartbeats its own "core_events" domain, never
+    # the caller's domain string. record_heartbeat() had zero call sites for
+    # "wellness-coaching" anywhere in the repo, so it always read
+    # never_succeeded=true regardless of how many escalations fired here.
+    try:
+        import sys
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parents[2]
+        if str(repo_root) not in sys.path:
+            sys.path.insert(0, str(repo_root))
+        from core.platform.heartbeat import record_heartbeat
+        record_heartbeat("wellness-coaching", status="ok", detail=f"action={result.get('action')}")
+    except Exception:
+        pass
     return result
 
 
