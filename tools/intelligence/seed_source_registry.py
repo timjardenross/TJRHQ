@@ -495,7 +495,7 @@ SOURCES = [
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
         "active":             False,
-        "notes":              "National Electricity Market operational notices. Scrape page returns 403 (bot detection) — deactivated.",
+        "notes":              "National Electricity Market operational notices. Scrape page returns 403 (bot detection) — deactivated. CONFIRMED 2026-08-09: firecrawl (headless-browser fetch) bypasses the 403 and returns real, current notices — scrape_adapter.py's plain urllib.request fetch is what gets blocked, not the source itself. Reactivate once the adapter gets a firecrawl-backed fetch path for bot-blocked sources.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
