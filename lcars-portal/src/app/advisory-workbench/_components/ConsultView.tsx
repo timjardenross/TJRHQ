@@ -15,13 +15,6 @@ import type { CouncilAdvisor, Msg } from './types';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
-const QUICK_PROMPTS = [
-  'What needs my decision?',
-  'Protect or defer?',
-  'What changed since yesterday?',
-  'Challenge this assumption',
-];
-
 export function ConsultView() {
   const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
@@ -205,14 +198,6 @@ export function ConsultView() {
                 </div>
               )}
               <div ref={bottomRef} />
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_PROMPTS.map((p) => (
-                <button key={p} onClick={() => send(p)} disabled={loading}
-                  className="rounded-md border border-wb-line px-2.5 py-1 text-[10px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep hover:text-wb-sage-deep disabled:opacity-40">
-                  {p}
-                </button>
-              ))}
             </div>
             {!activeAdvisor.useXoEndpoint && (
               <label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
