@@ -44,3 +44,7 @@ outputs/
 .vscode/
 .idea/
 *.swp
+
+# id_registry.py's fcntl lock file — ephemeral, recreated on every mint.
+# Track .id-counters.json itself (it's the durable counter state); never this.
+.id-counters.lock
