@@ -418,7 +418,6 @@ def _format_content_review_block(content_queue: list[dict], morning_text: Option
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
-    missions = _get_active_missions(limit=5)
     health = _get_todays_health()
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
@@ -489,16 +488,6 @@ def generate_morning_brief() -> str:
                 "",
             ]
 
-    # Active missions
-    if missions:
-        lines.append("<b>🎯 ACTIVE MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} <b>{m.get('title', '—')}</b>  [{m.get('status', '?')}]"
-            )
-        lines.append("")
-
     # Platform self-health — only surfaced when something is actually
     # degraded; silence is a valid, positive state (per verification engine
     # design intent, STARSHIP-REDESIGN.md §9). Morning brief is the first
@@ -531,7 +520,6 @@ def generate_midday_update(signals: list[dict]) -> str:
 
 def generate_eod_summary() -> str:
     now = _now_aest()
-    missions = _get_active_missions(limit=8)
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
@@ -580,15 +568,6 @@ def generate_eod_summary() -> str:
         ]
         if signals:
             lines.append(f"  {' · '.join(signals)}")
-        lines.append("")
-
-    if missions:
-        lines.append("<b>🎯 MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} {m.get('title', '—')}  [{m.get('status', '?')}]"
-            )
         lines.append("")
 
     lines += _format_infra_block(infra, morning_text)
