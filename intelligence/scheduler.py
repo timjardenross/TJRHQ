@@ -196,6 +196,24 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── 2026-08-09 gap-closure: intraday status/outage polling ──────────────────
+    # The 06:00 daily sweep alone gave up to ~24h lag even for wire-covered
+    # breaking stories. Re-polls the already-registered fast-moving
+    # cloud/critical-infrastructure status feeds (Cloudflare, AWS, GitHub,
+    # Telstra, TPG, etc. — see _INTRADAY_STATUS_CATEGORIES) every few hours
+    # instead of once a day. Same dedup keys as the daily job, so this can
+    # never double-save an event the 06:00 run already collected.
+    from apscheduler.triggers.interval import IntervalTrigger as _IntervalTrigger
+
+    intraday_interval = int(os.environ.get("INTRADAY_STATUS_INTERVAL_MINUTES", "180"))
+    scheduler.add_job(
+        _intraday_status_collection_job,
+        _IntervalTrigger(minutes=intraday_interval),
+        id="intraday_status_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── MSN-0202: Content Intelligence scoring (opt-in) ──────────────────────
     # Runs at 06:15 AEST (15 min after daily collection) to score new events.
     # Gated by CONTENT_INTEL_PUSH_ENABLED=1 env var.
@@ -480,6 +498,99 @@ def _daily_collection_job() -> None:
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+
+
+# Categories treated as "critical status" for the intraday tier below —
+# fast-moving status-page/outage-style feeds (statuspage.io-pattern RSS/Atom:
+# Cloudflare, AWS, GitHub, Slack, Zoom, Telstra, TPG, NBN, etc.), not the
+# slower editorial/regulatory sources the 06:00 daily sweep already covers.
+_INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
+
+
+def _intraday_status_collection_job() -> None:
+    """2026-08-09 gap-closure (real-time pickup): the 06:00 daily sweep gave
+    up to ~24h lag even for wire-covered breaking stories, and nothing
+    polled outage/status feeds more than once a day. No public
+    unauthenticated Verizon/AT&T-class carrier feed could be found by
+    live-checking obvious URL patterns (see migration/notes on the
+    Telstra source) — this doesn't add new sources, it polls the ones
+    already registered under the fast-moving categories far more often,
+    using the exact same collect -> classify -> dedup -> filter -> rank ->
+    save_event pipeline _daily_collection_job uses (same dedup keys, so
+    running both on the same day never double-saves an event)."""
+    log.info("Intraday status collection triggered")
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.category in _INTRADAY_STATUS_CATEGORIES]
+        if not sources:
+            log.warning("Intraday status collection: no active sources in %s", _INTRADAY_STATUS_CATEGORIES)
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on intraday run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Intraday status collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "intraday_status_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Intraday status collection job failed: %s", exc)
+        _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
 
 
 def _health_mission_correlation_job() -> None:
