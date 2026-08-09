@@ -44,7 +44,10 @@ _SYSTEM_PROMPT = (
     "the likely operational impact. "
     "Rules: only use the domain data provided — never invent a cause. "
     "Be direct, specific, and brief (2-4 sentences). "
-    "Plain English, no caveats about your own uncertainty."
+    "Plain English, no caveats about your own uncertainty. "
+    "Always end with one explicit line stating either what the Captain needs "
+    "to do right now, or that this is already being monitored/handled "
+    "automatically and needs no action."
 )
 
 _NOMINAL_NARRATIVE = "All platform domains reporting normally — no degraded signals."
