@@ -483,7 +483,7 @@ def generate_morning_brief() -> str:
         if snap:
             lines += [
                 "<b>📡 INTELLIGENCE</b>",
-                f"  {snap[:350]}",
+                f"  {_truncate_clean(snap, 350)}",
                 f"  <i>Risk: {brief.get('overall_risk', '?')}"
                 f" · ORI brief {brief.get('period_end', '')}</i>",
                 "",
@@ -672,7 +672,7 @@ def generate_weekly_report() -> str:
             f"  Overall risk: {_risk_emoji(risk)} <b>{risk}</b>",
         ]
         if snap:
-            lines.append(f"  {snap[:400]}")
+            lines.append(f"  {_truncate_clean(snap, 400)}")
 
         if themes:
             lines += ["", "<b>📈 EMERGING THEMES</b>"]
@@ -684,7 +684,7 @@ def generate_weekly_report() -> str:
                     lines.append(f"  • {label}")
 
         if fw:
-            lines += ["", "<b>👁 FORWARD WATCH</b>", f"  {str(fw)[:300]}"]
+            lines += ["", "<b>👁 FORWARD WATCH</b>", f"  {_truncate_clean(str(fw), 300)}"]
         lines.append("")
 
     if missions:
