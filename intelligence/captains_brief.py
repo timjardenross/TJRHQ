@@ -155,6 +155,21 @@ def _get_content_review_queue(limit: int = 5) -> list[dict]:
     )
 
 
+def _get_todays_morning_brief_text() -> Optional[str]:
+    """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
+    morning's already-persisted brief text so the EOD summary can detect
+    same-day repeats (Content Review / Platform Health) without
+    re-deriving state. Best-effort — a lookup failure just means repeats
+    render normally, same as pre-fix behaviour, never breaks the brief."""
+    today = date.today().isoformat()
+    rows = _sb_get(
+        "captains_daily_briefs",
+        f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc"
+        f"&limit=1&select=brief_text",
+    )
+    return rows[0].get("brief_text") if rows else None
+
+
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
     since = (date.today() - timedelta(days=days)).isoformat()
     return _sb_get(
@@ -274,24 +289,37 @@ def _get_recent_signals(hours: int = 24) -> list[dict]:
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
+# Part 1 item 4 (2026-08-09 Telegram usefulness design): unify the three
+# separate severity vocabularies that had grown independently — risk
+# (🔴🟡🟢⚪), mission priority (🔥⚡📌📎), capacity (🟢🟡🔴 inverted) — into one
+# shared red/yellow/green/none grammar used everywhere in Telegram-facing
+# text. 🔴 = urgent/bad, 🟡 = caution/medium, 🟢 = fine/good, ⚪ = unknown/none.
+_SEVERITY_EMOJI = {"red": "🔴", "yellow": "🟡", "green": "🟢", "none": "⚪"}
+
+
+def _severity_emoji(level: str) -> str:
+    return _SEVERITY_EMOJI.get((level or "none").lower(), _SEVERITY_EMOJI["none"])
+
+
 def _risk_emoji(risk: str) -> str:
-    return {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(
-        (risk or "").upper(), "⚪"
-    )
+    level = {"HIGH": "red", "MEDIUM": "yellow", "LOW": "green"}.get((risk or "").upper())
+    return _severity_emoji(level or "none")
 
 
 def _priority_label(p: str) -> str:
-    return {"P0": "🔥", "P1": "⚡", "P2": "📌", "P3": "📎"}.get(
-        (p or "").upper(), "  "
-    )
+    """Mission priority P0-P3 mapped onto the same red/yellow/green/none
+    scale used by risk and capacity, replacing the previous separate
+    🔥⚡📌📎 vocabulary."""
+    level = {"P0": "red", "P1": "yellow", "P2": "green", "P3": "none"}.get((p or "").upper())
+    return _severity_emoji(level or "none")
 
 
 def _cap_emoji(score) -> str:
     try:
         s = int(score)
     except (TypeError, ValueError):
-        return "⚪"
-    return "🟢" if s >= 70 else "🟡" if s >= 40 else "🔴"
+        return _severity_emoji("none")
+    return _severity_emoji("green" if s >= 70 else "yellow" if s >= 40 else "red")
 
 
 def _confidence_bar(pct) -> str:
@@ -305,6 +333,73 @@ def _confidence_bar(pct) -> str:
 
 def _now_aest() -> datetime:
     return datetime.now(_AEST)
+
+
+def _relative_age(timestamp: Optional[str]) -> str:
+    """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
+    relative-age label ("today" / "3 days old" / "4 weeks old") for a
+    Content Review item's draft_generated_at, so a draft that has sat for
+    weeks doesn't render identically to one generated an hour ago."""
+    if not timestamp:
+        return "age unknown"
+    try:
+        ts = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return "age unknown"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    days = (datetime.now(timezone.utc) - ts).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1 day old"
+    if days < 14:
+        return f"{days} days old"
+    weeks = days // 7
+    return f"{weeks} week{'s' if weeks != 1 else ''} old"
+
+
+def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = None) -> list[str]:
+    """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
+    was copy-pasted verbatim between generate_morning_brief() and
+    generate_eod_summary()). `morning_text`, when supplied (EOD only), is
+    this morning's already-persisted brief text — if today's narrative was
+    already shown there, the header is marked "(unchanged since this
+    morning)" instead of silently re-rendering the identical warning."""
+    if not infra or infra.get("state") != "unsure":
+        return []
+    narrative = infra["narrative"][:400]
+    unchanged = bool(morning_text) and narrative in morning_text
+    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
+    return [
+        f"<b>🛰 PLATFORM HEALTH</b>{suffix}",
+        f"  ⚠️ {narrative}",
+        "",
+    ]
+
+
+def _format_content_review_block(content_queue: list[dict], morning_text: Optional[str] = None) -> list[str]:
+    """Shared Content Review renderer (Part 1 item 2: de-dupe the block that
+    was copy-pasted verbatim between generate_morning_brief() and
+    generate_eod_summary()). Each item now also shows its age (item 3).
+    `morning_text`, when supplied (EOD only), is this morning's already-
+    persisted brief text — if every title shown here already appeared
+    there, the header is marked "(unchanged since this morning)" instead of
+    silently re-listing an identical queue."""
+    if not content_queue:
+        return []
+    titles = [c.get("title") or "(untitled)" for c in content_queue]
+    unchanged = bool(morning_text) and all(t in morning_text for t in titles)
+    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
+    lines = [f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>{suffix}"]
+    for c in content_queue:
+        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+        age = _relative_age(c.get("draft_generated_at"))
+        lines.append(
+            f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar} · {age}]"
+        )
+    lines.append("")
+    return lines
 
 
 # ── Brief generators ──────────────────────────────────────────────────────────
@@ -395,24 +490,13 @@ def generate_morning_brief() -> str:
 
     # Platform self-health — only surfaced when something is actually
     # degraded; silence is a valid, positive state (per verification engine
-    # design intent, STARSHIP-REDESIGN.md §9).
-    if infra and infra.get("state") == "unsure":
-        lines += [
-            "<b>🛰 PLATFORM HEALTH</b>",
-            f"  ⚠️ {infra['narrative'][:400]}",
-            "",
-        ]
+    # design intent, STARSHIP-REDESIGN.md §9). Morning brief is the first
+    # of the day, so there is no "unchanged since this morning" to check.
+    lines += _format_infra_block(infra)
 
     # Content pipeline — intelligence-to-writing drafts awaiting the
     # Captain's own review/publish decision. Only shown when non-empty.
-    if content_queue:
-        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
-        for c in content_queue:
-            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-            lines.append(
-                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
-            )
-        lines.append("")
+    lines += _format_content_review_block(content_queue)
 
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
@@ -441,6 +525,10 @@ def generate_eod_summary() -> str:
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
     content_queue = _get_content_review_queue()
+    # Part 1 item 2: fetch this morning's persisted text so repeated blocks
+    # below can be marked "(unchanged since this morning)" instead of
+    # silently re-rendering identically.
+    morning_text = _get_todays_morning_brief_text()
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
@@ -492,21 +580,8 @@ def generate_eod_summary() -> str:
             )
         lines.append("")
 
-    if infra and infra.get("state") == "unsure":
-        lines += [
-            "<b>🛰 PLATFORM HEALTH</b>",
-            f"  ⚠️ {infra['narrative'][:400]}",
-            "",
-        ]
-
-    if content_queue:
-        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
-        for c in content_queue:
-            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-            lines.append(
-                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
-            )
-        lines.append("")
+    lines += _format_infra_block(infra, morning_text)
+    lines += _format_content_review_block(content_queue, morning_text)
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",
