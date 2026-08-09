@@ -241,9 +241,28 @@ export default function CaptainsChairWorkbench() {
           )}
         </div>
 
-        {/* Fleet Section — Hidden on FRAGILE/REST */}
+        {/* Fleet Section — Hidden on FRAGILE/REST.
+            2026-08-09 mobile/iPad review (P1): this is ~8 panels deep on
+            top of the 4 always-visible ones above — a very long single-
+            column scroll on a phone. The full hierarchy rework (hero zone
+            + collapsed-by-default secondary section) is still deferred
+            per the Captain's own call to review this page separately.
+            This is a narrower, lower-risk mobile-only fix in the meantime:
+            a native <details> disclosure, open by default (desktop and
+            first-load mobile both see exactly today's layout, zero
+            behavioural change), with a <summary> toggle that only renders
+            below lg — so a mobile user who's already seen "what needs me"
+            gets a real way to collapse the rest without scrolling past it
+            every time, while lg+ never even renders the toggle and always
+            shows the content open (browsers render <details open> content
+            regardless of viewport, so hiding the summary doesn't hide the
+            content at any breakpoint). No JS state, no hydration risk. */}
         {postureBand !== 'FRAGILE' && postureBand !== 'REST' && (
-          <div className="space-y-4">
+          <details open className="group space-y-4">
+            <summary className="mb-1 flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-wb-ink2 lg:hidden">
+              <span className="transition group-open:rotate-90">▶</span>
+              Operational detail
+            </summary>
             {/* Mission Overview */}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border border-wb-border bg-white p-4">
@@ -386,7 +405,7 @@ export default function CaptainsChairWorkbench() {
                 <CaptainApprovalQueue />
               </div>
             </div>
-          </div>
+          </details>
         )}
 
         {/* Posture Warning */}

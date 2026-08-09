@@ -68,7 +68,15 @@ export function DomainToggle<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className="flex gap-1 rounded-md border border-wb-line bg-wb-surface px-1.5 py-1"
+      // 2026-08-09 mobile/iPad review (P0): this had no wrap or scroll
+      // fallback at all - flex with no flex-wrap/overflow-x-auto - so a
+      // workbench with several long tab labels (Technical OSINT's 5)
+      // would silently overflow or clip below md, with no error, just a
+      // navigation control the Captain couldn't find. flex-nowrap +
+      // overflow-x-auto + snap turns that into a deliberate horizontal
+      // scroll (a real ADHD-relevant fix: still visible you're mid-list,
+      // not "did I lose this option" confusion) rather than an accident.
+      className="flex flex-nowrap gap-1 overflow-x-auto rounded-md border border-wb-line bg-wb-surface px-1.5 py-1 [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -80,8 +88,11 @@ export function DomainToggle<T extends string>({
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(o.key)}
-            className={`rounded px-3 py-1.5 text-[13px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
-              active ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line'
+            // py-2 (was py-1.5, ~30px tall) brings this closer to the
+            // 44px touch-target minimum; shrink-0 + snap-start so the
+            // scroll container above doesn't compress/reflow tabs.
+            className={`shrink-0 snap-start rounded px-3 py-2 text-[13px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
+              active ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line active:bg-wb-line'
             }`}
           >
             {o.label}

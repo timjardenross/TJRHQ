@@ -98,7 +98,11 @@ function Workbench() {
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Category & Confidence">
-            <div className="grid grid-cols-2 gap-4 text-[12px] text-wb-ink2">
+            {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
+                each category ~170px on a 375px phone for a name + 4
+                stacked confidence counts — tight but the real fix is just
+                not forcing 2 columns below sm. */}
+            <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>

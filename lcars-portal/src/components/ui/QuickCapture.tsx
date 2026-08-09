@@ -62,12 +62,24 @@ export function QuickCapture() {
 
   return (
     <>
+      {/* 2026-08-09 mobile/iPad review (P2): bottom-5/right-5 alone can sit
+          under iOS's home-indicator/dynamic bottom toolbar or an Android
+          gesture-nav zone on some devices. max(1.25rem, safe-area-inset)
+          keeps the existing 20px desktop offset but grows to clear the
+          real device inset where one exists — a no-op on desktop/most
+          Android, a real fix on notched/gesture-nav iOS. active: added
+          alongside the existing hover:-only lift, which never fired on
+          touch. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
         title="Quick capture"
-        className="fixed bottom-5 right-5 z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+        style={{
+          bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+          right: 'max(1.25rem, env(safe-area-inset-right))',
+        }}
       >
         +
       </button>
