@@ -41,7 +41,7 @@
 // checks/notes but never sets qa_status itself; the human still explicitly
 // saves the checklist, same governance posture as the rest of this pipeline.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Textarea, Select, Modal } from '@/components/ui';
 import {
   STAGE_LABEL,
@@ -748,6 +748,20 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
   // one stage at a time instead, switched via the PipelineOverview strip
   // acting as a stage picker.
   const [activeMobileStage, setActiveMobileStage] = useState<Stage>('capture');
+  // 2026-08-09 fix: the mobile single-column board always opened on
+  // 'capture' regardless of where the actual items were, so a Captain
+  // opening the board on a phone with nothing to capture (the common
+  // case — most work sits in later stages) landed on an empty column
+  // and had to know to tap over. Auto-pick the first non-empty stage on
+  // the initial load only; once the Captain has tapped a stage
+  // themselves, respect that choice on subsequent refreshes instead of
+  // yanking them back.
+  const userPickedMobileStage = useRef(false);
+
+  function selectMobileStage(stage: Stage) {
+    userPickedMobileStage.current = true;
+    setActiveMobileStage(stage);
+  }
 
   async function load() {
     setLoading(true);
@@ -759,6 +773,10 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       setItems(data.items ?? []);
       setCounts(data.counts ?? null);
       if (onLoaded) onLoaded(data.counts);
+      if (!userPickedMobileStage.current && data.counts) {
+        const firstNonEmpty = STAGES.find((s) => (data.counts[s] ?? 0) > 0);
+        if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load board');
     } finally {
@@ -778,7 +796,7 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       {!loading && !error && (
         <>
           {counts && (
-            <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={setActiveMobileStage} />
+            <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={selectMobileStage} />
           )}
           {/* sm+: full multi-column board, unchanged. */}
           <div className="hidden gap-3 overflow-x-auto pb-2 sm:flex">
