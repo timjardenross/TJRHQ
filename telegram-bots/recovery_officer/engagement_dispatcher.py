@@ -67,11 +67,10 @@ def _get_supabase_client():
 @dataclass
 class RecoveryStatus:
     recovery_confidence: int       # 0–100
-    pulses_completed: int          # 0–4
-    pulses_missing: int            # 0–4
+    pulses_completed: int          # 0–3 (Captain directive 2026-08-10: reduced from 4)
+    pulses_missing: int            # 0–3
     morning_done: bool
     midday_done: bool
-    end_of_day_done: bool
     evening_done: bool
     confidence_label: str
     latest_energy: str | None
@@ -94,20 +93,18 @@ class RecoveryStatus:
     @property
     def next_suggested_pulse(self) -> str | None:
         """Return the type of the next pulse not yet completed."""
-        if not self.morning_done:    return "morning"
-        if not self.midday_done:     return "midday"
-        if not self.end_of_day_done: return "end_of_day"
-        if not self.evening_done:    return "evening"
+        if not self.morning_done: return "morning"
+        if not self.midday_done:  return "midday"
+        if not self.evening_done: return "evening"
         return None
 
 
 _STATUS_DEFAULTS = RecoveryStatus(
     recovery_confidence=0,
     pulses_completed=0,
-    pulses_missing=4,
+    pulses_missing=3,
     morning_done=False,
     midday_done=False,
-    end_of_day_done=False,
     evening_done=False,
     confidence_label="No telemetry today",
     latest_energy=None,
@@ -130,10 +127,9 @@ def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
             return RecoveryStatus(
                 recovery_confidence=row.get("recovery_confidence", 0),
                 pulses_completed=row.get("pulses_completed", 0),
-                pulses_missing=row.get("pulses_missing", 4),
+                pulses_missing=row.get("pulses_missing", 3),
                 morning_done=row.get("morning_done", False),
                 midday_done=row.get("midday_done", False),
-                end_of_day_done=row.get("end_of_day_done", False),
                 evening_done=row.get("evening_done", False),
                 confidence_label=row.get("confidence_label", "Unknown"),
                 latest_energy=row.get("latest_energy"),
@@ -150,17 +146,15 @@ def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
 # ── Message builders ──────────────────────────────────────────────────────────
 
 _PULSE_LABELS = {
-    "morning":    "🌅 Morning Readiness",
-    "midday":     "🌤 Midday Status",
-    "end_of_day": "🌇 End of Workday",
-    "evening":    "🌃 Evening Recovery",
+    "morning": "🌅 Morning Readiness",
+    "midday":  "🌤 Midday Status",
+    "evening": "🌃 Evening Recovery",
 }
 
 _PULSE_HINTS = {
-    "morning":    "Sets the posture for today's missions. Takes under 60 seconds.",
-    "midday":     "Course correction checkpoint. How is capacity holding?",
-    "end_of_day": "Transition to recovery mode. Mark the workday closed.",
-    "evening":    "Recovery completion loop. Close the day with intention.",
+    "morning": "Sets the posture for today's missions. Takes under 60 seconds.",
+    "midday":  "Course correction checkpoint. How is capacity holding?",
+    "evening": "Recovery completion loop. Close the day with intention.",
 }
 
 
@@ -176,17 +170,16 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
     hint   = _PULSE_HINTS.get(target, "")
 
     done_str = " ".join([
-        "🟣" if status.morning_done    else "⚪",
-        "🟣" if status.midday_done     else "⚪",
-        "🟣" if status.end_of_day_done else "⚪",
-        "🟣" if status.evening_done    else "⚪",
+        "🟣" if status.morning_done else "⚪",
+        "🟣" if status.midday_done  else "⚪",
+        "🟣" if status.evening_done else "⚪",
     ])
 
     lines = [
         f"📡 *Recovery Pulse — {_brisbane_today()}*",
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
-        f"Pulses: {done_str}  ({status.pulses_completed}/4 complete)",
+        f"Pulses: {done_str}  ({status.pulses_completed}/3 complete)",
         "",
         f"⏰ *Next up: {label}*",
         f"_{hint}_",
@@ -217,13 +210,12 @@ def build_escalation_message(status: RecoveryStatus, level: int) -> str:
         header = "🟠 *Recovery Officer — Confidence Low*"
         body = (
             f"Recovery confidence is at {status.recovery_confidence}% ({today}).\n"
-            f"{status.pulses_completed}/4 pulses logged.\n\n"
+            f"{status.pulses_completed}/3 pulses logged.\n\n"
             f"*Missing:* "
             + ", ".join(filter(None, [
-                "Morning"    if not status.morning_done    else None,
-                "Midday"     if not status.midday_done     else None,
-                "End of day" if not status.end_of_day_done else None,
-                "Evening"    if not status.evening_done    else None,
+                "Morning" if not status.morning_done else None,
+                "Midday"  if not status.midday_done  else None,
+                "Evening" if not status.evening_done else None,
             ]))
             + "\n\nLow confidence may trigger mission deferral recommendations."
         )
@@ -235,17 +227,16 @@ def build_daily_summary(status: RecoveryStatus) -> str:
     """Build an end-of-day confidence summary message."""
     today = _brisbane_today()
     done_str = " ".join([
-        "✅" if status.morning_done    else "❌",
-        "✅" if status.midday_done     else "❌",
-        "✅" if status.end_of_day_done else "❌",
-        "✅" if status.evening_done    else "❌",
+        "✅" if status.morning_done else "❌",
+        "✅" if status.midday_done  else "❌",
+        "✅" if status.evening_done else "❌",
     ])
     lines = [
         f"📊 *Recovery Summary — {today}*",
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses:  {done_str}",
-        f"         AM · Mid · EOD · PM",
+        f"         AM · Mid · PM",
         "",
         f"_{status.confidence_label}_",
     ]
@@ -288,8 +279,8 @@ def run_dispatch_check(
 
     result = {"confidence": status.recovery_confidence, "level": level, "action": "none", "message_sent": False}
 
-    # All 4 pulses done — send end-of-day summary once (at evening time)
-    if status.pulses_completed == 4 or force_summary:
+    # All 3 pulses done — send end-of-day summary once (at evening time)
+    if status.pulses_completed == 3 or force_summary:
         msg = build_daily_summary(status)
         _send(bot, chat_id, msg)
         result.update(action="daily_summary", message_sent=True)
@@ -314,10 +305,9 @@ def run_dispatch_check(
     if next_pulse:
         # Only remind during relevant windows
         should_remind = (
-            (next_pulse == "morning"    and 7  <= hour < 12) or
-            (next_pulse == "midday"     and 12 <= hour < 15) or
-            (next_pulse == "end_of_day" and 15 <= hour < 19) or
-            (next_pulse == "evening"    and 19 <= hour < 23)
+            (next_pulse == "morning" and 7  <= hour < 12) or
+            (next_pulse == "midday"  and 12 <= hour < 19) or
+            (next_pulse == "evening" and 19 <= hour < 23)
         )
         if should_remind:
             msg = build_pulse_reminder(status, next_pulse)

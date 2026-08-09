@@ -226,7 +226,7 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
         "RECOVERY FIRST. Mission work is gated by the Captain's capacity. Never push beyond it.\n\n"
         f"Today's recovery state:\n"
         f"- Confidence: {status.recovery_confidence}% [{_bar(status.recovery_confidence)}]\n"
-        f"- Pulses: {status.pulses_completed}/4 complete\n"
+        f"- Pulses: {status.pulses_completed}/3 complete\n"
         f"- Signals: {signals}\n"
         f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
         f"{wellness_ctx}"
@@ -247,10 +247,9 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
 # Steps: capacity → nervous system → body signals → write to DB
 
 _PULSE_LABELS = {
-    "morning":    "🌅 Morning Readiness",
-    "midday":     "🌤 Midday Status",
-    "end_of_day": "🌇 End of Workday",
-    "evening":    "🌃 Evening Recovery",
+    "morning": "🌅 Morning Readiness",
+    "midday":  "🌤 Midday Status",
+    "evening": "🌃 Evening Recovery",
 }
 
 def _current_pulse_type() -> str:
@@ -365,7 +364,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Intelligence*\n"
         "/brief — intelligence brief on demand\n\n"
         "*Health \\& Recovery*\n"
-        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
+        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/PM\\)\n"
         "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
         "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
@@ -434,7 +433,7 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         pulses = row.get("pulses_completed", 0)
         await update.message.reply_text(
             f"✅ *Supabase: connected*\n\n"
-            f"recovery\\_confidence\\_today: {conf}% · {pulses}/4 pulses",
+            f"recovery\\_confidence\\_today: {conf}% · {pulses}/3 pulses",
             parse_mode="MarkdownV2",
         )
     except Exception as exc:
@@ -1773,10 +1772,9 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         icon = "✅" if saved else "⚠️"
         conf = status.recovery_confidence
         done = " ".join([
-            "✅" if status.morning_done    else "❌",
-            "✅" if status.midday_done     else "❌",
-            "✅" if status.end_of_day_done else "❌",
-            "✅" if status.evening_done    else "❌",
+            "✅" if status.morning_done else "❌",
+            "✅" if status.midday_done  else "❌",
+            "✅" if status.evening_done else "❌",
         ])
         e_cap = _escape(e.capitalize())
         m_cap = _escape(m.capitalize())
@@ -1786,7 +1784,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
             f"{icon} *{_escape(label)} logged*\n\n"
             f"Capacity: {e_cap} · NS: {m_cap} · Body: {s_cap}\n\n"
             f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
-            f"Pulses: {_escape(done)}  AM · Mid · EOD · PM"
+            f"Pulses: {_escape(done)}  AM · Mid · PM"
             f"{error_line}",
             parse_mode="MarkdownV2",
         )
