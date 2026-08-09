@@ -248,6 +248,200 @@ def _passes_vendor_tier_gate(event: RankedEvent) -> bool:
     return any(vendor in name for vendor in _FOUNDATIONAL_INFRA_VENDORS)
 
 
+# 2026-08-10 fix (Captain-approved implementation of Recommendation 3 in
+# .claude/skills/bot-reviews/fixes-2026-08-09/outage-scale-detection-proposal.md,
+# after outage-scale-gate-implemented.md's own verification confirmed the
+# Tier-A vendor allowlist above has a real, recurring residual gap): the
+# allowlist gates on vendor IDENTITY, not per-INCIDENT scope -- a Tier-A
+# vendor's own narrow self-report (single availability zone, single region)
+# still passes because the vendor itself is broad-impact-capable even when
+# this specific incident isn't. Confirmed live: the Google Cloud VMware
+# Engine (GCVE) "zonal outages ... across multiple regions" incident, a
+# single-Availability-Zone AWS ME-SOUTH-1 power outage self-report, and
+# repeated single-region "Delhi/Chennai/Mumbai" Google Cloud latency
+# self-reports all still pass every gate above despite being narrow --
+# reconfirmed recurring (not a one-off) in a 90-day spot check.
+#
+# This is the 5th and FINAL guard, fired only after event_type,
+# customer_impact, confidence, _has_outage_language, and
+# _passes_vendor_tier_gate have ALL already passed -- i.e. on the same tiny,
+# rare-volume set of candidates the existing gates already narrowed down to
+# (roughly 1 event every 2-3 days per the floor documented above
+# _OUTAGE_EVENT_TYPES), never per-ingested-item. Mirrors
+# intelligence/ingestion/selective_augmentation.py's existing pattern for
+# routing ambiguous heuristic output to a single extra LLM call: check cost
+# governance, fire one call via the shared core/llm/provider_chain.py
+# primitives (same never-raise, try-gemini-then-mistral-then-ollama fallback
+# core/platform/infra_narrative.py already uses), log the call either way,
+# never raise.
+#
+# Fail-safe default on total LLM failure (cost-governance denial, or all 3
+# providers down/unparseable): ALLOW THROUGH, not suppress. Deliberate
+# asymmetry, not an oversight -- this is the LAST guard before a real
+# Telegram push, sitting on top of a candidate that has already satisfied
+# every heuristic check above (genuine incident-report language, high
+# customer_impact, a confidence floor, and either independent media or a
+# Tier-A vendor). A false negative here (silently swallowing a genuine
+# nationwide outage because every LLM provider happened to be unreachable at
+# that moment) is worse than a false positive (one extra push for an
+# incident that was already a credible candidate by every other measure) --
+# for a system whose whole purpose is not missing real widespread outages,
+# erring toward over-alerting on total tool failure is the safer failure
+# mode. On failure this simply falls back to the pre-this-fix behaviour
+# (Tier-A-gated push), not a new way for a real outage to go unreported.
+_BLAST_RADIUS_TASK_TYPE = "outage-blast-radius-check"
+
+_BLAST_RADIUS_SYSTEM_PROMPT = (
+    "You assess a single reported technology/telecom incident for USS "
+    "Starship Endeavour's outage-alert pipeline. Answer exactly one "
+    "question: does this incident describe a blast radius broader than one "
+    "company's own product or customers -- i.e. does it affect multiple "
+    "companies, a whole region's or country's general infrastructure, or "
+    "the general public, rather than being confined to one vendor's own "
+    "service, product, or customer base (even if that vendor is itself a "
+    "large hyperscaler or carrier)? "
+    "Only use the title, summary, and geography given below -- never "
+    "invent, infer, or assume scope information that is not stated in the "
+    "text. Do not reason from what you know about the company in general; "
+    "reason only from what this specific text says happened. If the text "
+    "describes one product, one availability zone, one region, or 'a "
+    "subset of customers', that is narrow -- answer no. If the text "
+    "describes national infrastructure, emergency services, multiple "
+    "unrelated organisations, or explicitly nationwide/general-public "
+    "impact, that is broad -- answer yes. "
+    "Respond in exactly this format and nothing else:\n"
+    "ANSWER: yes|no\n"
+    "REASON: <one brief sentence, grounded only in the text given>"
+)
+
+
+def _blast_radius_llm_prompt(event: RankedEvent) -> str:
+    return (
+        f"Title: {event.raw_title or '(none provided)'}\n"
+        f"Summary: {event.raw_summary or '(none provided)'}\n"
+        f"Geography: {event.geography or '(not stated)'}"
+    )
+
+
+def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
+    """Strict parse of the required 'ANSWER: yes|no' line. Returns None
+    (treated as a provider failure by the caller, same as a transport error)
+    if the model didn't follow the format."""
+    if not raw:
+        return None
+    for line in raw.splitlines():
+        line = line.strip()
+        if line.upper().startswith("ANSWER:"):
+            value = line.split(":", 1)[1].strip().lower()
+            if value.startswith("yes"):
+                return True
+            if value.startswith("no"):
+                return False
+    return None
+
+
+def _call_blast_radius_llm(
+    event: RankedEvent,
+) -> tuple[Optional[bool], Optional[str], Optional[str]]:
+    """Try the shared provider chain in order -- same fail-through pattern as
+    core/platform/infra_narrative.py's _generate(). Returns
+    (is_broad_or_None, provider_name_or_None, raw_response_or_None). Never
+    raises; a total failure returns (None, None, None)."""
+    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+
+    prompt = _blast_radius_llm_prompt(event)
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    mistral_key = os.getenv("MISTRAL_API_KEY", "")
+    ollama_base = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_model = os.getenv("OLLAMA_OUTAGE_MODEL") or os.getenv("OLLAMA_MODEL", "qwen3:8b")
+
+    providers = [
+        ("gemini-2.5-flash", lambda p: call_gemini(
+            _BLAST_RADIUS_SYSTEM_PROMPT, p, api_key=gemini_key, max_output_tokens=200)),
+        ("mistral-small", lambda p: call_mistral(
+            _BLAST_RADIUS_SYSTEM_PROMPT, p, api_key=mistral_key, max_tokens=200)),
+        (ollama_model, lambda p: call_ollama(
+            _BLAST_RADIUS_SYSTEM_PROMPT, p, base_url=ollama_base, model=ollama_model, num_predict=150)),
+    ]
+    for name, fn in providers:
+        try:
+            raw = fn(prompt)
+            answer = _parse_blast_radius_answer(raw)
+            if answer is not None:
+                return answer, name, raw
+            log.warning(
+                "[outage-alert] blast-radius LLM (%s) returned unparseable output: %r",
+                name, raw,
+            )
+        except Exception as exc:
+            log.warning("[outage-alert] blast-radius LLM provider %s failed: %s", name, exc)
+    return None, None, None
+
+
+def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> bool:
+    """5th and final push-alert guard. See the dated comment above
+    _BLAST_RADIUS_TASK_TYPE for full rationale, including why total LLM
+    failure fails OPEN (allows the push through) rather than suppressing.
+
+    Only called after event_type/customer_impact/confidence/
+    _has_outage_language/_passes_vendor_tier_gate have all already passed --
+    genuinely rare volume, not a per-ingested-item cost. Governed the same
+    way selective_augmentation.py governs its own single extra LLM call:
+    intelligence.governance.llm_cost_governance.LLMCostGovernance gates the
+    call (can_call_llm) and logs it (log_call) under a dedicated task_type,
+    so spend/volume for this specific guard is trackable like every other
+    governed LLM call site in this codebase."""
+    import time as _time
+
+    cost_governor = None
+    try:
+        from intelligence.governance.llm_cost_governance import LLMCostGovernance
+        cost_governor = LLMCostGovernance()
+    except Exception as exc:
+        log.warning("[outage-alert] cost governor unavailable, proceeding ungoverned: %s", exc)
+
+    if cost_governor is not None:
+        check = cost_governor.can_call_llm(_BLAST_RADIUS_TASK_TYPE)
+        if not check.allowed:
+            log.info(
+                "[outage-alert] blast-radius LLM check skipped (cost governance: "
+                "%s) -- failing open (allow through) for event %s",
+                check.reason, event_id,
+            )
+            return True
+
+    start = _time.monotonic()
+    is_broad, provider, raw = _call_blast_radius_llm(event)
+    latency_ms = int((_time.monotonic() - start) * 1000)
+
+    if cost_governor is not None:
+        cost_governor.log_call(
+            task_type=_BLAST_RADIUS_TASK_TYPE,
+            provider=provider or "unknown",
+            latency_ms=latency_ms,
+            success=is_broad is not None,
+            failure_reason=None if is_broad is not None else "all_providers_failed_or_unparseable",
+            event_id=event_id,
+        )
+
+    if is_broad is None:
+        log.warning(
+            "[outage-alert] blast-radius LLM check unavailable (all providers "
+            "failed or returned unparseable output) -- failing open (allow "
+            "through) for event %s",
+            event_id,
+        )
+        return True
+
+    if not is_broad:
+        log.info(
+            "[outage-alert] suppressed -- blast-radius LLM check (%s) answered "
+            "'no' (narrow scope) for event %s: %s",
+            provider, event_id, raw,
+        )
+    return is_broad
+
+
 def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
     """Push a Telegram alert for a newly-saved event that crosses the
     outage-severity threshold above.
@@ -293,6 +487,8 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
                 event.event_type, event.customer_impact, event.source_name,
                 event.source_category, event_id,
             )
+            return
+        if not _passes_blast_radius_check(event, event_id):
             return
 
         import sys
