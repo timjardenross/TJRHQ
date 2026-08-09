@@ -157,9 +157,15 @@ export function BoardView({
         {summary && !loading && (
           <div className="space-y-4">
             <AdvisoryBlock data={summary} />
-            {perspectives.length > 0 && (
-              <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Officer Perspectives</p>
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Officer Perspectives</p>
+              {perspectives.length === 0 ? (
+                <p className="text-xs text-wb-ink2">
+                  {summary.degraded
+                    ? 'No specialist perspectives — the live pipeline was unavailable for this convene.'
+                    : 'No specialist perspectives were retrieved for this question.'}
+                </p>
+              ) : (
                 <div className="space-y-2">
                   {perspectives.map((op, i) => {
                     const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase());
@@ -178,8 +184,8 @@ export function BoardView({
                     );
                   })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
