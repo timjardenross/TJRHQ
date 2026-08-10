@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
-import { StatusBadge } from '@/components/StatusBadge';
 import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
@@ -102,23 +101,12 @@ interface TodaysBriefingStats {
   nextActions: number;
 }
 
-interface OperationalPictureItem {
-  event_id: string | null;
-  domain: string;
-  event_type: string;
-  reason: string;
-  risk_score: number | null;
-  recommendation: { description: string; confidence: number | null; evidence: string[] } | null;
-}
-
 function useTodaysBriefing(): {
   stats: TodaysBriefingStats | null;
   loading: boolean;
-  operationalPicture: OperationalPictureItem[];
   error: string | null;
 } {
   const [stats, setStats] = useState<TodaysBriefingStats | null>(null);
-  const [operationalPicture, setOperationalPicture] = useState<OperationalPictureItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,17 +126,6 @@ function useTodaysBriefing(): {
           recommendations: doc.recommendations?.length ?? 0,
           nextActions: doc.next_actions?.length ?? 0,
         });
-        const pool = [...(doc.warnings ?? []), ...(doc.operational_intelligence ?? [])];
-        const seen = new Set<string>();
-        const picture: OperationalPictureItem[] = [];
-        for (const item of pool) {
-          const key = item.event_id ?? item.reason;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          picture.push(item);
-          if (picture.length >= 5) break;
-        }
-        setOperationalPicture(picture);
         setError(null);
       })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load briefing'); })
@@ -156,7 +133,7 @@ function useTodaysBriefing(): {
     return () => { cancelled = true; };
   }, []);
 
-  return { stats, loading, operationalPicture, error };
+  return { stats, loading, error };
 }
 
 // ── Workbench Shell Layout ──────────────────────────────────────────────────
@@ -166,7 +143,7 @@ export default function CaptainsChairWorkbench() {
   const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
   const { stats: missionStats, loading: missionStatsLoading, error: missionStatsError } = useLiveMissionStats();
   const { data: engQueueData, loading: engQueueLoading, error: engQueueError } = useLiveEngineeringQueue();
-  const { stats: briefingStats, loading: briefingLoading, operationalPicture, error: briefingError } = useTodaysBriefing();
+  const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
   const dataErrors = [missionStatsError, engQueueError, briefingError].filter(Boolean) as string[];
   const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
 
@@ -175,7 +152,6 @@ export default function CaptainsChairWorkbench() {
   }, []);
 
   const postureBand = currentPosture.posture;
-  const postureTone = postureBand === 'STRONG' ? 'status' : postureBand === 'STABLE' ? 'command' : 'operations';
 
   return (
     <WorkbenchShell
@@ -200,37 +176,6 @@ export default function CaptainsChairWorkbench() {
         {/* Captain Intelligence */}
         <div className="rounded-lg border border-wb-border bg-white p-4">
           <CaptainIntelligencePanel />
-        </div>
-
-        {/* Operational Picture */}
-        <div className="rounded-lg border border-wb-border bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Operational Picture</h3>
-          <p className="mb-3 text-xs text-wb-ink2">Current incidents and emerging risks</p>
-          {briefingLoading ? (
-            <p className="text-xs text-wb-ink2 animate-pulse">Reading the operational picture…</p>
-          ) : operationalPicture.length === 0 ? (
-            <p className="text-xs text-wb-ink2">No active incidents or emerging risks.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {operationalPicture.map((item, i) => (
-                <li key={item.event_id ?? i} className="rounded-md border border-wb-border/50 bg-wb-bg/50 p-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-wb-ink2">
-                        {item.domain} · {item.event_type}
-                      </p>
-                      <p className="mt-0.5 text-xs text-wb-ink">{item.reason}</p>
-                    </div>
-                    {item.risk_score != null && (
-                      <span className="shrink-0 font-mono text-[11px] font-bold text-wb-orange">
-                        {Math.round(item.risk_score)}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         {/* Fleet Section — Hidden on FRAGILE/REST.
@@ -400,11 +345,24 @@ export default function CaptainsChairWorkbench() {
           </details>
         )}
 
-        {/* Posture Warning */}
+        {/* Operational-detail-hidden note. 2026-08-09's own note above this
+            box explains WHY the Fleet section is collapsed on FRAGILE/REST;
+            this used to also restate "Recovery posture is X" via its own
+            StatusBadge — the 3rd/4th time that band appeared on this page
+            (Recovery Posture panel above already shows it, prominently,
+            with real severity colour). Now just explains the hiding, colour
+            matched to severity (wb-warn/wb-crit) instead of a neutral box
+            that didn't read as a warning at all. */}
         {(postureBand === 'FRAGILE' || postureBand === 'REST') && (
-          <div className="rounded-lg border border-wb-border bg-wb-bg p-4">
-            <p className="text-sm text-wb-ink">
-              Recovery posture is <StatusBadge label={postureBand} tone={postureTone} /> — operational detail is hidden. Focus on recovery and immediate priorities.
+          <div
+            className={
+              postureBand === 'REST'
+                ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4'
+                : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-4'
+            }
+          >
+            <p className={postureBand === 'REST' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
+              Operational detail is hidden while recovery posture is low — see Recovery Posture above. Focus on recovery and immediate priorities.
             </p>
           </div>
         )}
