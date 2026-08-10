@@ -91,7 +91,6 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         <div className="flex items-center gap-5">
           <PulseDot done={data.pulses.morning} label="AM" />
           <PulseDot done={data.pulses.midday} label="Mid" />
-          <PulseDot done={data.pulses.end_of_day} label="EOD" />
           <PulseDot done={data.pulses.evening} label="PM" />
           <Link
             href="/human-systems-workbench/medical/pulse"

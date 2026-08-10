@@ -62,7 +62,7 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
       <KpiCard
         label="Pulse Confidence"
         value={`${kpis.pulse_confidence}%`}
-        sub={`${kpis.pulses_completed} of 4 pulses today`}
+        sub={`${kpis.pulses_completed} of 3 pulses today`}
       />
     </div>
   );
