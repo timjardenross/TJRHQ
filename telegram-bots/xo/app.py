@@ -119,17 +119,49 @@ from telegram.ext import (
 _supabase = None
 
 def _get_supabase():
+    """Returns the bot's single Supabase client (memoised).
+
+    Prefers the scoped `xo_bot` Postgres role (migration
+    0135_xo_bot_scoped_role.sql) — reached via a self-minted JWT, see
+    scoped_supabase.py — over the historical `service_role` key
+    (SUPABASE_KEY), which bypasses RLS on all 112 public tables even
+    though this bot's code only ever touches 13. Falls back to the
+    unchanged SUPABASE_KEY/service_role path whenever scoping isn't
+    configured (no SUPABASE_JWT_SECRET / XO_BOT_SCOPED_TOKEN yet, or no
+    SUPABASE_ANON_KEY for the gateway apikey) — this is the safe default
+    today; do not treat a scoping failure as "disable Supabase entirely",
+    that would take down every command handler for a hardening step that
+    hasn't been provisioned yet. See
+    .claude/skills/bot-reviews/fixes-2026-08-09/xo-bot-scoped-role-implemented.md
+    for the cutover record and what's still blocking it.
+    """
     global _supabase
     if _supabase is None:
         if not SUPABASE_URL:
             log.warning("SUPABASE_URL not set — Supabase disabled")
-        elif not SUPABASE_KEY:
+            return _supabase
+        try:
+            from telegram_bots.xo import scoped_supabase
+        except ImportError:
+            scoped_supabase = None
+        if scoped_supabase is not None:
+            try:
+                scoped = scoped_supabase.build_scoped_client(SUPABASE_URL)
+            except Exception as exc:
+                log.warning("[supabase] scoped xo_bot client construction failed, falling back to service_role: %s", exc)
+                scoped = None
+            if scoped is not None:
+                _supabase = scoped
+                log.info("Supabase client initialised — scoped xo_bot role")
+                return _supabase
+        if not SUPABASE_KEY:
             log.warning("SUPABASE_KEY not set — Supabase disabled")
         else:
             try:
                 from supabase import create_client
                 _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-                log.info("Supabase client initialised")
+                log.info("Supabase client initialised — service_role (scoped xo_bot role not configured; "
+                         "see xo-bot-scoped-role-implemented.md)")
             except Exception as exc:
                 log.warning("Supabase client failed: %s", exc)
     return _supabase
