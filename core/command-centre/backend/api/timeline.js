@@ -53,7 +53,10 @@ async function fetchMissionTransitions(from, to, limit) {
 }
 
 async function fetchRecoveryPulses(from, to, limit) {
-  let q = `recovery_pulses?select=id,log_date,pulse_type,pain_score,energy,mood,readiness,captured_at&order=captured_at.desc&limit=${limit}`;
+  // energy/nervous_system are the canonical Telegram-bot fields (Captain
+  // directive, 2026-08-10); `mood` is kept selected only as a legacy signal
+  // for rows that predate nervous_system — no new writes to it.
+  let q = `recovery_pulses?select=id,log_date,pulse_type,pain_score,energy,nervous_system,mood,readiness,captured_at&order=captured_at.desc&limit=${limit}`;
   if (from) q += `&captured_at=gte.${_enc(from)}`;
   if (to)   q += `&captured_at=lte.${_enc(to)}`;
   const rows = await supabaseGet(q).catch(() => []);
@@ -61,7 +64,8 @@ async function fetchRecoveryPulses(from, to, limit) {
     const signals = [];
     if (r.pain_score != null) signals.push(`pain ${r.pain_score}`);
     if (r.energy)   signals.push(`energy ${r.energy}`);
-    if (r.mood)     signals.push(`mood ${r.mood}`);
+    if (r.nervous_system) signals.push(`ns ${r.nervous_system}`);
+    else if (r.mood)      signals.push(`mood ${r.mood} (legacy)`);
     if (r.readiness) signals.push(`readiness ${r.readiness}`);
     return {
       id:          `rp-${r.id || r.log_date + r.pulse_type}`,
