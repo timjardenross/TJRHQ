@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
+from intelligence.ingestion.downdetector_adapter import DowndetectorAdapter
 from intelligence.ingestion.github_markdown_adapter import GitHubMarkdownAdapter
 from intelligence.ingestion.rss_adapter import RSSAdapter
 from intelligence.ingestion.scrape_adapter import ScrapeAdapter
@@ -22,6 +23,12 @@ _ADAPTER_MAP = {
     "api":             APIAdapter,
     "scrape":          ScrapeAdapter,
     "github_markdown": GitHubMarkdownAdapter,
+    # 2026-08-10: Downdetector Australia — crowdsourced report-volume outage
+    # signal. Genuinely distinct collection mechanism from the other four
+    # (HTML fetch + a purpose-built status/report-count regex extractor with
+    # its own two-layer gate, not a JSON API and not generic article-list
+    # scraping) — see intelligence/ingestion/downdetector_adapter.py.
+    "downdetector":    DowndetectorAdapter,
 }
 
 
