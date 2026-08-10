@@ -5,6 +5,16 @@
 // who can write; it moves the write server-side and makes the session
 // check explicit rather than implicit in RLS, matching the pattern
 // api/missions/[id]/approve/route.ts already established.
+//
+// Manual capture retirement (Captain directive, 2026-08-10 — see
+// .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+// Recovery Pulse (Telegram XO bot) is now the platform's only manual
+// health-data capture mechanism. This Medical-tab check-in's own `mood`
+// field (a separate, structurally-unrelated model from recovery_pulses'
+// already-decommissioned mood/stress fields — see pulse/route.ts) is
+// retired here too. Mirrors that route's exact defense-in-depth pattern:
+// the UI no longer sends `mood`, and this strips it server-side regardless
+// of caller. Historical mood rows are untouched; this only blocks new writes.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
@@ -26,6 +36,9 @@ export async function POST(request: NextRequest) {
   if (typeof payload.log_date !== 'string' || !payload.log_date) {
     return NextResponse.json({ error: 'log_date is required' }, { status: 400 });
   }
+
+  // Never write the retired manual mood field, regardless of caller.
+  delete payload.mood;
 
   try {
     const supabase = await createSupabaseServerClient();

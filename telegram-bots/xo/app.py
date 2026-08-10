@@ -435,7 +435,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_status \\<id\\>\n"
         "/mission\\_create \\<title\\>\n\n"
         "*Logging*\n"
-        "/log\\_activity · /log\\_weight\n\n"
+        "/log\\_activity · /log\\_weight \\(retired — see /recovery\\_pulse\\)\n\n"
         "*Ops*\n"
         "/dispatch · /db\\_status\n\n"
         "_Proactive Daily Operating Picture arrives at 07:00 AEST\\._\n"
@@ -468,9 +468,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_submit \\<id\\> — submit for Captain approval \\(Tested/Validated/Implemented\\)\n"
         "/handoff\\_engineering \\<id\\> — hand off to Engineering \\(Idea/Designed/Approved/Requires Rework\\)\n"
         "/operating\\_picture — Captain's live operating picture\n\n"
-        "*Logging*\n"
-        "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
-        "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
+        "*Logging \\(retired 2026\\-08\\-10\\)*\n"
+        "/log\\_activity, /log\\_weight — retired\\. Recovery Pulse \\(/recovery\\_pulse\\) is now the "
+        "only manual health\\-data capture mechanism\\.\n\n"
         "*System*\n"
         "/dispatch — manual dispatch check\n"
         "/brief — latest OR Intelligence Brief \\(risk, events, themes\\)\n"
@@ -536,88 +536,35 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick activity log: /log_activity walk 30 light"""
-    args = context.args or []
-    if not args:
-        await update.message.reply_text(
-            "*Log Activity*\n\nUsage: `/log_activity <type> [minutes] [intensity]`\n\n"
-            "Types: walk · swim · physio · stretch · strength · cycle · yoga · other\n"
-            "Intensity: light · moderate · vigorous\n\n"
-            "_Example: `/log_activity walk 30 light`_",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    valid_types = {"walk","swim","physio","stretch","strength","cycle","yoga","other"}
-    activity_type = args[0].lower() if args[0].lower() in valid_types else "other"
-    duration = None
-    intensity = None
-    for arg in args[1:]:
-        if arg.isdigit():
-            duration = int(arg)
-        elif arg.lower() in ("light","moderate","vigorous"):
-            intensity = arg.lower()
-
-    db = _get_supabase()
-    if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
-        return
-
-    payload = {
-        "log_date":      datetime.now(_TZ).date().isoformat(),
-        "activity_type": activity_type,
-        "source":        "telegram",
-        "completed":     True,
-    }
-    if duration:  payload["duration_minutes"] = duration
-    if intensity: payload["intensity"]        = intensity
-
-    try:
-        db.table("activity_logs").insert(payload).execute()
-        parts = [activity_type]
-        if duration:  parts.append(f"{duration} min")
-        if intensity: parts.append(intensity)
-        await update.message.reply_text(
-            f"✅ *Activity logged:* {_escape(' · '.join(parts))}",
-            parse_mode="MarkdownV2",
-        )
-    except Exception as exc:
-        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
+    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+    Recovery Pulse is now the platform's only manual health-data capture
+    mechanism. This standalone activity-logging command is disabled — it no
+    longer writes to activity_logs. Kept registered (rather than removed) so
+    it replies with a clear message instead of the command silently doing
+    nothing or erroring."""
+    await update.message.reply_text(
+        "🚫 *Log Activity — retired*\n\n"
+        "Manual activity logging has been retired\\. Recovery Pulse is now the platform's only "
+        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
+        parse_mode="MarkdownV2",
+    )
 
 
 async def cmd_log_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick weight log: /log_weight 82.5"""
-    args = context.args or []
-    if not args:
-        await update.message.reply_text(
-            "*Log Weight*\n\nUsage: `/log_weight <kg>`\n\n_Example: `/log_weight 82\\.5`_",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    try:
-        kg = float(args[0])
-        assert 30 < kg < 500
-    except (ValueError, AssertionError):
-        await update.message.reply_text("⚠️ Enter a valid weight in kg \\(e\\.g\\. `/log_weight 82\\.5`\\)", parse_mode="MarkdownV2")
-        return
-
-    db = _get_supabase()
-    if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
-        return
-
-    try:
-        db.table("weight_logs").upsert(
-            {"log_date": datetime.now(_TZ).date().isoformat(), "weight_kg": kg, "source": "telegram"},
-            on_conflict="log_date",
-        ).execute()
-        await update.message.reply_text(
-            f"✅ *Weight logged:* {_escape(str(kg))} kg",
-            parse_mode="MarkdownV2",
-        )
-    except Exception as exc:
-        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
+    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+    Recovery Pulse is now the platform's only manual health-data capture
+    mechanism. This standalone weight-logging command is disabled — it no
+    longer writes to weight_logs. Kept registered (rather than removed) so
+    it replies with a clear message instead of the command silently doing
+    nothing or erroring."""
+    await update.message.reply_text(
+        "🚫 *Log Weight — retired*\n\n"
+        "Manual weight logging has been retired\\. Recovery Pulse is now the platform's only "
+        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
+        parse_mode="MarkdownV2",
+    )
 
 
 async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2378,8 +2325,8 @@ _BOT_COMMANDS = [
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
-    ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
+    ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
+    ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     # System
     ("dispatch",        "Manual XO dispatch check"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),

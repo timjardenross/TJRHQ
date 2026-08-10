@@ -673,28 +673,29 @@ export default function MedicalPage() {
           {/* Four recovery indexes */}
           <RecoveryIndexes indexes={recoveryIndexes} />
 
-          {/* Quick log actions */}
-          <div className="grid gap-3 sm:grid-cols-3">
+          {/* Quick log actions.
+              Manual capture retirement (Captain directive, 2026-08-10 — see
+              .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+              Recovery Pulse (Telegram XO bot) is now the only manual
+              health-data capture mechanism. The standalone "Log Activity"
+              tile was removed (its page is now a pure retirement notice with
+              no history to show); "Log Weight" is kept because that page
+              still shows real 30-day trend history, just with the input
+              retired. */}
+          <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/medical/check-in"
               className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
             >
               <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical-on">Daily Check-In</p>
-              <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy · Mood</p>
-            </Link>
-            <Link
-              href="/medical/log-activity"
-              className="rounded-lcars border border-status/40 bg-status/5 px-4 py-3 text-center hover:bg-status/10 transition-colors"
-            >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-status-on">Log Activity</p>
-              <p className="text-[10px] text-lcars-muted mt-0.5">Walk · Physio · Stretch · more</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy</p>
             </Link>
             <Link
               href="/medical/log-weight"
               className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command-on">Log Weight</p>
-              <p className="text-[10px] text-lcars-muted mt-0.5">Daily weigh-in · 30-day trend</p>
+              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command-on">Weight History</p>
+              <p className="text-[10px] text-lcars-muted mt-0.5">30-day trend · manual entry retired</p>
             </Link>
           </div>
         </>
@@ -720,7 +721,7 @@ export default function MedicalPage() {
       {activeTab === 'check-in' && (
         <div className="rounded-lcars border border-command/40 bg-command/5 p-6 text-center">
           <p className="font-lcars text-2xl font-bold text-command-on mb-2">Daily Check-In</p>
-          <p className="text-sm text-lcars-muted mb-4">Sleep quality, nervous system baseline, energy, mood, pain, and intentions for today.</p>
+          <p className="text-sm text-lcars-muted mb-4">Sleep quality, nervous system baseline, energy, pain, and intentions for today.</p>
           <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-command-on hover:bg-command/30 transition-colors">
             Open Daily Check-In →
           </Link>
