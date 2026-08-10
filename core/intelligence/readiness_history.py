@@ -36,6 +36,25 @@ except ImportError:
     _SUPABASE_OK = False
 
 
+def _fetch_recovery_confidence_today() -> int | None:
+    """recovery_confidence_today.recovery_confidence — an aggregate 0-100
+    telemetry-completeness score ("what fraction of today's 3 Recovery Pulse
+    check-ins landed"), not the unpopulated per-pulse recovery_pulses.
+    confidence_score column (see operating_picture.py's own note on that
+    naming collision). Zero rows is the honest "no telemetry yet today"
+    case, not a fetch failure — both return None so the caller falls back
+    to the existing worst-case-confidence behaviour, which is correct in
+    both cases.
+    """
+    if not (_SUPABASE_OK and is_configured()):
+        return None
+    try:
+        rows = supabase_get("recovery_confidence_today?select=recovery_confidence&limit=1")
+        return rows[0]["recovery_confidence"] if rows else None
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -97,10 +116,21 @@ def persist_readiness_snapshot(
     # Thin mirror alongside the existing captain_readiness_history upsert
     # above — that table remains this domain's sole source of truth. Raw
     # scores passed through unmodified (no scoring/weighting logic here,
-    # per this mission's own scope). No confidence value exists natively
-    # in this domain (readiness/capacity are already 0-100 scores, not a
-    # 0-1 confidence figure) — left null rather than inventing one; see
-    # the Confidence-naming-collision item tracked separately.
+    # per this mission's own scope).
+    #
+    # 2026-08-10: confidence was previously always null here (see git
+    # history) — priority_engine.py's _risk_from_importance_confidence()
+    # treats null as worst-case (conf=0), so every readiness snapshot's
+    # risk_score collapsed to its own importance unconditionally, regardless
+    # of whether the telemetry behind it was actually complete or sparse.
+    # Now sourced from recovery_confidence_today (Recovery Pulse's own
+    # aggregate completeness score, already 0-100, direct pass-through) —
+    # Recovery Pulse is the sole capture path this readiness score is built
+    # from, so its own confidence is the honest signal here. Still null on a
+    # zero-pulse day (no row in the view) or if the fetch fails — that's the
+    # correct "insufficient data" case per this module's existing
+    # trend-reporting convention, not a regression from today's null.
+    confidence = _fetch_recovery_confidence_today()
     try:
         sys.path.insert(0, str(_REPO_ROOT))
         from core.platform.event_bus import publish_event
@@ -110,6 +140,7 @@ def persist_readiness_snapshot(
             source="readiness_history",
             importance=snapshot.get("readiness_score"),
             relevance=snapshot.get("capacity_score"),
+            confidence=confidence,
             recommended_action=(snapshot.get("recommended_focus") or [None])[0]
                 if isinstance(snapshot.get("recommended_focus"), list) else None,
         )

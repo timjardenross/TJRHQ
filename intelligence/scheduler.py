@@ -244,6 +244,23 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # ── 2026-08-10: Evolved Captain Intelligence insight generation ──────────
+    # Captain directive — Cognitive Core (MSN-0329 Phase 5) was manual-only
+    # (a Captain's Chair button), so insight_outcomes had accumulated only 3
+    # rows ever, nowhere near the >=20-row observation-period gate. Reuses
+    # this already-live daemon rather than a new systemd timer or a 6th
+    # apscheduler instance — same reasoning as continuous_attention_evaluation
+    # just above. Real LLM synthesis per run (50-260s observed), so a much
+    # longer interval than the 10-minute attention-evaluation job.
+    insight_interval = int(os.environ.get("CAPTAIN_INSIGHT_INTERVAL_MINUTES", "240"))
+    scheduler.add_job(
+        _evolved_insight_generation_job,
+        IntervalTrigger(minutes=insight_interval),
+        id="evolved_captain_insight_generation",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── USS-TJR-MSN-0339 WP5: Operational Intelligence Validation Suite ───────
     # Runs daily, 30 min after collection so it sees fresh data and well
     # before the 07:00 morning brief — per the suite's own design doc §4
@@ -996,6 +1013,49 @@ def _content_scoring_job() -> None:
         log.info("Content intelligence scoring complete: %d signals written", written)
     except Exception as exc:
         log.error("Content intelligence scoring failed: %s", exc)
+
+
+def _evolved_insight_generation_job() -> None:
+    """USS-TJR-MSN-0329 Phase 5 follow-up (2026-08-10): schedule Cognitive
+    Core insight generation instead of leaving it manual-only.
+
+    assemble_evolved_captain_brief() previously only ran when a human
+    clicked "Generate New Insights" on Captain's Chair (lcars-portal
+    CaptainIntelligencePanel.tsx) — insight_outcomes sat at 3 rows total
+    after weeks, nowhere near MSN-0329's >=20-row observation-period gate,
+    purely because nothing prompted anyone to click it. Calls the same
+    function in-process — no HTTP hop through context-service.py, which
+    exists so Vercel's Node runtime can fetch() it, not for this daemon —
+    mirroring _attention_evaluation_job's poll_events() reuse above.
+    Persistence to insight_outcomes happens inside
+    assemble_evolved_captain_brief() itself via record_insight().
+
+    Interval via CAPTAIN_INSIGHT_INTERVAL_MINUTES (default 240 = 4x/day):
+    conservative given each run is a real LLM synthesis (model router
+    call), observed 50-260s per the manual-button path's own comments.
+    Clears the 20-row gate in under a week without the runaway cost of
+    running it at the same 10-minute cadence as the much cheaper
+    continuous_attention_evaluation job above.
+    """
+    log.info("Evolved Captain Intelligence insight generation triggered")
+    try:
+        from core.platform.event_bus import poll_events
+        from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+
+        events = poll_events(limit=200)
+        doc = assemble_evolved_captain_brief(events)
+        insight_count = len(doc.insights or [])
+        log.info(
+            "Evolved insight generation: %d event(s) evaluated, %d insight(s) persisted",
+            len(events), insight_count,
+        )
+        _record_heartbeat(
+            "evolved_captain_insight_generation", "ok",
+            detail=f"{insight_count} insight(s) from {len(events)} events",
+        )
+    except Exception as exc:
+        log.error("Evolved insight generation job failed: %s", exc)
+        _record_heartbeat("evolved_captain_insight_generation", "failed", error_message=str(exc))
 
 
 def _attention_evaluation_job() -> None:
