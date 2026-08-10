@@ -289,6 +289,58 @@ def _passes_vendor_tier_gate(event: RankedEvent) -> bool:
 # erring toward over-alerting on total tool failure is the safer failure
 # mode. On failure this simply falls back to the pre-this-fix behaviour
 # (Tier-A-gated push), not a new way for a real outage to go unreported.
+# 2026-08-10 fix (Downdetector Australia adapter — crowdsourced report-volume
+# outage signal, see intelligence/ingestion/downdetector_adapter.py and
+# .claude/skills/bot-reviews/fixes-2026-08-09/downdetector-adapter-implemented.md):
+# Downdetector-sourced events deliberately BYPASS guard 5
+# (_passes_vendor_tier_gate) and guard 6 (_passes_blast_radius_check) below.
+# This is a considered, disclosed design choice, not an oversight -- both of
+# those guards exist to *approximate* genuine blast radius from vendor
+# self-report TEXT (vendor identity allowlist, then an LLM reading title/
+# summary prose) precisely because vendor status pages carry no native scale
+# signal of their own. The Downdetector adapter already gates on a direct,
+# numeric, ground-truth scale signal BEFORE an item is even emitted --
+# Downdetector's own top status tier AND a real report-count spike cleared
+# against evidence-grounded thresholds (see that adapter's module docstring)
+# -- so re-applying vendor-identity or single-company-scoped text heuristics
+# on top would be redundant at best.
+#
+# It would be actively WRONG at worst, for two separate, confirmed reasons:
+#   1. Guard 5's Tier-A allowlist (_FOUNDATIONAL_INFRA_VENDORS: AWS/Azure/
+#      Google Cloud/Cloudflare/NBN/Telstra/Optus/TPG only) would incorrectly
+#      suppress every genuine, Downdetector-CONFIRMED outage for every
+#      company this mission exists to add coverage for that isn't already on
+#      that hyperscaler/carrier list -- Vodafone, every smaller ISP (iiNet,
+#      Dodo, Aussie Broadband, Superloop, Activ8me), all four major banks,
+#      and mygov/Centrelink/myID. That would silently defeat the entire
+#      point of adding this source.
+#   2. Guard 6's LLM prompt explicitly defines "narrow" as "confined to one
+#      vendor's own service, product, or customer base (even if that vendor
+#      is itself a large hyperscaler or carrier)". A real, Downdetector-
+#      confirmed, nationwide outage of e.g. one bank's own banking app --
+#      unable-to-access-your-money for millions of Australians, exactly the
+#      kind of event this platform's own CPS230/banking_relevance framing
+#      treats as first-class -- is still, by the letter of that prompt,
+#      "confined to one company's own customer base", so the LLM would very
+#      plausibly answer "no" (narrow) and suppress a genuine, materially
+#      significant event. That prompt was calibrated for vendor
+#      self-report/media text, not for "is this company-wide outage,
+#      independently corroborated by real report-volume, big enough to
+#      matter" -- a different question this source's own two-layer gate
+#      already answers more directly.
+#
+# Detected via a source_name prefix match (same mechanism guard 5 already
+# uses for its own vendor-identity check, for internal consistency), not
+# source_category, so this bypass has zero effect on any other source's
+# gating -- it only ever matches the 19 sources this mission registers, all
+# named "Downdetector AU -- <Company>" (see tools/intelligence/sources_live.csv).
+_DOWNDETECTOR_SOURCE_PREFIX = "downdetector au"
+
+
+def _is_downdetector_source(event: RankedEvent) -> bool:
+    return (event.source_name or "").strip().lower().startswith(_DOWNDETECTOR_SOURCE_PREFIX)
+
+
 _BLAST_RADIUS_TASK_TYPE = "outage-blast-radius-check"
 
 _BLAST_RADIUS_SYSTEM_PROMPT = (
@@ -479,17 +531,29 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
                 event.event_type, event.customer_impact, event_id,
             )
             return
-        if not _passes_vendor_tier_gate(event):
+        if _is_downdetector_source(event):
+            # Guards 5/6 deliberately skipped here — see the dated comment
+            # above _DOWNDETECTOR_SOURCE_PREFIX for the full, disclosed
+            # reasoning (Downdetector's own two-layer report-volume gate
+            # already is this source's scale signal).
             log.info(
-                "[outage-alert] suppressed — %s/%s from vendor self-report "
-                "%s (%s) is not on the foundational-infrastructure "
-                "allowlist (event %s)",
-                event.event_type, event.customer_impact, event.source_name,
-                event.source_category, event_id,
+                "[outage-alert] Downdetector-sourced event %s passed its own "
+                "adapter-level two-layer gate — skipping vendor-tier and "
+                "blast-radius guards (not applicable to this source shape)",
+                event_id,
             )
-            return
-        if not _passes_blast_radius_check(event, event_id):
-            return
+        else:
+            if not _passes_vendor_tier_gate(event):
+                log.info(
+                    "[outage-alert] suppressed — %s/%s from vendor self-report "
+                    "%s (%s) is not on the foundational-infrastructure "
+                    "allowlist (event %s)",
+                    event.event_type, event.customer_impact, event.source_name,
+                    event.source_category, event_id,
+                )
+                return
+            if not _passes_blast_radius_check(event, event_id):
+                return
 
         import sys
         from pathlib import Path
