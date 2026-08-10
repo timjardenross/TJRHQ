@@ -99,8 +99,22 @@ here instead, exactly as instructed.
 already `chmod 600`, both already gitignored):
 
 ```
-FIRECRAWL_API_KEY=***REMOVED-LEAKED-FIRECRAWL-KEY***
+FIRECRAWL_API_KEY=<the real key — see below, NOT reproduced in this doc>
 ```
+
+**IMPORTANT — key rotation needed**: an earlier version of this document
+(committed as `8267954e`, already pushed to `origin/main`) mistakenly
+included the real key value inline as "the exact line to add." That was a
+real mistake — it defeats the entire point of keeping the key out of git.
+The value has been redacted here in a follow-up commit, but redaction
+alone does **not** remove it from git history; it is still recoverable
+from commit `8267954e` on GitHub. **The Captain should treat that key as
+compromised and rotate it** (revoke it and generate a new one at
+firecrawl.dev, then use the new value for the `.env` line below) rather
+than trust the already-pushed value going forward. The real key, for
+one-time use to add to `.env` before rotating, is in
+`/tmp/claude-0/-root/80a94242-d291-4fb7-a76d-76fb36670c68/scratchpad/firecrawl.env`
+on this host (session-local scratchpad, not in git).
 
 to `/opt/starship-endeavour/.env` and
 `/opt/starship-endeavour/platform-runtime/.env`. No restart is strictly
