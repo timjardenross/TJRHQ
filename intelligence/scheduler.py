@@ -267,6 +267,32 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── 2026-08-10: Downdetector tiered cadence, priority sources (Captain
+    # decision 1) ────────────────────────────────────────────────────────────
+    # Every 120 min; the job itself no-ops outside 07:00-19:00 AEST (see
+    # _within_priority_tiered_window) — registered as an interval so it
+    # self-corrects across restarts the same way intraday_status_collection/
+    # continuous_attention_evaluation do, rather than 12 separate CronTrigger
+    # entries for one job.
+    scheduler.add_job(
+        _priority_tiered_collection_job,
+        _IntervalTrigger(minutes=_PRIORITY_TIERED_INTERVAL_MINUTES),
+        id="downdetector_priority_tiered_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
+    # ── 2026-08-10: Downdetector learned-threshold nightly recompute (Captain
+    # decision 2) ────────────────────────────────────────────────────────────
+    # 05:00 AEST — before daily_source_collection (06:00) so a freshly
+    # recomputed threshold is in force for the next real collection cycle.
+    scheduler.add_job(
+        _downdetector_threshold_recompute_job,
+        CronTrigger(hour=5, minute=0, timezone=tz),
+        id="downdetector_threshold_recompute",
+        replace_existing=True,
+    )
+
     # ── Source Fidelity Audit ──────────────────────────────────────────────────
     # Runs daily at 06:45 AEST (after collection at 06:00 and validation at 06:30).
     # Measures signal-to-noise ratio across all intelligence sources and flags
@@ -346,9 +372,11 @@ def _start_scheduler() -> None:
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
-        "Wellness reminder: every %d min (06:00-23:00, %s)",
+        "Wellness reminder: every %d min (06:00-23:00, %s) | "
+        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
+        "Downdetector threshold recompute: 05:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
-        wellness_interval, SCHEDULE_TZ,
+        wellness_interval, SCHEDULE_TZ, _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ,
     )
 
     try:
@@ -574,6 +602,181 @@ def _excluding_firecrawl_fetch_sources(sources: list) -> list:
         s for s in sources
         if s.source_type != "downdetector" and s.source_name not in _FIRECRAWL_FETCH_SOURCE_NAMES
     ]
+
+
+# ── 2026-08-10 tiered cadence (Captain decision 1, see
+# .claude/skills/bot-reviews/fixes-2026-08-09/cadence-tiering-and-learned-threshold.md):
+# the Big 4 Australian banks (NOT Bendigo/UBank) and the top 2 telcos (NOT
+# TPG/Vodafone/NBN/small-ISPs) get checked more often during core business
+# hours (07:00-19:00 AEST) — real-world outages matter most while people are
+# actually trying to use these services. Exact names, confirmed live against
+# intelligence_source_registry 2026-08-10 (see mission report for the query).
+_PRIORITY_TIERED_SOURCE_NAMES = frozenset({
+    "Downdetector AU — NAB",
+    "Downdetector AU — ANZ Bank",
+    "Downdetector AU — Commonwealth Bank",
+    "Downdetector AU — Westpac",
+    "Downdetector AU — Telstra",
+    "Downdetector AU — Optus",
+})
+
+# Real quota math (see mission report for the full breakdown) — every 120
+# minutes during the 12h business-hours window is 6 extra checks/day per
+# source (7,9,11,13,15,17 relative to job start), NOT once/day like the
+# other 13 Downdetector sources. Hourly was computed and rejected: it would
+# add ~720 Firecrawl calls/month for Telstra+Optus alone on top of the
+# ~224/month already committed, blowing past the 850 safe ceiling. 120 min
+# leaves genuine headroom on both providers' budgets — this constant is the
+# real, math-checked interval, not a placeholder.
+_PRIORITY_TIERED_INTERVAL_MINUTES = 120
+_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, AEST (Australia/Brisbane, no DST)
+_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, AEST
+
+
+def _within_priority_tiered_window(hour: int) -> bool:
+    """Pure, directly-testable time-gate — see
+    tests/test_downdetector_priority_cadence.py. 07:00-19:00 AEST
+    (Australia/Brisbane — this platform's standard timezone, no DST, same
+    tz pulse_time.py and _wellness_reminder_job's own hour-gate already use;
+    deliberately NOT SCHEDULE_TZ/Australia-Melbourne, which shifts with
+    DST)."""
+    return _PRIORITY_TIERED_WINDOW_START_HOUR <= hour < _PRIORITY_TIERED_WINDOW_END_HOUR
+
+
+def _priority_tiered_collection_job() -> None:
+    """2026-08-10 (Captain decision 1): extra intraday checks for the 6
+    priority Downdetector sources, ONLY during 07:00-19:00 AEST — outside
+    that window they still get their existing once-daily check via
+    _daily_collection_job, unchanged. Distinct from
+    _intraday_status_collection_job (which explicitly excludes ALL
+    downdetector-type sources, see _excluding_firecrawl_fetch_sources) —
+    this job is scoped by exact source NAME to just these 6, not by
+    category, so it has zero effect on the other 13 Downdetector sources or
+    on any non-Downdetector source.
+
+    Same collect -> classify -> dedup -> filter -> rank -> save_event
+    pipeline every other collection job in this module uses (same dedup
+    keys, so this can never double-save an event another job already
+    collected today)."""
+    from datetime import datetime as _datetime
+    try:
+        from zoneinfo import ZoneInfo
+        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+    except Exception:
+        hour = _datetime.now().hour
+    if not _within_priority_tiered_window(hour):
+        log.info(
+            "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",
+            hour,
+        )
+        return
+
+    log.info("Priority tiered Downdetector collection triggered (hour=%d)", hour)
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.source_name in _PRIORITY_TIERED_SOURCE_NAMES]
+        if not sources:
+            log.warning(
+                "Priority tiered collection: none of the 6 named sources are "
+                "currently active in the registry"
+            )
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on priority-tiered run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Priority tiered collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "downdetector_priority_tiered_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Priority tiered collection job failed: %s", exc)
+        _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
+
+
+def _downdetector_threshold_recompute_job() -> None:
+    """2026-08-10 (Captain decision 2): nightly recompute of the per-source
+    Downdetector report-count threshold, replacing the old flat
+    _REPORT_COUNT_FLOOR=150 constant. See
+    intelligence/ingestion/downdetector_thresholds.py for the full
+    bootstrap -> LLM-learned pipeline and its sanity guard. Runs at 05:00
+    AEST — before _daily_collection_job (06:00) so the freshly recomputed
+    thresholds are in force for the very next real collection cycle, and
+    well clear of the 06:00-06:45 cluster of other daily jobs."""
+    log.info("Downdetector threshold recompute job triggered")
+    try:
+        from intelligence.ingestion.downdetector_thresholds import recompute_all
+
+        results = recompute_all()
+        learned = sum(1 for r in results if r.threshold_source == "llm_learned")
+        bootstrap = len(results) - learned
+        log.info(
+            "Downdetector threshold recompute complete: %d source(s), %d LLM-learned, "
+            "%d on bootstrap/fallback default",
+            len(results), learned, bootstrap,
+        )
+        _record_heartbeat(
+            "downdetector_threshold_recompute", "ok",
+            detail=f"sources={len(results)} learned={learned} bootstrap={bootstrap}",
+        )
+    except Exception as exc:
+        log.error("Downdetector threshold recompute job failed: %s", exc)
+        _record_heartbeat("downdetector_threshold_recompute", "failed", error_message=str(exc))
 
 
 def _intraday_status_collection_job() -> None:
