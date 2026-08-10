@@ -507,6 +507,21 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log mood (1-10 scale) at different times of day with optional context."""
+    from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
+    tod = _current_time_of_day()
+    label = _TOD_LABELS.get(tod, tod)
+    await update.message.reply_text(
+        f"📊 *Mood Chart*\n\n"
+        f"Rate your mood from 1 (worst) to 10 (best)\\.\n"
+        f"Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
+        f"When did you feel this way?",
+        parse_mode="MarkdownV2",
+        reply_markup=kb_time_of_day(),
+    )
+
+
 async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Test Supabase connectivity and report result."""
     db = _get_supabase()
@@ -1873,6 +1888,82 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
 
+# ── Inline mood chart callbacks ──────────────────────────────────────────────────
+
+async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle mood chart tap flow: time_of_day → mood_score → optional context."""
+    from telegram_bots.xo.mood_chart import (
+        parse_cb, kb_mood_score, kb_confirm_or_add_context,
+        _TOD_LABELS, _MOOD_EMOJI, write_mood_entry, format_mood_entry
+    )
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("mc|"):
+        return
+
+    cb = parse_cb(data)
+    tod = cb.get("tod")
+    ms = cb.get("ms")  # mood_score as string
+    done = cb.get("done") == "1"
+    context_flag = cb.get("context") == "1"
+
+    # Step 1: Time of day selected, show mood scale
+    if tod and not ms:
+        label = _TOD_LABELS.get(tod, tod)
+        await query.edit_message_text(
+            f"📊 *{_escape(label)}*\n\n"
+            "How's your mood? (1=worst · 10=best)",
+            parse_mode="MarkdownV2",
+            reply_markup=kb_mood_score(tod),
+        )
+        return
+
+    # Step 2: Mood score selected, show confirm or add context
+    if tod and ms and not done and not context_flag:
+        label = _TOD_LABELS.get(tod, tod)
+        mood_int = int(ms)
+        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
+        await query.edit_message_text(
+            f"📊 *{_escape(label)}*\n"
+            f"{mood_emoji} *{mood_int}/10*\n\n"
+            "Save now or add context (sleep, pain, anxiety, etc.)?",
+            parse_mode="MarkdownV2",
+            reply_markup=kb_confirm_or_add_context(tod, mood_int),
+        )
+        return
+
+    # Step 3: Save (minimal) or add context (opens text input flow)
+    if done:
+        mood_int = int(ms) if ms else 5
+        db = _get_supabase()
+        saved, err_msg = await write_mood_entry(db, tod, mood_int)
+        icon = "✅" if saved else "⚠️"
+        label = _TOD_LABELS.get(tod, tod)
+        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
+        error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
+        await query.edit_message_text(
+            f"{icon} *{_escape(label)} logged*\n\n"
+            f"{mood_emoji} *{mood_int}/10*"
+            f"{error_line}",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    if context_flag:
+        await query.edit_message_text(
+            "📝 *Add optional context*\n\n"
+            "Send your notes about sleep, pain, anxiety, stress, "
+            "substance use, or anything else relevant\\.\n\n"
+            "Or reply /done to finish\\.",
+            parse_mode="MarkdownV2",
+        )
+        context.user_data = context.user_data or {}
+        context.user_data["mood_entry"] = {"tod": tod, "ms": ms}
+        return
+
+
 # ── Voice-to-Capture ──────────────────────────────────────────────────────────
 
 def _build_capture_reply(capture_id, voice_type: str, confidence: float, duration: float, transcript: str):
@@ -2325,6 +2416,7 @@ _BOT_COMMANDS = [
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
+    ("mood_chart",      "Log mood (1-10 scale) with optional context"),
     ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     # System
@@ -2377,6 +2469,7 @@ def main() -> None:
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
+    app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
@@ -2406,6 +2499,7 @@ def main() -> None:
     app.add_handler(CommandHandler("debrief_close",   cmd_debrief_close))
     app.add_handler(CommandHandler("debrief_weekly",  cmd_debrief_weekly))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
+    app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,    pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
