@@ -33,18 +33,27 @@ router.get('/status', asyncHandler(async (req, res) => {
 
   const data = {
     recovery_confidence: conf ? {
-      pulses_today:     conf.pulse_count ?? 0,
-      confidence_score: conf.confidence_score ?? 0,
+      // Fixed 2026-08-10 while realigning the adjacent mood/stress fields:
+      // the view's real columns are pulses_completed/recovery_confidence,
+      // not pulse_count/confidence_score — this always read 0 before.
+      pulses_today:     conf.pulses_completed ?? 0,
+      confidence_score: conf.recovery_confidence ?? 0,
       confidence_label: conf.confidence_label ?? 'No data',
       morning_done:     conf.morning_done ?? false,
       midday_done:      conf.midday_done ?? false,
       end_of_day_done:  conf.end_of_day_done ?? false,
       evening_done:     conf.evening_done ?? false,
-      latest_energy:    conf.latest_energy ?? null,
-      latest_mood:      conf.latest_mood ?? null,
-      latest_stress:    conf.latest_stress ?? null,
-      latest_readiness: conf.latest_readiness ?? null,
-      latest_pain:      conf.latest_pain ?? null,
+      latest_energy:         conf.latest_energy ?? null,
+      // Recovery Pulse realign (2026-08-10): recovery_confidence_today no
+      // longer exposes latest_mood/latest_stress (dropped in migration
+      // 0115) — it exposes the canonical latest_nervous_system/
+      // latest_body_signals instead, which the Telegram bot actually
+      // populates. latest_pain also corrected to the view's real column
+      // name (latest_pain_score); the old key always read null.
+      latest_nervous_system: conf.latest_nervous_system ?? null,
+      latest_body_signals:   conf.latest_body_signals ?? null,
+      latest_readiness:      conf.latest_readiness ?? null,
+      latest_pain:           conf.latest_pain_score ?? null,
     } : null,
     capacity: {
       score:  capacityScore,
@@ -68,8 +77,10 @@ router.get('/trends', asyncHandler(async (req, res) => {
     'recovery_pulse_adherence_7d?select=*&order=log_date.desc&limit=7'
   );
 
+  // Canonical fields (energy/nervous_system/body_signals/day_win) — mood/
+  // stress dropped from this select, see 2026-08-10 realign note above.
   const pulses = await supabaseGet(
-    'recovery_pulses?select=log_date,pulse_type,pain_score,energy,mood,stress,readiness&order=captured_at.desc&limit=28'
+    'recovery_pulses?select=log_date,pulse_type,pain_score,energy,nervous_system,body_signals,day_win,readiness&order=captured_at.desc&limit=28'
   );
 
   const data = {
@@ -124,15 +135,31 @@ router.get('/watchlist', asyncHandler(async (req, res) => {
 
 // ── POST /api/v1/personal-health/pulse ─────────────────────────────────────
 // Submit a recovery pulse check-in from the web UI.
-// Body: { pulse_type, pain_score?, energy?, mood?, stress?, readiness?, notes? }
-const VALID_PULSE_TYPES = ['morning', 'midday', 'end_of_day', 'evening'];
-const VALID_ENERGY      = ['low', 'moderate', 'high'];
-const VALID_MOOD        = ['low', 'stable', 'positive'];
-const VALID_STRESS      = ['low', 'moderate', 'high'];
-const VALID_READINESS   = ['low', 'moderate', 'high'];
+//
+// Recovery Pulse decommission/realign (Captain directive, 2026-08-10): the
+// Telegram bot (telegram-bots/xo/app.py) writes energy/nervous_system/
+// body_signals/day_win and is now canonical; mood/stress were this
+// endpoint's own alternate, divergent write path (a second independent
+// writer alongside the LCARS Portal's Medical Bay page, which has been
+// repointed the same way). This endpoint had no confirmed live caller at
+// the time of this change, but is repointed rather than removed since it's
+// a public API surface that could be hit directly. Pulse types are now the
+// canonical 3 (morning/midday/evening — end_of_day was folded into midday,
+// see migration 0115); the field/value sets below mirror telegram-bots/xo/
+// app.py's _kb_energy / _kb_mood (nervous system) / _kb_stress (body
+// signals) / _kb_day_win exactly, and the recovery_pulses CHECK constraints
+// (nervous_system: calm/activated/dysregulated, body_signals: quiet/
+// present/significant, day_win: something_did/nothing_much/rough_day).
+// Body: { pulse_type, pain_score?, energy?, nervous_system?, body_signals?, day_win?, readiness?, notes? }
+const VALID_PULSE_TYPES    = ['morning', 'midday', 'evening'];
+const VALID_ENERGY         = ['low', 'moderate', 'high'];
+const VALID_NERVOUS_SYSTEM = ['calm', 'activated', 'dysregulated'];
+const VALID_BODY_SIGNALS   = ['quiet', 'present', 'significant'];
+const VALID_DAY_WIN        = ['something_did', 'nothing_much', 'rough_day'];
+const VALID_READINESS      = ['low', 'moderate', 'high'];
 
 router.post('/pulse', asyncHandler(async (req, res) => {
-  const { pulse_type, pain_score, energy, mood, stress, readiness, notes } = req.body || {};
+  const { pulse_type, pain_score, energy, nervous_system, body_signals, day_win, readiness, notes } = req.body || {};
 
   if (!pulse_type || !VALID_PULSE_TYPES.includes(pulse_type)) {
     throw new ApiError(400, `pulse_type must be one of: ${VALID_PULSE_TYPES.join(', ')}`);
@@ -140,10 +167,11 @@ router.post('/pulse', asyncHandler(async (req, res) => {
   if (pain_score != null && (isNaN(Number(pain_score)) || Number(pain_score) < 0 || Number(pain_score) > 10)) {
     throw new ApiError(400, 'pain_score must be 0–10');
   }
-  if (energy    && !VALID_ENERGY.includes(energy))       throw new ApiError(400, `energy must be: ${VALID_ENERGY.join(', ')}`);
-  if (mood      && !VALID_MOOD.includes(mood))           throw new ApiError(400, `mood must be: ${VALID_MOOD.join(', ')}`);
-  if (stress    && !VALID_STRESS.includes(stress))       throw new ApiError(400, `stress must be: ${VALID_STRESS.join(', ')}`);
-  if (readiness && !VALID_READINESS.includes(readiness)) throw new ApiError(400, `readiness must be: ${VALID_READINESS.join(', ')}`);
+  if (energy         && !VALID_ENERGY.includes(energy))                 throw new ApiError(400, `energy must be: ${VALID_ENERGY.join(', ')}`);
+  if (nervous_system  && !VALID_NERVOUS_SYSTEM.includes(nervous_system)) throw new ApiError(400, `nervous_system must be: ${VALID_NERVOUS_SYSTEM.join(', ')}`);
+  if (body_signals    && !VALID_BODY_SIGNALS.includes(body_signals))     throw new ApiError(400, `body_signals must be: ${VALID_BODY_SIGNALS.join(', ')}`);
+  if (day_win         && !VALID_DAY_WIN.includes(day_win))               throw new ApiError(400, `day_win must be: ${VALID_DAY_WIN.join(', ')}`);
+  if (readiness       && !VALID_READINESS.includes(readiness))           throw new ApiError(400, `readiness must be: ${VALID_READINESS.join(', ')}`);
 
   const today = new Date().toISOString().split('T')[0];
   const payload = {
@@ -152,11 +180,12 @@ router.post('/pulse', asyncHandler(async (req, res) => {
     source:      'manual',
     captured_at: new Date().toISOString(),
     ...(pain_score != null && { pain_score: Number(pain_score) }),
-    ...(energy     && { energy }),
-    ...(mood       && { mood }),
-    ...(stress     && { stress }),
-    ...(readiness  && { readiness }),
-    ...(notes      && { notes: notes.trim() }),
+    ...(energy         && { energy }),
+    ...(nervous_system && { nervous_system }),
+    ...(body_signals   && { body_signals }),
+    ...(day_win        && { day_win }),
+    ...(readiness      && { readiness }),
+    ...(notes          && { notes: notes.trim() }),
   };
 
   const result = await supabaseUpsert('recovery_pulses', payload, 'log_date,pulse_type');

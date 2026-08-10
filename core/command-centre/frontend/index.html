@@ -689,9 +689,11 @@
                 <select id="pulse-type" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="morning">🌅 Morning</option>
                   <option value="midday">☀️ Midday</option>
-                  <option value="end_of_day">🌆 End of Day</option>
                   <option value="evening">🌙 Evening</option>
                 </select>
+                <!-- end_of_day removed 2026-08-10: canonical pulse_type is now
+                     morning/midday/evening (Captain directive, migration 0115);
+                     the backend's /pulse endpoint no longer accepts it. -->
               </div>
               <div style="flex:1;min-width:80px;">
                 <label for="pulse-pain" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">PAIN (0–10)</label>
@@ -710,12 +712,16 @@
                 </select>
               </div>
               <div style="flex:1;">
-                <label for="pulse-mood" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">MOOD</label>
-                <select id="pulse-mood" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
+                <!-- Was MOOD (writes recovery_pulses.mood) — repointed 2026-08-10
+                     to NERVOUS SYSTEM (writes .nervous_system), the canonical
+                     field the Telegram bot uses. See personal-health.js's
+                     2026-08-10 realign note on the /pulse endpoint. -->
+                <label for="pulse-nervous-system" style="font-size:10px;color:var(--sf-text-secondary);display:block;margin-bottom:3px;">NERVOUS SYSTEM</label>
+                <select id="pulse-nervous-system" style="width:100%;background:var(--sf-bg-card);color:var(--sf-text-primary);border:1px solid var(--sf-border-subtle);border-radius:4px;padding:4px 6px;font-size:12px;">
                   <option value="">—</option>
-                  <option value="low">Low</option>
-                  <option value="stable">Stable</option>
-                  <option value="positive">Positive</option>
+                  <option value="calm">Calm</option>
+                  <option value="activated">Activated</option>
+                  <option value="dysregulated">Dysregulated</option>
                 </select>
               </div>
               <div style="flex:1;">
@@ -2229,10 +2235,10 @@
           ${slots.map(s => `<span class="pulse-slot ${s.done ? 'pulse-slot-done' : 'pulse-slot-miss'}">${s.done ? '✓' : '○'} ${s.label}</span>`).join('')}
         </div>
         ${conf && conf.latest_energy != null ? `<div style="font-size:11px;color:var(--sf-text-secondary);display:flex;gap:16px;flex-wrap:wrap;">
-          ${conf.latest_energy  != null ? `<span>Energy <strong style="color:var(--sf-text-primary)">${conf.latest_energy}/10</strong></span>` : ''}
-          ${conf.latest_mood    != null ? `<span>Mood <strong style="color:var(--sf-text-primary)">${conf.latest_mood}/10</strong></span>` : ''}
-          ${conf.latest_pain    != null ? `<span>Pain <strong style="color:var(--sf-text-primary)">${conf.latest_pain}/10</strong></span>` : ''}
-          ${conf.latest_stress  != null ? `<span>Stress <strong style="color:var(--sf-text-primary)">${conf.latest_stress}/10</strong></span>` : ''}
+          ${conf.latest_energy != null ? `<span>Energy <strong style="color:var(--sf-text-primary)">${conf.latest_energy}</strong></span>` : ''}
+          ${conf.latest_nervous_system != null ? `<span>Nervous system <strong style="color:var(--sf-text-primary)">${conf.latest_nervous_system}</strong></span>` : ''}
+          ${conf.latest_pain != null ? `<span>Pain <strong style="color:var(--sf-text-primary)">${conf.latest_pain}/10</strong></span>` : ''}
+          ${conf.latest_body_signals != null ? `<span>Body signals <strong style="color:var(--sf-text-primary)">${conf.latest_body_signals}</strong></span>` : ''}
         </div>` : ''}
         ${cap ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--sf-border-subtle);display:flex;justify-content:space-between;font-size:11px;">
           <span style="color:var(--sf-text-secondary);">Capacity score</span>
@@ -2244,12 +2250,12 @@
     async function submitPulse() {
       const statusEl = document.getElementById('pulse-status');
       const btn = document.querySelector('#pulse-entry-form button');
-      const pulse_type = document.getElementById('pulse-type')?.value;
-      const pain_score = document.getElementById('pulse-pain')?.value;
-      const energy     = document.getElementById('pulse-energy')?.value || undefined;
-      const mood       = document.getElementById('pulse-mood')?.value || undefined;
-      const readiness  = document.getElementById('pulse-readiness')?.value || undefined;
-      const notes      = document.getElementById('pulse-notes')?.value?.trim() || undefined;
+      const pulse_type     = document.getElementById('pulse-type')?.value;
+      const pain_score     = document.getElementById('pulse-pain')?.value;
+      const energy         = document.getElementById('pulse-energy')?.value || undefined;
+      const nervous_system = document.getElementById('pulse-nervous-system')?.value || undefined;
+      const readiness      = document.getElementById('pulse-readiness')?.value || undefined;
+      const notes          = document.getElementById('pulse-notes')?.value?.trim() || undefined;
 
       if (!pulse_type) { if (statusEl) statusEl.textContent = 'Select a pulse type.'; return; }
 
@@ -2257,7 +2263,7 @@
       if (statusEl) statusEl.textContent = '';
 
       try {
-        const body = { pulse_type, ...(pain_score !== '' && { pain_score: Number(pain_score) }), energy, mood, readiness, notes };
+        const body = { pulse_type, ...(pain_score !== '' && { pain_score: Number(pain_score) }), energy, nervous_system, readiness, notes };
         const sep = '/api/v1/personal-health/pulse'.includes('?') ? '&' : '?';
         const url = API_BASE + '/api/v1/personal-health/pulse' + (_apiKey ? `${sep}api_key=${encodeURIComponent(_apiKey)}` : '');
         const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -2266,7 +2272,7 @@
         if (statusEl) statusEl.style.color = 'var(--sf-status-ok-text)';
         // Reset form
         ['pulse-pain','pulse-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        ['pulse-energy','pulse-mood','pulse-readiness'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['pulse-energy','pulse-nervous-system','pulse-readiness'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         // Reload sickbay data
         sickbayLoaded = false;
         loadSickbayTab();
