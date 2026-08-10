@@ -178,12 +178,18 @@ SOURCES = [
         "priority_rank":      1,
         "url":                "https://status.cloud.google.com/",
         "rss_url":            "https://status.cloud.google.com/en/feed.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://status.cloud.google.com/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.95,
         "active":             True,
-        "notes":              "GCP global status Atom feed. JSON incidents also at /incidents.json.",
+        "notes":              "GCP global status. 2026-08-10: migrated from Atom to the incidents.json API — NOT Statuspage.io "
+                              "format (custom Google shape: severity low/medium/high/critical + status_impact "
+                              "SERVICE_INFORMATION/SERVICE_DISRUPTION/SERVICE_OUTAGE, confirmed live 2026-08-10). New "
+                              "_parse_gcp_incidents() in api_adapter.py maps these onto the same [Impact: none/minor/major/"
+                              "critical] tag filter.py already suppresses on. Deliberate mapping (not 1:1): "
+                              "SERVICE_INFORMATION->none, SERVICE_OUTAGE->critical, SERVICE_DISRUPTION->major if severity "
+                              "in (high,critical) else minor.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
