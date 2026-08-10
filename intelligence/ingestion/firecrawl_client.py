@@ -25,12 +25,18 @@ into this module spends one real credit — there is no free retry.
      (collection_engine.py's ThreadPoolExecutor, max_workers=8) call it at
      once. Callers do not need to (and should not try to) manage
      concurrency themselves.
-  2. This module does NOT enforce cadence/volume — that discipline lives in
-     intelligence/scheduler.py (which sources, how often) and in each
-     adapter's own allowlist of which specific sources may use the
-     fallback. Adding a new caller here without first doing the same
-     monthly-volume math this mission did is how a shared low-traffic
-     source quietly blows the account's entire monthly quota.
+  2. Cadence/source-count discipline (which sources, how often) still lives
+     in intelligence/scheduler.py and each adapter's own allowlist — this
+     module does not decide who's allowed to call it. But it DOES enforce a
+     real hard cap regardless of what that discipline does or doesn't
+     prevent: every call to `scrape()` below is gated by
+     intelligence/ingestion/external_fetch_budget.py's atomic,
+     DB-backed check-and-increment against a safe ceiling (850/1,000 —
+     85% of the real Free-plan cap, see that module's docstring for the
+     full design and the cycle-rollover handling). A call past the ceiling
+     raises instead of firing — a cron misconfiguration, a retry-loop bug,
+     or a new caller added without doing this math can no longer silently
+     blow through the account's monthly quota.
   3. Adapters should call this ONLY as a fallback after a plain fetch has
      already failed with a genuine blocking signal (e.g. HTTP 403) — never
      as the first attempt — so a source that stops being blocked stops
@@ -45,6 +51,7 @@ import urllib.request
 from typing import Optional
 
 from intelligence.config import FIRECRAWL_API_KEY, HTTP_TIMEOUT_SECONDS
+from intelligence.ingestion import external_fetch_budget
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +81,12 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
     `data` dict (keys depend on `formats`, e.g. markdown/rawHtml/metadata).
 
     Raises RuntimeError (or FirecrawlNotConfigured) on any failure — never
-    returns partial or fabricated content.
+    returns partial or fabricated content. Also raises
+    external_fetch_budget.FetchBudgetExceeded /
+    external_fetch_budget.FetchBudgetCheckFailed (both RuntimeError
+    subclasses) if the account's monthly hard-cap circuit breaker refuses
+    this call — see external_fetch_budget.py and this module's own
+    docstring, point 2.
     """
     if not FIRECRAWL_API_KEY:
         raise FirecrawlNotConfigured(
@@ -82,6 +94,14 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
             "(see .claude/skills/bot-reviews/fixes-2026-08-09/"
             "firecrawl-production-provisioning.md)"
         )
+
+    # Hard-cap circuit breaker: gate BEFORE the real outbound call, and
+    # count this attempt regardless of whether it goes on to succeed or
+    # fail below (see external_fetch_budget.py's billing-verification
+    # notes). Deliberately NOT caught here — a refusal must propagate to
+    # the caller so it degrades gracefully at the adapter/collection-engine
+    # layer instead of silently being swallowed.
+    external_fetch_budget.check_and_increment("firecrawl")
 
     formats = formats or ["markdown", "rawHtml"]
     payload = json.dumps({"url": url, "formats": formats}).encode("utf-8")

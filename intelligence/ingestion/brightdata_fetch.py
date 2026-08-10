@@ -53,11 +53,18 @@ BRIGHTDATA_API_KEY is the Captain's own Bright Data account. Free plan:
 5,000 requests/month. Every call into this module spends real quota — there
 is no free retry.
 
-  1. This module does NOT enforce cadence/volume — that discipline lives in
-     intelligence/scheduler.py (which sources, how often) and in each
-     adapter's own routing logic for which specific sources may use this
-     path (see DowndetectorAdapter._fetch_html's sector-based routing:
-     banking/government only, never telecom).
+  1. Cadence/source-count discipline (which sources, how often) still lives
+     in intelligence/scheduler.py and each adapter's routing logic (see
+     DowndetectorAdapter._fetch_html's sector-based routing: banking/
+     government only, never telecom) — this module does not decide who's
+     allowed to call it. But it DOES enforce a real hard cap regardless of
+     what that discipline does or doesn't prevent: every call to
+     `fetch_html()` below is gated by
+     intelligence/ingestion/external_fetch_budget.py's atomic, DB-backed
+     check-and-increment against a safe ceiling (4,500/5,000 — 90% of the
+     real Free-tier cap; see that module's docstring for the full design
+     and cycle-rollover handling). A call past the ceiling raises instead
+     of firing.
   2. Callers should call this ONLY as a fallback after a plain fetch has
      already failed with a genuine blocking signal (e.g. HTTP 403) — never
      as the first attempt — so a source that stops being blocked stops
@@ -75,6 +82,7 @@ from intelligence.config import (
     BRIGHTDATA_TIMEOUT_SECONDS,
     BRIGHTDATA_ZONE,
 )
+from intelligence.ingestion import external_fetch_budget
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +103,11 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
 
     Raises BrightDataNotConfigured if no API key is set, or RuntimeError on
     any HTTP/network failure or non-2xx response — never returns partial or
-    fabricated content.
+    fabricated content. Also raises external_fetch_budget.FetchBudgetExceeded
+    / external_fetch_budget.FetchBudgetCheckFailed (both RuntimeError
+    subclasses) if the account's monthly hard-cap circuit breaker refuses
+    this call — see external_fetch_budget.py and this module's own
+    docstring, point 1.
     """
     if not BRIGHTDATA_API_KEY:
         raise BrightDataNotConfigured(
@@ -103,6 +115,14 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
             "(see .claude/skills/bot-reviews/fixes-2026-08-09/"
             "brightdata-provisioning.md)"
         )
+
+    # Hard-cap circuit breaker: gate BEFORE the real outbound call, and
+    # count this attempt regardless of whether it goes on to succeed or
+    # fail below (see external_fetch_budget.py's billing-verification
+    # notes). Deliberately NOT caught here — a refusal must propagate to
+    # the caller so it degrades gracefully at the adapter/collection-engine
+    # layer instead of silently being swallowed.
+    external_fetch_budget.check_and_increment("brightdata")
 
     payload = json.dumps({
         "zone": BRIGHTDATA_ZONE,
