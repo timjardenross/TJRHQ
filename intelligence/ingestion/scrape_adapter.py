@@ -56,6 +56,12 @@ _ARTICLE_SELECTORS = [
     '[class*="media-release"]', '[class*="press-release"]',
     "li.item", "li.entry", "li.post",
     ".listing__item", ".list-item",
+    # AEMO Market Notices renders each real notice as `div.items > div.item`
+    # (a heading + body, no wrapping <a> — confirmed live 2026-08-10, see
+    # firecrawl-production-provisioning.md). Scoped to `.items .item`
+    # (requires the nested-wrapper pattern too), not bare `.item`, to avoid
+    # matching unrelated single-class="item" elements on other sites.
+    ".items .item",
     "h2 a", "h3 a",
 ]
 
@@ -209,6 +215,37 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         return [self._make_item(heading, body[:500] or None, self.source.url, None)]
 
+    def _in_nav_chrome(self, el) -> bool:
+        """True if `el` sits inside standard page chrome (a header/nav/
+        footer menu) rather than the real content area. 2026-08-10 (Firecrawl
+        production provisioning): AEMO Market Notices' and Fastly Status'
+        Firecrawl-rendered pages both lead with a big site-nav mega-menu
+        (AEMO: a real <header> ancestor; Fastly: div.navbar5/
+        div.header-content, no semantic <header> tag but the same real
+        pattern) — dozens of nav links ahead of the actual notices/incidents
+        in DOM order were filling up MAX_ITEMS_PER_SOURCE before the real
+        content was ever reached (confirmed live — see
+        .claude/skills/bot-reviews/fixes-2026-08-09/
+        firecrawl-production-provisioning.md). Generic HTML5-tag + common
+        class-name check, not source-specific — this can only REMOVE
+        already-low-confidence fallback candidates, so it's a pure
+        improvement for every other ScrapeAdapter-driven source too, not
+        just these two."""
+        for ancestor in el.parents:
+            if getattr(ancestor, "name", None) in ("header", "nav", "footer"):
+                return True
+            classes = " ".join(ancestor.get("class") or []).lower()
+            if any(tok in classes for tok in
+                   ("navbar", "nav-menu", "mega-menu", "site-header", "header-content", "global-header",
+                    "footer", "footbar",
+                    # AEMO Market Notices' own faceted-search sidebar (category/date
+                    # filter links) sits outside any <header>/nav-classed container
+                    # but is the same "chrome, not content" shape — confirmed live
+                    # 2026-08-10, see firecrawl-production-provisioning.md.
+                    "facet")):
+                return True
+        return False
+
     def _extract_fallback(self, soup) -> list[IntelligenceItem]:
         """Grab all <a> tags that look like article links."""
         items = []
@@ -221,6 +258,13 @@ class ScrapeAdapter(BaseSourceAdapter):
             if not title or len(title) < 15 or len(title) > 250:
                 continue
             if title in seen_titles:
+                continue
+            if self._in_nav_chrome(a):
+                continue
+            # A bare URL is never a real headline — some link text is
+            # literally the href itself (confirmed live on Fastly Status'
+            # incidents page, 2026-08-10).
+            if title.startswith(("http://", "https://")):
                 continue
             title_lower = title.lower()
             # Skip nav/footer type links

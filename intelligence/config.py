@@ -145,6 +145,10 @@ KNOWN_JUNK_TITLE_SUBSTRINGS = [
     "helping you when times are tough",
     "nbn business plans",
     "connect to the nbn network",
+    # Generic pagination furniture (confirmed live on Fastly Status'
+    # incidents page, 2026-08-10 — see
+    # .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md).
+    "load more",
 ]
 
 # A block of narrative text extracted from a status page's main heading/paragraph
