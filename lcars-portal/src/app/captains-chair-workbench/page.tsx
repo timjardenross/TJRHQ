@@ -8,7 +8,6 @@ import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
-import ProactiveSignals from '@/components/ProactiveSignals';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
@@ -201,13 +200,6 @@ export default function CaptainsChairWorkbench() {
         {/* Captain Intelligence */}
         <div className="rounded-lg border border-wb-border bg-white p-4">
           <CaptainIntelligencePanel />
-        </div>
-
-        {/* Operational Hygiene */}
-        <div className="rounded-lg border border-wb-border bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Operational Hygiene</h3>
-          <p className="mb-3 text-xs text-wb-ink2">Stalled, overdue, and quietly drifting — not urgent, worth a look</p>
-          <ProactiveSignals />
         </div>
 
         {/* Operational Picture */}
