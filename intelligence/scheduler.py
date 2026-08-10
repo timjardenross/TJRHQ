@@ -916,11 +916,12 @@ def _source_fidelity_audit_job() -> None:
         from intelligence.audit.source_fidelity import source_fidelity_report
 
         report = source_fidelity_report(days=30)
+        summary = report.get("summary", {})
 
         total_sources = report.get("total_sources", 0)
-        high_value = len(report.get("high_value_sources", []))
-        low_value = len(report.get("low_value_sources", []))
-        degraded = len(report.get("degraded_sources", []))
+        high_value = len(summary.get("high_value_sources", []))
+        low_value = len(summary.get("low_value_sources", []))
+        degraded = len(summary.get("degraded_sources", []))
 
         log.info(
             "Source fidelity audit complete: %d total sources, %d high-value, "
