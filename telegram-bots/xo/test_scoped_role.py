@@ -99,7 +99,7 @@ def main() -> int:
         print("build_scoped_client() returned None (likely missing SUPABASE_ANON_KEY). Aborting.")
         return 2
 
-    print(f"Scoped client constructed. Running {17} real operations as xo_bot...\n")
+    print("Scoped client constructed. Running 22 real operations as xo_bot...\n")
 
     # 1-2. missions / recovery_confidence_today — read-only surfaces
     check("missions SELECT", lambda: db.table("missions").select("mission_id").limit(1).execute())
@@ -124,8 +124,12 @@ def main() -> int:
     if pulse_id:
         check("recovery_pulses UPDATE (landmine: no authenticated policy exists live)",
               lambda: db.table("recovery_pulses").update({"notes": "xo_bot_rls_test [updated]"}).eq("id", pulse_id).execute())
-        check("recovery_pulses cleanup DELETE (test-only, not a real bot operation)",
-              lambda: db.table("recovery_pulses").delete().eq("id", pulse_id).execute())
+        # Not a real bot operation — the live bot never deletes recovery_pulses
+        # rows, and xo_bot correctly has no DELETE grant on this table (see
+        # migration 0135). A failure here is expected and not a test failure;
+        # test rows are swept up by the admin-level cleanup query documented
+        # in xo-bot-scoped-role-implemented.md if this ever fails.
+        cleanup(lambda: db.table("recovery_pulses").delete().eq("id", pulse_id).execute())
 
     check("recovery_pulses UPSERT (on_conflict=log_date,pulse_type)",
           lambda: db.table("recovery_pulses").upsert(
