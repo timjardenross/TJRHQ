@@ -705,7 +705,7 @@ export default function MedicalPage() {
         <div className="flex flex-col gap-4">
           <div className="rounded-lcars border border-medical/40 bg-medical/5 p-6 text-center">
             <p className="font-lcars text-2xl font-bold text-medical-on mb-2">Daily Pulse Log</p>
-            <p className="text-sm text-lcars-muted mb-4">Record energy, pain, mood and nervous system state up to 4 times daily.</p>
+            <p className="text-sm text-lcars-muted mb-4">Record energy, nervous system, body signals and a daily reflection up to 3 times daily.</p>
             <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-medical-on hover:bg-medical/30 transition-colors">
               Open Pulse Log →
             </Link>
