@@ -8,7 +8,7 @@ Writes are *non-blocking* — if Supabase is unavailable the calls degrade
 silently (the framework keeps working without memory), matching the existing
 CommanderSupabaseClient contract used across the bot.
 
-Tables (see core/infrastructure/supabase/migrations/0020_human_systems.sql):
+Tables (see core/infrastructure/supabase/migrations/0125_human_systems.sql):
   - human_systems_recommendations  — every proactive recommendation issued
   - human_systems_feedback         — Captain's usefulness feedback
   - human_systems_patterns         — significant patterns / preferences / triggers
