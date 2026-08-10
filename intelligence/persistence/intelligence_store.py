@@ -978,3 +978,88 @@ def load_brief_archive(limit: int = 20, offset: int = 0) -> list[dict]:
         f"&limit={limit}"
         f"&offset={offset}"
     )
+
+
+# ─── Downdetector baseline history / learned thresholds (migration 0121) ──────
+# See intelligence/ingestion/downdetector_adapter.py (writes observations on
+# every real fetch) and intelligence/ingestion/downdetector_thresholds.py
+# (reads history, writes the recomputed per-source threshold nightly).
+
+def save_downdetector_observation(
+    source_name: str, sector: str, status: str, report_count: Optional[int],
+) -> None:
+    """Log one real Downdetector fetch's parsed (status, report_count) —
+    called from DowndetectorAdapter.collect() on EVERY real fetch, not just
+    ones that pass the two-layer push-alert gate. This is the accumulation
+    ledger downdetector_thresholds.py::recompute_all() reasons over.
+    Best-effort: _post() already logs and returns None on any failure
+    rather than raising, so a Supabase hiccup here can never break the
+    calling collect()."""
+    _post("downdetector_baseline_history", {
+        "source_name": source_name,
+        "sector": sector,
+        "status": status,
+        "report_count": report_count,
+    })
+
+
+def load_downdetector_history(source_name: str, since_iso: str) -> list[dict]:
+    """Real observation history for one source, oldest-first, since
+    `since_iso` (an ISO-8601 timestamp). Used by recompute_all() to build
+    the quiet-baseline distribution + known spike events the LLM reasons
+    over. Returns [] (not an exception) on any read failure — the caller
+    treats an empty/short history as insufficient, which is the correct,
+    safe behaviour (falls back to the bootstrap default) either way."""
+    import urllib.parse
+    encoded_name = urllib.parse.quote(source_name, safe="")
+    encoded_since = urllib.parse.quote(since_iso, safe="")
+    return _get(
+        f"downdetector_baseline_history"
+        f"?source_name=eq.{encoded_name}"
+        f"&observed_at=gte.{encoded_since}"
+        f"&order=observed_at.asc"
+        f"&limit=5000"
+    )
+
+
+def save_downdetector_threshold(
+    source_name: str,
+    sector: str,
+    threshold_value: int,
+    threshold_source: str,
+    reasoning: Optional[str],
+    history_days_used: int,
+    llm_provider: Optional[str] = None,
+) -> None:
+    """Upsert the current threshold in force for one source. threshold_source
+    always records HOW this value was reached (bootstrap vs. LLM-learned vs.
+    a bootstrap fallback after an LLM failure/sanity-guard rejection) — see
+    migration 0121's table comment. Called once per source per nightly
+    recompute run."""
+    from datetime import datetime, timezone
+    _post(
+        "downdetector_learned_thresholds",
+        {
+            "source_name": source_name,
+            "sector": sector,
+            "threshold_value": threshold_value,
+            "threshold_source": threshold_source,
+            "reasoning": reasoning,
+            "history_days_used": history_days_used,
+            "llm_provider": llm_provider,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
+        },
+        on_conflict="source_name",
+    )
+
+
+def load_all_downdetector_thresholds() -> dict[str, dict]:
+    """Bulk read of every source's current learned/bootstrap threshold, keyed
+    by source_name — used by downdetector_adapter.py's short-TTL in-process
+    cache so a per-fetch gate check never needs its own live Supabase round
+    trip (relevant now that the 6 tiered-cadence priority sources can be
+    checked up to ~12x/day, see scheduler.py's _priority_tiered_collection_job).
+    Returns {} (not an exception) on any read failure — callers fall back to
+    the sector bootstrap default, which is the safe behaviour."""
+    rows = _get("downdetector_learned_thresholds?select=*")
+    return {row["source_name"]: row for row in rows}
