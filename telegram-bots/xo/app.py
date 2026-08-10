@@ -366,19 +366,56 @@ def _kb_day_win(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
     ]])
 
 
+_MOOD_SCORE_EMOJI = {
+    1: "😭", 2: "😞", 3: "😕", 4: "😐", 5: "🙂",
+    6: "😊", 7: "😄", 8: "😃", 9: "😍", 10: "🤩",
+}
+
+
+def _kb_mood_score(pt: str, e: str, m: str, s: str | None, w: str | None) -> InlineKeyboardMarkup:
+    """Optional extra step, shown once the pulse's normal required taps are
+    already complete (2026-08-11) — a Captain directive to fold a holistic
+    mood_score into this existing flow rather than deploy a second,
+    independent mood-capture surface (see migration 0140's header comment).
+    Skippable — the pulse is written either way, this only adds mood_score
+    when the Captain bothers to tap a number. Carries every prior field in
+    the callback data so the terminal write below has everything regardless
+    of which pulse type led here."""
+    def _cb(v: str) -> str:
+        parts = [f"pl|pt={pt}", f"e={e}", f"m={m}"]
+        if s is not None:
+            parts.append(f"s={s}")
+        if w is not None:
+            parts.append(f"w={w}")
+        parts.append(f"o={v}")
+        return "|".join(parts)
+
+    rows = [
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(1, 4)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(4, 7)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(7, 10)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[10]} 10", callback_data=_cb("10"))],
+        [InlineKeyboardButton("⏭ Skip", callback_data=_cb("skip"))],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
 async def _write_pulse(
     pt: str,
     energy: str,
     nervous_system: str,
     body_signals: str | None = None,
     day_win: str | None = None,
+    mood_score: int | None = None,
 ) -> tuple[bool, RecoveryStatus, str | None]:
     """Write a pulse row. body_signals is only ever passed for morning pulses;
     day_win only for evening; midday passes neither (2-tap flow) — see the
-    time-of-day-asymmetric flow comment above _PULSE_LABELS. Absent fields
-    are simply left out of the upsert payload rather than written as NULL
-    explicitly, so re-submitting a slot never clobbers a previously-written
-    value for a column this pulse type doesn't ask about."""
+    time-of-day-asymmetric flow comment above _PULSE_LABELS. mood_score
+    (2026-08-11) is optional for every pulse type — the Captain can skip it.
+    Absent fields are simply left out of the upsert payload rather than
+    written as NULL explicitly, so re-submitting a slot never clobbers a
+    previously-written value for a column this pulse type doesn't ask
+    about."""
     db = _get_supabase()
     saved = False
     err_msg: str | None = None
@@ -398,13 +435,15 @@ async def _write_pulse(
                 payload["body_signals"] = body_signals
             if day_win is not None:
                 payload["day_win"] = day_win
+            if mood_score is not None:
+                payload["mood_score"] = mood_score
             res = db.table("recovery_pulses").upsert(
                 payload,
                 on_conflict="log_date,pulse_type",
             ).execute()
             saved = True
-            log.info("Pulse written: %s energy=%s ns=%s body=%s day_win=%s rows=%s",
-                     pt, energy, nervous_system, body_signals, day_win, len(res.data) if res.data else 0)
+            log.info("Pulse written: %s energy=%s ns=%s body=%s day_win=%s mood_score=%s rows=%s",
+                     pt, energy, nervous_system, body_signals, day_win, mood_score, len(res.data) if res.data else 0)
             # ADR-024 second-pass audit: 'recovery_pulses' had zero
             # record_heartbeat() calls across any write path — never_succeeded
             # in verification_state despite this being the primary Telegram
@@ -416,8 +455,8 @@ async def _write_pulse(
                 pass
         except Exception as exc:
             err_msg = str(exc)
-            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s day_win=%s",
-                       exc, energy, nervous_system, body_signals, day_win)
+            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s day_win=%s mood_score=%s",
+                       exc, energy, nervous_system, body_signals, day_win, mood_score)
     status = get_recovery_status(db)
     return saved, status, err_msg
 
@@ -504,21 +543,6 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "Capacity right now?",
         parse_mode="MarkdownV2",
         reply_markup=_kb_energy(pt),
-    )
-
-
-async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log mood (1-10 scale) at different times of day with optional context."""
-    from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
-    tod = _current_time_of_day()
-    label = _TOD_LABELS.get(tod, tod)
-    await update.message.reply_text(
-        f"📊 *Mood Chart*\n\n"
-        f"Rate your mood from 1 (worst) to 10 (best)\\.\n"
-        f"Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
-        f"When did you feel this way?",
-        parse_mode="MarkdownV2",
-        reply_markup=kb_time_of_day(),
     )
 
 
@@ -1820,17 +1844,22 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     m  = f.get("m")
     s  = f.get("s")
     w  = f.get("w")
+    o  = f.get("o")  # mood_score (2026-08-11) — optional, "skip" or "1".."10"
     label = _PULSE_LABELS.get(pt, pt)
     final_key = _pulse_final_key(pt)
     final_val = {"e": e, "m": m, "s": s, "w": w}.get(final_key)
 
-    # Terminal state: every tap this pulse type's flow asks for is present.
+    # Terminal state: every tap this pulse type's flow asks for is present,
+    # AND the optional mood-score step has been resolved (tapped or skipped).
     # midday's final_key is 'm' itself, so (e and m) alone is already terminal
-    # for midday — no 3rd tap exists to wait for.
-    if e and m and final_val:
+    # for midday's REQUIRED taps — no 3rd tap exists to wait for there.
+    if e and m and final_val and o is not None:
         body_signals = s if final_key == "s" else None
         day_win      = w if final_key == "w" else None
-        saved, status, err_msg = await _write_pulse(pt, e, m, body_signals=body_signals, day_win=day_win)
+        mood_score   = None if o == "skip" else int(o)
+        saved, status, err_msg = await _write_pulse(
+            pt, e, m, body_signals=body_signals, day_win=day_win, mood_score=mood_score,
+        )
         icon = "✅" if saved else "⚠️"
         conf = status.recovery_confidence
         done = " ".join([
@@ -1845,6 +1874,8 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
             summary += f" · Body: {_escape(body_signals.capitalize())}"
         elif day_win:
             summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
+        if mood_score is not None:
+            summary += f" · Mood: {_MOOD_SCORE_EMOJI.get(mood_score, '')} {mood_score}/10"
         error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
@@ -1853,6 +1884,29 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
             f"Pulses: {_escape(done)}  AM · Mid · PM"
             f"{error_line}",
             parse_mode="MarkdownV2",
+        )
+        return
+
+    # Required taps just completed, mood-score step not yet shown — offer it
+    # (skippable). 2026-08-11: Captain directive to fold a holistic mood
+    # rating into this existing flow instead of a second capture surface —
+    # see migration 0140 / _kb_mood_score's own docstring.
+    if e and m and final_val:
+        body_signals = s if final_key == "s" else None
+        day_win      = w if final_key == "w" else None
+        e_cap = _escape(e.capitalize())
+        m_cap = _escape(m.capitalize())
+        summary = f"Capacity: {e_cap} · NS: {m_cap}"
+        if body_signals:
+            summary += f" · Body: {_escape(body_signals.capitalize())}"
+        elif day_win:
+            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
+        await query.edit_message_text(
+            f"📡 *{_escape(label)}*\n\n"
+            f"{summary}\n\n"
+            "Rate your mood? (optional, 1=worst · 10=best)",
+            parse_mode="MarkdownV2",
+            reply_markup=_kb_mood_score(pt, e, m, s, w),
         )
         return
 
@@ -1885,82 +1939,6 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
             parse_mode="MarkdownV2",
             reply_markup=_kb_mood(pt, e),
         )
-        return
-
-
-# ── Inline mood chart callbacks ──────────────────────────────────────────────────
-
-async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle mood chart tap flow: time_of_day → mood_score → optional context."""
-    from telegram_bots.xo.mood_chart import (
-        parse_cb, kb_mood_score, kb_confirm_or_add_context,
-        _TOD_LABELS, _MOOD_EMOJI, write_mood_entry, format_mood_entry
-    )
-
-    query = update.callback_query
-    await query.answer()
-    data = query.data or ""
-    if not data.startswith("mc|"):
-        return
-
-    cb = parse_cb(data)
-    tod = cb.get("tod")
-    ms = cb.get("ms")  # mood_score as string
-    done = cb.get("done") == "1"
-    context_flag = cb.get("context") == "1"
-
-    # Step 1: Time of day selected, show mood scale
-    if tod and not ms:
-        label = _TOD_LABELS.get(tod, tod)
-        await query.edit_message_text(
-            f"📊 *{_escape(label)}*\n\n"
-            "How's your mood? (1=worst · 10=best)",
-            parse_mode="MarkdownV2",
-            reply_markup=kb_mood_score(tod),
-        )
-        return
-
-    # Step 2: Mood score selected, show confirm or add context
-    if tod and ms and not done and not context_flag:
-        label = _TOD_LABELS.get(tod, tod)
-        mood_int = int(ms)
-        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
-        await query.edit_message_text(
-            f"📊 *{_escape(label)}*\n"
-            f"{mood_emoji} *{mood_int}/10*\n\n"
-            "Save now or add context (sleep, pain, anxiety, etc.)?",
-            parse_mode="MarkdownV2",
-            reply_markup=kb_confirm_or_add_context(tod, mood_int),
-        )
-        return
-
-    # Step 3: Save (minimal) or add context (opens text input flow)
-    if done:
-        mood_int = int(ms) if ms else 5
-        db = _get_supabase()
-        saved, err_msg = await write_mood_entry(db, tod, mood_int)
-        icon = "✅" if saved else "⚠️"
-        label = _TOD_LABELS.get(tod, tod)
-        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
-        error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
-        await query.edit_message_text(
-            f"{icon} *{_escape(label)} logged*\n\n"
-            f"{mood_emoji} *{mood_int}/10*"
-            f"{error_line}",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    if context_flag:
-        await query.edit_message_text(
-            "📝 *Add optional context*\n\n"
-            "Send your notes about sleep, pain, anxiety, stress, "
-            "substance use, or anything else relevant\\.\n\n"
-            "Or reply /done to finish\\.",
-            parse_mode="MarkdownV2",
-        )
-        context.user_data = context.user_data or {}
-        context.user_data["mood_entry"] = {"tod": tod, "ms": ms}
         return
 
 
@@ -2416,7 +2394,6 @@ _BOT_COMMANDS = [
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("mood_chart",      "Log mood (1-10 scale) with optional context"),
     ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     # System
@@ -2469,7 +2446,6 @@ def main() -> None:
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
-    app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
@@ -2499,7 +2475,6 @@ def main() -> None:
     app.add_handler(CommandHandler("debrief_close",   cmd_debrief_close))
     app.add_handler(CommandHandler("debrief_weekly",  cmd_debrief_weekly))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
-    app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,    pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
