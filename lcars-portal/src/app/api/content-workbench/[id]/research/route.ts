@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (angle !== undefined) patch.research_angle = angle;
     if (sources !== undefined) patch.research_sources = sources;
     if (complete) {
-      if (!notes && !body.research_notes) {
+      if (!notes) {
         return NextResponse.json({ error: 'Add research notes before marking research complete' }, { status: 400 });
       }
       patch.research_completed_at = new Date().toISOString();
@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: detail }, { status: 500 });
+    console.error('[content-workbench/research]', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
