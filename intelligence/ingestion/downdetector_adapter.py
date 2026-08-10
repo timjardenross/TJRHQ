@@ -29,22 +29,39 @@ companies spanning telecom/banking/government): peak report counts of
 outage (Wayback snapshot 2026-07-09, 1-2 days in): 230-354 reports, a 6-10x
 spike, status at the top "problems" tier.
 
-_REPORT_COUNT_FLOOR = 150 is a first-cut ABSOLUTE floor (not yet a rolling
-per-service baseline — see the design doc for why: this is a same-night
-first implementation with exactly one confirmed real historical data point;
-a genuine rolling 24-48h-trailing-average baseline needs its own small
-persistence table and a few weeks of real runtime data before it would be
-*more* trustworthy than this evidence-grounded absolute number, so it's
-flagged as the natural v2, not built here). 150 sits well below the real
-spike's own low end (230) — giving margin to catch a genuine event before it
-fully peaks — while sitting ~3.5x above the highest quiet-day baseline
-observed in this platform's own live sample (42, Telstra). Expected to need
-calibration once this has run live for a few weeks across all 19 registered
-services, not asserted as a final, fully-proven number.
+150 was this adapter's original first-cut ABSOLUTE floor, applied
+identically to every sector. 2026-08-10 (Captain-directed follow-up, see
+.claude/skills/bot-reviews/fixes-2026-08-09/cadence-tiering-and-learned-threshold.md):
+that flat constant is now replaced by a PER-SOURCE, LLM-learned threshold
+(migration 0121, `downdetector_learned_thresholds`) — Chief Engineer's
+review (Finding 4) confirmed banking/government quiet-day baselines run
+5-10x lower in absolute terms than telecom's, so one telecom-derived number
+risked being too high to ever fire for a genuine, proportionally severe
+bank/government outage. See `intelligence/ingestion/downdetector_thresholds.py`
+for the full bootstrap -> LLM-learned pipeline (cold-start sector defaults,
+the nightly recompute job, and the sanity guard on the LLM's recommendation)
+and `intelligence/scheduler.py::_downdetector_threshold_recompute_job` for
+where it runs. `get_report_count_floor()` below is what `_passes_gate()`
+now calls instead of a flat module constant — it reads the current
+per-source value (short-TTL cached), falling back to the same sector
+bootstrap default the recompute job itself uses whenever no learned value
+exists yet for a source.
+
+Every real fetch (not just ones that pass the gate) now also logs its
+parsed (status, report_count) to `downdetector_baseline_history` — see
+`_log_observation()` in `collect()` below — which is the real data the
+nightly recompute job learns from. The original Telstra evidence this
+module was first calibrated against (2026-07-07/08 real outage: 230-354
+peak reports vs. a 1-42 quiet baseline, confirmed via Wayback Machine
+against ABC News/Guardian coverage and this platform's own
+intelligence_events) still anchors telecom's own bootstrap default (150,
+unchanged) — see downdetector_thresholds.py's own module docstring for the
+banking/government interim defaults and why they differ.
 """
 
 import logging
 import re
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -63,7 +80,6 @@ _UA = "USS-TJR-Intelligence-Agent/1.0"
 # ─── Two-layer gate ─────────────────────────────────────────────────────────
 
 _TOP_TIER = "problems"
-_REPORT_COUNT_FLOOR = 150
 
 # Primary parse target: the page's own accessible aria-label on the 24h
 # reports chart, e.g. 'Reports chart for the last 24 hours with a peak of 34
@@ -110,6 +126,71 @@ _BANKING_SLUGS = {
 _GOVERNMENT_SLUGS = {"mygov", "centrelink", "myid"}
 
 
+def slug_from_url(url: str) -> str:
+    """Shared with downdetector_thresholds.py's recompute job so both the
+    live gate and the nightly recompute agree on sector classification for
+    a given registry row, without the recompute job reaching into this
+    adapter's private per-instance methods."""
+    path = urlparse(url).path.strip("/")
+    parts = path.split("/")
+    return parts[-1] if parts else ""
+
+
+def sector_for_slug(slug: str) -> str:
+    if slug in _TELECOM_SLUGS:
+        return "telecom"
+    if slug in _BANKING_SLUGS:
+        return "banking"
+    if slug in _GOVERNMENT_SLUGS:
+        return "government"
+    return "other"
+
+
+# ─── Per-source learned threshold lookup (migration 0121) ─────────────────
+# Short-TTL in-process cache: the 6 tiered-cadence priority sources (see
+# intelligence/scheduler.py::_priority_tiered_collection_job) can now be
+# checked up to ~12x/day, so a live Supabase round trip on every single
+# gate check would be wasteful — one bulk read, refreshed at most every
+# _THRESHOLD_CACHE_TTL_SECONDS, is enough (the underlying value only ever
+# changes once/night, via the recompute job).
+_THRESHOLD_CACHE_TTL_SECONDS = 600
+_threshold_cache: dict[str, dict] = {}
+_threshold_cache_loaded_at: float = 0.0
+
+
+def _refresh_threshold_cache() -> None:
+    global _threshold_cache, _threshold_cache_loaded_at
+    from intelligence.persistence import intelligence_store as store
+    try:
+        _threshold_cache = store.load_all_downdetector_thresholds()
+    except Exception as exc:
+        log.warning(
+            "[downdetector] threshold cache refresh failed, keeping previous "
+            "cache (%d source(s)): %s", len(_threshold_cache), exc,
+        )
+    finally:
+        _threshold_cache_loaded_at = time.monotonic()
+
+
+def get_report_count_floor(source_name: str, sector: str) -> int:
+    """Replaces the old flat _REPORT_COUNT_FLOOR=150 constant. Reads the
+    current per-source learned/bootstrap threshold (downdetector_learned_thresholds,
+    short-TTL cached); falls back to the sector bootstrap default — the same
+    one downdetector_thresholds.py's recompute job itself uses for
+    cold-start sources — whenever no row exists yet for this source, or the
+    cache can't be refreshed. Never raises, never blocks a real fetch on a
+    Supabase read."""
+    from intelligence.ingestion.downdetector_thresholds import bootstrap_default
+
+    if time.monotonic() - _threshold_cache_loaded_at > _THRESHOLD_CACHE_TTL_SECONDS:
+        _refresh_threshold_cache()
+
+    row = _threshold_cache.get(source_name)
+    if row and row.get("threshold_value"):
+        return int(row["threshold_value"])
+    return bootstrap_default(sector)
+
+
 class DowndetectorAdapter(BaseSourceAdapter):
 
     def collect(self) -> list[IntelligenceItem]:
@@ -120,21 +201,45 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 f"Could not parse Downdetector status from {self.source.url} "
                 "(page shape may have changed)"
             )
+
+        # Every real fetch logs here — migration 0121's
+        # downdetector_baseline_history, the accumulation ledger the nightly
+        # recompute job (downdetector_thresholds.py) learns a per-source
+        # threshold from. Deliberately unconditional (not just gate-passing
+        # checks) — see that module's docstring for why.
+        self._log_observation(status, report_count)
+
         if not self._passes_gate(status, report_count):
             # Correct, expected state for most checks — see module docstring.
-            # No item, no audit-trail row; a genuine future v2 rolling-baseline
-            # design would want a lightweight snapshot of every check (not
-            # built here — see module docstring).
+            # No item, no push-alert audit-trail row (the observation above
+            # is the audit trail now — see migration 0121).
             return []
 
         company = self._company_name(html) or self.source.source_name
         title, summary = self._build_item_text(company, status, report_count)
         return [self._make_item(title, summary, self.source.url, datetime.now(timezone.utc))]
 
+    def _log_observation(self, status: str, report_count: Optional[int]) -> None:
+        try:
+            from intelligence.persistence import intelligence_store as store
+            store.save_downdetector_observation(
+                source_name=self.source.source_name,
+                sector=self._sector(),
+                status=status,
+                report_count=report_count,
+            )
+        except Exception as exc:
+            # Best-effort — a logging failure must never break real collection.
+            log.warning(
+                "[%s] failed to log baseline observation: %s",
+                self.source.source_name, exc,
+            )
+
     def _passes_gate(self, status: str, report_count: Optional[int]) -> bool:
         if report_count is None:
             return False  # fails safe — never fires on status alone
-        return status == _TOP_TIER and report_count >= _REPORT_COUNT_FLOOR
+        floor = get_report_count_floor(self.source.source_name, self._sector())
+        return status == _TOP_TIER and report_count >= floor
 
     def _fetch_html(self, url: str) -> str:
         """Plain fetch first (free); Downdetector Australia sits behind a
@@ -190,19 +295,10 @@ class DowndetectorAdapter(BaseSourceAdapter):
         return m.group(1).strip() if m else None
 
     def _slug(self) -> str:
-        path = urlparse(self.source.url).path.strip("/")
-        parts = path.split("/")
-        return parts[-1] if parts else ""
+        return slug_from_url(self.source.url)
 
     def _sector(self) -> str:
-        slug = self._slug()
-        if slug in _TELECOM_SLUGS:
-            return "telecom"
-        if slug in _BANKING_SLUGS:
-            return "banking"
-        if slug in _GOVERNMENT_SLUGS:
-            return "government"
-        return "other"
+        return sector_for_slug(self._slug())
 
     def _build_item_text(self, company: str, status: str, report_count: int) -> tuple[str, str]:
         """Constructs title/summary that the *existing*, shared, 100%
@@ -219,11 +315,13 @@ class DowndetectorAdapter(BaseSourceAdapter):
         fall through to technology_outage (already in
         intelligence_store.py's _OUTAGE_EVENT_TYPES — no classifier.py
         change needed for any sector)."""
+        sector = self._sector()
+        floor = get_report_count_floor(self.source.source_name, sector)
         gate_note = (
             f"[Downdetector two-layer gate PASSED: status='{status}' (top tier) AND "
-            f"24h peak reports={report_count} >= floor={_REPORT_COUNT_FLOOR}]"
+            f"24h peak reports={report_count} >= floor={floor} "
+            f"(per-source learned/bootstrap threshold, see migration 0121)]"
         )
-        sector = self._sector()
 
         if sector == "telecom":
             title = (
