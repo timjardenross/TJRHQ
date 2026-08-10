@@ -26,8 +26,9 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-/** Readiness tab — adaptive gym decision-support. Start check-in, last session,
- *  weekly cadence, and links into the existing physical-readiness sub-routes. */
+/** Readiness — folded into the Recovery tab 2026-08-10 (see human-systems-workbench/page.tsx).
+ *  Session-generation via manual check-in is gone; this is now read-only history plus
+ *  links into the existing physical-readiness sub-routes. */
 export function ReadinessView({ data }: { data: ReadinessPayload }) {
   const s = data.last_session;
   return (
@@ -40,7 +41,7 @@ export function ReadinessView({ data }: { data: ReadinessPayload }) {
       </Card>
 
       <Card title="Last session">
-        {!s && <p className="text-[13px] text-wb-ink2">No sessions logged yet. Your first check-in starts the record.</p>}
+        {!s && <p className="text-[13px] text-wb-ink2">No sessions on record.</p>}
         {s && (
           <div className="flex items-center justify-between gap-3">
             <div>

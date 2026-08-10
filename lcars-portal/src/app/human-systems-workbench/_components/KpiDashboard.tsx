@@ -25,9 +25,9 @@ function KpiCard({
   );
 }
 
-/** Cross-domain KPI strip — always visible above the active tab so all three
- *  concerns are legible at a glance (design proposition §4). Responsive: 3-up
- *  desktop, 2-up tablet, 1-up mobile. */
+/** Cross-domain KPI strip — always visible above the active tab so recovery,
+ *  readiness, and medical concerns are all legible at a glance (design
+ *  proposition §4). Responsive: 3-up desktop, 2-up tablet, 1-up mobile. */
 export function KpiDashboard({ kpis }: { kpis: Kpis }) {
   const lp = kpis.lp_score;
   return (
