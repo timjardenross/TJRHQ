@@ -7,7 +7,11 @@ Migration: `core/infrastructure/supabase/migrations/0135_xo_bot_scoped_role.sql`
 
 ## Bottom line
 
-**Migration applied to the live database and verified correct at the SQL/RLS level. Application code written, wired, and safe-by-default. Cutover NOT performed — held back on one missing input: `SUPABASE_JWT_SECRET`, which is not obtainable through any tool or file this session has access to.** `tg-xo.service` was not touched and still runs on `service_role`, exactly as before this pass. No behaviour change shipped to the live bot today.
+**Migration applied to the live database and verified correct at the SQL/RLS level. Application code written, wired, and safe-by-default. Cutover NOT performed.** `tg-xo.service` was not touched and still runs on `service_role`, exactly as before this pass. No behaviour change shipped to the live bot today.
+
+**Update 2026-08-10, same day, later pass:** `SUPABASE_JWT_SECRET` was provisioned (in `platform-runtime/.env` and `/opt/starship-endeavour/.env`, chmod 600, gitignored) and added to `telegram-bots/xo/.env` along with `SUPABASE_ANON_KEY`, resolving the original blocker described below in §5. However, **the provided secret does not verify against this project's actual live signing key** — confirmed by attempting to verify the existing, already-working `anon` key's own signature with it (`jwt.decode(anon_key, secret, algorithms=["HS256"])` → `InvalidSignatureError`), and independently by running `test_scoped_role.py` for real, which got `PGRST301 "No suitable key or wrong key type"` on every one of the 18 reachable operations — the identical error signature produced earlier in this investigation by a *deliberately wrong* test secret (§4b). Ruled out transcription/encoding issues on this end: the value is byte-identical across all three files (SHA256-fingerprint compared without printing the value), and base64-decoded/whitespace-stripped variants were also tried and also fail to verify. **This is not something I can fix from here — the secret itself is wrong, stale, or not yet live on Supabase's side, and needs to be re-checked by whoever has Supabase Dashboard access** (Project Settings → API → JWT Settings, project `cjvrpjwewsrumnbdydgg` specifically).
+
+**Cutover held back again, per instruction, on this second, different blocker.** `tg-xo.service` remains untouched (same `ActiveEnterTimestamp` as before this session started). One real, valuable side effect of this pass: the near-miss it exposed (see §6a) is now closed — a bad secret can no longer silently take the bot down on a future restart.
 
 ## 1. Operation list — re-verified fresh, larger than the prior investigation found
 
@@ -76,12 +80,12 @@ Ran every real operation (`SET LOCAL ROLE xo_bot` inside a transaction, `ROLLBAC
 
 Post-test check confirmed zero residual rows in any of the five tables touched (`recovery_pulses`, `activity_logs`, `weight_logs`, `captured_items`, `wellness_reminder_log`) — the transaction rollback left no trace.
 
-### 4b. Standalone Python test script — written, mechanically proven, cannot complete without the real secret
+### 4b. Standalone Python test script — written, mechanically proven, run for real (fails — see §6a)
 
 `telegram-bots/xo/test_scoped_role.py` exercises the same 22 operations through the actual `scoped_supabase.build_scoped_client()` path (the real HTTP/JWT mechanism, not the SQL shortcut above). It:
-- Degrades cleanly today (`SUPABASE_JWT_SECRET`/`XO_BOT_SCOPED_TOKEN` both unset) — prints a clear "not runnable yet" message and exits 3, doesn't attempt anything.
-- Was run with a **deliberately wrong** `SUPABASE_JWT_SECRET` (never touching the real `.env`) as a mechanism check: all reachable operations correctly failed with clean PostgREST JWT-decode errors (`PGRST301`), not Kong apikey rejections and not Python crashes — confirming the header-split mechanism reaches PostgREST correctly end-to-end. This run also caught and fixed a real bug in the test script itself (an unguarded cleanup call after a failed upsert crashed the run instead of continuing) — fixed with a `cleanup()` helper that swallows cleanup-only failures.
-- **Cannot be run to a real PASS today** — needs the actual `SUPABASE_JWT_SECRET`, which this session has no way to obtain (see §5).
+- Degrades cleanly with nothing configured — prints a clear "not runnable yet" message and exits 3, doesn't attempt anything.
+- Was first run with a **deliberately wrong** `SUPABASE_JWT_SECRET` (never touching the real `.env`) as a mechanism check: all reachable operations correctly failed with clean PostgREST JWT-decode errors (`PGRST301`), not Kong apikey rejections and not Python crashes — confirming the header-split mechanism reaches PostgREST correctly end-to-end. This run also caught and fixed a real bug in the test script itself (an unguarded cleanup call after a failed upsert crashed the run instead of continuing) — fixed with a `cleanup()` helper that swallows cleanup-only failures.
+- **Was then run for real**, once `SUPABASE_JWT_SECRET`/`SUPABASE_ANON_KEY` were added to `telegram-bots/xo/.env` — got the exact same `PGRST301` error on all 18 reachable operations as the deliberately-wrong-secret run above. See §6a: the provided secret itself doesn't verify against this project's live signing key. 0/22 real operations confirmed working with the real token; cutover not performed.
 
 ### 4c. Zero-behaviour-change confirmation
 
@@ -101,14 +105,25 @@ Mirroring migration `0015`'s mechanism requires `SUPABASE_JWT_SECRET` (the proje
 
 This is a genuine external-input blocker, not a judgment call — per the Chief Engineer escalation discipline, the responsible move is to build and verify everything possible up to that point and stop, not substitute a different, larger-scope mechanism (e.g. switching the bot to direct Postgres/password auth instead of PostgREST+JWT) that wasn't what was authorized.
 
-**To complete the cutover:**
-1. Get `SUPABASE_JWT_SECRET` from Supabase Dashboard → project `cjvrpjwewsrumnbdydgg` → Settings → API → JWT Settings (legacy secret).
-2. Add to `telegram-bots/xo/.env`: `SUPABASE_ANON_KEY=<the anon key, already used read-only for testing this session — see platform-runtime/.env>` and `SUPABASE_JWT_SECRET=<the secret>`.
-3. Run `telegram-bots/xo/.venv/bin/python3 telegram-bots/xo/test_scoped_role.py` — expect `22 passed, 0 failed` (all 22 real operations, not the 18 reachable under the deliberately-wrong-secret mechanism check).
-4. If clean, `systemctl restart tg-xo.service` and watch `journalctl -u tg-xo.service -f` for a few minutes of real Captain traffic — the log line `Supabase client initialised — scoped xo_bot role` confirms the switch took effect (vs. the `service_role (...)` fallback line).
-5. Only then consider removing/rotating `SUPABASE_KEY`/`SUPABASE_SERVICE_ROLE_KEY` from `telegram-bots/xo/.env` — out of scope for this pass; several other in-process modules (§1) still legitimately depend on `SUPABASE_SERVICE_ROLE_KEY` for their own (unrelated, already-narrower-risk) reasons, so that var stays regardless.
+**Original blocker resolved 2026-08-10 (later same day)** — see §6a for what happened next and why cutover is still held back.
 
-## 6. Files changed
+## 6a. Second pass: secret provisioned, but doesn't verify — a real near-miss caught and closed
+
+`SUPABASE_JWT_SECRET` was added to `platform-runtime/.env` and `/opt/starship-endeavour/.env` (chmod 600, gitignored) and copied into `telegram-bots/xo/.env` alongside `SUPABASE_ANON_KEY` (file-to-file copy via `grep`/redirect — the value itself was never printed to any transcript or log at any point in this process; fingerprint-compared via SHA256 across all three files to confirm no transcription drift, also without printing the value).
+
+**Running the real verification (`test_scoped_role.py` against the real secret) failed identically to the earlier deliberately-wrong-secret mechanism check**: `PGRST301 "No suitable key or wrong key type"` on all 18 reachable operations. Independently confirmed the secret itself doesn't match this project's actual live signing key by attempting to *verify* (not mint) the existing, already-working `SUPABASE_ANON_KEY`'s own signature with it — `jwt.decode(anon_key, secret, algorithms=["HS256"])` → `InvalidSignatureError`. Ruled out an encoding/transcription problem on this end: tried the raw value, base64-decoded, and whitespace-stripped variants against the same anon-key-verification test — all fail identically. **The value provisioned is not the correct legacy JWT secret for project `cjvrpjwewsrumnbdydgg`** — wrong value, stale/rotated-but-not-live, or pulled from the wrong place. Not fixable from this session; needs re-verification by whoever has Supabase Dashboard access.
+
+**A real near-miss this exposed, now closed:** before this pass, `build_scoped_client()` returned a client as soon as `SUPABASE_ANON_KEY` + a token were merely *present* in the environment — it never confirmed the token actually verified. Had `tg-xo.service` been restarted with the (wrong) secret in place, every Supabase-backed command handler would have started failing with `PGRST301` on every call — a total outage of the bot's data layer for the Captain, discovered only by the failures themselves rather than caught ahead of time. Fixed in this pass: `build_scoped_client()` now runs one cheap live `missions` query before returning the scoped client; any failure (bad secret, bad token, transient network issue at startup) logs a loud error and returns `None`, and `_get_supabase()`'s existing fallback-to-`service_role` path takes over exactly as it does when scoping isn't configured at all. **This means it is now safe to restart `tg-xo.service` even with the current (non-verifying) secret in `.env` — it will fall back to `service_role` automatically and keep working, not go down.** Confirmed by re-running `_get_supabase()` against the live (broken-secret) `.env`: logs the new error line, falls back, and a real `missions` query succeeds.
+
+`tg-xo.service` was **not** restarted in this pass regardless — the task was to cut over only once every operation is confirmed working with the real token, and 0/22 are. Left exactly as found (`ActiveEnterTimestamp` unchanged from before this session).
+
+**To complete the cutover (updated):**
+1. Whoever holds Supabase Dashboard access: re-fetch `SUPABASE_JWT_SECRET` from Project Settings → API → JWT Settings for project `cjvrpjwewsrumnbdydgg` specifically, and confirm it's the *currently live* one (not a value queued for a rotation that hasn't propagated). Update `platform-runtime/.env` / `/opt/starship-endeavour/.env` / `telegram-bots/xo/.env` with the corrected value (same file locations already wired).
+2. Run `telegram-bots/xo/.venv/bin/python3 telegram-bots/xo/test_scoped_role.py` — expect `22 passed, 0 failed`.
+3. If clean, `systemctl restart tg-xo.service` and watch `journalctl -u tg-xo.service -f` for a few minutes of real Captain traffic — the log line `Supabase client initialised — scoped xo_bot role` confirms the switch took effect (vs. the `service_role (...)` fallback line, which is what a restart would show right now with the current secret).
+4. Only then consider removing/rotating `SUPABASE_KEY`/`SUPABASE_SERVICE_ROLE_KEY` from `telegram-bots/xo/.env` — out of scope for this pass; several other in-process modules (§1) still legitimately depend on `SUPABASE_SERVICE_ROLE_KEY` for their own (unrelated, already-narrower-risk) reasons, so that var stays regardless.
+
+## 7. Files changed
 
 - `core/infrastructure/supabase/migrations/0135_xo_bot_scoped_role.sql` — new. Applied live (plus one follow-up migration folded into this tracked copy for the sequence-grant fix).
 - `telegram-bots/xo/scoped_supabase.py` — new. JWT minting + scoped client construction, with full mechanism rationale in its docstring.
@@ -116,8 +131,8 @@ This is a genuine external-input blocker, not a judgment call — per the Chief 
 - `telegram-bots/xo/app.py` — `_get_supabase()` now prefers the scoped path, falls back to the unchanged `service_role` path when unconfigured. No other line changed.
 - `telegram-bots/xo/requirements.txt` — added `pyjwt>=2.13.0` (installed into the live `.venv` already).
 - `telegram-bots/xo/.env.example` — documents the new `SUPABASE_ANON_KEY`/`SUPABASE_JWT_SECRET` vars and marks `SUPABASE_KEY` as fallback-only.
-- `telegram-bots/xo/.env` — **unchanged**. Still `service_role`. Not committed (gitignored, confirmed).
+- `telegram-bots/xo/.env` — now has `SUPABASE_ANON_KEY` and `SUPABASE_JWT_SECRET` added (the latter does not currently verify, see §6a). `SUPABASE_KEY` (service_role) unchanged. Not committed (gitignored, confirmed both before and after this edit).
 
 ## Mission Status
 
-Implementation authority exercised per Captain's explicit approval to build. **Not cut over.** Database migration is live and verified safe/correct (both at SQL level and as a zero-behaviour-change confirmation against the running bot's actual code path). Application code is written, tested for mechanism correctness, and safe to merge as-is (no behavior change until the secret is supplied). Single blocking item: `SUPABASE_JWT_SECRET`, needs Captain or whoever holds Supabase Dashboard access to retrieve and add to `.env` — then `test_scoped_role.py` plus a `journalctl` watch after restart closes this out.
+Implementation authority exercised per Captain's explicit approval to build. **Not cut over — twice now, for two different reasons.** First pass: blocked on `SUPABASE_JWT_SECRET` being entirely unobtainable. Second pass (same day, after the secret was provisioned): the provided value doesn't verify against the project's actual live signing key, confirmed independently two ways (direct signature verification against the known-good anon key, and the real `test_scoped_role.py` run producing the identical `PGRST301` signature the deliberately-wrong-secret mechanism test produced earlier). Database migration remains live and verified safe/correct at the SQL level (22/22 operations, including both landmine cases). Application code is written, mechanism-tested, and — as of this pass — hardened against exactly the failure mode just found: a bad secret now falls back to `service_role` automatically instead of taking the bot down. `tg-xo.service` has not been restarted at any point in either pass. Next step is unchanged in kind, updated in detail: get the *correct, currently-live* `SUPABASE_JWT_SECRET` for project `cjvrpjwewsrumnbdydgg`, re-run `test_scoped_role.py`, and only restart once it reports `22 passed, 0 failed`.

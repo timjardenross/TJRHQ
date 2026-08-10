@@ -94,13 +94,29 @@ def resolve_scoped_auth() -> Optional[str]:
 
 def build_scoped_client(supabase_url: str):
     """Construct a supabase-py client authenticated as the scoped `xo_bot`
-    Postgres role, or return None if scoping isn't configured (caller
-    should fall back to the legacy service_role client — see
+    Postgres role, or return None if scoping isn't configured OR the
+    configured secret/token doesn't actually verify — caller should fall
+    back to the legacy service_role client in either case (see
     telegram-bots/xo/app.py::_get_supabase()).
 
     Requires SUPABASE_ANON_KEY (the Kong gateway apikey — a real,
     recognised project key; the scoped role's own JWT is NOT a valid
-    apikey and must not be used for that header, only for Authorization)."""
+    apikey and must not be used for that header, only for Authorization).
+
+    2026-08-10: a live-verification probe was added after a real incident
+    during pre-cutover testing — a SUPABASE_JWT_SECRET was provisioned
+    that turned out not to match this project's actual signing key
+    (confirmed by failing to verify the existing, known-good anon key's
+    own signature with it). Every table() call under that secret would
+    have failed with PGRST301 ("No suitable key or wrong key type"). Prior
+    to this check, build_scoped_client() returned a client unconditionally
+    whenever the two env vars were merely *present*, without confirming
+    the token actually works — restarting the bot with a bad secret would
+    have silently killed every Supabase-backed command handler. Now a
+    cheap real query is required to succeed before the scoped client is
+    handed back; any failure (bad secret, bad token, network hiccup at
+    startup) falls back to service_role with a loud log line instead of
+    taking the bot down."""
     anon_key = os.environ.get("SUPABASE_ANON_KEY", "").strip()
     if not anon_key:
         log.warning("[scoped-supabase] SUPABASE_ANON_KEY not set — cannot build scoped client")
@@ -119,4 +135,16 @@ def build_scoped_client(supabase_url: str):
     # .table()/.postgrest access, which is why this function returns a
     # ready-to-use client rather than a client the caller patches later.
     client._auth_token = {"Authorization": f"Bearer {token}"}
+
+    try:
+        client.table("missions").select("mission_id").limit(1).execute()
+    except Exception as exc:
+        log.error(
+            "[scoped-supabase] xo_bot token failed live verification (bad "
+            "SUPABASE_JWT_SECRET/XO_BOT_SCOPED_TOKEN, or the secret doesn't "
+            "match this project's actual signing key) — refusing to use it, "
+            "falling back to service_role: %s", exc,
+        )
+        return None
+
     return client
