@@ -52,6 +52,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS
+from intelligence.ingestion import brightdata_fetch, firecrawl_client
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
@@ -136,11 +137,36 @@ class DowndetectorAdapter(BaseSourceAdapter):
         return status == _TOP_TIER and report_count >= _REPORT_COUNT_FLOOR
 
     def _fetch_html(self, url: str) -> str:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"},
-        )
+        """Plain fetch first (free); Downdetector Australia sits behind a
+        real Cloudflare Turnstile JS-challenge confirmed live from this
+        production host (2026-08-10, not a sandbox artifact — see
+        .claude/skills/bot-reviews/fixes-2026-08-09/
+        firecrawl-production-provisioning.md), which always returns HTTP
+        403 to a plain urllib.request GET. On that specific blocking signal,
+        routes to one of two real fetch paths BY SECTOR — a deliberate
+        budget split, not a stylistic choice (see
+        .claude/skills/bot-reviews/fixes-2026-08-09/brightdata-provisioning.md):
+
+          - telecom/other  -> the shared Firecrawl fetch path (Captain's
+            personal Firecrawl account, 1,000 scrapes/month hard cap shared
+            with every other Firecrawl caller in this codebase).
+          - banking/government (the 9 sources this platform's Firecrawl
+            budget review explicitly excluded, see
+            firecrawl-production-provisioning.md) -> the Bright Data Web
+            Unlocker fetch path instead (Captain's separate Bright Data
+            account, 5,000 requests/month, its OWN budget — never falls
+            back to Firecrawl, so activating/running these 9 sources never
+            spends a Firecrawl credit).
+
+        Cadence/volume discipline for both paths lives in which sources are
+        `active=True` in the registry plus intelligence/scheduler.py's
+        exclusion of downdetector-type sources from the 180-min intraday
+        sweep, not here."""
         try:
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"},
+            )
             with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
                 charset = "utf-8"
                 content_type = resp.headers.get("Content-Type", "")
@@ -148,6 +174,13 @@ class DowndetectorAdapter(BaseSourceAdapter):
                     charset = content_type.split("charset=")[-1].split(";")[0].strip()
                 return resp.read().decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
+            if exc.code == 403:
+                sector = self._sector()
+                if sector in ("banking", "government"):
+                    log.info("[%s] plain fetch 403'd — falling back to Bright Data (sector=%s)", url, sector)
+                    return brightdata_fetch.fetch_html(url)
+                log.info("[%s] plain fetch 403'd — falling back to Firecrawl (sector=%s)", url, sector)
+                return firecrawl_client.fetch_html(url)
             raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
         except Exception as exc:
             raise RuntimeError(f"Downdetector fetch failed: {exc}") from exc

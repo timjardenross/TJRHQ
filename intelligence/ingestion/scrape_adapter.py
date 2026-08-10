@@ -25,12 +25,29 @@ from intelligence.config import (
     NO_INCIDENT_SENTINEL_PHRASES, KNOWN_JUNK_TITLE_SUBSTRINGS,
     STATUS_NARRATIVE_KEYWORDS, AUTH_GATED_SENTINEL_PHRASES,
 )
+from intelligence.ingestion import firecrawl_client
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
 log = logging.getLogger(__name__)
 
 _UA = "USS-TJR-Intelligence-Agent/1.0 (+https://github.com/usstjros)"
+
+# 2026-08-10 (Firecrawl production provisioning): sources explicitly
+# budget-reviewed and approved to fall back to the real (credit-costing)
+# Firecrawl fetch path on a plain-fetch 403 — see
+# .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md
+# for the cost math. Deliberately an ALLOWLIST, not a blanket
+# "any scrape source that 403s" rule: ScrapeAdapter serves ~15+ other active
+# sources (ACMA, ASIC, APRA, NBN, Telstra, Optus, PTV, Transurban, Melbourne
+# Airport, ...) that must never silently start spending the Captain's
+# personal Firecrawl account credits just because they have a bad day —
+# only sources this mission's monthly-volume math actually covered may use
+# the fallback. Add a new name here ONLY after doing that math again.
+_FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
+    "AEMO Market Notices",
+    "Fastly Status",
+})
 
 # CSS selectors tried in priority order for finding article/notice lists
 _ARTICLE_SELECTORS = [
@@ -106,6 +123,12 @@ class ScrapeAdapter(BaseSourceAdapter):
         return True, "Structured extraction via CSS selectors."
 
     def _fetch_html(self, url: str) -> str:
+        """Plain fetch first (free). On HTTP 403, falls back to the shared
+        Firecrawl fetch path (real API credit cost) ONLY for sources on the
+        explicit _FIRECRAWL_FALLBACK_SOURCE_NAMES allowlist above — every
+        other ScrapeAdapter-driven source still fails loud on a 403, exactly
+        as before this change, so this never silently changes behaviour or
+        cost for the ~15+ other sources this adapter class already serves."""
         req = urllib.request.Request(
             url,
             headers={
@@ -121,6 +144,9 @@ class ScrapeAdapter(BaseSourceAdapter):
                     charset = content_type.split("charset=")[-1].split(";")[0].strip()
                 return resp.read().decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
+            if exc.code == 403 and self.source.source_name in _FIRECRAWL_FALLBACK_SOURCE_NAMES:
+                log.info("[%s] plain fetch 403'd — falling back to Firecrawl", self.source.source_name)
+                return firecrawl_client.fetch_html(url)
             raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
         except Exception as exc:
             raise RuntimeError(f"Scrape fetch failed: {exc}") from exc

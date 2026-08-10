@@ -551,6 +551,30 @@ def _daily_collection_job() -> None:
 # slower editorial/regulatory sources the 06:00 daily sweep already covers.
 _INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
 
+# 2026-08-10 (Firecrawl production provisioning): sources that fall back to
+# the real (credit-costing) Firecrawl fetch path on a 403 — see
+# intelligence/ingestion/firecrawl_client.py and
+# .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md.
+# These all sit in _INTRADAY_STATUS_CATEGORIES (critical_infrastructure /
+# cloud_technology) and would otherwise get swept by THIS job every
+# INTRADAY_STATUS_INTERVAL_MINUTES (default 180 -> ~8x/day) on top of the
+# once-daily 06:00 _daily_collection_job sweep — 7 sources x 8x/day x 30
+# would alone burn ~1,680 Firecrawl credits/month against a 1,000/month
+# Free-plan hard cap. Explicitly excluded here so these sources are fetched
+# ONLY once/day via _daily_collection_job's all-active-sources run — the
+# cadence this mission's cost math was actually built against.
+_FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
+    "AEMO Market Notices",
+    "Fastly Status",
+})
+
+
+def _excluding_firecrawl_fetch_sources(sources: list) -> list:
+    return [
+        s for s in sources
+        if s.source_type != "downdetector" and s.source_name not in _FIRECRAWL_FETCH_SOURCE_NAMES
+    ]
+
 
 def _intraday_status_collection_job() -> None:
     """2026-08-09 gap-closure (real-time pickup): the 06:00 daily sweep gave
@@ -575,6 +599,16 @@ def _intraday_status_collection_job() -> None:
 
         all_sources = store.load_source_registry()
         sources = [s for s in all_sources if s.category in _INTRADAY_STATUS_CATEGORIES]
+        # Firecrawl-fetch-path sources are deliberately NOT in this sweep —
+        # see _FIRECRAWL_FETCH_SOURCE_NAMES above (budget, not an oversight).
+        excluded_count = len(sources)
+        sources = _excluding_firecrawl_fetch_sources(sources)
+        excluded_count -= len(sources)
+        if excluded_count:
+            log.info(
+                "Intraday status collection: excluded %d Firecrawl-fetch-path source(s) "
+                "(once-daily only, see _FIRECRAWL_FETCH_SOURCE_NAMES)", excluded_count,
+            )
         if not sources:
             log.warning("Intraday status collection: no active sources in %s", _INTRADAY_STATUS_CATEGORIES)
             return
