@@ -50,6 +50,7 @@ def record_insight(insight: Insight, recommendation: Optional[Recommendation] = 
             "why_it_matters": insight.why_it_matters,
             "potential_impact": insight.potential_impact,
             "insight_confidence": insight.confidence,
+            "aggregation_key": insight.aggregation_key,
         }
         if recommendation is not None:
             payload.update({
@@ -124,4 +125,33 @@ def fetch_outcome_history(limit: int = 100) -> list[dict[str, Any]]:
         return []
 
 
-__all__ = ["record_insight", "record_outcome", "fetch_outcome_history"]
+def fetch_recent_aggregation_keys(hours: int = 24) -> frozenset[str]:
+    """2026-08-10: which (domain:event_type) aggregation clusters already
+    produced an insight in the last `hours` — see insight_engine.py's
+    generate_insights(recent_aggregation_keys=...), which skips
+    re-synthesizing these. Empty set (never a fabricated fallback) on any
+    error or when Supabase is disabled — matches this module's other
+    fetch's own convention."""
+    try:
+        from datetime import datetime, timedelta, timezone
+        from tools.supabase.client import CommanderSupabaseClient
+
+        client = CommanderSupabaseClient()
+        raw = client.raw_client
+        if raw is None:
+            return frozenset()
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        result = (
+            raw.table("insight_outcomes")
+            .select("aggregation_key")
+            .not_.is_("aggregation_key", "null")
+            .gte("generated_at", cutoff)
+            .execute()
+        )
+        return frozenset(row["aggregation_key"] for row in (result.data or []) if row.get("aggregation_key"))
+    except Exception as exc:
+        log.warning("[insight-outcomes] fetch_recent_aggregation_keys failed (non-blocking): %s", exc)
+        return frozenset()
+
+
+__all__ = ["record_insight", "record_outcome", "fetch_outcome_history", "fetch_recent_aggregation_keys"]
