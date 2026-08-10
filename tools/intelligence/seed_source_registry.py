@@ -1,5 +1,5 @@
 """
-WP-ORI-2: Source Registry Seed Script (CANONICAL — 131 sources)
+WP-ORI-2: Source Registry Seed Script (CANONICAL — 140 sources)
 Generated from tools/intelligence/sources_live.csv
 
 This file is the source of truth for all intelligence sources.
@@ -39,7 +39,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 ORI_SOURCE_NAME = "Daily Operational Resilience Briefs (GitHub)"
 
 # ─── Source Registry ───────────────────────────────────────────────────────────
-# CANONICAL: 131 sources (from live CSV export)
+# CANONICAL: 140 sources (from live CSV export)
 # Fields: source_name, category, priority_rank, url, rss_url, api_endpoint,
 #         source_type, jurisdiction, confidence_weight, active, notes,
 #         content_expectation, useful_life_days, terms_reviewed, content_source
@@ -160,12 +160,15 @@ SOURCES = [
         "priority_rank":      1,
         "url":                "https://www.githubstatus.com/",
         "rss_url":            "https://www.githubstatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://www.githubstatus.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.92,
         "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed. Incident history feed.",
+        "notes":              "Atlassian Statuspage. 2026-08-10: migrated from history.atom (RSS) to the statuspage.io JSON "
+                              "incidents API (confirmed live, 50 incidents, real impact field present — 27 minor, 10 critical, "
+                              "10 major, 3 none in the sampled window) so filter.py's status-page low-impact suppression rule "
+                              "applies, same pattern as Cloudflare Status.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -220,12 +223,15 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://status.atlassian.com/",
         "rss_url":            "https://status.atlassian.com/history.rss",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://status.atlassian.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-        "notes":              "Covers Jira, Confluence, Bitbucket, Trello. Operational tooling dependency.",
+        "notes":              "Covers Jira, Confluence, Bitbucket, Trello. Operational tooling dependency. 2026-08-10: "
+                              "migrated from history.rss to the statuspage.io JSON incidents API (confirmed live, 34 "
+                              "incidents, real impact field: 26 none, 6 major, 1 minor, 1 critical) — same pattern as "
+                              "Cloudflare Status.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -250,12 +256,15 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://www.canvastatus.com/",
         "rss_url":            "https://www.canvastatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://www.canvastatus.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "AU",
         "confidence_weight":  0.85,
         "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed. Correct domain is canvastatus.com (not canva-status.com).",
+        "notes":              "Atlassian Statuspage. Correct domain is canvastatus.com (not canva-status.com). 2026-08-10: "
+                              "migrated from history.atom to the statuspage.io JSON incidents API (confirmed live, 50 "
+                              "incidents, real impact field: 27 major, 13 minor, 8 critical, 2 none) — same pattern as "
+                              "Cloudflare Status.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -283,12 +292,14 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://status.docusign.com/",
         "rss_url":            "https://status.docusign.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://status.docusign.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed.",
+        "notes":              "Atlassian Statuspage. 2026-08-10: migrated from history.atom to the statuspage.io JSON "
+                              "incidents API (confirmed live, 50 incidents, real impact field: 44 minor, 5 none, 1 major) "
+                              "— same pattern as Cloudflare Status.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -343,12 +354,14 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://status.zoom.us/",
         "rss_url":            "https://www.zoomstatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
+        "api_endpoint":       "https://www.zoomstatus.com/api/v2/incidents.json",
+        "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-        "notes":              "Atom 1.0. Canonical feed moved to zoomstatus.com (status.zoom.us/history.atom 302-redirects here).",
+        "notes":              "Canonical feed moved to zoomstatus.com (status.zoom.us/history.atom 302-redirects here). "
+                              "2026-08-10: migrated from history.atom to the statuspage.io JSON incidents API (confirmed "
+                              "live, 50 incidents, real impact field: 36 minor, 14 none) — same pattern as Cloudflare Status.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -409,6 +422,136 @@ SOURCES = [
         "confidence_weight":  0.82,
         "active":             False,
         "notes":              "No public RSS/Atom. Statuspage API returns 401 Unauthorized. Scrape main page or use webhook subscription. Activate when scrape adapter built.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Anthropic (Claude) Status",
+        "category":           "cloud_technology",
+        "priority_rank":      1,
+        "url":                "https://status.claude.com",
+        "rss_url":            "https://status.claude.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure: anthropic.com/status.anthropic.com redirects here now. Live-verified real feed, real incident content. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "DigitalOcean Status",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://status.digitalocean.com",
+        "rss_url":            "https://status.digitalocean.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure. Live-verified real feed. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Notion Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.notion-status.com",
+        "rss_url":            "https://www.notion-status.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure: status.notion.so redirects here now. Live-verified real feed, real incident content. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "OpenAI Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://status.openai.com",
+        "rss_url":            "https://status.openai.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure. Live-verified real feed. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Supabase Status",
+        "category":           "cloud_technology",
+        "priority_rank":      1,
+        "url":                "https://status.supabase.com",
+        "rss_url":            "https://status.supabase.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure: this platform's own database provider. Live-verified real feed. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Twilio Status",
+        "category":           "cloud_technology",
+        "priority_rank":      3,
+        "url":                "https://status.twilio.com",
+        "rss_url":            "https://status.twilio.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.85,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure. Live-verified real feed. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Vercel Status",
+        "category":           "cloud_technology",
+        "priority_rank":      1,
+        "url":                "https://www.vercel-status.com",
+        "rss_url":            "https://www.vercel-status.com/history.atom",
+        "api_endpoint":       None,
+        "source_type":        "rss",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.90,
+        "active":             True,
+        "notes":              "2026-08-09 gap-closure: hosts lcars-portal (Vercel deploy on push to main). Live-verified real feed. "
+                              "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "Akamai Status",
+        "category":           "cloud_technology",
+        "priority_rank":      2,
+        "url":                "https://www.akamaistatus.com/",
+        "rss_url":            "https://www.akamaistatus.com/history.atom",
+        "api_endpoint":       "https://www.akamaistatus.com/api/v2/incidents.json",
+        "source_type":        "api",
+        "jurisdiction":       "GLOBAL",
+        "confidence_weight":  0.88,
+        "active":             True,
+        "notes":              "CDN/edge platform — Akamai outage impacts availability of web-facing services fronted by its network. "
+                              "Statuspage.io JSON incidents API confirmed live 2026-08-10 (HTTP 200, 50 incidents, real impact field: "
+                              "minor=42, none=8 in the sampled window) — registered directly on the api path (same "
+                              "_parse_statuspage_incidents pattern proven for Cloudflare Status), never put on the RSS/Atom variant.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -1129,6 +1272,29 @@ SOURCES = [
         "confidence_weight":  0.97,
         "active":             True,
         "notes":              "Regulatory actions, enforcement, market integrity notices.",
+        "content_expectation": "continuous",
+        "useful_life_days": 14,
+    },
+    {
+        "source_name":        "ACMA Media Releases",
+        "category":           "regulatory",
+        "priority_rank":      1,
+        "url":                "https://www.acma.gov.au/media-releases",
+        "rss_url":            None,
+        "api_endpoint":       None,
+        "source_type":        "scrape",
+        "jurisdiction":       "AU",
+        "confidence_weight":  0.90,
+        "active":             False,
+        "notes":              "Australian Communications and Media Authority — telecom/broadcast/spectrum regulator. "
+                              "Already Tier-1 in source_tier.py's domain-authority table (acma.gov.au) but had zero "
+                              "presence in this registry until 2026-08-10. No RSS/API found (WebSearch confirmed no "
+                              "public feed, subscription-newsletter only) — scrape required, same pattern as ASIC/APRA. "
+                              "Registered inactive: this sandbox's network cannot reach acma.gov.au at all (TLS "
+                              "handshake completes then the connection hangs/times out — HTTP 000, not a 403 — "
+                              "consistent with other Akamai/CDN-fronted .gov.au sources already flagged as environment "
+                              "issues in this registry, e.g. RBA, NSW SES). Activate after a real fetch attempt from "
+                              "the production VM confirms reachability and page structure.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -2139,6 +2305,15 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
         # entry sets explicitly.
         r.setdefault("content_expectation", "continuous")
         r.setdefault("useful_life_days", 7)
+        # 2026-08-10 fix: ~36/140 SOURCES entries set terms_reviewed/content_source
+        # explicitly (e.g. the ORI curated-digest rows) and the rest omit them —
+        # PostgREST batch POSTs require every object in an array to share the same
+        # key set (PGRST102 "All object keys must match"), so a full seed run was
+        # silently failing on the update batch (138/140 rows) before this normalises
+        # the two optional keys the same way content_expectation/useful_life_days
+        # already are.
+        r.setdefault("terms_reviewed", False)
+        r.setdefault("content_source", False)
         if r["source_name"] in existing:
             r["source_id"] = existing[r["source_name"]]
             update_rows.append(r)
