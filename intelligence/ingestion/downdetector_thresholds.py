@@ -72,6 +72,20 @@ _BOOTSTRAP_DEFAULTS: dict[str, int] = {
     "telecom": 150,
     "banking": 30,
     "government": 20,
+    # 2026-08-10 (coverage expansion round 2): energy retailers (Origin,
+    # AGL, EnergyAustralia). Live quiet-baseline check at registration time
+    # (all 3, single snapshot): 2 reports each — same low order of magnitude
+    # as government's observed ~1-2, well below banking's ~3. Same
+    # proportional-spike reasoning as banking/government (a genuine outage
+    # producing Telstra's real ~6-10x baseline ratio would plausibly land
+    # 12-20 on a baseline of 2) — set to match government's interim default
+    # rather than inventing a fifth number from a single snapshot per
+    # company. Same caveat as banking/government: not itself
+    # evidence-grounded the way telecom's 150 is; exists so day-one
+    # behaviour isn't worse than doing nothing, until real accumulated
+    # history (downdetector_baseline_history) lets the LLM learn a proper
+    # per-source number.
+    "energy": 20,
     "other": 150,
 }
 

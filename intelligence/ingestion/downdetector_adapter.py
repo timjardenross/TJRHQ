@@ -47,6 +47,16 @@ per-source value (short-TTL cached), falling back to the same sector
 bootstrap default the recompute job itself uses whenever no learned value
 exists yet for a source.
 
+2026-08-10 (coverage expansion round 2, see
+.claude/skills/bot-reviews/fixes-2026-08-09/downdetector-coverage-expansion-round2.md):
+added a fourth sector, `energy` (Origin Energy, AGL, EnergyAustralia — real,
+live-confirmed Downdetector AU pages; Alinta Energy checked and confirmed
+absent under the same slug convention). Energy retailers route to the
+Bright Data fetch path (like banking/government), not Firecrawl — a
+budget-health choice: Firecrawl's committed volume is comparatively tight,
+Bright Data's has far more real headroom. `downdetector_baseline_history`'s
+`sector` CHECK constraint was widened (migration 0136) to allow `'energy'`.
+
 Every real fetch (not just ones that pass the gate) now also logs its
 parsed (status, report_count) to `downdetector_baseline_history` — see
 `_log_observation()` in `collect()` below — which is the real data the
@@ -125,6 +135,24 @@ _BANKING_SLUGS = {
 }
 _GOVERNMENT_SLUGS = {"mygov", "centrelink", "myid"}
 
+# 2026-08-10 (coverage expansion round 2, see
+# .claude/skills/bot-reviews/fixes-2026-08-09/downdetector-coverage-expansion-round2.md):
+# Australian energy retailers. Confirmed live via a real Bright Data
+# Web Unlocker fetch (the same fetch path these sources use in production,
+# not a guess) against real Downdetector AU pages -- all 3 return a real
+# company-name match and a real parsed status/report-count aria-label, not
+# Downdetector's own "page not found" page. Note the slug convention here is
+# ONE WORD, no hyphen (unlike telecom/banking's hyphenated slugs) --
+# confirmed by testing both shapes; "origin-energy"/"agl"/"agl-energy" all
+# 404, "originenergy"/"aglenergy" are real. Alinta Energy was checked twice
+# under the same convention ("alintaenergy") and consistently returned
+# Downdetector's real "page not found" page (not a timeout, not a guess) --
+# genuinely absent, not just untested; smaller retailers (Red Energy, Simply
+# Energy, Momentum Energy, Powershop) were not conclusively resolved
+# (network timeouts against a couple of slug guesses) and are not registered
+# here -- not asked for by name, not conclusively confirmed either way.
+_ENERGY_SLUGS = {"originenergy", "aglenergy", "energyaustralia"}
+
 
 def slug_from_url(url: str) -> str:
     """Shared with downdetector_thresholds.py's recompute job so both the
@@ -143,6 +171,8 @@ def sector_for_slug(slug: str) -> str:
         return "banking"
     if slug in _GOVERNMENT_SLUGS:
         return "government"
+    if slug in _ENERGY_SLUGS:
+        return "energy"
     return "other"
 
 
@@ -254,14 +284,22 @@ class DowndetectorAdapter(BaseSourceAdapter):
 
           - telecom/other  -> the shared Firecrawl fetch path (Captain's
             personal Firecrawl account, 1,000 scrapes/month hard cap shared
-            with every other Firecrawl caller in this codebase).
-          - banking/government (the 9 sources this platform's Firecrawl
-            budget review explicitly excluded, see
-            firecrawl-production-provisioning.md) -> the Bright Data Web
-            Unlocker fetch path instead (Captain's separate Bright Data
-            account, 5,000 requests/month, its OWN budget — never falls
-            back to Firecrawl, so activating/running these 9 sources never
-            spends a Firecrawl credit).
+            with every other Firecrawl caller in this codebase). Committed
+            volume here is real and comparatively tight (744/month against
+            an 850 ceiling as of the 2026-08-10 coverage-expansion-round2
+            headroom check) — see that report for the full math.
+          - banking/government/energy (the 9 banking/government sources this
+            platform's Firecrawl budget review explicitly excluded, see
+            firecrawl-production-provisioning.md, plus the 3 energy
+            retailers added 2026-08-10) -> the Bright Data Web Unlocker
+            fetch path instead (Captain's separate Bright Data account,
+            5,000 requests/month, its OWN budget — never falls back to
+            Firecrawl). Energy retailers are deliberately routed here
+            rather than to Firecrawl: Bright Data's committed volume
+            (~1,008/month against a 4,500 ceiling) has far more real
+            headroom than Firecrawl's, and there is no sector-specific
+            reason energy needs the Firecrawl path specifically — this is a
+            budget-health choice, not a content-shape one.
 
         Cadence/volume discipline for both paths lives in which sources are
         `active=True` in the registry plus intelligence/scheduler.py's
@@ -281,7 +319,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
         except urllib.error.HTTPError as exc:
             if exc.code == 403:
                 sector = self._sector()
-                if sector in ("banking", "government"):
+                if sector in ("banking", "government", "energy"):
                     log.info("[%s] plain fetch 403'd — falling back to Bright Data (sector=%s)", url, sector)
                     return brightdata_fetch.fetch_html(url)
                 log.info("[%s] plain fetch 403'd — falling back to Firecrawl (sector=%s)", url, sector)
@@ -338,6 +376,43 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 f"services in Australia. This is aggregated third-party "
                 f"user-report telemetry (not a vendor self-report), calibrated "
                 f"against real historical Australian outage baselines."
+            )
+        elif sector == "energy":
+            # Deliberately does NOT use energy-grid language ("electricity",
+            # "power outage", "gas supply", "grid", "blackout" — see
+            # intelligence/classification/classifier.py's energy_disruption
+            # keyword list). Two real reasons: (1) it would be inaccurate —
+            # a Downdetector AU retailer page tracks user reports about the
+            # RETAILER's own digital services (billing app, online account
+            # portal, customer service), not the physical electricity/gas
+            # network itself (that's the distribution network operator's
+            # job — Ausgrid/Energex/etc — a different, unregistered source
+            # category); (2) it would be wrong for push-alert routing —
+            # energy_disruption is not in intelligence_store.py's
+            # _OUTAGE_EVENT_TYPES, so a text that classified there would
+            # silently never reach the push-alert pipeline even if this
+            # adapter's own gate passed. Phrasing instead mirrors the
+            # banking branch's proven pattern (same "outage"/"unavailable"/
+            # "service disruption" keywords that already correctly land on
+            # technology_outage), so this is a deliberate choice, not an
+            # oversight.
+            title = (
+                f"Downdetector AU: {company} — crowdsourced reports indicate a "
+                f"service outage (problems, top tier)"
+            )
+            summary = (
+                f"{gate_note} Independent crowdsourced report-volume signal from "
+                f"Downdetector Australia shows a genuine outage for {company}, an "
+                f"Australian energy retailer: {report_count} user reports in the "
+                f"last 24 hours (peak), status classified 'problems' (top tier) — "
+                f"indicating a service disruption with {company}'s online account "
+                f"portal, billing app, and customer service channels unavailable "
+                f"for a significant proportion of customers in Australia (this "
+                f"signal reflects the retailer's own digital services, not "
+                f"necessarily the physical electricity/gas network). This is "
+                f"aggregated third-party user-report telemetry (not a vendor "
+                f"self-report), calibrated against real historical Australian "
+                f"outage baselines."
             )
         elif sector == "banking":
             title = (
