@@ -104,6 +104,10 @@ interface TodaysBriefingStats {
 function useTodaysBriefing(): {
   stats: TodaysBriefingStats | null;
   loading: boolean;
+<<<<<<< HEAD
+  operationalPicture: OperationalPictureItem[];
+=======
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   error: string | null;
 } {
   const [stats, setStats] = useState<TodaysBriefingStats | null>(null);
@@ -126,6 +130,20 @@ function useTodaysBriefing(): {
           recommendations: doc.recommendations?.length ?? 0,
           nextActions: doc.next_actions?.length ?? 0,
         });
+<<<<<<< HEAD
+        const pool = [...(doc.warnings ?? []), ...(doc.operational_intelligence ?? [])];
+        const seen = new Set<string>();
+        const picture: OperationalPictureItem[] = [];
+        for (const item of pool) {
+          const key = item.event_id ?? item.reason;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          picture.push(item);
+          if (picture.length >= 5) break;
+        }
+        setOperationalPicture(picture);
+=======
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         setError(null);
       })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load briefing'); })
@@ -133,7 +151,11 @@ function useTodaysBriefing(): {
     return () => { cancelled = true; };
   }, []);
 
+<<<<<<< HEAD
+  return { stats, loading, operationalPicture, error };
+=======
   return { stats, loading, error };
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 }
 
 // ── Workbench Shell Layout ──────────────────────────────────────────────────
@@ -143,7 +165,11 @@ export default function CaptainsChairWorkbench() {
   const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
   const { stats: missionStats, loading: missionStatsLoading, error: missionStatsError } = useLiveMissionStats();
   const { data: engQueueData, loading: engQueueLoading, error: engQueueError } = useLiveEngineeringQueue();
+<<<<<<< HEAD
+  const { stats: briefingStats, loading: briefingLoading, operationalPicture, error: briefingError } = useTodaysBriefing();
+=======
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   const dataErrors = [missionStatsError, engQueueError, briefingError].filter(Boolean) as string[];
   const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
 

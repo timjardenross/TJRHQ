@@ -284,6 +284,8 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+<<<<<<< HEAD
+=======
     # ── 2026-08-10: Downdetector tiered cadence, priority sources (Captain
     # decision 1) ────────────────────────────────────────────────────────────
     # Every 120 min; the job itself no-ops outside 07:00-19:00 AEST (see
@@ -310,6 +312,7 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     # ── Source Fidelity Audit ──────────────────────────────────────────────────
     # Runs daily at 06:45 AEST (after collection at 06:00 and validation at 06:30).
     # Measures signal-to-noise ratio across all intelligence sources and flags
@@ -349,6 +352,8 @@ def _start_scheduler() -> None:
     else:
         log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
 
+<<<<<<< HEAD
+=======
     # ── 2026-08-10: wellness-coaching automation (D-055 Recovery Officer) ─────
     # Automates telegram-bots/recovery_officer/engagement_dispatcher.py's
     # run_dispatch_check() — previously reachable only via the Captain
@@ -383,17 +388,23 @@ def _start_scheduler() -> None:
     else:
         log.info("Wellness reminder check disabled (set WELLNESS_REMINDER_ENABLED=true to enable)")
 
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
+<<<<<<< HEAD
+        "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+=======
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
         "Wellness reminder: every %d min (06:00-23:00, %s) | "
         "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
         "Downdetector threshold recompute: 05:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
         wellness_interval, SCHEDULE_TZ, _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ,
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     )
 
     try:
@@ -590,6 +601,8 @@ def _daily_collection_job() -> None:
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
 
 
+<<<<<<< HEAD
+=======
 # Categories treated as "critical status" for the intraday tier below —
 # fast-moving status-page/outage-style feeds (statuspage.io-pattern RSS/Atom:
 # Cloudflare, AWS, GitHub, Slack, Zoom, Telstra, TPG, NBN, etc.), not the
@@ -892,6 +905,7 @@ def _intraday_status_collection_job() -> None:
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
 
 
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 def _health_mission_correlation_job() -> None:
     """Issue 17: Daily health-mission correlation computation.
 
@@ -926,6 +940,8 @@ def _adhd_nudge_job() -> None:
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
 
 
+<<<<<<< HEAD
+=======
 def _wellness_reminder_job() -> None:
     """2026-08-10: automates telegram-bots/recovery_officer/
     engagement_dispatcher.py::run_dispatch_check(), previously reachable
@@ -998,6 +1014,7 @@ def _wellness_reminder_job() -> None:
         _record_heartbeat("wellness-coaching", "failed", error_message=str(exc))
 
 
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 def _content_scoring_job() -> None:
     """MSN-0202: Score recent intelligence_events for content relevance.
 
@@ -1179,12 +1196,20 @@ def _source_fidelity_audit_job() -> None:
         from intelligence.audit.source_fidelity import source_fidelity_report
 
         report = source_fidelity_report(days=30)
+<<<<<<< HEAD
+
+        total_sources = report.get("total_sources", 0)
+        high_value = len(report.get("high_value_sources", []))
+        low_value = len(report.get("low_value_sources", []))
+        degraded = len(report.get("degraded_sources", []))
+=======
         summary = report.get("summary", {})
 
         total_sources = report.get("total_sources", 0)
         high_value = len(summary.get("high_value_sources", []))
         low_value = len(summary.get("low_value_sources", []))
         degraded = len(summary.get("degraded_sources", []))
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
         log.info(
             "Source fidelity audit complete: %d total sources, %d high-value, "

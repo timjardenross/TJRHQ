@@ -74,7 +74,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     return NextResponse.json({ success: true, qa_status: qaStatus, qa_checklist: mergedChecklist });
   } catch (err) {
+<<<<<<< HEAD
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: detail }, { status: 500 });
+=======
     console.error('[content-workbench/qa]', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   }
 }

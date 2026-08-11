@@ -39,6 +39,8 @@ export function Modal({ open, onClose, title, variant = 'dialog', children }: Mo
   // while body content scrolls — without this, a panel taller than the
   // viewport (e.g. a draft plus AI review results plus a checklist) had no
   // way to reach content below the fold; the backdrop itself doesn't scroll.
+<<<<<<< HEAD
+=======
   // 2026-08-09 mobile/iPad review (P3): centered-dialog-at-every-size
   // worked but didn't feel native on a phone. Below sm this now anchors
   // to the bottom edge, full width, rounded top corners only, taller
@@ -47,6 +49,7 @@ export function Modal({ open, onClose, title, variant = 'dialog', children }: Mo
   // presentation without adding swipe-to-dismiss gesture logic (real
   // touch-gesture work, out of scope for this pass). sm+ is completely
   // unchanged: centered, padded, original widthClass/85vh/rounded-lg.
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-wb-ink/40 sm:items-center sm:p-4" onClick={onClose}>
       <div
@@ -55,9 +58,14 @@ export function Modal({ open, onClose, title, variant = 'dialog', children }: Mo
         aria-modal="true"
         aria-labelledby="tjr-modal-title"
         tabIndex={-1}
+<<<<<<< HEAD
+        className={`flex w-full ${widthClass} max-h-[85vh] flex-col rounded-lg border border-wb-line bg-wb-surface p-6 shadow-lg
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep`}
+=======
         className={`flex max-h-[90dvh] w-full flex-col rounded-t-2xl border border-wb-line bg-wb-surface p-6 shadow-lg
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep
           sm:max-h-[85vh] ${widthClass} sm:rounded-lg`}
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex shrink-0 items-start justify-between gap-4">

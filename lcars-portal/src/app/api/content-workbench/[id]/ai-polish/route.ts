@@ -15,7 +15,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
 
+<<<<<<< HEAD
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'https://ollama.com';
+=======
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL_DEFAULT ?? 'glm-5.2';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY ?? '';
 
@@ -57,8 +61,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     // Optional free-text steer from the human ("tighten the close", "cut the
     // stat in paragraph 2") on top of whatever QA notes are on file.
+<<<<<<< HEAD
+    const { instructions } = await req.json().catch(() => ({ instructions: undefined }));
+=======
     const { instructions: rawInstructions } = await req.json().catch(() => ({ instructions: undefined }));
     const instructions = typeof rawInstructions === 'string' ? rawInstructions.slice(0, 500) : undefined;
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
     const sb = serviceClient();
     const { data: row, error: fetchErr } = await sb
@@ -120,7 +128,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     return NextResponse.json({ success: true, mode, suggested_body: suggestedBody, concerns });
   } catch (err) {
+<<<<<<< HEAD
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: detail }, { status: 500 });
+=======
     console.error('[content-workbench/ai-polish]', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   }
 }

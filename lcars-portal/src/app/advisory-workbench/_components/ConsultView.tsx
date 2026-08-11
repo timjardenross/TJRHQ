@@ -110,7 +110,11 @@ export function ConsultView() {
   const groupHasHistory = (advisors: CouncilAdvisor[]) => advisors.some((a) => (threads[a.id]?.length ?? 0) > 0);
 
   return (
+<<<<<<< HEAD
+    <div className="flex flex-col gap-4 lg:h-[65vh] lg:flex-row">
+=======
     <div className="flex flex-col gap-4 lg:h-[65dvh] lg:flex-row">
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
       {/* Group-first picker (2026-08 redesign): 18 officers behind 5 group
           chips instead of all always expanded — pick a group, then a
           person within it. Mirrors PerspectivesView's category-first

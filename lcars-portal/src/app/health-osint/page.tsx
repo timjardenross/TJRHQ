@@ -36,7 +36,11 @@ function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
   const initial = params.get('domain');
+<<<<<<< HEAD
+  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'confidence-matrix');
+=======
   const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'intelligence-summary');
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +79,29 @@ function Workbench() {
     router.replace(`/health-osint?${sp.toString()}`, { scroll: false });
   };
 
+<<<<<<< HEAD
+  const renderSignal = (s: any) => (
+    <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+      {s.source_url ? (
+        <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+          {domainEmoji(s.health_domain)} {s.title}
+        </a>
+      ) : (
+        <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+      )}
+      <div>
+        {s.source_name}
+        {(s.study_design || s.signal_type) && <> • {s.study_design || s.signal_type}</>}
+        {s.sample_size ? <> • n={s.sample_size}</> : null}
+        {s.p_value != null && <> • p={s.p_value}</>}
+        {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+        {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
+      </div>
+      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+      {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
+    </div>
+  );
+=======
   const renderSignal = (s: any) => {
     // 2026-08-09 gap-closure: a study/trial's published_at can be years old
     // even when collected_at (when we first found it) is recent — e.g.
@@ -116,6 +143,7 @@ function Workbench() {
       </div>
     );
   };
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
   return (
     <WorkbenchShell
@@ -131,11 +159,15 @@ function Workbench() {
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Health Category & Confidence">
+<<<<<<< HEAD
+            <div className="grid grid-cols-2 gap-4 text-[12px] text-wb-ink2">
+=======
             {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
                 each category ~170px on a 375px phone for a name + 4
                 stacked confidence counts — tight but the real fix is just
                 not forcing 2 columns below sm. */}
             <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>

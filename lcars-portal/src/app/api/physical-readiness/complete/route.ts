@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publishEventServerSide } from '@/lib/core-events';
 import { requireSession } from '@/lib/supabase-server';
+<<<<<<< HEAD
+=======
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
 /**
  * core_events has RLS enabled with zero anon/authenticated policies
