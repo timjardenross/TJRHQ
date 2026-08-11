@@ -72,7 +72,7 @@ def build_pending_actions(
 
     # Engineering handoffs ready for review
     engineering_review = [{"id": it.get("id"), "title": it.get("title", "")}
-                          for it in items_at_stage(LifecycleStage.AWAITING_REVIEW, ledger)
+                          for it in items_at_stage(LifecycleStage.REVIEW, ledger)
                           if it.get("kind") == "handoff"]
 
     needs_human = (len(review) + len(triage) + len(awaiting_approval)
@@ -109,10 +109,10 @@ def register(app, route: str = "/api/dashboard/pending-actions") -> Any:
         now = datetime.now().isoformat()
         try:
             payload = build_pending_actions()
+            payload["engineering_review"] = payload.get("engineering_review", [])
             payload.update({"status": "live", "source_label": "MSN-0066 lifecycle",
                             "timestamp": now})
             return jsonify(payload)
-        payload["engineering_review"] = payload.get("engineering_review", [])
         except Exception as exc:  # noqa: BLE001 - a dashboard read must never crash the app
             return jsonify({
                 "status": "unavailable", "error": str(exc),

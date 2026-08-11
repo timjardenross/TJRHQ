@@ -180,7 +180,8 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
         log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
                  job, report["delivered"], report["dry_run"])
         _record_heartbeat("ok", detail=f"job={job} delivered={report['delivered']} dry_run={report['dry_run']}")
-        _publish_core_event(job, message, report)
+        if not dry_run:
+            _publish_core_event(job, message, report)
         return report
     except Exception as exc:
         _record_heartbeat("failed", detail=f"job={job}", error_message=str(exc))

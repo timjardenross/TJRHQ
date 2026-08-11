@@ -1,354 +1,196 @@
-"""Tests for health_synthesis.py — weekly synthesis and /health-brief command."""
+"""Tests for health_synthesis.py — /health-brief command.
+
+Rewritten 2026-08-11 (Fleet Engineering Review backlog item) — the
+previous version tested a much richer module: DailyLogStats/EventStats
+dataclasses, run_weekly_synthesis() with Supabase persistence
+(_supabase_upsert), health_events integration, a Health-Summary.md
+write step, and an LLM-with-rule-based-fallback split modeled as two
+named functions. None of that exists in commands/health_synthesis.py
+anymore — it was deliberately simplified (see the module's own
+docstring: "Public API: handle_health_brief(user_id, client)") to a
+read-only fetch -> _summarise() -> optional _llm_synthesis() -> DM
+flow, reading from analytics_health_daily instead of health_daily_logs
++ health_events, with no persistence step at all. This is not a
+regression to undo — it's tested here as today's actual behavior.
+
+The old privacy-boundary tests checked that a written supporting_data
+payload excluded clinical fields; there is no write path anymore, so
+the equivalent guarantee tested here is that _summarise() only ever
+reads named fields from each row (nervous_system_state/energy/
+sleep_hours/mood/posture) — an arbitrary/clinical key on a row can
+never reach the outbound DM text, verified directly below.
+
+Run: platform-runtime/.venv/bin/python -m pytest platform-runtime/test_health_synthesis.py -v
+"""
 
 import sys
 import unittest
-from datetime import date, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from commands.health_synthesis import (
-    DailyLogStats,
-    EventStats,
-    SynthesisResult,
-    _daily_status,
-    _pain_trend,
-    _rule_based_summary,
-    compute_event_stats,
-    compute_log_stats,
+    _fetch_recent_logs,
+    _summarise,
+    _llm_synthesis,
     handle_health_brief,
-    run_weekly_synthesis,
 )
 
 
-# ── Status calculation (mirrors health_check.py) ──────────────────────────────
+# ── _summarise(): no data ───────────────────────────────────────────────────────
 
-class TestDailyStatus(unittest.TestCase):
-    def test_all_good_is_green(self):
-        self.assertEqual(_daily_status({"pain_score": 2, "energy": "high", "mood": "positive", "sleep_quality": "good"}), "GREEN")
-
-    def test_pain_7_is_red_alone(self):
-        self.assertEqual(_daily_status({"pain_score": 7}), "RED")
-
-    def test_pain_4_is_amber(self):
-        self.assertEqual(_daily_status({"pain_score": 4}), "AMBER")
-
-    def test_pain_3_is_green(self):
-        self.assertEqual(_daily_status({"pain_score": 3}), "GREEN")
-
-    def test_low_energy_adds_1(self):
-        self.assertEqual(_daily_status({"energy": "low"}), "AMBER")
-
-    def test_low_mood_adds_1(self):
-        self.assertEqual(_daily_status({"mood": "low"}), "AMBER")
-
-    def test_poor_sleep_adds_1(self):
-        self.assertEqual(_daily_status({"sleep_quality": "poor"}), "AMBER")
-
-    def test_two_soft_signals_is_red(self):
-        self.assertEqual(_daily_status({"energy": "low", "mood": "low"}), "RED")
-
-    def test_no_data_is_green(self):
-        self.assertEqual(_daily_status({}), "GREEN")
+class TestSummariseNoData(unittest.TestCase):
+    def test_no_rows_message(self):
+        text = _summarise([])
+        self.assertIn("No check-in data", text)
+        self.assertIn("/health-check", text)
 
 
-# ── Pain trend calculation ─────────────────────────────────────────────────────
+# ── _summarise(): aggregation ───────────────────────────────────────────────────
 
-class TestPainTrend(unittest.TestCase):
-    def test_unknown_with_single_score(self):
-        self.assertEqual(_pain_trend([5.0]), "unknown")
-
-    def test_stable_with_equal_scores(self):
-        self.assertEqual(_pain_trend([4.0, 4.0, 4.0, 4.0]), "stable")
-
-    def test_improving_when_scores_drop(self):
-        self.assertEqual(_pain_trend([8.0, 7.0, 5.0, 4.0]), "improving")
-
-    def test_worsening_when_scores_rise(self):
-        self.assertEqual(_pain_trend([3.0, 4.0, 6.0, 7.0]), "worsening")
-
-    def test_two_scores_improving(self):
-        # compute_pain_trend requires ≥4 samples; fewer returns "unknown"
-        self.assertEqual(_pain_trend([7.0, 4.0]), "unknown")
-
-    def test_two_scores_stable(self):
-        # compute_pain_trend requires ≥4 samples; fewer returns "unknown"
-        self.assertEqual(_pain_trend([4.0, 4.3]), "unknown")
-
-
-# ── Aggregate computation ─────────────────────────────────────────────────────
-
-class TestComputeLogStats(unittest.TestCase):
-    def _make_logs(self):
+class TestSummariseAggregation(unittest.TestCase):
+    def _rows(self):
         return [
-            {"log_date": "2026-06-06", "pain_score": 8, "energy": "low",  "mood": "low",      "sleep_quality": "poor",      "sleep_hours": 5.0, "cpap_hours": 4.0, "sitting_tolerance_minutes": 20, "workload_constraint": "reduced", "work_location": "home"},
-            {"log_date": "2026-06-07", "pain_score": 6, "energy": "moderate", "mood": "stable", "sleep_quality": "fair",    "sleep_hours": 6.5, "cpap_hours": 5.5, "sitting_tolerance_minutes": 30, "workload_constraint": "reduced", "work_location": "home"},
-            {"log_date": "2026-06-08", "pain_score": 4, "energy": "moderate", "mood": "stable", "sleep_quality": "good",    "sleep_hours": 7.0, "cpap_hours": 6.0, "sitting_tolerance_minutes": 45, "workload_constraint": "normal",  "work_location": "home"},
-            {"log_date": "2026-06-09", "pain_score": 3, "energy": "high",     "mood": "positive","sleep_quality": "good",   "sleep_hours": 7.5, "cpap_hours": 6.5, "sitting_tolerance_minutes": 60, "workload_constraint": "normal",  "work_location": "home"},
-            {"log_date": "2026-06-10", "pain_score": 2, "energy": "high",     "mood": "positive","sleep_quality": "good",   "sleep_hours": 8.0, "cpap_hours": 6.5, "sitting_tolerance_minutes": 70, "workload_constraint": "normal",  "work_location": "home"},
+            {"nervous_system_state": "calm", "energy": "high", "mood": "positive", "sleep_hours": 8.0},
+            {"nervous_system_state": "calm", "energy": "moderate", "mood": "stable", "sleep_hours": 7.0},
+            {"nervous_system_state": "dysregulated", "energy": "low", "mood": "low", "sleep_hours": 5.0},
         ]
 
-    def test_count(self):
-        self.assertEqual(compute_log_stats(self._make_logs()).count, 5)
+    def test_nervous_system_counts_shown(self):
+        text = _summarise(self._rows())
+        self.assertIn("Calm: 2/3 days", text)
+        self.assertIn("Dysregulated: 1/3 days", text)
 
-    def test_avg_pain_correct(self):
-        ls = compute_log_stats(self._make_logs())
-        expected = round((8 + 6 + 4 + 3 + 2) / 5, 1)
-        self.assertEqual(ls.avg_pain, expected)
+    def test_dominant_state_called_out(self):
+        text = _summarise(self._rows())
+        self.assertIn("Dominant state this week: *Calm*", text)
 
-    def test_pain_trend_improving(self):
-        ls = compute_log_stats(self._make_logs())
-        self.assertEqual(ls.pain_trend, "improving")
+    def test_avg_sleep_shown(self):
+        text = _summarise(self._rows())
+        expected_avg = round((8.0 + 7.0 + 5.0) / 3, 1)
+        self.assertIn(f"avg {expected_avg}h", text)
 
-    def test_status_counts(self):
-        ls = compute_log_stats(self._make_logs())
-        # row 0: pain=8 → RED (score=2); row 1: pain=6 → AMBER (score=1);
-        # row 2: pain=4 → AMBER (score=1); rows 3-4: GREEN (score=0)
-        self.assertEqual(ls.red_days, 1)
-        self.assertEqual(ls.amber_days, 2)
-        self.assertEqual(ls.green_days, 2)
+    def test_dysregulated_warning_at_3_or_more(self):
+        rows = [{"nervous_system_state": "dysregulated"} for _ in range(3)]
+        text = _summarise(rows)
+        self.assertIn("dysregulated day(s) this week", text)
 
-    def test_empty_logs(self):
-        ls = compute_log_stats([])
-        self.assertEqual(ls.count, 0)
-        self.assertIsNone(ls.avg_pain)
-        self.assertEqual(ls.pain_trend, "unknown")
+    def test_no_warning_below_3_dysregulated(self):
+        rows = [{"nervous_system_state": "dysregulated"}, {"nervous_system_state": "calm"}]
+        text = _summarise(rows)
+        self.assertNotIn("conditions need attention", text)
 
-    def test_avg_sleep_hours(self):
-        ls = compute_log_stats(self._make_logs())
-        expected = round((5.0 + 6.5 + 7.0 + 7.5 + 8.0) / 5, 1)
-        self.assertEqual(ls.avg_sleep_hours, expected)
+    def test_energy_distribution_shown(self):
+        text = _summarise(self._rows())
+        self.assertIn("Low: 1/3", text)
+        self.assertIn("High: 1/3", text)
 
-    def test_avg_cpap_hours(self):
-        ls = compute_log_stats(self._make_logs())
-        self.assertIsNotNone(ls.avg_cpap_hours)
+    def test_recovery_posture_shown_when_present(self):
+        rows = [{"posture_band": "green"}, {"posture_band": "green"}, {"posture_band": "amber"}]
+        text = _summarise(rows)
+        self.assertIn("green: 2 day(s)", text)
 
-    def test_avg_sitting_tolerance(self):
-        ls = compute_log_stats(self._make_logs())
-        expected = round((20 + 30 + 45 + 60 + 70) / 5)
-        self.assertEqual(ls.avg_sitting_tolerance, expected)
-
-    def test_energy_distribution(self):
-        ls = compute_log_stats(self._make_logs())
-        self.assertIn("low", ls.energy_distribution)
-        self.assertIn("high", ls.energy_distribution)
+    def test_safety_footer_present(self):
+        text = _summarise(self._rows())
+        self.assertIn("The Captain is not broken", text)
 
 
-class TestComputeEventStats(unittest.TestCase):
-    def test_empty(self):
-        es = compute_event_stats([])
-        self.assertEqual(es.count, 0)
-        self.assertEqual(es.follow_up_count, 0)
+class TestSummarisePrivacyBoundary(unittest.TestCase):
+    """_summarise() only ever reads nervous_system_state/energy/sleep_hours/
+    mood/posture_band(/posture) from each row — an arbitrary or clinical
+    key can never reach the outbound text, because nothing extracts it."""
 
-    def test_follow_up_count(self):
-        events = [
-            {"event_type": "appointment", "title": "GP", "follow_up_required": True},
-            {"event_type": "imaging_ordered", "title": "MRI", "follow_up_required": False},
-            {"event_type": "referral", "title": "Physio", "follow_up_required": True},
-        ]
-        es = compute_event_stats(events)
-        self.assertEqual(es.count, 3)
-        self.assertEqual(es.follow_up_count, 2)
+    def test_unread_clinical_field_never_appears_in_output(self):
+        rows = [{
+            "nervous_system_state": "calm",
+            "notes": "SECRET_CLINICAL_NOTE_DO_NOT_EXPOSE",
+            "diagnosis": "should never surface",
+            "blood_pressure": "120/80",
+        }]
+        text = _summarise(rows)
+        self.assertNotIn("SECRET_CLINICAL_NOTE_DO_NOT_EXPOSE", text)
+        self.assertNotIn("should never surface", text)
+        self.assertNotIn("120/80", text)
 
-    def test_event_types_collected(self):
-        events = [
-            {"event_type": "appointment", "title": "A"},
-            {"event_type": "procedure", "title": "B"},
-        ]
-        es = compute_event_stats(events)
-        self.assertIn("appointment", es.event_types)
-        self.assertIn("procedure", es.event_types)
+    def test_malformed_sleep_hours_does_not_crash(self):
+        rows = [{"nervous_system_state": "calm", "sleep_hours": "not-a-number"}]
+        # Should not raise — malformed values are skipped, not propagated.
+        text = _summarise(rows)
+        self.assertIn("Calm", text)
 
 
-# ── Rule-based summary ────────────────────────────────────────────────────────
+# ── _fetch_recent_logs(): Supabase unavailable handling ────────────────────────
 
-class TestRuleBasedSummary(unittest.TestCase):
-    def test_no_logs_message(self):
-        ls = DailyLogStats(count=0)
-        es = EventStats(count=0)
-        summary = _rule_based_summary(ls, es, "2026-06-06", "2026-06-12")
-        self.assertIn("No daily check-ins", summary)
+class TestFetchRecentLogs(unittest.TestCase):
+    def test_none_db_returns_empty(self):
+        self.assertEqual(_fetch_recent_logs(None), [])
 
-    def test_summary_contains_safety_footer(self):
-        ls = DailyLogStats(count=3, green_days=2, amber_days=1)
-        es = EventStats()
-        summary = _rule_based_summary(ls, es, "2026-06-06", "2026-06-12")
-        self.assertIn("Advisory only", summary)
+    def test_disabled_db_returns_empty(self):
+        mock_db = MagicMock()
+        mock_db.is_enabled.return_value = False
+        self.assertEqual(_fetch_recent_logs(mock_db), [])
 
-    def test_pain_included_when_present(self):
-        ls = DailyLogStats(count=3, avg_pain=5.0, pain_trend="improving")
-        es = EventStats()
-        summary = _rule_based_summary(ls, es, "2026-06-06", "2026-06-12")
-        self.assertIn("5.0", summary)
-
-    def test_event_count_shown(self):
-        ls = DailyLogStats(count=3, green_days=3)
-        es = EventStats(count=2, follow_up_count=1, event_types=["appointment", "referral"])
-        summary = _rule_based_summary(ls, es, "2026-06-06", "2026-06-12")
-        self.assertIn("2 event(s)", summary)
+    def test_fetch_exception_returns_empty_not_raises(self):
+        mock_db = MagicMock()
+        mock_db.is_enabled.return_value = True
+        mock_db.raw_client.table.side_effect = RuntimeError("db down")
+        self.assertEqual(_fetch_recent_logs(mock_db), [])
 
 
-# ── Privacy: supporting_data must not include clinical fields ─────────────────
+# ── handle_health_brief(): end to end ───────────────────────────────────────────
 
-class TestPrivacyBoundary(unittest.TestCase):
-    def test_run_weekly_synthesis_supporting_data_no_clinical_fields(self):
-        logs = [{"log_date": "2026-06-12", "pain_score": 4, "energy": "moderate"}]
-        events = []
-
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=events), \
-             patch("commands.health_synthesis._supabase_upsert") as mock_upsert, \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=True):
-
-            saved_payload = {}
-
-            def capture_upsert(table, payload, conflict_col):
-                saved_payload.update(payload)
-                return {"id": "test-id"}
-
-            mock_upsert.side_effect = capture_upsert
-            result = run_weekly_synthesis(period_days=1)
-
-        self.assertTrue(result.ok)
-        supporting = saved_payload.get("supporting_data", {})
-
-        # No diagnosis, medication names, clinical notes, imaging results
-        for prohibited in ("diagnosis", "medication_name", "clinical_notes", "imaging_result",
-                           "blood_pressure", "heart_rate", "prescription"):
-            self.assertNotIn(prohibited, supporting, f"Prohibited field in supporting_data: {prohibited}")
-
-    def test_summary_text_does_not_contain_raw_row_data(self):
-        logs = [{"log_date": "2026-06-12", "pain_score": 7, "notes": "SECRET_CLINICAL_NOTE_DO_NOT_EXPOSE"}]
-        events = []
-
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=events), \
-             patch("commands.health_synthesis._supabase_upsert", return_value={"id": "x"}), \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=True):
-
-            result = run_weekly_synthesis(period_days=1)
-
-        # The raw note should never appear in the output summary
-        self.assertNotIn("SECRET_CLINICAL_NOTE_DO_NOT_EXPOSE", result.summary)
-
-
-# ── Supabase failure handling ─────────────────────────────────────────────────
-
-class TestSynthesisFailureHandling(unittest.TestCase):
-    def test_returns_error_result_on_fetch_failure(self):
-        with patch("commands.health_synthesis._fetch_daily_logs", side_effect=RuntimeError("DB down")):
-            result = run_weekly_synthesis(period_days=7)
-        self.assertFalse(result.ok)
-        self.assertIn("DB down", result.error)
-
-    def test_returns_error_result_on_upsert_failure(self):
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=[]), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=[]), \
-             patch("commands.health_synthesis._supabase_upsert", side_effect=RuntimeError("upsert fail")):
-
-            result = run_weekly_synthesis(period_days=7)
-
-        self.assertFalse(result.ok)
-        self.assertIn("upsert fail", result.error)
-
-    def test_handle_health_brief_sends_error_dm_on_failure(self):
+class TestHandleHealthBrief(unittest.TestCase):
+    def test_no_supabase_sends_no_data_brief_not_crash(self):
         mock_client = MagicMock()
-
-        with patch("commands.health_synthesis.run_weekly_synthesis",
-                   return_value=SynthesisResult(ok=False, period_start="2026-06-06", period_end="2026-06-12", error="DB down")):
-            handle_health_brief("U123", mock_client)
+        with patch("commands.health_synthesis._make_supabase", return_value=None), \
+             patch("commands.health_synthesis._llm_synthesis", return_value=None):
+            handle_health_brief("U1", mock_client)
 
         mock_client.chat_postMessage.assert_called_once()
         call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("U123", call_text)
+        self.assertIn("No check-in data", call_text)
 
-    def test_handle_health_brief_sends_brief_on_success(self):
+    def test_llm_unavailable_falls_back_to_raw_summary(self):
+        mock_db = MagicMock()
+        mock_db.is_enabled.return_value = True
         mock_client = MagicMock()
 
-        with patch("commands.health_synthesis.run_weekly_synthesis",
-                   return_value=SynthesisResult(
-                       ok=True,
-                       period_start="2026-06-06",
-                       period_end="2026-06-12",
-                       summary="Good week overall.",
-                       insight_id="abc-123",
-                       health_summary_md_updated=True,
-                   )):
-            handle_health_brief("U456", mock_client)
+        rows = [{"nervous_system_state": "calm", "energy": "high"}]
+        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
+             patch("commands.health_synthesis._fetch_recent_logs", return_value=rows), \
+             patch("commands.health_synthesis._llm_synthesis", return_value=None):
+            handle_health_brief("U2", mock_client)
 
-        mock_client.chat_postMessage.assert_called_once()
         call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("U456", call_text)
+        self.assertIn("Weekly Health Brief", call_text)
+        self.assertNotIn("Medical Officer Interpretation", call_text)
 
+    def test_llm_available_appends_interpretation(self):
+        mock_db = MagicMock()
+        mock_db.is_enabled.return_value = True
+        mock_client = MagicMock()
 
-# ── Health-Summary.md write ───────────────────────────────────────────────────
+        rows = [{"nervous_system_state": "calm"}]
+        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
+             patch("commands.health_synthesis._fetch_recent_logs", return_value=rows), \
+             patch("commands.health_synthesis._llm_synthesis", return_value="Looking steady this week."):
+            handle_health_brief("U3", mock_client)
 
-class TestHealthSummaryMdWrite(unittest.TestCase):
-    def test_write_called_on_success(self):
-        logs = [{"log_date": "2026-06-12", "pain_score": 3}]
+        call_text = str(mock_client.chat_postMessage.call_args)
+        self.assertIn("Medical Officer Interpretation", call_text)
+        self.assertIn("Looking steady this week.", call_text)
 
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=[]), \
-             patch("commands.health_synthesis._supabase_upsert", return_value={"id": "x"}), \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=True) as mock_write:
+    def test_dm_failure_does_not_raise(self):
+        mock_db = MagicMock()
+        mock_db.is_enabled.return_value = True
+        mock_client = MagicMock()
+        mock_client.chat_postMessage.side_effect = RuntimeError("slack down")
 
-            result = run_weekly_synthesis(period_days=1)
-
-        mock_write.assert_called_once()
-        self.assertTrue(result.health_summary_md_updated)
-
-    def test_md_write_failure_does_not_break_synthesis(self):
-        """If Health-Summary.md write fails, synthesis still returns ok=True."""
-        logs = [{"log_date": "2026-06-12", "pain_score": 3}]
-
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=[]), \
-             patch("commands.health_synthesis._supabase_upsert", return_value={"id": "x"}), \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=False):
-
-            result = run_weekly_synthesis(period_days=1)
-
-        self.assertTrue(result.ok)
-        self.assertFalse(result.health_summary_md_updated)
-
-
-# ── LLM fallback ──────────────────────────────────────────────────────────────
-
-class TestLLMFallback(unittest.TestCase):
-    def test_rule_based_used_when_llm_unavailable(self):
-        logs = [{"log_date": "2026-06-12", "pain_score": 3, "energy": "high"}]
-
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=[]), \
-             patch("commands.health_synthesis._supabase_upsert", return_value={"id": "x"}), \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=True), \
-             patch("commands.health_synthesis._generate_summary",
-                   return_value=("Rule-based summary text.", "rule-based")) as mock_gen:
-
-            result = run_weekly_synthesis(period_days=1)
-
-        self.assertTrue(result.ok)
-        self.assertEqual(result.summary, "Rule-based summary text.")
-
-    def test_generated_by_saved_to_payload(self):
-        logs = [{"log_date": "2026-06-12", "pain_score": 3}]
-        saved_payload = {}
-
-        def capture_upsert(table, payload, conflict_col):
-            saved_payload.update(payload)
-            return {"id": "y"}
-
-        with patch("commands.health_synthesis._fetch_daily_logs", return_value=logs), \
-             patch("commands.health_synthesis._fetch_health_events", return_value=[]), \
-             patch("commands.health_synthesis._supabase_upsert", side_effect=capture_upsert), \
-             patch("commands.health_synthesis._write_health_summary_md", return_value=True), \
-             patch("commands.health_synthesis._generate_summary",
-                   return_value=("Summary.", "rule-based")):
-
-            run_weekly_synthesis(period_days=1)
-
-        self.assertEqual(saved_payload.get("generated_by"), "rule-based")
+        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
+             patch("commands.health_synthesis._fetch_recent_logs", return_value=[]), \
+             patch("commands.health_synthesis._llm_synthesis", return_value=None):
+            handle_health_brief("U4", mock_client)  # must not raise
 
 
 if __name__ == "__main__":

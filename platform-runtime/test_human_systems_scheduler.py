@@ -8,6 +8,17 @@ Covers:
   - on-demand `/hs push` preview reuses the runner and stays language-compliant.
 
 No live network: Supabase fetch, Slack client, and memory writes are mocked.
+
+The "morning" job (and anything that previews it, e.g. `/hs push morning`)
+calls commands.brief.build_brief() for real, which — independently of any
+of the mocks above — polls core_events, may classify an INTERRUPT_NOW item,
+and if so calls core.platform.interrupt_dispatcher.dispatch_interrupt_now(),
+which sends a genuine Telegram push and writes a genuine core_events row via
+event_bus.publish_event(). This bit the Captain in production: a routine
+review run of this file fired several real "Protect capacity today" alerts
+to his phone (2026-08-11). TestRunner/TestPushPreview.setUp patch these two
+boundary functions module-wide so no test in this file can ever repeat that,
+regardless of which code path inside build_brief() reaches them.
 """
 
 from __future__ import annotations
@@ -24,6 +35,8 @@ if str(_BOT_DIR) not in sys.path:
 from lib.human_systems import delivery, push, safety  # noqa: E402
 import human_systems_scheduler as hss  # noqa: E402
 import commands.human_systems as hs  # noqa: E402
+import core.platform.event_bus as event_bus  # noqa: E402
+import core.platform.interrupt_dispatcher as interrupt_dispatcher  # noqa: E402
 
 GOOD = {
     "log_date": "2026-06-20", "energy": "high", "mood": "positive",
@@ -119,9 +132,21 @@ class TestRunner(unittest.TestCase):
     def setUp(self):
         self._mem = patch.object(hss.memory, "record_recommendation", lambda **k: True)
         self._mem.start()
+        # See module docstring: the "morning" job reaches these two real
+        # side-effecting boundaries via commands.brief.build_brief(), not via
+        # any mock above. Never let a test in this file send a real Telegram
+        # push or write a real core_events row.
+        self._publish = patch.object(event_bus, "publish_event", lambda *a, **k: None)
+        self._publish.start()
+        self._interrupt = patch.object(
+            interrupt_dispatcher, "dispatch_interrupt_now", lambda *a, **k: []
+        )
+        self._interrupt.start()
 
     def tearDown(self):
         self._mem.stop()
+        self._publish.stop()
+        self._interrupt.stop()
 
     def test_each_job_dry_runs_and_is_compliant(self):
         rows = {"morning": [HARD], "evening": [HARD],
@@ -203,6 +228,20 @@ class TestRunner(unittest.TestCase):
 # ── On-demand /hs push preview ────────────────────────────────────────────────
 
 class TestPushPreview(unittest.TestCase):
+    def setUp(self):
+        # `/hs push morning` runs the same real build_brief() path as
+        # TestRunner — see module docstring.
+        self._publish = patch.object(event_bus, "publish_event", lambda *a, **k: None)
+        self._publish.start()
+        self._interrupt = patch.object(
+            interrupt_dispatcher, "dispatch_interrupt_now", lambda *a, **k: []
+        )
+        self._interrupt.start()
+
+    def tearDown(self):
+        self._publish.stop()
+        self._interrupt.stop()
+
     def test_push_preview_renders(self):
         with patch.object(hs, "_fetch_rows", return_value=[HARD]):
             out = hs.handle_human_systems("push morning")
