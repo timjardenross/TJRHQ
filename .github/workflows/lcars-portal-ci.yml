@@ -1,15 +1,17 @@
 name: LCARS Portal CI
 
 on:
-  pull_request:
-    paths:
-      - "lcars-portal/**"
-      - ".github/workflows/lcars-portal-ci.yml"
+  pull_request: {}
   push:
     branches: [main]
-    paths:
-      - "lcars-portal/**"
-      - ".github/workflows/lcars-portal-ci.yml"
+
+# 2026-08-11: was path-filtered to lcars-portal/**, which meant a PR
+# touching only other parts of the monorepo (docs, python tools, migrations)
+# never triggered this workflow at all. Harmless before today, but branch
+# protection now requires this job's "check" status to pass before any PR
+# can merge — a required check that never runs stays "Expected — Waiting"
+# forever, silently blocking every non-lcars-portal PR (see PR #19). Runs
+# on every PR/push now so the required check always actually reports.
 
 jobs:
   check:
