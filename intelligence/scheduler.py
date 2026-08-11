@@ -196,6 +196,18 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── HEALTH_OSINT_IMPLEMENTATION.md Phase 4: weekly auto-fetch ───────────────
+    # Sunday 02:00 — pulls FDA/CDC/ClinicalTrials.gov/bioRxiv/WHO/NIH into
+    # health_signals (suppressed, awaiting curation at /health-osint-curation
+    # before the Sunday-night review window). Separate table/pipeline from
+    # intelligence_events — see health_signal_ingestion.py's own docstring.
+    scheduler.add_job(
+        _health_osint_weekly_fetch_job,
+        CronTrigger(day_of_week="sun", hour=2, minute=0, timezone=tz),
+        id="health_osint_weekly_fetch",
+        replace_existing=True,
+    )
+
     # ── 2026-08-09 gap-closure: intraday status/outage polling ──────────────────
     # The 06:00 daily sweep alone gave up to ~24h lag even for wire-covered
     # breaking stories. Re-polls the already-registered fast-moving
@@ -588,6 +600,39 @@ def _daily_collection_job() -> None:
     except Exception as exc:
         log.error("Daily collection job failed: %s", exc)
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+
+
+def _health_osint_weekly_fetch_job() -> None:
+    """HEALTH_OSINT_IMPLEMENTATION.md Phase 4: Sunday 02:00 automated health
+    signal fetch. Runs `tools/health-osint/health_signal_ingestion.py` as a
+    subprocess rather than importing it directly — that directory has a
+    hyphen in its name, which Python's import system can't resolve as a
+    package segment (`import tools.health-osint...` is a syntax error), and
+    the script already has a clean `main()` CLI entrypoint designed for
+    exactly this invocation shape.
+
+    Every signal this inserts lands suppressed + auto_ingest_reviewed=false
+    (migrations 0141, 0143) — nothing here reaches the main /health-osint
+    dashboard until reviewed at /health-osint-curation.
+    """
+    log.info("Health OSINT weekly fetch triggered")
+    try:
+        import subprocess
+
+        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "health-osint", "health_signal_ingestion.py")
+        result = subprocess.run(
+            [sys.executable, script],
+            capture_output=True, text=True, timeout=600,
+        )
+        if result.returncode != 0:
+            log.error("Health OSINT weekly fetch failed (exit %d): %s", result.returncode, result.stderr[-2000:])
+            _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=result.stderr[-500:])
+        else:
+            log.info("Health OSINT weekly fetch: %s", result.stdout[-2000:])
+            _record_heartbeat("health_osint_weekly_fetch", "ok", detail=result.stdout[-500:])
+    except Exception as exc:
+        log.error("Health OSINT weekly fetch job failed: %s", exc)
+        _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
 
 
 # Categories treated as "critical status" for the intraday tier below —

@@ -1,3 +1,11 @@
+> **SUPERSEDED 2026-08-11.** Captain chose `HEALTH_OSINT_IMPLEMENTATION.md`'s
+> automated-fetch model over this doc's curated-only proposal — the two were
+> written independently by different sessions, unaware of each other, and
+> conflicted on schema (`source_contribution_type` here vs.
+> `contributing_factor_type` there) and philosophy (curated-only vs.
+> automated). Kept for historical reference only; do not implement this
+> doc's roadmap.
+
 # Health OSINT Redesign: Align to Technical OSINT Pattern
 
 **Model:** Mirror the Technical OSINT Workbench structure (read-only intelligence feed)  
