@@ -262,7 +262,7 @@ export default function CaptainsChairWorkbench() {
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-wb-ink2">Confidence</span>
-                      <span className="font-semibold text-wb-ink">{briefingStats?.confidence ? Math.round(briefingStats.confidence * 100) + '%' : '—'}</span>
+                      <span className="font-semibold text-wb-ink">{briefingStats?.confidence != null ? `${briefingStats.confidence}%` : '—'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-wb-ink2">Priorities</span>
