@@ -104,13 +104,26 @@ def fetch_pending(limit: int, single_id: Optional[str] = None) -> list[dict]:
     # MSN-0305: source_ref added — was never selected, so the link back to
     # the originating research finding/signal was silently dropped before
     # _build_research_topic() could use it (MSN-0302 finding).
+    #
+    # Fleet Engineering Review 2026-08-11: this cron ran unconditionally on
+    # any status='opportunity'/body IS NULL row, with no research gate — a
+    # capture sitting in the Capture stage (research_completed_at IS NULL)
+    # could get silently auto-drafted and advanced within 30 minutes,
+    # skipping the workbench UI's own Capture->Research step. The UI's own
+    # /generate route already gates on research_completed_at (see its own
+    # header comment); this cron now matches that gate instead of running
+    # a second, looser path to the same table. Captain's call, 2026-08-11:
+    # match the UI's gate, not keep it as a fast-path.
     fields = "id,title,pillar,format,notes,source_kind,source_ref"
     if single_id:
-        path = f"comms_content?select={fields}&id=eq.{urllib.parse.quote(single_id)}&status=eq.opportunity&body=is.null"
+        path = (
+            f"comms_content?select={fields}&id=eq.{urllib.parse.quote(single_id)}"
+            f"&status=eq.opportunity&body=is.null&research_completed_at=not.is.null"
+        )
     else:
         path = (
             f"comms_content?select={fields}"
-            f"&status=eq.opportunity&body=is.null"
+            f"&status=eq.opportunity&body=is.null&research_completed_at=not.is.null"
             f"&order=created_at.asc&limit={limit}"
         )
     rows = _sb_get(path)

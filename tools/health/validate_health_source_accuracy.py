@@ -33,16 +33,20 @@ data that doing so is actively wrong, not just untested — see
 recompute_avg_methodology_quality()'s docstring for the reproduced Lancet
 TIER_1->TIER_4 regression this caused before the scoping fix.
 
-publisher_reputation and funding_transparency/conflict_of_interest_disclosure
-are NOT touched by this fix — there is no real per-source data stream in
-this pipeline that could inform them (no citation-index/funding-disclosure
-feed is collected), so writing to them here would mean fabricating a value
-rather than surfacing real evidence. See
-.claude/skills/bot-reviews/fixes-2026-08-09/health-osint-fixes.md for the
-disclosed options on that gap (a documented "earn reputation via sustained
-validation" graduation rule is the leading candidate, but the rate/cap
-parameters are a policy choice, not a data-availability fact, so it's
-flagged for Captain/Chief of Staff decision rather than guessed here).
+funding_transparency/conflict_of_interest_disclosure are NOT touched by
+this fix — there is no real per-source data stream in this pipeline that
+could inform them (no funding-disclosure feed is collected), so writing
+to them here would mean fabricating a value rather than surfacing real
+evidence. See .claude/skills/bot-reviews/fixes-2026-08-09/health-osint-fixes.md
+for that disclosed, still-open gap.
+
+publisher_reputation: Captain decision 2026-08-11 (Fleet Engineering
+Review) — implement the graduation rule this file's own prior fix
+flagged as the leading candidate but left unimplemented pending a policy
+call. Parameters (rate=+0.05 per 10 lifetime accurate validations,
+cap=0.70) are this fix's disclosed choice, not a re-derivation of
+anything the Captain specified numerically — see
+recompute_publisher_reputation()'s docstring for the reasoning.
 
 Heuristic validation rules (disclosed as heuristic, not ground-truth):
   1. Source is a health_agency (NIH/FDA/CDC/WHO) -> accurate. Direct
@@ -192,7 +196,49 @@ class HealthSourceValidator:
         scores = [r["methodology_quality_score"] for r in rows]
         return round(sum(scores) / len(scores), 3), len(scores)
 
-    def recompute_source_scores(self, source_id, auto_registered: bool = False):
+    # publisher_reputation graduation rule (Fleet Engineering Review
+    # 2026-08-11, Captain-approved). No real citation-index/reputation feed
+    # exists in this pipeline — the only honest signal available is this
+    # source's own track record of validated-accurate signals, so
+    # reputation is earned from that, not from an external metric.
+    _REPUTATION_DEFAULT = 0.45      # collect_health_signals.py's auto-registration default
+    _REPUTATION_STEP = 0.05         # per full block of _REPUTATION_BLOCK accurate validations
+    _REPUTATION_BLOCK = 10
+    _REPUTATION_CAP = 0.70          # stays below the hand-curated ceiling (seed sources reach up to ~0.95);
+                                     # an auto-registered source proving itself can reach TIER_2, not silently TIER_1
+
+    def recompute_publisher_reputation(self, source_id, current: float | None):
+        """Lifetime (not the 30-day rolling window used for replication_
+        success_rate/retraction_rate) count of is_accurate=True validations
+        for this source, stepped into a capped reputation score. Lifetime,
+        not rolling, because reputation is meant to reflect a sustained
+        track record — a source shouldn't lose earned reputation just
+        because it had a quiet 30-day window with no new signals.
+
+        Monotonic by construction (only ever returns a value >= current) —
+        a graduation rule that could also demote reads as a penalty system,
+        which is a different, unapproved policy; this only ever steps up.
+
+        Returns the new value, or None if no step-up is warranted (either
+        below the first block, or already at/above the value this block
+        count would produce).
+        """
+        resp = (
+            self.supabase.table("health_signal_validation")
+            .select("is_accurate", count="exact")
+            .eq("source_id", source_id).eq("is_accurate", True)
+            .execute()
+        )
+        accurate_count = resp.count or 0
+        blocks = accurate_count // self._REPUTATION_BLOCK
+        if blocks <= 0:
+            return None
+        candidate = round(min(self._REPUTATION_CAP, self._REPUTATION_DEFAULT + self._REPUTATION_STEP * blocks), 3)
+        if current is not None and candidate <= current:
+            return None
+        return candidate
+
+    def recompute_source_scores(self, source_id, auto_registered: bool = False, current_reputation: float | None = None):
         update = {}
 
         validation_rows = (
@@ -213,12 +259,20 @@ class HealthSourceValidator:
         # recompute_avg_methodology_quality's docstring for why applying
         # this to hand-curated seed sources is actively wrong, not just
         # untested (verified against live data: it corrupted The Lancet's
-        # score from a curated TIER_1 to a noise-driven TIER_4).
+        # score from a curated TIER_1 to a noise-driven TIER_4). Same
+        # scoping applies to the reputation graduation rule below — a
+        # hand-curated source's publisher_reputation is an expert-set
+        # editorial judgment, not something a signal-count formula should
+        # ever override.
         if auto_registered:
             mq = self.recompute_avg_methodology_quality(source_id)
             if mq is not None:
                 avg_quality, n_quality = mq
                 update["avg_methodology_quality"] = avg_quality
+
+            new_reputation = self.recompute_publisher_reputation(source_id, current_reputation)
+            if new_reputation is not None:
+                update["publisher_reputation"] = new_reputation
 
         if not update:
             return  # not enough evidence yet on any input — leave existing values alone
@@ -231,7 +285,7 @@ class HealthSourceValidator:
 
     def run(self):
         logger.info(f"Starting health source validation{' (DRY RUN)' if self.dry_run else ''}")
-        sources = self.supabase.table("health_source_registry").select("source_id, source_name, source_type, auto_registered").execute().data or []
+        sources = self.supabase.table("health_source_registry").select("source_id, source_name, source_type, auto_registered, publisher_reputation").execute().data or []
         logger.info(f"Checking {len(sources)} sources")
 
         for source in sources:
@@ -242,7 +296,10 @@ class HealthSourceValidator:
                     signal["signal_id"], source["source_id"], verdict,
                     "automated", f"Rule-based on study_design/source_type/adverse_event pattern",
                 )
-            self.recompute_source_scores(source["source_id"], auto_registered=bool(source.get("auto_registered")))
+            self.recompute_source_scores(
+                source["source_id"], auto_registered=bool(source.get("auto_registered")),
+                current_reputation=source.get("publisher_reputation"),
+            )
 
         logger.info(f"Validation complete: {self.validated_count} signals validated, {self.errors} errors")
 
