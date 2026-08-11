@@ -52,7 +52,7 @@ function changeEyebrow(session: SessionBoundary): string {
 const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },  { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },
   { href: '/captains-brief-workbench', label: "Captain's Brief", description: 'The composed intelligence document' },
-  { href: '/comms', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
+  { href: '/content-workbench', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
   { href: '/captains-chair', label: "Captain's Chair", description: 'The full operational dashboard' },
 ];
 
