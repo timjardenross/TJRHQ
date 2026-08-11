@@ -994,7 +994,13 @@ export default function CaptainsChairPage() {
 
       </div>
 
-      <div className="hidden w-60 shrink-0 flex-col xl:flex">
+      {/* lg:flex (not xl:flex) — MobileOperatingPicture above is lg:hidden,
+          so the two partition cleanly at exactly the lg breakpoint. Was
+          xl:flex, which left iPad landscape (1024-1279px) with neither
+          this sidebar nor the mobile picture: CaptainApprovalQueue, the
+          app's primary "what needs my decision" surface, was invisible
+          in that band. */}
+      <div className="hidden w-60 shrink-0 flex-col lg:flex">
         <AlertsSidebar alerts={liveAlerts} loading={alertsLoading} />
         {/* MSN-0305/WP A (MSN-0321): was DecisionsPanel — mock
             decisionsAwaitingApproval data, now a live count (see
