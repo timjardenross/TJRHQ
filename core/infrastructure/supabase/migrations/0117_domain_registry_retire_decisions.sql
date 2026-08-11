@@ -1,0 +1,51 @@
+-- Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+-- final-4-domains.md, section "2. decisions (Decisions Ledger)"), same
+-- soft-delete pattern as migrations 0112 (governance_records), 0113
+-- (pain_escalation, stale_missions_job), 0114 (human_systems,
+-- appointment_prep, shakedown_digest, decision_review, knowledge_freshness,
+-- lessons_learned), and 0116 (decision_outcome_reminder).
+--
+-- Captain-confirmed retirement (2026-08-10) of the `decisions` domain.
+-- final-4-domains.md traced all 3 heartbeat-wired writers
+-- (build_learning_loop.py, research_learning_loop.py,
+-- comms_learning_loop.py) to dead sources, none of which fit either the
+-- "dead scheduler, give it a live trigger/timer" pattern used elsewhere
+-- tonight, or the "reachable, just quiet" pattern left alone for
+-- wellness-coaching:
+--
+--   - build_learning_loop.py::record_build_lifecycle_event() and
+--     research_learning_loop.py::record_research_lifecycle_event() both
+--     trace to retired Slack-era events (commands/mission_brief.py,
+--     commands/research_command.py) with no live replacement anywhere in
+--     the platform today -- not a dead scheduler with a restorable
+--     schedule, but an event that no longer exists in any live entrypoint
+--     (XO Telegram or LCARS Portal).
+--   - comms_learning_loop.py::record_comms_approval_event() traces to
+--     lib/comms/pipeline.py::advance(), which has zero callers anywhere in
+--     the live repo. The real, live Captain-approval flow for comms content
+--     is a separate TypeScript implementation
+--     (lcars-portal/src/app/api/comms/[id]/advance/route.ts) that
+--     reimplements the same state machine directly against comms_content
+--     and does not write decision_records, commander_decisions,
+--     decision_outcomes, or quality_scores at all.
+--
+-- All 31 historical rows in decision_records/commander_decisions already
+-- trace to these dead sources. Per Captain's decision, retiring the whole
+-- domain from monitoring rather than inventing a synthetic trigger or
+-- porting a new quality-scoring capability under a monitoring-fix task.
+--
+-- The 3 heartbeat call sites wired into build_learning_loop.py,
+-- research_learning_loop.py, and comms_learning_loop.py earlier tonight are
+-- deliberately left in place, not removed -- migration 0114's retirement of
+-- 6 domains left their own orphaned heartbeat call sites
+-- (human_systems_scheduler.py, proactive_scheduler.py) untouched, and this
+-- follows the same convention. A heartbeat write to an inactive domain is
+-- harmless (domain_heartbeat_latest is scoped to active domains per
+-- migration 0112, so it has no effect on monitoring/alerting either way)
+-- and removing them would be pure code churn on a mission that could
+-- reactivate this domain in future if a live replacement is ever built.
+update domain_registry
+set
+  active = false,
+  notes  = notes || ' -- RETIRED 2026-08-10: all 3 heartbeat-wired writers (build_learning_loop.py, research_learning_loop.py, comms_learning_loop.py) trace to dead sources with no live replacement -- two to retired Slack-era events with no live equivalent, one to a function (lib/comms/pipeline.py::advance()) with zero live callers whose real functional replacement (lcars-portal/src/app/api/comms/[id]/advance/route.ts) does not write decision_records/commander_decisions/decision_outcomes/quality_scores at all. All 31 historical rows already trace to these dead sources. Removed from monitored/degraded-domain reporting per Chief Engineer review, Captain-confirmed. Heartbeat call sites left in place (harmless, same convention as migration 0114). Re-activate if a real live writer is built.'
+where domain_key = 'decisions';

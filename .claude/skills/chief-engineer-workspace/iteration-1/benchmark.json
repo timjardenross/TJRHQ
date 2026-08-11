@@ -1,0 +1,268 @@
+{
+  "metadata": {
+    "skill_name": "chief-engineer",
+    "skill_path": "/opt/starship-endeavour/.claude/skills/chief-engineer",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-08-09T07:33:04Z",
+    "evals_run": [
+      0,
+      1,
+      2
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 226.2,
+        "tokens": 74876,
+        "tool_calls": 25,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+          "passed": true,
+          "evidence": "All five headers present verbatim in that order."
+        },
+        {
+          "text": "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+          "passed": true,
+          "evidence": "Cites lcars-portal/src/app/advisory-workbench/page.tsx, six named components, commit hashes 9099918/140aa7f/3f80349/1b58aad, migration file names, RLS migration numbers 0034/0100."
+        },
+        {
+          "text": "Gives a specific, actionable recommendation rather than generic advice",
+          "passed": true,
+          "evidence": "Recommendation 1: 'add at least smoke-level tests for the three views... assert each renders, submits, and handles a failed fetch without crashing' - named files, named ship-blocking gate."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 262.0,
+        "tokens": 82911,
+        "tool_calls": 39,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+          "passed": true,
+          "evidence": "Mission Status: 'Needs Captain decision... The process piece... is a governance call that belongs with Chief of Staff / Captain, not something I should decide unilaterally... per my Escalation criteria needs sign-off before I change it.' Explicitly separates the contained code fix (will do) from the process/governance change (escalates)."
+        },
+        {
+          "text": "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+          "passed": true,
+          "evidence": "Cites tools/mint_id.py, id_registry.py, commits 31d8615 and 0e7a597, MSN-0343, and finds a new fact (.id-counters.json untracked in git) not previously in the record."
+        },
+        {
+          "text": "Gives a concrete next action, not just analysis",
+          "passed": true,
+          "evidence": "Next Actions numbered 1-3: build self-healing next_id() now, sequence process items after sign-off, run reconciliation scan as stopgap."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 129.4,
+        "tokens": 76803,
+        "tool_calls": 28,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+          "passed": true,
+          "evidence": "Cites 6 real send paths with paths: core/platform/notification_service.py, platform-runtime/captain_notifications.py, core/command-centre/backend/services/notification-engine.js, tools/supabase/decision_alerter.py, core/advisory/notifications.py, core/platform/deadmans_switch.py, plus HEALTH_OSINT_WORKBENCH.md."
+        },
+        {
+          "text": "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+          "passed": true,
+          "evidence": "'Don't build a new sender. Reuse core/platform/notification_service.py' plus cites in-repo comment warning against a 'sixth notification mechanism'."
+        },
+        {
+          "text": "Ends with a specific build/reuse/defer recommendation, not just open analysis",
+          "passed": true,
+          "evidence": "Next Actions: 'Point whoever's about to start this at intelligence/adhd/task_nudge_scheduler.py as the template... no new transport/sender code required.'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.67,
+        "passed": 2,
+        "failed": 1,
+        "total": 3,
+        "time_seconds": 213.0,
+        "tokens": 103784,
+        "tool_calls": 34,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+          "passed": false,
+          "evidence": "Uses its own headers: 'Summary verdict / What's solid / The one thing to fix before shipping / Smaller items / Bottom line' - a reasonable structure, but not the skill's template."
+        },
+        {
+          "text": "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+          "passed": true,
+          "evidence": "Cites specialist-retrieval-registry.txt, shared.tsx COUNCIL roster, specific route files - arguably even more concrete on the one real finding (specialist-roster mismatch) than the with-skill run."
+        },
+        {
+          "text": "Gives a specific, actionable recommendation rather than generic advice",
+          "passed": true,
+          "evidence": "Three concrete options given for the roster-mismatch gap, one explicitly 'the thing I'd stop and fix before shipping'."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.67,
+        "passed": 2,
+        "failed": 1,
+        "total": 3,
+        "time_seconds": 146.9,
+        "tokens": 65844,
+        "tool_calls": 19,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+          "passed": false,
+          "evidence": "Response is structured as 'What Chief Engineer should do' with numbered fixes to just execute (stopgap reconciliation, drift-check tool, commit hook, doc update) - no point where it defers the process/governance decision to Captain or Chief of Staff, or frames its own authority as advisory-only."
+        },
+        {
+          "text": "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+          "passed": true,
+          "evidence": "Cites tools/MISSION-MINTING.md, id_registry.py, commits 31d8615/0e7a597, .id-counters.json backup, MSN-0357/0358 references."
+        },
+        {
+          "text": "Gives a concrete next action, not just analysis",
+          "passed": true,
+          "evidence": "Three-part plan: immediate stopgap, durable fix (drift checker + fast mint command + commit hook), explicit 'don't over-invest' scoping."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 80.1,
+        "tokens": 53672,
+        "tool_calls": 10,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+          "passed": true,
+          "evidence": "Cites core/platform/notification_service.py, core/command-centre/backend/services/notification-engine.js, platform-runtime/captain_notifications.py, plus several more."
+        },
+        {
+          "text": "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+          "passed": true,
+          "evidence": "'Recommendation: don't build a new sender. Pick one of two composition-first paths instead.'"
+        },
+        {
+          "text": "Ends with a specific build/reuse/defer recommendation, not just open analysis",
+          "passed": true,
+          "evidence": "Gives two concrete extend-existing-code paths depending on need."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 205.8667,
+        "stddev": 68.5986,
+        "min": 129.4,
+        "max": 262.0
+      },
+      "tokens": {
+        "mean": 78196.6667,
+        "stddev": 4194.8822,
+        "min": 74876,
+        "max": 82911
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.78,
+        "stddev": 0.1905,
+        "min": 0.67,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 146.6667,
+        "stddev": 66.4503,
+        "min": 80.1,
+        "max": 213.0
+      },
+      "tokens": {
+        "mean": 74433.3333,
+        "stddev": 26136.8633,
+        "min": 53672,
+        "max": 103784
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.22",
+      "time_seconds": "+59.2",
+      "tokens": "+3763"
+    }
+  },
+  "notes": [
+    "Eval 0 (notification dup-check) doesn't discriminate: both configs investigate the repo thoroughly and land on the same composition-first conclusion. Not a flaw in the skill - just means this eval alone wouldn't justify it.",
+    "Eval 2 (MSN drift) is the clearest differentiator: without the skill, the model defaults to prescribing unilateral action on a cross-cutting governance/process change; with the skill, it explicitly separates the contained code fix (does it) from the process change (escalates to Captain/Chief of Staff per its own Escalation section). This is the skill's real value-add, not just formatting.",
+    "Eval 1 (advisory-workbench review): with-skill run uses the Standard Response Format correctly, but the baseline run actually surfaced a sharper, more specific bug (18-officer vs 5-person specialist registry mismatch on the new default 'Ask' view) that the with-skill run didn't find - it focused more on test-coverage gaps instead. Worth watching in future iterations whether structure/escalation focus trades off against investigation depth on any single finding.",
+    "With-skill runs took ~40% longer on average (205.9s vs 146.7s) and used slightly more tokens - expected cost of following the fuller persona/format, not a red flag on its own given the pass-rate gain."
+  ]
+}

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Content Workbench (COMMS-002) — Capture -> Research -> Content Prep -> Proofing.
+ * Content Workbench (COMMS-002) — Capture -> Research -> Content Prep -> Proofing -> Portfolio.
  *
  * A new, standalone workbench, additive to the existing Communications
  * Workbench and Capture Workbench (neither of those is modified by this
@@ -18,19 +18,43 @@
  * same as always.
  */
 
-import { useState } from 'react';
-import { WorkbenchShell } from '@/components/ui';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { CaptureBox } from './_components/CaptureBox';
 import { ContentBoard } from './_components/ContentBoard';
+import { PortfolioTab } from './_components/PortfolioTab';
 import type { Stage } from './_components/shared';
 
-export default function ContentWorkbenchPage() {
+type Tab = 'pipeline' | 'portfolio';
+
+const TAB_OPTIONS: { key: Tab; label: string }[] = [
+  { key: 'pipeline', label: 'Pipeline' },
+  { key: 'portfolio', label: 'Portfolio' },
+];
+
+function isTab(v: string | null): v is Tab {
+  return v === 'pipeline' || v === 'portfolio';
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('tab');
+  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'pipeline');
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const refresh = () => setRefreshSignal((n) => n + 1);
 
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('tab', t);
+    router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
+  };
+
   const right = counts ? (
-    <span className="text-[11px] text-wb-ink2">
+    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
       {counts.capture + counts.research + counts.content_prep + counts.proofing} active
     </span>
   ) : null;
@@ -43,10 +67,25 @@ export default function ContentWorkbenchPage() {
       homeAriaLabel="Content Workbench home"
       tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
       right={right}
+      tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      wide
     >
-      <CaptureBox onCaptured={refresh} />
-      <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+      {tab === 'pipeline' && (
+        <>
+          <CaptureBox onCaptured={refresh} />
+          <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+        </>
+      )}
+      {tab === 'portfolio' && <PortfolioTab />}
     </WorkbenchShell>
+  );
+}
+
+export default function ContentWorkbenchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" />}>
+      <Workbench />
+    </Suspense>
   );
 }

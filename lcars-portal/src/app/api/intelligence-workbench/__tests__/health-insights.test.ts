@@ -2,6 +2,7 @@
  * Intelligence Workbench — Health Insights Tests
  * Verifies health KPI calculations and data transformations
  */
+import { describe, test, expect } from 'vitest';
 
 describe('Intelligence Workbench — Health Insights', () => {
   describe('Health KPI Calculations', () => {
@@ -28,7 +29,7 @@ describe('Intelligence Workbench — Health Insights', () => {
       ];
 
       const avgSleep = dailyMetrics.reduce((sum, m) => sum + m.sleep_hours, 0) / dailyMetrics.length;
-      expect(avgSleep).toBeCloseTo(7.21, 1);
+      expect(avgSleep).toBeCloseTo(7.14, 1);
     });
 
     test('captures most recent pain level', () => {

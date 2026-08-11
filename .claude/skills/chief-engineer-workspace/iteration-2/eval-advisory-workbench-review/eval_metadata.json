@@ -1,0 +1,10 @@
+{
+  "eval_id": 1,
+  "eval_name": "advisory-workbench-review",
+  "prompt": "Can you do an architecture review of the advisory-workbench module before we ship it?",
+  "assertions": [
+    "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+    "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+    "Gives a specific, actionable recommendation rather than generic advice"
+  ]
+}

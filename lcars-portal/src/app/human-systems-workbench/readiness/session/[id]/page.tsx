@@ -330,14 +330,14 @@ export default function WorkoutRunnerPage() {
 
   if (loading) {
     return (
-      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <p className="p-6 text-center text-sm text-wb-ink2">Loading session…</p>
       </WorkbenchShell>
     );
   }
   if (error || !plan || !sessionRow) {
     return (
-      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-3">
           <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 px-4 py-3 text-sm text-wb-crit-on">
             {error ?? 'Session could not be loaded.'}
@@ -352,7 +352,7 @@ export default function WorkoutRunnerPage() {
 
   if (phase === 'done') {
     return (
-      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
             <span className="font-serif text-2xl text-wb-ok-on">✓</span>
@@ -371,7 +371,7 @@ export default function WorkoutRunnerPage() {
 
   if (phase === 'completion') {
     return (
-      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title="Finishing Up">
             <p className="mb-2 text-[11px] uppercase tracking-[0.12em] text-wb-ink2">{SESSION_TYPE_LABELS[plan.sessionType]}</p>
@@ -459,7 +459,7 @@ export default function WorkoutRunnerPage() {
 
   if (phase === 'overview') {
     return (
-      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+      <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col gap-4">
           <Card title={SESSION_TYPE_LABELS[plan.sessionType]}>
             <div className="mb-2 flex items-center justify-between gap-3">
@@ -525,7 +525,7 @@ export default function WorkoutRunnerPage() {
   const videoUrl = ex.preferred_video_url || youtubeSearchUrl(ex.video_search_query);
 
   return (
-    <WorkbenchShell title="Session" eyebrow="Fitness Readiness" homeHref="/human-systems-workbench" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
+    <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">

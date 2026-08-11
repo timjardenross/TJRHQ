@@ -58,6 +58,28 @@ class Insight:
     source_kind: str  # 'relationship' | 'conflict'
     source_domains: list[str]
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    # Carried through from the source Relationship for dedup — see
+    # understanding_engine.Relationship.aggregation_key.
+    aggregation_key: Optional[str] = None
+
+
+# 2026-08-10: shared grounding preamble (Captain directive — Cognitive Core's
+# first live scheduled run produced a "coaching team review meeting"
+# recommendation for a solo, one-person system, and repeatedly told the
+# Captain to "suspend/audit" an intelligence source that's been failing by
+# design since MSN-0339 WP1 on every single run). The prompts below had zero
+# context on what this platform actually is or that a batch-level grouping
+# isn't itself evidence of novelty — the LLM filled both gaps with generic,
+# wrong assumptions. Shared with reasoning_engine.py's prompt for the same
+# reason: both stages make the same category of error without this.
+_PLATFORM_CONTEXT = (
+    "Context: this is USS TJR, a solo Captain's personal operations platform — "
+    "one person, no team, no company, no coaching staff, no meetings. Every "
+    "recommendation must be something ONE person can actually do themselves "
+    "(investigate, adjust a threshold, dismiss, fix a specific piece of code) — "
+    "never 'convene a team', 'schedule a review meeting', or any other "
+    "organisational-process language.\n\n"
+)
 
 
 def _build_synthesis_prompt(item: Relationship | Conflict) -> str:
@@ -65,20 +87,35 @@ def _build_synthesis_prompt(item: Relationship | Conflict) -> str:
     already found and explicitly instructed not to invent facts, only
     to explain significance. Always requests JSON-only output so the
     response can be parsed and validated, not trusted as prose."""
+    permanence_note = ""
     if isinstance(item, Relationship):
         evidence_text = item.evidence
         domains_text = ", ".join(item.domains)
+        if item.kind == "aggregation":
+            # This relationship is ONLY a same-batch count — it carries no
+            # signal about whether the underlying condition is new or has
+            # existed unchanged for weeks (e.g. an auth-gated source that
+            # fails every collection run by design). Do not let the model
+            # assume novelty it has no evidence for.
+            permanence_note = (
+                "This is a same-batch grouping only — it does not indicate whether this "
+                "condition is new or has been true, unchanged, for a long time. Do not "
+                "recommend urgent/immediate action (e.g. 'suspend', 'audit now') unless the "
+                "evidence itself states this is a change from a known baseline.\n\n"
+            )
     else:
         evidence_text = f"{item.description} (evidence: {item.evidence})"
         domains_text = ", ".join(item.domains)
 
     return (
-        "You are synthesizing ONE piece of operational meaning for a Captain, from "
+        _PLATFORM_CONTEXT
+        + "You are synthesizing ONE piece of operational meaning for a Captain, from "
         "evidence a deterministic system has already verified is real. Do not invent "
         "any fact not present below. Do not add domains, numbers, or claims beyond "
         "what is given.\n\n"
         f"Domains involved: {domains_text}\n"
         f"Verified evidence: {evidence_text}\n\n"
+        f"{permanence_note}"
         "Respond with ONLY a JSON object, no other text, with exactly these keys:\n"
         '{"observation": "one sentence stating what is happening, using only the '
         'evidence given", "why_it_matters": "one sentence explaining the operational '
@@ -166,10 +203,12 @@ def _parse_insight_response(
         evidence_chain = list(item.event_ids)
         domains = list(item.domains)
         source_kind = "relationship"
+        aggregation_key = item.aggregation_key
     else:
         evidence_chain = []  # Conflicts trace to metrics, not individual event_ids
         domains = list(item.domains)
         source_kind = "conflict"
+        aggregation_key = None
 
     return Insight(
         observation=str(data["observation"]),
@@ -179,6 +218,7 @@ def _parse_insight_response(
         potential_impact=str(data["potential_impact"]),
         source_kind=source_kind,
         source_domains=domains,
+        aggregation_key=aggregation_key,
     )
 
 
@@ -186,15 +226,30 @@ def generate_insights(
     graph: OperationalContextGraph,
     *,
     min_strength: float = 0.4,
+    recent_aggregation_keys: frozenset[str] = frozenset(),
 ) -> list[Insight]:
     """Only relationships clearing `min_strength` and all conflicts are
     sent to the LLM — the deterministic layer remains the actual gate;
     the LLM only ever sees things already judged worth surfacing, never
     the raw event stream. Returns [] (not an error) if the model router
     is unreachable or every response was malformed — a real, honest
-    empty result, not a fabricated fallback insight."""
+    empty result, not a fabricated fallback insight.
+
+    2026-08-10: `recent_aggregation_keys` skips 'aggregation'-kind
+    relationships whose (domain, event_type) identity already produced an
+    insight recently (see captain_brief_evolution.py, which fetches this
+    set from insight_outcomes before calling here). Aggregation
+    relationships describe a same-batch count, not a novel finding —
+    without this, a structurally bursty domain (e.g. Downdetector
+    collection runs, daily readiness snapshots) re-synthesizes the exact
+    same non-actionable claim on every scheduled run, forever. Filtered
+    here (before the model router call) rather than after, so the LLM
+    call — the expensive, slow step — is skipped entirely, not just its
+    output discarded."""
     candidates: list[Relationship | Conflict] = [
-        r for r in graph.relationships if r.strength >= min_strength
+        r for r in graph.relationships
+        if r.strength >= min_strength
+        and not (r.kind == "aggregation" and r.aggregation_key in recent_aggregation_keys)
     ] + list(graph.conflicts)
 
     insights: list[Insight] = []

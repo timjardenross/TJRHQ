@@ -97,8 +97,6 @@ function Workbench() {
     <WorkbenchShell
       title="Captain’s Brief"
       eyebrow={EYEBROW[domain]}
-      homeHref="/captains-brief-workbench"
-      homeAriaLabel="Captain’s Brief Workbench home"
       tagline="USS TJR · Captain’s Brief · assembled on request — reports the signals received, not an all-clear"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}

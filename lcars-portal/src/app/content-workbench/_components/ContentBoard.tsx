@@ -25,6 +25,7 @@ import { Badge, Button, Textarea, Select } from '@/components/ui';
 import {
   STAGE_LABEL,
   STAGE_HINT,
+  STAGE_ACCENT,
   PILLAR_LABEL,
   QA_CHECKLIST_ITEMS,
   rankBadgeStatus,
@@ -89,24 +90,24 @@ function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: (
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
         <input
           value={angle}
           onChange={(e) => setAngle(e.target.value)}
           placeholder="Suggested angle — confirm or rewrite"
-          className="w-full rounded-md border border-wb-line bg-wb-surface px-2 py-1.5 text-[12px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+          className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
         />
       </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
-        <Textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[12px]"
+        <Textarea rows={7} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[13.5px] leading-relaxed"
           aria-label={`Research notes for ${item.title}`} />
       </div>
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
-        <Textarea rows={2} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[12px] font-mono"
+        <Textarea rows={3} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[13px] font-mono"
           aria-label={`Sources for ${item.title}`} />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -117,7 +118,7 @@ function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: (
           Mark Research Complete →
         </Button>
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
@@ -150,23 +151,23 @@ function ResearchStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   }
 
   return (
-    <div className="space-y-2 text-[12px]">
+    <div className="space-y-3 text-[13.5px]">
       {item.research_angle && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Angle</p>
-          <p className="italic text-wb-ink">{item.research_angle}</p>
+          <p className="italic leading-relaxed text-wb-ink">{item.research_angle}</p>
         </div>
       )}
       {item.research_notes && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
-          <p className="whitespace-pre-wrap text-wb-ink">{item.research_notes}</p>
+          <p className="whitespace-pre-wrap leading-relaxed text-wb-ink">{item.research_notes}</p>
         </div>
       )}
       {item.research_sources && item.research_sources.length > 0 && (
         <div>
           <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Sources</p>
-          <ul className="list-inside list-disc text-wb-ink">
+          <ul className="list-inside list-disc leading-relaxed text-wb-ink">
             {item.research_sources.map((s, i) => (
               <li key={i}>{s.url ?? s.label}</li>
             ))}
@@ -181,7 +182,7 @@ function ResearchStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
           {generating ? 'Generating…' : '✍ Generate Draft →'}
         </Button>
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
@@ -245,8 +246,8 @@ function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; onChange
   }
 
   return (
-    <div className="space-y-2">
-      <Textarea rows={9} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[12px]"
+    <div className="space-y-3">
+      <Textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[13.5px] leading-relaxed"
         aria-label={`Draft body for ${item.title}`} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={saveEdit} disabled={saving}>
@@ -260,22 +261,37 @@ function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; onChange
         </Button>
       </div>
       {showHistory && (
-        <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-2">
-          {revisions.length === 0 && <p className="text-[11px] text-wb-ink2">No revisions yet.</p>}
+        <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-3">
+          {revisions.length === 0 && <p className="text-[12px] text-wb-ink2">No revisions yet.</p>}
           {revisions.map((r) => (
-            <div key={r.id} className="border-b border-wb-line/60 pb-1 text-[11px] last:border-0">
+            <div key={r.id} className="border-b border-wb-line/60 pb-2 text-[12px] last:border-0">
               <p className="text-wb-ink2">{new Date(r.created_at).toLocaleString('en-AU')} · {r.edited_by ?? '—'}</p>
-              <p className="line-clamp-2 text-wb-ink">{r.body}</p>
+              <p className="line-clamp-3 text-wb-ink">{r.body}</p>
             </div>
           ))}
         </div>
       )}
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
 
-// ── Proofing stage body: QA checklist + approve ───────────────────────────────
+// ── Proofing stage body: AI-assisted QA + approve + publish submission ───────
+
+interface AiReview {
+  accuracy: boolean | null; accuracy_note: string;
+  brand_voice: boolean | null; brand_voice_note: string;
+  compliance: boolean | null; compliance_note: string;
+  links_checked: boolean | null; links_note: string;
+  overall_notes: string;
+}
+
+const AI_NOTE_KEY: Record<string, keyof AiReview> = {
+  accuracy: 'accuracy_note',
+  brand_voice: 'brand_voice_note',
+  compliance: 'compliance_note',
+  links_checked: 'links_note',
+};
 
 function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
   const existing = (item.qa_checklist ?? {}) as Record<string, unknown>;
@@ -389,23 +405,81 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
           {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
         </Button>
         {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
+  if (item.status === 'approved' || item.status === 'ready_to_publish') {
+    return (
+      <div className="space-y-2 text-[13.5px]">
+        <p className="flex flex-wrap items-center gap-1.5 text-wb-ok-on">
+          <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Approved</span>
+          <span className="text-wb-ink2">
+            {item.reviewed_by ? `by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}
+          </span>
+        </p>
+        <Button size="sm" onClick={publish} disabled={publishBusy} className="w-full">
+          {publishBusy ? 'Publishing…' : 'Publish →'}
+        </Button>
+        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 text-[12px]">
-      <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-2 text-[12px] text-wb-ink">{item.body}</div>
-      <div className="space-y-1.5">
-        {QA_CHECKLIST_ITEMS.map((c) => (
-          <label key={c.key} className="flex items-center gap-2">
-            <input type="checkbox" checked={checks[c.key]} onChange={(e) => setChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))}
-              className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
-            {c.label}
-          </label>
-        ))}
+    <div className="space-y-3 text-[13.5px]">
+      <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-wb-sage/50 bg-wb-sage/5 p-2.5">
+        <span aria-hidden className="text-[13px]">🤖</span>
+        <p className="text-[12px] text-wb-ink2">AI can take a first pass at the checklist below — you review and confirm.</p>
+        <Button size="sm" variant="secondary" onClick={runAiReview} disabled={aiBusy} className="ml-auto">
+          {aiBusy ? 'Reviewing…' : 'Run AI Review →'}
+        </Button>
+      </div>
+      {aiMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>}
+
+      {!suggestedBody ? (
+        <div className="space-y-1.5 rounded-lg border border-dashed border-wb-warn/50 bg-wb-warn/5 p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span aria-hidden className="text-[13px]">✎</span>
+            <p className="text-[12px] text-wb-ink2">Or have AI propose a revised draft that addresses the concerns above.</p>
+            <Button size="sm" variant="secondary" onClick={requestPolish} disabled={polishBusy} className="ml-auto">
+              {polishBusy ? 'Revising…' : 'Ask AI to Revise Draft →'}
+            </Button>
+          </div>
+          <input value={polishInstructions} onChange={(e) => setPolishInstructions(e.target.value)}
+            placeholder="Optional: steer it — e.g. ‘tighten the close’, ‘cut the stat in paragraph 2’"
+            className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-wb-warn/50 bg-wb-warn/5 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-warn-on">AI Suggested Revision</p>
+          <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-surface p-3 leading-relaxed text-wb-ink">{suggestedBody}</div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={applySuggestion} disabled={applyingSuggestion}>
+              {applyingSuggestion ? 'Applying…' : 'Apply This Revision'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setSuggestedBody(null)} disabled={applyingSuggestion}>
+              Discard Suggestion
+            </Button>
+          </div>
+        </div>
+      )}
+      {polishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>}
+
+      <div className="space-y-2 rounded-md border border-wb-line bg-wb-surface p-3">
+        {QA_CHECKLIST_ITEMS.map((c) => {
+          const note = aiReview?.[AI_NOTE_KEY[c.key]];
+          return (
+            <div key={c.key}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={checks[c.key]} onChange={(e) => setChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))}
+                  className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+                {c.label}
+              </label>
+              {note && <p className="ml-6 mt-0.5 text-[11.5px] italic text-wb-ink2">🤖 {note}</p>}
+            </div>
+          );
+        })}
         <input value={qaNotes} onChange={(e) => setQaNotes(e.target.value)} placeholder="QA notes (optional)"
-          className="w-full rounded-md border border-wb-line bg-wb-surface px-2 py-1.5 text-[12px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={saveQa} disabled={saving}>
@@ -418,57 +492,82 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         )}
         {qaStatus === 'qa_failed' && <Badge status="warning">QA incomplete</Badge>}
       </div>
-      {msg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
     </div>
   );
 }
 
-// ── Card shell ─────────────────────────────────────────────────────────────
+// ── Card shell — collapsed preview + Modal detail view ───────────────────────
 
 function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const accent = STAGE_ACCENT[item.stage];
 
   async function doDiscard() {
     setDiscarding(true);
     try {
       const res = await discard(item.id);
-      if (res.ok) onChanged();
+      if (res.ok) { setOpen(false); onChanged(); }
     } finally {
       setDiscarding(false);
     }
   }
 
+  const chipRow = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <RankBadge score={item.rank_score} />
+      {item.pillar && (
+        <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
+          {PILLAR_LABEL[item.pillar] ?? item.pillar}
+        </span>
+      )}
+      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">⭐ Priority</span>}
+      {item.sensitive && <Badge status="error">⚠ Sensitive</Badge>}
+    </div>
+  );
+
   return (
-    <div className="rounded-lg border border-wb-line bg-wb-surface">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        className="w-full space-y-1.5 rounded-lg p-3 text-left transition-colors hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <RankBadge score={item.rank_score} />
-          {item.pillar && <span className="text-[11px] text-wb-ink2">{PILLAR_LABEL[item.pillar] ?? item.pillar}</span>}
-          {item.captain_focus && <span className="text-[11px] text-wb-warn-on">⭐ Captain Priority</span>}
-          {item.sensitive && <Badge status="error">⚠ Sensitive</Badge>}
-          <span className="ml-auto text-[10px] text-wb-ink2">{open ? '▲' : '▼'}</span>
+    <>
+      <div className="overflow-hidden rounded-xl border border-wb-line bg-wb-surface shadow-sm transition-all hover:shadow-md">
+        <div className="flex">
+          <span className={`w-[3px] shrink-0 ${accent.bar}`} aria-hidden />
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full space-y-1.5 p-3 text-left transition-colors hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {chipRow}
+              <span aria-hidden className="ml-auto text-[13px] text-wb-ink2">⤢</span>
+            </div>
+            <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+          </button>
         </div>
-        <p className="text-[13px] font-medium leading-snug text-wb-ink">{item.title}</p>
-      </button>
+        <p className="border-t border-wb-line/70 px-3 py-1.5 text-[10px] text-wb-ink2">
+          Created {item.created_at.slice(0, 10)}
+          {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
+        </p>
+      </div>
 
-      {open && (
-        <div className="space-y-3 border-t border-wb-line px-3 py-3">
-          {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'content_prep' && <ContentPrepStageBody item={item} onChanged={onChanged} />}
-          {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
+      <Modal open={open} onClose={() => { setOpen(false); setConfirmingDiscard(false); }} title={item.title} variant="preview">
+        <div className="mb-4 space-y-2">
+          {chipRow}
+          <p className="text-[11px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
+        </div>
 
+        {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'content_prep' && <ContentPrepStageBody item={item} onChanged={onChanged} />}
+        {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
+
+        <div className="mt-4 border-t border-wb-line pt-3">
           {!confirmingDiscard ? (
             <button type="button" onClick={() => setConfirmingDiscard(true)}
-              className="text-[11px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
+              className="text-[12px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
               Discard this item
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
-              <p className="flex-1 text-[11px] text-wb-crit-on">Discard? It&rsquo;s removed from the board, not deleted.</p>
+              <p className="flex-1 text-[12px] text-wb-crit-on">Discard? It&rsquo;s removed from the board, not deleted.</p>
               <Button size="sm" variant="danger" onClick={doDiscard} disabled={discarding}>
                 {discarding ? 'Discarding…' : 'Confirm'}
               </Button>
@@ -477,28 +576,28 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
               </Button>
             </div>
           )}
-
-          <p className="text-[10px] text-wb-ink2">
-            Created {item.created_at.slice(0, 10)}
-            {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
-          </p>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }
 
 // ── Column + board ─────────────────────────────────────────────────────────
 
 function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[]; onChanged: () => void }) {
+  const accent = STAGE_ACCENT[stage];
   return (
     <div role="region" aria-label={`${STAGE_LABEL[stage]}, ${items.length} item${items.length === 1 ? '' : 's'}`}
-      className="flex min-w-[260px] flex-1 flex-col gap-2">
-      <div className="rounded-md border border-wb-line bg-wb-surface px-2 py-1.5 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
-        <p className="text-[10px] text-wb-ink2">{items.length} item{items.length === 1 ? '' : 's'}</p>
-        <p className="mt-0.5 text-[9px] italic text-wb-ink2/80">{STAGE_HINT[stage]}</p>
+      className={`flex min-w-[264px] flex-1 flex-col gap-2 rounded-xl ${accent.header} p-1.5`}>
+      <div className="overflow-hidden rounded-lg border border-wb-line bg-wb-surface">
+        <div className={`h-1 ${accent.bar}`} aria-hidden />
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+          <span aria-hidden className="text-[12px]">{accent.icon}</span>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
+          <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${accent.chip}`}>{items.length}</span>
+        </div>
       </div>
+      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2/80">{STAGE_HINT[stage]}</p>
       <div className="flex flex-col gap-2" role="list" aria-label={`Items in ${STAGE_LABEL[stage]}`}>
         {items.map((item) => (<ItemCard key={item.id} item={item} onChanged={onChanged} />))}
         {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2/60">Empty</p>}
@@ -507,10 +606,77 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
   );
 }
 
+/** Compact funnel strip above the board — quick read of where volume sits.
+ * 2026-08-09 mobile/iPad review (P1): below `sm` this doubles as the stage
+ * picker for the single-column mobile board (see ContentBoard) — tapping
+ * a stage here is how you switch which column you're looking at, instead
+ * of horizontal-scrolling through all 4 at once. Above `sm` it's still
+ * just a read-only overview, unchanged. */
+function PipelineOverview({
+  counts,
+  activeStage,
+  onSelectStage,
+}: {
+  counts: Record<Stage, number>;
+  activeStage?: Stage;
+  onSelectStage?: (stage: Stage) => void;
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-1.5 overflow-x-auto rounded-lg border border-wb-line bg-wb-surface px-2.5 py-2">
+      {STAGES.map((stage, i) => {
+        const accent = STAGE_ACCENT[stage];
+        const isActive = onSelectStage && activeStage === stage;
+        const chip = (
+          <div className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ${isActive ? 'bg-wb-line' : ''}`}>
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${accent.bar}`} aria-hidden>
+              {counts[stage]}
+            </span>
+            <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
+          </div>
+        );
+        return (
+          <div key={stage} className="flex shrink-0 items-center gap-1.5">
+            {onSelectStage ? (
+              <button type="button" onClick={() => onSelectStage(stage)} aria-pressed={isActive}
+                className="rounded-full transition active:scale-95 sm:pointer-events-none">
+                {chip}
+              </button>
+            ) : chip}
+            {i < STAGES.length - 1 && <span className="text-wb-ink2/40" aria-hidden>→</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: number; onLoaded?: (counts: Record<Stage, number>) => void }) {
   const [items, setItems] = useState<ContentItem[]>([]);
+  const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 2026-08-09 mobile/iPad review (P1): the 4-column board's only mobile
+  // fallback was horizontal-scroll through all 4 at min-w-[264px] each —
+  // functional but a real working-memory cost on a phone (easy to lose
+  // which column you scrolled to, no way to see "what's in each stage"
+  // without scrolling through all of them). Below `sm`, render exactly
+  // one stage at a time instead, switched via the PipelineOverview strip
+  // acting as a stage picker.
+  const [activeMobileStage, setActiveMobileStage] = useState<Stage>('capture');
+  // 2026-08-09 fix: the mobile single-column board always opened on
+  // 'capture' regardless of where the actual items were, so a Captain
+  // opening the board on a phone with nothing to capture (the common
+  // case — most work sits in later stages) landed on an empty column
+  // and had to know to tap over. Auto-pick the first non-empty stage on
+  // the initial load only; once the Captain has tapped a stage
+  // themselves, respect that choice on subsequent refreshes instead of
+  // yanking them back.
+  const userPickedMobileStage = useRef(false);
+
+  function selectMobileStage(stage: Stage) {
+    userPickedMobileStage.current = true;
+    setActiveMobileStage(stage);
+  }
 
   async function load() {
     setLoading(true);
@@ -520,7 +686,12 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to load board');
       setItems(data.items ?? []);
+      setCounts(data.counts ?? null);
       if (onLoaded) onLoaded(data.counts);
+      if (!userPickedMobileStage.current && data.counts) {
+        const firstNonEmpty = STAGES.find((s) => (data.counts[s] ?? 0) > 0);
+        if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load board');
     } finally {
@@ -538,11 +709,21 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       {loading && <p className="text-sm text-wb-ink2">Loading board…</p>}
       {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
       {!loading && !error && (
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {STAGES.map((stage) => (
-            <Column key={stage} stage={stage} items={items.filter((i) => i.stage === stage)} onChanged={load} />
-          ))}
-        </div>
+        <>
+          {counts && (
+            <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={selectMobileStage} />
+          )}
+          {/* sm+: full multi-column board, unchanged. */}
+          <div className="hidden gap-3 overflow-x-auto pb-2 sm:flex">
+            {STAGES.map((stage) => (
+              <Column key={stage} stage={stage} items={items.filter((i) => i.stage === stage)} onChanged={load} />
+            ))}
+          </div>
+          {/* below sm: single active stage only, picked via the strip above. */}
+          <div className="sm:hidden">
+            <Column stage={activeMobileStage} items={items.filter((i) => i.stage === activeMobileStage)} onChanged={load} />
+          </div>
+        </>
       )}
     </div>
   );

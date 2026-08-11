@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 
 // MSN-0180: Statuses eligible for engineering handoff
 // Decision: use 'Approved for Engineering' as the target status (new, added in MSN-0180 migration).
@@ -96,6 +97,16 @@ export async function POST(
       actor:      officer,
       evidence:   JSON.stringify({ action: 'handoff', source }),
     }); } catch { /* non-fatal */ } })();
+
+    // Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+    // final-4-domains.md): confirmed-live via tg-xo.service's
+    // /handoff_engineering command. See that doc for the full multi-writer
+    // disposition of the `missions` domain.
+    void recordHeartbeatServerSide({
+      domainKey: 'missions',
+      status: 'ok',
+      detail: `handoff mission_id=${mission.mission_id}`,
+    });
 
     return NextResponse.json({
       mission_id:      mission.mission_id,

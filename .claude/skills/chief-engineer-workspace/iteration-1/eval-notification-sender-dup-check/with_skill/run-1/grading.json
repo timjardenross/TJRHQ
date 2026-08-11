@@ -1,0 +1,22 @@
+{
+  "expectations": [
+    {
+      "text": "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+      "passed": true,
+      "evidence": "Cites 6 real send paths with paths: core/platform/notification_service.py, platform-runtime/captain_notifications.py, core/command-centre/backend/services/notification-engine.js, tools/supabase/decision_alerter.py, core/advisory/notifications.py, core/platform/deadmans_switch.py, plus HEALTH_OSINT_WORKBENCH.md."
+    },
+    {
+      "text": "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+      "passed": true,
+      "evidence": "'Don't build a new sender. Reuse core/platform/notification_service.py' plus cites in-repo comment warning against a 'sixth notification mechanism'."
+    },
+    {
+      "text": "Ends with a specific build/reuse/defer recommendation, not just open analysis",
+      "passed": true,
+      "evidence": "Next Actions: 'Point whoever's about to start this at intelligence/adhd/task_nudge_scheduler.py as the template... no new transport/sender code required.'"
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 28},
+  "timing": {"executor_duration_seconds": 129.4}
+}

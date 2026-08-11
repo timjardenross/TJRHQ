@@ -5,16 +5,30 @@
 // this workbench has zero import dependency on comms-workbench/_components/
 // (per the design-system barrel rule: never reach into a sibling workbench's
 // _components/).
+//
+// 2026-08 visual redesign (agency-tool pass, Content Workbench only — see
+// ContentBoard.tsx/CaptureBox.tsx): STAGE_ACCENT below is the one new piece
+// of shared state it needed — a maturity-gradient palette (neutral -> sage
+// -> amber -> green) reusing only existing wb-* tokens, no new Tailwind
+// config. No other workbench reads this file, so this stays scoped.
 
 import type { BadgeStatus } from '@/components/ui';
 
 export type Stage = 'capture' | 'research' | 'content_prep' | 'proofing';
 
+// proofing's label carries both names on purpose: the board calls this
+// stage "Proofing" but the underlying comms_content.status value items
+// sit in here under is 'review' (or 'approved'/'ready_to_publish') —
+// and the Telegram EOD/morning brief's "CONTENT REVIEW" section prints
+// that raw status verbatim (captains_brief.py's _get_content_review_queue).
+// A Captain reading "review" in the brief had nothing in the UI to match
+// it against, since no column was ever labelled "Review". Chief Engineer
+// content-workbench review, 2026-08-09, finding #3.
 export const STAGE_LABEL: Record<Stage, string> = {
   capture: 'Capture',
   research: 'Research',
   content_prep: 'Content Prep',
-  proofing: 'Proofing',
+  proofing: 'Proofing / Review',
 };
 
 export const STAGE_HINT: Record<Stage, string> = {
@@ -77,3 +91,45 @@ export const QA_CHECKLIST_ITEMS: Array<{ key: 'accuracy' | 'brand_voice' | 'comp
   { key: 'compliance', label: 'No sensitive workplace, client, or health detail exposed' },
   { key: 'links_checked', label: 'Links (if any) resolve and match the claim' },
 ];
+
+// ── Portfolio export helpers — duplicated from comms-workbench/_components/
+// shared.ts on purpose (same rule as PILLAR_LABEL above: never import across
+// a sibling workbench's _components/). No domain field here — Content
+// Workbench doesn't surface the health/operational split comms-workbench
+// does, Portfolio here is just "everything published," full stop.
+
+export interface PublishedItem {
+  id: string;
+  title: string;
+  pillar: string | null;
+  body: string | null;
+  updated_at: string;
+}
+
+export function toMarkdown(item: PublishedItem) {
+  const lines = [`# ${item.title}`, ''];
+  if (item.body) lines.push(item.body, '');
+  lines.push('---', `**Pillar:** ${PILLAR_LABEL[item.pillar ?? ''] ?? item.pillar ?? '—'}`);
+  lines.push(`**Published:** ${item.updated_at.slice(0, 10)}`);
+  return lines.join('\n');
+}
+
+export function toPlainText(item: PublishedItem) {
+  const lines = [item.title, ''];
+  if (item.body) lines.push(item.body, '');
+  lines.push(`Pillar: ${PILLAR_LABEL[item.pillar ?? ''] ?? item.pillar ?? '—'}`);
+  lines.push(`Published: ${item.updated_at.slice(0, 10)}`);
+  return lines.join('\n');
+}
+
+export function download(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

@@ -41,19 +41,32 @@ const config: Config = {
     extend: {
       colors: {
         // ── Phase B Intelligence Workbench — warm brand palette ────────
-        // TJR Mind & Body direction (Phase-B design sign-off, D6). `ink`/`ink2`
-        // on `bg`/`surface` pass WCAG AA as text; `sage` is an accent for
-        // fills/borders/large-text only (fails AA as small text), `sage-deep`
-        // is the text-safe variant. Validate any new pairing with the method in
-        // docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        // 2026-08-09: re-pulled from the live TJR Mind & Body site
+        // (tjrmindbody.com/about's actual compiled CSS, not guessed) —
+        // this token set was always meant to match that brand ("TJR Mind
+        // & Body direction", Phase-B design sign-off) but had drifted to a
+        // generic sage-green palette that never matched the real site's
+        // teal/navy/cream/gold system. `sage`/`sage-deep` keep their
+        // existing names (hundreds of call sites) but now hold the site's
+        // real teal values — bg-wb-sage-deep etc. re-theme automatically,
+        // no call-site changes needed. `ink`/`ink2` on `bg`/`surface` pass
+        // WCAG AA as text; `sage` is an accent for fills/borders/large-text
+        // only (fails AA as small text — 4.05:1, same constraint the old
+        // value had), `sage-deep` is the text-safe variant (7.85:1 on
+        // white). `gold` is a decorative/border accent ONLY (2.1-2.3:1 —
+        // fails AA badly as text at any size; the real site only ever uses
+        // it for blockquote borders, never text). Validate any new pairing
+        // with the method in docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
         wb: {
-          bg:       '#FAF8F3',
+          bg:       '#F7F4EE',
           surface:  '#FFFFFF',
-          line:     '#E8E5DC',
-          ink:      '#2D2D2D',
-          ink2:     '#5A5A5A',
-          sage:     '#8B9E8B',
-          'sage-deep': '#52604F',
+          line:     '#E3E8E4',
+          ink:      '#1A2035',
+          ink2:     '#475569',
+          sage:     '#2E8B8B',
+          'sage-deep': '#0F5B5D',
+          navy:     '#1B365D',
+          gold:     '#C9A84C',
           ok:       '#6B8E6B',
           warn:     '#B57A34',
           crit:     '#C85A54',

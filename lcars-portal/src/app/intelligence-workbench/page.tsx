@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
-type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
+type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
 type Payload = { domain: Domain; [key: string]: any };
 
@@ -12,10 +13,18 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'intelligence-summary', label: 'Intelligence Summary' },
   { key: 'source-network', label: 'Source Trust Network' },
   { key: 'threat-assessment', label: 'Threat Assessment' },
+  { key: 'credibility', label: 'Signal Credibility' },
 ];
 
-export default function OSINTWorkbench() {
-  const [domain, setDomain] = useState<Domain>('confidence-matrix');
+function isDomain(v: string | null): v is Domain {
+  return DOMAIN_OPTIONS.some((o) => o.key === v);
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('domain');
+  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'confidence-matrix');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +36,7 @@ export default function OSINTWorkbench() {
       'intelligence-summary': '/api/intelligence-workbench/intelligence-summary',
       'source-network': '/api/intelligence-workbench/source-network',
       'threat-assessment': '/api/intelligence-workbench/threat-assessment',
+      'credibility': '/api/intelligence-workbench/credibility',
     };
     return fetch(endpoints[domain])
       .then(async (r) => {
@@ -44,20 +54,55 @@ export default function OSINTWorkbench() {
 
   useEffect(() => { load(true); }, [load]);
 
+  const setDomain = (d: Domain) => {
+    setDomainState(d);
+    // Keep the URL shareable/bookmarkable without a full navigation —
+    // matches human-systems-workbench's pattern. Previously a refresh
+    // on a non-default tab silently dropped back to Confidence Matrix.
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('domain', d);
+    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
+  };
+
+  const renderSignal = (s: any) => (
+    <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+      {s.canonical_url ? (
+        <a href={s.canonical_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+          {s.raw_title}
+        </a>
+      ) : (
+        <div className="font-semibold text-wb-ink">{s.raw_title}</div>
+      )}
+      <div>
+        {s.source_name}
+        {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+        {s.risk_rating && <> • Risk: {s.risk_rating}</>}
+        {s.sector && <> • {s.sector.replace(/_/g, ' ')}</>}
+        {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
+      </div>
+      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+    </div>
+  );
+
   return (
     <WorkbenchShell
-      title="OSINT Intelligence Workbench"
-      eyebrow="Intelligence Operations"
-      homeHref="/intelligence-workbench"
+      title="Technical OSINT Workbench"
+      eyebrow="Cyber & Infrastructure Intelligence"
       tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"
-      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
+      tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
+      back={{ href: '/workbenches', label: 'Workbenches' }}
     >
+      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Technical OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Category & Confidence">
-            <div className="grid grid-cols-2 gap-4 text-[12px] text-wb-ink2">
+            {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
+                each category ~170px on a 375px phone for a name + 4
+                stacked confidence counts — tight but the real fix is just
+                not forcing 2 columns below sm. */}
+            <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>
@@ -78,38 +123,17 @@ export default function OSINTWorkbench() {
         <div className="space-y-4">
           {data.high?.length > 0 && (
             <Card title="🟢 HIGH CONFIDENCE">
-              <div className="space-y-2">
-                {data.high.slice(0, 5).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.high.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
             <Card title="🟡 MEDIUM CONFIDENCE">
-              <div className="space-y-2">
-                {data.medium.slice(0, 5).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score.toFixed(1)}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.medium.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
             <Card title="🔴 LOW CONFIDENCE">
-              <div className="space-y-2">
-                {data.low.slice(0, 3).map((s: any) => (
-                  <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{s.raw_title}</div>
-                    <div>{s.source_name}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.low.slice(0, 8).map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
@@ -119,6 +143,7 @@ export default function OSINTWorkbench() {
                   <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{u.title}</div>
                     <div>{u.impact}</div>
+                    {u.need && <div className="italic">Need: {u.need}</div>}
                   </div>
                 ))}
               </div>
@@ -132,22 +157,24 @@ export default function OSINTWorkbench() {
           <Card title="Cross-Source Corroboration">
             <div className="text-[12px] text-wb-ink2 space-y-1">
               {Object.entries(data.correlations || {})
-                .slice(0, 5)
-                .map(([srcId, info]: any) => (
-                  <div key={srcId}>
-                    Source: {srcId} • {info.signals} signals • {info.confirmCount} confirmations
+                .sort((a: any, b: any) => b[1].signal_count - a[1].signal_count)
+                .slice(0, 8)
+                .map(([sourceName, info]: any) => (
+                  <div key={sourceName}>
+                    {sourceName} • {info.signal_count} signals • {info.corroboration_count} corroborated • avg confirmation {info.avg_confirmation_per_signal}
                   </div>
                 ))}
             </div>
           </Card>
-          <Card title="Source Trending">
+          <Card title="Source Trending (30-day)">
             <div className="text-[12px] text-wb-ink2 space-y-1">
               {data.trending?.map((t: any) => (
                 <div key={t.source}>
-                  {t.source} {t.direction === 'up' ? '↗' : t.direction === 'stable' ? '→' : '↘'} {t.from} → {t.to}
+                  {t.source} {t.direction === 'up' ? '↗' : t.direction === 'down' ? '↘' : t.direction === 'stable' ? '→' : '—'} {t.from ?? '?'} → {t.to ?? '?'}
                 </div>
               ))}
             </div>
+            {data.note && <p className="mt-2 text-[11px] italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -160,21 +187,67 @@ export default function OSINTWorkbench() {
                 <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">{t.threat}</div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()}</div>
+                  <div className="italic">{t.recommendation}</div>
                 </div>
               ))}
+              {!data.threats?.length && <p>No signals above rank_score 70 in this window.</p>}
             </div>
           </Card>
           {data.gaps?.length > 0 && (
             <Card title="Coverage Gaps">
               <div className="text-[12px] text-wb-ink2 space-y-1">
                 {data.gaps.map((g: any) => (
-                  <div key={g.area}>{g.area}: {g.risk}</div>
+                  <div key={g.area}>{g.area}: {g.risk} — {g.blind_spot}</div>
                 ))}
               </div>
             </Card>
           )}
         </div>
       )}
+
+      {domain === 'credibility' && data && (
+        <div className="space-y-6">
+          <Card title="Latest Published Brief">
+            {data.brief?.brief_id ? (
+              <div className="text-[12px] text-wb-ink2 space-y-1">
+                <div>Overall risk: <span className="font-semibold text-wb-ink">{data.brief.overall_risk ?? 'unknown'}</span></div>
+                <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
+                {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
+              </div>
+            ) : (
+              <p className="text-[12px] text-wb-ink2">No published brief in this window.</p>
+            )}
+          </Card>
+          <Card title="Brief Composition by Source Tier">
+            <div className="text-[12px] text-wb-ink2 space-y-1">
+              <div>TIER_1: {data.brief?.tier_counts?.TIER_1 ?? 0} ({data.brief?.composition?.tier1_pct ?? 0}%)</div>
+              <div>TIER_2: {data.brief?.tier_counts?.TIER_2 ?? 0} ({data.brief?.composition?.tier2_pct ?? 0}%)</div>
+              <div>TIER_3: {data.brief?.tier_counts?.TIER_3 ?? 0} ({data.brief?.composition?.tier3_pct ?? 0}%)</div>
+              <div>TIER_4: {data.brief?.tier_counts?.TIER_4 ?? 0} ({data.brief?.composition?.tier4_pct ?? 0}%)</div>
+              <div className="mt-1 font-semibold text-wb-ink">Total signals: {data.brief?.total_signals ?? 0}</div>
+            </div>
+          </Card>
+          <Card title="High-Confidence Signals">
+            <div className="space-y-2">
+              {data.signals?.slice(0, 10).map((s: any) => (
+                <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                  <div className="font-semibold text-wb-ink">{s.raw_title}</div>
+                  <div>{s.source.source_name} ({s.source.tier}, srs={s.source.srs}) • {s.confidence_level} confidence • {s.corroboration} corroborating • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
+                </div>
+              ))}
+              {!data.signals?.length && <p>No signals ≥60% confidence in this window.</p>}
+            </div>
+          </Card>
+        </div>
+      )}
     </WorkbenchShell>
+  );
+}
+
+export default function OSINTWorkbench() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" />}>
+      <Workbench />
+    </Suspense>
   );
 }

@@ -1,80 +1,21 @@
-// WORKBENCHES IS NOW THE HOME PAGE (after login).
+// WORKBENCHES IS THE HOME PAGE (after login).
 //
-// Per MSN-0350/EOS redesign: after authentication, users land on this
-// workbench hub instead of a static Home screen. Every experience is
-// reachable from here as a direct tile, emphasizing choice and deliberate
-// navigation over passive info-pushing.
+// Per MSN-0350/EOS redesign, then confirmed and made literally true by the
+// 2026-08 UX review: root '/' redirects here (see app/page.tsx), and the
+// prior /home "needs attention" triage feed is retired (see
+// home/page.tsx) — this directory of direct tiles is the one canonical
+// landing surface, not an alternative to something else.
 //
-// This page replaces the previous Home (HomeScreen) per design decision
-// 2026-07-18. Root redirect now goes to /workbenches instead of /home.
+// Tile content now comes from lib/workbenches.ts's LIVE_WORKBENCHES,
+// shared with WorkbenchShell's persistent switcher, so the two lists
+// can't drift the way this file's own local array once did (its Content
+// Workbench description kept describing a "Captain approval in Decide"
+// step for weeks after that step was removed from the actual pipeline).
 'use client';
 
 import Link from 'next/link';
-import { Card, BackLink } from '@/components/ui';
-
-interface Tile {
-  href: string;
-  title: string;
-  description: string;
-}
-
-const TILES: Tile[] = [
-  {
-    href: '/captains-chair-workbench',
-    title: 'Captain\'s Chair',
-    description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
-  },
-  {
-    href: '/intelligence-workbench',
-    title: 'Intelligence Workbench',
-    description: 'Operational resilience signals and health intelligence, live ORI feed.',
-  },
-  {
-    href: '/comms-workbench',
-    title: 'Communications Workbench',
-    description: 'Signals to opportunities, pipeline, and portfolio for comms content.',
-  },
-  {
-    href: '/content-workbench',
-    title: 'Content Workbench',
-    description: 'Capture, research, draft, proof, and submit comms content for publish approval end-to-end - one QA-gated pipeline, Captain approval still required in Decide.',
-  },
-  {
-    href: '/mission-workbench',
-    title: 'Mission Workbench',
-    description: 'Mission Registry - capacity-aware filtering, governed approve/reject, status updates. Live from the missions table.',
-  },
-  {
-    href: '/human-systems-workbench',
-    title: 'Human Systems Workbench',
-    description: 'Recovery posture, medical tracking, and physical readiness in one collection - live from the recovery-pulse signal.',
-  },
-  {
-    href: '/advisory-workbench',
-    title: 'Advisory Workbench',
-    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
-  },
-  {
-    href: '/capture-workbench',
-    title: 'Capture Workbench',
-    description: 'Capture anything in one box, then triage the inbox - classify, route, and promote, review-first. Live from every capture channel.',
-  },
-  {
-    href: '/captains-brief-workbench',
-    title: 'Captains Brief Workbench',
-    description: 'The continuous Captains Brief (MSN-0313) - summary, priorities, warnings, interrupts, and by-domain signals, assembled on request from the live event pipeline.',
-  },
-  {
-    href: '/self-improvement-findings',
-    title: 'Self-Improvement Findings',
-    description: 'Findings, decisions, and audit trail from the self-improvement system.',
-  },
-  {
-    href: '/knowledge-workbench',
-    title: 'Knowledge Workbench',
-    description: 'Access organisational decisions, lessons, architecture, and review personal documents for approval into Command Memory.',
-  },
-];
+import { Card, QuickCapture } from '@/components/ui';
+import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 
 export default function Workbenches() {
   return (
@@ -84,8 +25,12 @@ export default function Workbenches() {
         <p className="mb-8 text-[13px] text-wb-ink2">
           Choose a workbench or surface to navigate to. Every real experience is reachable from here.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {TILES.map((t) => (
+        {/* 2026-08-09 mobile/iPad review (P3): stayed 2-col from sm all the
+            way through desktop, never using iPad landscape/desktop's extra
+            width. lg:grid-cols-3 only kicks in at 1024px+, so mobile/iPad
+            portrait behavior (1-col below sm, 2-col sm-lg) is unchanged. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {LIVE_WORKBENCHES.map((t) => (
             <Link key={t.href} href={t.href} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep rounded-lg">
               <Card className="h-full transition hover:-translate-y-px hover:border-wb-sage-deep">
                 <h2 className="mb-1.5 font-serif text-[16px] text-wb-ink">{t.title}</h2>
@@ -95,6 +40,7 @@ export default function Workbenches() {
           ))}
         </div>
       </main>
+      <QuickCapture />
     </div>
   );
 }

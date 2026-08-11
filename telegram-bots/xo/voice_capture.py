@@ -193,6 +193,14 @@ def save_capture(
     result = supabase.table("captured_items").insert(row).execute()
     if not result.data:
         raise RuntimeError("Supabase insert returned no data for captured_items")
+    # Chief Engineer 2026-08-09 EOD alert verification: 'captured_items' had
+    # zero record_heartbeat() call sites anywhere despite this being a live,
+    # regularly-used Telegram capture surface. Non-blocking.
+    try:
+        from core.platform.heartbeat import record_heartbeat
+        record_heartbeat("captured_items", status="ok", detail=f"voice_type={voice_type}")
+    except Exception:
+        pass
     return result.data[0]
 
 
@@ -227,6 +235,21 @@ def promote_recovery_pulse(supabase, capture_id: str, transcript: str, captured_
     `notes` - never replaced. A slot with no existing row gets a new one
     with only `notes` populated; every structured field stays null and
     honest, not fabricated from free text.
+
+    2026-08-10 time-of-day-asymmetric redesign note: app.py's button flow
+    now asks a different question set per pulse_type (morning: energy/
+    nervous_system/body_signals; midday: energy/nervous_system only;
+    evening: energy/nervous_system/day_win - see recovery-pulse-redesign-
+    proposal.md). This function's behaviour deliberately does NOT change in
+    response: it never populated any structured field (energy, nervous_system,
+    body_signals, or the new day_win) from a transcript before, and still
+    doesn't now, for any pulse type. A one-line voice note has no reliable
+    way to answer a specific multi-choice question ("Something did / Nothing
+    much / Rough day" etc.) the way a button tap does, so guessing a
+    structured value from free text would be fabrication, not capture. This
+    was already the right call pre-redesign and stays the right call for
+    all three (now-differing) question sets post-redesign - notes-only,
+    always, regardless of which pulse type or which questions that type asks.
 
     Idempotent: a target row whose notes already carry this capture's own
     reference tag is left untouched rather than appended to twice.

@@ -1,0 +1,9 @@
+[Unit]
+Description=Run mission registry sync daily at 06:45 (before the morning brief, ADR-024)
+
+[Timer]
+OnCalendar=*-*-* 06:45:00 Australia/Sydney
+Persistent=true
+
+[Install]
+WantedBy=timers.target

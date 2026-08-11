@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'https://ollama.com';
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL_DEFAULT ?? 'glm-5.2';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY ?? '';
 
@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
   try {
     const { id, format = 'linkedin_post' } = await req.json();
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!(format in FORMAT_LENGTHS)) {
+      return NextResponse.json({ error: `Unknown format '${format}'` }, { status: 400 });
+    }
 
     const sb = serviceClient();
     const { data: row, error: fetchErr } = await sb
@@ -116,7 +119,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, mode, body });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: detail }, { status: 500 });
+    console.error('[comms/generate]', err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

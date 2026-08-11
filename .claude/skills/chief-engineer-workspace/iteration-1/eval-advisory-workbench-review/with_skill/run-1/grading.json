@@ -1,0 +1,22 @@
+{
+  "expectations": [
+    {
+      "text": "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+      "passed": true,
+      "evidence": "All five headers present verbatim in that order."
+    },
+    {
+      "text": "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+      "passed": true,
+      "evidence": "Cites lcars-portal/src/app/advisory-workbench/page.tsx, six named components, commit hashes 9099918/140aa7f/3f80349/1b58aad, migration file names, RLS migration numbers 0034/0100."
+    },
+    {
+      "text": "Gives a specific, actionable recommendation rather than generic advice",
+      "passed": true,
+      "evidence": "Recommendation 1: 'add at least smoke-level tests for the three views... assert each renders, submits, and handles a failed fetch without crashing' - named files, named ship-blocking gate."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 25},
+  "timing": {"executor_duration_seconds": 226.2}
+}

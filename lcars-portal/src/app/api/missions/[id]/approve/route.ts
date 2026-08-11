@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
+import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 
 // MSN-0175: Statuses eligible for captain approval
 const APPROVAL_ELIGIBLE = [
@@ -106,6 +107,16 @@ export async function POST(
     void publishMissionEventServerSide({
       eventType: 'mission.approved', missionId: mission.mission_id,
       fromStatus: prevStatus, toStatus: 'Approved', source,
+    });
+
+    // Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+    // final-4-domains.md): confirmed-live via tg-xo.service's
+    // /captain_approve and CaptainApprovalQueue.tsx. See that doc for the
+    // full multi-writer disposition of the `missions` domain.
+    void recordHeartbeatServerSide({
+      domainKey: 'missions',
+      status: 'ok',
+      detail: `approve mission_id=${mission.mission_id}`,
     });
 
     return NextResponse.json({

@@ -17,7 +17,7 @@ export interface Kpis {
   capacity_band: Band;
   sleep_hours: number | null;
   pulse_confidence: number; // 0–100, recovery_confidence_today
-  pulses_completed: number; // 0–4 today
+  pulses_completed: number; // 0–3 today (morning/midday/evening — 3x/day model, 2026-08-10)
 }
 
 export interface WellnessInsight {
@@ -41,7 +41,11 @@ export interface RecoveryPayload {
   sleep_quality: string | null;
   nervous_system: string | null;
   energy: string | null;
-  /** Pulse completion for today (morning/midday/end_of_day/evening). */
+  /** Pulse completion for today. Canonical cadence (2026-08-10) is
+   *  morning/midday/evening — `end_of_day` is a retired bucket kept here
+   *  only because recovery_confidence_today still exposes the column for
+   *  backward compat (matches RecoveryConfidencePanel's own deferred
+   *  reconciliation); the UI no longer renders it as a 4th slot. */
   pulses: { morning: boolean; midday: boolean; end_of_day: boolean; evening: boolean };
   confidence_label: string;
   wellness: WellnessInsight;

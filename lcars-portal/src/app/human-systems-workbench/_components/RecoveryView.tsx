@@ -25,23 +25,6 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         </div>
       )}
 
-      <Card title="Next steps">
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/human-systems-workbench/readiness/start"
-            className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition hover:opacity-90"
-          >
-            Start today&rsquo;s readiness check-in
-          </Link>
-          <Link
-            href="/human-systems-workbench/log"
-            className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep"
-          >
-            Log today (Captain&rsquo;s Log)
-          </Link>
-        </div>
-      </Card>
-
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -91,7 +74,6 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         <div className="flex items-center gap-5">
           <PulseDot done={data.pulses.morning} label="AM" />
           <PulseDot done={data.pulses.midday} label="Mid" />
-          <PulseDot done={data.pulses.end_of_day} label="EOD" />
           <PulseDot done={data.pulses.evening} label="PM" />
           <Link
             href="/human-systems-workbench/medical/pulse"

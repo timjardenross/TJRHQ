@@ -31,6 +31,19 @@ _MODEL_ROUTER_URL = "http://localhost:8891/api/model/captain-reasoning-synthesis
 
 _REQUIRED_FIELDS = {"recommended_action", "trade_offs", "expected_outcome", "confidence"}
 
+# 2026-08-10: see insight_engine.py's identical _PLATFORM_CONTEXT — this
+# stage made the same category of error (a real production recommendation
+# was "initiate a wellness review meeting with the coaching team" for a
+# solo, one-person platform) so needs the same grounding.
+_PLATFORM_CONTEXT = (
+    "Context: this is USS TJR, a solo Captain's personal operations platform — "
+    "one person, no team, no company, no coaching staff, no meetings. Every "
+    "recommendation must be something ONE person can actually do themselves "
+    "(investigate, adjust a threshold, dismiss, fix a specific piece of code) — "
+    "never 'convene a team', 'schedule a review meeting', or any other "
+    "organisational-process language.\n\n"
+)
+
 
 def _build_reasoning_prompt(insight: Insight) -> str:
     """Strictly evidence-bound — only the Insight's own fields, no
@@ -38,7 +51,8 @@ def _build_reasoning_prompt(insight: Insight) -> str:
     just the chosen action, since a recommendation without a considered
     alternative isn't really decision support."""
     return (
-        "You are converting ONE already-synthesized operational insight into decision "
+        _PLATFORM_CONTEXT
+        + "You are converting ONE already-synthesized operational insight into decision "
         "support for a Captain. Do not invent facts beyond what is given below.\n\n"
         f"Observation: {insight.observation}\n"
         f"Why it matters: {insight.why_it_matters}\n"

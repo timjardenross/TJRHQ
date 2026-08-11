@@ -1,0 +1,22 @@
+{
+  "expectations": [
+    {
+      "text": "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+      "passed": true,
+      "evidence": "Mission Status: 'Needs Captain decision... The process piece... is a governance call that belongs with Chief of Staff / Captain, not something I should decide unilaterally... per my Escalation criteria needs sign-off before I change it.' Explicitly separates the contained code fix (will do) from the process/governance change (escalates)."
+    },
+    {
+      "text": "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+      "passed": true,
+      "evidence": "Cites tools/mint_id.py, id_registry.py, commits 31d8615 and 0e7a597, MSN-0343, and finds a new fact (.id-counters.json untracked in git) not previously in the record."
+    },
+    {
+      "text": "Gives a concrete next action, not just analysis",
+      "passed": true,
+      "evidence": "Next Actions numbered 1-3: build self-healing next_id() now, sequence process items after sign-off, run reconciliation scan as stopgap."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 39},
+  "timing": {"executor_duration_seconds": 262.0}
+}

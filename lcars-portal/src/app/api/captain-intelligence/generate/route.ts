@@ -12,18 +12,28 @@
 // by assemble_evolved_captain_brief() itself (MSN-0329 Phase 5 fix) —
 // this route does not need its own persistence step, only to run the
 // pipeline and return what it found.
+//
+// 2026-08-09: this route used to execFile a local python3 CLI
+// (core.platform.captain_brief_cli --evolved) directly - the exact
+// pattern api/captain-brief/route.ts's own header comment documents as
+// "confirmed broken once deployed to Vercel's Node.js serverless
+// runtime, which has no python3 available at all" (fixed there
+// 2026-07-10). This route carried the same anti-pattern for three more
+// weeks after that fix and lesson were already committed to this repo -
+// clicking "Generate New Insights" in production almost certainly
+// failed every time. Fixed the same way: core/context-assembly/
+// context_service.py's Flask service already exposes /brief/full for
+// the non-evolved document; added a POST /brief/evolved endpoint there
+// that calls assemble_evolved_captain_brief() verbatim (same function
+// captain_brief_cli.py --evolved called), and this route now fetch()es
+// it instead of shelling out. CONTEXT_SERVICE_URL must point at a real,
+// persistently-running instance of `python3 context_service.py serve`
+// (see contextService.ts) - this route depends on that infrastructure
+// existing somewhere reachable, not something it can stand up itself.
 
 import { NextResponse } from 'next/server';
-import { execFile } from 'child_process';
-import * as path from 'path';
-import { promisify } from 'util';
+import { contextServiceUrl, contextServiceHeaders } from '@/lib/contextService';
 import { requireSession } from '@/lib/supabase-server';
-
-const execFileAsync = promisify(execFile);
-
-function repoRoot(): string {
-  return process.env.REPO_ROOT ? path.resolve(process.env.REPO_ROOT) : path.resolve(process.cwd(), '..');
-}
 
 export async function POST() {
   // Unauthenticated access here isn't just a read leak - it's a free trigger
@@ -40,17 +50,26 @@ export async function POST() {
     // platform with its own shorter request timeout, that limit wins
     // regardless of this value — not addressed here, since this
     // platform's actual deployment target wasn't re-verified this pass.
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-m', 'core.platform.captain_brief_cli', '--evolved', '--limit', '200'],
-      { cwd: repoRoot(), timeout: 290000, maxBuffer: 10 * 1024 * 1024 },
-    );
-    const doc = JSON.parse(stdout);
+    const resp = await fetch(`${contextServiceUrl()}/brief/evolved?limit=200`, {
+      method: 'POST',
+      headers: contextServiceHeaders(),
+      signal: AbortSignal.timeout(290000),
+    });
+    const doc = await resp.json();
+    if (!resp.ok || (doc && typeof doc === 'object' && 'error' in doc)) {
+      return NextResponse.json(
+        {
+          error: 'Failed to generate Captain Intelligence insights',
+          detail: String(doc?.detail ?? doc?.error ?? resp.statusText),
+        },
+        { status: 502 },
+      );
+    }
     return NextResponse.json({ insights: doc.insights ?? [], recommendations: doc.recommendations ?? [] });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: 'Failed to generate Captain Intelligence insights', detail },
+      { error: 'Failed to reach the Captain Brief service', detail },
       { status: 502 },
     );
   }

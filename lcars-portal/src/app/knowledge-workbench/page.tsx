@@ -46,7 +46,6 @@ function Workbench() {
 
   return (
     <WorkbenchShell title="Knowledge Workbench" eyebrow={EYEBROW[domain]}
-      homeHref="/knowledge-workbench"
       tagline="USS TJR · Knowledge · Memory · Library · Organisational decisions and personal documents"
       right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       {domain === 'memory' && <MemoryView />}

@@ -75,6 +75,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("xo-bot")
 
+# httpx logs every request at INFO, including the full URL - which for
+# python-telegram-bot's polling/send calls means the bot token in plaintext
+# on every log line. WARNING still surfaces real failures, just not the URL.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
@@ -100,10 +105,12 @@ from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
+    ApplicationHandlerStop,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -112,17 +119,49 @@ from telegram.ext import (
 _supabase = None
 
 def _get_supabase():
+    """Returns the bot's single Supabase client (memoised).
+
+    Prefers the scoped `xo_bot` Postgres role (migration
+    0135_xo_bot_scoped_role.sql) — reached via a self-minted JWT, see
+    scoped_supabase.py — over the historical `service_role` key
+    (SUPABASE_KEY), which bypasses RLS on all 112 public tables even
+    though this bot's code only ever touches 13. Falls back to the
+    unchanged SUPABASE_KEY/service_role path whenever scoping isn't
+    configured (no SUPABASE_JWT_SECRET / XO_BOT_SCOPED_TOKEN yet, or no
+    SUPABASE_ANON_KEY for the gateway apikey) — this is the safe default
+    today; do not treat a scoping failure as "disable Supabase entirely",
+    that would take down every command handler for a hardening step that
+    hasn't been provisioned yet. See
+    .claude/skills/bot-reviews/fixes-2026-08-09/xo-bot-scoped-role-implemented.md
+    for the cutover record and what's still blocking it.
+    """
     global _supabase
     if _supabase is None:
         if not SUPABASE_URL:
             log.warning("SUPABASE_URL not set — Supabase disabled")
-        elif not SUPABASE_KEY:
+            return _supabase
+        try:
+            from telegram_bots.xo import scoped_supabase
+        except ImportError:
+            scoped_supabase = None
+        if scoped_supabase is not None:
+            try:
+                scoped = scoped_supabase.build_scoped_client(SUPABASE_URL)
+            except Exception as exc:
+                log.warning("[supabase] scoped xo_bot client construction failed, falling back to service_role: %s", exc)
+                scoped = None
+            if scoped is not None:
+                _supabase = scoped
+                log.info("Supabase client initialised — scoped xo_bot role")
+                return _supabase
+        if not SUPABASE_KEY:
             log.warning("SUPABASE_KEY not set — Supabase disabled")
         else:
             try:
                 from supabase import create_client
                 _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-                log.info("Supabase client initialised")
+                log.info("Supabase client initialised — service_role (scoped xo_bot role not configured; "
+                         "see xo-bot-scoped-role-implemented.md)")
             except Exception as exc:
                 log.warning("Supabase client failed: %s", exc)
     return _supabase
@@ -219,7 +258,7 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
         "RECOVERY FIRST. Mission work is gated by the Captain's capacity. Never push beyond it.\n\n"
         f"Today's recovery state:\n"
         f"- Confidence: {status.recovery_confidence}% [{_bar(status.recovery_confidence)}]\n"
-        f"- Pulses: {status.pulses_completed}/4 complete\n"
+        f"- Pulses: {status.pulses_completed}/3 complete\n"
         f"- Signals: {signals}\n"
         f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
         f"{wellness_ctx}"
@@ -236,15 +275,44 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
 
 
 # ── Inline pulse flow ─────────────────────────────────────────────────────────
-# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>
-# Steps: capacity → nervous system → body signals → write to DB
+# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>|w=<day_win>
+#
+# Time-of-day-asymmetric question flow (Captain-approved 2026-08-10, see
+# .claude/skills/bot-reviews/fixes-2026-08-09/recovery-pulse-redesign-proposal.md):
+#   morning: energy → nervous_system → body_signals   (3 taps, unchanged)
+#   midday:  energy → nervous_system                  (2 taps — body_signals dropped;
+#            least-distinguishable axis at the shortest re-ask interval)
+#   evening: energy → nervous_system → day_win         (3 taps — 3rd tap is a NEW
+#            reflective close-out question, not a repeat of body_signals)
+#
+# `_pulse_final_key()` below is the single source of truth for which pulse
+# types ask a 3rd question and what it is; add a new pulse type there (and to
+# _PULSE_LABELS) rather than special-casing pt strings elsewhere.
 
 _PULSE_LABELS = {
-    "morning":    "🌅 Morning Readiness",
-    "midday":     "🌤 Midday Status",
-    "end_of_day": "🌇 End of Workday",
-    "evening":    "🌃 Evening Recovery",
+    "morning": "🌅 Morning Readiness",
+    "midday":  "🌤 Midday Status",
+    "evening": "🌃 Evening Recovery",
 }
+
+_DAY_WIN_LABELS = {
+    "something_did": "Something did",
+    "nothing_much":  "Nothing much",
+    "rough_day":     "Rough day",
+}
+
+def _pulse_final_key(pt: str) -> str:
+    """The callback-data key that carries this pulse type's LAST tap:
+    - midday ends after 2 taps, so its own key ('m', nervous_system) is final.
+    - morning ends on body_signals ('s') — unchanged 3-tap diagnostic.
+    - evening ends on day_win ('w') — the new reflective question.
+    Any unrecognised pulse type defaults to the full morning-shaped 3-tap
+    flow (safe fallback, matches _PULSE_LABELS.get(pt, pt)'s pattern)."""
+    if pt == "midday":
+        return "m"
+    if pt == "evening":
+        return "w"
+    return "s"
 
 def _current_pulse_type() -> str:
     # EOS Phase 2 Priority 3: extracted to pulse_time.py so voice_capture.py's
@@ -278,15 +346,76 @@ def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
     ]])
 
 def _kb_stress(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
-    """Step 3: Body signals (PNE framing — context not score)."""
+    """Step 3 — morning only: Body signals (PNE framing — context not score).
+    Midday drops this question entirely; evening replaces it with _kb_day_win."""
     return InlineKeyboardMarkup([[
         InlineKeyboardButton("🤫 Quiet",      callback_data=f"pl|pt={pt}|e={e}|m={m}|s=quiet"),
         InlineKeyboardButton("💬 Present",    callback_data=f"pl|pt={pt}|e={e}|m={m}|s=present"),
         InlineKeyboardButton("📢 Significant", callback_data=f"pl|pt={pt}|e={e}|m={m}|s=significant"),
     ]])
 
+def _kb_day_win(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
+    """Step 3 — evening only: reflective close-out question, replacing a
+    repeat of body_signals (PERMA/Accomplishment gap — see the redesign
+    proposal §2.5/§4). Writes recovery_pulses.day_win, added in migration
+    0119_recovery_pulses_add_day_win.sql."""
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("🙂 Something did", callback_data=f"pl|pt={pt}|e={e}|m={m}|w=something_did"),
+        InlineKeyboardButton("😐 Nothing much",  callback_data=f"pl|pt={pt}|e={e}|m={m}|w=nothing_much"),
+        InlineKeyboardButton("😞 Rough day",     callback_data=f"pl|pt={pt}|e={e}|m={m}|w=rough_day"),
+    ]])
 
-async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: str) -> tuple[bool, RecoveryStatus, str | None]:
+
+_MOOD_SCORE_EMOJI = {
+    1: "😭", 2: "😞", 3: "😕", 4: "😐", 5: "🙂",
+    6: "😊", 7: "😄", 8: "😃", 9: "😍", 10: "🤩",
+}
+
+
+def _kb_mood_score(pt: str, e: str, m: str, s: str | None, w: str | None) -> InlineKeyboardMarkup:
+    """Optional extra step, shown once the pulse's normal required taps are
+    already complete (2026-08-11) — a Captain directive to fold a holistic
+    mood_score into this existing flow rather than deploy a second,
+    independent mood-capture surface (see migration 0140's header comment).
+    Skippable — the pulse is written either way, this only adds mood_score
+    when the Captain bothers to tap a number. Carries every prior field in
+    the callback data so the terminal write below has everything regardless
+    of which pulse type led here."""
+    def _cb(v: str) -> str:
+        parts = [f"pl|pt={pt}", f"e={e}", f"m={m}"]
+        if s is not None:
+            parts.append(f"s={s}")
+        if w is not None:
+            parts.append(f"w={w}")
+        parts.append(f"o={v}")
+        return "|".join(parts)
+
+    rows = [
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(1, 4)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(4, 7)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(7, 10)],
+        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[10]} 10", callback_data=_cb("10"))],
+        [InlineKeyboardButton("⏭ Skip", callback_data=_cb("skip"))],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+async def _write_pulse(
+    pt: str,
+    energy: str,
+    nervous_system: str,
+    body_signals: str | None = None,
+    day_win: str | None = None,
+    mood_score: int | None = None,
+) -> tuple[bool, RecoveryStatus, str | None]:
+    """Write a pulse row. body_signals is only ever passed for morning pulses;
+    day_win only for evening; midday passes neither (2-tap flow) — see the
+    time-of-day-asymmetric flow comment above _PULSE_LABELS. mood_score
+    (2026-08-11) is optional for every pulse type — the Captain can skip it.
+    Absent fields are simply left out of the upsert payload rather than
+    written as NULL explicitly, so re-submitting a slot never clobbers a
+    previously-written value for a column this pulse type doesn't ask
+    about."""
     db = _get_supabase()
     saved = False
     err_msg: str | None = None
@@ -295,20 +424,26 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
         log.error("[pulse] %s", err_msg)
     else:
         try:
+            payload = {
+                "log_date":       datetime.now(_TZ).date().isoformat(),
+                "pulse_type":     pt,
+                "energy":         energy,
+                "nervous_system": nervous_system,
+                "source":         "telegram",
+            }
+            if body_signals is not None:
+                payload["body_signals"] = body_signals
+            if day_win is not None:
+                payload["day_win"] = day_win
+            if mood_score is not None:
+                payload["mood_score"] = mood_score
             res = db.table("recovery_pulses").upsert(
-                {
-                    "log_date":       datetime.now(_TZ).date().isoformat(),
-                    "pulse_type":     pt,
-                    "energy":         energy,
-                    "nervous_system": nervous_system,
-                    "body_signals":   body_signals,
-                    "source":         "telegram",
-                },
+                payload,
                 on_conflict="log_date,pulse_type",
             ).execute()
             saved = True
-            log.info("Pulse written: %s energy=%s ns=%s body=%s rows=%s",
-                     pt, energy, nervous_system, body_signals, len(res.data) if res.data else 0)
+            log.info("Pulse written: %s energy=%s ns=%s body=%s day_win=%s mood_score=%s rows=%s",
+                     pt, energy, nervous_system, body_signals, day_win, mood_score, len(res.data) if res.data else 0)
             # ADR-024 second-pass audit: 'recovery_pulses' had zero
             # record_heartbeat() calls across any write path — never_succeeded
             # in verification_state despite this being the primary Telegram
@@ -320,7 +455,8 @@ async def _write_pulse(pt: str, energy: str, nervous_system: str, body_signals: 
                 pass
         except Exception as exc:
             err_msg = str(exc)
-            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s", exc, energy, nervous_system, body_signals)
+            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s day_win=%s mood_score=%s",
+                       exc, energy, nervous_system, body_signals, day_win, mood_score)
     status = get_recovery_status(db)
     return saved, status, err_msg
 
@@ -338,7 +474,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_status \\<id\\>\n"
         "/mission\\_create \\<title\\>\n\n"
         "*Logging*\n"
-        "/log\\_activity · /log\\_weight\n\n"
+        "/log\\_activity · /log\\_weight \\(retired — see /recovery\\_pulse\\)\n\n"
         "*Ops*\n"
         "/dispatch · /db\\_status\n\n"
         "_Proactive Daily Operating Picture arrives at 07:00 AEST\\._\n"
@@ -358,8 +494,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Intelligence*\n"
         "/brief — intelligence brief on demand\n\n"
         "*Health \\& Recovery*\n"
-        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/EOD/PM\\)\n"
-        "/recovery\\_pulse — log a pulse inline \\(energy → mood → stress, tap buttons\\)\n\n"
+        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/PM\\)\n"
+        "/recovery\\_pulse — log a pulse inline \\(tap buttons; 2 taps midday, "
+        "3 taps morning/evening — evening's 3rd tap is a reflection, not a repeat\\)\n\n"
         "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
         "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n"
@@ -370,9 +507,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_submit \\<id\\> — submit for Captain approval \\(Tested/Validated/Implemented\\)\n"
         "/handoff\\_engineering \\<id\\> — hand off to Engineering \\(Idea/Designed/Approved/Requires Rework\\)\n"
         "/operating\\_picture — Captain's live operating picture\n\n"
-        "*Logging*\n"
-        "/log\\_activity — log activity \\(e\\.g\\. `/log_activity walk 30 light`\\)\n"
-        "/log\\_weight — log weight \\(e\\.g\\. `/log_weight 82\\.5`\\)\n\n"
+        "*Logging \\(retired 2026\\-08\\-10\\)*\n"
+        "/log\\_activity, /log\\_weight — retired\\. Recovery Pulse \\(/recovery\\_pulse\\) is now the "
+        "only manual health\\-data capture mechanism\\.\n\n"
         "*System*\n"
         "/dispatch — manual dispatch check\n"
         "/brief — latest OR Intelligence Brief \\(risk, events, themes\\)\n"
@@ -427,7 +564,7 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         pulses = row.get("pulses_completed", 0)
         await update.message.reply_text(
             f"✅ *Supabase: connected*\n\n"
-            f"recovery\\_confidence\\_today: {conf}% · {pulses}/4 pulses",
+            f"recovery\\_confidence\\_today: {conf}% · {pulses}/3 pulses",
             parse_mode="MarkdownV2",
         )
     except Exception as exc:
@@ -438,88 +575,35 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick activity log: /log_activity walk 30 light"""
-    args = context.args or []
-    if not args:
-        await update.message.reply_text(
-            "*Log Activity*\n\nUsage: `/log_activity <type> [minutes] [intensity]`\n\n"
-            "Types: walk · swim · physio · stretch · strength · cycle · yoga · other\n"
-            "Intensity: light · moderate · vigorous\n\n"
-            "_Example: `/log_activity walk 30 light`_",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    valid_types = {"walk","swim","physio","stretch","strength","cycle","yoga","other"}
-    activity_type = args[0].lower() if args[0].lower() in valid_types else "other"
-    duration = None
-    intensity = None
-    for arg in args[1:]:
-        if arg.isdigit():
-            duration = int(arg)
-        elif arg.lower() in ("light","moderate","vigorous"):
-            intensity = arg.lower()
-
-    db = _get_supabase()
-    if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
-        return
-
-    payload = {
-        "log_date":      datetime.now(_TZ).date().isoformat(),
-        "activity_type": activity_type,
-        "source":        "telegram",
-        "completed":     True,
-    }
-    if duration:  payload["duration_minutes"] = duration
-    if intensity: payload["intensity"]        = intensity
-
-    try:
-        db.table("activity_logs").insert(payload).execute()
-        parts = [activity_type]
-        if duration:  parts.append(f"{duration} min")
-        if intensity: parts.append(intensity)
-        await update.message.reply_text(
-            f"✅ *Activity logged:* {_escape(' · '.join(parts))}",
-            parse_mode="MarkdownV2",
-        )
-    except Exception as exc:
-        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
+    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+    Recovery Pulse is now the platform's only manual health-data capture
+    mechanism. This standalone activity-logging command is disabled — it no
+    longer writes to activity_logs. Kept registered (rather than removed) so
+    it replies with a clear message instead of the command silently doing
+    nothing or erroring."""
+    await update.message.reply_text(
+        "🚫 *Log Activity — retired*\n\n"
+        "Manual activity logging has been retired\\. Recovery Pulse is now the platform's only "
+        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
+        parse_mode="MarkdownV2",
+    )
 
 
 async def cmd_log_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick weight log: /log_weight 82.5"""
-    args = context.args or []
-    if not args:
-        await update.message.reply_text(
-            "*Log Weight*\n\nUsage: `/log_weight <kg>`\n\n_Example: `/log_weight 82\\.5`_",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    try:
-        kg = float(args[0])
-        assert 30 < kg < 500
-    except (ValueError, AssertionError):
-        await update.message.reply_text("⚠️ Enter a valid weight in kg \\(e\\.g\\. `/log_weight 82\\.5`\\)", parse_mode="MarkdownV2")
-        return
-
-    db = _get_supabase()
-    if not db:
-        await update.message.reply_text("⚠️ Supabase unavailable — check SUPABASE\\_KEY in \\`\\.env\\`", parse_mode="MarkdownV2")
-        return
-
-    try:
-        db.table("weight_logs").upsert(
-            {"log_date": datetime.now(_TZ).date().isoformat(), "weight_kg": kg, "source": "telegram"},
-            on_conflict="log_date",
-        ).execute()
-        await update.message.reply_text(
-            f"✅ *Weight logged:* {_escape(str(kg))} kg",
-            parse_mode="MarkdownV2",
-        )
-    except Exception as exc:
-        await update.message.reply_text(f"⚠️ Failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
+    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+    Recovery Pulse is now the platform's only manual health-data capture
+    mechanism. This standalone weight-logging command is disabled — it no
+    longer writes to weight_logs. Kept registered (rather than removed) so
+    it replies with a clear message instead of the command silently doing
+    nothing or erroring."""
+    await update.message.reply_text(
+        "🚫 *Log Weight — retired*\n\n"
+        "Manual weight logging has been retired\\. Recovery Pulse is now the platform's only "
+        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
+        parse_mode="MarkdownV2",
+    )
 
 
 async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1715,6 +1799,10 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 from telegram_bots.xo import debrief_engine as de
             except ImportError:
                 de = None
+                log.warning(
+                    "[cmd_message] debrief_engine not present on this deploy — "
+                    "degrading to plain LLM reply, no debrief routing available"
+                )
             if de is not None:
                 debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
                 if debrief_result["handled"]:
@@ -1755,40 +1843,92 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
     e  = f.get("e")
     m  = f.get("m")
     s  = f.get("s")
+    w  = f.get("w")
+    o  = f.get("o")  # mood_score (2026-08-11) — optional, "skip" or "1".."10"
     label = _PULSE_LABELS.get(pt, pt)
+    final_key = _pulse_final_key(pt)
+    final_val = {"e": e, "m": m, "s": s, "w": w}.get(final_key)
 
-    if e and m and s:
-        saved, status, err_msg = await _write_pulse(pt, e, m, s)
+    # Terminal state: every tap this pulse type's flow asks for is present,
+    # AND the optional mood-score step has been resolved (tapped or skipped).
+    # midday's final_key is 'm' itself, so (e and m) alone is already terminal
+    # for midday's REQUIRED taps — no 3rd tap exists to wait for there.
+    if e and m and final_val and o is not None:
+        body_signals = s if final_key == "s" else None
+        day_win      = w if final_key == "w" else None
+        mood_score   = None if o == "skip" else int(o)
+        saved, status, err_msg = await _write_pulse(
+            pt, e, m, body_signals=body_signals, day_win=day_win, mood_score=mood_score,
+        )
         icon = "✅" if saved else "⚠️"
         conf = status.recovery_confidence
         done = " ".join([
-            "✅" if status.morning_done    else "❌",
-            "✅" if status.midday_done     else "❌",
-            "✅" if status.end_of_day_done else "❌",
-            "✅" if status.evening_done    else "❌",
+            "✅" if status.morning_done else "❌",
+            "✅" if status.midday_done  else "❌",
+            "✅" if status.evening_done else "❌",
         ])
         e_cap = _escape(e.capitalize())
         m_cap = _escape(m.capitalize())
-        s_cap = _escape(s.capitalize())
+        summary = f"Capacity: {e_cap} · NS: {m_cap}"
+        if body_signals:
+            summary += f" · Body: {_escape(body_signals.capitalize())}"
+        elif day_win:
+            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
+        if mood_score is not None:
+            summary += f" · Mood: {_MOOD_SCORE_EMOJI.get(mood_score, '')} {mood_score}/10"
         error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
         await query.edit_message_text(
             f"{icon} *{_escape(label)} logged*\n\n"
-            f"Capacity: {e_cap} · NS: {m_cap} · Body: {s_cap}\n\n"
+            f"{summary}\n\n"
             f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
-            f"Pulses: {_escape(done)}  AM · Mid · EOD · PM"
+            f"Pulses: {_escape(done)}  AM · Mid · PM"
             f"{error_line}",
             parse_mode="MarkdownV2",
         )
         return
 
-    if e and m:
+    # Required taps just completed, mood-score step not yet shown — offer it
+    # (skippable). 2026-08-11: Captain directive to fold a holistic mood
+    # rating into this existing flow instead of a second capture surface —
+    # see migration 0140 / _kb_mood_score's own docstring.
+    if e and m and final_val:
+        body_signals = s if final_key == "s" else None
+        day_win      = w if final_key == "w" else None
+        e_cap = _escape(e.capitalize())
+        m_cap = _escape(m.capitalize())
+        summary = f"Capacity: {e_cap} · NS: {m_cap}"
+        if body_signals:
+            summary += f" · Body: {_escape(body_signals.capitalize())}"
+        elif day_win:
+            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
         await query.edit_message_text(
             f"📡 *{_escape(label)}*\n\n"
-            f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
-            "Body signals right now?",
+            f"{summary}\n\n"
+            "Rate your mood? (optional, 1=worst · 10=best)",
             parse_mode="MarkdownV2",
-            reply_markup=_kb_stress(pt, e, m),
+            reply_markup=_kb_mood_score(pt, e, m, s, w),
         )
+        return
+
+    if e and m:
+        # Only reached for morning (final_key='s') and evening (final_key='w') —
+        # midday is already terminal above the instant e and m are both set.
+        if final_key == "w":
+            await query.edit_message_text(
+                f"📡 *{_escape(label)}*\n\n"
+                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
+                "One thing that went okay today?",
+                parse_mode="MarkdownV2",
+                reply_markup=_kb_day_win(pt, e, m),
+            )
+        else:
+            await query.edit_message_text(
+                f"📡 *{_escape(label)}*\n\n"
+                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
+                "Body signals right now?",
+                parse_mode="MarkdownV2",
+                reply_markup=_kb_stress(pt, e, m),
+            )
         return
 
     if e:
@@ -1864,6 +2004,10 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         from telegram_bots.xo import debrief_engine as de
     except ImportError:
         de = None
+        log.warning(
+            "[cmd_voice_note] debrief_engine not present on this deploy — "
+            "degrading to plain quick-capture, no active-session check or intent scoring"
+        )
 
     vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
     audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
@@ -2195,6 +2339,14 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "raw_text": content,
             "processing_status": "pending",
         }).execute()
+        # Chief Engineer 2026-08-09 EOD alert verification: 'captured_items'
+        # had zero record_heartbeat() call sites anywhere in the repo.
+        # Non-blocking.
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat("captured_items", status="ok", detail="voice_type=text_note")
+        except Exception:
+            pass
         await update.message.reply_text(
             f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
             parse_mode="HTML",
@@ -2242,8 +2394,8 @@ _BOT_COMMANDS = [
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
-    ("log_activity",    "Log activity  e.g. /log_activity walk 30 light"),
-    ("log_weight",      "Log weight  e.g. /log_weight 82.5"),
+    ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
+    ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     # System
     ("dispatch",        "Manual XO dispatch check"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
@@ -2270,11 +2422,24 @@ async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log.exception("[unhandled] %s", context.error)
 
 
+async def _global_auth_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Runs before every other handler (group -1). Per-handler `_chat_is_allowed`
+    checks only existed on 10 of ~36 handlers - this closes that gap platform-wide
+    in one place instead of auditing every handler individually. Silent drop
+    (no reply) on an unauthorized chat, matching the existing gated handlers'
+    behavior - doesn't confirm the bot's existence/command surface to a stranger."""
+    chat = update.effective_chat
+    if chat is None or not _chat_is_allowed(chat.id, TELEGRAM_CHAT_ID):
+        raise ApplicationHandlerStop
+
+
 def main() -> None:
     log.info("XO Bot starting")
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(_post_init).build()
     app.add_error_handler(_on_error)
+
+    app.add_handler(TypeHandler(Update, _global_auth_gate), group=-1)
 
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))

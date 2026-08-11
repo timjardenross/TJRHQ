@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
@@ -27,8 +29,15 @@ function domainEmoji(d?: string) {
   return (d && DOMAIN_EMOJI[d]) || '🩺';
 }
 
-export default function HealthOSINTWorkbench() {
-  const [domain, setDomain] = useState<Domain>('confidence-matrix');
+function isDomain(v: string | null): v is Domain {
+  return DOMAIN_OPTIONS.some((o) => o.key === v);
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('domain');
+  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'intelligence-summary');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,20 +66,82 @@ export default function HealthOSINTWorkbench() {
 
   useEffect(() => { load(true); }, [load]);
 
+  const setDomain = (d: Domain) => {
+    setDomainState(d);
+    // Keep the URL shareable/bookmarkable without a full navigation —
+    // matches human-systems-workbench's pattern. Previously a refresh on
+    // a non-default tab silently dropped back to Confidence Matrix.
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('domain', d);
+    router.replace(`/health-osint?${sp.toString()}`, { scroll: false });
+  };
+
+  const renderSignal = (s: any) => {
+    // 2026-08-09 gap-closure: a study/trial's published_at can be years old
+    // even when collected_at (when we first found it) is recent — e.g.
+    // ClinicalTrials.gov registrations. Previously only published_at was
+    // shown, so a 2012 trial read as indistinguishable from a genuinely new
+    // one. Surface both so "old study, newly discovered" is legible instead
+    // of just looking like stale data.
+    let discoveredNote: string | null = null;
+    if (s.published_at && s.collected_at) {
+      const publishedMs = new Date(s.published_at).getTime();
+      const collectedMs = new Date(s.collected_at).getTime();
+      const gapDays = Math.round((collectedMs - publishedMs) / 86_400_000);
+      if (gapDays >= 30) {
+        discoveredNote = `new to us ${new Date(s.collected_at).toLocaleDateString()}`;
+      }
+    }
+    return (
+      <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+        {s.source_url ? (
+          <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+            {domainEmoji(s.health_domain)} {s.title}
+          </a>
+        ) : (
+          <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+        )}
+        <div>
+          {s.source_name}
+          {(s.study_design || s.signal_type) && <> • {s.study_design || s.signal_type}</>}
+          {s.sample_size ? <> • n={s.sample_size}</> : null}
+          {s.p_value != null && <> • p={s.p_value}</>}
+          {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
+          {s.published_at && <> • Published {new Date(s.published_at).toLocaleDateString()}</>}
+          {discoveredNote && (
+            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[10px] font-medium text-wb-warn-on">{discoveredNote}</span>
+          )}
+        </div>
+        {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+        {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
+      </div>
+    );
+  };
+
   return (
     <WorkbenchShell
-      title="Health/Performance OSINT Workbench"
+      title="Health OSINT Workbench"
       eyebrow="Medical & Clinical Intelligence"
-      homeHref="/health-osint"
       tagline="USS TJR · Study Confidence, Source Trust, Safety Escalation"
-      right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
+      tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
+      back={{ href: '/workbenches', label: 'Workbenches' }}
+      right={
+        <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">
+          Curation Queue →
+        </Link>
+      }
     >
+      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Health OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Health Category & Confidence">
-            <div className="grid grid-cols-2 gap-4 text-[12px] text-wb-ink2">
+            {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
+                each category ~170px on a 375px phone for a name + 4
+                stacked confidence counts — tight but the real fix is just
+                not forcing 2 columns below sm. */}
+            <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>
@@ -100,38 +171,17 @@ export default function HealthOSINTWorkbench() {
         <div className="space-y-4">
           {data.high?.length > 0 && (
             <Card title="🟢 HIGH CONFIDENCE">
-              <div className="space-y-2">
-                {data.high.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name} • {s.study_design || s.signal_type} {s.sample_size ? `• n=${s.sample_size}` : ''} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.high.map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
             <Card title="🟡 MEDIUM CONFIDENCE">
-              <div className="space-y-2">
-                {data.medium.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.medium.map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
             <Card title="🔴 LOW CONFIDENCE">
-              <div className="space-y-2">
-                {data.low.map((s: any) => (
-                  <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
-                    <div>{s.source_name}</div>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{data.low.map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
@@ -201,5 +251,13 @@ export default function HealthOSINTWorkbench() {
         </div>
       )}
     </WorkbenchShell>
+  );
+}
+
+export default function HealthOSINTWorkbench() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" />}>
+      <Workbench />
+    </Suspense>
   );
 }

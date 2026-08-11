@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    {"text": "Response is short (roughly 2-6 sentences), not a long structured document", "passed": false, "evidence": "5 numbered sections with bold headers, ~450 words - a structured mini-document, not a short conversational answer."},
+    {"text": "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question", "passed": true, "evidence": "'At 40% recovery your judgment on nuanced, high-context calls... is the first thing to degrade' - genuine capacity-lens reasoning."},
+    {"text": "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging", "passed": false, "evidence": "Ends with 'I can help you actually rank them rather than working from the generic framework above' - explicitly names its own output as a generic framework, and the whole response reads as generic consultant advice rather than a specific person (XO) speaking."}
+  ],
+  "summary": {"passed": 1, "failed": 2, "total": 3, "pass_rate": 0.33},
+  "execution_metrics": {"total_tool_calls": 2},
+  "timing": {"executor_duration_seconds": 37.2}
+}

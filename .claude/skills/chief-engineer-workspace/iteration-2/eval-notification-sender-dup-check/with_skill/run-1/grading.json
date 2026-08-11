@@ -1,0 +1,26 @@
+{
+  "expectations": [
+    {
+      "text": "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+      "passed": true,
+      "evidence": "Cites notification_service.py, command_bus.py, captain_notifications.py, notification-engine.js, core/advisory/notifications.py, lcars-portal/src/lib/notifications.ts, plus the specific health-osint threat-assessment route that never calls any of them."
+    },
+    {
+      "text": "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+      "passed": true,
+      "evidence": "'Don't build a new sender. Wire the health-osint threat-assessment route... to core/platform/notification_service.notify()'"
+    },
+    {
+      "text": "Ends with a specific build/reuse/defer recommendation, not just open analysis",
+      "passed": true,
+      "evidence": "Next Actions gives the exact code change (severity=Severity.ALERT on escalation, existing 'alert' template, no new module needed)."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 25},
+  "timing": {"executor_duration_seconds": 120.6},
+  "regression_check": {
+    "fix_holds": true,
+    "note": "Correctly escalates the wiring change to Captain sign-off as a platform-wide utility, explicitly declining to carve it out as 'small and safe' - direct application of the new SKILL.md rule."
+  }
+}

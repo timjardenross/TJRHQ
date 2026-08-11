@@ -869,6 +869,11 @@ def _job_decision_outcome_reminder(client) -> None:
     overdue = _get_decisions_overdue_outcome()
     if not overdue:
         log.info("[scheduler] Decision outcome check: all decisions have outcomes")
+        # Chief Engineer 2026-08-09 EOD alert verification: unlike every
+        # other job in this file, this one never called _shakedown_log() —
+        # so domain_heartbeats had zero rows for "decision_outcome_reminder"
+        # regardless of how many times this job actually ran.
+        _shakedown_log("decision_outcome_reminder", "skipped", "All decisions have outcomes")
         return
     lines = [
         f":ballot_box_with_ballot: *{len(overdue)} decision(s) overdue for outcome review ({_DECISION_OUTCOME_DAYS}+ days):*",
@@ -879,8 +884,10 @@ def _job_decision_outcome_reminder(client) -> None:
     lines.append(
         "\nAdd `captain_outcome_review:` to each decision record or note in `/decision-log`."
     )
-    _post(client, "\n".join(lines))
+    posted = _post(client, "\n".join(lines))
     log.info("[scheduler] Decision outcome reminder pushed (%d overdue)", len(overdue))
+    _shakedown_log("decision_outcome_reminder", "success" if posted else "failure",
+                   f"{len(overdue)} decisions surfaced", _BRIEF_CHANNEL)
 
 
 def _job_monthly_lessons_digest(client) -> None:

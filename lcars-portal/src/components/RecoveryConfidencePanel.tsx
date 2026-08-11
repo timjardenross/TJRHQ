@@ -105,7 +105,10 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
         <PulseDot done={confidence.evening_done}    label="Evening" />
       </div>
 
-      {/* Latest signals */}
+      {/* Latest signals — energy/nervous_system/body_signals are the canonical
+          Telegram-bot fields (Captain directive, 2026-08-10); mood/stress
+          removed here since recovery_confidence_today stopped exposing them
+          (migration 0115). */}
       {confidence.pulses_completed > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {confidence.latest_energy && (
@@ -114,16 +117,16 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
               <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_energy}</p>
             </div>
           )}
-          {confidence.latest_mood && (
+          {confidence.latest_nervous_system && (
             <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Mood</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_mood}</p>
+              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Nervous system</p>
+              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_nervous_system}</p>
             </div>
           )}
-          {confidence.latest_stress && (
+          {confidence.latest_body_signals && (
             <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Stress</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_stress}</p>
+              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Body signals</p>
+              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_body_signals}</p>
             </div>
           )}
           {confidence.latest_readiness && (

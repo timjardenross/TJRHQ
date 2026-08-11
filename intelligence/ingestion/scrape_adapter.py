@@ -25,12 +25,29 @@ from intelligence.config import (
     NO_INCIDENT_SENTINEL_PHRASES, KNOWN_JUNK_TITLE_SUBSTRINGS,
     STATUS_NARRATIVE_KEYWORDS, AUTH_GATED_SENTINEL_PHRASES,
 )
+from intelligence.ingestion import firecrawl_client
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem, SourceRecord
 
 log = logging.getLogger(__name__)
 
 _UA = "USS-TJR-Intelligence-Agent/1.0 (+https://github.com/usstjros)"
+
+# 2026-08-10 (Firecrawl production provisioning): sources explicitly
+# budget-reviewed and approved to fall back to the real (credit-costing)
+# Firecrawl fetch path on a plain-fetch 403 — see
+# .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md
+# for the cost math. Deliberately an ALLOWLIST, not a blanket
+# "any scrape source that 403s" rule: ScrapeAdapter serves ~15+ other active
+# sources (ACMA, ASIC, APRA, NBN, Telstra, Optus, PTV, Transurban, Melbourne
+# Airport, ...) that must never silently start spending the Captain's
+# personal Firecrawl account credits just because they have a bad day —
+# only sources this mission's monthly-volume math actually covered may use
+# the fallback. Add a new name here ONLY after doing that math again.
+_FIRECRAWL_FALLBACK_SOURCE_NAMES = frozenset({
+    "AEMO Market Notices",
+    "Fastly Status",
+})
 
 # CSS selectors tried in priority order for finding article/notice lists
 _ARTICLE_SELECTORS = [
@@ -39,6 +56,12 @@ _ARTICLE_SELECTORS = [
     '[class*="media-release"]', '[class*="press-release"]',
     "li.item", "li.entry", "li.post",
     ".listing__item", ".list-item",
+    # AEMO Market Notices renders each real notice as `div.items > div.item`
+    # (a heading + body, no wrapping <a> — confirmed live 2026-08-10, see
+    # firecrawl-production-provisioning.md). Scoped to `.items .item`
+    # (requires the nested-wrapper pattern too), not bare `.item`, to avoid
+    # matching unrelated single-class="item" elements on other sites.
+    ".items .item",
     "h2 a", "h3 a",
 ]
 
@@ -106,6 +129,12 @@ class ScrapeAdapter(BaseSourceAdapter):
         return True, "Structured extraction via CSS selectors."
 
     def _fetch_html(self, url: str) -> str:
+        """Plain fetch first (free). On HTTP 403, falls back to the shared
+        Firecrawl fetch path (real API credit cost) ONLY for sources on the
+        explicit _FIRECRAWL_FALLBACK_SOURCE_NAMES allowlist above — every
+        other ScrapeAdapter-driven source still fails loud on a 403, exactly
+        as before this change, so this never silently changes behaviour or
+        cost for the ~15+ other sources this adapter class already serves."""
         req = urllib.request.Request(
             url,
             headers={
@@ -121,6 +150,9 @@ class ScrapeAdapter(BaseSourceAdapter):
                     charset = content_type.split("charset=")[-1].split(";")[0].strip()
                 return resp.read().decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
+            if exc.code == 403 and self.source.source_name in _FIRECRAWL_FALLBACK_SOURCE_NAMES:
+                log.info("[%s] plain fetch 403'd — falling back to Firecrawl", self.source.source_name)
+                return firecrawl_client.fetch_html(url)
             raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
         except Exception as exc:
             raise RuntimeError(f"Scrape fetch failed: {exc}") from exc
@@ -183,6 +215,37 @@ class ScrapeAdapter(BaseSourceAdapter):
 
         return [self._make_item(heading, body[:500] or None, self.source.url, None)]
 
+    def _in_nav_chrome(self, el) -> bool:
+        """True if `el` sits inside standard page chrome (a header/nav/
+        footer menu) rather than the real content area. 2026-08-10 (Firecrawl
+        production provisioning): AEMO Market Notices' and Fastly Status'
+        Firecrawl-rendered pages both lead with a big site-nav mega-menu
+        (AEMO: a real <header> ancestor; Fastly: div.navbar5/
+        div.header-content, no semantic <header> tag but the same real
+        pattern) — dozens of nav links ahead of the actual notices/incidents
+        in DOM order were filling up MAX_ITEMS_PER_SOURCE before the real
+        content was ever reached (confirmed live — see
+        .claude/skills/bot-reviews/fixes-2026-08-09/
+        firecrawl-production-provisioning.md). Generic HTML5-tag + common
+        class-name check, not source-specific — this can only REMOVE
+        already-low-confidence fallback candidates, so it's a pure
+        improvement for every other ScrapeAdapter-driven source too, not
+        just these two."""
+        for ancestor in el.parents:
+            if getattr(ancestor, "name", None) in ("header", "nav", "footer"):
+                return True
+            classes = " ".join(ancestor.get("class") or []).lower()
+            if any(tok in classes for tok in
+                   ("navbar", "nav-menu", "mega-menu", "site-header", "header-content", "global-header",
+                    "footer", "footbar",
+                    # AEMO Market Notices' own faceted-search sidebar (category/date
+                    # filter links) sits outside any <header>/nav-classed container
+                    # but is the same "chrome, not content" shape — confirmed live
+                    # 2026-08-10, see firecrawl-production-provisioning.md.
+                    "facet")):
+                return True
+        return False
+
     def _extract_fallback(self, soup) -> list[IntelligenceItem]:
         """Grab all <a> tags that look like article links."""
         items = []
@@ -195,6 +258,13 @@ class ScrapeAdapter(BaseSourceAdapter):
             if not title or len(title) < 15 or len(title) > 250:
                 continue
             if title in seen_titles:
+                continue
+            if self._in_nav_chrome(a):
+                continue
+            # A bare URL is never a real headline — some link text is
+            # literally the href itself (confirmed live on Fastly Status'
+            # incidents page, 2026-08-10).
+            if title.startswith(("http://", "https://")):
                 continue
             title_lower = title.lower()
             # Skip nav/footer type links
