@@ -26,10 +26,11 @@ if str(_HERE) not in sys.path:
 
 import temporal as _temporal
 import triggers as _triggers
-import operating_picture as _operating_picture
+from _local_import_advisory import import_sibling as _import_sibling
+_operating_picture = _import_sibling("operating_picture")
 import wellness as _wellness
 import strategic as _strategic
-import forecast as _forecast
+_forecast = _import_sibling("forecast")
 import data_quality as _data_quality
 
 

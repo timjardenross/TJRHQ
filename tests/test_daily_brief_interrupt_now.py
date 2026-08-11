@@ -15,7 +15,12 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "platform-runtime" / "lib"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import daily_brief  # noqa: E402  (platform-runtime/lib/daily_brief.py)
+# daily_brief.py's bare name collides with core/advisory/daily_brief.py —
+# load this file's own sibling by exact path instead (Fleet Engineering
+# Review 2026-08-11).
+from _local_import_lib import import_sibling as _import_sibling  # noqa: E402
+
+daily_brief = _import_sibling("daily_brief")  # platform-runtime/lib/daily_brief.py
 from core.platform.attention_engine import AttentionCategory  # noqa: E402
 from core.platform.captain_brief_contract import CaptainBriefItem, Recommendation  # noqa: E402
 

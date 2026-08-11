@@ -30,18 +30,25 @@ from schema import (  # noqa: E402,F401
     RelatedDecision,
     ADVISORY_AUTHORITY_NOTE,
 )
-from service import (  # noqa: E402,F401
-    request_advice,
-    request_challenge,
-    invoke,
-    available_officers,
-    evidence_brief,
-)
-from lessons import lessons_brief  # noqa: E402,F401
-from outcomes import record_advisory, record_outcome  # noqa: E402,F401
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+
+_service = _import_sibling("service")
+request_advice = _service.request_advice
+request_challenge = _service.request_challenge
+invoke = _service.invoke
+available_officers = _service.available_officers
+evidence_brief = _service.evidence_brief
+
+lessons_brief = _import_sibling("lessons").lessons_brief
+
+_outcomes = _import_sibling("outcomes")
+record_advisory = _outcomes.record_advisory
+record_outcome = _outcomes.record_outcome
+
 from calibration import calibration_report  # noqa: E402,F401
 from metrics import advisory_metrics  # noqa: E402,F401
-from learning import historical_signal  # noqa: E402,F401
+
+historical_signal = _import_sibling("learning").historical_signal
 
 __all__ = [
     "AdvisoryResponse",

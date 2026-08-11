@@ -22,7 +22,8 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import timeline as _timeline
-import lessons as _lessons
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_lessons = _import_sibling("lessons")
 
 
 @dataclass

@@ -31,10 +31,11 @@ import presentation as P
 import temporal as _temporal
 import triggers as _triggers
 import signals as _signals
-import opportunities as _opportunities
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_opportunities = _import_sibling("opportunities")
 import strategic as _strategic
-import forecast as _forecast
-import operating_picture as _operating_picture
+_forecast = _import_sibling("forecast")
+_operating_picture = _import_sibling("operating_picture")
 import wellness as _wellness
 
 

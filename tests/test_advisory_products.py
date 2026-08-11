@@ -24,17 +24,44 @@ if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
 import presentation as P  # noqa: E402
+from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+
+# Fleet Engineering Review 2026-08-11: 7 of the 17 names below (outcomes,
+# learning, patterns, opportunities, forecast, operating_picture, service)
+# collide with same-named files elsewhere in the repo (see
+# core/advisory/_local_import_advisory.py's own docstring). A plain bare
+# `importlib.reload(importlib.import_module(m))` for those 7 could reload
+# — or, worse, wrongly cache — the WRONG file if something else in the
+# same pytest session already claimed that bare name; confirmed as the
+# real cause of AttributeErrors against operating_picture/daily_brief in
+# full multi-file test runs. Routed through reload_sibling() instead,
+# which stays collision-proof and still mutates the same cached module
+# object in place (matching real importlib.reload() semantics) so
+# cross-references from other core/advisory modules see the refresh.
+_COLLIDING_RELOAD_NAMES = {
+    "outcomes", "learning", "patterns", "opportunities", "forecast",
+    "operating_picture", "service",
+}
+# Original reload order preserved exactly (only the per-name mechanism
+# changed) in case reload order itself matters to any of these modules.
+_RELOAD_ORDER = (
+    "outcomes", "timeline", "learning", "calibration", "metrics",
+    "patterns", "signals", "opportunities", "strategic", "forecast",
+    "operating_picture", "wellness", "temporal", "triggers",
+    "presentation", "products", "service",
+)
 
 
 @pytest.fixture()
 def seeded(tmp_path, monkeypatch):
     monkeypatch.setenv("ADVISORY_DATA_ROOT", str(tmp_path))
-    for m in ("outcomes", "timeline", "learning", "calibration", "metrics",
-              "patterns", "signals", "opportunities", "strategic", "forecast",
-              "operating_picture", "wellness", "temporal", "triggers",
-              "presentation", "products", "service"):
-        importlib.reload(importlib.import_module(m))
-    import service, outcomes
+    for m in _RELOAD_ORDER:
+        if m in _COLLIDING_RELOAD_NAMES:
+            reload_sibling(m)
+        else:
+            importlib.reload(importlib.import_module(m))
+    service = import_sibling("service")
+    outcomes = import_sibling("outcomes")
     for i in range(6):
         r = service.request_advice(f"Rollout decision {i} about sequencing?")
         outcomes.record_outcome(r.advisory_id, outcome="success" if i % 2 else "failure")

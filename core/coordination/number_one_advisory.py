@@ -29,8 +29,8 @@ if str(_ADVISORY) not in sys.path:
 
 
 def _service():
-    import service  # noqa: PLC0415
-    return service
+    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    return import_sibling("service")
 
 
 def _mission_question(mission: dict[str, Any], lens: str) -> str:

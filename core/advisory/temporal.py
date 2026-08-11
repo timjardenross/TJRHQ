@@ -24,7 +24,8 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import timeline as _timeline
-import learning as _learning
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_learning = _import_sibling("learning")
 
 
 def _now() -> datetime:

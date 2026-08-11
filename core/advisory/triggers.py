@@ -22,8 +22,9 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import signals as _signals
-import patterns as _patterns
-import escalation as _escalation
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_patterns = _import_sibling("patterns")
+_escalation = _import_sibling("escalation")
 
 
 @dataclass
