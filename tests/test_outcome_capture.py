@@ -387,7 +387,11 @@ def test_brief_snapshot_offline_quiet():
 
 
 def test_daily_brief_renders_learning_line():
-    import daily_brief as db
+    # daily_brief.py's bare name collides with core/advisory/daily_brief.py
+    # — load this file's own sibling by exact path instead (Fleet
+    # Engineering Review 2026-08-11).
+    from _local_import_lib import import_sibling as _import_sibling
+    db = _import_sibling("daily_brief")
 
     class _Dom:
         def __init__(self): self.label, self.band = "Physical", "GREEN"
@@ -428,7 +432,11 @@ def test_daily_brief_renders_learning_line():
 
 
 def test_daily_brief_shows_health_overdue_and_sensitive():
-    import daily_brief as db
+    # daily_brief.py's bare name collides with core/advisory/daily_brief.py
+    # — load this file's own sibling by exact path instead (Fleet
+    # Engineering Review 2026-08-11).
+    from _local_import_lib import import_sibling as _import_sibling
+    db = _import_sibling("daily_brief")
 
     class _Dom:
         def __init__(self): self.label, self.band = "Physical", "GREEN"

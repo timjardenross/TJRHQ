@@ -23,9 +23,10 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import outcomes as _outcomes  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_outcomes = _import_sibling("outcomes")  # noqa: E402
 import calibration as _calibration  # noqa: E402
-import learning as _learning  # noqa: E402
+_learning = _import_sibling("learning")  # noqa: E402
 
 
 def advisory_metrics() -> dict[str, Any]:

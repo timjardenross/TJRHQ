@@ -25,7 +25,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import outcomes as _outcomes  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_outcomes = _import_sibling("outcomes")  # noqa: E402
 
 _MIN_SAMPLES = 3  # below this, report "insufficient data" rather than noise
 

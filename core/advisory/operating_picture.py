@@ -24,7 +24,8 @@ for _p in (str(_HERE), str(_REPO_ROOT), str(_REPO_ROOT / "core" / "coordination"
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import outcomes as _outcomes
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_outcomes = _import_sibling("outcomes")
 import temporal as _temporal
 import triggers as _triggers
 import signals as _signals

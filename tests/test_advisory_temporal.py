@@ -17,6 +17,16 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
+from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+
+# Fleet Engineering Review 2026-08-11: outcomes, learning, patterns,
+# escalation, opportunities, service collide with same-named files
+# elsewhere in the repo — see core/advisory/_local_import_advisory.py's
+# own docstring. Routed through reload_sibling()/import_sibling().
+_COLLIDING_RELOAD_NAMES = {
+    "outcomes", "learning", "patterns", "escalation", "opportunities", "service",
+}
+
 
 @pytest.fixture()
 def seeded(tmp_path, monkeypatch):
@@ -26,8 +36,12 @@ def seeded(tmp_path, monkeypatch):
               "patterns", "signals", "episodic", "temporal",
               "escalation", "triggers", "opportunities", "notifications",
               "advisory_health", "proactive", "service"):
-        importlib.reload(importlib.import_module(m))
-    import service, outcomes
+        if m in _COLLIDING_RELOAD_NAMES:
+            reload_sibling(m)
+        else:
+            importlib.reload(importlib.import_module(m))
+    service = import_sibling("service")
+    outcomes = import_sibling("outcomes")
     for q, o in [
         ("Should we ship the hub to mobile?", "success"),
         ("Should we sequence the rollout carefully?", "failure"),
@@ -64,8 +78,7 @@ def test_temporal_queries_return_narratives():
 # --- Patterns / Episodic / Signals (WP2-4) --------------------------------
 
 def test_patterns_return_list(seeded):
-    import patterns
-    importlib.reload(patterns)
+    patterns = reload_sibling("patterns")
     ps = patterns.detect_patterns()
     assert isinstance(ps, list)
     # with 4 closed outcomes, advisor_outcome patterns should exist
@@ -90,8 +103,7 @@ def test_signals_return_list(seeded):
 # --- Escalation (WP2 of 0096) ---------------------------------------------
 
 def test_escalation_levels():
-    import escalation
-    importlib.reload(escalation)
+    escalation = reload_sibling("escalation")
     # cry-wolf guard: single observation can't exceed observation
     assert escalation.classify("concern", frequency=1).level == "observation"
     assert escalation.classify("concern", frequency=2).level == "concern"
@@ -111,8 +123,7 @@ def test_triggers_evaluate(seeded):
 
 
 def test_opportunities_detect(seeded):
-    import opportunities
-    importlib.reload(opportunities)
+    opportunities = reload_sibling("opportunities")
     opps = opportunities.detect_opportunities()
     assert isinstance(opps, list)
     # reusable solutions should surface from the seeded successes
@@ -120,9 +131,10 @@ def test_opportunities_detect(seeded):
 
 
 def test_notifications_route(seeded):
-    import triggers, opportunities, notifications
-    for m in (triggers, opportunities, notifications):
-        importlib.reload(m)
+    import triggers, notifications
+    importlib.reload(triggers)
+    importlib.reload(notifications)
+    opportunities = reload_sibling("opportunities")
     plan = notifications.route(triggers.evaluate_triggers(), opportunities.detect_opportunities())
     assert set(["interrupt", "daily_brief", "wait", "summary", "note"]).issubset(plan.keys())
     # opportunities are never interruptions

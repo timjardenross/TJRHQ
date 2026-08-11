@@ -25,8 +25,8 @@ if str(_ADVISORY) not in sys.path:
 
 
 def _service():
-    import service  # noqa: PLC0415
-    return service
+    from _local_import_advisory import import_sibling  # noqa: PLC0415
+    return import_sibling("service")
 
 
 # A short banner that keeps the authority boundary explicit on every output.

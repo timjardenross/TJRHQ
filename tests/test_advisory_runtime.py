@@ -18,9 +18,16 @@ for _p in (str(_ADVISORY),):
         sys.path.insert(0, _p)
 
 import schema  # noqa: E402
-import evidence as evidence_mod  # noqa: E402
-import lessons as lessons_mod  # noqa: E402
-import service  # noqa: E402
+from _local_import_advisory import import_sibling  # noqa: E402
+
+# Fleet Engineering Review 2026-08-11: evidence, lessons, service collide
+# with same-named files elsewhere in the repo — see core/advisory/
+# _local_import_advisory.py's own docstring. Routed through
+# import_sibling() so this file can't be poisoned by (or poison) an
+# unrelated same-named file loaded elsewhere in the same pytest session.
+evidence_mod = import_sibling("evidence")
+lessons_mod = import_sibling("lessons")
+service = import_sibling("service")
 
 
 # --------------------------------------------------------------------------

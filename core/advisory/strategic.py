@@ -22,9 +22,10 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import signals as _signals
-import patterns as _patterns
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_patterns = _import_sibling("patterns")
 import advisory_health as _advisory_health
-import opportunities as _opportunities
+_opportunities = _import_sibling("opportunities")
 import timeline as _timeline
 
 
