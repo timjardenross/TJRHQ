@@ -45,6 +45,12 @@ outputs/
 .idea/
 *.swp
 
+# Compiled macOS launcher app bundles (built by USS-TJR-Control/platypus-start.sh
+# via Platypus) — build output, not source. 4 near-duplicate copies were
+# accidentally committed to main in a whole-directory-import merge; removed
+# 2026-08-11, ignored here so it doesn't recur.
+*.app/
+
 # id_registry.py's fcntl lock file — ephemeral, recreated on every mint.
 # Track .id-counters.json itself (it's the durable counter state); never this.
 .id-counters.lock
