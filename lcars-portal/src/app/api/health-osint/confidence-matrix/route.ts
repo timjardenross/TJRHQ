@@ -7,10 +7,20 @@ const DAYS_365 = 365 * 86_400_000;
 
 const CATEGORIES = ['Epidemiology', 'Treatment', 'Adverse Events', 'Performance', 'Research Quality'] as const;
 
+// health_domain has two live vocabularies: the original flat 6 values
+// (epidemiology/treatment/supplement/performance/mental_health/vaccine,
+// still used by hand-curated PubMed/ClinicalTrials.gov signals via
+// tools/health/collect_health_signals.py) and the granular
+// HEALTH_OSINT_IMPLEMENTATION.md section-3 taxonomy the 6 automated-fetch
+// parsers use (epi_*, safety_*, evidence_*, performance_*, factor_*,
+// mental_health_*) — both need to map into the same 5 UI buckets, not
+// just the flat one (everything from the granular vocabulary was
+// silently falling through to "Treatment" before this fix).
 function categorize(signalType: string, healthDomain: string, methodologyQuality: number | null): string {
-  if (signalType === 'adverse_event') return 'Adverse Events';
-  if (healthDomain === 'epidemiology') return 'Epidemiology';
-  if (healthDomain === 'performance') return 'Performance';
+  if (signalType === 'adverse_event' || healthDomain.startsWith('safety_')) return 'Adverse Events';
+  if (healthDomain === 'epidemiology' || healthDomain.startsWith('epi_')) return 'Epidemiology';
+  if (healthDomain === 'performance' || healthDomain.startsWith('performance_')) return 'Performance';
+  if (healthDomain.startsWith('evidence_')) return 'Research Quality';
   if (methodologyQuality !== null && methodologyQuality < 0.4) return 'Research Quality';
   return 'Treatment';
 }

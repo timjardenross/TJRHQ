@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
@@ -124,6 +125,11 @@ function Workbench() {
       tagline="USS TJR · Study Confidence, Source Trust, Safety Escalation"
       tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      right={
+        <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">
+          Curation Queue →
+        </Link>
+      }
     >
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Health OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
