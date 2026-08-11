@@ -14,6 +14,9 @@ from PyPDF2.generic import (
 )
 
 from src.parsing.schemas import DesignBrief
+from src.utils.logging import get_logger
+
+log = get_logger("worksheet_agent")
 
 _PAGE_WIDTH, _PAGE_HEIGHT = 612, 792  # US Letter, points
 _MARGIN = 54  # 0.75in
@@ -53,6 +56,11 @@ def _extract_checklist_items(brief: DesignBrief) -> list[str]:
         items = _first_bullet_run(section.body)
         if items:
             return items[:20]
+
+    log.warning(
+        f"{brief.concept_id}: no bullet-list checklist found in any section - "
+        f"falling back to section titles as worksheet fields, verify the PDF looks right"
+    )
     return [s.title for s in brief.sections] or [brief.headline]
 
 
