@@ -19,7 +19,7 @@ const VALID_NAV_HREFS = [
   // MSN: Advisory Council reskinned onto the wb- design system at
   // /advisory-workbench (kept first-class per Captain decision 2026-07-12).
   // /advisory-council stays valid — it now redirects to the workbench.
-  '/captains-chair', '/advisory-council', '/advisory-workbench', '/knowledge', '/knowledge-library',
+  '/captains-chair', '/captains-chair-workbench', '/advisory-council', '/advisory-workbench', '/knowledge', '/knowledge-library',
   // Capture reskinned onto the wb- design system at /capture-workbench (kept
   // first-class per Captain decision 2026-07-12). /capture stays valid — it
   // now redirects to the workbench.

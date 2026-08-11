@@ -1,0 +1,10 @@
+{
+  "eval_id": 0,
+  "eval_name": "notification-sender-dup-check",
+  "prompt": "We're about to build a new notification sender for the health workbench - is that a good idea or does something like it already exist?",
+  "assertions": [
+    "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+    "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+    "Ends with a specific build/reuse/defer recommendation, not just open analysis"
+  ]
+}

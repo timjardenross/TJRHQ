@@ -43,8 +43,6 @@ export default function CommsWorkbenchPage() {
     <WorkbenchShell
       title="Communications Workbench"
       eyebrow="Signal-driven content pipeline"
-      homeHref="/comms-workbench"
-      homeAriaLabel="Communications Workbench home"
       tagline="USS TJR · Communications · Signals to opportunities, pipeline, and portfolio"
       right={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Filter by domain" />}
     >

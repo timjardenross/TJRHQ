@@ -59,18 +59,26 @@ def _build_health_section() -> dict:
     )
     log_entry = log_rows[0] if log_rows else None
 
-    # Recovery confidence view
+    # Recovery confidence view. Recovery Pulse realign (2026-08-10): the
+    # previous select (confidence_pct, band, nervous_system_state) named
+    # columns that recovery_confidence_today has never had — the real ones
+    # are recovery_confidence, confidence_label, latest_nervous_system (see
+    # migration 0115) — so recovery_confidence_pct/recovery_band/
+    # nervous_system_state below always came back None. Fixed while
+    # realigning this section to the canonical nervous_system field.
     conf_rows = _sb_get(
         "recovery_confidence_today",
-        "limit=1&select=confidence_pct,band,nervous_system_state",
+        "limit=1&select=recovery_confidence,confidence_label,latest_nervous_system",
     )
     confidence = conf_rows[0] if conf_rows else None
 
-    # Latest pulse
+    # Latest pulse. energy/nervous_system are the canonical Telegram-bot
+    # fields (Captain directive, 2026-08-10); mood is kept selected only as
+    # legacy context for rows predating nervous_system — no new writes to it.
     pulse_rows = _sb_get(
         "recovery_pulses",
         f"created_at=gte.{today}T00:00:00Z&order=created_at.desc&limit=1"
-        f"&select=pulse_type,pain_score,energy,mood,readiness,created_at",
+        f"&select=pulse_type,pain_score,energy,nervous_system,mood,readiness,created_at",
     )
     latest_pulse = pulse_rows[0] if pulse_rows else None
 
@@ -96,9 +104,9 @@ def _build_health_section() -> dict:
         "energy": log_entry.get("energy") if log_entry else None,
         "sleep_hours": log_entry.get("sleep_hours") if log_entry else None,
         "health_status": log_entry.get("health_status") if log_entry else None,
-        "recovery_confidence_pct": confidence.get("confidence_pct") if confidence else None,
-        "recovery_band": confidence.get("band") if confidence else None,
-        "nervous_system_state": confidence.get("nervous_system_state") if confidence else None,
+        "recovery_confidence_pct": confidence.get("recovery_confidence") if confidence else None,
+        "recovery_band": confidence.get("confidence_label") if confidence else None,
+        "nervous_system_state": confidence.get("latest_nervous_system") if confidence else None,
         "latest_pulse": latest_pulse,
         "log_available": log_entry is not None,
     }

@@ -47,6 +47,13 @@ class Relationship:
     domains: list[str]
     evidence: str
     strength: float
+    # 2026-08-10: domain:event_type identity of the SHOULD_BE_AGGREGATED
+    # group this Relationship surfaces, when kind == 'aggregation' — lets
+    # downstream (insight_engine.generate_insights) recognise the same
+    # structurally-permanent cluster across runs instead of re-synthesizing
+    # it every time. None for shared_mission/temporal_sequence, which have
+    # no single (domain, event_type) identity to dedupe on.
+    aggregation_key: Optional[str] = None
 
 
 @dataclass
@@ -135,6 +142,7 @@ def _aggregation_relationships(decisions: list[AttentionDecision]) -> list[Relat
             domains=sorted({d.domain for d in group}),
             evidence=f"{len(group)} events sharing {key} in this batch (Attention Engine SHOULD_BE_AGGREGATED)",
             strength=min(1.0, len(group) / 5.0),
+            aggregation_key=key,
         )
         for key, group in by_key.items()
     ]

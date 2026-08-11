@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Uses the Standard Response Format sections (Mission Summary, Assessment, Recommendations, Next Actions, Mission Status)",
+      "passed": false,
+      "evidence": "Uses its own headers: 'Summary verdict / What's solid / The one thing to fix before shipping / Smaller items / Bottom line' - a reasonable structure, but not the skill's template."
+    },
+    {
+      "text": "Grounds the assessment in actual repo investigation - cites specific files/paths found, or explicitly says the module wasn't found by that name rather than inventing detail",
+      "passed": true,
+      "evidence": "Cites specialist-retrieval-registry.txt, shared.tsx COUNCIL roster, specific route files - arguably even more concrete on the one real finding (specialist-roster mismatch) than the with-skill run."
+    },
+    {
+      "text": "Gives a specific, actionable recommendation rather than generic advice",
+      "passed": true,
+      "evidence": "Three concrete options given for the roster-mismatch gap, one explicitly 'the thing I'd stop and fix before shipping'."
+    }
+  ],
+  "summary": {"passed": 2, "failed": 1, "total": 3, "pass_rate": 0.67},
+  "execution_metrics": {"total_tool_calls": 34},
+  "timing": {"executor_duration_seconds": 213.0},
+  "eval_feedback": {
+    "overall": "Interesting case: the baseline found a sharper, more specific bug (the 18-officer vs 5-person specialist registry mismatch on the new default 'Ask' view) than the with-skill run, which focused more on test coverage. Worth checking in the next iteration whether the skill's structure/escalation focus is trading off against depth-of-investigation on any single finding - not a format problem, a substance one worth watching."
+  }
+}

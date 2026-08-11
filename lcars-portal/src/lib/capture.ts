@@ -161,6 +161,7 @@ export async function captureItem(
   text: string,
   type: CaptureType,
   capturedBy?: string,
+  channel: KnownChannel = 'lcars-mobile-quick-capture',
 ): Promise<CaptureResult> {
   const body = text.trim();
   if (!body) return { ok: false, error: 'Nothing to capture.' };
@@ -192,7 +193,7 @@ export async function captureItem(
     captured_by:          capturedBy ?? 'captain-tjr',
     captured_at:          now.toISOString(),
     source_type:          'channel_message',
-    source_channel_id:    'lcars-mobile-quick-capture',
+    source_channel_id:    channel,
     source_message_id:    id,
     source_message_ts:    String(now.getTime()),
     item_type:            'text_note',

@@ -139,6 +139,19 @@ def record_research_lifecycle_event(
             log.warning("[research-learning-loop] decision_records write failed: %s", dr_result.error)
             return
 
+        # Chief Engineer 2026-08-10 decisions-heartbeat follow-up: a real,
+        # live-wired decision_records writer (called from
+        # commands/research_command.py's handle_research_request_with_slack),
+        # heartbeated alongside build_learning_loop.py and
+        # comms_learning_loop.py — all three are genuinely distinct event
+        # producers into the same 'decisions' domain, not competing
+        # candidates for one canonical path.
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat("decisions", status="ok", detail="source=research-learning-loop")
+        except Exception:
+            pass
+
         # 4. quality_scores — ties decision_outcomes + decision_records together.
         # QualityScoring/FeedbackLoops need the raw supabase-py client (they call
         # .table() directly), not the CommanderSupabaseClient wrapper.

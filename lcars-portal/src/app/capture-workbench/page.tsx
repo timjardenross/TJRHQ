@@ -92,8 +92,6 @@ function Workbench() {
 
   return (
     <WorkbenchShell title="Capture" eyebrow={EYEBROW[domain]}
-      homeHref="/capture-workbench"
-      homeAriaLabel="Capture Workbench home"
       tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
       right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
       <KpiDashboard stats={stats} loading={loading} onFilter={filterToInbox} />

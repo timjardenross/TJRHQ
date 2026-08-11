@@ -112,14 +112,14 @@ export default function SelfImprovementFindings() {
 
   if (loading) {
     return (
-      <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" homeHref="/self-improvement-findings" homeAriaLabel="Self-Improvement Findings home" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
+      <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
         <div className="text-center py-8 text-wb-ink2">Loading findings...</div>
       </WorkbenchShell>
     );
   }
 
   return (
-    <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" homeHref="/self-improvement-findings" homeAriaLabel="Self-Improvement Findings home" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
+    <WorkbenchShell title="Self-Improvement Findings" eyebrow="Automated Discovery" tagline="USS TJR · Self-Improvement · Findings, decisions, and audit trail">
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
           {error}. Showing last known data, not current.

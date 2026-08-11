@@ -9,16 +9,15 @@
 // This board never writes comms_content.status itself for anything except
 // reading it back.
 //
-// Proofing now carries the flow through to publish submission: 'approved'
-// and 'ready_to_publish' both render inside the Proofing column (see
-// GET /api/content-workbench's stageOf()), each surfacing the next
-// governed action. mark_published never flips status directly — it queues
-// a publish_content proposal that only becomes real once the Captain
-// approves it in Decide (see the advance route's own comment). This
-// workbench now carries content all the way to "submitted for publish
-// approval" without a detour through the Communications Workbench — the
-// Captain still makes the final call, same as always. 'published' items
-// still live in comms-workbench's Portfolio tab, not this active board.
+// Proofing now carries the flow through to actual publish: 'approved' and
+// 'ready_to_publish' both render inside the Proofing column (see
+// GET /api/content-workbench's stageOf()) behind a single "Publish"
+// button (ProofingStageBody's publish()) — the Captain is the one
+// clicking Approve, QA, and Publish in this same modal already, so
+// there's no second party for an extra confirmation step to gate
+// against (see the advance route's own comment for why the earlier
+// two-click propose/approve version of this got reverted). 'published'
+// items show up in this workbench's own Portfolio tab.
 //
 // 2026-08 visual redesign (Content Workbench only, per user request — see
 // STAGE_ACCENT in shared.ts): every function/handler below is unchanged
@@ -42,7 +41,7 @@
 // checks/notes but never sets qa_status itself; the human still explicitly
 // saves the checklist, same governance posture as the rest of this pipeline.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Textarea, Select, Modal } from '@/components/ui';
 import {
   STAGE_LABEL,
@@ -453,46 +452,45 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
     }
   }
 
-  async function confirmReady() {
+  // Publishing used to be two separate Captain clicks (captain_confirmed
+  // then mark_published) because mark_published briefly queued a Decide
+  // approval on top of this same click. That gate never had a page behind
+  // it, so it just stalled every item at ready_to_publish forever — see
+  // api/comms/[id]/advance/route.ts's header comment. mark_published is a
+  // direct flip again now, so this collapses to one button: from
+  // 'approved' it fires captain_confirmed then mark_published back to
+  // back; from 'ready_to_publish' (an item that reached that state under
+  // the old two-step flow, pre-fix) it only needs the second call.
+  async function publish() {
     setPublishBusy(true);
     setPublishMsg('');
     try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'captain_confirmed' }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      onChanged();
-    } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error confirming');
-    } finally {
-      setPublishBusy(false);
-    }
-  }
-
-  async function submitForPublish() {
-    setPublishBusy(true);
-    setPublishMsg('');
-    try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
+      if (item.status === 'approved') {
+        const r1 = await fetch(`/api/comms/${item.id}/advance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trigger: 'captain_confirmed' }),
+        });
+        const d1 = await r1.json();
+        if (!r1.ok) throw new Error(d1.error);
+      }
+      const r2 = await fetch(`/api/comms/${item.id}/advance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger: 'mark_published' }),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      setPublishMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : '✓ Published');
+      const d2 = await r2.json();
+      if (!r2.ok) throw new Error(d2.error);
+      setPublishMsg('✓ Published');
       onChanged();
     } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error submitting');
+      setPublishMsg(e instanceof Error ? e.message : 'Error publishing');
     } finally {
       setPublishBusy(false);
     }
   }
 
-  if (item.status === 'approved') {
+  if (item.status === 'approved' || item.status === 'ready_to_publish') {
     return (
       <div className="space-y-2 text-[13.5px]">
         <p className="flex flex-wrap items-center gap-1.5 text-wb-ok-on">
@@ -501,20 +499,8 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
             {item.reviewed_by ? `by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}
           </span>
         </p>
-        <Button size="sm" onClick={confirmReady} disabled={publishBusy} className="w-full">
-          {publishBusy ? 'Confirming…' : 'Confirm Ready to Publish →'}
-        </Button>
-        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
-      </div>
-    );
-  }
-
-  if (item.status === 'ready_to_publish') {
-    return (
-      <div className="space-y-2 text-[13.5px]">
-        <p><span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold text-wb-ok-on">✓ Ready to publish</span></p>
-        <Button size="sm" onClick={submitForPublish} disabled={publishBusy} className="w-full">
-          {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
+        <Button size="sm" onClick={publish} disabled={publishBusy} className="w-full">
+          {publishBusy ? 'Publishing…' : 'Publish →'}
         </Button>
         {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
       </div>
@@ -705,20 +691,42 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
   );
 }
 
-/** Compact funnel strip above the board — quick read of where volume sits. */
-function PipelineOverview({ counts }: { counts: Record<Stage, number> }) {
+/** Compact funnel strip above the board — quick read of where volume sits.
+ * 2026-08-09 mobile/iPad review (P1): below `sm` this doubles as the stage
+ * picker for the single-column mobile board (see ContentBoard) — tapping
+ * a stage here is how you switch which column you're looking at, instead
+ * of horizontal-scrolling through all 4 at once. Above `sm` it's still
+ * just a read-only overview, unchanged. */
+function PipelineOverview({
+  counts,
+  activeStage,
+  onSelectStage,
+}: {
+  counts: Record<Stage, number>;
+  activeStage?: Stage;
+  onSelectStage?: (stage: Stage) => void;
+}) {
   return (
     <div className="mb-3 flex items-center gap-1.5 overflow-x-auto rounded-lg border border-wb-line bg-wb-surface px-2.5 py-2">
       {STAGES.map((stage, i) => {
         const accent = STAGE_ACCENT[stage];
+        const isActive = onSelectStage && activeStage === stage;
+        const chip = (
+          <div className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ${isActive ? 'bg-wb-line' : ''}`}>
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${accent.bar}`} aria-hidden>
+              {counts[stage]}
+            </span>
+            <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
+          </div>
+        );
         return (
           <div key={stage} className="flex shrink-0 items-center gap-1.5">
-            <div className="flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5">
-              <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${accent.bar}`} aria-hidden>
-                {counts[stage]}
-              </span>
-              <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
-            </div>
+            {onSelectStage ? (
+              <button type="button" onClick={() => onSelectStage(stage)} aria-pressed={isActive}
+                className="rounded-full transition active:scale-95 sm:pointer-events-none">
+                {chip}
+              </button>
+            ) : chip}
             {i < STAGES.length - 1 && <span className="text-wb-ink2/40" aria-hidden>→</span>}
           </div>
         );
@@ -732,6 +740,28 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 2026-08-09 mobile/iPad review (P1): the 4-column board's only mobile
+  // fallback was horizontal-scroll through all 4 at min-w-[264px] each —
+  // functional but a real working-memory cost on a phone (easy to lose
+  // which column you scrolled to, no way to see "what's in each stage"
+  // without scrolling through all of them). Below `sm`, render exactly
+  // one stage at a time instead, switched via the PipelineOverview strip
+  // acting as a stage picker.
+  const [activeMobileStage, setActiveMobileStage] = useState<Stage>('capture');
+  // 2026-08-09 fix: the mobile single-column board always opened on
+  // 'capture' regardless of where the actual items were, so a Captain
+  // opening the board on a phone with nothing to capture (the common
+  // case — most work sits in later stages) landed on an empty column
+  // and had to know to tap over. Auto-pick the first non-empty stage on
+  // the initial load only; once the Captain has tapped a stage
+  // themselves, respect that choice on subsequent refreshes instead of
+  // yanking them back.
+  const userPickedMobileStage = useRef(false);
+
+  function selectMobileStage(stage: Stage) {
+    userPickedMobileStage.current = true;
+    setActiveMobileStage(stage);
+  }
 
   async function load() {
     setLoading(true);
@@ -743,6 +773,10 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       setItems(data.items ?? []);
       setCounts(data.counts ?? null);
       if (onLoaded) onLoaded(data.counts);
+      if (!userPickedMobileStage.current && data.counts) {
+        const firstNonEmpty = STAGES.find((s) => (data.counts[s] ?? 0) > 0);
+        if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load board');
     } finally {
@@ -761,11 +795,18 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
       {!loading && !error && (
         <>
-          {counts && <PipelineOverview counts={counts} />}
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          {counts && (
+            <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={selectMobileStage} />
+          )}
+          {/* sm+: full multi-column board, unchanged. */}
+          <div className="hidden gap-3 overflow-x-auto pb-2 sm:flex">
             {STAGES.map((stage) => (
               <Column key={stage} stage={stage} items={items.filter((i) => i.stage === stage)} onChanged={load} />
             ))}
+          </div>
+          {/* below sm: single active stage only, picked via the strip above. */}
+          <div className="sm:hidden">
+            <Column stage={activeMobileStage} items={items.filter((i) => i.stage === activeMobileStage)} onChanged={load} />
           </div>
         </>
       )}

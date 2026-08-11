@@ -26,9 +26,18 @@ from typing import Any, Dict, List, Optional
 def _load_dotenv() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     env_path = repo_root / ".env"
-    if not env_path.exists():
+    try:
+        if not env_path.exists():
+            return
+        content = env_path.read_text(encoding="utf-8")
+    except OSError:
+        # Not readable by this process (e.g. root-owned 0600 .env, service
+        # running as a non-root user) — fine, the vars may already be in
+        # os.environ via systemd's EnvironmentFile= (read by root before
+        # the user switch). A heartbeat helper must never break import for
+        # the job it's attached to; see record_heartbeat's own contract.
         return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
+    for line in content.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue

@@ -8,7 +8,11 @@ import { StatusBadge } from '@/components/StatusBadge';
 interface LiveData {
   activeMissionsCount: number | null;
   lastLog: { log_date: string; captain_capacity_rating: number | null; tomorrows_priority: string | null } | null;
-  lastPulse: { pulse_type: string | null; pain_score: number | null; energy: number | null; mood: number | null; captured_at: string | null } | null;
+  // energy/nervous_system are the canonical Telegram-bot fields (Captain
+  // directive, 2026-08-10); both are text categories (e.g. 'moderate',
+  // 'calm'), not 0-10 scores — see the render fix below. `mood` kept only
+  // as a legacy fallback for pre-canonical rows.
+  lastPulse: { pulse_type: string | null; pain_score: number | null; energy: string | null; nervous_system: string | null; mood: string | null; captured_at: string | null } | null;
 }
 
 const DOMAINS = [
@@ -68,7 +72,7 @@ export default function OperatingModelPage() {
             .maybeSingle(),
           supabase
             .from('recovery_pulses')
-            .select('pulse_type, pain_score, energy, mood, captured_at')
+            .select('pulse_type, pain_score, energy, nervous_system, mood, captured_at')
             .order('captured_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
@@ -212,7 +216,7 @@ export default function OperatingModelPage() {
               <div className="bg-panel border border-edge rounded-lcars p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Type</span>
-                  <span className="text-foreground text-sm font-lcars">{lastPulse.pulse_type ?? '—'}</span>
+                  <span className="text-foreground text-sm font-lcars capitalize">{lastPulse.pulse_type ?? '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Pain</span>
@@ -220,11 +224,15 @@ export default function OperatingModelPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Energy</span>
-                  <span className="text-engineering-on text-sm font-lcars">{lastPulse.energy != null ? `${lastPulse.energy}/10` : '—'}</span>
+                  <span className="text-engineering-on text-sm font-lcars capitalize">{lastPulse.energy ?? '—'}</span>
                 </div>
+                {/* Nervous system is the canonical Telegram-bot field
+                    (Captain directive, 2026-08-10), replacing Mood here.
+                    Falls back to the legacy `mood` reading only when a row
+                    predates the canonical field (no nervous_system value). */}
                 <div className="flex justify-between">
-                  <span className="text-lcars-muted text-sm">Mood</span>
-                  <span className="text-science-on text-sm font-lcars">{lastPulse.mood != null ? `${lastPulse.mood}/10` : '—'}</span>
+                  <span className="text-lcars-muted text-sm">{lastPulse.nervous_system ? 'Nervous system' : 'Mood (legacy)'}</span>
+                  <span className="text-science-on text-sm font-lcars capitalize">{lastPulse.nervous_system ?? lastPulse.mood ?? '—'}</span>
                 </div>
                 {lastPulse.captured_at && (
                   <div className="text-lcars-muted text-xs pt-1 border-t border-edge">

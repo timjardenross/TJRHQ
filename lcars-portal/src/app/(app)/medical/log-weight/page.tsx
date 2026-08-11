@@ -1,7 +1,14 @@
 'use client';
 
+// Manual capture retirement (Captain directive, 2026-08-10 — see
+// .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+// Recovery Pulse (via the Telegram XO bot) is now the platform's only
+// manual health-data capture mechanism. This page previously let the
+// Captain manually log a weight entry directly to `weight_logs` — that
+// input is retired below. History and the 30-day trend remain visible;
+// only the ability to create new entries has been removed.
+
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -11,72 +18,23 @@ interface WeightTrendRow {
 }
 
 export default function LogWeightPage() {
-  const router = useRouter();
   const today  = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const [weight,  setWeight]  = useState('');
-  const [notes,   setNotes]   = useState('');
-  const [saving,  setSaving]  = useState(false);
-  const [saved,   setSaved]   = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-  const [trend,   setTrend]   = useState<WeightTrendRow[]>([]);
-  const [already, setAlready] = useState<number | null>(null);
+  const [trend, setTrend] = useState<WeightTrendRow[]>([]);
 
   useEffect(() => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
-      const todayStr = new Date().toISOString().slice(0, 10);
-
-      const [trendRes, todayRes] = await Promise.all([
-        supabase
-          .from('weight_logs')
-          .select('log_date,weight_kg')
-          .order('log_date', { ascending: false })
-          .limit(30),
-        supabase
-          .from('weight_logs')
-          .select('weight_kg')
-          .eq('log_date', todayStr)
-          .limit(1),
-      ]);
+      const trendRes = await supabase
+        .from('weight_logs')
+        .select('log_date,weight_kg')
+        .order('log_date', { ascending: false })
+        .limit(30);
 
       if (trendRes.data?.length) setTrend(trendRes.data as WeightTrendRow[]);
-      if (todayRes.data?.[0])    setAlready((todayRes.data[0] as WeightTrendRow).weight_kg);
     }
     load();
   }, []);
-
-  async function handleSubmit() {
-    const kg = parseFloat(weight);
-    if (!weight || isNaN(kg) || kg <= 0) {
-      setError('Enter a valid weight in kg.');
-      return;
-    }
-    setError(null);
-    setSaving(true);
-
-    const payload = {
-      log_date:    new Date().toISOString().slice(0, 10),
-      weight_kg:   kg,
-      time_of_day: 'morning',
-      source:      'manual',
-      notes:       notes || null,
-    };
-
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: dbErr } = await supabase
-        .from('weight_logs')
-        .upsert(payload, { onConflict: 'log_date' });
-      if (dbErr) throw new Error(dbErr.message);
-      setSaved(true);
-      setTimeout(() => router.push('/medical'), 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save weight.');
-    } finally {
-      setSaving(false);
-    }
-  }
 
   // Simple trend stats
   const minW  = trend.length ? Math.min(...trend.map(r => r.weight_kg)) : null;
@@ -86,73 +44,15 @@ export default function LogWeightPage() {
     ? (trend[0].weight_kg - trend[trend.length - 1].weight_kg).toFixed(1)
     : null;
 
-  if (saved) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-16">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-command bg-command/10">
-          <span className="font-lcars text-2xl text-command-on">✓</span>
-        </div>
-        <p className="font-lcars text-lg font-bold text-command-on">Weight logged</p>
-        <p className="text-sm text-lcars-muted">Returning to Medical Bay…</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <LCARSPanel title="Log Weight" accent="medical" eyebrow={today}>
         <p className="text-xs text-lcars-muted leading-relaxed">
-          Weight is tracked as a wellness trend — not a target. Log first thing in the morning,
-          same conditions each time, for consistent data.
+          Manual weight logging has been retired. Recovery Pulse (via the Telegram XO bot) is now
+          the Captain&rsquo;s single manual health-data capture mechanism — this page no longer
+          accepts new entries. History below remains visible.
         </p>
-        {already !== null && (
-          <p className="mt-2 text-xs text-command-on">
-            Today already logged: {already} kg — submitting will update it.
-          </p>
-        )}
       </LCARSPanel>
-
-      {/* Entry */}
-      <LCARSPanel title="Today's Weight" accent="medical" eyebrow="kg">
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            min={30}
-            max={500}
-            step={0.1}
-            placeholder={already ? String(already) : 'e.g. 82.5'}
-            className="w-36 rounded-lcars border border-edge bg-space px-3 py-2 text-lg text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none font-mono"
-          />
-          <span className="text-sm text-lcars-muted">kg</span>
-        </div>
-      </LCARSPanel>
-
-      {/* Notes */}
-      <LCARSPanel title="Notes" accent="medical" eyebrow="Optional">
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          placeholder="e.g. post-workout, evening reading, different scale"
-          className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none resize-none"
-        />
-      </LCARSPanel>
-
-      {error && (
-        <p className="rounded-lcars border border-operations/40 bg-operations/10 px-4 py-3 text-sm text-operations-on">
-          {error}
-        </p>
-      )}
-
-      <button
-        onClick={handleSubmit}
-        disabled={saving || !weight}
-        className="w-full rounded-lcars bg-command px-4 py-3 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
-      >
-        {saving ? 'Logging weight…' : 'Log Weight'}
-      </button>
 
       {/* 30-day trend */}
       {trend.length > 0 && (

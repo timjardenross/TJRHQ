@@ -19,8 +19,8 @@ export function isDomain(v: string | null): v is Domain {
 
 /** Per-domain eyebrow copy shown in the Shell header. */
 export const EYEBROW: Record<Domain, string> = {
+  board: 'Ask',
   consult: 'Officer Advisors',
-  board: 'Strategic Council',
   perspectives: 'Distinguished Voices',
 };
 
@@ -44,6 +44,12 @@ export interface AdvisoryResult {
   risks_and_challenges?: string[];
   confidence?: Confidence;
   officer_perspectives?: OfficerPerspective[];
+  /** True when the live specialist pipeline failed and this result fell back
+   * to historical evidence/lessons only (core/advisory/service.py's
+   * _degraded_pipeline) — surfaced as a visible badge, not left to the
+   * Captain to notice buried in executive_summary's prose (2026-08 UX
+   * review finding). */
+  degraded?: boolean;
   sections?: Array<{ heading: string; items?: string[]; text?: string; suppressed?: number }>;
   triggers?: unknown[];
   attention_required?: boolean;

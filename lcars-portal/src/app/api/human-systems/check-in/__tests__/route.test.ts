@@ -45,12 +45,26 @@ describe('POST /api/human-systems/check-in', () => {
 
   it('upserts on log_date conflict and returns ok when authenticated', async () => {
     requireSessionMock.mockResolvedValue({ user: { email: 'captain@example.com' } });
-    const res = await POST(makeRequest({ log_date: '2026-07-18', mood: 'good' }));
+    const res = await POST(makeRequest({ log_date: '2026-07-18', energy: 'high' }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
     expect(upsertMock).toHaveBeenCalledWith(
-      { log_date: '2026-07-18', mood: 'good' },
+      { log_date: '2026-07-18', energy: 'high' },
+      { onConflict: 'log_date' },
+    );
+  });
+
+  // Manual capture retirement (Captain directive, 2026-08-10): the Medical
+  // tab's manual mood-entry field is retired — this route strips `mood`
+  // server-side even if a caller still sends it (defense in depth, mirrors
+  // pulse/route.ts's identical mood/stress stripping).
+  it('strips mood from the payload before upserting, regardless of caller', async () => {
+    requireSessionMock.mockResolvedValue({ user: { email: 'captain@example.com' } });
+    const res = await POST(makeRequest({ log_date: '2026-07-18', mood: 'good', energy: 'high' }));
+    expect(res.status).toBe(200);
+    expect(upsertMock).toHaveBeenCalledWith(
+      { log_date: '2026-07-18', energy: 'high' },
       { onConflict: 'log_date' },
     );
   });

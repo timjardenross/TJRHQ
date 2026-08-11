@@ -27,7 +27,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (error) setError(error.message);
-    else router.push('/home');
+    else router.push('/workbenches');
   }
 
   async function handleMagicLink(e: React.FormEvent) {

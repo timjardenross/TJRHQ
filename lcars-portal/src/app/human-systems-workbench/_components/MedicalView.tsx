@@ -54,9 +54,12 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
       <Card title="Quick actions">
         <div className="flex flex-wrap gap-3">
           <Link href="/human-systems-workbench/medical/check-in" className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition hover:opacity-90">Check-in</Link>
-          <Link href="/human-systems-workbench/medical/log-activity" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Log activity</Link>
           <Link href="/human-systems-workbench/medical/pulse" className="rounded-md border border-wb-line px-4 py-2 text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">Recovery pulse</Link>
         </div>
+        {/* Manual capture retirement (Captain directive, 2026-08-10): the
+            standalone "Log activity" quick action was removed — manual
+            activity entry is retired platform-wide. Recovery Pulse is the
+            only manual health-data capture mechanism going forward. */}
       </Card>
 
       <Card title="Life Participation">

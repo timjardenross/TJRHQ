@@ -15,13 +15,6 @@ import type { CouncilAdvisor, Msg } from './types';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
-const QUICK_PROMPTS = [
-  'What needs my decision?',
-  'Protect or defer?',
-  'What changed since yesterday?',
-  'Challenge this assumption',
-];
-
 export function ConsultView() {
   const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
@@ -30,6 +23,7 @@ export function ConsultView() {
   const [streamBuffer, setStreamBuffer] = useState('');
   const [offlineAdvisors, setOfflineAdvisors] = useState<Set<string>>(new Set());
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -113,29 +107,45 @@ export function ConsultView() {
   const isOffline = offlineAdvisors.has(activeAdvisor.id);
 
   const groups = COUNCIL.reduce<Record<string, CouncilAdvisor[]>>((acc, a) => { (acc[a.group] = acc[a.group] ?? []).push(a); return acc; }, {});
+  const groupHasHistory = (advisors: CouncilAdvisor[]) => advisors.some((a) => (threads[a.id]?.length ?? 0) > 0);
 
   return (
-    <div className="flex flex-col gap-4 lg:h-[65vh] lg:flex-row">
-      {/* Sidebar */}
-      <div className="flex w-full shrink-0 flex-col gap-3 overflow-y-auto pt-1 lg:w-44">
-        {Object.entries(groups).map(([group, advisors]) => (
-          <div key={group}>
-            <p className="mb-1 px-1 text-[9px] uppercase tracking-[0.2em] text-wb-ink2">{group}</p>
-            <div className="flex flex-col gap-1">
-              {advisors.map((a) => {
-                const active = activeAdvisor.id === a.id;
-                const accent = a.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep';
-                return (
-                  <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
-                    className={`rounded-md border px-2.5 py-2 text-left transition-colors ${active ? `border-wb-sage-deep bg-wb-sage-deep/10 ${accent}` : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
-                    <p className={`text-xs uppercase tracking-wider ${active ? accent : ''}`}>{a.label}</p>
-                    <p className="mt-0.5 text-[9px] leading-tight text-wb-ink2">{a.subtitle}</p>
-                  </button>
-                );
-              })}
-            </div>
+    <div className="flex flex-col gap-4 lg:h-[65dvh] lg:flex-row">
+      {/* Group-first picker (2026-08 redesign): 18 officers behind 5 group
+          chips instead of all always expanded — pick a group, then a
+          person within it. Mirrors PerspectivesView's category-first
+          pattern, which the Captain's own review flagged as the better of
+          the two for the same "too many options" problem. */}
+      <div className="flex w-full shrink-0 flex-col gap-3 lg:w-48">
+        <div className="flex flex-wrap gap-1.5 lg:flex-col">
+          {Object.entries(groups).map(([group, advisors]) => {
+            const isOpen = openGroup === group;
+            const hasHistory = groupHasHistory(advisors);
+            return (
+              <button key={group} onClick={() => setOpenGroup(isOpen ? null : group)}
+                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.15em] transition-colors ${isOpen ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
+                {group}
+                {hasHistory && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" aria-label="has conversation history" />}
+                <span className="opacity-60">({advisors.length})</span>
+              </button>
+            );
+          })}
+        </div>
+        {openGroup && (
+          <div className="flex flex-col gap-1">
+            {groups[openGroup].map((a) => {
+              const active = activeAdvisor.id === a.id;
+              const accent = a.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep';
+              return (
+                <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
+                  className={`rounded-md border px-2.5 py-2 text-left transition-colors ${active ? `border-wb-sage-deep bg-wb-sage-deep/10 ${accent}` : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
+                  <p className={`text-xs uppercase tracking-wider ${active ? accent : ''}`}>{a.label}</p>
+                  <p className="mt-0.5 text-[9px] leading-tight text-wb-ink2">{a.subtitle}</p>
+                </button>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Thread */}
@@ -153,7 +163,20 @@ export function ConsultView() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: 'calc(65vh - 200px)' }}>
+            {/* 2026-08-09 mobile/iPad review (P2): calc(65vh - 200px) was
+                applied unconditionally at every breakpoint, but the outer
+                container's own height constraint (lg:h-[65dvh], below)
+                only exists at lg+ — below that this was capping the
+                thread's scroll area against a height budget the page
+                itself was never actually constrained to, and the vh unit
+                doesn't account for iOS Safari's collapsing toolbar or an
+                open on-screen keyboard shrinking the real usable space.
+                max-h-none below lg (thread just flows in the page's
+                normal scroll); the fixed calc only applies at lg+ where
+                the rail layout genuinely needs a bounded height to keep
+                the input visible, and dvh there tracks the real dynamic
+                viewport instead of the load-time one. */}
+            <div className="max-h-none space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(65dvh-200px)]">
               {messages.length === 0 && !loading && (
                 <p className="py-8 text-center text-sm text-wb-ink2">{activeAdvisor.label} standing by.</p>
               )}
@@ -188,14 +211,6 @@ export function ConsultView() {
                 </div>
               )}
               <div ref={bottomRef} />
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_PROMPTS.map((p) => (
-                <button key={p} onClick={() => send(p)} disabled={loading}
-                  className="rounded-md border border-wb-line px-2.5 py-1 text-[10px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep hover:text-wb-sage-deep disabled:opacity-40">
-                  {p}
-                </button>
-              ))}
             </div>
             {!activeAdvisor.useXoEndpoint && (
               <label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">

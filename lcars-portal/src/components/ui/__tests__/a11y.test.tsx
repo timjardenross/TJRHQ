@@ -34,6 +34,13 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+// WorkbenchShell's persistent workbench switcher calls useRouter/usePathname
+// (2026-08 UX review) - no app router is mounted in this harness either.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: () => {}, replace: () => {} }),
+  usePathname: () => '/test-workbench',
+}));
+
 function ModalHarness() {
   const [open, setOpen] = useState(true);
   return (
@@ -133,7 +140,6 @@ describe('TJR Design System — component accessibility (axe-core, jsdom)', () =
     const { container } = render(
       <WorkbenchShell
         title="Test Workbench"
-        homeHref="/test-workbench"
         tagline="USS TJR · Test tagline"
         back={{ href: '/test-workbench', label: 'Back to Workbench' }}
       >

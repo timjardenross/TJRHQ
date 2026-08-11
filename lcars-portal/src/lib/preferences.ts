@@ -16,7 +16,7 @@ export interface Preferences {
 
 const DEFAULTS: Preferences = {
   operatingMode: 'Work',
-  favouritePages: ['/captains-chair', '/missions', '/captains-log'],
+  favouritePages: ['/captains-chair-workbench', '/missions', '/captains-log'],
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
   defaultAdvisor: 'xo',

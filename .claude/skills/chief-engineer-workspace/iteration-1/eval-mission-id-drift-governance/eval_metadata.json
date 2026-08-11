@@ -1,0 +1,10 @@
+{
+  "eval_id": 2,
+  "eval_name": "mission-id-drift-governance",
+  "prompt": "Mission ID minting drifted again - a Captain-assigned MSN bypassed the counter. What should Chief Engineer do about it?",
+  "assertions": [
+    "Frames this explicitly as an escalation/governance matter rather than a unilateral fix decision",
+    "References real prior context where available (e.g. tools/mint_id.py, MISSION-MINTING.md) rather than generic advice",
+    "Gives a concrete next action, not just analysis"
+  ]
+}

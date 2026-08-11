@@ -77,7 +77,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
   const title = (brief?.executive_snapshot ?? '').split('.')[0]?.slice(0, 90) || `Brief ${id.slice(0, 8)}`;
 
   return (
-    <WorkbenchShell title="Brief Review" homeHref="/intelligence-workbench"
+    <WorkbenchShell title="Brief Review"
            tagline="USS TJR · Operational Resilience Intelligence · Phase B"
            back={{ href: '/intelligence-workbench', label: 'Overview' }}
            right={brief ? <RiskPill value={brief.overall_risk} /> : ''}>

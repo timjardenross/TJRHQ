@@ -58,22 +58,33 @@ from supabase import create_client
 
 # ─── Per-health_domain search queries ────────────────────────────────────
 
+# 2026-08-09 gap-closure: broadened after live testing against the real
+# esearch/studies APIs (30-day PubMed pool, CTgov totalCount) confirmed
+# every domain's result pool grew, none went to zero. "treatment" was the
+# worst offender — its CTgov side was locked to a single condition
+# ("cardiovascular disease treatment") while its PubMed side was already
+# broad; broadened to a representative condition basket rather than fully
+# open ("treatment efficacy OR therapeutic intervention" alone matched
+# 250k+ trials via CTgov's fuzzy free-text matching — untargeted noise,
+# not a real widening of scope). per_domain_limit still caps daily output
+# at 15/domain regardless of pool size; a bigger pool means better
+# candidates to pick those 15 from, not more volume.
 PUBMED_QUERIES = {
-    "epidemiology": "(epidemiology[tiab] OR outbreak[tiab] OR disease surveillance[tiab])",
-    "treatment": "(clinical trial[pt]) AND treatment efficacy[tiab]",
-    "supplement": "(dietary supplement[tiab] OR nutraceutical[tiab]) AND (randomized[tiab] OR trial[tiab])",
-    "performance": "(exercise performance[tiab] OR athletic performance[tiab] OR ergogenic[tiab])",
-    "mental_health": "(mental health[tiab] OR depression[tiab] OR anxiety[tiab]) AND (randomized controlled trial[pt] OR meta-analysis[pt])",
-    "vaccine": "(vaccine efficacy[tiab] OR vaccine safety[tiab])",
+    "epidemiology": "(epidemiology[tiab] OR outbreak[tiab] OR disease surveillance[tiab] OR incidence[tiab] OR prevalence[tiab])",
+    "treatment": "(clinical trial[pt]) AND (treatment efficacy[tiab] OR therapeutic outcome[tiab] OR treatment outcome[tiab])",
+    "supplement": "(dietary supplement[tiab] OR nutraceutical[tiab] OR vitamin supplementation[tiab]) AND (randomized[tiab] OR trial[tiab])",
+    "performance": "(exercise performance[tiab] OR athletic performance[tiab] OR ergogenic[tiab] OR resistance training[tiab] OR endurance training[tiab])",
+    "mental_health": "(mental health[tiab] OR depression[tiab] OR anxiety[tiab] OR stress[tiab] OR burnout[tiab]) AND (randomized controlled trial[pt] OR meta-analysis[pt])",
+    "vaccine": "(vaccine efficacy[tiab] OR vaccine safety[tiab] OR immunization[tiab] OR vaccination coverage[tiab])",
 }
 
 CTGOV_QUERIES = {
-    "epidemiology": "infectious disease surveillance",
-    "treatment": "cardiovascular disease treatment",
-    "supplement": "dietary supplement",
-    "performance": "athletic performance exercise",
-    "mental_health": "depression anxiety",
-    "vaccine": "vaccine efficacy",
+    "epidemiology": "infectious disease surveillance OR outbreak investigation OR disease prevalence",
+    "treatment": "cardiovascular disease treatment OR diabetes treatment OR cancer treatment OR chronic pain treatment",
+    "supplement": "dietary supplement OR nutraceutical OR vitamin supplementation",
+    "performance": "athletic performance OR exercise performance OR sports medicine",
+    "mental_health": "depression OR anxiety OR stress resilience",
+    "vaccine": "vaccine efficacy OR vaccine safety OR immunization",
 }
 
 # Phase 2: journal/agency RSS. Every URL here was curl-verified live before

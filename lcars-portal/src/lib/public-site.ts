@@ -131,6 +131,7 @@ export const PRIVATE_ROBOTS_DISALLOWS = [
   '/api/',
   '/auth/',
   '/captains-chair',
+  '/captains-chair-workbench',
   '/advisory-council',
   '/advisory-workbench',
   '/knowledge',

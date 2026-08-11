@@ -16,18 +16,26 @@ import type { BadgeStatus } from '@/components/ui';
 
 export type Stage = 'capture' | 'research' | 'content_prep' | 'proofing';
 
+// proofing's label carries both names on purpose: the board calls this
+// stage "Proofing" but the underlying comms_content.status value items
+// sit in here under is 'review' (or 'approved'/'ready_to_publish') —
+// and the Telegram EOD/morning brief's "CONTENT REVIEW" section prints
+// that raw status verbatim (captains_brief.py's _get_content_review_queue).
+// A Captain reading "review" in the brief had nothing in the UI to match
+// it against, since no column was ever labelled "Review". Chief Engineer
+// content-workbench review, 2026-08-09, finding #3.
 export const STAGE_LABEL: Record<Stage, string> = {
   capture: 'Capture',
   research: 'Research',
   content_prep: 'Content Prep',
-  proofing: 'Proofing',
+  proofing: 'Proofing / Review',
 };
 
 export const STAGE_HINT: Record<Stage, string> = {
   capture: 'Needs a research brief before a draft can be generated.',
   research: 'Briefed — ready to generate a draft.',
   content_prep: 'Drafting and editing. Submit for review when ready.',
-  proofing: 'QA checklist, sign-off, and publish submission — the Captain still approves the final publish in Decide.',
+  proofing: 'QA checklist, sign-off, and publish.',
 };
 
 /**

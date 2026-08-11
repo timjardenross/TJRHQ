@@ -3,6 +3,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 
+// Two classes of coverage gap:
+//  - STRUCTURAL: definitionally always true regardless of data volume (a
+//    zero-day is invisible until it's disclosed, by definition; TLS
+//    payloads can't be inspected without the keys). Always listed.
+//  - DATA-DRIVEN: candidates checked against real event_type volume in the
+//    window. 'Supply chain' used to be hardcoded here as a permanent gap —
+//    verified against real data (2026-08-08) it had 148 events/30d, so
+//    it's excluded below unless volume genuinely drops low again.
+const STRUCTURAL_GAPS = [
+  { area: 'Zero-day activity', risk: 'high', blind_spot: 'Invisible before public disclosure by definition — this feed only sees published CVEs/advisories.' },
+  { area: 'Encrypted traffic', risk: 'medium', blind_spot: "Can't inspect TLS/HTTPS payload content without decryption keys — structural, not a coverage gap." },
+];
+
+const DATA_DRIVEN_CANDIDATES: { area: string; risk: string; event_types: string[]; blind_spot: string; lowVolumeThreshold: number }[] = [
+  { area: 'Internal network security', risk: 'high', event_types: [], blind_spot: 'No internal-monitoring source registered — only external/public signals.', lowVolumeThreshold: 1 },
+  { area: 'Social engineering / phishing', risk: 'medium', event_types: [], blind_spot: 'No source tracks phishing/pretexting campaigns directly.', lowVolumeThreshold: 1 },
+  { area: 'Policy violations / misconfiguration', risk: 'medium', event_types: [], blind_spot: 'No source tracks internal config/policy compliance.', lowVolumeThreshold: 1 },
+  { area: 'Supply chain', risk: 'medium', event_types: ['supply_chain', 'third_party_disruption'], blind_spot: 'Third-party/vendor compromise detection.', lowVolumeThreshold: 10 },
+];
+
+async function computeDataDrivenGaps(sb: any, since: string, days: number) {
+  const gaps: { area: string; risk: string; blind_spot: string }[] = [];
+  for (const c of DATA_DRIVEN_CANDIDATES) {
+    if (c.event_types.length === 0) {
+      // No event_type in the schema can possibly cover this — always a gap
+      // given current sources, no query needed.
+      gaps.push({ area: c.area, risk: c.risk, blind_spot: c.blind_spot });
+      continue;
+    }
+    const { count, error } = await sb
+      .from('intelligence_events')
+      .select('event_id', { count: 'exact', head: true })
+      .in('event_type', c.event_types)
+      .gte('collected_at', since);
+    if (error) throw new Error(`Failed to check coverage for ${c.area}: ${error.message}`);
+    // lowVolumeThreshold is calibrated against a 30-day baseline — this
+    // route's window is a caller-controlled `days` param (default 7), so
+    // scale proportionally. Caught in testing: the unscaled fixed
+    // threshold (10) against the real 7-day count (6, vs. ~148/30d) would
+    // have flagged supply_chain as a gap under the route's own default
+    // window despite genuinely healthy 30-day coverage.
+    const scaledThreshold = Math.max(1, Math.round(c.lowVolumeThreshold * (days / 30)));
+    if ((count ?? 0) < scaledThreshold) {
+      gaps.push({ area: c.area, risk: c.risk, blind_spot: `${c.blind_spot} (only ${count ?? 0} signals in this window)` });
+    }
+  }
+  return gaps;
+}
+
 function impactFromCriticality(score: number | null): string {
   if (score === null || score === undefined) return 'medium';
   if (score >= 0.85) return 'critical';
@@ -72,13 +121,12 @@ async function getThreatAssessment(sb: any, days: number, includeSuppressed: boo
     };
   });
 
+  const dataDrivenGaps = await computeDataDrivenGaps(sb, since, days);
+
   return {
     domain: 'threat-assessment',
     threats,
-    gaps: [
-      { area: 'Internal compromise', risk: 'high', blind_spot: 'No visibility into internal network anomalies' },
-      { area: 'Supply chain', risk: 'medium', blind_spot: 'Limited third-party compromise detection' },
-    ],
+    gaps: [...STRUCTURAL_GAPS, ...dataDrivenGaps],
   };
 }
 

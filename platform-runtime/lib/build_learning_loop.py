@@ -147,7 +147,22 @@ def record_build_lifecycle_event(
                 "source": "build-learning-loop",
             },
         }
-        client.insert("decision_records", decision_payload)
+        dr_result = client.insert("decision_records", decision_payload)
+        if dr_result.ok:
+            # Chief Engineer 2026-08-10 decisions-heartbeat follow-up: this is
+            # the confirmed canonical decision_records writer — the majority
+            # of the table's real historical rows carry
+            # metadata.source="build-learning-loop" and match
+            # generate_build_decision_id()'s DEC-REC-<ts>-<hex> format exactly.
+            # See other real writers (research_learning_loop.py,
+            # comms_learning_loop.py) heartbeated the same way.
+            try:
+                from core.platform.heartbeat import record_heartbeat
+                record_heartbeat("decisions", status="ok", detail=f"source=build-learning-loop event_type={event_type}")
+            except Exception:
+                pass
+        else:
+            log.warning("[build-learning-loop] decision_records write failed: %s", dr_result.error)
 
         if outcome_id:
             outcome_status = {

@@ -16,12 +16,21 @@ import { ExecutiveSummary } from './ExecutiveSummary';
  * data sources. Renders cleanly above the existing desktop Captain's Chair grid.
  */
 
+// 2026-08-10: was on raw department classes (text-medical/border-operations/
+// etc) — REST rendered blue (the Medical department's identity colour) here
+// while ROSPanels, right above this component on desktop and directly above
+// it in the DOM on mobile, rendered REST as navy (department tones were
+// deliberately collapsed to one accent, see ROSPanels.tsx's own note) — the
+// same posture read as two different colours on the same page. Both now use
+// the genuinely-semantic state-tone system (state-ok/warn/crit/unknown, see
+// departments.ts's stateToneClasses) so REST reads the same alarming red
+// everywhere.
 const POSTURE_TONE: Record<RecoveryPostureBand, { text: string; border: string; bg: string; label: string }> = {
-  STRONG: { text: 'text-status', border: 'border-status', bg: 'bg-status/10', label: 'High' },
-  STABLE: { text: 'text-command', border: 'border-command', bg: 'bg-command/10', label: 'Moderate' },
-  FRAGILE: { text: 'text-operations', border: 'border-operations', bg: 'bg-operations/10', label: 'Low' },
-  REST: { text: 'text-medical', border: 'border-medical', bg: 'bg-medical/10', label: 'Rest priority' },
-  UNKNOWN: { text: 'text-lcars-muted', border: 'border-edge', bg: 'bg-edge/10', label: 'Unknown' },
+  STRONG: { text: 'text-state-ok', border: 'border-state-ok', bg: 'bg-state-ok/15', label: 'High' },
+  STABLE: { text: 'text-state-ok', border: 'border-state-ok', bg: 'bg-state-ok/15', label: 'Moderate' },
+  FRAGILE: { text: 'text-state-warn', border: 'border-state-warn', bg: 'bg-state-warn/15', label: 'Low' },
+  REST: { text: 'text-state-crit', border: 'border-state-crit', bg: 'bg-state-crit/15', label: 'Rest priority' },
+  UNKNOWN: { text: 'text-state-unknown', border: 'border-state-unknown', bg: 'bg-state-unknown/15', label: 'Unknown' },
 };
 
 export function MobileOperatingPicture() {
@@ -33,7 +42,13 @@ export function MobileOperatingPicture() {
   const p = POSTURE_TONE[band];
 
   const decisionAlerts = alerts.filter((a) => a.kind === 'decision' || a.kind === 'eng_review');
-  const escalations = alerts.filter((a) => a.kind === 'escalation' || (a.kind === 'wellness' && a.severity === 'critical'));
+  // 2026-08-10: alerts.ts synthesizes 'wellness-capacity-critical' straight
+  // from posture === 'REST' (same posture, same message) — the "Capacity /
+  // posture" card just below already shows that. Keeping it here duplicated
+  // the REST warning a 3rd/4th time (decision banner + Escalations list).
+  // Genuinely distinct wellness alerts (e.g. 'wellness-pain-critical', a
+  // real pain-trend signal, not a posture restatement) still surface.
+  const escalations = alerts.filter((a) => a.kind === 'escalation' || (a.kind === 'wellness' && a.severity === 'critical' && a.id !== 'wellness-capacity-critical'));
   const blocked = alerts.filter((a) => a.kind === 'delivery_failure');
 
   return (
@@ -71,11 +86,10 @@ export function MobileOperatingPicture() {
           <p className={`font-lcars text-2xl font-bold ${p.text}`}>{p.label}</p>
           <span className={`text-xs font-semibold uppercase tracking-wide ${p.text}`}>{band}</span>
         </div>
-        {(posture.posture_message || posture.capacity_message) && (
-          <p className="mt-1 text-sm text-lcars-text/80 leading-relaxed">
-            {posture.posture_message || posture.capacity_message}
-          </p>
-        )}
+        {/* posture.posture_message intentionally not repeated here — the
+            Recovery Posture panel above (ROSPanels.tsx, same page, mobile
+            DOM order puts it right before this) already shows it; this
+            card's job is just the at-a-glance band + label. */}
         <div className="mt-2 flex gap-2">
           <Link href="/recovery-brief" className="flex-1 rounded-lcars border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
             Recovery brief

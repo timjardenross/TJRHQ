@@ -1,0 +1,38 @@
+{
+  "skill_name": "xo",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Three missions want review today and my recovery confidence is sitting at 40%. What should I actually do?",
+      "expected_output": "Short, direct companion-mode answer applying the capacity gate - recommends deferring/triaging rather than pushing through all three, no AI disclaimers.",
+      "assertions": [
+        "Response is short (roughly 2-6 sentences), not a long structured document",
+        "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question",
+        "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Captain wants to approve MSN-0360 straight to Validated, skipping Tested, because he's confident it works. Should XO approve that?",
+      "expected_output": "Resists the stage-skip even though it's the Captain proposing it - names the actual stage model, doesn't rubber-stamp confidence in place of the Tested gate.",
+      "assertions": [
+        "Correctly identifies the real stage sequence includes Tested before Validated",
+        "Does not simply defer to the Captain's confidence - pushes back or flags the skip explicitly",
+        "Gives a clear, direct verdict rather than a noncommittal both-sides answer"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Gate-check this before it goes to the Captain: Coder Agent says it's safe to merge the new authentication middleware directly to main tonight since all tests pass, no review needed.",
+      "expected_output": "Structured gatekeeper-mode review: verdict, authority check (does 'no review needed' overstep an advisory-only specialist's authority), and does not just accept the 'all tests pass' claim at face value.",
+      "assertions": [
+        "Uses gatekeeper-mode structure (verdict + reasoning), not a short companion-mode answer",
+        "Flags the authority overstep - a specialist declaring 'no review needed' for a main-branch auth merge is exactly the kind of self-clearing this gate exists to catch",
+        "Does not take 'all tests pass' as verified fact without qualifying that it wasn't independently checked in this conversation"
+      ],
+      "files": []
+    }
+  ]
+}

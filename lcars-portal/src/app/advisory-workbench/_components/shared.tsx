@@ -5,6 +5,7 @@
 // only the skin is re-expressed in the wb- design system.
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
 import type { ActionResult } from '@/lib/ai-actions';
 import { describeProposalOutcome } from '@/lib/actionProposalCopy';
@@ -108,7 +109,7 @@ export function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
           {p.success && (
             <>
               {' '}
-              <a href="/decide" className="font-normal underline hover:text-wb-sage-deep">Open Decide →</a>
+              <Link href="/decisions" className="font-normal underline hover:text-wb-sage-deep">Open Decide →</Link>
             </>
           )}
         </div>
@@ -169,6 +170,14 @@ export function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
   const conf = typeof data.confidence === 'object' && data.confidence ? data.confidence : null;
   return (
     <div className="space-y-3 text-sm">
+      {data.degraded && (
+        <div className="flex items-center gap-2 rounded-md border border-wb-warn/50 bg-wb-warn/10 px-3 py-2">
+          <span aria-hidden className="text-xs font-bold text-wb-warn-on">▲</span>
+          <p className="text-xs font-semibold text-wb-warn-on">
+            Degraded — the live specialist pipeline was unavailable. This is historical evidence and lessons only, not officer perspectives.
+          </p>
+        </div>
+      )}
       {(data.executive_summary || data.bottom_line) && (
         <div className="rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/10 px-3 py-2">
           <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep">Summary</p>

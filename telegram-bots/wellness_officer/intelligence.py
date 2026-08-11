@@ -37,6 +37,15 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
     Slack copy used naive local system time instead of Brisbane time,
     a real silent-drift risk (MSN-0302 finding) since "afternoon" would
     resolve differently depending on which copy ran and where.
+
+    Captain directive 2026-08-10 (4 pulses/day -> 3): thresholds below were
+    originally written against `confidence`, a percentage derived from a
+    4-pulse scale (25/50/75/100). Re-deriving the same cutoffs against a
+    3-pulse scale (33/67/100) would have silently shifted what each level
+    means. Switched to comparing `pulses_completed` directly instead —
+    scale-independent, and preserves the exact prior qualitative meaning
+    (1 pulse logged = concern, 2 logged = watch, all logged = clear)
+    regardless of how many pulses make up "all".
     """
     try:
         from zoneinfo import ZoneInfo
@@ -50,9 +59,9 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
         if hour >= 9:
             return 2  # Mid-morning with no morning pulse
         return 1
-    if confidence <= 25:
+    if pulses_completed <= 1:
         return 2
-    if confidence <= 50:
+    if pulses_completed == 2:
         return 1
     return 0
 
@@ -62,10 +71,9 @@ class WellnessSnapshot:
     # ── Recovery confidence (from recovery_confidence_today view) ──────────────
     recovery_confidence: int         = 0
     pulses_completed:    int         = 0
-    pulses_missing:      int         = 4
+    pulses_missing:      int         = 3
     morning_done:        bool        = False
     midday_done:         bool        = False
-    end_of_day_done:     bool        = False
     evening_done:        bool        = False
     confidence_label:    str         = "No telemetry today"
     latest_energy:         str | None  = None
@@ -148,10 +156,9 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
 
             snap.recovery_confidence = conf
             snap.pulses_completed    = pulses
-            snap.pulses_missing      = r.get("pulses_missing", 4)
+            snap.pulses_missing      = r.get("pulses_missing", 3)
             snap.morning_done        = r.get("morning_done", False)
             snap.midday_done         = r.get("midday_done", False)
-            snap.end_of_day_done     = r.get("end_of_day_done", False)
             snap.evening_done        = r.get("evening_done", False)
             snap.confidence_label    = r.get("confidence_label", "Unknown")
             snap.latest_energy         = r.get("latest_energy")

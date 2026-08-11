@@ -159,7 +159,7 @@ def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
 
     # ── Today's telemetry ─────────────────────────────────────────────────────
     lines.append(f"Recovery confidence: {snap.recovery_confidence}% — {snap.confidence_label}")
-    lines.append(f"Pulses logged: {snap.pulses_completed}/4")
+    lines.append(f"Pulses logged: {snap.pulses_completed}/3")
 
     if snap.latest_energy or snap.latest_nervous_system or snap.latest_body_signals:
         signals = ", ".join(filter(None, [
@@ -388,5 +388,5 @@ def _fallback_brief(snap: WellnessSnapshot) -> str:
 
     return (
         f"{portfolio}{body_note} {ns_note}{trend_note} "
-        f"Pulses: {pulses}/4. {action}"
+        f"Pulses: {pulses}/3. {action}"
     ).strip()

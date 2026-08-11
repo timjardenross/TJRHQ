@@ -268,6 +268,28 @@ def format_ledger(ledger: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+    """Chief Engineer 2026-08-09 EOD alert verification: 'engineering_handoff'
+    (this reconciler, deploy/delivery-reconciler.timer every 15 min) had zero
+    record_heartbeat() call sites despite being a live, actively-scheduled
+    job. Best-effort, never raises."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "platform"))
+        from heartbeat import record_heartbeat
+        record_heartbeat("engineering_handoff", status=status, detail=detail, error_message=error_message)
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     do_apply = len(sys.argv) > 1 and sys.argv[1] == "apply"
-    print(format_ledger(reconcile(apply=do_apply)))
+    try:
+        _ledger = reconcile(apply=do_apply)
+    except Exception as _exc:
+        _record_heartbeat("failed", error_message=str(_exc))
+        raise
+    print(format_ledger(_ledger))
+    _record_heartbeat(
+        "ok",
+        detail=f"pass={'apply' if do_apply else 'report'} items={len(_ledger.get('items', []))}",
+    )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
+import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 
 // Valid Supabase status values (CHECK constraint on missions.status)
 const VALID_STATUSES = [
@@ -93,6 +94,19 @@ export async function POST(request: NextRequest) {
 
     // Non-blocking runtime registry append (MSN-0145 pattern)
     appendToRegistry(mission_id, title, 'LCARS-API', status);
+
+    // Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+    // final-4-domains.md): this route is the confirmed-live mission
+    // creation path — called directly by tg-xo.service's /mission_create
+    // command (telegram-bots/xo/app.py). One of several genuinely-real,
+    // non-shared `missions` write sites; see that doc for the full
+    // multi-writer disposition (same "wire all the real ones" judgment
+    // used for the `decisions` domain).
+    void recordHeartbeatServerSide({
+      domainKey: 'missions',
+      status: 'ok',
+      detail: `create mission_id=${mission_id}`,
+    });
 
     return NextResponse.json({ mission: data }, { status: 201 });
   } catch (err) {

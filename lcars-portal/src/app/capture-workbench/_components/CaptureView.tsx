@@ -129,7 +129,7 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
         <div className="rounded-md border border-wb-ok/50 bg-wb-ok/10 px-4 py-3 text-sm font-semibold text-wb-ok-on">
           ✓ {flash}
           {commsCapture ? (
-            <> — <Link href="/comms" className="text-wb-sage-deep underline">view in Content Pipeline →</Link></>
+            <> — <Link href="/content-workbench" className="text-wb-sage-deep underline">view in Content Pipeline →</Link></>
           ) : ' — added to the Capture Inbox.'}
         </div>
       )}

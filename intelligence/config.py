@@ -34,6 +34,17 @@ OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
 MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8080")
 
+# 2026-08-10 (Firecrawl production provisioning): the Captain's own personal
+# Firecrawl account, used ONLY as a last-resort fetch path (via
+# intelligence/ingestion/firecrawl_client.py) for sources a plain
+# urllib.request fetch cannot reach (Cloudflare/Azure Front Door JS-challenge
+# or bot-detection 403s, confirmed live from this production host). Free
+# plan: 1,000 scrapes/month HARD CAP shared across all account usage, 2
+# concurrent requests max — see
+# .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md
+# for the real cost math and which sources are approved to use this path.
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
+
 # Mistral Agents — OR Intelligence pipeline
 # Stage 1: Endeavour Research Scout  → synthesise raw events into research package
 # Stage 2: TAO / Briefing Officer    → challenge + compress → executive brief JSON
@@ -67,6 +78,15 @@ HTTP_TIMEOUT_SECONDS   = int(os.getenv("OR_INTEL_HTTP_TIMEOUT", "15"))
 MAX_ITEMS_PER_SOURCE   = int(os.getenv("OR_INTEL_MAX_ITEMS_PER_SOURCE", "20"))
 STALE_ITEM_HOURS       = int(os.getenv("OR_INTEL_STALE_ITEM_HOURS", "24"))
 BRIEF_PERIOD_DAYS      = int(os.getenv("OR_INTEL_BRIEF_PERIOD_DAYS", "14"))
+
+# Bright Data Web Unlocker API — on-demand rendered-page fetch for sources
+# behind bot/CAPTCHA challenges a plain GET can't reach (2026-08-10,
+# Captain-provisioned free tier: 5,000 requests/month). See
+# intelligence/ingestion/brightdata_fetch.py. No key/zone configured = the
+# capability is simply unavailable; callers must handle that, not assume it.
+BRIGHTDATA_API_KEY        = os.getenv("BRIGHTDATA_API_KEY", "")
+BRIGHTDATA_ZONE            = os.getenv("BRIGHTDATA_ZONE", "web_unlocker1")
+BRIGHTDATA_TIMEOUT_SECONDS = int(os.getenv("BRIGHTDATA_TIMEOUT_SECONDS", "45"))
 
 # ─── Ranking ─────────────────────────────────────────────────────────────────
 
@@ -125,6 +145,10 @@ KNOWN_JUNK_TITLE_SUBSTRINGS = [
     "helping you when times are tough",
     "nbn business plans",
     "connect to the nbn network",
+    # Generic pagination furniture (confirmed live on Fastly Status'
+    # incidents page, 2026-08-10 — see
+    # .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md).
+    "load more",
 ]
 
 # A block of narrative text extracted from a status page's main heading/paragraph

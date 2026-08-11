@@ -2,7 +2,7 @@
 Capture Contract Tests — MSN-XXXX Unified Capture Pipeline
 =====================================================
 Validates that capture writers emit values consistent with the
-canonical captured_items contract defined in 0031_captured_items_maturity.sql.
+canonical captured_items contract defined in 0130_captured_items_maturity.sql.
 
 These tests do NOT require a running Supabase instance — they validate
 the constants and logic in the Python writers and the captains_inbox_capture module.

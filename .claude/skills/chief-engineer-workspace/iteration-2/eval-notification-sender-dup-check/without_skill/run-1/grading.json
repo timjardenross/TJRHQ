@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Investigates the actual repo for existing notification/sender code (cites real file paths) before recommending anything",
+      "passed": true,
+      "evidence": "Cites core/platform/notification_service.py, core/command-centre/backend/services/notification-engine.js, platform-runtime/captain_notifications.py, plus several more."
+    },
+    {
+      "text": "Applies composition-first framing: checks for duplication/overlap before proposing a new build",
+      "passed": true,
+      "evidence": "'Recommendation: don't build a new sender. Pick one of two composition-first paths instead.'"
+    },
+    {
+      "text": "Ends with a specific build/reuse/defer recommendation, not just open analysis",
+      "passed": true,
+      "evidence": "Gives two concrete extend-existing-code paths depending on need."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 10},
+  "timing": {"executor_duration_seconds": 80.1},
+  "eval_feedback": {
+    "overall": "This eval doesn't discriminate between with-skill and baseline - both investigate the repo thoroughly and land on the same composition-first conclusion. The actual differentiator (persona framing, Standard Response Format, escalation discipline) isn't tested here. Not a problem with this specific eval, just a note that eval 1 alone wouldn't justify the skill's existence - evals 2 and 3 carry that weight."
+  }
+}

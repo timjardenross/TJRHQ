@@ -33,7 +33,7 @@ router.get('/state', asyncHandler(async (req, res) => {
   const [stateRows, registryRows, allDomainsRows] = await Promise.all([
     supabaseGet('verification_state?select=computed_at,state,degraded_domains,reason&order=computed_at.desc&limit=1'),
     supabaseGet('domain_registry?domain_key=eq.verification_engine&select=expected_cadence_minutes,grace_period_minutes'),
-    supabaseGet('domain_registry?select=domain_key'),
+    supabaseGet('domain_registry?active=eq.true&select=domain_key'),
   ]);
 
   const registry = registryRows[0] || { expected_cadence_minutes: 5, grace_period_minutes: 15 };
