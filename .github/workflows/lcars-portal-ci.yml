@@ -22,7 +22,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "18.18.0"
+          # 2026-08-11: 18.18.0 was too old for vitest's rolldown bundler
+          # (imports node:util's styleText export, not available until
+          # Node 20.12+) — npm run test's Startup Error was masked until
+          # now by npm run lint failing first (see the eslint-plugin-
+          # storybook fix in the same PR). Matched to 24.18.0 since that's
+          # what's directly verified working in this session's sandbox
+          # against the current lockfile, not a guessed minimum.
+          node-version: "24.18.0"
           cache: "npm"
           cache-dependency-path: lcars-portal/package-lock.json
 
