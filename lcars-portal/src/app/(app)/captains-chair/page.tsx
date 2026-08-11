@@ -717,7 +717,7 @@ function TodaysBriefing({ stats, loading }: { stats: TodaysBriefingStats | null;
           })}
         </ul>
       )}
-      <Link href="/captains-brief" className="mt-2 inline-block text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
+      <Link href="/captains-brief-workbench" className="mt-2 inline-block text-[10px] uppercase tracking-[0.15em] text-command hover:text-command/70">
         View Full Brief →
       </Link>
     </Panel>
