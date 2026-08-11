@@ -1,50 +1,44 @@
 # REVS Content Creation Agents - Python Dependencies
+# Patched for Python 3.12 (VM default) and platform infra reuse:
+#  - ollama/langchain dropped: parser calls the existing Local Model Router
+#    (localhost:8891) over HTTP instead of a local Ollama client/agent framework.
+#  - fastapi/uvicorn dropped: entry points are CLI + Telegram trigger, no API server planned.
+#  - Stable Diffusion/Coqui TTS deps dropped: no GPU on this VM, hero art and podcast
+#    narration route through the Gemini API instead (google-genai).
+#  - markdown/svgwrite/Shapely/imageio/imageio-ffmpeg/moviepy/pydub/ffmpeg-python/click/tqdm
+#    dropped: none are imported anywhere in src/ - video assembly shells out to the
+#    ffmpeg CLI directly (subprocess), images go through PIL, not these.
+#  - numpy/mypy bumped: pinned versions predate Python 3.12 support.
 
 # Core
-Python==3.10
 python-dotenv==1.0.0
 
-# LLM & Orchestration
-ollama==0.1.34
-langchain==0.1.20
-pydantic==2.0.0
+# LLM (Local Model Router client)
+pydantic==2.13.4
+requests==2.31.0
+
+# Image + speech generation (Gemini API - see gemini-imagegen skill)
+google-genai==2.17.0
 
 # Text Processing
-markdown==3.5.1
-pandoc-python==1.10
-Weasyprint==60.0
+pypandoc==1.10
+Weasyprint==69.0
 PyPDF2==3.0.1
 
 # Image & Graphics
 Pillow==10.0.0
-svgwrite==1.4.3
-Shapely==2.0.1
-imageio==2.33.0
-imageio-ffmpeg==0.4.8
-
-# Video & Audio
-moviepy==1.0.3
-pydub==0.25.1
-ffmpeg-python==0.2.1
-numpy==1.24.0
+numpy==2.4.6
 
 # Presentations
-python-pptx==0.6.21
-
-# Web Framework (Optional)
-fastapi==0.104.0
-uvicorn==0.24.0
+python-pptx==1.0.2
 
 # Development
 pytest==7.4.0
 pytest-cov==4.1.0
-black==23.0.0
+black==24.4.2
 pylint==2.17.0
-mypy==1.0.0
+mypy==1.10.0
 flake8==6.1.0
 
 # Utilities
-tqdm==4.66.0
-pyyaml==6.0.0
-click==8.1.0
-requests==2.31.0
+pyyaml==6.0.2

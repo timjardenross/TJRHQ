@@ -1,0 +1,95 @@
+# REVS Content Creation Agents - Configuration Template
+
+# System Configuration
+system:
+  name: REVS Content Agents
+  version: 1.0.0
+  environment: development  # development | staging | production
+
+# LLM Configuration
+# Routed through the existing Local Model Router (core/model-router) instead of a
+# dedicated Ollama pull, so parsing reuses the models already loaded on this VM.
+llm:
+  provider: model_router
+  model: qwen3.5:9b  # already loaded locally via the router; swap per engineering-backend-dispatch-table
+  base_url: http://localhost:8891
+  temperature: 0.7
+  max_tokens: 4000
+  timeout: 300
+
+# Image Generation
+# No GPU on this VM: local Stable Diffusion is unrealistic. Use Gemini image-gen
+# (Nano Banana Pro) for hero/key art instead, per the approved plan.
+images:
+  provider: gemini  # gemini | stable_diffusion (requires GPU) | replicate_api
+  model: gemini-image  # see compound-engineering:gemini-imagegen skill
+  use_gpu: false  # no NVIDIA GPU present on this VM
+
+# Text-to-Speech
+tts:
+  provider: coqui  # coqui | azure | google
+  language: en
+  voice_type: professional  # professional | friendly | formal
+  sample_rate: 22050
+
+# Video Generation
+video:
+  fps: 30
+  resolution: 1080p  # 720p | 1080p | 4k
+  codec: libx264
+
+# Output Configuration
+output:
+  base_dir: ./outputs
+  formats:
+    - poster
+    - article
+    - video
+    - worksheet
+    - presentation
+    - podcast
+    - social
+  preserve_intermediate: false
+
+# Processing Configuration
+processing:
+  max_workers: 6
+  batch_size: 1
+  timeout_per_agent: 600
+  retry_attempts: 3
+  retry_delay: 5
+
+# Logging
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+  file: ./logs/app.log
+  console: true
+  format: json  # json | text
+
+# Storage
+storage:
+  type: local  # local | s3 | gcs
+  cache_enabled: true
+  cache_ttl: 3600
+
+# Brand Configuration
+branding:
+  primary_color: "#0052CC"
+  secondary_color: "#FF9800"
+  accent_color: "#4CAF50"
+  background_color: "#FAFBFC"
+  font_family: sans-serif
+  logo_path: ./assets/logo.png
+
+# API Configuration (optional)
+api:
+  enabled: false
+  host: 0.0.0.0
+  port: 8000
+  debug: false
+
+# Development
+development:
+  debug: false
+  skip_cache: false
+  dry_run: false
