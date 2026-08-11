@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -510,6 +511,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "*Logging \\(retired 2026\\-08\\-10\\)*\n"
         "/log\\_activity, /log\\_weight — retired\\. Recovery Pulse \\(/recovery\\_pulse\\) is now the "
         "only manual health\\-data capture mechanism\\.\n\n"
+        "*Content*\n"
+        "/revs\\_generate \\<brief path\\> \\[formats\\] — REVS: design brief \\-\\> 7 formats "
+        "\\(e\\.g\\. `/revs_generate examples/sample_brief.md poster,social`\\)\n\n"
         "*System*\n"
         "/dispatch — manual dispatch check\n"
         "/brief — latest OR Intelligence Brief \\(risk, events, themes\\)\n"
@@ -543,6 +547,21 @@ async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE)
         "Capacity right now?",
         parse_mode="MarkdownV2",
         reply_markup=_kb_energy(pt),
+    )
+
+
+async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log mood (1-10 scale) at different times of day with optional context."""
+    from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
+    tod = _current_time_of_day()
+    label = _TOD_LABELS.get(tod, tod)
+    await update.message.reply_text(
+        f"📊 *Mood Chart*\n\n"
+        f"Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"
+        f"Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
+        f"When did you feel this way?",
+        parse_mode="MarkdownV2",
+        reply_markup=kb_time_of_day(),
     )
 
 
@@ -1904,7 +1923,7 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(
             f"📡 *{_escape(label)}*\n\n"
             f"{summary}\n\n"
-            "Rate your mood? (optional, 1=worst · 10=best)",
+            f"{_escape('Rate your mood? (optional, 1=worst · 10=best)')}",
             parse_mode="MarkdownV2",
             reply_markup=_kb_mood_score(pt, e, m, s, w),
         )
@@ -1939,6 +1958,82 @@ async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TY
             parse_mode="MarkdownV2",
             reply_markup=_kb_mood(pt, e),
         )
+        return
+
+
+# ── Inline mood chart callbacks ──────────────────────────────────────────────────
+
+async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle mood chart tap flow: time_of_day → mood_score → optional context."""
+    from telegram_bots.xo.mood_chart import (
+        parse_cb, kb_mood_score, kb_confirm_or_add_context,
+        _TOD_LABELS, _MOOD_EMOJI, write_mood_entry, format_mood_entry
+    )
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("mc|"):
+        return
+
+    cb = parse_cb(data)
+    tod = cb.get("tod")
+    ms = cb.get("ms")  # mood_score as string
+    done = cb.get("done") == "1"
+    context_flag = cb.get("context") == "1"
+
+    # Step 1: Time of day selected, show mood scale
+    if tod and not ms:
+        label = _TOD_LABELS.get(tod, tod)
+        await query.edit_message_text(
+            f"📊 *{_escape(label)}*\n\n"
+            f"{_escape('How is your mood? (1=worst · 10=best)')}",
+            parse_mode="MarkdownV2",
+            reply_markup=kb_mood_score(tod),
+        )
+        return
+
+    # Step 2: Mood score selected, show confirm or add context
+    if tod and ms and not done and not context_flag:
+        label = _TOD_LABELS.get(tod, tod)
+        mood_int = int(ms)
+        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
+        await query.edit_message_text(
+            f"📊 *{_escape(label)}*\n"
+            f"{mood_emoji} *{mood_int}/10*\n\n"
+            f"{_escape('Save now or add context (sleep, pain, anxiety, etc.)?')}",
+            parse_mode="MarkdownV2",
+            reply_markup=kb_confirm_or_add_context(tod, mood_int),
+        )
+        return
+
+    # Step 3: Save (minimal) or add context (opens text input flow)
+    if done:
+        mood_int = int(ms) if ms else 5
+        db = _get_supabase()
+        saved, err_msg = await write_mood_entry(db, tod, mood_int)
+        icon = "✅" if saved else "⚠️"
+        label = _TOD_LABELS.get(tod, tod)
+        mood_emoji = _MOOD_EMOJI.get(mood_int, "?")
+        error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
+        await query.edit_message_text(
+            f"{icon} *{_escape(label)} logged*\n\n"
+            f"{mood_emoji} *{mood_int}/10*"
+            f"{error_line}",
+            parse_mode="MarkdownV2",
+        )
+        return
+
+    if context_flag:
+        await query.edit_message_text(
+            "📝 *Add optional context*\n\n"
+            "Send your notes about sleep, pain, anxiety, stress, "
+            "substance use, or anything else relevant\\.\n\n"
+            "Or reply /done to finish\\.",
+            parse_mode="MarkdownV2",
+        )
+        context.user_data = context.user_data or {}
+        context.user_data["mood_entry"] = {"tod": tod, "ms": ms}
         return
 
 
@@ -2372,6 +2467,109 @@ async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "⚙️ Running red-team challenge…")
 
 
+# ── REVS Content Agents ───────────────────────────────────────────────────────
+# Standalone project (/opt/TJRHQ/projects/revs-content-agents), not part of this
+# repo - its own venv/deps (Pillow, google-genai, Weasyprint, ...) collide with
+# this bot's, so it's shelled out to exactly like the advisory CLI above, never
+# imported in-process. Design brief -> 7 formats (article/poster/social/
+# worksheet/presentation/podcast/video); each run is versioned under
+# outputs/{concept_id}/v{N}/ with a matching asset_manifest.json.
+
+_REVS_ROOT = Path("/opt/TJRHQ/projects/revs-content-agents")
+_REVS_PYTHON = _REVS_ROOT / "venv" / "bin" / "python"
+_REVS_FORMATS = {"article", "poster", "social", "worksheet", "presentation", "podcast", "video"}
+_REVS_SUMMARY_RE = re.compile(r"^(\S+) v(\d+): (\d+)/(\d+) format\(s\) -> (.+)$")
+
+
+def _revs_generate_call(brief_path: str, formats: str | None, timeout: int) -> tuple[int, str]:
+    """Run the REVS pipeline's own CLI as a subprocess (separate venv - see
+    module note above). Returns (returncode, combined stdout+stderr)."""
+    args = [str(_REVS_PYTHON), "-m", "src.main", "--brief", brief_path, "--output-dir", "outputs"]
+    if formats:
+        args += ["--formats", formats]
+    result = subprocess.run(
+        args, capture_output=True, text=True, timeout=timeout, cwd=str(_REVS_ROOT),
+    )
+    return result.returncode, ((result.stdout or "") + (result.stderr or "")).strip()
+
+
+async def cmd_revs_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate REVS content assets from a design brief. Usage:
+    /revs_generate <brief path> [formats]
+    Brief path is relative to revs-content-agents/ (e.g. examples/sample_brief.md)
+    or absolute. Formats is an optional comma list (e.g. poster,social) - default all 7.
+    A cold 7-format run costs real Gemini API spend and can take ~8min; reruns of
+    an unchanged brief hit the pipeline's own cache and finish in seconds."""
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "Usage: /revs_generate &lt;brief path&gt; [formats]\n"
+            "Example: /revs_generate examples/sample_brief.md\n"
+            "Example: /revs_generate examples/sample_brief.md poster,social\n"
+            f"Formats: {', '.join(sorted(_REVS_FORMATS))}",
+            parse_mode="HTML",
+        )
+        return
+
+    brief_path, formats = args[0], (args[1] if len(args) > 1 else None)
+    if formats:
+        unknown = set(formats.split(",")) - _REVS_FORMATS
+        if unknown:
+            await update.message.reply_text(
+                f"⚠️ Unknown format(s): {', '.join(sorted(unknown))}\n"
+                f"Choices: {', '.join(sorted(_REVS_FORMATS))}"
+            )
+            return
+
+    check_path = Path(brief_path)
+    if not check_path.is_absolute():
+        check_path = _REVS_ROOT / brief_path
+    if not check_path.exists():
+        await update.message.reply_text(f"⚠️ Brief not found: `{brief_path}`")
+        return
+
+    await update.message.reply_text(
+        f"⚙️ Generating REVS content from `{brief_path}`" + (f" ({formats})" if formats else "")
+        + " — this can take a few minutes on a cold run…"
+    )
+    try:
+        returncode, output = await asyncio.get_event_loop().run_in_executor(
+            None, _revs_generate_call, brief_path, formats, 600)
+    except subprocess.TimeoutExpired:
+        await update.message.reply_text("⚠️ REVS generation timed out (10min).")
+        return
+    except Exception as exc:
+        log.error("[revs] generate failed: %s", exc)
+        await update.message.reply_text(f"⚠️ REVS generation failed: {str(exc)[:200]}")
+        return
+
+    if returncode != 0:
+        await update.message.reply_text(f"⚠️ REVS generation error:\n\n{output[-1500:]}")
+        return
+
+    summary_match = None
+    for line in reversed(output.splitlines()):
+        summary_match = _REVS_SUMMARY_RE.match(line.strip())
+        if summary_match:
+            break
+    if not summary_match:
+        await update.message.reply_text(f"✅ Ran, but couldn't parse the summary line:\n\n{output[-1000:]}")
+        return
+
+    concept_id, version, ok, total, version_dir = summary_match.groups()
+    try:
+        manifest = json.loads((_REVS_ROOT / version_dir / "asset_manifest.json").read_text())
+        reply = [f"✅ {concept_id} v{version} — {ok}/{total} format(s) in {manifest['duration_seconds']}s"]
+        for o in manifest["outputs"]:
+            icon = "✅" if o["status"] == "success" else "❌"
+            detail = "" if o["status"] == "success" else f" — {o.get('error', '')[:80]}"
+            reply.append(f"{icon} {o['format']} ({o['duration_seconds']}s){detail}")
+        reply.append(f"\n📁 {version_dir}")
+        await update.message.reply_text("\n".join(reply))
+    except Exception:
+        await update.message.reply_text(f"✅ {concept_id} v{version} — {ok}/{total} format(s)\n📁 {version_dir}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
@@ -2388,12 +2586,15 @@ _BOT_COMMANDS = [
     # Advisory
     ("advise",          "Advisory consult (full officer panel)  e.g. /advise What to focus this week?"),
     ("challenge",       "Red-team a plan or decision  e.g. /challenge My plan to take 2 weeks off"),
+    # Content
+    ("revs_generate",   "REVS: brief -> 7 formats  e.g. /revs_generate examples/sample_brief.md"),
     # Daily debrief
     ("debrief_close",   "Force-close the active debrief and get today's log"),
     ("debrief_weekly",  "Weekly debrief digest — recurring stressors, ideas, open loops"),
     # Health & recovery
     ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
     ("recovery_status", "Today's confidence bar + pulse ledger"),
+    ("mood_chart",      "Log mood (1-10 scale) with optional context"),
     ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
     # System
@@ -2446,6 +2647,7 @@ def main() -> None:
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
     app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
     app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
+    app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
@@ -2459,6 +2661,7 @@ def main() -> None:
     app.add_handler(CommandHandler("operating_picture",   cmd_operating_picture))
     app.add_handler(CommandHandler("advise",              cmd_advise))
     app.add_handler(CommandHandler("challenge",           cmd_challenge))
+    app.add_handler(CommandHandler("revs_generate",       cmd_revs_generate))
     app.add_handler(CommandHandler("note",                cmd_note))
     app.add_handler(CommandHandler("missions",            cmd_mission_list))
     app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
@@ -2475,6 +2678,7 @@ def main() -> None:
     app.add_handler(CommandHandler("debrief_close",   cmd_debrief_close))
     app.add_handler(CommandHandler("debrief_weekly",  cmd_debrief_weekly))
     app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
+    app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,    pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
