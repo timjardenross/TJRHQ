@@ -97,7 +97,7 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
           ? (posture?.posture_message || 'Minimal capacity today — rest is the priority.')
           : hs.snapshot.headline,
         why: 'Committing to load today would draw down capacity you do not have. Protect it.',
-        href: '/captains-chair',
+        href: '/captains-chair-workbench',
         at: nowIso(),
       });
     }

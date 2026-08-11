@@ -136,19 +136,216 @@ function useTodaysBriefing(): {
   return { stats, loading, error };
 }
 
+// Ported from legacy (app)/captains-chair (MSN-0345): real today's Event Bus
+// activity (core_events), same table 12+ real emit-points across the
+// platform already write to.
+interface LiveTimelineEvent {
+  id: string;
+  time: string;
+  title: string;
+}
+
+function useCaptainTimeline(): { events: LiveTimelineEvent[]; loading: boolean } {
+  const [events, setEvents] = useState<LiveTimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const since = new Date();
+        since.setHours(0, 0, 0, 0);
+        const { data } = await supabase
+          .from('core_events')
+          .select('event_id, event_type, domain, occurred_at')
+          .gte('occurred_at', since.toISOString())
+          .order('occurred_at', { ascending: false })
+          .limit(8);
+        if (cancelled) return;
+        setEvents(
+          (data ?? []).map((e) => ({
+            id: e.event_id,
+            time: new Date(e.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            title: `${e.domain} · ${e.event_type}`,
+          })),
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { events, loading };
+}
+
+// Ported from legacy (app)/captains-chair (EXEC-010B WP9).
+interface NbNote {
+  id: string;
+  title: string | null;
+  raw_content: string;
+  status: string;
+  created_at: string;
+  recommended_route: string | null;
+  strategic_alignment_score: number | null;
+  routed_entity_type: string | null;
+  routed_to_id: string | null;
+}
+
+function NotebookCard() {
+  const [readyCount, setReadyCount] = useState<number | null>(null);
+  const [capturedCount, setCapturedCount] = useState<number | null>(null);
+  const [topOpportunity, setTopOpportunity] = useState<NbNote | null>(null);
+  const [recentRouted, setRecentRouted] = useState<NbNote[]>([]);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase
+      .from('intelligence_notes')
+      .select('id, title, raw_content, status, created_at, recommended_route, strategic_alignment_score, routed_entity_type, routed_to_id')
+      .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING', 'ROUTED'])
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .then(({ data }) => {
+        if (!data) return;
+        const ready = data.filter((n) => n.status === 'READY_FOR_ROUTING');
+        const captured = data.filter((n) => n.status === 'CAPTURED');
+        const routed = data.filter((n) => n.status === 'ROUTED' && n.routed_to_id);
+
+        setReadyCount(ready.length);
+        setCapturedCount(captured.length);
+
+        const top = ready.sort((a, b) =>
+          (b.strategic_alignment_score ?? 0) - (a.strategic_alignment_score ?? 0)
+        )[0] ?? null;
+        setTopOpportunity(top as NbNote | null);
+        setRecentRouted(routed.slice(0, 3) as NbNote[]);
+      });
+  }, []);
+
+  const hasAction = (readyCount ?? 0) > 0;
+
+  function noteTitle(n: NbNote) {
+    return n.title || n.raw_content.slice(0, 48) + (n.raw_content.length > 48 ? '…' : '');
+  }
+
+  return (
+    <div className={`rounded-lg border bg-white p-4 ${hasAction ? 'border-wb-sage-deep/40' : 'border-wb-border'}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-wb-ink">Captain&apos;s Notebook</h3>
+        <Link href="/captains-notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline">
+          Open →
+        </Link>
+      </div>
+      {readyCount === null ? (
+        <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+      ) : (
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${hasAction ? 'bg-wb-sage-deep animate-pulse' : 'bg-wb-border'}`} />
+              <span className="text-wb-ink2">Ready for routing</span>
+            </div>
+            <span className={`font-mono font-semibold ${hasAction ? 'text-wb-sage-deep' : 'text-wb-ink2'}`}>{readyCount}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-wb-border" />
+              <span className="text-wb-ink2">Pending triage</span>
+            </div>
+            <span className="font-mono font-semibold text-wb-ink2">{capturedCount}</span>
+          </div>
+
+          {topOpportunity && (
+            <div className="mt-1 rounded border border-wb-sage-deep/20 bg-wb-sage-deep/5 px-2 py-1.5">
+              <p className="mb-0.5 text-[9px] uppercase tracking-[0.2em] text-wb-sage-deep">Top opportunity</p>
+              <p className="truncate text-wb-ink">{noteTitle(topOpportunity)}</p>
+              {topOpportunity.recommended_route && (
+                <p className="text-[10px] text-wb-ink2">→ {topOpportunity.recommended_route}</p>
+              )}
+            </div>
+          )}
+
+          {recentRouted.length > 0 && (
+            <div className="mt-1">
+              <p className="mb-1 text-[9px] uppercase tracking-[0.2em] text-wb-ink2">Recent conversions</p>
+              {recentRouted.map((n) => (
+                <p key={n.id} className="truncate text-[10px] text-wb-ink2/80">
+                  ✓ {noteTitle(n)}{n.routed_entity_type ? ` → ${n.routed_entity_type.replace(/_/g, ' ')}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Ported from legacy (app)/captains-chair (MSN-0345). See lib/sinceLastSession.ts's
+// own header for exactly what this can and can't answer honestly.
+function SinceLastSessionCard({ summary, loading }: { summary: SinceLastSessionSummary | null; loading: boolean }) {
+  if (loading || !summary) return null;
+  if (summary.firstSession) {
+    return (
+      <div className="rounded-lg border border-wb-border bg-white p-4">
+        <h3 className="mb-1 text-sm font-semibold text-wb-ink">Since Last Session</h3>
+        <p className="text-xs text-wb-ink2">First session on this browser — nothing to compare against yet.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-wb-border bg-white p-4">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold text-wb-ink">Since Last Session</h3>
+        <span className="text-[10px] uppercase tracking-wide text-wb-ink2">
+          Since {new Date(summary.previousSessionAt!).toLocaleString()}
+        </span>
+      </div>
+      {summary.eventCount === 0 ? (
+        <p className="text-xs text-wb-ink2">Nothing new since your last visit.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-wb-ink">
+            <span className="font-mono font-bold text-wb-sage-deep">{summary.eventCount}</span> event
+            {summary.eventCount === 1 ? '' : 's'} across the platform since your last visit.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] uppercase tracking-wide text-wb-ink2">
+            {summary.byDomain.map((d) => (
+              <span key={d.domain}>{d.domain} · {d.count}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="mt-2 text-[10px] text-wb-ink2/70">
+        Answers &quot;what changed.&quot; What completed, worsened, was delegated, or was learned
+        aren&apos;t yet trackable — no data source for those exists in the platform today.
+      </p>
+    </div>
+  );
+}
+
 // ── Workbench Shell Layout ──────────────────────────────────────────────────
 
 export default function CaptainsChairWorkbench() {
-  const { posture: currentPosture, bodyContext } = useROSData();
+  const { posture: currentPosture } = useROSData();
   const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
   const { stats: missionStats, loading: missionStatsLoading, error: missionStatsError } = useLiveMissionStats();
   const { data: engQueueData, loading: engQueueLoading, error: engQueueError } = useLiveEngineeringQueue();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
+  const { events: timelineEvents, loading: timelineLoading } = useCaptainTimeline();
   const dataErrors = [missionStatsError, engQueueError, briefingError].filter(Boolean) as string[];
   const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
-    loadSinceLastSession().then(setSummary);
+    let cancelled = false;
+    loadSinceLastSession()
+      .then((s) => { if (!cancelled) setSummary(s); })
+      .finally(() => { if (!cancelled) setSummaryLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const postureBand = currentPosture.posture;
@@ -167,6 +364,11 @@ export default function CaptainsChairWorkbench() {
       )}
       {/* ── Always-visible panels ── */}
       <div className="space-y-4">
+        {/* Since Last Session — ported from legacy (app)/captains-chair
+            (MSN-0345). Was fetched (loadSinceLastSession()) but never
+            rendered here; the state existed but was dead. */}
+        <SinceLastSessionCard summary={summary} loading={summaryLoading} />
+
         {/* Recovery Posture */}
         <div className="rounded-lg border border-wb-border bg-white p-4">
           <ROSPanels />
@@ -250,6 +452,54 @@ export default function CaptainsChairWorkbench() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Departments — ported from legacy (app)/captains-chair (MSN-0345).
+                Names/links are real (route to real live pages); no per-dept
+                metric values, same as legacy — building a real cross-domain
+                metrics query was out of that mission's scope. */}
+            <div className="rounded-lg border border-wb-border bg-white p-4">
+              <h3 className="mb-3 text-sm font-semibold text-wb-ink">Departments</h3>
+              <div className="overflow-x-auto">
+                <div className="flex gap-3" style={{ minWidth: `${departments.filter((d) => d.key !== 'status').length * 140}px` }}>
+                  {departments.filter((d) => d.key !== 'status').map((dept) => {
+                    const theme = DEPARTMENTS[dept.key];
+                    return (
+                      <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1">
+                        <div className="flex items-center gap-2 rounded-md border border-wb-border bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
+                          <span className={`h-4 w-4 shrink-0 rounded ${theme.bg}`} />
+                          <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Captain's Timeline & Captain's Notebook — ported from legacy
+                (app)/captains-chair (MSN-0345 / EXEC-010B WP9). */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-wb-border bg-white p-4">
+                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Captain&apos;s Timeline</h3>
+                {timelineLoading ? (
+                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+                ) : timelineEvents.length === 0 ? (
+                  <p className="text-xs text-wb-ink2">No events logged yet today.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {timelineEvents.map((event) => (
+                      <li key={event.id} className="flex items-center gap-2 text-xs">
+                        <span className="w-10 shrink-0 font-mono text-wb-ink2">{event.time}</span>
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
+                        <span className="text-wb-ink">{event.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <NotebookCard />
             </div>
 
             {/* Today's Briefing & Engineering Queue */}
