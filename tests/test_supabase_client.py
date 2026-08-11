@@ -6,9 +6,16 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools" / "supabase"))
+_TOOLS_SUPABASE = ROOT / "tools" / "supabase"
+sys.path.insert(0, str(_TOOLS_SUPABASE))
 
-import client  # noqa: E402
+# Fleet Engineering Review 2026-08-11: a bare `import client` here collided
+# with tools/paperclip/client.py under the same bare module name — whichever
+# loaded first in a shared pytest session won for every test after it. Load
+# this file's own sibling by exact path instead.
+from _local_import_supabase import import_sibling  # noqa: E402
+
+client = import_sibling("client")
 
 
 class SupabaseClientTest(unittest.TestCase):

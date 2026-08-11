@@ -4,12 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import sys as _sys
 import time
+from pathlib import Path
 from typing import Any
 
-from embedding_client import EmbeddingClient, vector_literal
+if str(Path(__file__).resolve().parent) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _local_import_supabase import import_sibling
 from knowledge_sensitivity import is_visible_for_general_access
-from supabase_client import SupabaseClient
+
+EmbeddingClient = import_sibling("embedding_client").EmbeddingClient
+vector_literal = import_sibling("embedding_client").vector_literal
+SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 
 def get_specialist(client: SupabaseClient, role: str | None) -> dict[str, Any] | None:

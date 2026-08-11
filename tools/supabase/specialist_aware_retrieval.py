@@ -9,14 +9,19 @@ from pathlib import Path
 import time
 from typing import Any
 
-# Ensure tools/supabase/ is first so supabase_client resolves here, not core/health/.
+# Ensure tools/supabase/ is first for the bare sibling imports below
+# (retrieve_knowledge/specialist_router — neither collides elsewhere in the
+# repo). SupabaseClient goes through _local_import instead, since
+# supabase_client.py DOES collide with core/health/supabase_client.py.
 _TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
 if sys.path and sys.path[0] != _TOOLS_SUPABASE:
     sys.path.insert(0, _TOOLS_SUPABASE)
 
 from retrieve_knowledge import get_permission, get_specialist, keyword_results, log_retrieval, semantic_results
 from specialist_router import RouteDecision, route_question
-from supabase_client import SupabaseClient
+from _local_import_supabase import import_sibling
+
+SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 
 def permission_allowed_types(client: SupabaseClient, role: str, governance_allowed: list[str]) -> list[str]:

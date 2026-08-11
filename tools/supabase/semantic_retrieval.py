@@ -19,7 +19,10 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
-from embedding_client import EmbeddingClient, EmbeddingError
+from _local_import_supabase import import_sibling
+
+EmbeddingClient = import_sibling("embedding_client").EmbeddingClient
+EmbeddingError = import_sibling("embedding_client").EmbeddingError
 
 
 @dataclass

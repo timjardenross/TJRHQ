@@ -10,8 +10,12 @@ from pathlib import Path
 from typing import Any
 
 # Ensure this file's own directory (tools/supabase/) is at the front of sys.path
-# so that `supabase_client` resolves to tools/supabase/supabase_client.py and not
-# core/health/supabase_client.py (which has the same module name but no SupabaseClient).
+# for the bare sibling imports below (collaboration_router/specialist_aware_
+# retrieval/specialist_router — none of these collide with another same-named
+# file elsewhere in the repo). SupabaseClient is loaded via _local_import
+# instead, since supabase_client.py DOES collide with core/health/
+# supabase_client.py — see _local_import.py's own docstring for why a bare
+# `import supabase_client` here used to silently break unrelated tests.
 _TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
 if sys.path and sys.path[0] != _TOOLS_SUPABASE:
     sys.path.insert(0, _TOOLS_SUPABASE)
@@ -19,7 +23,9 @@ if sys.path and sys.path[0] != _TOOLS_SUPABASE:
 from collaboration_router import CollaborationRoute
 from specialist_aware_retrieval import confidence_from_results, permission_allowed_types, retrieve_allowed_results, snippet
 from specialist_router import RouteDecision, load_specialist_profiles
-from supabase_client import SupabaseClient
+from _local_import_supabase import import_sibling
+
+SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 
 @dataclass

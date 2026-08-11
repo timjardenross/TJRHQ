@@ -14,11 +14,21 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-# Add tools to path
+# Fleet Engineering Review 2026-08-11: ROOT here is tools/ (this file's own
+# parent), so ROOT / "tools" / "supabase" pointed at the nonexistent
+# tools/tools/supabase — this bare `import client` only ever worked if
+# tools/supabase was already on sys.path from something else run earlier.
+# It also collided with tools/paperclip/client.py under the same bare name
+# when it did resolve. Fixed to load its actual sibling unambiguously.
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "tools" / "supabase"))
+_TOOLS_SUPABASE = ROOT / "supabase"
+if str(_TOOLS_SUPABASE) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_SUPABASE))
+from _local_import_supabase import import_sibling
 
-from client import CommanderSupabaseClient, SupabaseWriteResult
+_client = import_sibling("client")
+CommanderSupabaseClient = _client.CommanderSupabaseClient
+SupabaseWriteResult = _client.SupabaseWriteResult
 
 
 def main():
