@@ -3,17 +3,7 @@
 **Objective:** Align health-osint to Technical OSINT pattern (4-view intelligence workbench) + expand sources via Firecrawl/Bright Data automated fetching  
 **Scope:** Performance, Mental Health, Resilience, Contributing Factors (Sleep, Stress, Nutrition, Training)  
 **Timeline:** 2-week implementation → weekly Sunday curation cycle  
-**Status:** Phase 1 (schema) live — migration 0141, applied 2026-08-11. Phases 2-5 in progress.
-
-> Brought onto `main` 2026-08-11 (previously only existed on an unmerged
-> branch). Chosen over the competing `HEALTH_OSINT_TJRMIND_REDESIGN.md`
-> proposal (now marked superseded) after Captain review of both.
->
-> **Correction to Section 5, Phase 4:** this repo has no mechanism that reads
-> `.claude/cron/*.yml` files — that format isn't real. The actual scheduler
-> is `intelligence/scheduler.py` (APScheduler `CronTrigger` + `add_job()`,
-> same pattern every other recurring job in this platform uses). The Sunday
-> 2am fetch job is wired in there instead.
+**Status:** Ready for implementation
 
 ---
 
@@ -655,8 +645,8 @@ WHERE budget_reset_date < CURRENT_DATE;
 - [ ] Dry-run ingestion against staging DB
 
 ### Deployment (Day 1)
-- [x] Deploy migration (renumbered 0141, not 0100 — next free slot on main)
-- [x] Verify tables & indexes created
+- [ ] Deploy migration 0100_health_osint_auto_fetch_enhancements.sql
+- [ ] Verify tables & indexes created
 - [ ] Insert health_source_fetch_config rows
 
 ### Code Deployment (Day 2-3)
@@ -736,7 +726,7 @@ UPDATE health_source_fetch_config SET active = true WHERE source_id = $SOURCE_ID
 ## 12. Files to Implement
 
 ### Schema & Migrations
-- [x] `core/infrastructure/supabase/migrations/0141_health_osint_auto_fetch_enhancements.sql`
+- [ ] `core/infrastructure/supabase/migrations/0100_health_osint_auto_fetch_enhancements.sql`
 
 ### Python Tools
 - [ ] `tools/health-osint/__init__.py`
@@ -750,8 +740,7 @@ UPDATE health_source_fetch_config SET active = true WHERE source_id = $SOURCE_ID
 - [ ] `tools/health-osint/parsers/parse_nih_alerts.py`
 
 ### Scheduler
-- [ ] Sunday 2am job wired into `intelligence/scheduler.py` (not a
-      `.claude/cron/*.yml` file — see status note at top of this doc)
+- [ ] `.claude/cron/health-osint-weekly-fetch.yml`
 
 ### Frontend (React)
 - [ ] `lcars-portal/src/app/health-osint-curation/page.tsx`
