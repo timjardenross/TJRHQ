@@ -11,30 +11,11 @@
  * transition it makes.
  *
  * Carries the flow end to end through publish submission: the Proofing
- * column surfaces "Confirm Ready to Publish" and "Submit for Publish
+ * column now surfaces "Confirm Ready to Publish" and "Submit for Publish
  * Approval" (see ContentBoard.tsx's ProofingStageBody) instead of handing
  * off to the Communications Workbench. mark_published still only queues a
  * governed proposal — the Captain approves the actual publish in Decide,
  * same as always.
- *
- * 2026-08: Communications Workbench was delisted from /workbenches (see
- * workbenches/page.tsx) in favour of this one. Its Portfolio tab (published
- * items + export) had no equivalent here, so a Pipeline/Portfolio split
- * was added — reading PortfolioTab.tsx, a new but intentionally duplicated
- * component (not an import from comms-workbench/_components, per the
- * design-system barrel rule). Nothing on comms-workbench itself changed;
- * its route still works, it's just not the only place to reach this
- * content anymore.
- *
- * 2026-08 follow-up (workbench fault-finding audit): originally used the
- * `Tabs` component (plain buttons, `aria-current="page"` — semantically
- * wrong for tab selection, no arrow-key nav). Switched to `DomainToggle`,
- * the real WAI-ARIA tablist every other *-workbench page uses (see its
- * own header comment for why it exists) — this was the one page still on
- * the old inaccessible pattern DomainToggle's consolidation was meant to
- * retire. Also added URL-sync (?tab=) matching human-systems-workbench's
- * pattern — previously a refresh on Portfolio silently dropped back to
- * Pipeline.
  */
 
 import { Suspense, useState } from 'react';
@@ -81,7 +62,9 @@ function Workbench() {
   return (
     <WorkbenchShell
       title="Content Workbench"
-      eyebrow="Capture → Research → Content Prep → Proofing → Portfolio"
+      eyebrow="Capture → Research → Content Prep → Proofing"
+      homeHref="/content-workbench"
+      homeAriaLabel="Content Workbench home"
       tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
       right={right}
       tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />}
