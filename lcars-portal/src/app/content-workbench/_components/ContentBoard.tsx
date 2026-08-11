@@ -9,19 +9,40 @@
 // This board never writes comms_content.status itself for anything except
 // reading it back.
 //
-// Proofing now carries the flow through to publish submission: 'approved'
-// and 'ready_to_publish' both render inside the Proofing column (see
-// GET /api/content-workbench's stageOf()), each surfacing the next
-// governed action. mark_published never flips status directly — it queues
-// a publish_content proposal that only becomes real once the Captain
-// approves it in Decide (see the advance route's own comment). This
-// workbench now carries content all the way to "submitted for publish
-// approval" without a detour through the Communications Workbench — the
-// Captain still makes the final call, same as always. 'published' items
-// still live in comms-workbench's Portfolio tab, not this active board.
+// Proofing now carries the flow through to actual publish: 'approved' and
+// 'ready_to_publish' both render inside the Proofing column (see
+// GET /api/content-workbench's stageOf()) behind a single "Publish"
+// button (ProofingStageBody's publish()) — the Captain is the one
+// clicking Approve, QA, and Publish in this same modal already, so
+// there's no second party for an extra confirmation step to gate
+// against (see the advance route's own comment for why the earlier
+// two-click propose/approve version of this got reverted). 'published'
+// items show up in this workbench's own Portfolio tab.
+//
+// 2026-08 visual redesign (Content Workbench only, per user request — see
+// STAGE_ACCENT in shared.ts): every function/handler below is unchanged
+// from the pre-redesign version. This pass touches JSX structure and
+// Tailwind classes on ItemCard/Column/the board wrapper, plus adds a
+// pipeline-overview strip up top.
+//
+// 2026-08 follow-up #2: the 4-column board was cramped inside WorkbenchShell's
+// default max-w-4xl. Added an opt-in `wide` prop to WorkbenchShell itself
+// (max-w-7xl) rather than forking the shell here — this page.tsx now passes
+// `wide`, every other workbench is unaffected.
+//
+// 2026-08 follow-up: the narrow 260px column was fine for scanning cards but
+// unusable for actually writing/proofing in — a 9-row textarea at that width
+// is a slot, not an editor. ItemCard now opens its stage body in the shared
+// Modal primitive ('preview' variant, max-w-3xl) instead of expanding
+// in-place; the collapsed card stays a compact preview in the column. Same
+// stage-body components, same handlers, just rendered at a usable width.
+// ProofingStageBody also gained an AI-assisted first pass over the QA
+// checklist (POST .../ai-review) — advisory only, it pre-fills suggested
+// checks/notes but never sets qa_status itself; the human still explicitly
+// saves the checklist, same governance posture as the rest of this pipeline.
 
-import { useEffect, useState } from 'react';
-import { Badge, Button, Textarea, Select } from '@/components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Badge, Button, Textarea, Select, Modal } from '@/components/ui';
 import {
   STAGE_LABEL,
   STAGE_HINT,
@@ -305,6 +326,105 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
   const [qaStatus, setQaStatus] = useState(item.qa_status);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishMsg, setPublishMsg] = useState('');
+  const [aiReview, setAiReview] = useState<AiReview | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState('');
+  const [suggestedBody, setSuggestedBody] = useState<string | null>(null);
+  const [polishInstructions, setPolishInstructions] = useState('');
+  const [polishBusy, setPolishBusy] = useState(false);
+  const [polishMsg, setPolishMsg] = useState('');
+  const [applyingSuggestion, setApplyingSuggestion] = useState(false);
+
+  async function requestPolish() {
+    setPolishBusy(true);
+    setPolishMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/ai-polish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instructions: polishInstructions || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setSuggestedBody(d.suggested_body);
+    } catch (e) {
+      setPolishMsg(e instanceof Error ? e.message : 'AI revision failed');
+    } finally {
+      setPolishBusy(false);
+    }
+  }
+
+  async function applySuggestion() {
+    if (!suggestedBody) return;
+    setApplyingSuggestion(true);
+    setPolishMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/draft`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: suggestedBody }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setSuggestedBody(null);
+      setPolishInstructions('');
+      // The applied text no longer matches whatever the checklist/AI review
+      // was judged against — clear both so the human re-checks the new draft
+      // rather than saving a stale pass/fail against text that changed.
+      // Fleet Engineering Review 2026-08-11: this used to only be local
+      // React state (setQaStatus('pending')) — the server's qa_status
+      // (and the Approve button's own gate, which reads item.qa_status
+      // from a fresh fetch, not this component's state) stayed whatever
+      // it was before the revision, e.g. still qa_passed. Persist the
+      // reset through the same /qa route saveQa() uses so a stale
+      // approval can't survive a text swap.
+      const resetChecklist = Object.fromEntries(QA_CHECKLIST_ITEMS.map((c) => [c.key, false]));
+      setAiReview(null);
+      setChecks(resetChecklist);
+      const qaRes = await fetch(`/api/content-workbench/${item.id}/qa`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qa_checklist: { ...resetChecklist, notes: qaNotes } }),
+      });
+      const qaData = await qaRes.json();
+      setQaStatus(qaRes.ok ? qaData.qa_status : 'pending');
+      setPolishMsg('✓ Revision applied — re-run AI review (or re-check manually) before approving.');
+      onChanged();
+    } catch (e) {
+      setPolishMsg(e instanceof Error ? e.message : 'Error applying revision');
+    } finally {
+      setApplyingSuggestion(false);
+    }
+  }
+
+  async function runAiReview() {
+    setAiBusy(true);
+    setAiMsg('');
+    try {
+      const res = await fetch(`/api/content-workbench/${item.id}/ai-review`, { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setAiReview(d.review);
+      if (d.mode === 'llm') {
+        setChecks((prev) => {
+          const next = { ...prev };
+          for (const c of QA_CHECKLIST_ITEMS) {
+            const v = d.review[c.key];
+            if (typeof v === 'boolean') next[c.key] = v;
+          }
+          return next;
+        });
+        setQaNotes((prev) => (prev ? prev : d.review.overall_notes ?? ''));
+        setAiMsg('✓ AI review complete — checklist pre-filled, review before saving.');
+      } else {
+        setAiMsg(d.review.overall_notes || 'AI review unavailable — check manually.');
+      }
+    } catch (e) {
+      setAiMsg(e instanceof Error ? e.message : 'AI review failed');
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   async function saveQa() {
     setSaving(true);
@@ -346,65 +466,44 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
     }
   }
 
-  async function confirmReady() {
+  // Publishing used to be two separate Captain clicks (captain_confirmed
+  // then mark_published) because mark_published briefly queued a Decide
+  // approval on top of this same click. That gate never had a page behind
+  // it, so it just stalled every item at ready_to_publish forever — see
+  // api/comms/[id]/advance/route.ts's header comment. mark_published is a
+  // direct flip again now, so this collapses to one button: from
+  // 'approved' it fires captain_confirmed then mark_published back to
+  // back; from 'ready_to_publish' (an item that reached that state under
+  // the old two-step flow, pre-fix) it only needs the second call.
+  async function publish() {
     setPublishBusy(true);
     setPublishMsg('');
     try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'captain_confirmed' }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      onChanged();
-    } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error confirming');
-    } finally {
-      setPublishBusy(false);
-    }
-  }
-
-  async function submitForPublish() {
-    setPublishBusy(true);
-    setPublishMsg('');
-    try {
-      const res = await fetch(`/api/comms/${item.id}/advance`, {
+      if (item.status === 'approved') {
+        const r1 = await fetch(`/api/comms/${item.id}/advance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trigger: 'captain_confirmed' }),
+        });
+        const d1 = await r1.json();
+        if (!r1.ok) throw new Error(d1.error);
+      }
+      const r2 = await fetch(`/api/comms/${item.id}/advance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger: 'mark_published' }),
       });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      setPublishMsg(d.proposed ? 'Submitted for your approval in Decide — not published yet.' : '✓ Published');
+      const d2 = await r2.json();
+      if (!r2.ok) throw new Error(d2.error);
+      setPublishMsg('✓ Published');
       onChanged();
     } catch (e) {
-      setPublishMsg(e instanceof Error ? e.message : 'Error submitting');
+      setPublishMsg(e instanceof Error ? e.message : 'Error publishing');
     } finally {
       setPublishBusy(false);
     }
   }
 
-  if (item.status === 'approved') {
-    return (
-      <div className="space-y-1.5 text-[12px]">
-        <p className="text-wb-ok-on">✓ Approved{item.reviewed_by ? ` by ${item.reviewed_by}` : ''}{item.reviewed_at ? ` · ${item.reviewed_at.slice(0, 10)}` : ''}.</p>
-        <Button size="sm" onClick={confirmReady} disabled={publishBusy}>
-          {publishBusy ? 'Confirming…' : 'Confirm Ready to Publish →'}
-        </Button>
-        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
-      </div>
-    );
-  }
-
-  if (item.status === 'ready_to_publish') {
-    return (
-      <div className="space-y-1.5 text-[12px]">
-        <p className="text-wb-ok-on">✓ Ready to publish.</p>
-        <Button size="sm" onClick={submitForPublish} disabled={publishBusy}>
-          {publishBusy ? 'Submitting…' : 'Submit for Publish Approval →'}
-        </Button>
-        {publishMsg && <p className="text-[11px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
   if (item.status === 'approved' || item.status === 'ready_to_publish') {
     return (
       <div className="space-y-2 text-[13.5px]">
