@@ -34,8 +34,19 @@ class CommanderBridgeTest(unittest.TestCase):
         self.assertEqual(payload["user_id"], "U1")
 
     def test_mission_candidate_intent_writes_mission_payload(self):
+        # Fleet Engineering Review 2026-08-11: this test's INTENT_MISSION_
+        # CANDIDATE path calls commander_bridge.create_mission() for real
+        # (commander_bridge.py:212) — unmocked, this minted a genuine
+        # USS-TJR-MSN-* record and incremented the live .id-counters.json
+        # every time the test suite ran. Mocked here since the test only
+        # asserts on the mission_candidate LOG payload, never the mission
+        # object itself.
         with patch.object(commander_bridge, "log_commander_event", return_value=write_result("commander_events")), \
                 patch.object(commander_bridge, "log_mission_candidate", return_value=write_result("commander_mission_candidates")) as mission, \
+                patch.object(commander_bridge, "create_mission", return_value={
+                    "mission_id": "USS-TJR-MSN-TEST", "title": "Test Mission",
+                    "domain": "Test", "status": "candidate",
+                }), \
                 patch.object(commander_bridge, "fetch_recent_context", return_value={"events": [], "decisions": [], "missions": [], "memory": []}):
             result = commander_bridge.handle_slack_message(
                 "Create mission: Build Slack to Supabase Commander integration.",
