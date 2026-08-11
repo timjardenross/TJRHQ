@@ -200,6 +200,17 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
     if event.source_category == "media" or event.source_priority >= 4:
         if not any(sig in title_lower for sig in _MEDIA_OR_SIGNALS):
             return True, "media_no_or_signal"
+        # Fleet Engineering Review 2026-08-11: a title-level keyword match
+        # alone was letting any media item through once one OR-signal word
+        # appeared, even generic mentions with no real structured relevance
+        # behind them — this check never looked at banking_relevance/
+        # cps230_relevance at all. Media items get a higher bar than the
+        # generic operational_relevance floor below: require the pipeline's
+        # own structured relevance classification (banking_relevance=="high"
+        # or cps230_relevance is True), not just a keyword appearing in the
+        # headline.
+        if event.banking_relevance != "high" and not event.cps230_relevance:
+            return True, "media_source_low_relevance"
 
     # ── Below operational relevance floor ─────────────────────────────────────
     if event.operational_relevance < _MIN_OP_RELEVANCE:
