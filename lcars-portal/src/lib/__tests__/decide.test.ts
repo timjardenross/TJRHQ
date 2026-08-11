@@ -99,7 +99,6 @@ beforeEach(() => {
 // ── 1. Never claims Priority Engine ranking, never fakes a recommendation ──
 describe('Decide never claims Priority Engine ranking or a fake recommendation', () => {
   const decideLibSource = readFileSync(join(__dirname, '../decide.ts'), 'utf-8');
-  const decidePageSource = readFileSync(join(__dirname, '../../app/decide/page.tsx'), 'utf-8');
 
   function stripComments(src: string): string {
     return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -109,16 +108,12 @@ describe('Decide never claims Priority Engine ranking or a fake recommendation',
     expect(stripComments(decideLibSource)).not.toMatch(/priority\s+engine/i);
   });
 
-  it('no visible copy in /decide claims "Priority Engine" ranking', () => {
-    expect(stripComments(decidePageSource)).not.toMatch(/priority\s+engine/i);
-  });
-
-  it('no visible copy claims a ranked list ("ranked", "top priority", "recommended")', () => {
-    const stripped = stripComments(decidePageSource);
-    expect(stripped).not.toMatch(/ranked\s+list/i);
-    expect(stripped).not.toMatch(/recommend/i);
-    expect(stripped).not.toMatch(/we recommend/i);
-  });
+  // The 2 tests that used to live here read app/decide/page.tsx — that
+  // route was deliberately decommissioned 2026-07-18 (nav.ts: "/decide,
+  // /ask, /recommended, /comms-studio have been decommissioned... routed
+  // to /workbenches instead"). Removed 2026-08-11 rather than resurrecting
+  // a retired page to satisfy a stale test — lib/decide.ts (still live,
+  // still tested above and below) is what actually needs this coverage.
 
   it('reasoning text is fact-only - never contains a recommendation verb', () => {
     expect(missionReasoning('Awaiting Captain Approval · P1')).not.toMatch(/recommend/i);
