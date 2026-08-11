@@ -6,8 +6,6 @@ Mirrors tools/intelligence/validate_source_accuracy.py's structure and its
 2026-08-08 fix (real columns, not a nonexistent field) — built this way from
 the start rather than repeating that mistake for the health domain.
 
-<<<<<<< HEAD
-=======
 2026-08-09 gap-closure: the Health_SRS formula (0093_health_osint_workbench.sql)
 has 5 multiplicative terms — publisher_reputation, peer_reviewed,
 avg_methodology_quality, the replication_success_rate/retraction_rate pair,
@@ -46,7 +44,6 @@ validation" graduation rule is the leading candidate, but the rate/cap
 parameters are a policy choice, not a data-availability fact, so it's
 flagged for Captain/Chief of Staff decision rather than guessed here).
 
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 Heuristic validation rules (disclosed as heuristic, not ground-truth):
   1. Source is a health_agency (NIH/FDA/CDC/WHO) -> accurate. Direct
      government/institutional publication, not a third-party claim.
@@ -139,10 +136,6 @@ class HealthSourceValidator:
                 return
         self.validated_count += 1
 
-<<<<<<< HEAD
-    def recompute_source_scores(self, source_id):
-        rows = (
-=======
     def recompute_avg_methodology_quality(self, source_id, min_signals: int = 3):
         """Aggregate the real per-signal methodology_quality_score (already
         computed at collection time, independent of accuracy validation)
@@ -203,36 +196,11 @@ class HealthSourceValidator:
         update = {}
 
         validation_rows = (
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
             self.supabase.table("health_signal_validation")
             .select("is_accurate").eq("source_id", source_id)
             .gt("validated_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat())
             .execute().data or []
         )
-<<<<<<< HEAD
-        if len(rows) < 10:
-            return  # not enough evidence yet — leave existing values alone
-
-        accurate = sum(1 for r in rows if r["is_accurate"] is True)
-        inaccurate = sum(1 for r in rows if r["is_accurate"] is False)
-        total = len(rows)
-        replication_success_rate = round(accurate / total, 2)
-        retraction_rate = round(inaccurate / total, 2)
-
-        if not self.dry_run:
-            self.supabase.table("health_source_registry").update({
-                "replication_success_rate": replication_success_rate,
-                "retraction_rate": retraction_rate,
-                "accuracy_sample_size": total,
-                "accuracy_last_updated": datetime.now(timezone.utc).isoformat(),
-            }).eq("source_id", source_id).execute()
-        logger.info(f"Source {source_id}: replication_success_rate={replication_success_rate}, "
-                    f"retraction_rate={retraction_rate}, sample={total}")
-
-    def run(self):
-        logger.info(f"Starting health source validation{' (DRY RUN)' if self.dry_run else ''}")
-        sources = self.supabase.table("health_source_registry").select("source_id, source_name, source_type").execute().data or []
-=======
         if len(validation_rows) >= 10:
             accurate = sum(1 for r in validation_rows if r["is_accurate"] is True)
             inaccurate = sum(1 for r in validation_rows if r["is_accurate"] is False)
@@ -264,7 +232,6 @@ class HealthSourceValidator:
     def run(self):
         logger.info(f"Starting health source validation{' (DRY RUN)' if self.dry_run else ''}")
         sources = self.supabase.table("health_source_registry").select("source_id, source_name, source_type, auto_registered").execute().data or []
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         logger.info(f"Checking {len(sources)} sources")
 
         for source in sources:
@@ -275,11 +242,7 @@ class HealthSourceValidator:
                     signal["signal_id"], source["source_id"], verdict,
                     "automated", f"Rule-based on study_design/source_type/adverse_event pattern",
                 )
-<<<<<<< HEAD
-            self.recompute_source_scores(source["source_id"])
-=======
             self.recompute_source_scores(source["source_id"], auto_registered=bool(source.get("auto_registered")))
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
         logger.info(f"Validation complete: {self.validated_count} signals validated, {self.errors} errors")
 

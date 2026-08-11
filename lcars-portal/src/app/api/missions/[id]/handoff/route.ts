@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
-<<<<<<< HEAD
-=======
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
 // MSN-0180: Statuses eligible for engineering handoff
 // Decision: use 'Approved for Engineering' as the target status (new, added in MSN-0180 migration).

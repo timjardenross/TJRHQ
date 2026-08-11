@@ -112,17 +112,10 @@ function Workbench() {
   );
 
   return (
-<<<<<<< HEAD
-    <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
-      right={right}
-      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />}
-=======
     <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[tab]}
       tagline="USS TJR · Human Systems · Recovery & Readiness · Medical · Evidence-informed, non-diagnostic"
       right={right}
       tabs={<DomainToggle value={tab} onChange={changeTab} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />}
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 

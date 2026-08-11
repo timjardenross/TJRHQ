@@ -1,9 +1,5 @@
 """
-<<<<<<< HEAD
-WP-ORI-2: Source Registry Seed Script (CANONICAL — 131 sources)
-=======
 WP-ORI-2: Source Registry Seed Script (CANONICAL — 160 sources)
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 Generated from tools/intelligence/sources_live.csv
 
 This file is the source of truth for all intelligence sources.
@@ -43,13 +39,9 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 ORI_SOURCE_NAME = "Daily Operational Resilience Briefs (GitHub)"
 
 # ─── Source Registry ───────────────────────────────────────────────────────────
-<<<<<<< HEAD
-# CANONICAL: 131 sources (from live CSV export)
-=======
 # CANONICAL: 160 sources (from live CSV export; 2026-08-10 Firecrawl
 # production provisioning added Fastly Status, see
 # .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md)
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 # Fields: source_name, category, priority_rank, url, rss_url, api_endpoint,
 #         source_type, jurisdiction, confidence_weight, active, notes,
 #         content_expectation, useful_life_days, terms_reviewed, content_source
@@ -136,11 +128,6 @@ SOURCES = [
     },
     {
         "source_name":        "AWS Service Health",
-<<<<<<< HEAD
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://health.aws.amazon.com/health/status",
-=======
         "category":           "cloud_technology",
         "priority_rank":      1,
         "url":                "https://health.aws.amazon.com/health/status",
@@ -261,65 +248,17 @@ SOURCES = [
         "category":           "cloud_technology",
         "priority_rank":      2,
         "url":                "https://status.aws.amazon.com/",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "rss_url":            "https://status.aws.amazon.com/rss/all.rss",
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.95,
         "active":             True,
-<<<<<<< HEAD
-        "notes":              "AWS all-regions health feed. Third-party cloud dependency risk. USS-TJR-MSN-0339 WP1: incident-only feed — zero items during a quiet period is expected/correct, not a failure (MSN-0338 §2/§9). Also found and fixed live 2026-07-08: rss_url was plain http:// — connection refused outright (server now https-only); switched to https://, confirmed 200.",
-        "content_expectation": "intermittent",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "AWS Sydney (ap-southeast-2)",
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://health.aws.amazon.com/health/status",
-        "rss_url":            "https://status.aws.amazon.com/rss/ec2-ap-southeast-2.rss",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "AU",
-        "confidence_weight":  0.97,
-        "active":             True,
-        "notes":              "AWS EC2 Sydney region — most relevant for AU-hosted workloads. USS-TJR-MSN-0339 WP1: confirmed live 2026-07-08, valid RSS, zero <item> elements — real, correct content (no active incident right now), not a broken feed. Was previously misreported as failing (MSN-0338 §2/§9).",
-        "content_expectation": "intermittent",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "GitHub Status",
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://www.githubstatus.com/",
-        "rss_url":            "https://www.githubstatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.92,
-        "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed. Incident history feed.",
-=======
         "notes":              "AWS global + ap-southeast-2 (Sydney) health events.",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
     {
-<<<<<<< HEAD
-        "source_name":        "Google Cloud Status",
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://status.cloud.google.com/",
-        "rss_url":            "https://status.cloud.google.com/en/feed.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.95,
-        "active":             True,
-        "notes":              "GCP global status Atom feed. JSON incidents also at /incidents.json.",
-=======
         "source_name":        "Canva Status",
         "category":           "cloud_technology",
         "priority_rank":      2,
@@ -334,20 +273,10 @@ SOURCES = [
                               "migrated from history.atom to the statuspage.io JSON incidents API (confirmed live, 50 "
                               "incidents, real impact field: 27 major, 13 minor, 8 critical, 2 none) — same pattern as "
                               "Cloudflare Status.",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
     {
-<<<<<<< HEAD
-        "source_name":        "Microsoft Azure Status",
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://azure.status.microsoft/en-us/status",
-        "rss_url":            "https://azurestatuscdn.azureedge.net/en-us/status/feed/",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-=======
         "source_name":        "Cloudflare Status",
         "category":           "cloud_technology",
         "priority_rank":      2,
@@ -373,22 +302,9 @@ SOURCES = [
         "rss_url":            "https://status.docusign.com/history.atom",
         "api_endpoint":       "https://status.docusign.com/api/v2/incidents.json",
         "source_type":        "api",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-<<<<<<< HEAD
-        "notes":              "Azure global service health. Use CDN URL — direct azure.status.microsoft/feed/ unreliable. USS-TJR-MSN-0339 WP1: confirmed live 2026-07-08, valid RSS 2.0, zero <item> elements — this is real, correct content (no active Azure incident right now), not a broken feed. Was previously misreported as failing (MSN-0338 §2/§9).",
-        "content_expectation": "intermittent",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Slack Status",
-        "category":           "cloud_technology",
-        "priority_rank":      1,
-        "url":                "https://status.slack.com/",
-        "rss_url":            "https://slack-status.com/feed/atom",
-=======
         "notes":              "Atlassian Statuspage. 2026-08-10: migrated from history.atom to the statuspage.io JSON "
                               "incidents API (confirmed live, 50 incidents, real impact field: 44 minor, 5 none, 1 major) "
                               "— same pattern as Cloudflare Status.",
@@ -416,17 +332,12 @@ SOURCES = [
         "priority_rank":      2,
         "url":                "https://ocistatus.oraclecloud.com/",
         "rss_url":            "https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "api_endpoint":       None,
         "source_type":        "rss",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.90,
         "active":             True,
-<<<<<<< HEAD
-        "notes":              "Atom 1.0. Canonical feed moved to slack-status.com (status.slack.com/feed/atom 301-redirects here).",
-=======
         "notes":              "OCI incident summary RSS. Relevant for banks using Oracle Cloud.",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -581,42 +492,8 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-<<<<<<< HEAD
-        "notes":              "Covers Jira, Confluence, Bitbucket, Trello. Operational tooling dependency.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "AWS Service Health Dashboard",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.aws.amazon.com/",
-        "rss_url":            "https://status.aws.amazon.com/rss/all.rss",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
-        "active":             True,
-        "notes":              "AWS global + ap-southeast-2 (Sydney) health events.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Canva Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://www.canvastatus.com/",
-        "rss_url":            "https://www.canvastatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "AU",
-        "confidence_weight":  0.85,
-        "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed. Correct domain is canvastatus.com (not canva-status.com).",
-=======
         "notes":              "2026-08-09 gap-closure. Live-verified real feed. "
                               "2026-08-10: CSV/DB registry-drift fix — this row existed live in Supabase (added 2026-08-09) but was missing from this tracked file until now.",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -679,149 +556,10 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
         "active":             True,
-<<<<<<< HEAD
-        "notes":              "CDN/DNS/DDoS protection. Cloudflare outage impacts availability of web-facing services.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "DocuSign Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.docusign.com/",
-        "rss_url":            "https://status.docusign.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.88,
-        "active":             True,
-        "notes":              "Atlassian Statuspage. Atom 1.0 confirmed.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Google Cloud Security Bulletins",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://cloud.google.com/support/bulletins",
-        "rss_url":            "https://docs.cloud.google.com/feeds/google-cloud-security-bulletins.xml",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "US",
-        "confidence_weight":  0.90,
-        "active":             True,
-        "notes":              "Atom 1.0. Confirmed working. cloud.google.com/feeds/... redirects here; use docs.cloud.google.com URL directly.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Oracle Cloud (OCI) Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://ocistatus.oraclecloud.com/",
-        "rss_url":            "https://ocistatus.oraclecloud.com/api/v2/incident-summary.rss",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
-        "active":             True,
-        "notes":              "OCI incident summary RSS. Relevant for banks using Oracle Cloud.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Salesforce Trust Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.salesforce.com/",
-        "rss_url":            None,
-        "api_endpoint":       "https://api.status.salesforce.com/v1/incidents/active",
-        "source_type":        "api",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
-        "active":             True,
-        "notes":              "Salesforce CRM/Service Cloud incidents. /api/v1/incidents returns 403 — updated to api.status.salesforce.com/v1/incidents/active (public API endpoint).",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Zoom Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.zoom.us/",
-        "rss_url":            "https://www.zoomstatus.com/history.atom",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.88,
-        "active":             True,
-        "notes":              "Atom 1.0. Canonical feed moved to zoomstatus.com (status.zoom.us/history.atom 302-redirects here).",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Miro Status",
-        "category":           "cloud_technology",
-        "priority_rank":      4,
-        "url":                "https://status.miro.com/",
-        "rss_url":            None,
-        "api_endpoint":       "https://status.miro.com/api/v2/incidents.json",
-        "source_type":        "api",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.78,
-        "active":             True,
-        "notes":              "Powered by incident.io (not Statuspage — no RSS). JSON API returns current status only, no incident history. For real-time polling only.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "ServiceNow Status",
-        "category":           "cloud_technology",
-        "priority_rank":      2,
-        "url":                "https://status.servicenow.com/",
-        "rss_url":            None,
-        "api_endpoint":       "https://status.servicenow.com/api/v2/status.json",
-        "source_type":        "api",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.90,
-        "active":             False,
-        "notes":              "ServiceNow ITSM platform status. DNS resolution failing — likely environment issue (test on VM). Keep inactive for now.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Adobe Status",
-        "category":           "cloud_technology",
-        "priority_rank":      4,
-        "url":                "https://status.adobe.com/",
-        "rss_url":            None,
-        "api_endpoint":       None,
-        "source_type":        "scrape",
-        "jurisdiction":       "US",
-        "confidence_weight":  0.78,
-        "active":             False,
-        "notes":              "Custom status page (not Atlassian Statuspage). No RSS/Atom. Scrape required. Activate when scrape adapter built.",
-        "content_expectation": "continuous",
-        "useful_life_days": 14,
-    },
-    {
-        "source_name":        "Okta Status",
-        "category":           "cloud_technology",
-        "priority_rank":      4,
-        "url":                "https://status.okta.com/",
-        "rss_url":            None,
-        "api_endpoint":       None,
-        "source_type":        "scrape",
-        "jurisdiction":       "US",
-        "confidence_weight":  0.82,
-        "active":             False,
-        "notes":              "No public RSS/Atom. Statuspage API returns 401 Unauthorized. Scrape main page or use webhook subscription. Activate when scrape adapter built.",
-=======
         "notes":              "CDN/edge platform — Akamai outage impacts availability of web-facing services fronted by its network. "
                               "Statuspage.io JSON incidents API confirmed live 2026-08-10 (HTTP 200, 50 incidents, real impact field: "
                               "minor=42, none=8 in the sampled window) — registered directly on the api path (same "
                               "_parse_statuspage_incidents pattern proven for Cloudflare Status), never put on the RSS/Atom variant.",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -910,13 +648,8 @@ SOURCES = [
         "source_type":        "scrape",
         "jurisdiction":       "AU",
         "confidence_weight":  0.97,
-<<<<<<< HEAD
-        "active":             False,
-        "notes":              "National Electricity Market operational notices. Scrape page returns 403 (bot detection) — deactivated.",
-=======
         "active":             True,
         "notes":              "National Electricity Market operational notices. Scrape page returns 403 (bot detection) — deactivated. CONFIRMED 2026-08-09: firecrawl (headless-browser fetch) bypasses the 403 and returns real, current notices — scrape_adapter.py's plain urllib.request fetch is what gets blocked, not the source itself. Reactivate once the adapter gets a firecrawl-backed fetch path for bot-blocked sources. [REACTIVATED 2026-08-10: real Firecrawl fetch-path capability built (intelligence/ingestion/firecrawl_client.py, calls Firecrawl's REST API directly with FIRECRAWL_API_KEY) -- the adapter now tries a plain fetch first and falls back to a real Firecrawl scrape only on HTTP 403, confirmed live bypassing the block. Cadence: once daily via the 06:00 daily_collection_job only -- explicitly excluded from the 180-min intraday sweep in intelligence/scheduler.py to stay within the Firecrawl Free-plan 1,000-scrapes/month hard cap (shared across all account usage). See .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md.]",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
@@ -1551,8 +1284,6 @@ SOURCES = [
         "useful_life_days": 14,
     },
     {
-<<<<<<< HEAD
-=======
         "source_name":        "ACMA Media Releases",
         "category":           "regulatory",
         "priority_rank":      1,
@@ -1576,7 +1307,6 @@ SOURCES = [
         "useful_life_days": 14,
     },
     {
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         "source_name":        "OAIC Breach Notifications",
         "category":           "regulatory",
         "priority_rank":      1,
@@ -2532,8 +2262,6 @@ SOURCES = [
         "useful_life_days": 21,
         "terms_reviewed": True,
         "content_source": True,
-<<<<<<< HEAD
-=======
     },
     {
         "source_name":        "Downdetector AU — Telstra",
@@ -2879,7 +2607,6 @@ SOURCES = [
         "notes":              "Fastly CDN/edge status. Real StatusCast-hosted incident-history page (NOT Statuspage.io format despite the earlier assumption in outage-source-coverage-expansion.md -- confirmed live 2026-08-10 via Firecrawl: fastlystatus.com is StatusCast-powered; no public JSON API found at /api/v2/incidents.json or /api/v2/status.json, both return a custom-styled Statuspage-look-alike 404). Direct plain fetch of the root/API paths returns HTTP 403 (Azure Front Door WAF block), confirmed live from this production host. Firecrawl-rendered fetch of /incidents bypasses the block and returns real, current incident/maintenance history (confirmed live 2026-08-10 -- real August 2026 dated entries, e.g. 'Possible Errors for API & Configuration Management' 31 July 2026, 'Rescheduled Maintenance for Fastly Alerts' 07 August 2026). Parsed via ScrapeAdapter's existing generic link-extraction fallback -- no new source-specific parser needed, same adapter class already used for AEMO Market Notices, just with the Firecrawl fetch fallback wired in (intelligence/ingestion/firecrawl_client.py). Cadence: once daily via the 06:00 daily_collection_job only, explicitly excluded from the 180-min intraday sweep -- Firecrawl Free-plan 1,000-scrapes/month hard cap. See .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     },
 ]
 
@@ -2931,8 +2658,6 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
         # entry sets explicitly.
         r.setdefault("content_expectation", "continuous")
         r.setdefault("useful_life_days", 7)
-<<<<<<< HEAD
-=======
         # 2026-08-10 fix: ~36/140 SOURCES entries set terms_reviewed/content_source
         # explicitly (e.g. the ORI curated-digest rows) and the rest omit them —
         # PostgREST batch POSTs require every object in an array to share the same
@@ -2942,7 +2667,6 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
         # already are.
         r.setdefault("terms_reviewed", False)
         r.setdefault("content_source", False)
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         if r["source_name"] in existing:
             r["source_id"] = existing[r["source_name"]]
             update_rows.append(r)

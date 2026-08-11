@@ -61,11 +61,7 @@ export async function POST(
 
     const { data: row, error: fetchErr } = await sb
       .from('comms_content')
-<<<<<<< HEAD
-      .select('status')
-=======
       .select('status, qa_status')
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
       .eq('id', params.id)
       .single();
     if (fetchErr || !row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -79,8 +75,6 @@ export async function POST(
       );
     }
 
-<<<<<<< HEAD
-=======
     // QA gate: the Proofing stage's "Approve" button only renders once
     // qa_status === 'qa_passed' (ContentBoard.tsx's ProofingStageBody),
     // but that was UI-only — nothing server-side stopped a direct
@@ -95,7 +89,6 @@ export async function POST(
       );
     }
 
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     const { error: updateErr } = await sb
       .from('comms_content')
       .update({ status: next, updated_at: new Date().toISOString() })

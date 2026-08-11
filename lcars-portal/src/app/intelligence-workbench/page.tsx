@@ -24,11 +24,7 @@ function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
   const initial = params.get('domain');
-<<<<<<< HEAD
   const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'confidence-matrix');
-=======
-  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'intelligence-summary');
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,15 +98,11 @@ function Workbench() {
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Category & Confidence">
-<<<<<<< HEAD
-            <div className="grid grid-cols-2 gap-4 text-[12px] text-wb-ink2">
-=======
             {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
                 each category ~170px on a 375px phone for a name + 4
                 stacked confidence counts — tight but the real fix is just
                 not forcing 2 columns below sm. */}
             <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>

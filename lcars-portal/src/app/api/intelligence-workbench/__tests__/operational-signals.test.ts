@@ -2,10 +2,7 @@
  * Intelligence Workbench — Operational Signals Tests
  * Verifies filtering, confidence scoring, and KPI calculations
  */
-<<<<<<< HEAD
-=======
 import { describe, test, expect } from 'vitest';
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
 describe('Intelligence Workbench — Operational Signals', () => {
   describe('Confidence Filtering', () => {

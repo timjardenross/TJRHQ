@@ -58,24 +58,6 @@ from supabase import create_client
 
 # ─── Per-health_domain search queries ────────────────────────────────────
 
-<<<<<<< HEAD
-PUBMED_QUERIES = {
-    "epidemiology": "(epidemiology[tiab] OR outbreak[tiab] OR disease surveillance[tiab])",
-    "treatment": "(clinical trial[pt]) AND treatment efficacy[tiab]",
-    "supplement": "(dietary supplement[tiab] OR nutraceutical[tiab]) AND (randomized[tiab] OR trial[tiab])",
-    "performance": "(exercise performance[tiab] OR athletic performance[tiab] OR ergogenic[tiab])",
-    "mental_health": "(mental health[tiab] OR depression[tiab] OR anxiety[tiab]) AND (randomized controlled trial[pt] OR meta-analysis[pt])",
-    "vaccine": "(vaccine efficacy[tiab] OR vaccine safety[tiab])",
-}
-
-CTGOV_QUERIES = {
-    "epidemiology": "infectious disease surveillance",
-    "treatment": "cardiovascular disease treatment",
-    "supplement": "dietary supplement",
-    "performance": "athletic performance exercise",
-    "mental_health": "depression anxiety",
-    "vaccine": "vaccine efficacy",
-=======
 # 2026-08-09 gap-closure: broadened after live testing against the real
 # esearch/studies APIs (30-day PubMed pool, CTgov totalCount) confirmed
 # every domain's result pool grew, none went to zero. "treatment" was the
@@ -103,7 +85,6 @@ CTGOV_QUERIES = {
     "performance": "athletic performance OR exercise performance OR sports medicine",
     "mental_health": "depression OR anxiety OR stress resilience",
     "vaccine": "vaccine efficacy OR vaccine safety OR immunization",
->>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 }
 
 # Phase 2: journal/agency RSS. Every URL here was curl-verified live before
