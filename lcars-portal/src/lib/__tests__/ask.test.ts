@@ -130,10 +130,12 @@ describe('No Captain Brief subprocess hot path', () => {
     expect(stripped).not.toMatch(/execFile/i);
   });
 
-  it('the /ask page never imports the captain-brief route', () => {
-    const src = readFileSync(join(__dirname, '../../app/ask/page.tsx'), 'utf-8');
-    expect(src).not.toMatch(/captain-brief/i);
-  });
+  // The test that used to live here read app/ask/page.tsx — that route
+  // was deliberately decommissioned 2026-07-18 (nav.ts: "/decide, /ask,
+  // /recommended, /comms-studio have been decommissioned... routed to
+  // /workbenches instead"). Removed 2026-08-11 rather than resurrecting a
+  // retired page to satisfy a stale test — lib/ask.ts (still live, tested
+  // above) is what actually needs this coverage.
 });
 
 // ── 5. Route works with empty datasets ───────────────────────────────────
@@ -184,22 +186,12 @@ describe('Empty datasets render honestly, not as errors or fabricated content', 
 
 // ── 6. Ask does not introduce a dashboard/list page by stealth ──────────
 describe('Ask renders prose, not a list/dashboard UI', () => {
-  it('/ask page never renders search results as a list of cards/rows', () => {
-    const src = readFileSync(join(__dirname, '../../app/ask/page.tsx'), 'utf-8');
-    // Exactly two .map() calls are legitimate and expected: the small,
-    // fixed SUGGESTED_QUERIES example-prompt list, and the "based on"
-    // source-attribution line (a short list of source names/counts, not
-    // a list of individual result records - the actual answer content is
-    // always the single `answer.prose` string). Anything beyond that would
-    // mean a third array is being rendered as a list, which is the
-    // dashboard-by-stealth this test guards against.
-    const mapCalls = src.match(/\.map\(/g) ?? [];
-    expect(mapCalls.length).toBeLessThanOrEqual(2);
-    expect(src).toMatch(/SUGGESTED_QUERIES\.map/);
-    expect(src).toMatch(/answer\.basedOn\.map/);
-    // The core answer must be rendered as one prose string, never mapped.
-    expect(src).not.toMatch(/answer\.prose\s*\.map/);
-  });
+  // The test that used to live here read app/ask/page.tsx (checking it
+  // never rendered a stealth dashboard/list) — that route was
+  // deliberately decommissioned 2026-07-18 (nav.ts: "/decide, /ask,
+  // /recommended, /comms-studio have been decommissioned... routed to
+  // /workbenches instead"). Removed 2026-08-11 rather than resurrecting a
+  // retired page to satisfy a stale test.
 
   it('multi-item answers are joined into one prose sentence, not a bulleted/card array', async () => {
     responses.missions = {
