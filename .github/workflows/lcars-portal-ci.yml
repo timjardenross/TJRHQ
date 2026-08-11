@@ -1,0 +1,32 @@
+name: LCARS Portal CI
+
+on:
+  pull_request:
+    paths:
+      - "lcars-portal/**"
+      - ".github/workflows/lcars-portal-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lcars-portal/**"
+      - ".github/workflows/lcars-portal-ci.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lcars-portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18.18.0"
+          cache: "npm"
+          cache-dependency-path: lcars-portal/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test

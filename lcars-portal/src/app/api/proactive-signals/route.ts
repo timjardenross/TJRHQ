@@ -72,36 +72,6 @@ export async function GET() {
     }
   } catch {}
 
-  // 2. Most recent captain's log older than 3 days
-  try {
-    const { data } = await supabase
-      .from('captains_log_entries')
-      .select('log_date')
-      .order('log_date', { ascending: false })
-      .limit(1);
-    if (data && data.length > 0) {
-      const latest = new Date(data[0].log_date);
-      const diffDays = (Date.now() - latest.getTime()) / (1000 * 60 * 60 * 24);
-      if (diffDays > 3) {
-        signals.push({
-          id: 'log-gap',
-          severity: 'medium',
-          category: 'Operations',
-          title: 'No log entry in 3+ days',
-          detail: `Last captain's log was ${Math.floor(diffDays)} days ago (${data[0].log_date}).`,
-        });
-      }
-    } else {
-      signals.push({
-        id: 'log-none',
-        severity: 'medium',
-        category: 'Operations',
-        title: 'No log entry in 3+ days',
-        detail: 'No captain\'s log entries found.',
-      });
-    }
-  } catch {}
-
   // 3. Missions awaiting review/approval for more than 48 hours
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();

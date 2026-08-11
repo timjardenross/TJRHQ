@@ -58,9 +58,20 @@ function deriveBestWindow(capacity_band: string | null | undefined): string {
   }
 }
 
-/** stress → nervous-system state, mirroring /api/wellness. */
-function stressToNs(s: string | null | undefined): string | null {
-  return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[s ?? ''] ?? null;
+/**
+ * Resolve a pulse's nervous-system state (MSN-0355 rule; realigned
+ * 2026-08-10 as part of the Recovery Pulse mood/stress decommission).
+ * Prefers the directly captured `nervous_system` reading (the canonical
+ * Telegram-bot field) and only falls back to deriving it from the legacy
+ * `stress` field when `nervous_system` is null — mirrors /api/wellness and
+ * lib/human-systems.ts's pulseNsState so every reader agrees.
+ */
+function pulseNsState(pulse: { nervous_system?: string | null; stress?: string | null } | null | undefined): string | null {
+  if (!pulse) return null;
+  if (pulse.nervous_system) return pulse.nervous_system;
+  const stress = pulse.stress ?? null;
+  if (!stress) return null;
+  return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
 }
 
 interface RawPostureRow {
@@ -91,6 +102,8 @@ interface DailyRow {
 interface PulseRow {
   captured_at: string;
   energy: string | null;
+  nervous_system: string | null;
+  body_signals: string | null;
   mood: string | null;
   stress: string | null;
   readiness: string | null;
@@ -183,7 +196,10 @@ async function loadCtx(sb: any): Promise<Ctx> {
       .select('sleep_hours,sleep_quality,cpap_status,nervous_system_state,energy,pain_score,movement_notes,pleasure_creativity_marker,what_happened,sitting_tolerance_minutes,workload_constraint,captain_capacity_rating')
       .eq('log_date', t).maybeSingle(),
     sb.from('recovery_pulses')
-      .select('captured_at,energy,mood,stress,readiness,pain_score')
+      // energy/nervous_system/body_signals are canonical (Captain directive,
+      // 2026-08-10); mood/stress kept selected only for historical display
+      // via pulseNsState's fallback — no new writes to them.
+      .select('captured_at,energy,nervous_system,body_signals,mood,stress,readiness,pain_score')
       .eq('log_date', t).order('captured_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('recovery_confidence_today').select('*').maybeSingle(),
     sb.from('physical_workout_sessions')
@@ -223,7 +239,7 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // pulse (the current signal) exactly as /api/wellness does.
   const energy = ctx.daily?.energy ?? ctx.latestPulse?.energy ?? c?.latest_energy ?? null;
   const nervous_system =
-    ctx.daily?.nervous_system_state ?? stressToNs(ctx.latestPulse?.stress) ?? c?.latest_nervous_system ?? null;
+    ctx.daily?.nervous_system_state ?? pulseNsState(ctx.latestPulse) ?? c?.latest_nervous_system ?? null;
 
   // health_insights has no `insight_date` column (the existing /api/wellness
   // route selects one that doesn't exist and silently gets nothing) — the real

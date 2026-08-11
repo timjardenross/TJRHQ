@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { supabaseAdmin } from '@/lib/ai-actions';
+import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 
 // Advisory transcripts are Captain-only content - require a real session
 // before reading or writing (WORKBENCH-REVIEW.md finding C3, 2026-07-18:
@@ -44,6 +45,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Heartbeat only after the real advisory_sessions row is confirmed
+    // written — never before, never on the error path above.
+    await recordHeartbeatServerSide({ domainKey: 'advisory_sessions', detail: `mode=${mode}` });
+
     return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

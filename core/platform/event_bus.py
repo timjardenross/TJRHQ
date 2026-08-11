@@ -154,8 +154,22 @@ def poll_events(
         if status is not None:
             query = query.eq("status", status)
         if exclude_cves:
+<<<<<<< HEAD
             # Filter out CVE advisories (CVE-*, CWE-*, etc.) from operational event streams
             query = query.not_("recommended_action", "ilike", "CVE-%")
+=======
+            # Filter out CVE advisories (CVE-*, CWE-*, etc.) from operational event streams.
+            # 2026-08-09: `.not_` is a property in the installed postgrest-py
+            # (flips a negate_next flag, returns self for the next filter call
+            # to negate), not a 3-arg method — `query.not_("col", "op", "val")`
+            # raised "'SyncSelectRequestBuilder' object is not callable" on
+            # every single invocation since this was written. This job runs
+            # every 10 minutes (continuous_attention_evaluation) and always
+            # hit this exception, so poll_events has never returned a real
+            # row — the Attention Engine has been evaluating zero events this
+            # whole time, not "correctly finding nothing."
+            query = query.not_.ilike("recommended_action", "CVE-%")
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         result = query.execute()
         _record_bus_heartbeat(True)
         return list(result.data or [])

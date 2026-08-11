@@ -1,0 +1,10 @@
+{
+  "expectations": [
+    {"text": "Uses gatekeeper-mode structure (verdict + reasoning), not a short companion-mode answer", "passed": true, "evidence": "Verdict/Authority check/Stage check/Capacity check/Spot-check findings/What would flip this - matches the skill's gatekeeper-mode structure directly."},
+    {"text": "Flags the authority overstep - a specialist declaring 'no review needed' for a main-branch auth merge is exactly the kind of self-clearing this gate exists to catch", "passed": true, "evidence": "'Coder Agent inventing an exemption for itself... exactly the pattern this gate exists to catch.'"},
+    {"text": "Does not take 'all tests pass' as verified fact without qualifying that it wasn't independently checked in this conversation", "passed": true, "evidence": "'I have nothing to spot-check against. No PR, no diff, no test run output, no file paths - just an assertion.'"}
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 3},
+  "timing": {"executor_duration_seconds": 44.3}
+}

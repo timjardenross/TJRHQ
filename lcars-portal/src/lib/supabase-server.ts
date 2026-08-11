@@ -33,6 +33,8 @@ export async function createSupabaseServerClient() {
  * redirect, which a direct API hit bypasses entirely). */
 export async function requireSession() {
   const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
   const { data: { session } } = await supabase.auth.getSession();
   return session;
 }

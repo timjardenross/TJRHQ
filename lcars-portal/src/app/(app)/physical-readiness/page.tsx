@@ -55,19 +55,15 @@ export default function PhysicalReadinessHome() {
         </p>
       </LCARSPanel>
 
-      <Link
-        href="/physical-readiness/start"
-        className="flex w-full flex-col items-center gap-1 rounded-lcars bg-medical px-4 py-5 text-center font-lcars text-lg font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80"
-      >
-        Start Today&apos;s Check-In
-        <span className="text-[11px] font-normal normal-case tracking-normal text-white/80">
-          Under 60 seconds — energy, pain, time, done
-        </span>
-      </Link>
+      {/* 2026-08-10/11: manual readiness check-in retired platform-wide —
+          Recovery Pulse is the sole capture path (same treatment already
+          applied to the workbench copy of this flow, commit f32ad53a).
+          "Start Today's Check-In" removed here too so this legacy (app)
+          route stops contradicting that. */}
 
       <LCARSPanel title="Last Session" accent="medical" eyebrow={loading ? 'Loading…' : undefined}>
         {!loading && !lastSession && (
-          <p className="text-sm text-lcars-muted">No sessions logged yet. Your first check-in starts the record.</p>
+          <p className="text-sm text-lcars-muted">No sessions on record.</p>
         )}
         {lastSession && (
           <div className="flex items-center justify-between gap-3">

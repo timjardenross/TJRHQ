@@ -33,8 +33,16 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Allow sibling imports
+# Allow sibling imports (core/health/*.py, unqualified) plus absolute
+# `core.xxx` package imports (health_llm.py needs `core.llm.provider_chain`).
+# Without the repo-root entry, running this file directly as a script
+# (`python core/health/weekly_synthesis.py`, as health-intelligence-weekly.
+# service's run_weekly_intelligence.sh does) puts only core/health/ on
+# sys.path[0], so `from core.llm...` 404s with ModuleNotFoundError: no
+# module named 'core' — confirmed live-broken since at least 2026-07-17
+# (weekly_health_synthesis's last successful heartbeat).
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
 from supabase_client import supabase_get, supabase_upsert, is_configured
@@ -1324,6 +1332,20 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str
     n = len(entries)
 
     if n < MIN_DAYS_FOR_SYNTHESIS:
+        # STARSHIP-REDESIGN.md §4.1: internal jobs are domains too — record a
+        # "skipped" heartbeat even on the insufficient-data early return, not
+        # just the success path below. Without this, a genuinely-correct
+        # "nothing to synthesise" week is indistinguishable from the job
+        # never running at all, and the domain sits permanently in
+        # run_verification_pass()'s degraded list. Best-effort, never blocks.
+        try:
+            sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
+            from heartbeat import record_heartbeat
+            record_heartbeat("weekly_health_synthesis", status="skipped",
+                              detail=f"period={week_start}, days_logged={n} < {MIN_DAYS_FOR_SYNTHESIS}")
+        except Exception:
+            pass
+
         return {
             "week_start": week_start,
             "days_logged": n,

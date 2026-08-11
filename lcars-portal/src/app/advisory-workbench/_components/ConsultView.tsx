@@ -15,13 +15,6 @@ import type { CouncilAdvisor, Msg } from './types';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
-const QUICK_PROMPTS = [
-  'What needs my decision?',
-  'Protect or defer?',
-  'What changed since yesterday?',
-  'Challenge this assumption',
-];
-
 export function ConsultView() {
   const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
@@ -117,7 +110,11 @@ export function ConsultView() {
   const groupHasHistory = (advisors: CouncilAdvisor[]) => advisors.some((a) => (threads[a.id]?.length ?? 0) > 0);
 
   return (
+<<<<<<< HEAD
     <div className="flex flex-col gap-4 lg:h-[65vh] lg:flex-row">
+=======
+    <div className="flex flex-col gap-4 lg:h-[65dvh] lg:flex-row">
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
       {/* Group-first picker (2026-08 redesign): 18 officers behind 5 group
           chips instead of all always expanded — pick a group, then a
           person within it. Mirrors PerspectivesView's category-first
@@ -170,7 +167,20 @@ export function ConsultView() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: 'calc(65vh - 200px)' }}>
+            {/* 2026-08-09 mobile/iPad review (P2): calc(65vh - 200px) was
+                applied unconditionally at every breakpoint, but the outer
+                container's own height constraint (lg:h-[65dvh], below)
+                only exists at lg+ — below that this was capping the
+                thread's scroll area against a height budget the page
+                itself was never actually constrained to, and the vh unit
+                doesn't account for iOS Safari's collapsing toolbar or an
+                open on-screen keyboard shrinking the real usable space.
+                max-h-none below lg (thread just flows in the page's
+                normal scroll); the fixed calc only applies at lg+ where
+                the rail layout genuinely needs a bounded height to keep
+                the input visible, and dvh there tracks the real dynamic
+                viewport instead of the load-time one. */}
+            <div className="max-h-none space-y-3 overflow-y-auto pr-1 lg:max-h-[calc(65dvh-200px)]">
               {messages.length === 0 && !loading && (
                 <p className="py-8 text-center text-sm text-wb-ink2">{activeAdvisor.label} standing by.</p>
               )}
@@ -205,14 +215,6 @@ export function ConsultView() {
                 </div>
               )}
               <div ref={bottomRef} />
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_PROMPTS.map((p) => (
-                <button key={p} onClick={() => send(p)} disabled={loading}
-                  className="rounded-md border border-wb-line px-2.5 py-1 text-[10px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep hover:text-wb-sage-deep disabled:opacity-40">
-                  {p}
-                </button>
-              ))}
             </div>
             {!activeAdvisor.useXoEndpoint && (
               <label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">

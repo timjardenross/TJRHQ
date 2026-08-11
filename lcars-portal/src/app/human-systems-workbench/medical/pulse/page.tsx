@@ -5,26 +5,44 @@ import { useRouter } from 'next/navigation';
 import { WorkbenchShell, Card, Badge, Button, Input, Textarea } from '@/components/ui';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+//
+// Recovery Pulse decommission/realign (Captain directive, 2026-08-10): this
+// manual-entry page previously wrote `mood`/`stress`, a data model that
+// diverged from the canonical Telegram bot flow (telegram-bots/xo/app.py),
+// which writes `energy`/`nervous_system`/`body_signals`/`day_win` and never
+// touches mood/stress. The Captain designated the Telegram fields canonical.
+// Rather than deleting this manual-entry capability outright, it's repointed
+// here to write the exact same canonical fields, using the exact same
+// question set and pulse-type bucketing (morning/midday/evening, 3x/day) as
+// the Telegram flow — so a Captain without their phone can still log a pulse
+// from the Portal and it counts identically toward recovery_confidence_today.
+// `mood`/`stress` are no longer written from here. Historical mood/stress
+// rows already in the table are untouched (no migration, no backfill).
 
-type PulseType = 'morning' | 'midday' | 'end_of_day' | 'evening';
+type PulseType = 'morning' | 'midday' | 'evening';
 type EnergyLevel = 'low' | 'moderate' | 'high';
-type MoodLevel = 'low' | 'stable' | 'positive';
-type StressLevel = 'low' | 'moderate' | 'high';
+type NervousSystemLevel = 'calm' | 'activated' | 'dysregulated';
+type BodySignalsLevel = 'quiet' | 'present' | 'significant';
+type DayWinLevel = 'something_did' | 'nothing_much' | 'rough_day';
 type ReadinessLevel = 'low' | 'moderate' | 'high';
 
 // ── Pulse config ──────────────────────────────────────────────────────────────
+// Field set + wording mirrors telegram-bots/xo/app.py's _kb_energy / _kb_mood
+// (nervous system) / _kb_stress (body signals) / _kb_day_win exactly, so the
+// two entry surfaces ask the same questions. `readiness` / `pain` / `notes`
+// are additive manual-only context the Telegram flow doesn't collect but
+// other live readers still use (recovery_confidence_today.latest_readiness,
+// pain-escalation watchlist flags) — kept as optional extras, not part of
+// the mood/stress divergence this change removes.
 
 const PULSES: {
   type: PulseType;
   label: string;
   time: string;
   purpose: string;
-  // Colour carries the day-progression identity of each pulse (morning→evening),
-  // so a glance distinguishes them. `tone` = selected container, `accent` = the
-  // time label colour. wb tokens only.
   tone: string;
   accent: string;
-  fields: ('energy' | 'mood' | 'stress' | 'readiness' | 'pain' | 'notes')[];
+  fields: ('energy' | 'nervous_system' | 'body_signals' | 'day_win' | 'readiness' | 'pain' | 'notes')[];
 }[] = [
   {
     type: 'morning',
@@ -33,7 +51,7 @@ const PULSES: {
     purpose: 'Mission planning · Daily posture determination',
     tone: 'border-wb-ok bg-wb-ok/15',
     accent: 'text-wb-ok-on',
-    fields: ['energy', 'mood', 'readiness', 'pain', 'notes'],
+    fields: ['energy', 'nervous_system', 'body_signals', 'readiness', 'pain', 'notes'],
   },
   {
     type: 'midday',
@@ -42,25 +60,16 @@ const PULSES: {
     purpose: 'Course correction · Workload protection',
     tone: 'border-wb-warn bg-wb-warn/15',
     accent: 'text-wb-warn-on',
-    fields: ['stress', 'readiness', 'pain', 'notes'],
-  },
-  {
-    type: 'end_of_day',
-    label: 'End of Workday',
-    time: 'End of day',
-    purpose: 'Transition to recovery mode',
-    tone: 'border-wb-crit bg-wb-crit/15',
-    accent: 'text-wb-crit-on',
-    fields: ['energy', 'stress', 'readiness', 'pain', 'notes'],
+    fields: ['energy', 'nervous_system', 'readiness', 'pain', 'notes'],
   },
   {
     type: 'evening',
     label: 'Evening Recovery',
     time: 'Evening',
-    purpose: 'Recovery completion loop',
+    purpose: 'Recovery completion loop · Daily reflection',
     tone: 'border-wb-sage-deep bg-wb-sage/15',
     accent: 'text-wb-sage-deep',
-    fields: ['mood', 'stress', 'readiness', 'notes'],
+    fields: ['energy', 'nervous_system', 'day_win', 'readiness', 'notes'],
   },
 ];
 
@@ -111,17 +120,18 @@ function PulseForm({
   onSubmit: (data: Record<string, unknown>) => void;
   saving: boolean;
 }) {
-  const [energy,    setEnergy]    = useState<EnergyLevel | ''>('');
-  const [mood,      setMood]      = useState<MoodLevel | ''>('');
-  const [stress,    setStress]    = useState<StressLevel | ''>('');
-  const [readiness, setReadiness] = useState<ReadinessLevel | ''>('');
-  const [pain,      setPain]      = useState('');
-  const [notes,     setNotes]     = useState('');
-  const [error,     setError]     = useState<string | null>(null);
+  const [energy,        setEnergy]        = useState<EnergyLevel | ''>('');
+  const [nervousSystem, setNervousSystem] = useState<NervousSystemLevel | ''>('');
+  const [bodySignals,   setBodySignals]   = useState<BodySignalsLevel | ''>('');
+  const [dayWin,        setDayWin]        = useState<DayWinLevel | ''>('');
+  const [readiness,     setReadiness]     = useState<ReadinessLevel | ''>('');
+  const [pain,          setPain]          = useState('');
+  const [notes,         setNotes]         = useState('');
+  const [error,         setError]         = useState<string | null>(null);
 
   function handleSubmit() {
     // At least one telemetry field required
-    if (!energy && !mood && !stress && !readiness && !pain) {
+    if (!energy && !nervousSystem && !bodySignals && !dayWin && !readiness && !pain) {
       setError('Please fill in at least one field.');
       return;
     }
@@ -131,12 +141,13 @@ function PulseForm({
       pulse_type: pulse.type,
       source:     'manual',
     };
-    if (energy)    data.energy     = energy;
-    if (mood)      data.mood       = mood;
-    if (stress)    data.stress     = stress;
-    if (readiness) data.readiness  = readiness;
-    if (pain)      data.pain_score = parseFloat(pain);
-    if (notes)     data.notes      = notes;
+    if (energy)        data.energy         = energy;
+    if (nervousSystem) data.nervous_system = nervousSystem;
+    if (bodySignals)   data.body_signals   = bodySignals;
+    if (dayWin)        data.day_win        = dayWin;
+    if (readiness)     data.readiness      = readiness;
+    if (pain)           data.pain_score    = parseFloat(pain);
+    if (notes)          data.notes         = notes;
     onSubmit(data);
   }
 
@@ -148,44 +159,52 @@ function PulseForm({
           value={energy}
           onChange={setEnergy}
           options={[
-            { value: 'low',      label: 'Low' },
-            { value: 'moderate', label: 'Moderate' },
-            { value: 'high',     label: 'High' },
+            { value: 'high',     label: '⚡ High' },
+            { value: 'moderate', label: '〜 Moderate' },
+            { value: 'low',      label: '🔋 Low' },
           ]}
         />
       )}
-      {pulse.fields.includes('mood') && (
+      {pulse.fields.includes('nervous_system') && (
         <SegmentField
-          label={pulse.type === 'evening' ? 'Nervous system / mood' : 'Mood'}
-          value={mood}
-          onChange={setMood}
+          label="Nervous system"
+          value={nervousSystem}
+          onChange={setNervousSystem}
           options={[
-            { value: 'low',      label: 'Low' },
-            { value: 'stable',   label: 'Stable' },
-            { value: 'positive', label: 'Positive' },
+            { value: 'calm',         label: '🟢 Calm' },
+            { value: 'activated',    label: '🟡 Activated' },
+            { value: 'dysregulated', label: '🔴 Dysregulated' },
           ]}
         />
       )}
-      {pulse.fields.includes('stress') && (
+      {pulse.fields.includes('body_signals') && (
         <SegmentField
-          label={pulse.type === 'midday' ? 'Stress level' : pulse.type === 'end_of_day' ? 'Recovery debt / fatigue' : 'Stress'}
-          value={stress}
-          onChange={setStress}
+          label="Body signals"
+          hint="Context only — not a recovery metric."
+          value={bodySignals}
+          onChange={setBodySignals}
           options={[
-            { value: 'low',      label: 'Low' },
-            { value: 'moderate', label: 'Moderate' },
-            { value: 'high',     label: 'High' },
+            { value: 'quiet',       label: '🤫 Quiet' },
+            { value: 'present',     label: '💬 Present' },
+            { value: 'significant', label: '📢 Significant' },
+          ]}
+        />
+      )}
+      {pulse.fields.includes('day_win') && (
+        <SegmentField
+          label="One thing that went okay today?"
+          value={dayWin}
+          onChange={setDayWin}
+          options={[
+            { value: 'something_did', label: '🙂 Something did' },
+            { value: 'nothing_much',  label: '😐 Nothing much' },
+            { value: 'rough_day',     label: '😞 Rough day' },
           ]}
         />
       )}
       {pulse.fields.includes('readiness') && (
         <SegmentField
-          label={
-            pulse.type === 'midday'      ? 'Remaining capacity' :
-            pulse.type === 'end_of_day'  ? 'Current posture' :
-            pulse.type === 'evening'     ? 'Recovery readiness for tomorrow' :
-            'Readiness'
-          }
+          label={pulse.type === 'midday' ? 'Remaining capacity' : pulse.type === 'evening' ? 'Recovery readiness for tomorrow' : 'Readiness'}
           value={readiness}
           onChange={setReadiness}
           options={[
@@ -199,7 +218,7 @@ function PulseForm({
         <div className="flex flex-col gap-1.5">
           <Input
             type="number"
-            label="Body signals (0 = none · 10 = severe)"
+            label="Pain (0 = none · 10 = severe)"
             hint="Context only — not a recovery metric."
             value={pain}
             onChange={(e) => setPain(e.target.value)}
@@ -216,9 +235,8 @@ function PulseForm({
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
           placeholder={
-            pulse.type === 'evening'    ? 'Recovery activities completed. How did the day land?' :
-            pulse.type === 'end_of_day' ? 'Progress made. What needs to carry over tomorrow?' :
-            pulse.type === 'midday'     ? 'Anything shifting? Capacity concerns?' :
+            pulse.type === 'evening' ? 'Recovery activities completed. How did the day land?' :
+            pulse.type === 'midday'  ? 'Anything shifting? Capacity concerns?' :
             'Anything the Medical Officer should know.'
           }
           className="resize-none"
@@ -255,10 +273,13 @@ export default function RecoveryPulsePage() {
 
   const now = new Date();
   const hour = now.getHours();
+  // Soft default only (Captain can still pick another pulse type) — mirrors
+  // pulse_time.py's canonical bucketing (morning 5-12h, midday 12-20h,
+  // evening 20-5h), just without the Brisbane-timezone pin since this reads
+  // the browser's local clock for a same-device suggestion.
   const suggestedPulse: PulseType =
-    hour < 11 ? 'morning' :
-    hour < 14 ? 'midday' :
-    hour < 18 ? 'end_of_day' : 'evening';
+    hour < 12 ? 'morning' :
+    hour < 20 ? 'midday' : 'evening';
 
   const activePulse = PULSES.find(p => p.type === (selectedPulse ?? suggestedPulse));
 
@@ -302,13 +323,14 @@ export default function RecoveryPulsePage() {
       <div className="flex flex-col gap-4">
         <Card title={`D-055 · ${now.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}`}>
           <p className="text-xs leading-relaxed text-wb-ink2">
-            Four pulses per day build a complete picture of recovery state.
-            Each pulse takes under 60 seconds. Missing pulses reduce readiness confidence — not recovery itself.
+            Three pulses per day build a complete picture of recovery state — the same cadence and
+            questions as the Telegram check-in. Each pulse takes under 60 seconds. Missing pulses
+            reduce readiness confidence — not recovery itself.
           </p>
         </Card>
 
         {/* Pulse selector */}
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           {PULSES.map((p) => {
             const isSelected = (selectedPulse ?? suggestedPulse) === p.type;
             const isSuggested = suggestedPulse === p.type && !selectedPulse;

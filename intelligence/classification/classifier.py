@@ -33,6 +33,30 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
                               "regulation", "compliance", "cps 230", "cps230", "prudential",
                               "enforcement", "licence", "penalty", "breach notice",
                               "consultation paper", "information paper", "policy", "legislation"]),
+    # 2026-08-10 fix (USS-TJR-MSN-0361): a live 30-day audit found 152/510
+    # (30%) of ALL technology_outage-tagged events relied solely on the
+    # bare vendor/platform terms below ("microsoft", "platform", "cloud",
+    # "aws", etc.) with zero genuine outage-indicating language anywhere in
+    # the text -- any story that merely mentions a tech vendor (earnings,
+    # product launches, regulatory/political stories, unrelated tech news)
+    # got tagged a technology_outage regardless of content. Same defect
+    # class already fixed for 4 other categories on 2026-07-18, but those
+    # were fixed by deleting ambiguous common-English-word substrings
+    # ("port", "cards", "ses"...). That approach doesn't work here: these
+    # terms are real vendor/product names that ARE the correct signal when
+    # they co-occur with genuine incident language, so deleting them would
+    # cost recall on real outages, not just cut false positives. Fix
+    # instead requires each generic term below (see _TECH_OUTAGE_GENERIC /
+    # _TELECOM_OUTAGE_GENERIC and the count-gating logic in classify())
+    # to co-occur with at least one _OUTAGE_INDICATOR_TERMS hit before it
+    # counts toward the category score -- mirrors _has_outage_language() in
+    # intelligence_store.py (the narrower mitigation shipped 2026-08-09/10,
+    # scoped only to the outage-push-alert trigger), applied here at the
+    # classification source so every consumer (weekly report severity
+    # counts, general signal feed, push alerts) benefits, not just one.
+    # Re-verified against the same 30-day/664-event live sample: see
+    # .claude/skills/bot-reviews/fixes-2026-08-09/msn-0361-classifier-fix.md
+    # for full before/after numbers.
     ("technology_outage",    ["outage", "incident", "degraded", "unavailable", "service disruption",
                               "system failure", "service interruption", "aws", "azure", "google cloud",
                               "microsoft", "salesforce", "servicenow", "cloud", "platform",
@@ -99,6 +123,72 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
     ("workforce",            ["strike", "industrial action", "workforce", "staffing",
                               "pandemic", "covid", "illness", "absenteeism"]),
 ]
+
+# 2026-08-10 fix (USS-TJR-MSN-0361, see the dated comment above the
+# technology_outage/telecom_outage entries for the full defect writeup):
+# these terms are legitimate vendor/product/industry names, not the kind of
+# common-English-word substring collision the 2026-07-18 fixes removed —
+# they're the correct signal *when paired with genuine outage language*.
+# Listed here, they only count toward their category's match score in
+# classify() below if the text also contains an _OUTAGE_INDICATOR_TERMS hit.
+_TECH_OUTAGE_GENERIC_TERMS = frozenset({
+    "incident", "aws", "azure", "google cloud", "microsoft", "salesforce",
+    "servicenow", "cloud", "platform",
+})
+_TELECOM_OUTAGE_GENERIC_TERMS = frozenset({
+    "telstra", "optus", "tpg", "vodafone", "nbn", "mobile network",
+    "broadband", "telecommunications", "telco", "connectivity",
+})
+_GENERIC_TERMS_REQUIRE_OUTAGE_LANGUAGE = {
+    "technology_outage": _TECH_OUTAGE_GENERIC_TERMS,
+    "telecom_outage": _TELECOM_OUTAGE_GENERIC_TERMS,
+}
+
+# Genuine outage/incident-report language. Mirrors (independently defined,
+# to keep intelligence/classification/ free of a dependency on
+# intelligence/persistence/) _OUTAGE_LANGUAGE_KEYWORDS in
+# intelligence_store.py, which was verified against 90 days of push-eligible
+# events: excludes exactly the known-bad matches while keeping every genuine
+# incident report. Extended slightly here (a few more natural phrasings,
+# e.g. "went down", "not working") since this list now gates classification
+# for the full 30-day/664-event population, not just the push-eligible
+# subset — see the fix's write-up for the re-verification against that
+# broader sample.
+#
+# 2026-08-10 addendum to the fix above: the first cut of this list (plain
+# dramatic-incident vocabulary) was verified against the 664-event sample
+# and correctly excluded the unrelated-news false positives, but a second
+# pass over what got EXCLUDED (per this mission's own instruction to sanity
+# check the exclusions, not just the inclusions) surfaced real regressions
+# -- genuine vendor status-page incidents ("Incident with Actions" /
+# GitHub Actions capacity/failure reports, "R2 Availability Issues",
+# "Network Performance Issues in Hamburg, Germany", "Workflow Send and
+# Review Errors") that never use words like "outage"/"resolved"/"degraded"
+# while the incident is still open, and so were wrongly demoted to "other".
+# These status-page feeds (GitHub, Cloudflare, DocuSign, Zoom, Canva, etc.)
+# share a distinctive structural fingerprint instead: timestamped status
+# labels like "Investigating - ...", "Identified - ...", "Monitoring -
+# ...", "Update - ...", "Scheduled - ..." (the Statuspage.io/similar
+# incident-log template). That label format is specific enough to be a
+# reliable standalone outage-indicator -- ordinary news prose doesn't write
+# "Identified - " or "Investigating - " with that exact space-hyphen
+# punctuation -- so it's added below alongside a few plain-English phrases
+# the regression cases also used ("issue affecting", "rollback", etc).
+_OUTAGE_INDICATOR_TERMS = (
+    "outage", "degrad", "unavailable", "unable to access", "can't access",
+    "cannot access", "service disruption", "disrupted", "disruption to",
+    "system failure", "service interruption", "api failure", "elevated error",
+    "error rate", "latency", "down for", "went down", "back online",
+    "back up", "restored", "resolved", "mitigat", "network outage",
+    "internet outage", "connectivity issue", "connectivity problem",
+    "not working", "experiencing issues", "experiencing problems",
+    "reported issues", "users reported", "users are reporting",
+    "investigating -", "identified -", "monitoring -", "resolved -",
+    "update -", "in progress -", "completed -", "scheduled -",
+    "issue affecting", "availability issue", "errors accessing",
+    "issues accessing", "experience errors", "experiencing errors",
+    "rollback", "network disruption", "network problem",
+)
 
 _GEOGRAPHY_AU = [
     "australia", "australian", "victoria", "new south wales", "queensland",
@@ -193,7 +283,20 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
     event_type = "other"
     best_match = 0
     for etype, keywords in _EVENT_TYPE_RULES:
-        count = sum(1 for kw in keywords if kw in text)
+        generic_terms = _GENERIC_TERMS_REQUIRE_OUTAGE_LANGUAGE.get(etype)
+        if generic_terms:
+            # USS-TJR-MSN-0361: a bare vendor/platform/"incident" hit only
+            # counts here if genuine outage language is also present —
+            # otherwise a story that merely mentions "Microsoft" or
+            # "platform" (earnings, product launch, regulatory news, etc.)
+            # would tag as an outage regardless of content.
+            has_outage_language = any(kw in text for kw in _OUTAGE_INDICATOR_TERMS)
+            count = sum(
+                1 for kw in keywords
+                if kw in text and (kw not in generic_terms or has_outage_language)
+            )
+        else:
+            count = sum(1 for kw in keywords if kw in text)
         if count > best_match:
             best_match = count
             event_type = etype

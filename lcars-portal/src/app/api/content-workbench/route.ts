@@ -73,7 +73,12 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json({ items, counts });
   } catch (err) {
+<<<<<<< HEAD
     const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: 'Content workbench query failed', detail }, { status: 500 });
+=======
+    console.error('[content-workbench]', err);
+    return NextResponse.json({ error: 'Content workbench query failed' }, { status: 500 });
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   }
 }

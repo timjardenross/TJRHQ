@@ -2,8 +2,9 @@
 Captain's Daily Brief Generator — USS TJR MSN-0200.
 
 Produces concise, Telegram-formatted briefs combining:
-- Operational Resilience Intelligence (latest ORI brief)
-- Internal data: active missions, health capacity, decisions
+- Operational Resilience Intelligence (latest ORI brief; weekly report uses a
+  7-day OSINT roll-up instead — see generate_weekly_report())
+- Internal data: health capacity, content pipeline
 - Formatted for Telegram HTML delivery
 
 Brief types: morning | midday | eod | weekly
@@ -15,6 +16,7 @@ import json
 import logging
 import os
 import urllib.request
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -28,6 +30,16 @@ try:
 except Exception:  # pragma: no cover — import-time guard, not a runtime path
     generate_infra_narrative = None  # type: ignore[assignment]
 
+# Weekly OSINT exec-summary narration (2026-08-10) — reuses the exact same
+# shared provider chain as core/platform/infra_narrative.py rather than a
+# third bespoke LLM call implementation. Guarded the same way: a problem
+# importing the provider chain degrades the two exec-summary sections only
+# (they fall back to the raw severity-count display), never the whole brief.
+try:
+    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+except Exception:  # pragma: no cover — import-time guard, not a runtime path
+    call_gemini = call_mistral = call_ollama = None  # type: ignore[assignment]
+
 # Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
 try:
     from zoneinfo import ZoneInfo
@@ -40,6 +52,13 @@ _SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 _SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 _TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 _TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# Same env vars core/platform/infra_narrative.py uses for its LLM narration —
+# one shared provider-config convention, not a second set of names.
+_GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+_MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+_OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+_OLLAMA_WEEKLY_MODEL = os.getenv("OLLAMA_WEEKLY_MODEL") or os.getenv("OLLAMA_MODEL", "qwen3:8b")
 
 
 # ── Supabase helpers ──────────────────────────────────────────────────────────
@@ -107,20 +126,12 @@ def _get_latest_ori_brief() -> Optional[dict]:
     return rows[0] if rows else None
 
 
-def _get_active_missions(limit: int = 8) -> list[dict]:
-    return _sb_get(
-        "missions",
-        f"status=not.in.(Closed,Archived,Idea)&order=priority.asc,updated_at.desc"
-        f"&limit={limit}&select=mission_id,title,status,priority,department",
-    )
-
-
 def _get_todays_health() -> Optional[dict]:
     today = date.today().isoformat()
     rows = _sb_get(
         "captains_log_entries",
         f"log_date=eq.{today}&limit=1"
-        f"&select=capacity_score,energy,pain_score,sleep_hours,health_status",
+        f"&select=captain_capacity_rating,energy,pain_score,sleep_hours,health_status",
     )
     return rows[0] if rows else None
 
@@ -153,6 +164,21 @@ def _get_content_review_queue(limit: int = 5) -> list[dict]:
         "status=in.(draft,review,ready_to_publish)&order=draft_generated_at.desc.nullslast"
         f"&limit={limit}&select=title,pillar,status,draft_generated_at",
     )
+
+
+def _get_todays_morning_brief_text() -> Optional[str]:
+    """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
+    morning's already-persisted brief text so the EOD summary can detect
+    same-day repeats (Content Review / Platform Health) without
+    re-deriving state. Best-effort — a lookup failure just means repeats
+    render normally, same as pre-fix behaviour, never breaks the brief."""
+    today = date.today().isoformat()
+    rows = _sb_get(
+        "captains_daily_briefs",
+        f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc"
+        f"&limit=1&select=brief_text",
+    )
+    return rows[0].get("brief_text") if rows else None
 
 
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
@@ -272,26 +298,264 @@ def _get_recent_signals(hours: int = 24) -> list[dict]:
     return _with_risk_label(rows)
 
 
+# ── Weekly OSINT roll-up (2026-08-10 weekly report redesign) ──────────────────
+#
+# generate_weekly_report() used to be built on _get_latest_ori_brief() — a
+# single latest-row snapshot from intelligence_briefs. Per Captain's direction
+# it's now built on a real 7-day aggregation across both OSINT domains,
+# reusing the same table/bucketing pattern as each workbench's own
+# "Intelligence Summary" tab (lcars-portal/src/app/api/intelligence-workbench/
+# intelligence-summary/route.ts for Tech OSINT, .../health-osint/
+# intelligence-summary/route.ts for Health OSINT) rather than inventing a new
+# query shape — just windowed to 7 days instead of those routes' single fetch.
+
+def _get_weekly_tech_signals(days: int = 7, limit: int = 1000) -> list[dict]:
+    """Tech/Intelligence Workbench roll-up — same table (intelligence_events)
+    and confidence field (osint_confidence_level) as intelligence-workbench/
+    intelligence-summary/route.ts, windowed to the last `days` days. Unlike
+    that route's UI-display cap of 150, `limit` here is set high enough to
+    capture a full week's volume (~600 rows observed 2026-08-10) so the
+    HIGH/MEDIUM/LOW counts in the weekly report are real totals, not a
+    truncated sample."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "intelligence_events",
+        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=raw_title,sector,rank_score,osint_confidence_level,collected_at,"
+        f"intelligence_source_registry(source_name)",
+    )
+
+
+def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
+    """Health OSINT Workbench roll-up — same table (health_signals) and
+    confidence field (confidence_level) as health-osint/intelligence-summary/
+    route.ts, windowed to the last `days` days. `limit` set high enough to
+    capture a full week's volume (~320 rows observed 2026-08-10) so the
+    HIGH/MEDIUM/LOW counts are real totals, not a truncated sample."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "health_signals",
+        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=title,health_domain,rank_score,confidence_level,collected_at,"
+        f"health_source_registry(source_name)",
+    )
+
+
+def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
+    """Content published or moved to review/approval in the last `days` days —
+    extends _get_content_review_queue's status set with 'published' and
+    'approved' and windows by updated_at (comms_content has no dedicated
+    status-change timestamp) instead of returning the standing pending-queue
+    snapshot the daily briefs use."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "comms_content",
+        f"status=in.(published,review,ready_to_publish,approved)&updated_at=gte.{since}"
+        f"&order=updated_at.desc&limit={limit}&select=title,pillar,status,updated_at",
+    )
+
+
+def _get_weekly_outage_alerts(days: int = 7) -> list[dict]:
+    """Durable record of outage-push activity (2026-08-10 fix, XO product
+    review finding #5) -- audit_events rows written by intelligence_store.py's
+    _maybe_push_outage_alert() (see _log_outage_alert_fired there) whenever
+    the outage-severity gate fires and a Telegram push is attempted.
+    category='notification'/action='outage_alert_push' distinguishes these
+    from the 'mutation'/'approval' audit rows the same shared table already
+    carries (migration 0054, core/platform/audit_service.py)."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _sb_get(
+        "audit_events",
+        f"category=eq.notification&action=eq.outage_alert_push&created_at=gte.{since}"
+        f"&order=created_at.desc&select=created_at,outcome,details",
+    )
+
+
+def _get_weekly_capacity(days: int = 7) -> dict:
+    """captains_log_entries rows across the last `days` days (inclusive of
+    today) — a real weekly trend, not the single-day snapshot the daily
+    briefs use.
+
+    2026-08-10 fix (XO product review): captains_log_entries stopped being
+    written to on 2026-06-28 — this was the one fetcher in the file that
+    still trusted it unconditionally, so the weekly Capacity block silently
+    rendered "No capacity logs this week" every week regardless of reality.
+    Morning/EOD already fall back to recovery_pulses / recovery_confidence_
+    today when captains_log_entries is empty (see _get_todays_health() /
+    _get_recovery_status()) — this applies the same fallback, aggregated
+    across the window instead of a single day. Returns {"source":
+    "log"|"pulse"|"none", "entries": [...]} so the renderer can tell which
+    shape it got."""
+    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    log_entries = _sb_get(
+        "captains_log_entries",
+        f"log_date=gte.{since}&order=log_date.asc"
+        f"&select=log_date,captain_capacity_rating,energy,pain_score,sleep_hours",
+    )
+    if log_entries:
+        return {"source": "log", "entries": log_entries}
+
+    pulses = _sb_get(
+        "recovery_pulses",
+        f"log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,pulse_type,energy,nervous_system,body_signals,readiness",
+    )
+    if pulses:
+        return {"source": "pulse", "entries": pulses}
+
+    return {"source": "none", "entries": []}
+
+
+# ── Weekly OSINT LLM exec summaries (2026-08-10) ──────────────────────────────
+#
+# Replaces (well, augments — see _format_weekly_osint_block) the raw
+# HIGH/MEDIUM/LOW count + top-item dump with an actual narrative synthesis of
+# the week's events, one per OSINT domain (never combined — Captain wants two
+# separate summaries). Built the same way core/platform/infra_narrative.py
+# builds its narrative: same shared provider chain (core/llm/provider_chain.py
+# call_gemini -> call_mistral -> call_ollama), same try-each-in-order /
+# never-raise contract. Unlike infra_narrative.py this always has real data to
+# summarize when signals exist (there's no "nominal, skip the LLM" case), so
+# it's called whenever the week produced rows.
+
+_TECH_OSINT_SUMMARY_SYSTEM_PROMPT = (
+    "You are the Intelligence Officer for USS Starship Endeavour, writing the "
+    "Tech OSINT section of the Captain's weekly Telegram report. You are given "
+    "a list of this week's actual technical/security OSINT events — each with "
+    "its severity (HIGH/MEDIUM/LOW confidence), title, sector, and source. "
+    "Synthesize what is actually being seen across the week: real recurring "
+    "sectors, sources, or themes, and anything notable — not a restatement of "
+    "counts, and not a list of the same titles back at the reader. "
+    "Rules: only use the events provided below — never invent a threat, a "
+    "cause, or a trend the data doesn't support. If the week's events are thin "
+    "or scattered with no real pattern, say that plainly rather than "
+    "manufacturing one. "
+    "Write 2-4 tight sentences, plain English, no headers, no bullet points, "
+    "no markdown formatting — this is inserted directly into a Telegram "
+    "message so keep it to Telegram-appropriate length."
+)
+
+_HEALTH_OSINT_SUMMARY_SYSTEM_PROMPT = (
+    "You are the Health Intelligence Officer for USS Starship Endeavour, "
+    "writing the Health OSINT section of the Captain's weekly Telegram "
+    "report. You are given a list of this week's actual health/longevity/"
+    "medical OSINT signals — each with its severity (HIGH/MEDIUM/LOW "
+    "confidence), title, health domain, and source. "
+    "Synthesize what is actually being seen across the week: real recurring "
+    "domains, sources, or themes, and anything notable — not a restatement "
+    "of counts, and not a list of the same titles back at the reader. "
+    "Rules: only use the signals provided below — never invent a study "
+    "finding, a causal claim, or a trend the data doesn't support. If the "
+    "week's signals are thin or scattered with no real pattern, say that "
+    "plainly rather than manufacturing one. "
+    "Write 2-4 tight sentences, plain English, no headers, no bullet points, "
+    "no markdown formatting — this is inserted directly into a Telegram "
+    "message so keep it to Telegram-appropriate length."
+)
+
+
+def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) -> Optional[str]:
+    """Try the shared provider chain in order — identical fallback pattern to
+    core/platform/infra_narrative.py's _generate(). Never raises; returns None
+    on total failure (missing import, no signals, or every provider down) so
+    the caller falls back to the existing raw severity-count display."""
+    if call_gemini is None:
+        return None
+    providers = [
+        ("gemini-2.5-flash", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
+        ("mistral-small",    lambda p: call_mistral(system_prompt, p, api_key=_MISTRAL_API_KEY, max_tokens=400)),
+        (_OLLAMA_WEEKLY_MODEL, lambda p: call_ollama(
+            system_prompt, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_WEEKLY_MODEL, num_predict=350,
+        )),
+    ]
+    for name, fn in providers:
+        try:
+            result = fn(prompt)
+            if result:
+                log.info("[weekly-report] %s exec summary generated via %s", label, name)
+                return result
+        except Exception as exc:
+            log.warning("[weekly-report] %s exec summary provider %s failed: %s", label, name, exc)
+    log.warning("[weekly-report] %s exec summary unavailable — all providers failed", label)
+    return None
+
+
+def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+    """LLM exec summary for the weekly Tech OSINT block, built from real event
+    data (title, sector, source, severity) — not just the bucket counts. None
+    when there's nothing to summarize or every provider fails; caller falls
+    back to the raw severity-count + top-items display."""
+    if not rows:
+        return None
+    events = []
+    for r in rows[:limit]:
+        severity = (r.get("osint_confidence_level") or "UNKNOWN").upper()
+        source = (r.get("intelligence_source_registry") or {}).get("source_name") or "Unknown"
+        sector = r.get("sector") or "—"
+        events.append(f"- [{severity}] {r.get('raw_title') or '—'}  (sector: {sector}, source: {source})")
+    prompt = (
+        f"This week's Tech OSINT events ({len(rows)} total this week, showing "
+        f"the {min(limit, len(rows))} highest-ranked):\n" + "\n".join(events)
+    )
+    summary = _call_weekly_summary_providers(_TECH_OSINT_SUMMARY_SYSTEM_PROMPT, prompt, "Tech OSINT")
+    return _truncate_clean(summary, 700) if summary else None
+
+
+def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+    """LLM exec summary for the weekly Health OSINT block — health-domain
+    counterpart to _generate_tech_osint_summary, built from real signal data
+    (title, health domain, source, severity)."""
+    if not rows:
+        return None
+    events = []
+    for r in rows[:limit]:
+        severity = (r.get("confidence_level") or "UNKNOWN").upper()
+        source = (r.get("health_source_registry") or {}).get("source_name") or "Unknown"
+        domain = r.get("health_domain") or "—"
+        events.append(f"- [{severity}] {r.get('title') or '—'}  (domain: {domain}, source: {source})")
+    prompt = (
+        f"This week's Health OSINT signals ({len(rows)} total this week, "
+        f"showing the {min(limit, len(rows))} highest-ranked):\n" + "\n".join(events)
+    )
+    summary = _call_weekly_summary_providers(_HEALTH_OSINT_SUMMARY_SYSTEM_PROMPT, prompt, "Health OSINT")
+    return _truncate_clean(summary, 700) if summary else None
+
+
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
+# Part 1 item 4 (2026-08-09 Telegram usefulness design): unify the three
+# separate severity vocabularies that had grown independently — risk
+# (🔴🟡🟢⚪), mission priority (🔥⚡📌📎), capacity (🟢🟡🔴 inverted) — into one
+# shared red/yellow/green/none grammar used everywhere in Telegram-facing
+# text. 🔴 = urgent/bad, 🟡 = caution/medium, 🟢 = fine/good, ⚪ = unknown/none.
+_SEVERITY_EMOJI = {"red": "🔴", "yellow": "🟡", "green": "🟢", "none": "⚪"}
+
+
+def _severity_emoji(level: str) -> str:
+    return _SEVERITY_EMOJI.get((level or "none").lower(), _SEVERITY_EMOJI["none"])
+
+
 def _risk_emoji(risk: str) -> str:
-    return {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢"}.get(
-        (risk or "").upper(), "⚪"
-    )
+    level = {"HIGH": "red", "MEDIUM": "yellow", "LOW": "green"}.get((risk or "").upper())
+    return _severity_emoji(level or "none")
 
 
 def _priority_label(p: str) -> str:
-    return {"P0": "🔥", "P1": "⚡", "P2": "📌", "P3": "📎"}.get(
-        (p or "").upper(), "  "
-    )
+    """Mission priority P0-P3 mapped onto the same red/yellow/green/none
+    scale used by risk and capacity, replacing the previous separate
+    🔥⚡📌📎 vocabulary."""
+    level = {"P0": "red", "P1": "yellow", "P2": "green", "P3": "none"}.get((p or "").upper())
+    return _severity_emoji(level or "none")
 
 
-def _cap_emoji(score) -> str:
-    try:
-        s = int(score)
-    except (TypeError, ValueError):
-        return "⚪"
-    return "🟢" if s >= 70 else "🟡" if s >= 40 else "🔴"
+def _rating_emoji(rating) -> str:
+    """captains_log_entries.captain_capacity_rating is a Green/Amber/Red
+    text rating, not a 0-100 score - the prior code queried a capacity_score
+    column that never existed on this table, causing every brief to silently
+    400 on this fetch and render the CAPACITY block as empty."""
+    return _severity_emoji({"green": "green", "amber": "yellow", "red": "red"}.get((rating or "").lower(), "none"))
 
 
 def _confidence_bar(pct) -> str:
@@ -307,12 +571,248 @@ def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
 
+def _relative_age(timestamp: Optional[str]) -> str:
+    """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
+    relative-age label ("today" / "3 days old" / "4 weeks old") for a
+    Content Review item's draft_generated_at, so a draft that has sat for
+    weeks doesn't render identically to one generated an hour ago."""
+    if not timestamp:
+        return "age unknown"
+    try:
+        ts = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return "age unknown"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    days = (datetime.now(timezone.utc) - ts).days
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "1 day old"
+    if days < 14:
+        return f"{days} days old"
+    weeks = days // 7
+    return f"{weeks} week{'s' if weeks != 1 else ''} old"
+
+
+def _truncate_clean(text: str, limit: int) -> str:
+    """Truncate at a word boundary with an ellipsis, never mid-word - a bare
+    text[:limit] slice was cutting narratives off mid-sentence (sometimes
+    mid-word), and since the action-line the infra-narrative prompt now
+    requires comes last, that was consistently the part getting eaten."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return cut + "…"
+
+
+def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = None) -> list[str]:
+    """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
+    was copy-pasted verbatim between generate_morning_brief() and
+    generate_eod_summary()). `morning_text`, when supplied (EOD only), is
+    this morning's already-persisted brief text — if today's narrative was
+    already shown there, the header is marked "(unchanged since this
+    morning)" instead of silently re-rendering the identical warning."""
+    if not infra or infra.get("state") != "unsure":
+        return []
+    narrative = _truncate_clean(infra["narrative"], 700)
+    unchanged = bool(morning_text) and narrative in morning_text
+    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
+    return [
+        f"<b>🛰 PLATFORM HEALTH</b>{suffix}",
+        f"  ⚠️ {narrative}",
+        "",
+    ]
+
+
+def _format_content_review_block(content_queue: list[dict], morning_text: Optional[str] = None) -> list[str]:
+    """Shared Content Review renderer (Part 1 item 2: de-dupe the block that
+    was copy-pasted verbatim between generate_morning_brief() and
+    generate_eod_summary()). Each item now also shows its age (item 3).
+    `morning_text`, when supplied (EOD only), is this morning's already-
+    persisted brief text — if every title shown here already appeared
+    there, the header is marked "(unchanged since this morning)" instead of
+    silently re-listing an identical queue."""
+    if not content_queue:
+        return []
+    titles = [c.get("title") or "(untitled)" for c in content_queue]
+    unchanged = bool(morning_text) and all(t in morning_text for t in titles)
+    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
+    lines = [f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>{suffix}"]
+    for c in content_queue:
+        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+        age = _relative_age(c.get("draft_generated_at"))
+        lines.append(
+            f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar} · {age}]"
+        )
+    lines.append("")
+    return lines
+
+
+def _format_weekly_osint_block(
+    title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
+    summary: Optional[str] = None, top_n: int = 3,
+) -> list[str]:
+    """Shared weekly OSINT roll-up renderer for generate_weekly_report() —
+    same HIGH/MEDIUM/LOW bucketing each workbench's Intelligence Summary tab
+    uses (see _get_weekly_tech_signals / _get_weekly_health_signals), applied
+    across the whole 7-day window rather than a single latest row.
+
+    `summary`, when supplied, is the LLM-generated exec summary for this
+    domain's week (see _generate_tech_osint_summary /
+    _generate_health_osint_summary) and is placed directly under the header,
+    above the severity-count line — the fast-scan signal stays either way.
+    When `summary` is absent (LLM unavailable, or every provider failed),
+    this falls back to the original raw severity-count + top-items display,
+    which is the graceful-degradation path 2026-08-10's exec-summary change
+    is required to preserve."""
+    if not rows:
+        return [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week.", ""]
+    counts = Counter((r.get(confidence_field) or "UNKNOWN").upper() for r in rows)
+    unknown = len(rows) - counts.get("HIGH", 0) - counts.get("MEDIUM", 0) - counts.get("LOW", 0)
+    severity_line = (
+        f"  {_risk_emoji('HIGH')} {counts.get('HIGH', 0)} high"
+        f"  ·  {_risk_emoji('MEDIUM')} {counts.get('MEDIUM', 0)} medium"
+        f"  ·  {_risk_emoji('LOW')} {counts.get('LOW', 0)} low"
+    )
+    if unknown:
+        severity_line += f"  ·  ⚪ {unknown} unscored"
+
+    lines = [f"<b>{emoji} {title} — WEEKLY ({len(rows)})</b>"]
+    if summary:
+        lines.append(f"  {summary}")
+        lines.append(severity_line)
+    else:
+        # Fallback: no exec summary available — original raw-counts +
+        # top-items display so the section still reads well degraded.
+        lines.append(severity_line)
+        # Headline items: prefer HIGH-confidence signals; fall back to the
+        # top-ranked signals overall if nothing hit HIGH this week.
+        headline = [r for r in rows if (r.get(confidence_field) or "").upper() == "HIGH"]
+        if not headline:
+            headline = rows
+        headline = sorted(headline, key=lambda r: r.get("rank_score") or 0, reverse=True)[:top_n]
+        for r in headline:
+            text = r.get(title_field) or "—"
+            lines.append(f"  {_risk_emoji(r.get(confidence_field))} {_truncate_clean(text, 110)}")
+    lines.append("")
+    return lines
+
+
+def _format_weekly_content_block(items: list[dict]) -> list[str]:
+    """Content published or moved to review/approval this week — weekly
+    counterpart to _format_content_review_block's standing pending-queue
+    snapshot."""
+    if not items:
+        return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
+    status_counts = Counter(c.get("status", "?") for c in items)
+    summary = "  ·  ".join(f"{v} {k.replace('_', ' ')}" for k, v in status_counts.items())
+    # 2026-08-10 fix (XO product review): ready_to_publish/approved were
+    # reusing 🟢/🟡 — the same glyphs _SEVERITY_EMOJI uses for "low/fine" and
+    # "medium/caution" a few lines above in the same weekly message, meaning
+    # opposite things (workflow stage vs. risk severity) in the same
+    # message. Swapped for glyphs outside the severity palette so a single
+    # 🟢 always means "don't worry about it" everywhere in these briefs.
+    status_emoji = {"published": "✅", "ready_to_publish": "📤", "approved": "☑️", "review": "📝"}
+    lines = [f"<b>✍️ CONTENT THIS WEEK ({len(items)})</b>", f"  {summary}"]
+    for c in items:
+        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
+        emoji = status_emoji.get(c.get("status"), "•")
+        lines.append(
+            f"  {emoji} <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
+        )
+    lines.append("")
+    return lines
+
+
+def _format_weekly_outage_alerts_block(alerts: list[dict]) -> list[str]:
+    """Weekly counterpart to the standalone real-time outage-push feature
+    (2026-08-10 fix, XO product review finding #5) -- surfaces "how many
+    outage alerts fired this week, and did they actually send" so the
+    Captain doesn't have to re-run the intelligence_events qualifying-event
+    filter by hand. Only rendered when at least one alert fired this week --
+    a quiet week produces no section, same "silence is a valid state"
+    convention as _format_infra_block."""
+    if not alerts:
+        return []
+    sent = sum(1 for a in alerts if a.get("outcome") == "sent")
+    failed = len(alerts) - sent
+    status_line = f"  {sent} sent"
+    if failed:
+        status_line += f"  ·  {failed} failed to send"
+    lines = [f"<b>🚨 OUTAGE ALERTS THIS WEEK ({len(alerts)})</b>", status_line]
+    for a in alerts[:5]:
+        details = a.get("details") or {}
+        title = details.get("event_title") or "—"
+        impact = details.get("customer_impact") or "?"
+        try:
+            conf = f"{float(details.get('confidence')):.2f}"
+        except (TypeError, ValueError):
+            conf = "?"
+        icon = "✅" if a.get("outcome") == "sent" else "❌"
+        lines.append(f"  {icon} {_truncate_clean(title, 90)}  [{impact} · conf {conf}]")
+    lines.append("")
+    return lines
+
+
+def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
+    """captains_log_entries across the 7-day window — a real weekly
+    Green/Amber/Red trend instead of a single day's snapshot.
+
+    2026-08-10 fix (XO product review): when captains_log_entries has
+    nothing this week (see _get_weekly_capacity's fallback), render the
+    recovery_pulses-based signal instead of unconditionally showing "No
+    capacity logs this week" — mirrors Morning/EOD's existing
+    recovery-confidence fallback, aggregated across the window. With
+    pulse-logging currently sparse (per the same audit), the honest output
+    may be as small as "1 pulse logged this week" — that's a real signal
+    about logging adherence, not a bug to hide."""
+    source = capacity.get("source")
+    entries = capacity.get("entries") or []
+
+    if source == "log":
+        counts = Counter((e.get("captain_capacity_rating") or "Unknown").capitalize() for e in entries)
+        order = ["Green", "Amber", "Red"]
+        parts = [f"{counts[c]} {c}" for c in order if counts.get(c)]
+        parts += [f"{v} {k}" for k, v in counts.items() if k not in order]
+        trend = " ".join(_rating_emoji(e.get("captain_capacity_rating")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} log(s))</b>",
+            f"  {' · '.join(parts) if parts else 'no ratings logged'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    if source == "pulse":
+        days_logged = len({e.get("log_date") for e in entries})
+        possible = max(1, days * 3)
+        conf = round(100.0 * len(entries) / possible)
+        latest = entries[-1]  # ordered log_date,captured_at ascending
+        signals_str = [
+            s for s in (
+                f"Energy {latest['energy'].capitalize()}" if latest.get("energy") else None,
+                f"NS {latest['nervous_system'].capitalize()}" if latest.get("nervous_system") else None,
+                f"Body {latest['body_signals'].capitalize()}" if latest.get("body_signals") else None,
+            ) if s
+        ]
+        lines = [
+            "<b>⚡ CAPACITY THIS WEEK</b>",
+            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
+            f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})",
+        ]
+        if signals_str:
+            lines.append(f"  Latest: {' · '.join(signals_str)}")
+        lines.append("")
+        return lines
+
+    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs or recovery pulses this week.", ""]
+
+
 # ── Brief generators ──────────────────────────────────────────────────────────
 
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
-    missions = _get_active_missions(limit=5)
     health = _get_todays_health()
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
@@ -327,13 +827,13 @@ def generate_morning_brief() -> str:
 
     # Capacity block
     if health:
-        cap = health.get("capacity_score", "?")
+        cap = health.get("captain_capacity_rating") or "?"
         pain = health.get("pain_score", 0)
         energy = health.get("energy", "?")
         sleep = health.get("sleep_hours", "?")
         lines += [
             "<b>⚡ CAPACITY</b>",
-            f"  {_cap_emoji(cap)} Score <b>{cap}</b>  ·  Pain {pain}"
+            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}"
             f"  ·  Energy {energy}  ·  Sleep {sleep}h",
             "",
         ]
@@ -377,42 +877,21 @@ def generate_morning_brief() -> str:
         if snap:
             lines += [
                 "<b>📡 INTELLIGENCE</b>",
-                f"  {snap[:350]}",
+                f"  {_truncate_clean(snap, 350)}",
                 f"  <i>Risk: {brief.get('overall_risk', '?')}"
                 f" · ORI brief {brief.get('period_end', '')}</i>",
                 "",
             ]
 
-    # Active missions
-    if missions:
-        lines.append("<b>🎯 ACTIVE MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} <b>{m.get('title', '—')}</b>  [{m.get('status', '?')}]"
-            )
-        lines.append("")
-
     # Platform self-health — only surfaced when something is actually
     # degraded; silence is a valid, positive state (per verification engine
-    # design intent, STARSHIP-REDESIGN.md §9).
-    if infra and infra.get("state") == "unsure":
-        lines += [
-            "<b>🛰 PLATFORM HEALTH</b>",
-            f"  ⚠️ {infra['narrative'][:400]}",
-            "",
-        ]
+    # design intent, STARSHIP-REDESIGN.md §9). Morning brief is the first
+    # of the day, so there is no "unchanged since this morning" to check.
+    lines += _format_infra_block(infra)
 
     # Content pipeline — intelligence-to-writing drafts awaiting the
     # Captain's own review/publish decision. Only shown when non-empty.
-    if content_queue:
-        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
-        for c in content_queue:
-            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-            lines.append(
-                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
-            )
-        lines.append("")
+    lines += _format_content_review_block(content_queue)
 
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
@@ -436,11 +915,14 @@ def generate_midday_update(signals: list[dict]) -> str:
 
 def generate_eod_summary() -> str:
     now = _now_aest()
-    missions = _get_active_missions(limit=8)
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
     content_queue = _get_content_review_queue()
+    # Part 1 item 2: fetch this morning's persisted text so repeated blocks
+    # below can be marked "(unchanged since this morning)" instead of
+    # silently re-rendering identically.
+    morning_text = _get_todays_morning_brief_text()
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
@@ -449,11 +931,11 @@ def generate_eod_summary() -> str:
     ]
 
     if health:
-        cap = health.get("capacity_score", "?")
+        cap = health.get("captain_capacity_rating") or "?"
         pain = health.get("pain_score", 0)
         lines += [
             "<b>⚡ TODAY</b>",
-            f"  {_cap_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}",
+            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}",
             "",
         ]
 
@@ -462,13 +944,12 @@ def generate_eod_summary() -> str:
         done = [
             "✅" if recovery.get("morning_done") else "❌",
             "✅" if recovery.get("midday_done") else "❌",
-            "✅" if recovery.get("end_of_day_done") else "❌",
             "✅" if recovery.get("evening_done") else "❌",
         ]
         lines += [
             "<b>🔋 RECOVERY PULSES</b>",
             f"  <code>{_confidence_bar(conf)}</code> {conf}%  ·  {' '.join(done)}",
-            "  <i>AM · Mid · EOD · PM</i>",
+            "  <i>AM · Mid · PM</i>",
         ]
         signals = [
             s for s in (
@@ -483,30 +964,8 @@ def generate_eod_summary() -> str:
             lines.append(f"  {' · '.join(signals)}")
         lines.append("")
 
-    if missions:
-        lines.append("<b>🎯 MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} {m.get('title', '—')}  [{m.get('status', '?')}]"
-            )
-        lines.append("")
-
-    if infra and infra.get("state") == "unsure":
-        lines += [
-            "<b>🛰 PLATFORM HEALTH</b>",
-            f"  ⚠️ {infra['narrative'][:400]}",
-            "",
-        ]
-
-    if content_queue:
-        lines.append(f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>")
-        for c in content_queue:
-            pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-            lines.append(
-                f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar}]"
-            )
-        lines.append("")
+    lines += _format_infra_block(infra, morning_text)
+    lines += _format_content_review_block(content_queue, morning_text)
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",
@@ -564,10 +1023,36 @@ def generate_knowledge_ops_brief() -> str:
 
 
 def generate_weekly_report() -> str:
+    """Weekly Intelligence Report — redesigned 2026-08-10 per Captain's
+    direction: primary intelligence content is now a real 7-day roll-up
+    across both OSINT domains (Tech/Intelligence Workbench + Health OSINT),
+    not a single latest-row ORI brief snapshot, each with its own
+    LLM-generated exec summary (see _generate_tech_osint_summary /
+    _generate_health_osint_summary — two separate summaries, never combined).
+    Missions are deliberately NOT included — the Captain does not want
+    missions in the weekly report. Decisions are also deliberately NOT
+    included (2026-08-10) — decision_records is stale/broken and was showing
+    "No decisions logged this week" every week; removed until that pipeline
+    is fixed separately, rather than keep showing a section that's always
+    empty.
+
+    2026-08-10 fix (XO product review finding #5): adds an OUTAGE ALERTS
+    THIS WEEK section, sourced from the durable audit_events record the
+    standalone outage-push feature now writes (see
+    _get_weekly_outage_alerts / intelligence_store.py's
+    _log_outage_alert_fired) — closes the gap where that feature's activity
+    never appeared in any of the three regular briefs and had no queryable
+    history of its own."""
     now = _now_aest()
     week_start = (now - timedelta(days=6)).strftime("%d %b")
-    brief = _get_latest_ori_brief()
-    missions = _get_active_missions(limit=10)
+
+    tech_signals = _get_weekly_tech_signals(days=7)
+    health_signals = _get_weekly_health_signals(days=7)
+    tech_summary = _generate_tech_osint_summary(tech_signals)
+    health_summary = _generate_health_osint_summary(health_signals)
+    content_items = _get_weekly_content_activity(days=7)
+    capacity_entries = _get_weekly_capacity(days=7)
+    outage_alerts = _get_weekly_outage_alerts(days=7)
 
     lines = [
         "<b>📊 WEEKLY INTELLIGENCE REPORT</b>",
@@ -575,40 +1060,22 @@ def generate_weekly_report() -> str:
         "",
     ]
 
-    if brief:
-        risk = brief.get("overall_risk", "Unknown")
-        snap = brief.get("executive_snapshot") or ""
-        themes = brief.get("emerging_themes") or []
-        fw = brief.get("forward_watch") or ""
+    # Leads the report — a fired outage push is the highest-severity single
+    # item any week can contain (it already interrupted the Captain in
+    # real-time); the weekly reference here is retrospective/audit, not the
+    # first notice, so it goes first, ahead of the OSINT roll-up.
+    lines += _format_weekly_outage_alerts_block(outage_alerts)
 
-        lines += [
-            "<b>🌐 OPERATIONAL RESILIENCE</b>",
-            f"  Overall risk: {_risk_emoji(risk)} <b>{risk}</b>",
-        ]
-        if snap:
-            lines.append(f"  {snap[:400]}")
-
-        if themes:
-            lines += ["", "<b>📈 EMERGING THEMES</b>"]
-            for t in themes[:4]:
-                if isinstance(t, str):
-                    lines.append(f"  • {t}")
-                elif isinstance(t, dict):
-                    label = t.get("theme") or t.get("title") or str(t)
-                    lines.append(f"  • {label}")
-
-        if fw:
-            lines += ["", "<b>👁 FORWARD WATCH</b>", f"  {str(fw)[:300]}"]
-        lines.append("")
-
-    if missions:
-        lines.append("<b>🎯 ACTIVE MISSIONS</b>")
-        for m in missions:
-            p = _priority_label(m.get("priority", ""))
-            lines.append(
-                f"  {p} {m.get('title', '—')}  [{m.get('status', '?')}]"
-            )
-        lines.append("")
+    lines += _format_weekly_osint_block(
+        "TECH OSINT", "🛰", tech_signals, "osint_confidence_level", "raw_title",
+        summary=tech_summary,
+    )
+    lines += _format_weekly_osint_block(
+        "HEALTH OSINT", "🩺", health_signals, "confidence_level", "title",
+        summary=health_summary,
+    )
+    lines += _format_weekly_content_block(content_items)
+    lines += _format_weekly_capacity_block(capacity_entries)
 
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)

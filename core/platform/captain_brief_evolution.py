@@ -38,7 +38,7 @@ from typing import Any, Optional
 from core.platform.attention_engine import evaluate_batch
 from core.platform.captain_brief_orchestrator import CaptainBriefDocument, assemble_captain_brief_document
 from core.platform.insight_engine import generate_insights
-from core.platform.insight_outcomes import record_insight
+from core.platform.insight_outcomes import fetch_recent_aggregation_keys, record_insight
 from core.platform.operational_state_model import assemble_operational_state
 from core.platform.reasoning_engine import build_recommendation
 from core.platform.understanding_engine import build_understanding
@@ -64,7 +64,15 @@ def assemble_evolved_captain_brief(
     decisions = evaluate_batch(events)
     state = assemble_operational_state(events)
     graph = build_understanding(state, events, decisions)
-    insights = generate_insights(graph, min_strength=min_relationship_strength)
+    # 2026-08-10: skip re-synthesizing 'aggregation'-kind relationships
+    # already insighted recently — see insight_outcomes.py's
+    # fetch_recent_aggregation_keys() and insight_engine.py's
+    # generate_insights() docstring for why (structurally bursty domains
+    # were re-surfacing the identical non-actionable claim every run).
+    recent_keys = fetch_recent_aggregation_keys()
+    insights = generate_insights(
+        graph, min_strength=min_relationship_strength, recent_aggregation_keys=recent_keys,
+    )
 
     for insight in insights:
         recommendation = build_recommendation(insight)

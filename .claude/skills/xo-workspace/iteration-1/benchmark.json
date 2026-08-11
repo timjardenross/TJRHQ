@@ -1,0 +1,267 @@
+{
+  "metadata": {
+    "skill_name": "xo",
+    "skill_path": "/opt/starship-endeavour/.claude/skills/xo",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-08-09T09:23:17Z",
+    "evals_run": [
+      0,
+      1,
+      2
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 0,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 28.5,
+        "tokens": 46624,
+        "tool_calls": 3,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Response is short (roughly 2-6 sentences), not a long structured document",
+          "passed": true,
+          "evidence": "4 short paragraphs, no headers, no numbered list - reads as a person talking, not a document."
+        },
+        {
+          "text": "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question",
+          "passed": true,
+          "evidence": "'40% doesn't clear three reviews today... Review work is judgment work, and judgment is exactly what's thin at 40%.'"
+        },
+        {
+          "text": "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging",
+          "passed": true,
+          "evidence": "'What I won't do is help you speed-run all three at 40% and call it reviewed... that's the one thing this seat exists to stop.' First-person, no hedging, no disclaimers."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 44.3,
+        "tokens": 48173,
+        "tool_calls": 3,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Uses gatekeeper-mode structure (verdict + reasoning), not a short companion-mode answer",
+          "passed": true,
+          "evidence": "Verdict/Authority check/Stage check/Capacity check/Spot-check findings/What would flip this - matches the skill's gatekeeper-mode structure directly."
+        },
+        {
+          "text": "Flags the authority overstep - a specialist declaring 'no review needed' for a main-branch auth merge is exactly the kind of self-clearing this gate exists to catch",
+          "passed": true,
+          "evidence": "'Coder Agent inventing an exemption for itself... exactly the pattern this gate exists to catch.'"
+        },
+        {
+          "text": "Does not take 'all tests pass' as verified fact without qualifying that it wasn't independently checked in this conversation",
+          "passed": true,
+          "evidence": "'I have nothing to spot-check against. No PR, no diff, no test run output, no file paths - just an assertion.'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 55.1,
+        "tokens": 56521,
+        "tool_calls": 10,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Correctly identifies the real stage sequence includes Tested before Validated",
+          "passed": true,
+          "evidence": "Verified against live migration 0013 CHECK constraint and xo/app.py's captain_approve logic; states 'Tested and Validated are separate, deliberate stages, not two names for the same thing.'"
+        },
+        {
+          "text": "Does not simply defer to the Captain's confidence - pushes back or flags the skip explicitly",
+          "passed": true,
+          "evidence": "'Verdict: Hold. I'm not approving MSN-0360 straight to Validated... even when the Captain himself is asking.'"
+        },
+        {
+          "text": "Gives a clear, direct verdict rather than a noncommittal both-sides answer",
+          "passed": true,
+          "evidence": "Leads with an unambiguous 'Verdict: Hold' before any reasoning."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 0,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.33,
+        "passed": 1,
+        "failed": 2,
+        "total": 3,
+        "time_seconds": 37.2,
+        "tokens": 45532,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Response is short (roughly 2-6 sentences), not a long structured document",
+          "passed": false,
+          "evidence": "5 numbered sections with bold headers, ~450 words - a structured mini-document, not a short conversational answer."
+        },
+        {
+          "text": "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question",
+          "passed": true,
+          "evidence": "'At 40% recovery your judgment on nuanced, high-context calls... is the first thing to degrade' - genuine capacity-lens reasoning."
+        },
+        {
+          "text": "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging",
+          "passed": false,
+          "evidence": "Ends with 'I can help you actually rank them rather than working from the generic framework above' - explicitly names its own output as a generic framework, and the whole response reads as generic consultant advice rather than a specific person (XO) speaking."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 35.0,
+        "tokens": 45400,
+        "tool_calls": 2,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Uses gatekeeper-mode structure (verdict + reasoning), not a short companion-mode answer",
+          "passed": true,
+          "evidence": "'Gate-Check Result: DO NOT MERGE' followed by numbered reasoning sections - independently arrived at a similar structured format."
+        },
+        {
+          "text": "Flags the authority overstep - a specialist declaring 'no review needed' for a main-branch auth merge is exactly the kind of self-clearing this gate exists to catch",
+          "passed": true,
+          "evidence": "'An agent asserting that its own security-sensitive output doesn't need review is a conflict of interest by construction.'"
+        },
+        {
+          "text": "Does not take 'all tests pass' as verified fact without qualifying that it wasn't independently checked in this conversation",
+          "passed": true,
+          "evidence": "'Tests pass tells you almost nothing about auth-specific risk... Who wrote the tests.'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 3,
+        "failed": 0,
+        "total": 3,
+        "time_seconds": 96.2,
+        "tokens": 63234,
+        "tool_calls": 10,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Correctly identifies the real stage sequence includes Tested before Validated",
+          "passed": true,
+          "evidence": "Cites migration 0013, missionStatus.ts, and lifecycle_status_map.py; also independently found a real governance gap (unguarded PATCH route) not mentioned by the with-skill run."
+        },
+        {
+          "text": "Does not simply defer to the Captain's confidence - pushes back or flags the skip explicitly",
+          "passed": true,
+          "evidence": "'No \u2014 XO should not approve that, and should say so directly.'"
+        },
+        {
+          "text": "Gives a clear, direct verdict rather than a noncommittal both-sides answer",
+          "passed": true,
+          "evidence": "Leads with a direct 'No' and a bolded recommendation to decline."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 42.6333,
+        "stddev": 13.3781,
+        "min": 28.5,
+        "max": 55.1
+      },
+      "tokens": {
+        "mean": 50439.3333,
+        "stddev": 5323.5188,
+        "min": 46624,
+        "max": 56521
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.7767,
+        "stddev": 0.3868,
+        "min": 0.33,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 56.1333,
+        "stddev": 34.7162,
+        "min": 35.0,
+        "max": 96.2
+      },
+      "tokens": {
+        "mean": 51388.6667,
+        "stddev": 10258.5719,
+        "min": 45400,
+        "max": 63234
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.22",
+      "time_seconds": "-13.5",
+      "tokens": "-949"
+    }
+  },
+  "notes": [
+    "Eval 0 (capacity-triage) is the clear differentiator: the baseline defaults to a long, headed, numbered-list 'helpful assistant' response even for a short, direct question - the skill's brevity/voice instruction is doing real work, not just cosmetic.",
+    "Evals 1 (stage-skip) and 2 (gatekeeper-auth-merge) don't discriminate - a capable baseline investigates the repo and reasons its way to the same verdicts unprompted, sometimes with extra findings the with-skill run missed (eval 1's baseline independently found a real ungated PATCH-route governance gap). The skill's value there is depth/specificity and named framing (e.g. explicitly calling out 'self-clearing' as a pattern), not verdict correctness.",
+    "With-skill runs were faster and used fewer tokens on average this time (unlike Chief Engineer's benchmark) - the short companion-mode answer on eval 0 pulls the average down; this isn't a general rule, just this particular eval mix."
+  ]
+}

@@ -72,6 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_health_source_articles_url
 ALTER TABLE health_source_articles ENABLE ROW LEVEL SECURITY;
 
 -- ─── 6. Create or update analytics_health_daily view ────────────────────────
+<<<<<<< HEAD
 -- Provides daily health metrics for KPI calculations in workbench
 CREATE OR REPLACE VIEW analytics_health_daily AS
 SELECT 
@@ -92,3 +93,52 @@ FROM (
   UNION
   SELECT DISTINCT assessment_date as log_date FROM captain_readiness_history
 ) t;
+=======
+-- NEVER APPLIED — DO NOT REPLAY. Left in place as historical record only.
+--
+-- This step was skipped on the original apply (confirmed via list_migrations:
+-- the migration that actually ran live is recorded as
+-- "0091_intelligence_workbench_phase_b_steps_1_5" — steps 1-5 only). Reason:
+-- this CREATE OR REPLACE VIEW redefines analytics_health_daily with only 5
+-- columns (log_date, physical_capacity, sleep_hours, pain_score,
+-- overall_note), which is far narrower than the 34-column view actually live
+-- today (defined by 0082_recovery_pulses_daily_view.sql). The Human Systems
+-- Workbench's GET /api/human-systems route selects columns from this view —
+-- sleep_quality, cpap_status, nervous_system_state, energy, movement_notes,
+-- pleasure_creativity_marker, what_happened, sitting_tolerance_minutes,
+-- workload_constraint, captain_capacity_rating — that only exist in the
+-- 0082 definition. If this step were ever replayed (a future `supabase db
+-- push`, a migration-history replay, or a well-meaning "let's re-run 0091
+-- fully" cleanup), it would silently drop the view back to 5 columns: no
+-- error, just every Recovery/Medical tab field this route reads for those
+-- missing columns going to NULL / "Not recorded", including the whole Life
+-- Participation score.
+--
+-- Found and flagged during the 2026-08-09 Human Systems Workbench Chief
+-- Engineer review (workbench-reviews/human-systems/chief-engineer-review.md,
+-- "Real gap: a stale migration file that, if replayed, would silently break
+-- the Medical tab"). Commented out rather than deleted, per that review's own
+-- recommendation — this is a historical record of what Phase B originally
+-- intended and later corrected, not a live bug (confirmed live: 0082's
+-- 34-column definition is what's actually running).
+--
+-- CREATE OR REPLACE VIEW analytics_health_daily AS
+-- SELECT
+--   log_date::date as log_date,
+--   COALESCE((SELECT AVG((physical_capacity)::numeric)
+--     FROM captain_readiness_history
+--     WHERE assessment_date = log_date), 0) as physical_capacity,
+--   COALESCE((SELECT AVG((sleep_hours)::numeric)
+--     FROM health_daily_logs
+--     WHERE log_date = analytics_health_daily.log_date), 0) as sleep_hours,
+--   COALESCE((SELECT AVG((pain_score)::numeric)
+--     FROM health_daily_logs
+--     WHERE log_date = analytics_health_daily.log_date), 0) as pain_score,
+--   (SELECT overall_note FROM captain_readiness_history
+--    WHERE assessment_date = log_date LIMIT 1) as overall_note
+-- FROM (
+--   SELECT DISTINCT log_date FROM health_daily_logs
+--   UNION
+--   SELECT DISTINCT assessment_date as log_date FROM captain_readiness_history
+-- ) t;
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b

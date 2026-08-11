@@ -1,30 +1,20 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { WorkbenchShell, Card, Button, Input, Textarea } from '@/components/ui';
+// Manual capture retirement (Captain directive, 2026-08-10 — see
+// .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+// Recovery Pulse (via the Telegram XO bot) is now the platform's only
+// manual health-data capture mechanism. This page previously let the
+// Captain manually log an activity (writing `activity_logs` via
+// /api/human-systems/activity) — that form is retired here. The route it
+// posted to still exists (other, non-manual callers may rely on it) but
+// this UI no longer offers a way to create new entries. Kept as a reachable
+// page (rather than deleted or redirected) in case it's bookmarked or
+// linked elsewhere — it now only explains the retirement.
 
-type ActivityType = 'walk' | 'swim' | 'physio' | 'stretch' | 'strength' | 'cycle' | 'yoga' | 'other';
-type Intensity    = 'light' | 'moderate' | 'vigorous';
-
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; icon: string }[] = [
-  { value: 'walk',     label: 'Walk',          icon: '🚶' },
-  { value: 'swim',     label: 'Swim',          icon: '🏊' },
-  { value: 'physio',   label: 'Physio',        icon: '🩺' },
-  { value: 'stretch',  label: 'Stretch',       icon: '🧘' },
-  { value: 'strength', label: 'Strength',      icon: '💪' },
-  { value: 'cycle',    label: 'Cycle',         icon: '🚴' },
-  { value: 'yoga',     label: 'Yoga',          icon: '🧘' },
-  { value: 'other',    label: 'Other',         icon: '⚡' },
-];
-
-const INTENSITY_OPTIONS: { value: Intensity; label: string; note: string }[] = [
-  { value: 'light',    label: 'Light',    note: 'Easy, minimal effort' },
-  { value: 'moderate', label: 'Moderate', note: 'Comfortable challenge' },
-  { value: 'vigorous', label: 'Vigorous', note: 'High effort, elevated HR' },
-];
+import { WorkbenchShell, Card } from '@/components/ui';
 
 export default function LogActivityPage() {
+<<<<<<< HEAD
   const router = useRouter();
   const today  = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -186,6 +176,22 @@ export default function LogActivityPage() {
           {saving ? 'Logging activity…' : 'Log Activity'}
         </Button>
       </div>
+=======
+  return (
+    <WorkbenchShell
+      title="Log Activity"
+      eyebrow="Health Tracking"
+      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}
+    >
+      <Card title="Manual activity logging retired">
+        <p className="text-sm leading-relaxed text-wb-ink2">
+          Manual activity entry has been retired platform-wide. Recovery Pulse (via the Telegram XO
+          bot) is now the Captain&rsquo;s single manual health-data capture mechanism — this form no
+          longer accepts new entries.
+        </p>
+      </Card>
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     </WorkbenchShell>
   );
 }

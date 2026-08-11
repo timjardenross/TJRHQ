@@ -54,7 +54,11 @@ async function fetchRecoveryPulses(days: number): Promise<SourceResult> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data, error } = await supabase
     .from('recovery_pulses')
-    .select('id, log_date, pulse_type, pain_score, energy, mood, captured_at')
+    // energy/nervous_system are the canonical Telegram-bot fields (Captain
+    // directive, 2026-08-10); `mood` is kept selected only so pre-canonical
+    // rows still show a signal in the detail line below — no new writes to
+    // it, historical context only.
+    .select('id, log_date, pulse_type, pain_score, energy, nervous_system, mood, captured_at')
     .gte('captured_at', since)
     .order('captured_at', { ascending: false })
     .limit(30);
@@ -62,7 +66,10 @@ async function fetchRecoveryPulses(days: number): Promise<SourceResult> {
     const parts: string[] = [];
     if (r.pain_score != null) parts.push(`pain ${r.pain_score}`);
     if (r.energy)             parts.push(`energy ${r.energy}`);
-    if (r.mood)               parts.push(`mood ${r.mood}`);
+    // Prefer the canonical nervous_system reading; fall back to the legacy
+    // mood field only for older rows that predate it.
+    if (r.nervous_system)      parts.push(`ns ${r.nervous_system}`);
+    else if (r.mood)           parts.push(`mood ${r.mood} (legacy)`);
     return {
       id:        `rp-${r.id ?? r.log_date + r.pulse_type}`,
       source:    'health' as const,

@@ -345,6 +345,40 @@ def _make_flask_app():
                 "assembled_at": _http_timestamp(),
             }), 500
 
+    # 2026-08-09: lcars-portal's api/captain-intelligence/generate route
+    # still shelled out to `python3 -m core.platform.captain_brief_cli
+    # --evolved` (execFile) three weeks after the identical pattern was
+    # diagnosed and fixed for /brief/full above (2026-07-10, see that
+    # commit) - same root cause, same fix. This endpoint is the evolved-
+    # pipeline counterpart to /brief/full: reuses assemble_evolved_captain_
+    # brief() verbatim (the same function captain_brief_cli.py --evolved
+    # called), no reimplemented logic.
+    #
+    # POST, not GET, matching the Next.js route's own reasoning: this
+    # triggers real HTTP calls to the model router (50-260s observed,
+    # MSN-0329 Phase 3) and persists to insight_outcomes on every call
+    # (assemble_evolved_captain_brief -> record_insight) - a real side
+    # effect, not an idempotent read, so it must stay an explicit action
+    # rather than something that could fire on every page load or from a
+    # cached/prefetched GET.
+    @http_app.post("/brief/evolved")
+    def http_evolved_captain_brief():
+        try:
+            import dataclasses
+            from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+            from core.platform.event_bus import poll_events
+
+            limit = int(_request_arg("limit", 200))
+            events = poll_events(limit=limit)
+            doc = assemble_evolved_captain_brief(events)
+            return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
+        except Exception as exc:
+            return jsonify({
+                "error": "evolved_captain_brief_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
     return http_app
 
 
@@ -635,8 +669,18 @@ def main():
         port = args.port or config.CONTEXT_SERVICE_PORT
         flask_app = _make_flask_app()
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /brief/full  GET /recommendations/full")
-        flask_app.run(host=args.host, port=port, debug=False)
+        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
+        # threaded=True (2026-08-09): /brief/evolved's real LLM calls run
+        # 50-260s (MSN-0329 Phase 3 measured latency). Werkzeug's dev
+        # server defaults to single-threaded/single-process, so without
+        # this, one in-flight /brief/evolved call would also stall every
+        # other route on this service - including /health and /brief/full,
+        # which Captain's Chair polls on every page load. This is still
+        # the Werkzeug dev server, not a production WSGI server; acceptable
+        # for this service's traffic level (matches the rest of this file's
+        # existing scope), but a real concurrency ceiling if load ever
+        # grows past that.
+        flask_app.run(host=args.host, port=port, debug=False, threaded=True)
         return
 
     try:

@@ -41,7 +41,11 @@
 // checks/notes but never sets qa_status itself; the human still explicitly
 // saves the checklist, same governance posture as the rest of this pipeline.
 
+<<<<<<< HEAD
 import { useEffect, useState } from 'react';
+=======
+import { useEffect, useRef, useState } from 'react';
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 import { Badge, Button, Textarea, Select, Modal } from '@/components/ui';
 import {
   STAGE_LABEL,
@@ -691,12 +695,31 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
   );
 }
 
+<<<<<<< HEAD
 /** Compact funnel strip above the board — quick read of where volume sits. */
 function PipelineOverview({ counts }: { counts: Record<Stage, number> }) {
+=======
+/** Compact funnel strip above the board — quick read of where volume sits.
+ * 2026-08-09 mobile/iPad review (P1): below `sm` this doubles as the stage
+ * picker for the single-column mobile board (see ContentBoard) — tapping
+ * a stage here is how you switch which column you're looking at, instead
+ * of horizontal-scrolling through all 4 at once. Above `sm` it's still
+ * just a read-only overview, unchanged. */
+function PipelineOverview({
+  counts,
+  activeStage,
+  onSelectStage,
+}: {
+  counts: Record<Stage, number>;
+  activeStage?: Stage;
+  onSelectStage?: (stage: Stage) => void;
+}) {
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
   return (
     <div className="mb-3 flex items-center gap-1.5 overflow-x-auto rounded-lg border border-wb-line bg-wb-surface px-2.5 py-2">
       {STAGES.map((stage, i) => {
         const accent = STAGE_ACCENT[stage];
+<<<<<<< HEAD
         return (
           <div key={stage} className="flex shrink-0 items-center gap-1.5">
             <div className="flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5">
@@ -705,6 +728,25 @@ function PipelineOverview({ counts }: { counts: Record<Stage, number> }) {
               </span>
               <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
             </div>
+=======
+        const isActive = onSelectStage && activeStage === stage;
+        const chip = (
+          <div className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ${isActive ? 'bg-wb-line' : ''}`}>
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${accent.bar}`} aria-hidden>
+              {counts[stage]}
+            </span>
+            <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
+          </div>
+        );
+        return (
+          <div key={stage} className="flex shrink-0 items-center gap-1.5">
+            {onSelectStage ? (
+              <button type="button" onClick={() => onSelectStage(stage)} aria-pressed={isActive}
+                className="rounded-full transition active:scale-95 sm:pointer-events-none">
+                {chip}
+              </button>
+            ) : chip}
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
             {i < STAGES.length - 1 && <span className="text-wb-ink2/40" aria-hidden>→</span>}
           </div>
         );
@@ -718,6 +760,31 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+<<<<<<< HEAD
+=======
+  // 2026-08-09 mobile/iPad review (P1): the 4-column board's only mobile
+  // fallback was horizontal-scroll through all 4 at min-w-[264px] each —
+  // functional but a real working-memory cost on a phone (easy to lose
+  // which column you scrolled to, no way to see "what's in each stage"
+  // without scrolling through all of them). Below `sm`, render exactly
+  // one stage at a time instead, switched via the PipelineOverview strip
+  // acting as a stage picker.
+  const [activeMobileStage, setActiveMobileStage] = useState<Stage>('capture');
+  // 2026-08-09 fix: the mobile single-column board always opened on
+  // 'capture' regardless of where the actual items were, so a Captain
+  // opening the board on a phone with nothing to capture (the common
+  // case — most work sits in later stages) landed on an empty column
+  // and had to know to tap over. Auto-pick the first non-empty stage on
+  // the initial load only; once the Captain has tapped a stage
+  // themselves, respect that choice on subsequent refreshes instead of
+  // yanking them back.
+  const userPickedMobileStage = useRef(false);
+
+  function selectMobileStage(stage: Stage) {
+    userPickedMobileStage.current = true;
+    setActiveMobileStage(stage);
+  }
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
   async function load() {
     setLoading(true);
@@ -729,6 +796,13 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       setItems(data.items ?? []);
       setCounts(data.counts ?? null);
       if (onLoaded) onLoaded(data.counts);
+<<<<<<< HEAD
+=======
+      if (!userPickedMobileStage.current && data.counts) {
+        const firstNonEmpty = STAGES.find((s) => (data.counts[s] ?? 0) > 0);
+        if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
+      }
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load board');
     } finally {
@@ -747,12 +821,27 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
       {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
       {!loading && !error && (
         <>
+<<<<<<< HEAD
           {counts && <PipelineOverview counts={counts} />}
           <div className="flex gap-3 overflow-x-auto pb-2">
+=======
+          {counts && (
+            <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={selectMobileStage} />
+          )}
+          {/* sm+: full multi-column board, unchanged. */}
+          <div className="hidden gap-3 overflow-x-auto pb-2 sm:flex">
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
             {STAGES.map((stage) => (
               <Column key={stage} stage={stage} items={items.filter((i) => i.stage === stage)} onChanged={load} />
             ))}
           </div>
+<<<<<<< HEAD
+=======
+          {/* below sm: single active stage only, picked via the strip above. */}
+          <div className="sm:hidden">
+            <Column stage={activeMobileStage} items={items.filter((i) => i.stage === activeMobileStage)} onChanged={load} />
+          </div>
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
         </>
       )}
     </div>

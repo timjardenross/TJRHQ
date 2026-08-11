@@ -9,7 +9,7 @@
  */
 
 import { useROSData } from '@/lib/useROSData';
-import { toneClasses } from '@/lib/departments';
+import { stateToneClasses } from '@/lib/departments';
 import { StatusBadge } from './StatusBadge';
 import { LCARSPanel } from './LCARSPanel';
 import { DataSourceIndicator } from './DataSourceIndicator';
@@ -18,48 +18,71 @@ import type {
   MissionLoadGuidanceData,
   RecoveryPosture,
   RecoveryPostureBand,
-  StatusTone
+  StateTone
 } from '@/lib/types';
 import { missionLoadGuidance as mockMLG } from '@/lib/mockData';
 
 // ── Tone maps ──────────────────────────────────────────────────────────────
+//
+// 2026-08-10: posture/body-signal severity was mapped through toneClasses()
+// (department-identity colours: command/operations/medical/status), which a
+// deliberate 2026-07-10 revision collapsed to one uniform navy accent for
+// every non-neutral department (departments.ts's own toneClasses() comment:
+// "Genuinely semantic status... is a completely separate system —
+// stateToneClasses()... and is deliberately untouched"). Recovery posture
+// is a STATE, not a department, so it belongs on stateToneClasses()
+// (ok/warn/crit/unknown) — using toneClasses() here meant REST rendered
+// identical navy to STRONG, not remotely alarming. StateBadge below mirrors
+// StatusBadge's markup but on the state-tone system.
 
-const POSTURE_TONE: Record<RecoveryPostureBand, StatusTone> = {
-  STRONG:  'status',
-  STABLE:  'command',
-  FRAGILE: 'operations',
-  REST:    'medical',
-  UNKNOWN: 'neutral'
+const POSTURE_STATE_TONE: Record<RecoveryPostureBand, StateTone> = {
+  STRONG:  'ok',
+  STABLE:  'ok',
+  FRAGILE: 'warn',
+  REST:    'crit',
+  UNKNOWN: 'unknown'
 };
 
-const NS_TONE: Record<string, StatusTone> = {
-  calm:         'status',
-  activated:    'command',
-  dysregulated: 'operations'
+const NS_STATE_TONE: Record<string, StateTone> = {
+  calm:         'ok',
+  activated:    'warn',
+  dysregulated: 'warn'
 };
 const NS_LABEL: Record<string, string> = {
   calm:         'Calm',
   activated:    'Activated',
   dysregulated: 'Dysregulated'
 };
-const ENERGY_TONE: Record<string, StatusTone> = {
-  High: 'status', Moderate: 'command', Low: 'operations'
+const ENERGY_STATE_TONE: Record<string, StateTone> = {
+  High: 'ok', Moderate: 'warn', Low: 'warn'
 };
-const SIGNAL_TONE: Record<string, StatusTone> = {
-  Low: 'status', Moderate: 'command', High: 'operations'
+const SIGNAL_STATE_TONE: Record<string, StateTone> = {
+  Low: 'ok', Moderate: 'warn', High: 'warn'
 };
+
+function StateBadge({ label, tone }: { label: string; tone: StateTone }) {
+  const c = stateToneClasses(tone);
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
+      {label}
+    </span>
+  );
+}
 
 // ── RecoveryPostureBlock ─────────────────────────────────────────────────────
 
 function RecoveryPostureBlock({ posture }: { posture: RecoveryPosture }) {
-  const tone = POSTURE_TONE[posture.posture];
-  const c    = toneClasses(tone);
+  const tone = POSTURE_STATE_TONE[posture.posture];
+  const c    = stateToneClasses(tone);
   return (
     <LCARSPanel
       title="Recovery Posture"
       accent="medical"
       eyebrow="What does my system need today?"
-      actions={<StatusBadge label={posture.posture} tone={tone} />}
+      actions={<StateBadge label={posture.posture} tone={tone} />}
     >
       <div className="grid gap-3 xl:grid-cols-2">
         <div className={`rounded-lcars border ${c.border} ${c.bg} p-4`}>
@@ -81,16 +104,16 @@ function RecoveryPostureBlock({ posture }: { posture: RecoveryPosture }) {
 // ── BodyContextBlock ─────────────────────────────────────────────────────────
 
 function BodyContextBlock({ ctx }: { ctx: BodyContext }) {
-  const nsTone   = NS_TONE[ctx.nervous_system_state]   ?? 'neutral';
-  const enTone   = ENERGY_TONE[ctx.energy]             ?? 'neutral';
-  const sigTone  = SIGNAL_TONE[ctx.body_signals]       ?? 'neutral';
+  const nsTone   = NS_STATE_TONE[ctx.nervous_system_state]   ?? 'unknown';
+  const enTone   = ENERGY_STATE_TONE[ctx.energy]             ?? 'unknown';
+  const sigTone  = SIGNAL_STATE_TONE[ctx.body_signals]       ?? 'unknown';
 
-  const signals: { label: string; value: string; tone: StatusTone }[] = [
-    { label: 'Sleep',          value: `${ctx.sleep_hours}h · ${ctx.sleep_quality}`, tone: ctx.sleep_quality === 'Good' ? 'status' : ctx.sleep_quality === 'Fair' ? 'command' : 'operations' },
+  const signals: { label: string; value: string; tone: StateTone }[] = [
+    { label: 'Sleep',          value: `${ctx.sleep_hours}h · ${ctx.sleep_quality}`, tone: ctx.sleep_quality === 'Good' ? 'ok' : ctx.sleep_quality === 'Fair' ? 'warn' : 'warn' },
     { label: 'Nervous System', value: NS_LABEL[ctx.nervous_system_state] ?? ctx.nervous_system_state, tone: nsTone },
     { label: 'Energy',         value: ctx.energy, tone: enTone },
-    { label: 'CPAP',           value: ctx.cpap_compliant ? 'Compliant' : 'Not recorded', tone: ctx.cpap_compliant ? 'status' : 'neutral' },
-    { label: 'Sitting window', value: `${ctx.sitting_window_minutes} min`, tone: 'neutral' },
+    { label: 'CPAP',           value: ctx.cpap_compliant ? 'Compliant' : 'Not recorded', tone: ctx.cpap_compliant ? 'ok' : 'unknown' },
+    { label: 'Sitting window', value: `${ctx.sitting_window_minutes} min`, tone: 'unknown' },
     { label: 'Body signals',   value: ctx.body_signals, tone: sigTone }
   ];
 
@@ -98,7 +121,7 @@ function BodyContextBlock({ ctx }: { ctx: BodyContext }) {
     <LCARSPanel title="Body Context" accent="medical" eyebrow="What is the body signalling today?">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {signals.map((s) => {
-          const c = toneClasses(s.tone);
+          const c = stateToneClasses(s.tone);
           return (
             <div key={s.label} className={`rounded-lcars border ${c.border} ${c.bg} p-3`}>
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
@@ -136,8 +159,8 @@ function RecoveryGuidanceBlock({ guidance }: { guidance: string[] }) {
 // ── MissionLoadGuidance ──────────────────────────────────────────────────────
 
 function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; mlg: MissionLoadGuidanceData }) {
-  const tone = POSTURE_TONE[posture];
-  const c    = toneClasses(tone);
+  const tone = POSTURE_STATE_TONE[posture];
+  const c    = stateToneClasses(tone);
   return (
     <LCARSPanel title="Today's Sustainable Load" accent="medical" eyebrow="What is safe and sustainable today?">
       <div className="flex flex-col gap-2">

@@ -280,12 +280,14 @@ def test_voice_type_labels():
 
 def test_pulse_type_for_hour():
     print("\n── pulse_type_for_hour bucketing (shared with app.py) ───────────")
+    # Captain directive 2026-08-10: 4 pulses/day -> 3. end_of_day (16-20h) was
+    # folded into midday (now 12-20h) — see pulse_time.py module docstring.
     check("5am -> morning", pulse_type_for_hour(5) == "morning")
     check("11am -> morning", pulse_type_for_hour(11) == "morning")
     check("12pm -> midday", pulse_type_for_hour(12) == "midday")
     check("15:59 -> midday", pulse_type_for_hour(15) == "midday")
-    check("16:00 -> end_of_day", pulse_type_for_hour(16) == "end_of_day")
-    check("19:59 -> end_of_day", pulse_type_for_hour(19) == "end_of_day")
+    check("16:00 -> midday (absorbed former end_of_day slot)", pulse_type_for_hour(16) == "midday")
+    check("19:59 -> midday (absorbed former end_of_day slot)", pulse_type_for_hour(19) == "midday")
     check("20:00 -> evening", pulse_type_for_hour(20) == "evening")
     check("2am -> evening (wraps past midnight)", pulse_type_for_hour(2) == "evening")
 

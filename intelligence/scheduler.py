@@ -196,6 +196,24 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── 2026-08-09 gap-closure: intraday status/outage polling ──────────────────
+    # The 06:00 daily sweep alone gave up to ~24h lag even for wire-covered
+    # breaking stories. Re-polls the already-registered fast-moving
+    # cloud/critical-infrastructure status feeds (Cloudflare, AWS, GitHub,
+    # Telstra, TPG, etc. — see _INTRADAY_STATUS_CATEGORIES) every few hours
+    # instead of once a day. Same dedup keys as the daily job, so this can
+    # never double-save an event the 06:00 run already collected.
+    from apscheduler.triggers.interval import IntervalTrigger as _IntervalTrigger
+
+    intraday_interval = int(os.environ.get("INTRADAY_STATUS_INTERVAL_MINUTES", "180"))
+    scheduler.add_job(
+        _intraday_status_collection_job,
+        _IntervalTrigger(minutes=intraday_interval),
+        id="intraday_status_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── MSN-0202: Content Intelligence scoring (opt-in) ──────────────────────
     # Runs at 06:15 AEST (15 min after daily collection) to score new events.
     # Gated by CONTENT_INTEL_PUSH_ENABLED=1 env var.
@@ -226,6 +244,23 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # ── 2026-08-10: Evolved Captain Intelligence insight generation ──────────
+    # Captain directive — Cognitive Core (MSN-0329 Phase 5) was manual-only
+    # (a Captain's Chair button), so insight_outcomes had accumulated only 3
+    # rows ever, nowhere near the >=20-row observation-period gate. Reuses
+    # this already-live daemon rather than a new systemd timer or a 6th
+    # apscheduler instance — same reasoning as continuous_attention_evaluation
+    # just above. Real LLM synthesis per run (50-260s observed), so a much
+    # longer interval than the 10-minute attention-evaluation job.
+    insight_interval = int(os.environ.get("CAPTAIN_INSIGHT_INTERVAL_MINUTES", "240"))
+    scheduler.add_job(
+        _evolved_insight_generation_job,
+        IntervalTrigger(minutes=insight_interval),
+        id="evolved_captain_insight_generation",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── USS-TJR-MSN-0339 WP5: Operational Intelligence Validation Suite ───────
     # Runs daily, 30 min after collection so it sees fresh data and well
     # before the 07:00 morning brief — per the suite's own design doc §4
@@ -249,6 +284,35 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+<<<<<<< HEAD
+=======
+    # ── 2026-08-10: Downdetector tiered cadence, priority sources (Captain
+    # decision 1) ────────────────────────────────────────────────────────────
+    # Every 120 min; the job itself no-ops outside 07:00-19:00 AEST (see
+    # _within_priority_tiered_window) — registered as an interval so it
+    # self-corrects across restarts the same way intraday_status_collection/
+    # continuous_attention_evaluation do, rather than 12 separate CronTrigger
+    # entries for one job.
+    scheduler.add_job(
+        _priority_tiered_collection_job,
+        _IntervalTrigger(minutes=_PRIORITY_TIERED_INTERVAL_MINUTES),
+        id="downdetector_priority_tiered_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
+    # ── 2026-08-10: Downdetector learned-threshold nightly recompute (Captain
+    # decision 2) ────────────────────────────────────────────────────────────
+    # 05:00 AEST — before daily_source_collection (06:00) so a freshly
+    # recomputed threshold is in force for the next real collection cycle.
+    scheduler.add_job(
+        _downdetector_threshold_recompute_job,
+        CronTrigger(hour=5, minute=0, timezone=tz),
+        id="downdetector_threshold_recompute",
+        replace_existing=True,
+    )
+
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     # ── Source Fidelity Audit ──────────────────────────────────────────────────
     # Runs daily at 06:45 AEST (after collection at 06:00 and validation at 06:30).
     # Measures signal-to-noise ratio across all intelligence sources and flags
@@ -288,13 +352,59 @@ def _start_scheduler() -> None:
     else:
         log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
 
+<<<<<<< HEAD
+=======
+    # ── 2026-08-10: wellness-coaching automation (D-055 Recovery Officer) ─────
+    # Automates telegram-bots/recovery_officer/engagement_dispatcher.py's
+    # run_dispatch_check() — previously reachable only via the Captain
+    # manually running /dispatch in Telegram (see
+    # .claude/skills/bot-reviews/fixes-2026-08-09/final-4-domains.md §4,
+    # "wellness-coaching: left as wired-but-quiet"). Runs on this already-live
+    # scheduler daemon, same IntervalTrigger pattern as
+    # intraday_status_collection/continuous_attention_evaluation/
+    # adhd_task_nudge, rather than standing up a fourth one.
+    #
+    # Safe on a timer because run_dispatch_check() now de-dups per
+    # (Brisbane day, morning/midday/evening pulse window, action) via the
+    # wellness_reminder_log table (migration 0118) before every send — a
+    # window that's already been reminded-for, or already logged, produces
+    # no second Telegram message. The 06:00-23:00 Brisbane hour gate below
+    # is job-level belt-and-braces on top of that (escalation_l2's own
+    # internal gating in wellness_officer/intelligence.py::escalation_level()
+    # has no hour floor once exactly 1 pulse is logged).
+    wellness_interval = int(os.environ.get("WELLNESS_REMINDER_INTERVAL_MINUTES", "45"))
+    if os.environ.get("WELLNESS_REMINDER_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _wellness_reminder_job,
+            IntervalTrigger(minutes=wellness_interval),
+            id="wellness_reminder_check",
+            replace_existing=True,
+            next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+        )
+        log.info(
+            "Wellness reminder check enabled (every %d min, 06:00-23:00 %s)",
+            wellness_interval, SCHEDULE_TZ,
+        )
+    else:
+        log.info("Wellness reminder check disabled (set WELLNESS_REMINDER_ENABLED=true to enable)")
+
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
+<<<<<<< HEAD
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+=======
+        "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
+        "Wellness reminder: every %d min (06:00-23:00, %s) | "
+        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
+        "Downdetector threshold recompute: 05:00 (%s)",
+        SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
+        wellness_interval, SCHEDULE_TZ, _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ,
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
     )
 
     try:
@@ -321,12 +431,21 @@ def _morning_brief_job() -> None:
             _morning_brief_sent_at = datetime.now(timezone.utc).isoformat()
             log.info("Morning brief delivered")
             _record_heartbeat("captains_daily_briefs", "ok", detail="morning brief delivered")
+            # Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/
+            # monitoring-fixes.md): the "morning_brief" domain was seeded against
+            # platform-runtime/proactive_scheduler.py's Slack-bot job, which has
+            # been disabled (superseded) for 5+ weeks — this Telegram-based job is
+            # the actual live morning-brief send today, so it also heartbeats the
+            # legacy domain_key rather than leaving it permanently "never succeeded".
+            _record_heartbeat("morning_brief", "ok", detail="morning brief delivered (via captains_brief/XO Telegram)")
         else:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
+            _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
     except Exception as exc:
         log.error("Morning brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
+        _record_heartbeat("morning_brief", "failed", error_message=str(exc))
 
 
 def _midday_check_job() -> None:
@@ -482,6 +601,311 @@ def _daily_collection_job() -> None:
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
 
 
+<<<<<<< HEAD
+=======
+# Categories treated as "critical status" for the intraday tier below —
+# fast-moving status-page/outage-style feeds (statuspage.io-pattern RSS/Atom:
+# Cloudflare, AWS, GitHub, Slack, Zoom, Telstra, TPG, NBN, etc.), not the
+# slower editorial/regulatory sources the 06:00 daily sweep already covers.
+_INTRADAY_STATUS_CATEGORIES = {"cloud_technology", "critical_infrastructure"}
+
+# 2026-08-10 (Firecrawl production provisioning): sources that fall back to
+# the real (credit-costing) Firecrawl fetch path on a 403 — see
+# intelligence/ingestion/firecrawl_client.py and
+# .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md.
+# These all sit in _INTRADAY_STATUS_CATEGORIES (critical_infrastructure /
+# cloud_technology) and would otherwise get swept by THIS job every
+# INTRADAY_STATUS_INTERVAL_MINUTES (default 180 -> ~8x/day) on top of the
+# once-daily 06:00 _daily_collection_job sweep — 7 sources x 8x/day x 30
+# would alone burn ~1,680 Firecrawl credits/month against a 1,000/month
+# Free-plan hard cap. Explicitly excluded here so these sources are fetched
+# ONLY once/day via _daily_collection_job's all-active-sources run — the
+# cadence this mission's cost math was actually built against.
+_FIRECRAWL_FETCH_SOURCE_NAMES = frozenset({
+    "AEMO Market Notices",
+    "Fastly Status",
+})
+
+
+def _excluding_firecrawl_fetch_sources(sources: list) -> list:
+    return [
+        s for s in sources
+        if s.source_type != "downdetector" and s.source_name not in _FIRECRAWL_FETCH_SOURCE_NAMES
+    ]
+
+
+# ── 2026-08-10 tiered cadence (Captain decision 1, see
+# .claude/skills/bot-reviews/fixes-2026-08-09/cadence-tiering-and-learned-threshold.md):
+# the Big 4 Australian banks (NOT Bendigo/UBank) and the top 2 telcos (NOT
+# TPG/Vodafone/NBN/small-ISPs) get checked more often during core business
+# hours (07:00-19:00 AEST) — real-world outages matter most while people are
+# actually trying to use these services. Exact names, confirmed live against
+# intelligence_source_registry 2026-08-10 (see mission report for the query).
+_PRIORITY_TIERED_SOURCE_NAMES = frozenset({
+    "Downdetector AU — NAB",
+    "Downdetector AU — ANZ Bank",
+    "Downdetector AU — Commonwealth Bank",
+    "Downdetector AU — Westpac",
+    "Downdetector AU — Telstra",
+    "Downdetector AU — Optus",
+})
+
+# Real quota math (see mission report for the full breakdown) — every 120
+# minutes during the 12h business-hours window is 6 extra checks/day per
+# source (7,9,11,13,15,17 relative to job start), NOT once/day like the
+# other 13 Downdetector sources. Hourly was computed and rejected: it would
+# add ~720 Firecrawl calls/month for Telstra+Optus alone on top of the
+# ~224/month already committed, blowing past the 850 safe ceiling. 120 min
+# leaves genuine headroom on both providers' budgets — this constant is the
+# real, math-checked interval, not a placeholder.
+_PRIORITY_TIERED_INTERVAL_MINUTES = 120
+_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, AEST (Australia/Brisbane, no DST)
+_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, AEST
+
+
+def _within_priority_tiered_window(hour: int) -> bool:
+    """Pure, directly-testable time-gate — see
+    tests/test_downdetector_priority_cadence.py. 07:00-19:00 AEST
+    (Australia/Brisbane — this platform's standard timezone, no DST, same
+    tz pulse_time.py and _wellness_reminder_job's own hour-gate already use;
+    deliberately NOT SCHEDULE_TZ/Australia-Melbourne, which shifts with
+    DST)."""
+    return _PRIORITY_TIERED_WINDOW_START_HOUR <= hour < _PRIORITY_TIERED_WINDOW_END_HOUR
+
+
+def _priority_tiered_collection_job() -> None:
+    """2026-08-10 (Captain decision 1): extra intraday checks for the 6
+    priority Downdetector sources, ONLY during 07:00-19:00 AEST — outside
+    that window they still get their existing once-daily check via
+    _daily_collection_job, unchanged. Distinct from
+    _intraday_status_collection_job (which explicitly excludes ALL
+    downdetector-type sources, see _excluding_firecrawl_fetch_sources) —
+    this job is scoped by exact source NAME to just these 6, not by
+    category, so it has zero effect on the other 13 Downdetector sources or
+    on any non-Downdetector source.
+
+    Same collect -> classify -> dedup -> filter -> rank -> save_event
+    pipeline every other collection job in this module uses (same dedup
+    keys, so this can never double-save an event another job already
+    collected today)."""
+    from datetime import datetime as _datetime
+    try:
+        from zoneinfo import ZoneInfo
+        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+    except Exception:
+        hour = _datetime.now().hour
+    if not _within_priority_tiered_window(hour):
+        log.info(
+            "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",
+            hour,
+        )
+        return
+
+    log.info("Priority tiered Downdetector collection triggered (hour=%d)", hour)
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.source_name in _PRIORITY_TIERED_SOURCE_NAMES]
+        if not sources:
+            log.warning(
+                "Priority tiered collection: none of the 6 named sources are "
+                "currently active in the registry"
+            )
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on priority-tiered run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Priority tiered collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "downdetector_priority_tiered_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Priority tiered collection job failed: %s", exc)
+        _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
+
+
+def _downdetector_threshold_recompute_job() -> None:
+    """2026-08-10 (Captain decision 2): nightly recompute of the per-source
+    Downdetector report-count threshold, replacing the old flat
+    _REPORT_COUNT_FLOOR=150 constant. See
+    intelligence/ingestion/downdetector_thresholds.py for the full
+    bootstrap -> LLM-learned pipeline and its sanity guard. Runs at 05:00
+    AEST — before _daily_collection_job (06:00) so the freshly recomputed
+    thresholds are in force for the very next real collection cycle, and
+    well clear of the 06:00-06:45 cluster of other daily jobs."""
+    log.info("Downdetector threshold recompute job triggered")
+    try:
+        from intelligence.ingestion.downdetector_thresholds import recompute_all
+
+        results = recompute_all()
+        learned = sum(1 for r in results if r.threshold_source == "llm_learned")
+        bootstrap = len(results) - learned
+        log.info(
+            "Downdetector threshold recompute complete: %d source(s), %d LLM-learned, "
+            "%d on bootstrap/fallback default",
+            len(results), learned, bootstrap,
+        )
+        _record_heartbeat(
+            "downdetector_threshold_recompute", "ok",
+            detail=f"sources={len(results)} learned={learned} bootstrap={bootstrap}",
+        )
+    except Exception as exc:
+        log.error("Downdetector threshold recompute job failed: %s", exc)
+        _record_heartbeat("downdetector_threshold_recompute", "failed", error_message=str(exc))
+
+
+def _intraday_status_collection_job() -> None:
+    """2026-08-09 gap-closure (real-time pickup): the 06:00 daily sweep gave
+    up to ~24h lag even for wire-covered breaking stories, and nothing
+    polled outage/status feeds more than once a day. No public
+    unauthenticated Verizon/AT&T-class carrier feed could be found by
+    live-checking obvious URL patterns (see migration/notes on the
+    Telstra source) — this doesn't add new sources, it polls the ones
+    already registered under the fast-moving categories far more often,
+    using the exact same collect -> classify -> dedup -> filter -> rank ->
+    save_event pipeline _daily_collection_job uses (same dedup keys, so
+    running both on the same day never double-saves an event)."""
+    log.info("Intraday status collection triggered")
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.category in _INTRADAY_STATUS_CATEGORIES]
+        # Firecrawl-fetch-path sources are deliberately NOT in this sweep —
+        # see _FIRECRAWL_FETCH_SOURCE_NAMES above (budget, not an oversight).
+        excluded_count = len(sources)
+        sources = _excluding_firecrawl_fetch_sources(sources)
+        excluded_count -= len(sources)
+        if excluded_count:
+            log.info(
+                "Intraday status collection: excluded %d Firecrawl-fetch-path source(s) "
+                "(once-daily only, see _FIRECRAWL_FETCH_SOURCE_NAMES)", excluded_count,
+            )
+        if not sources:
+            log.warning("Intraday status collection: no active sources in %s", _INTRADAY_STATUS_CATEGORIES)
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on intraday run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Intraday status collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "intraday_status_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Intraday status collection job failed: %s", exc)
+        _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
+
+
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 def _health_mission_correlation_job() -> None:
     """Issue 17: Daily health-mission correlation computation.
 
@@ -516,6 +940,81 @@ def _adhd_nudge_job() -> None:
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
 
 
+<<<<<<< HEAD
+=======
+def _wellness_reminder_job() -> None:
+    """2026-08-10: automates telegram-bots/recovery_officer/
+    engagement_dispatcher.py::run_dispatch_check(), previously reachable
+    only via the Captain manually running /dispatch in Telegram.
+
+    Job-level hour gate (06:00-23:00 Brisbane) first — belt-and-braces on
+    top of run_dispatch_check()'s own internal per-pulse-type should_remind
+    windows, since its L2/L3 escalation branches have looser (or no) hour
+    floors of their own.
+
+    Builds its own Supabase client explicitly with SUPABASE_SERVICE_ROLE_KEY:
+    this process's env (platform-runtime/.env, this daemon's
+    EnvironmentFile=) has no SUPABASE_KEY — that name is only set in
+    telegram-bots/xo/.env, loaded by tg-xo.service, not this one. Passing
+    supabase_client explicitly avoids run_dispatch_check() silently falling
+    back to its own SUPABASE_KEY-based client lookup, getting None here, and
+    running the whole check against RecoveryStatus's zeroed-out defaults.
+
+    De-duplication (wellness_reminder_log, migration 0118) lives inside
+    run_dispatch_check() itself — this job can safely run every N minutes
+    without any risk of re-sending an identical reminder for a pulse window
+    that already got one, or one already logged by the Captain.
+    """
+    from datetime import datetime as _datetime
+
+    try:
+        from zoneinfo import ZoneInfo
+        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+    except Exception:
+        hour = _datetime.now().hour
+    if not (6 <= hour < 23):
+        log.info("Wellness reminder check skipped (outside 06:00-23:00 Brisbane, hour=%d)", hour)
+        return
+
+    log.info("Wellness reminder check triggered")
+    try:
+        sys.path.insert(0, _REPO_ROOT)
+        from telegram_bots.recovery_officer.engagement_dispatcher import (
+            _StandaloneTelegramBot, run_dispatch_check,
+        )
+
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not token or not chat_id:
+            log.warning("Wellness reminder check skipped: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID not set")
+            _record_heartbeat("wellness-coaching", "skipped", detail="missing telegram credentials")
+            return
+        if not supabase_url or not supabase_key:
+            log.warning("Wellness reminder check skipped: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set")
+            _record_heartbeat("wellness-coaching", "skipped", detail="missing supabase credentials")
+            return
+
+        from supabase import create_client
+        client = create_client(supabase_url, supabase_key)
+        bot = _StandaloneTelegramBot(token)
+        result = run_dispatch_check(bot, chat_id, supabase_client=client)
+        log.info(
+            "Wellness reminder check complete: action=%s sent=%s deduped=%s window=%s/%s conf=%s",
+            result.get("action"), result.get("message_sent"), result.get("deduped"),
+            result.get("window_date"), result.get("pulse_window"), result.get("confidence"),
+        )
+        # run_dispatch_check() -> _emit_and_return() already heartbeats
+        # "wellness-coaching" unconditionally on every path (success, no-op,
+        # and deduped alike) — no second heartbeat call needed here for the
+        # normal case, only for the pre-flight credential-missing paths above.
+    except Exception as exc:
+        log.error("Wellness reminder check failed: %s", exc)
+        _record_heartbeat("wellness-coaching", "failed", error_message=str(exc))
+
+
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 def _content_scoring_job() -> None:
     """MSN-0202: Score recent intelligence_events for content relevance.
 
@@ -531,6 +1030,49 @@ def _content_scoring_job() -> None:
         log.info("Content intelligence scoring complete: %d signals written", written)
     except Exception as exc:
         log.error("Content intelligence scoring failed: %s", exc)
+
+
+def _evolved_insight_generation_job() -> None:
+    """USS-TJR-MSN-0329 Phase 5 follow-up (2026-08-10): schedule Cognitive
+    Core insight generation instead of leaving it manual-only.
+
+    assemble_evolved_captain_brief() previously only ran when a human
+    clicked "Generate New Insights" on Captain's Chair (lcars-portal
+    CaptainIntelligencePanel.tsx) — insight_outcomes sat at 3 rows total
+    after weeks, nowhere near MSN-0329's >=20-row observation-period gate,
+    purely because nothing prompted anyone to click it. Calls the same
+    function in-process — no HTTP hop through context-service.py, which
+    exists so Vercel's Node runtime can fetch() it, not for this daemon —
+    mirroring _attention_evaluation_job's poll_events() reuse above.
+    Persistence to insight_outcomes happens inside
+    assemble_evolved_captain_brief() itself via record_insight().
+
+    Interval via CAPTAIN_INSIGHT_INTERVAL_MINUTES (default 240 = 4x/day):
+    conservative given each run is a real LLM synthesis (model router
+    call), observed 50-260s per the manual-button path's own comments.
+    Clears the 20-row gate in under a week without the runaway cost of
+    running it at the same 10-minute cadence as the much cheaper
+    continuous_attention_evaluation job above.
+    """
+    log.info("Evolved Captain Intelligence insight generation triggered")
+    try:
+        from core.platform.event_bus import poll_events
+        from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+
+        events = poll_events(limit=200)
+        doc = assemble_evolved_captain_brief(events)
+        insight_count = len(doc.insights or [])
+        log.info(
+            "Evolved insight generation: %d event(s) evaluated, %d insight(s) persisted",
+            len(events), insight_count,
+        )
+        _record_heartbeat(
+            "evolved_captain_insight_generation", "ok",
+            detail=f"{insight_count} insight(s) from {len(events)} events",
+        )
+    except Exception as exc:
+        log.error("Evolved insight generation job failed: %s", exc)
+        _record_heartbeat("evolved_captain_insight_generation", "failed", error_message=str(exc))
 
 
 def _attention_evaluation_job() -> None:
@@ -654,11 +1196,20 @@ def _source_fidelity_audit_job() -> None:
         from intelligence.audit.source_fidelity import source_fidelity_report
 
         report = source_fidelity_report(days=30)
+<<<<<<< HEAD
 
         total_sources = report.get("total_sources", 0)
         high_value = len(report.get("high_value_sources", []))
         low_value = len(report.get("low_value_sources", []))
         degraded = len(report.get("degraded_sources", []))
+=======
+        summary = report.get("summary", {})
+
+        total_sources = report.get("total_sources", 0)
+        high_value = len(summary.get("high_value_sources", []))
+        low_value = len(summary.get("low_value_sources", []))
+        degraded = len(summary.get("degraded_sources", []))
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
 
         log.info(
             "Source fidelity audit complete: %d total sources, %d high-value, "

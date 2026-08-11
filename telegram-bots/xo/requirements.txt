@@ -4,3 +4,7 @@ supabase==2.3.4
 gotrue==1.3.1
 python-dotenv==1.0.0
 httpx<0.26
+<<<<<<< HEAD
+=======
+pyjwt>=2.13.0
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b

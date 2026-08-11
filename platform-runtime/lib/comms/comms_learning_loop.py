@@ -119,6 +119,19 @@ def record_comms_approval_event(
             log.warning("[comms-learning-loop] decision_records write failed: %s", dr_result.error)
             return
 
+        # Chief Engineer 2026-08-10 decisions-heartbeat follow-up: a real,
+        # live-wired decision_records writer (called from
+        # lib/comms/pipeline.py's advance() on CAPTAIN_ONLY_TRIGGERS),
+        # heartbeated alongside build_learning_loop.py and
+        # research_learning_loop.py — all three are genuinely distinct event
+        # producers into the same 'decisions' domain, not competing
+        # candidates for one canonical path.
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat("decisions", status="ok", detail="source=comms-learning-loop")
+        except Exception:
+            pass
+
         # 4. quality_scores — needs the RAW supabase-py client, not the wrapper.
         raw = client.raw_client
         if raw is None or outcome_bigint_id is None:

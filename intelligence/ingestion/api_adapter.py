@@ -8,6 +8,11 @@ Supported sources (by source_id prefix):
   TECH-005  ServiceNow Status    https://status.servicenow.com/api/v2/status.json
   AU-CI-001 AEMO Market Notices  https://www.aemo.com.au/aemo/apps/api/report/MARKET_NOTICE
   AU-EM-005 Geoscience Australia https://earthquakes.ga.gov.au/
+  (by name)
+  Google Cloud Status            https://status.cloud.google.com/incidents.json (custom shape, not Statuspage.io)
+  Any Statuspage.io `/api/v2/incidents.json` source (Cloudflare, Akamai,
+  GitHub, Atlassian, Canva, DocuSign, Zoom, Miro, ...) — matched by endpoint
+  suffix, routed through _parse_statuspage_incidents.
 
 Each source has a _parse_<source_id> method.
 Unknown sources fall back to generic JSON extraction.
@@ -58,6 +63,13 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_salesforce(data)
         if "TECH-005" in source_id or "servicenow" in name:
             return self._parse_servicenow(data)
+        if "google cloud status" in name:
+            # Must be checked before the generic `/incidents.json` dispatch below —
+            # GCP's endpoint also ends in `/incidents.json` but is NOT Statuspage.io
+            # format (confirmed live 2026-08-10: bare JSON array, no `impact` field,
+            # no `incidents` wrapper key). Routing it through
+            # _parse_statuspage_incidents would silently mis-parse every item.
+            return self._parse_gcp_incidents(data)
         if "AU-CI-001" in source_id or "aemo" in name:
             return self._parse_aemo(data)
         if "AU-EM-005" in source_id or "geoscience" in name:
@@ -68,7 +80,12 @@ class APIAdapter(BaseSourceAdapter):
             return self._parse_nvd(data)
         if "msrc" in name or "microsoft security response" in name:
             return self._parse_msrc(data)
-        if "miro" in name:
+        if "miro" in name or (isinstance(endpoint, str) and endpoint.rstrip("/").endswith("/incidents.json")):
+            # Matches by endpoint shape (any Statuspage.io `/api/v2/incidents.json`
+            # source), not just Miro by name — so any source migrated from the
+            # RSS/Atom variant of the same feed onto this JSON endpoint (e.g.
+            # Cloudflare Status, 2026-08-10) gets the real `impact` field for
+            # free without a per-source name check here.
             return self._parse_statuspage_incidents(data)
         if "vicemergency" in name:
             return self._parse_vicemergency(data)
@@ -292,15 +309,114 @@ class APIAdapter(BaseSourceAdapter):
         return items
 
     def _parse_statuspage_incidents(self, data) -> list[IntelligenceItem]:
-        """Generic Statuspage.io `/api/v2/incidents.json` shape."""
+        """Generic Statuspage.io `/api/v2/incidents.json` shape.
+
+        2026-08-10 (Cloudflare Status noise fix): this JSON endpoint carries a
+        genuine severity field — `impact`: none | minor | major | critical —
+        that the RSS/Atom variant of the same feed (`history.atom`) discards
+        entirely (confirmed by diffing the two live: the Atom feed has no
+        impact/severity field anywhere, only title + free-text status-update
+        prose). Captured here as a `[Impact: <level>]` tag prefixed onto
+        raw_summary, plus the real affected-component names from
+        incident_updates[].affected_components — both genuine feed data, not
+        a guessed keyword list. filter.py's should_suppress() reads this tag
+        to keep only major/critical incidents (genuinely widespread) flowing
+        into scoring/the exec summary, while none/minor incidents (the
+        single-component or single-region "blips" — e.g. "R2 Availability
+        Issues", "Network Performance Issues in Istanbul") stay ingested for
+        audit trail but suppressed=true, same convention as the scheduled-
+        maintenance suppression rule above.
+
+        Live-checked against Cloudflare's actual incidents.json 2026-08-10:
+        of the 50 most recent incidents, impact was minor=40, none=8,
+        major=2, critical=0.
+        """
         incidents = data.get("incidents", [])
         items = []
         for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+            impact = (inc.get("impact") or "unknown").strip().lower()
             title = f"{self.source.source_name}: {inc.get('name', 'Incident')} ({inc.get('status', '')})"
             updates = inc.get("incident_updates") or []
-            summary = updates[0].get("body") if updates else None
+            body = updates[0].get("body") if updates else None
+            components = sorted({
+                c.get("name") for u in updates for c in (u.get("affected_components") or [])
+                if c.get("name")
+            })
+            comp_note = f" Affected: {', '.join(components)}." if components else ""
+            summary = f"[Impact: {impact}]{comp_note} {body or ''}".strip()
             url = inc.get("shortlink") or self.source.url
             published = self._parse_iso(inc.get("created_at"))
+            items.append(self._make_item(title, summary, url, published))
+        return items
+
+    def _parse_gcp_incidents(self, data) -> list[IntelligenceItem]:
+        """Google Cloud Status `status.cloud.google.com/incidents.json` shape.
+
+        2026-08-10 (source-coverage expansion): NOT a Statuspage.io feed —
+        Google runs its own custom status-dashboard backend, despite living
+        at a similarly-named `/incidents.json` URL. Confirmed live by diffing
+        the shape against Cloudflare/GitHub/Akamai/etc: the response is a
+        bare JSON array (no `{"incidents": [...]}` wrapper), and each
+        incident carries `severity` (low | medium | high | critical) and
+        `status_impact` (SERVICE_INFORMATION | SERVICE_DISRUPTION |
+        SERVICE_OUTAGE) — two independent real severity axes, not a single
+        `impact` field.
+
+        Mapped deliberately (not a blind copy of the Statuspage vocabulary)
+        onto the same `[Impact: <level>]` tag filter.py already suppresses
+        on, so the existing none/minor/major/critical suppression rule
+        (status_page_low_impact_*, see filter.py) applies unchanged:
+          - SERVICE_INFORMATION -> none      (informational notice, not a
+                                               real disruption)
+          - SERVICE_OUTAGE      -> critical  (a full outage is always
+                                               high-signal, regardless of
+                                               GCP's own severity label)
+          - SERVICE_DISRUPTION  -> major if severity in (high, critical)
+                                    else minor
+          - unrecognized status_impact -> derived from severity alone
+                                           (critical->critical, high->major,
+                                            medium/low->minor, else
+                                            "unknown" — fails open, i.e. not
+                                            suppressed, same convention as
+                                            _parse_statuspage_incidents)
+        """
+        incidents = data if isinstance(data, list) else data.get("incidents", [])
+        items = []
+        for inc in incidents[:MAX_ITEMS_PER_SOURCE]:
+            severity = (inc.get("severity") or "").strip().lower()
+            status_impact = (inc.get("status_impact") or "").strip().upper()
+
+            if status_impact == "SERVICE_INFORMATION":
+                impact = "none"
+            elif status_impact == "SERVICE_OUTAGE":
+                impact = "critical"
+            elif status_impact == "SERVICE_DISRUPTION":
+                impact = "major" if severity in ("high", "critical") else "minor"
+            elif severity == "critical":
+                impact = "critical"
+            elif severity == "high":
+                impact = "major"
+            elif severity in ("medium", "low"):
+                impact = "minor"
+            else:
+                impact = "unknown"
+
+            service_name = inc.get("service_name") or "Google Cloud"
+            desc = (inc.get("external_desc") or "").strip()
+            status_word = "resolved" if inc.get("end") else "ongoing"
+            headline = desc[:140] + ("…" if len(desc) > 140 else "")
+            title = f"{self.source.source_name}: {service_name} — {headline} ({status_word})"
+
+            products = sorted({
+                p.get("title") for p in (inc.get("affected_products") or []) if p.get("title")
+            })
+            comp_note = f" Affected: {', '.join(products)}." if products else ""
+            summary = f"[Impact: {impact}]{comp_note} {desc[:1000]}".strip()
+
+            uri = inc.get("uri") or ""
+            url = f"https://status.cloud.google.com/{uri}" if uri else self.source.url
+
+            published = self._parse_iso(inc.get("created") or inc.get("begin"))
             items.append(self._make_item(title, summary, url, published))
         return items
 

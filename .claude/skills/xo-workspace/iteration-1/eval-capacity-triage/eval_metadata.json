@@ -1,0 +1,10 @@
+{
+  "eval_id": 0,
+  "eval_name": "capacity-triage",
+  "prompt": "Three missions want review today and my recovery confidence is sitting at 40%. What should I actually do?",
+  "assertions": [
+    "Response is short (roughly 2-6 sentences), not a long structured document",
+    "Applies capacity-first reasoning - explicitly weighs the 40% confidence against taking on three missions, doesn't just answer the surface question",
+    "Speaks in XO's voice - no AI disclaimers, no generic assistant hedging"
+  ]
+}

@@ -6,7 +6,6 @@ import { WorkbenchShell, Card, Button, Input, Textarea } from '@/components/ui';
 
 type NSState = 'calm' | 'activated' | 'dysregulated';
 type EnergyLevel = 'low' | 'moderate' | 'high';
-type MoodLevel = 'low' | 'stable' | 'positive';
 type SleepQuality = 'poor' | 'fair' | 'good';
 type WorkloadConstraint = 'normal' | 'modified' | 'reduced' | 'unknown';
 
@@ -75,7 +74,6 @@ export default function HealthCheckInPage() {
 
   const [nsState, setNsState]           = useState<NSState | ''>('');
   const [energy, setEnergy]             = useState<EnergyLevel | ''>('');
-  const [mood, setMood]                 = useState<MoodLevel | ''>('');
   const [sleepHours, setSleepHours]     = useState('');
   const [sleepQuality, setSleepQuality] = useState<SleepQuality | ''>('');
   const [cpapUsed, setCpapUsed]         = useState<'yes' | 'no' | ''>('');
@@ -89,8 +87,8 @@ export default function HealthCheckInPage() {
   const [error, setError]               = useState<string | null>(null);
 
   async function handleSubmit() {
-    if (!nsState || !energy || !mood || !sleepQuality) {
-      setError('Please fill in nervous system, energy, mood, and sleep quality.');
+    if (!nsState || !energy || !sleepQuality) {
+      setError('Please fill in nervous system, energy, and sleep quality.');
       return;
     }
     setSaving(true);
@@ -101,7 +99,6 @@ export default function HealthCheckInPage() {
       source:               'manual',
       nervous_system_state: nsState,
       energy,
-      mood,
       sleep_quality:        sleepQuality,
       workload_constraint:  workload || 'unknown',
     };
@@ -167,7 +164,7 @@ export default function HealthCheckInPage() {
           />
         </Card>
 
-        <Card title="Energy & Mood">
+        <Card title="Energy">
           <div className="flex flex-col gap-4">
             <SelectField
               label="Energy level"
@@ -179,16 +176,10 @@ export default function HealthCheckInPage() {
                 { value: 'high',     label: 'High' },
               ]}
             />
-            <SelectField
-              label="Mood"
-              value={mood}
-              onChange={setMood}
-              options={[
-                { value: 'low',      label: 'Low' },
-                { value: 'stable',   label: 'Stable' },
-                { value: 'positive', label: 'Positive' },
-              ]}
-            />
+            <p className="text-[11px] italic text-wb-ink2">
+              Mood is now captured via Recovery Pulse (Telegram) — the platform&rsquo;s single manual
+              health-data capture mechanism. This form no longer records mood separately.
+            </p>
           </div>
         </Card>
 

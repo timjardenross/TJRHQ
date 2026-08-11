@@ -60,14 +60,19 @@ from lib.xo_policy import xo_can_approve as xo_policy_can_approve
 from commands.mission_capture import handle_mission_capture
 from commands.decision_log import handle_decision_log, handle_save_decision
 from commands.health_check import (
+    # build_health_check_modal / handle_health_check_submit no longer
+    # imported: /health-check is retired (manual capture retirement,
+    # Captain directive 2026-08-10 — see .claude/skills/bot-reviews/
+    # fixes-2026-08-09/manual-capture-retirement.md). MODAL_CALLBACK_ID
+    # is kept so the (now-neutered) view handler below still registers.
     MODAL_CALLBACK_ID as HEALTH_CHECK_MODAL_CALLBACK_ID,
-    build_health_check_modal,
-    handle_health_check_submit,
 )
 from commands.recovery_pulse import (
+    # build_recovery_pulse_modal / handle_recovery_pulse_submit no longer
+    # imported: /recovery-pulse (Slack) is retired — same directive as
+    # above. send_confidence_summary is still used by /recovery-status,
+    # which is unaffected (read-only, not a capture path).
     MODAL_CALLBACK_ID as RECOVERY_PULSE_MODAL_CALLBACK_ID,
-    build_recovery_pulse_modal,
-    handle_recovery_pulse_submit,
     send_confidence_summary,
 )
 from commands.health_event import (
@@ -1214,34 +1219,36 @@ if app:
     # ── Recovery Pulse (D-055) ────────────────────────────────────────────────
 
     @app.command("/recovery-pulse")
-    def handle_recovery_pulse_slash(ack, command, client):
-        """/recovery-pulse — open recovery pulse modal (3 pulses per day)."""
+    def handle_recovery_pulse_slash(ack, respond, command):
+        """Retired 2026-08-10 (Captain directive — manual capture retirement,
+        see .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+        Recovery Pulse via the Telegram XO bot is now the platform's ONLY
+        manual health-data capture mechanism. This Slack command was a second,
+        parallel implementation writing the same canonical recovery_pulses
+        fields (energy/nervous_system/body_signals) through a different
+        channel — exactly the kind of duplicate-path drift the Captain's
+        directive retires. Disabled here rather than removed so the command
+        replies with a clear message instead of silently doing nothing (this
+        bot is currently dormant/not running, but the code must be correct
+        if it's ever started by hand)."""
         ack()
-        trigger_id = command.get("trigger_id")
         user_id = command.get("user_id", "")
-        log.info("[app] /recovery-pulse: user=%s trigger_id=%s", user_id, trigger_id)
-
-        if not trigger_id:
-            log.error("[recovery-pulse] No trigger_id — cannot open modal")
-            return
-
-        try:
-            client.views_open(trigger_id=trigger_id, view=build_recovery_pulse_modal())
-        except Exception as exc:
-            log.error("[recovery-pulse] views_open failed: %s — %s", type(exc).__name__, exc)
+        log.info("[app] /recovery-pulse: retired command invoked by user=%s", user_id)
+        respond(
+            "🚫 *Recovery Pulse (Slack) — retired*\n\n"
+            "Manual recovery pulse logging via Slack has been retired. Recovery Pulse via the "
+            "Telegram XO bot is now the platform's only manual health-data capture mechanism."
+        )
 
     @app.view(RECOVERY_PULSE_MODAL_CALLBACK_ID)
     def handle_recovery_pulse_view_submission(ack, body, client):
-        """Process recovery pulse modal submission."""
+        """Retired alongside the /recovery-pulse command above — the modal
+        can no longer be opened, but this handler is neutered too (defense
+        in depth) so a stale open modal from before this change can never
+        write recovery_pulses through this path."""
         ack()
         user_id = body.get("user", {}).get("id", "")
-        values = body.get("view", {}).get("state", {}).get("values", {})
-        log.info("[recovery-pulse] Modal submitted by user=%s", user_id)
-
-        def _run():
-            handle_recovery_pulse_submit(values, user_id, client)
-
-        threading.Thread(target=_run, daemon=True).start()
+        log.info("[recovery-pulse] Retired modal submission ignored, user=%s", user_id)
 
     @app.command("/recovery-status")
     def handle_recovery_status_slash(ack, command, client):
@@ -1258,38 +1265,36 @@ if app:
     # ── Health Check ──────────────────────────────────────────────────────────
 
     @app.command("/health-check")
-    def handle_health_check_slash(ack, command, client):
-        """/health-check — open daily health check-in modal.
-
-        Immediately acks and opens the guided Block Kit modal.
-        The submission is handled by the view handler below.
-        """
+    def handle_health_check_slash(ack, respond, command):
+        """Retired 2026-08-10 (Captain directive — manual capture retirement,
+        see .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
+        Recovery Pulse via the Telegram XO bot is now the platform's ONLY
+        manual health-data capture mechanism. This command's modal captured
+        nervous system state, energy, mood, sleep, CPAP, pain, sitting
+        tolerance, and workload — a Slack duplicate of the same
+        health_daily_logs manual-entry surface being retired in the LCARS
+        Portal's Medical tab. Disabled here rather than removed so the
+        command replies with a clear message instead of silently doing
+        nothing (this bot is currently dormant/not running, but the code
+        must be correct if it's ever started by hand)."""
         ack()
-        trigger_id = command.get("trigger_id")
         user_id = command.get("user_id", "")
-        log.info("[app] /health-check: user=%s trigger_id=%s", user_id, trigger_id)
-
-        if not trigger_id:
-            log.error("[health-check] No trigger_id — cannot open modal")
-            return
-
-        try:
-            client.views_open(trigger_id=trigger_id, view=build_health_check_modal())
-        except Exception as exc:
-            log.error("[health-check] views_open failed: %s — %s", type(exc).__name__, exc)
+        log.info("[app] /health-check: retired command invoked by user=%s", user_id)
+        respond(
+            "🚫 *Daily Check-In (Slack) — retired*\n\n"
+            "Manual health check-in via Slack has been retired. Recovery Pulse via the "
+            "Telegram XO bot is now the platform's only manual health-data capture mechanism."
+        )
 
     @app.view(HEALTH_CHECK_MODAL_CALLBACK_ID)
     def handle_health_check_view_submission(ack, body, client):
-        """Process health check modal submission (view_submission event)."""
+        """Retired alongside the /health-check command above — the modal
+        can no longer be opened, but this handler is neutered too (defense
+        in depth) so a stale open modal from before this change can never
+        write health_daily_logs through this path."""
         ack()
         user_id = body.get("user", {}).get("id", "")
-        values = body.get("view", {}).get("state", {}).get("values", {})
-        log.info("[health-check] Modal submitted by user=%s", user_id)
-
-        def _run():
-            handle_health_check_submit(values, user_id, client)
-
-        threading.Thread(target=_run, daemon=True).start()
+        log.info("[health-check] Retired modal submission ignored, user=%s", user_id)
 
     # ── Health Event ──────────────────────────────────────────────────────────
 

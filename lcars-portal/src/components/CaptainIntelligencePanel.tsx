@@ -70,7 +70,13 @@ export function CaptainIntelligencePanel() {
   return (
     <LCARSPanel
       title="Captain Intelligence"
-      eyebrow="MSN-0329 — Cognitive Core (observation period)"
+      eyebrow={
+        loading
+          ? 'MSN-0329 — Cognitive Core'
+          : insights.length >= 20
+            ? 'MSN-0329 — Cognitive Core'
+            : `MSN-0329 — Cognitive Core (observation period, ${insights.length}/20 insights)`
+      }
       accent="command"
       actions={
         <div className="flex items-center gap-3">

@@ -1,0 +1,190 @@
+
+# MSN-0145 SUPABASE SYNC (2026-08-10 07:58)
+
+- USS-TJR-MSN-0061 | 2026-08-10 07:58 | Supabase | Closed | Slack Commander Tier-1 Hardening & Command Wiring
+
+- USS-TJR-MSN-0062 | 2026-08-10 07:58 | Supabase | Closed | Authority Reconciliation Residuals
+
+- USS-TJR-MSN-0064 | 2026-08-10 07:58 | Supabase | Designed | Runtime Mission-ID Repoint to Canonical Mission Control IDs
+
+- USS-TJR-MSN-0077 | 2026-08-10 07:58 | Supabase | Closed | COMMS-001 Readiness Review
+
+- USS-TJR-MSN-0078 | 2026-08-10 07:58 | Supabase | Closed | COMMS-001 Regression Repair & Outcome Bridge
+
+- USS-TJR-MSN-0079 | 2026-08-10 07:58 | Supabase | Closed | Outcome Auto-Capture & Sensitive Approval Gates
+
+- USS-TJR-MSN-0080 | 2026-08-10 07:58 | Supabase | Closed | Learning Intelligence Visibility
+
+- USS-TJR-MSN-0081 | 2026-08-10 07:58 | Supabase | Closed | Knowledge Maturity & Learning Layer Activation
+
+- USS-TJR-MSN-0082 | 2026-08-10 07:58 | Supabase | Closed | Learning Operations & Leadership Intelligence
+
+- USS-TJR-MSN-0083 | 2026-08-10 07:58 | Supabase | Closed | Outcome Capture Activation & Leadership Backfill
+
+- USS-TJR-MSN-0085 | 2026-08-10 07:58 | Supabase | Closed | Leadership Intelligence Products & Operational Resilience Brief
+
+- USS-TJR-MSN-0086 | 2026-08-10 07:58 | Supabase | Closed | Command Surface Integration & Intelligence Delivery
+
+- USS-TJR-MSN-0087 | 2026-08-10 07:58 | Supabase | Closed | Captain Interaction & Narrative Intelligence
+
+- USS-TJR-MSN-0075 | 2026-08-10 07:58 | Supabase | Closed | Enterprise Discovery Assessment
+
+- USS-TJR-MSN-0076 | 2026-08-10 07:58 | Supabase | Closed | Outcome & Learning Capture Loop
+
+- USS-TJR-MSN-0144 | 2026-08-10 07:58 | Supabase | Closed | LCARS Canonical Mission Minting
+
+- USS-TJR-MSN-0145 | 2026-08-10 07:58 | Supabase | Closed | Runtime Registry Synchronisation
+
+- USS-TJR-MSN-0147 | 2026-08-10 07:58 | Supabase | Closed | Single Mission Minting Service
+
+- USS-TJR-MSN-0165 | 2026-08-10 07:58 | Supabase | Implemented | Mission Minting Service Operationalisation
+
+- USS-TJR-MSN-0166 | 2026-08-10 07:58 | Supabase | Closed | Mobile Mission Operations Layer
+
+- USS-TJR-MSN-0167 | 2026-08-10 07:58 | Supabase | Implemented | Telegram Mission Operations MVP: Phase 1 Read-Only
+
+- USS-TJR-MSN-0168 | 2026-08-10 07:58 | Supabase | Implemented | Mission Control API: Read Layer
+
+- USS-TJR-MSN-0169 | 2026-08-10 07:58 | Supabase | Implemented | LCARS Mobile Sidebar Drawer
+
+- USS-TJR-MSN-0170 | 2026-08-10 07:58 | Supabase | Implemented | LCARS Mobile Drawer: Live Data Binding
+
+- USS-TJR-MSN-0171 | 2026-08-10 07:58 | Supabase | Implemented | Mission Control API: Write Layer
+
+- USS-TJR-MSN-0172 | 2026-08-10 07:58 | Supabase | Implemented | Telegram Mission Create: Phase 2
+
+- USS-TJR-MSN-0173 | 2026-08-10 07:58 | Supabase | Idea | Mission Control Data Reconciliation & Telegram Operational Readiness
+
+- USS-TJR-MSN-0174 | 2026-08-10 07:58 | Supabase | Idea | Telegram Mission Operations Validation & Captain Workflow Activation
+
+- USS-TJR-MSN-0175 | 2026-08-10 07:58 | Supabase | Closed | Captain Approval Workflow
+
+- USS-TJR-MSN-0176 | 2026-08-10 07:58 | Supabase | Closed | Captain Dashboard
+
+- USS-TJR-MSN-0177 | 2026-08-10 07:58 | Supabase | Closed | Operating Picture API
+
+- USS-TJR-MSN-0180 | 2026-08-10 07:58 | Supabase | Closed | Engineering Handoff Workflow
+
+- USS-TJR-MSN-0178 | 2026-08-10 07:58 | Supabase | Closed | Mission Submission Workflow
+
+- USS-TJR-MSN-0179 | 2026-08-10 07:58 | Supabase | Closed | Telegram Operating Picture
+
+- USS-TJR-MSN-0001 | 2026-08-10 07:58 | Supabase | Closed | Build Mission Control Framework
+
+- USS-TJR-MSN-0002 | 2026-08-10 07:58 | Supabase | Closed | Reconcile Mission Control with Existing Mission Records and Runtime Bot Logic
+
+- USS-TJR-MSN-0004 | 2026-08-10 07:58 | Supabase | Closed | Supabase Knowledge Prototype
+
+- USS-TJR-MSN-0005 | 2026-08-10 07:58 | Supabase | Closed | Semantic Retrieval
+
+- USS-TJR-MSN-0005A | 2026-08-10 07:58 | Supabase | Closed | Semantic Retrieval Refinements
+
+- USS-TJR-MSN-0006 | 2026-08-10 07:58 | Supabase | Closed | Specialist-Aware Retrieval
+
+- USS-TJR-MSN-0007 | 2026-08-10 07:58 | Supabase | Closed | Notion One-Way Sync
+
+- USS-TJR-MSN-0007A | 2026-08-10 07:58 | Supabase | Closed | Notion Sync Refinements
+
+- USS-TJR-MSN-0008A | 2026-08-10 07:58 | Supabase | Closed | Collaborative Specialist Runtime
+
+- USS-TJR-MSN-0008B | 2026-08-10 07:58 | Supabase | Closed | Challenge Review Mode
+
+- USS-TJR-MSN-0008C | 2026-08-10 07:58 | Supabase | Closed | Commander LLM Synthesis
+
+- USS-TJR-MSN-0009A | 2026-08-10 07:58 | Supabase | Closed | Commander Decision Intelligence Core — Wave 1
+
+- USS-TJR-MSN-0009B | 2026-08-10 07:58 | Supabase | Closed | Commander Decision Intelligence — Wave 2
+
+- USS-TJR-MSN-0010 | 2026-08-10 07:58 | Supabase | Closed | Decision Intelligence Operationalisation
+
+- USS-TJR-MSN-0010A | 2026-08-10 07:58 | Supabase | Closed | Dual Commander Evaluation Mode
+
+- USS-TJR-MSN-0011 | 2026-08-10 07:58 | Supabase | Approved | Slack Supabase Commander Integration
+
+- USS-TJR-MSN-0011A | 2026-08-10 07:58 | Supabase | Closed | Slack Commander Intake
+
+- USS-TJR-MSN-0011B | 2026-08-10 07:58 | Supabase | Closed | Commander Response Back to Slack
+
+- USS-TJR-MSN-0011C | 2026-08-10 07:58 | Supabase | Closed | Paperclip Issue Creation from Slack
+
+- USS-TJR-MSN-0011D | 2026-08-10 07:58 | Supabase | Closed | Slack Commander Workflow Integration
+
+- USS-TJR-MSN-0012 | 2026-08-10 07:58 | Supabase | Closed | Slack Discovery & Backlog Command Layer
+
+- USS-TJR-MSN-0012B | 2026-08-10 07:58 | Supabase | Closed | Slack Command Layer — Implementation Notes B
+
+- USS-TJR-MSN-0012C | 2026-08-10 07:58 | Supabase | Closed | Slack Command Layer — Implementation Notes C
+
+- USS-TJR-MSN-0013 | 2026-08-10 07:58 | Supabase | Closed | Control Deck Startup Hardening
+
+- USS-TJR-MSN-0014A | 2026-08-10 07:58 | Supabase | Closed | Paperclip API Discovery
+
+- USS-TJR-MSN-0014B | 2026-08-10 07:58 | Supabase | Closed | Paperclip Commander Bridge Implementation
+
+- USS-TJR-MSN-0015A | 2026-08-10 07:58 | Supabase | Approved | Work Lifecycle Architecture
+
+- USS-TJR-MSN-0030 | 2026-08-10 07:58 | Supabase | Closed | Slack Commander Integration (Branding Alignment)
+
+- USS-TJR-MSN-0031 | 2026-08-10 07:58 | Supabase | Closed | Mission Registry & Workflow Engine
+
+- USS-TJR-MSN-0032 | 2026-08-10 07:58 | Supabase | Closed | Slack Integration Assessment
+
+- USS-TJR-MSN-0034 | 2026-08-10 07:58 | Supabase | Closed | Coordination Engine Assessment
+
+- USS-TJR-MSN-0035 | 2026-08-10 07:58 | Supabase | Designed | Command Centre (parent of MSN-0035B)
+
+- USS-TJR-MSN-0035B | 2026-08-10 07:58 | Supabase | Designed | Local Secret Configuration Manager
+
+- USS-TJR-MSN-0038 | 2026-08-10 07:58 | Supabase | Closed | Governance Consolidation & Capability Mapping
+
+- USS-TJR-MSN-0039 | 2026-08-10 07:58 | Supabase | Closed | Command Memory Core Architecture
+
+- USS-TJR-MSN-0040A | 2026-08-10 07:58 | Supabase | Approved | Command Memory MVP
+
+- USS-TJR-MSN-0040C | 2026-08-10 07:58 | Supabase | Approved | Governance & Registry Reconciliation (analysis)
+
+- USS-TJR-MSN-0040D | 2026-08-10 07:58 | Supabase | Approved | Capability Registry Cleanup (analysis)
+
+- USS-TJR-MSN-0041 | 2026-08-10 07:58 | Supabase | Closed | Secrets Management & Credential Rotation Framework
+
+- USS-TJR-MSN-0042 | 2026-08-10 07:58 | Supabase | Approved | Control Deck Operational Awareness Dashboard
+
+- USS-TJR-MSN-0043 | 2026-08-10 07:58 | Supabase | Closed | Repository Truth Reconciliation (findings)
+
+- USS-TJR-MSN-0045 | 2026-08-10 07:58 | Supabase | Closed | Governance Enforcement & Runtime Alignment
+
+- USS-TJR-MSN-0046 | 2026-08-10 07:58 | Supabase | Approved | Governance Register Consolidation & Population
+
+- USS-TJR-MSN-0047 | 2026-08-10 07:58 | Supabase | Idea | Code Review Process (lightweight)
+
+- USS-TJR-MSN-0048 | 2026-08-10 07:58 | Supabase | Approved | Track Untracked Code
+
+- USS-TJR-MSN-0049 | 2026-08-10 07:58 | Supabase | Closed | Semantic Retrieval Capability Validation
+
+- USS-TJR-MSN-0050 | 2026-08-10 07:58 | Supabase | Closed | Command Memory System Validation
+
+- USS-TJR-MSN-0050A | 2026-08-10 07:58 | Supabase | Closed | Command Memory Schema Authority Decision
+
+- USS-TJR-MSN-0051 | 2026-08-10 07:58 | Supabase | Closed | Command Memory Operational Remediation
+
+- USS-TJR-MSN-0052 | 2026-08-10 07:58 | Supabase | Closed | Number One Readiness Assessment
+
+- USS-TJR-MSN-0053 | 2026-08-10 07:58 | Supabase | Closed | Number One MVP Remediation
+
+- USS-TJR-MSN-0054 | 2026-08-10 07:58 | Supabase | Approved | Agent Orchestration Standardisation Discovery
+
+- USS-TJR-MSN-0055 | 2026-08-10 07:58 | Supabase | Closed | Working Memory
+
+- USS-TJR-MSN-0056 | 2026-08-10 07:58 | Supabase | Closed | Research-to-Recommendation Pipeline
+
+- USS-TJR-MSN-0057 | 2026-08-10 07:58 | Supabase | Closed | Research Knowledge Retrieval & Control Deck Integration
+
+- USS-TJR-MSN-0058 | 2026-08-10 07:58 | Supabase | Closed | Number One & XO Capability Assessment
+
+- USS-TJR-MSN-0059 | 2026-08-10 07:58 | Supabase | Approved | Proactive Operating System — WP-1 to WP-10 Execution
+
+- USS-TJR-MSN-0060 | 2026-08-10 07:58 | Supabase | Closed | Command Bridge Widget Data Remediation
+
+- USS-TJR-MSN-0003 | 2026-08-10 07:58 | Supabase | Approved | Repository Security Remediation
+
+- USS-TJR-MSN-0044 | 2026-08-10 07:58 | Supabase | Closed | Authority Reconciliation Execution

@@ -1,13 +1,24 @@
 'use client';
 
-// Human Systems Workbench — unified Recovery / Medical / Readiness collection.
+// Human Systems Workbench — unified Recovery / Medical collection.
 //
 // Standalone route (outside the (app) group), same wb- design system and
 // domain-toggle architecture as the Intelligence Workbench. Reachable from
-// /workbenches; not promoted into the LCARS navigation model. The three domains
+// /workbenches; not promoted into the LCARS navigation model. The two tabs
 // are views over data that is already live in the platform (see
-// /api/human-systems) — this page only decides which view is shown and when to
-// re-fetch.
+// /api/human-systems) — this page only decides which view is shown and when
+// to re-fetch.
+//
+// 2026-08-10: Readiness folded into the Recovery tab (not a separate API
+// domain change — /api/human-systems still serves a 'readiness' payload,
+// this page just fetches it alongside 'recovery' and renders both views
+// together). Readiness had thinned to two quick links and a "last session"
+// card after that day's manual check-in removal; Medical stayed separate —
+// still five substantive cards, and combining all three risked recreating
+// the long-scroll problem already flagged and worked around on Captain's
+// Chair the day before. `?domain=readiness` deep links (still used by the
+// readiness sub-routes' back-links) are kept working as an alias for the
+// Recovery tab rather than touching every one of those files.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,41 +28,46 @@ import { RecoveryView } from './_components/RecoveryView';
 import { MedicalView } from './_components/MedicalView';
 import { ReadinessView } from './_components/ReadinessView';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
-import type { Domain, Payload } from './_components/types';
+import type { Payload, ReadinessPayload } from './_components/types';
 
-const EYEBROW: Record<Domain, string> = {
-  recovery: 'Recovery & Capacity',
+type TabDomain = 'recovery' | 'medical';
+
+const EYEBROW: Record<TabDomain, string> = {
+  recovery: 'Recovery, Capacity & Readiness',
   medical: 'Health Tracking',
-  readiness: 'Fitness Readiness',
 };
 
-const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+const DOMAIN_OPTIONS: { key: TabDomain; label: string }[] = [
   { key: 'recovery', label: 'Recovery' },
   { key: 'medical', label: 'Medical' },
-  { key: 'readiness', label: 'Readiness' },
 ];
 
-function isDomain(v: string | null): v is Domain {
-  return v === 'recovery' || v === 'medical' || v === 'readiness';
+function isTabDomain(v: string | null): v is TabDomain {
+  return v === 'recovery' || v === 'medical';
 }
 
 function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
   const initial = params.get('domain');
-  const [domain, setDomain] = useState<Domain>(isDomain(initial) ? initial : 'recovery');
+  // 'readiness' deep links resolve into the Recovery tab (see header note).
+  const [tab, setTab] = useState<TabDomain>(isTabDomain(initial) ? initial : 'recovery');
   const [data, setData] = useState<Payload | { error: string } | null>(null);
+  const [readinessData, setReadinessData] = useState<ReadinessPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
 
   const load = useCallback(
-    (d: Domain, withSpinner: boolean) => {
+    (d: TabDomain, withSpinner: boolean) => {
       if (withSpinner) setLoading(true);
-      return fetch(`/api/human-systems?domain=${d}`)
-        .then((r) => r.json())
-        .then((payload: Payload | { error: string }) => {
+      const primary = fetch(`/api/human-systems?domain=${d}`).then((r) => r.json());
+      const readiness =
+        d === 'recovery' ? fetch('/api/human-systems?domain=readiness').then((r) => r.json()) : Promise.resolve(null);
+      return Promise.all([primary, readiness])
+        .then(([payload, readinessPayload]: [Payload | { error: string }, ReadinessPayload | { error: string } | null]) => {
           setData(payload);
+          setReadinessData(readinessPayload && !('error' in readinessPayload) ? readinessPayload : null);
           setLastUpdated(new Date());
         })
         .catch(() => setData(null))
@@ -61,31 +77,31 @@ function Workbench() {
   );
 
   useEffect(() => {
-    load(domain, true);
-  }, [domain, load]);
+    load(tab, true);
+  }, [tab, load]);
 
-  const changeDomain = (d: Domain) => {
-    setDomain(d);
+  const changeTab = (d: TabDomain) => {
+    setTab(d);
     // Keep the URL shareable/bookmarkable without a full navigation.
     const sp = new URLSearchParams(Array.from(params.entries()));
     sp.set('domain', d);
     router.replace(`/human-systems-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  // Live refresh: Recovery + Medical read the recovery_pulses signal; Readiness
-  // reads workout sessions. Only the active domain's table is subscribed.
+  // Live refresh: Recovery + Medical read the recovery_pulses signal; Recovery
+  // also carries Readiness now, so it additionally watches workout sessions.
   useRealtimeRefresh({
     table: 'recovery_pulses',
     events: ['INSERT', 'UPDATE'],
-    enabled: domain === 'recovery' || domain === 'medical',
-    onChange: () => load(domain, false),
+    enabled: tab === 'recovery' || tab === 'medical',
+    onChange: () => load(tab, false),
     onStatusChange: (s) => setLive(s === 'SUBSCRIBED'),
   });
   useRealtimeRefresh({
     table: 'physical_workout_sessions',
     events: ['INSERT', 'UPDATE'],
-    enabled: domain === 'readiness',
-    onChange: () => load(domain, false),
+    enabled: tab === 'recovery',
+    onChange: () => load(tab, false),
     onStatusChange: (s) => setLive(s === 'SUBSCRIBED'),
   });
 
@@ -96,19 +112,35 @@ function Workbench() {
   );
 
   return (
+<<<<<<< HEAD
     <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       right={right}
       tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />}
+=======
+    <WorkbenchShell title="Human Systems" eyebrow={EYEBROW[tab]}
+      tagline="USS TJR · Human Systems · Recovery & Readiness · Medical · Evidence-informed, non-diagnostic"
+      right={right}
+      tabs={<DomainToggle value={tab} onChange={changeTab} options={DOMAIN_OPTIONS} ariaLabel="Human Systems domain" />}
+>>>>>>> 3f9972f3d831aafb30298d1ef6b714751063906b
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
       {data && !('error' in data) && (
         <>
           <KpiDashboard kpis={data.kpis} />
-          {data.domain === 'recovery' && <RecoveryView data={data} />}
+          {data.domain === 'recovery' && (
+            <div className="flex flex-col gap-4">
+              <RecoveryView data={data} />
+              {readinessData && (
+                <>
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">Readiness</div>
+                  <ReadinessView data={readinessData} />
+                </>
+              )}
+            </div>
+          )}
           {data.domain === 'medical' && <MedicalView data={data} />}
-          {data.domain === 'readiness' && <ReadinessView data={data} />}
         </>
       )}
 
