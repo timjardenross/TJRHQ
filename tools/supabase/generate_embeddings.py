@@ -4,12 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import sys as _sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from embedding_client import EmbeddingClient, vector_literal
-from supabase_client import SupabaseClient
+if str(Path(__file__).resolve().parent) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _local_import_supabase import import_sibling
+
+EmbeddingClient = import_sibling("embedding_client").EmbeddingClient
+vector_literal = import_sibling("embedding_client").vector_literal
+SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 
 def fetch_chunks(client: SupabaseClient, limit: int) -> list[dict[str, Any]]:

@@ -18,10 +18,17 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-# Make tools/paperclip importable
-sys.path.insert(0, str(Path(__file__).parent / "tools" / "paperclip"))
+# Make tools/paperclip importable. Path(__file__).parent is tests/ — the repo
+# root is one level up. (Fleet Engineering Review 2026-08-11: this pointed at
+# the nonexistent tests/tools/paperclip, so `client` never resolved — this
+# file failed to even collect, standalone, before this fix.)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "paperclip"))
 
-from client import PaperclipClient  # noqa: E402
+# client.py's bare name collides with tools/supabase/client.py in a shared
+# pytest session — load this file's own sibling by exact path instead.
+from _local_import_paperclip import import_sibling  # noqa: E402
+
+PaperclipClient = import_sibling("client").PaperclipClient
 from mission_bridge import (  # noqa: E402
     _format_issue_body,
     _format_synthesis_comment,

@@ -40,7 +40,10 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from embedding_client import EmbeddingClient, EmbeddingError
+from _local_import_supabase import import_sibling
+
+EmbeddingClient = import_sibling("embedding_client").EmbeddingClient
+EmbeddingError = import_sibling("embedding_client").EmbeddingError
 
 DEFAULT_QUERIES = [
     "mission status and delivery pipeline",

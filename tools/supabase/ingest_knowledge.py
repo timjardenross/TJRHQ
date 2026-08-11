@@ -6,10 +6,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import re
+import sys as _sys
 from pathlib import Path
 from typing import Iterable
 
-from supabase_client import SupabaseClient
+if str(Path(__file__).resolve().parent) not in _sys.path:
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _local_import_supabase import import_sibling
+
+SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 
 ROOT = Path(__file__).resolve().parents[2]

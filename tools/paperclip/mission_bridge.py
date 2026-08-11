@@ -31,12 +31,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Allow import from sibling tools/supabase package when called directly
-_SUPABASE_PATH = Path(__file__).resolve().parents[1] / "supabase"
-if str(_SUPABASE_PATH) not in sys.path:
-    sys.path.insert(0, str(_SUPABASE_PATH))
+# tools/paperclip/client.py shares its bare filename with tools/supabase/
+# client.py — a plain `import client` after a sys.path insert picks up
+# whichever one happened to load first in the process (Fleet Engineering
+# Review 2026-08-11). Load this file's own sibling unambiguously instead.
+_PAPERCLIP_DIR = Path(__file__).resolve().parent
+if str(_PAPERCLIP_DIR) not in sys.path:
+    sys.path.insert(0, str(_PAPERCLIP_DIR))
+from _local_import_paperclip import import_sibling
 
-from client import PaperclipClient  # noqa: E402  (relative import within tools/paperclip)
+PaperclipClient = import_sibling("client").PaperclipClient
 
 
 # ---------------------------------------------------------------------------
