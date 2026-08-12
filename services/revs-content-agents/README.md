@@ -20,7 +20,7 @@ below.
 ### 1. Installation
 
 ```bash
-cd projects/revs-content-agents
+cd services/revs-content-agents
 ./scripts/install.sh   # venv + deps + config + output dirs
 ```
 

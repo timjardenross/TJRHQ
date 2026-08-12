@@ -8,13 +8,14 @@
 
 | Field | Value |
 |---|---|
-| **Registry Version** | 2.11 |
-| **Last Architecture Review** | 2026-07-17 (ad hoc CMDB extension — cross-referenced every "built not live" claim across ~25 missions against fresh git log + live Supabase row counts rather than trusting memory dates; added CMDB Status/Risk/Built-Deployed-Wired-Live/Category/Recommendation to every capability; added the non-capability Asset Registry and Prioritised Remediation Roadmap below; no capability count change, no maturity/confidence figures altered by this pass — this was a status/classification layer added on top, not a re-engineering pass. Source: `reports/LIVE-24-7-OPERATIONS-AUDIT-2026-07-17.md`, `reports/BUILT-VS-LIVE-CONSOLIDATED-REGISTRY-2026-07-17.md`) |
-| **Platform Capability Count** | 31 (unchanged) |
-| **Non-Capability Assets Tracked** | 15 (new, see Asset Registry) |
-| **Average Capability Maturity** | L2.13 (unchanged — Attention Engine and Continuous Captain Brief Orchestration remain L2, confidence-only changes) |
-| **Average Engineering Confidence** | ~65% (Attention Engine 55%→65%, Continuous Captain Brief Orchestration 50%→60%, Event Bus 80%→85%, small positive shifts across 3 of 31 capabilities from registry-currency correction, not new engineering) |
-| **Capabilities by Maturity** | L1: 5 · L2: 18 · L3: 7 · L4: 1 · L5: 0 |
+| **Registry Version** | 2.12 |
+| **Last Architecture Review** | 2026-08-12 (added REVS Content Generation Agents as a new capability — built, tested, and specialist-reviewed this session, previously missing from the Registry entirely per Chief Engineer's composition-first finding. No other capability's figures touched by this pass.) |
+| **Previous Review** | 2026-07-17 (ad hoc CMDB extension — cross-referenced every "built not live" claim across ~25 missions against fresh git log + live Supabase row counts rather than trusting memory dates; added CMDB Status/Risk/Built-Deployed-Wired-Live/Category/Recommendation to every capability; added the non-capability Asset Registry and Prioritised Remediation Roadmap below. Source: `reports/LIVE-24-7-OPERATIONS-AUDIT-2026-07-17.md`, `reports/BUILT-VS-LIVE-CONSOLIDATED-REGISTRY-2026-07-17.md`) |
+| **Platform Capability Count** | 32 (was 31; +1 for REVS Content Generation Agents) |
+| **Non-Capability Assets Tracked** | 15 (see Asset Registry) |
+| **Average Capability Maturity** | not recomputed this pass — one L2 addition to a 31-capability average shifts it negligibly; not worth a false-precision figure without redoing the full weighted calculation |
+| **Average Engineering Confidence** | not recomputed this pass, same reasoning — REVS itself is 65% |
+| **Capabilities by Maturity** | L1: 5 · L2: 19 · L3: 7 · L4: 1 · L5: 0 |
 
 ---
 
@@ -492,6 +493,27 @@ Every record follows the same field order: Capability Name, Description, Purpose
 - **Next Planned Evolution:** retire `content_signals` (fold its scoring logic into future Event Bus emission instead); converge the two drafting pipelines.
 - **2026-07-17 note (`registry_staleness_check.py` flagged `draft_worker.py`):** wired `draft_worker.py` into `domain_heartbeats` (`content_intelligence` domain, part of the same day's live-ops audit) and repointed its dead crontab venv path — monitoring/scheduling-config changes only, not a change to Content Intelligence's own architecture or behaviour. Confirmed not material.
 - **Last Updated:** 2026-07-17.
+
+### REVS Content Generation Agents
+
+- **Description:** turns a single design brief into 7 publication formats (article, poster, social, worksheet, presentation, podcast, video) via a 7-agent pipeline. Built for the "Recognise" product (chronic-pain/neurodivergent-audience content).
+- **Purpose:** replace manual per-format content production with one brief → all 7 formats, for a content line whose audience needs (chronic pain, neurodivergence) make consistency and speed across formats valuable.
+- **Engineering Confidence:** 65% — all 7 agents built, tested (21 pytest tests including a real ffmpeg integration test), and verified end-to-end against a real brief with two independent specialist reviews (Chief Engineer on the build, XO gatekeeping the actual outputs). Held back from higher by: no human sensitivity/clinical review gate before generation for audience-sensitive content (see Technical Debt), and by being new/single-brief-proven rather than battle-tested across the full 56-concept catalog it's meant for.
+- **Current Maturity:** L2 — Operational for a single brief/operator, not yet proven at batch scale or with a content-review process around it.
+- **Current Status:** live. CLI (`python -m src.main`) and a Telegram entry point (XO bot's `/revs_generate`, with a Confirm/Cancel step since it spends real Gemini API money per cold run) both work. No GPU on this VM, so image generation (Gemini `gemini-3-pro-image-preview`) and speech (Gemini `gemini-2.5-flash-preview-tts`) replace MISSION_BRIEF.md's original local Stable Diffusion / Coqui TTS plan; brief parsing is a deterministic Markdown-structure parser, not an LLM call. First XO gatekeeper pass returned a HOLD with 6 concrete defects (hallucinated placeholder text baked into AI-generated images, a headline-truncation bug, missing slide content, un-rendered Markdown, non-narration-ready podcast scripts, a CommonMark list-rendering bug) — all fixed and re-verified against real regenerated output before this entry was written.
+- **Owner:** none formally assigned yet — built this session, not yet handed to a domain owner.
+- **Canonical Implementation:** `services/revs-content-agents/` (own venv, own `requirements.txt` — deliberately isolated, same pattern as `telegram-bots/xo/.venv`, since its deps collide with the platform's other Python environments).
+- **Consumers:** XO Telegram bot (`telegram-bots/xo/app.py::cmd_revs_generate`), direct CLI use.
+- **Dependencies:** Gemini API (external, paid) for image/speech/text generation; no platform-internal dependencies — deliberately did not use the Local Model Router (brief parsing needs no LLM call) or a fresh Ollama pull (this VM already runs one for the rest of the platform, and REVS doesn't need a second).
+- **Capability Relationships:**
+  - *Depends On:* none shared with the rest of the platform.
+  - *Consumes:* a Markdown design brief file.
+  - *Produces:* 7 versioned output files per concept under `services/revs-content-agents/outputs/{concept_id}/v{N}/`, with an `asset_manifest.json` and a `runs.jsonl` history log.
+  - *Future Dependencies:* none identified yet.
+- **Related Missions:** none minted — built and hardened across one extended session, not tracked under a mission number.
+- **Technical Debt:** no human sensitivity/clinical review gate before generation for audience-sensitive content — the source brief promises "Therapist (with framing notes)" as a target audience with no framing notes anywhere in the brief, and nothing in the pipeline flags that gap; Docker/systemd packaging not built (runs via venv + CLI/Telegram only); no video captions/accessibility pass (an unchecked item in MISSION_BRIEF.md's own acceptance checklist); not yet run against more than one brief.
+- **Next Planned Evolution:** decide and implement a pre-generation content review step for audience-sensitive briefs; prove the pipeline at batch scale (`--input-dir`/`--parallel` exist but are untested beyond a single concept).
+- **Last Updated:** 2026-08-12.
 
 ### Health Intelligence
 
