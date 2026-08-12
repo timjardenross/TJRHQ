@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from src.agents._prompts import hero_art_prompt
 from src.integrations.gemini_client import generate_image
 from src.parsing.schemas import DesignBrief
 from src.renderers.image_renderer import add_headline_banner
@@ -15,21 +16,11 @@ _PLATFORMS = {
 class SocialAgent:
     format_name = "social"
 
-    def _hero_prompt(self, brief: DesignBrief) -> str:
-        theme = (brief.sections[0].body if brief.sections else brief.intro)[:300]
-        return (
-            f"A bold, scroll-stopping social media graphic about: '{brief.headline}'. "
-            f"Thematic context: {theme} "
-            "Style: soft abstract interlocking shapes suggesting connected systems, muted "
-            "therapeutic color palette, no readable text, no visible faces, hopeful and grounded "
-            "mood, clear open negative space across the top third for a headline overlay."
-        )
-
     def generate(self, brief: DesignBrief, output_dir: Path) -> dict:
         out_dir = output_dir / self.format_name
         out_dir.mkdir(parents=True, exist_ok=True)
         branding = load_config().get("branding", {})
-        prompt = self._hero_prompt(brief)
+        prompt = hero_art_prompt(brief, "a social media graphic")
 
         files = []
         for platform, aspect_ratio in _PLATFORMS.items():

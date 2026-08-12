@@ -6,9 +6,11 @@ system:
   version: 1.0.0
   environment: development  # development | staging | production
 
-# LLM Configuration
-# Routed through the existing Local Model Router (core/model-router) instead of a
-# dedicated Ollama pull, so parsing reuses the models already loaded on this VM.
+# LLM Configuration - NOT CURRENTLY USED. brief_parser.py is a fully deterministic
+# Markdown-structure parser, no LLM call is made for parsing. Kept here as the
+# documented fallback path (see README.md) for a future unstructured/freeform brief,
+# which would route through the platform's Local Model Router before parsing - not
+# wired up yet, this section has no effect on running code.
 llm:
   provider: model_router
   model: qwen3.5:9b  # already loaded locally via the router; swap per engineering-backend-dispatch-table
@@ -20,17 +22,22 @@ llm:
 # Image Generation
 # No GPU on this VM: local Stable Diffusion is unrealistic. Use Gemini image-gen
 # (Nano Banana Pro) for hero/key art instead, per the approved plan.
+# Informational only - the actual model name is hardcoded in gemini_client.py, not
+# read from here.
 images:
   provider: gemini  # gemini | stable_diffusion (requires GPU) | replicate_api
-  model: gemini-image  # see compound-engineering:gemini-imagegen skill
+  model: gemini-3-pro-image-preview  # see compound-engineering:gemini-imagegen skill
   use_gpu: false  # no NVIDIA GPU present on this VM
 
-# Text-to-Speech
+# Text-to-Speech - Gemini, not Coqui (no GPU on this VM; see README's
+# "Deviations from the original spec"). Informational only - the actual model
+# name/sample rate are hardcoded in gemini_client.py, not read from here.
 tts:
-  provider: coqui  # coqui | azure | google
+  provider: gemini
+  model: gemini-2.5-flash-preview-tts
   language: en
-  voice_type: professional  # professional | friendly | formal
-  sample_rate: 22050
+  voice_type: professional  # maps to voice_name="Kore" in gemini_client.py
+  sample_rate: 24000
 
 # Video Generation
 video:

@@ -1,15 +1,38 @@
+import re
+import textwrap
 from pathlib import Path
 
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Pt
 
 from src.parsing.schemas import DesignBrief
 from src.utils.config import load_config
+
+_HEADING_RE = re.compile(r"^#{1,6}\s*")
+_BOLD_SPLIT_RE = re.compile(r"(\*\*.*?\*\*)")
 
 
 def _hex_to_rgb(hex_color: str):
     from pptx.dml.color import RGBColor
     return RGBColor.from_string(hex_color.lstrip("#"))
+
+
+def _add_markdown_paragraph(text_frame, text: str, is_first: bool, font_size: int | None = None) -> None:
+    """Render `**bold**` as real bold runs and strip leading '#' heading markers,
+    instead of dumping raw Markdown syntax as literal slide text."""
+    text = _HEADING_RE.sub("", text.strip(), count=1)
+    paragraph = text_frame.paragraphs[0] if is_first else text_frame.add_paragraph()
+    for part in _BOLD_SPLIT_RE.split(text):
+        if not part:
+            continue
+        run = paragraph.add_run()
+        if part.startswith("**") and part.endswith("**"):
+            run.text = part[2:-2]
+            run.font.bold = True
+        else:
+            run.text = part
+        if font_size:
+            run.font.size = Pt(font_size)
 
 
 class PresentationAgent:
@@ -27,7 +50,7 @@ class PresentationAgent:
 
         title_slide = prs.slides.add_slide(title_layout)
         title_slide.shapes.title.text = brief.headline
-        title_slide.placeholders[1].text = brief.intro[:280]
+        title_slide.placeholders[1].text = textwrap.shorten(brief.intro, width=280, placeholder="...")
         title_slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = primary
 
         for section in brief.sections:
@@ -36,19 +59,19 @@ class PresentationAgent:
             slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = primary
             body = slide.placeholders[1].text_frame
             body.word_wrap = True
-            paragraphs = [p.strip() for p in section.body.split("\n\n") if p.strip()][:4]
-            body.text = paragraphs[0] if paragraphs else ""
-            for para in paragraphs[1:]:
-                p = body.add_paragraph()
-                p.text = para
-                p.font.size = Pt(14)
+            paragraphs = [p.strip() for p in section.body.split("\n\n") if p.strip()]
+            for i, para in enumerate(paragraphs):
+                _add_markdown_paragraph(body, para, is_first=(i == 0), font_size=14 if i > 0 else None)
             slide.notes_slide.notes_text_frame.text = section.body
 
         if brief.closing_title:
             closing_slide = prs.slides.add_slide(body_layout)
             closing_slide.shapes.title.text = brief.closing_title
             closing_slide.shapes.title.text_frame.paragraphs[0].font.color.rgb = primary
-            closing_slide.placeholders[1].text = brief.closing_body or ""
+            closing_body = closing_slide.placeholders[1].text_frame
+            closing_paragraphs = [p.strip() for p in (brief.closing_body or "").split("\n\n") if p.strip()]
+            for i, para in enumerate(closing_paragraphs):
+                _add_markdown_paragraph(closing_body, para, is_first=(i == 0))
 
         pptx_path = out_dir / f"{brief.concept_id}.pptx"
         prs.save(str(pptx_path))

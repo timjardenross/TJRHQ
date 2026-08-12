@@ -1,4 +1,8 @@
 # REVS Content Creation Agents - Configuration Template
+# install.sh copies this to config/config.yml on a fresh setup. Keep this in
+# sync with reality (see README.md's "Deviations from the original spec") -
+# an earlier version of this file described the pre-pivot stack (Ollama/SD/
+# Coqui) and a fresh install would silently regenerate a misleading config.
 
 # System Configuration
 system:
@@ -6,29 +10,37 @@ system:
   version: 1.0.0
   environment: development  # development | staging | production
 
-# LLM Configuration
+# LLM Configuration - NOT CURRENTLY USED. brief_parser.py is a fully deterministic
+# Markdown-structure parser, no LLM call is made for parsing. Kept here as the
+# documented fallback path (see README.md) for a future unstructured/freeform brief,
+# which would route through the platform's Local Model Router before parsing - not
+# wired up yet, this section has no effect on running code.
 llm:
-  provider: ollama
-  model: mistral:7b  # mistral:7b | llama2:13b
-  base_url: http://localhost:11434
+  provider: model_router
+  model: qwen3.5:9b  # already loaded locally via the router; swap per engineering-backend-dispatch-table
+  base_url: http://localhost:8891
   temperature: 0.7
   max_tokens: 4000
   timeout: 300
 
 # Image Generation
+# No GPU required: Gemini image-gen (Nano Banana Pro) generates hero/key art via API.
+# Informational only - the actual model name is hardcoded in gemini_client.py, not
+# read from here.
 images:
-  provider: stable_diffusion  # stable_diffusion | replicate_api
-  model: sd-v1-5-pruned
-  guidance_scale: 7.5
-  num_inference_steps: 30
-  use_gpu: false  # Set to true if NVIDIA GPU available
+  provider: gemini  # gemini | stable_diffusion (requires GPU) | replicate_api
+  model: gemini-3-pro-image-preview  # see compound-engineering:gemini-imagegen skill
+  use_gpu: false  # only relevant if provider is switched to stable_diffusion
 
-# Text-to-Speech
+# Text-to-Speech - Gemini, not Coqui (no local GPU assumed). Informational only -
+# the actual model name/sample rate are hardcoded in gemini_client.py, not read
+# from here.
 tts:
-  provider: coqui  # coqui | azure | google
+  provider: gemini
+  model: gemini-2.5-flash-preview-tts
   language: en
-  voice_type: professional  # professional | friendly | formal
-  sample_rate: 22050
+  voice_type: professional  # maps to voice_name="Kore" in gemini_client.py
+  sample_rate: 24000
 
 # Video Generation
 video:
@@ -68,7 +80,7 @@ logging:
 storage:
   type: local  # local | s3 | gcs
   cache_enabled: true
-  cache_ttl: 3600
+  cache_ttl: 3600  # seconds; <=0 means never expire. Wired up in gemini_client.py.
 
 # Brand Configuration
 branding:
@@ -79,7 +91,8 @@ branding:
   font_family: sans-serif
   logo_path: ./assets/logo.png
 
-# API Configuration (optional)
+# API Configuration (optional) - not built, no API server exists. Entry points
+# are the CLI (src/main.py) and the XO Telegram bot's /revs_generate command.
 api:
   enabled: false
   host: 0.0.0.0

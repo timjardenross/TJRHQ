@@ -10,6 +10,7 @@ narration. See compound-engineering:gemini-imagegen skill for the image half.
 import hashlib
 import io
 import os
+import time
 import wave
 from pathlib import Path
 
@@ -24,9 +25,11 @@ from src.utils.logging import get_logger
 
 _IMAGE_MODEL = "gemini-3-pro-image-preview"
 _TTS_MODEL = "gemini-2.5-flash-preview-tts"
+_TEXT_MODEL = "gemini-2.5-flash"
 _TTS_SAMPLE_RATE = 24000
 _CACHE_DIR = Path(__file__).resolve().parents[2] / "outputs" / ".cache"
 _client: genai.Client | None = None
+_cache_pruned = False
 log = get_logger("gemini_client")
 
 _retry_gemini = retry(
@@ -50,7 +53,38 @@ def _cache_enabled() -> bool:
     return load_config().get("storage", {}).get("cache_enabled", True)
 
 
+def _cache_ttl() -> int:
+    """Seconds a cache entry stays valid; <=0 means never expire. config.yml declared
+    this (storage.cache_ttl) from the start but nothing ever read it - cache grew
+    unbounded with no eviction. Wired up here (freshness check + a one-time sweep of
+    already-expired files per process, not a background job)."""
+    return load_config().get("storage", {}).get("cache_ttl", 3600)
+
+
+def _cache_fresh(path: Path) -> bool:
+    ttl = _cache_ttl()
+    return ttl <= 0 or (time.time() - path.stat().st_mtime) < ttl
+
+
+def _prune_expired_cache_once() -> None:
+    global _cache_pruned
+    if _cache_pruned or not _CACHE_DIR.exists():
+        return
+    _cache_pruned = True
+    ttl = _cache_ttl()
+    if ttl <= 0:
+        return
+    removed = 0
+    for path in _CACHE_DIR.rglob("*"):
+        if path.is_file() and not _cache_fresh(path):
+            path.unlink()
+            removed += 1
+    if removed:
+        log.info(f"cache prune: removed {removed} expired file(s) (ttl={ttl}s)")
+
+
 def _cache_path(kind: str, cache_key: str, ext: str) -> Path:
+    _prune_expired_cache_once()
     digest = hashlib.sha256(cache_key.encode()).hexdigest()[:24]
     path = _CACHE_DIR / kind / f"{digest}.{ext}"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +111,7 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1", resolution: str = "1K
     cache_key = f"{_IMAGE_MODEL}|{prompt}|{aspect_ratio}|{resolution}"
     cache_file = _cache_path("images", cache_key, "jpg")
 
-    if _cache_enabled() and cache_file.exists():
+    if _cache_enabled() and cache_file.exists() and _cache_fresh(cache_file):
         log.info(f"image cache hit: {prompt[:60]!r}")
         return PILImage.open(cache_file)
 
@@ -87,6 +121,27 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1", resolution: str = "1K
     # Decode fresh from bytes rather than the just-written file, so caching stays a
     # side effect and behaves identically whether cache_enabled is True or False.
     return PILImage.open(io.BytesIO(data))
+
+
+@_retry_gemini
+def _call_generate_text(prompt: str) -> str:
+    response = _get_client().models.generate_content(model=_TEXT_MODEL, contents=prompt)
+    return response.text
+
+
+def generate_text(prompt: str) -> str:
+    """Plain text completion (e.g. narration rewriting), cached like the other calls."""
+    cache_key = f"{_TEXT_MODEL}|{prompt}"
+    cache_file = _cache_path("text", cache_key, "txt")
+
+    if _cache_enabled() and cache_file.exists() and _cache_fresh(cache_file):
+        log.info(f"text cache hit: {prompt[:60]!r}")
+        return cache_file.read_text(encoding="utf-8")
+
+    result = _call_generate_text(prompt)
+    if _cache_enabled():
+        cache_file.write_text(result, encoding="utf-8")
+    return result
 
 
 @_retry_gemini
@@ -112,7 +167,7 @@ def generate_speech(text: str, voice_name: str = "Kore", out_path: str | None = 
     cache_key = f"{_TTS_MODEL}|{voice_name}|{text}"
     cache_file = _cache_path("speech", cache_key, "wav")
 
-    if _cache_enabled() and cache_file.exists():
+    if _cache_enabled() and cache_file.exists() and _cache_fresh(cache_file):
         log.info(f"speech cache hit: {len(text)} chars")
         wav_bytes = cache_file.read_bytes()
     else:

@@ -1,8 +1,30 @@
+import re
 from pathlib import Path
 
 import pypandoc
 
 from src.parsing.schemas import DesignBrief
+
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s")
+
+
+def _ensure_blank_line_before_lists(text: str) -> str:
+    """CommonMark only starts a list at a blank line, document start, or another
+    list item - a '- item' line right after a paragraph/bold-header line with no
+    blank line between them is a "lazy continuation" of that paragraph, not a new
+    list. Briefs are commonly authored as "**Monday:**\\n- Pain: 5/10\\n..." with
+    no blank line, which pandoc then renders as one run-on <p>, not a <ul>. Insert
+    the missing blank line before each list's first item (not between items)."""
+    lines = text.split("\n")
+    result = []
+    prev_was_list = False
+    for line in lines:
+        is_list = bool(_LIST_ITEM_RE.match(line))
+        if is_list and not prev_was_list and result and result[-1].strip() != "":
+            result.append("")
+        result.append(line)
+        prev_was_list = is_list
+    return "\n".join(result)
 
 
 class ArticleAgent:
@@ -14,7 +36,8 @@ class ArticleAgent:
             parts += ["", f"## {section.title}", "", section.body]
         if brief.closing_title:
             parts += ["", f"## {brief.closing_title}", "", brief.closing_body or ""]
-        return "\n".join(parts) + "\n"
+        markdown = "\n".join(parts) + "\n"
+        return _ensure_blank_line_before_lists(markdown)
 
     def generate(self, brief: DesignBrief, output_dir: Path) -> dict:
         out_dir = output_dir / self.format_name
