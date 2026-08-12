@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -2468,17 +2469,22 @@ async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # ── REVS Content Agents ───────────────────────────────────────────────────────
-# Standalone project (/opt/TJRHQ/projects/revs-content-agents), not part of this
-# repo - its own venv/deps (Pillow, google-genai, Weasyprint, ...) collide with
-# this bot's, so it's shelled out to exactly like the advisory CLI above, never
-# imported in-process. Design brief -> 7 formats (article/poster/social/
-# worksheet/presentation/podcast/video); each run is versioned under
-# outputs/{concept_id}/v{N}/ with a matching asset_manifest.json.
+# services/revs-content-agents in this same monorepo (SUOC Platform Registry entry:
+# knowledge/SUOC-Platform-Registry.md), but a different local clone
+# (/opt/TJRHQ, not this one) - its own venv/deps (Pillow, google-genai,
+# Weasyprint, ...) collide with this bot's, so it's shelled out to exactly like
+# the advisory CLI above, never imported in-process. Design brief -> 7 formats
+# (article/poster/social/worksheet/presentation/podcast/video); each run is
+# versioned under outputs/{concept_id}/v{N}/ with a matching asset_manifest.json.
 
-_REVS_ROOT = Path("/opt/TJRHQ/projects/revs-content-agents")
+_REVS_ROOT = Path("/opt/TJRHQ/services/revs-content-agents")
 _REVS_PYTHON = _REVS_ROOT / "venv" / "bin" / "python"
 _REVS_FORMATS = {"article", "poster", "social", "worksheet", "presentation", "podcast", "video"}
 _REVS_SUMMARY_RE = re.compile(r"^(\S+) v(\d+): (\d+)/(\d+) format\(s\) -> (.+)$")
+# Pending /revs_generate confirmations, keyed by a short id (not the full brief_path -
+# Telegram callback_data is capped at 64 bytes, a real path can easily exceed that).
+# In-memory only, single-process bot - fine for a confirm step with a short lifetime.
+_revs_pending: dict[str, tuple[str, str | None]] = {}
 
 
 def _revs_generate_call(brief_path: str, formats: str | None, timeout: int) -> tuple[int, str]:
@@ -2493,13 +2499,57 @@ def _revs_generate_call(brief_path: str, formats: str | None, timeout: int) -> t
     return result.returncode, ((result.stdout or "") + (result.stderr or "")).strip()
 
 
+async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> None:
+    """Actually run the pipeline and report the result. `reply_fn` is an async
+    callable(str) -> None - either update.message.reply_text or query.edit_message_text,
+    so this same logic serves both the confirm-callback path and any future direct-run path."""
+    try:
+        returncode, output = await asyncio.get_event_loop().run_in_executor(
+            None, _revs_generate_call, brief_path, formats, 600)
+    except subprocess.TimeoutExpired:
+        await reply_fn("⚠️ REVS generation timed out (10min).")
+        return
+    except Exception as exc:
+        log.error("[revs] generate failed: %s", exc)
+        await reply_fn(f"⚠️ REVS generation failed: {str(exc)[:200]}")
+        return
+
+    if returncode != 0:
+        await reply_fn(f"⚠️ REVS generation error:\n\n{output[-1500:]}")
+        return
+
+    summary_match = None
+    for line in reversed(output.splitlines()):
+        summary_match = _REVS_SUMMARY_RE.match(line.strip())
+        if summary_match:
+            break
+    if not summary_match:
+        await reply_fn(f"✅ Ran, but couldn't parse the summary line:\n\n{output[-1000:]}")
+        return
+
+    concept_id, version, ok, total, version_dir = summary_match.groups()
+    try:
+        manifest = json.loads((_REVS_ROOT / version_dir / "asset_manifest.json").read_text())
+        reply = [f"✅ {concept_id} v{version} — {ok}/{total} format(s) in {manifest['duration_seconds']}s"]
+        for o in manifest["outputs"]:
+            icon = "✅" if o["status"] == "success" else "❌"
+            detail = "" if o["status"] == "success" else f" — {o.get('error', '')[:80]}"
+            reply.append(f"{icon} {o['format']} ({o['duration_seconds']}s){detail}")
+        reply.append(f"\n📁 {version_dir}")
+        await reply_fn("\n".join(reply))
+    except Exception:
+        await reply_fn(f"✅ {concept_id} v{version} — {ok}/{total} format(s)\n📁 {version_dir}")
+
+
 async def cmd_revs_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate REVS content assets from a design brief. Usage:
     /revs_generate <brief path> [formats]
     Brief path is relative to revs-content-agents/ (e.g. examples/sample_brief.md)
     or absolute. Formats is an optional comma list (e.g. poster,social) - default all 7.
     A cold 7-format run costs real Gemini API spend and can take ~8min; reruns of
-    an unchanged brief hit the pipeline's own cache and finish in seconds."""
+    an unchanged brief hit the pipeline's own cache and finish in seconds. Asks for
+    confirmation before running, since unlike this bot's other commands this one
+    spends real money per invocation."""
     args = context.args or []
     if not args:
         await update.message.reply_text(
@@ -2530,46 +2580,48 @@ async def cmd_revs_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     brief_path = str(check_path)  # use the validated path, not the raw user input, downstream
 
+    request_id = uuid.uuid4().hex[:8]
+    _revs_pending[request_id] = (brief_path, formats)
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ Confirm", callback_data=f"rg|confirm|{request_id}"),
+        InlineKeyboardButton("❌ Cancel",  callback_data=f"rg|cancel|{request_id}"),
+    ]])
     await update.message.reply_text(
+        f"Generate REVS content from `{brief_path}`" + (f" ({formats})" if formats else " (all 7 formats)")
+        + "?\nA cold run costs real Gemini API spend and can take several minutes; "
+          "reruns of an unchanged brief hit the cache and are fast/cheap.",
+        reply_markup=keyboard,
+    )
+
+
+async def handle_revs_generate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle Confirm/Cancel on a pending /revs_generate request."""
+    query = update.callback_query
+    await query.answer()
+
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+
+    parts = query.data.split("|")  # rg|action|request_id
+    if len(parts) != 3:
+        return
+    _, action, request_id = parts
+
+    pending = _revs_pending.pop(request_id, None)
+    if pending is None:
+        await query.edit_message_text("⚠️ This confirmation expired or was already handled.")
+        return
+
+    brief_path, formats = pending
+    if action == "cancel":
+        await query.edit_message_text(f"❌ Cancelled: `{brief_path}`" + (f" ({formats})" if formats else ""))
+        return
+
+    await query.edit_message_text(
         f"⚙️ Generating REVS content from `{brief_path}`" + (f" ({formats})" if formats else "")
         + " — this can take a few minutes on a cold run…"
     )
-    try:
-        returncode, output = await asyncio.get_event_loop().run_in_executor(
-            None, _revs_generate_call, brief_path, formats, 600)
-    except subprocess.TimeoutExpired:
-        await update.message.reply_text("⚠️ REVS generation timed out (10min).")
-        return
-    except Exception as exc:
-        log.error("[revs] generate failed: %s", exc)
-        await update.message.reply_text(f"⚠️ REVS generation failed: {str(exc)[:200]}")
-        return
-
-    if returncode != 0:
-        await update.message.reply_text(f"⚠️ REVS generation error:\n\n{output[-1500:]}")
-        return
-
-    summary_match = None
-    for line in reversed(output.splitlines()):
-        summary_match = _REVS_SUMMARY_RE.match(line.strip())
-        if summary_match:
-            break
-    if not summary_match:
-        await update.message.reply_text(f"✅ Ran, but couldn't parse the summary line:\n\n{output[-1000:]}")
-        return
-
-    concept_id, version, ok, total, version_dir = summary_match.groups()
-    try:
-        manifest = json.loads((_REVS_ROOT / version_dir / "asset_manifest.json").read_text())
-        reply = [f"✅ {concept_id} v{version} — {ok}/{total} format(s) in {manifest['duration_seconds']}s"]
-        for o in manifest["outputs"]:
-            icon = "✅" if o["status"] == "success" else "❌"
-            detail = "" if o["status"] == "success" else f" — {o.get('error', '')[:80]}"
-            reply.append(f"{icon} {o['format']} ({o['duration_seconds']}s){detail}")
-        reply.append(f"\n📁 {version_dir}")
-        await update.message.reply_text("\n".join(reply))
-    except Exception:
-        await update.message.reply_text(f"✅ {concept_id} v{version} — {ok}/{total} format(s)\n📁 {version_dir}")
+    await _run_revs_generate(query.edit_message_text, brief_path, formats)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -2684,6 +2736,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
+    app.add_handler(CallbackQueryHandler(handle_revs_generate_callback, pattern=r"^rg\|"))
     app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
