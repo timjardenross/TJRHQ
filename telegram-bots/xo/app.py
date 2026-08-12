@@ -2521,12 +2521,14 @@ async def cmd_revs_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
             return
 
-    check_path = Path(brief_path)
-    if not check_path.is_absolute():
-        check_path = _REVS_ROOT / brief_path
-    if not check_path.exists():
-        await update.message.reply_text(f"⚠️ Brief not found: `{brief_path}`")
+    # Path(a) / b discards `a` entirely when `b` is absolute, so this also catches an
+    # absolute-path escape attempt, not just relative "../" traversal - resolve() +
+    # is_relative_to() below is the actual confinement check either way.
+    check_path = (_REVS_ROOT / brief_path).resolve()
+    if not check_path.is_relative_to(_REVS_ROOT.resolve()) or not check_path.exists():
+        await update.message.reply_text(f"⚠️ Brief not found or outside {_REVS_ROOT}: `{brief_path}`")
         return
+    brief_path = str(check_path)  # use the validated path, not the raw user input, downstream
 
     await update.message.reply_text(
         f"⚙️ Generating REVS content from `{brief_path}`" + (f" ({formats})" if formats else "")
