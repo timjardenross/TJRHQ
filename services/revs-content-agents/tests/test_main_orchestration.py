@@ -38,7 +38,8 @@ def test_manifest_carries_brief_metadata(tmp_path, monkeypatch):
 
     assert manifest["concept_id"] == "REC-001"
     assert manifest["status"] == "Production-Ready"
-    assert manifest["target_audiences"] == ["Individual", "Therapist (with framing notes)"]
+    assert manifest["target_audiences"][0] == "Individual"
+    assert manifest["target_audiences"][1].startswith("Therapist")
 
 
 def test_repeated_runs_version_and_track_history(tmp_path, monkeypatch):

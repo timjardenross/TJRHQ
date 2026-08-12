@@ -4,7 +4,7 @@
 **Concept ID:** REC-001  
 **Format:** Article (1,200+ words)  
 **Status:** Production-Ready  
-**Target Audiences:** Individual + Therapist (with framing notes)
+**Target Audiences:** Individual + Therapist (framing notes: not yet written - see Registry technical debt entry for REVS Content Generation Agents)
 
 ---
 

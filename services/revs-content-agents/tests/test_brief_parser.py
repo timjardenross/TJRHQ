@@ -6,7 +6,10 @@ from src.parsing.brief_parser import parse_brief
 def test_parses_real_brief(brief):
     assert brief.concept_id == "REC-001"
     assert brief.status == "Production-Ready"
-    assert brief.target_audiences == ["Individual", "Therapist (with framing notes)"]
+    assert brief.target_audiences == [
+        "Individual",
+        "Therapist (framing notes: not yet written - see Registry technical debt entry for REVS Content Generation Agents)",
+    ]
     assert brief.headline.startswith("You Are Not One Problem")
     assert len(brief.sections) == 5
     assert brief.sections[0].word_target == 200
