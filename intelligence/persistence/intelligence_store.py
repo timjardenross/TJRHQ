@@ -874,15 +874,45 @@ def link_events_to_brief(event_ids: list[str], brief_id: str) -> None:
 
 
 def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
+    """2026-08-13: ranking used to be pure rank_score.desc within the window,
+    so a 6-day-old 0.98 always beat a 1-hour-old 0.90 — the window bounded
+    how far back staleness could reach, but did nothing to weight recency
+    inside it. Over-fetches the window (up to 3x limit) then re-sorts by a
+    score decayed with a 3-day half-life, so genuinely fresh events can
+    outrank older-but-higher-scored ones without discarding real severity —
+    a 0.98 from yesterday still beats a 0.50 from an hour ago."""
     from datetime import timezone, timedelta
+    from math import exp
+
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-    return _get(
+    fetch_limit = min(limit * 3, 600)
+    rows = _get(
         f"intelligence_events"
         f"?collected_at=gte.{since}"
         f"&suppressed=eq.false"
         f"&order=rank_score.desc"
-        f"&limit={limit}"
+        f"&limit={fetch_limit}"
     )
+    if not rows:
+        return rows
+
+    half_life_days = 3.0
+    now = datetime.now(timezone.utc)
+
+    def _effective_score(row: dict) -> float:
+        raw = row.get("rank_score") or 0.0
+        collected = row.get("collected_at")
+        if not collected:
+            return raw
+        try:
+            ts = datetime.fromisoformat(collected.replace("Z", "+00:00"))
+        except ValueError:
+            return raw
+        age_days = max(0.0, (now - ts).total_seconds() / 86_400)
+        return raw * exp(-age_days / half_life_days * 0.6931471805599453)  # ln(2)
+
+    rows.sort(key=_effective_score, reverse=True)
+    return rows[:limit]
 
 
 # ─── Briefs ───────────────────────────────────────────────────────────────────

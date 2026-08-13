@@ -147,10 +147,18 @@ def create_opportunities_from_signals(
     if domain in ("health", "operational"):
         domain_filter = f"&domain=eq.{domain}"
 
+    # 2026-08-13: was unwindowed — pure rank_score.desc lets a months-old
+    # high-scoring signal outrank everything scored since, the same "stale
+    # dominates forever" defect found in intelligence_events' own consumers.
+    # Matches load_recent_events()'s 14-day default elsewhere in the platform.
+    from datetime import datetime, timezone, timedelta
+    since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+
     signals = _get(
         "content_signals"
         f"?rank_score=gte.{min_rank_score}"
         "&suppressed=eq.false"
+        f"&scored_at=gte.{since}"
         f"{domain_filter}"
         "&order=rank_score.desc"
         f"&limit={limit}"
