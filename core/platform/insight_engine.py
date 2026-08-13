@@ -222,11 +222,23 @@ def _parse_insight_response(
     )
 
 
+DEFAULT_MAX_CANDIDATES = 3
+# 2026-08-13: each candidate is one sequential, synchronous model-router
+# call (up to 280s). Was unbounded — the whole pipeline sits behind one
+# fixed ~290s client-side timeout (lcars-portal's generate route), so any
+# run with 3+ real candidates structurally exceeded it. Live evidence: one
+# synthesis call timed out outright, followed by two successful calls
+# taking 77s + 185s = 262s against the 290s budget. Capping bounds
+# wall-clock time regardless of how many candidates a given run surfaces,
+# rather than just raising the ceiling and hitting the same wall at a
+# higher candidate count.
+
 def generate_insights(
     graph: OperationalContextGraph,
     *,
     min_strength: float = 0.4,
     recent_aggregation_keys: frozenset[str] = frozenset(),
+    max_candidates: int = DEFAULT_MAX_CANDIDATES,
 ) -> list[Insight]:
     """Only relationships clearing `min_strength` and all conflicts are
     sent to the LLM — the deterministic layer remains the actual gate;
@@ -245,12 +257,25 @@ def generate_insights(
     same non-actionable claim on every scheduled run, forever. Filtered
     here (before the model router call) rather than after, so the LLM
     call — the expensive, slow step — is skipped entirely, not just its
-    output discarded."""
-    candidates: list[Relationship | Conflict] = [
-        r for r in graph.relationships
-        if r.strength >= min_strength
-        and not (r.kind == "aggregation" and r.aggregation_key in recent_aggregation_keys)
-    ] + list(graph.conflicts)
+    output discarded.
+
+    2026-08-13: `max_candidates` bounds the sequential model-router calls
+    this makes (see module-level note above). Conflicts are real detected
+    tensions, not scored by strength, so they're always prioritized ahead
+    of relationships; relationships fill any remaining budget strongest
+    first."""
+    relationship_candidates = sorted(
+        (
+            r for r in graph.relationships
+            if r.strength >= min_strength
+            and not (r.kind == "aggregation" and r.aggregation_key in recent_aggregation_keys)
+        ),
+        key=lambda r: r.strength,
+        reverse=True,
+    )
+    candidates: list[Relationship | Conflict] = (
+        list(graph.conflicts) + relationship_candidates
+    )[:max_candidates]
 
     insights: list[Insight] = []
     for item in candidates:
