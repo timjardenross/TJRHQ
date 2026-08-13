@@ -22,7 +22,7 @@ async function getIntelligenceSummary(sb: any) {
     .from('health_signals')
     .select(`
       signal_id, title, description, signal_type, health_domain, rank_score, sample_size, study_design,
-      p_value, published_at, collected_at, actionable_recommendation,
+      p_value, published_at, collected_at, actionable_recommendation, canonical_url,
       confidence_level, health_source_registry ( source_name, source_url, reliability_tier, reliability_score )
     `)
     .eq('suppressed', false)
@@ -38,7 +38,7 @@ async function getIntelligenceSummary(sb: any) {
     signal_id: s.signal_id,
     title: s.title,
     summary: s.description ? s.description.slice(0, 220) : null,
-    source_url: s.health_source_registry?.source_url || null,
+    source_url: s.canonical_url || s.health_source_registry?.source_url || null,
     signal_type: s.signal_type,
     health_domain: s.health_domain,
     confidence_level: (s.confidence_level || 'UNKNOWN').toLowerCase(),

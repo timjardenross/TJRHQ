@@ -39,7 +39,8 @@ async function getConfidenceMatrix(sb: any) {
       confidence_level,
       rank_score,
       source_id,
-      health_source_registry ( source_name, reliability_tier, reliability_score )
+      canonical_url,
+      health_source_registry ( source_name, source_url, reliability_tier, reliability_score )
     `)
     .eq('suppressed', false)
     .gte('collected_at', since)
@@ -56,6 +57,7 @@ async function getConfidenceMatrix(sb: any) {
     confidence_level: (s.confidence_level || 'UNKNOWN').toLowerCase(),
     rank_score: s.rank_score,
     source_name: s.health_source_registry?.source_name || 'Unknown',
+    source_url: s.canonical_url || s.health_source_registry?.source_url || null,
     srs: s.health_source_registry?.reliability_score ?? null,
   }));
 

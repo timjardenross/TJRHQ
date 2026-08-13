@@ -158,7 +158,13 @@ function Workbench() {
             <div className="mt-3 space-y-2">
               {data.signals?.slice(0, 10).map((s: any) => (
                 <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                  <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+                  {s.source_url ? (
+                    <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+                      {domainEmoji(s.health_domain)} {s.title}
+                    </a>
+                  ) : (
+                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+                  )}
                   <div>{s.category} • {s.confidence_level.toUpperCase()} • {s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
                 </div>
               ))}
