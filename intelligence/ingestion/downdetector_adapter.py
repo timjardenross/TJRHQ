@@ -231,6 +231,18 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 f"Could not parse Downdetector status from {self.source.url} "
                 "(page shape may have changed)"
             )
+        if report_count is None:
+            # 2026-08-13: only the prose fallback matched — no atomic report
+            # count available. _passes_gate() below always fails without a
+            # count, indistinguishable in the logs from a genuinely quiet
+            # day ("ok, 0 items") unless flagged here. If this fires
+            # consistently for a source, its page shape likely changed and
+            # the primary _STATUS_COUNT_PATTERN needs updating.
+            log.warning(
+                "[%s] parsed status via prose fallback only (no report count) — "
+                "page shape may have drifted from the primary pattern",
+                self.source.source_name,
+            )
 
         # Every real fetch logs here — migration 0121's
         # downdetector_baseline_history, the accumulation ledger the nightly
