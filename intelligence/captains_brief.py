@@ -279,7 +279,7 @@ def _get_recent_signals(hours: int = 24) -> list[dict]:
     )
     rows = _sb_get(
         "intelligence_events",
-        f"collected_at=gte.{since}&suppressed=eq.false"
+        f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&order=rank_score.desc&limit=5"
         f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
     )

@@ -890,6 +890,7 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
         f"intelligence_events"
         f"?collected_at=gte.{since}"
         f"&suppressed=eq.false"
+        f"&signal_status=neq.DUPLICATE"
         f"&order=rank_score.desc"
         f"&limit={fetch_limit}"
     )

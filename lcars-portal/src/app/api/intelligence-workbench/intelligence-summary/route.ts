@@ -18,6 +18,7 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
     .limit(150);
 
   if (!includeSuppressed) query = query.eq('suppressed', false);
+  query = query.neq('signal_status', 'DUPLICATE');
 
   const { data: signals, error: signalsErr } = await query;
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);

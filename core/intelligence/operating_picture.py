@@ -154,7 +154,7 @@ def _build_intelligence_section() -> dict:
     )
     signals = _sb_get(
         "intelligence_events",
-        f"collected_at=gte.{since_24h}&suppressed=eq.false"
+        f"collected_at=gte.{since_24h}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&order=rank_score.desc&limit=10"
         f"&select=raw_title,event_type,geography,risk_rating,rank_score,collected_at",
     )
