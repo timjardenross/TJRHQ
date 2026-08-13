@@ -273,17 +273,56 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     return _with_risk_label(rows)
 
 
-def _get_recent_signals(hours: int = 24) -> list[dict]:
+def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     rows = _sb_get(
         "intelligence_events",
         f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
-        f"&order=rank_score.desc&limit=5"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary",
     )
     return _with_risk_label(rows)
+
+
+def _format_signal_commentary(s: dict) -> Optional[str]:
+    """One-line real commentary from raw_summary — never fabricated. The
+    enrichment columns meant to hold analysis (analysis_summary,
+    enriched_summary) are unpopulated on live data (checked 2026-08-13:
+    100% NULL across recent events), so raw_summary — the actual scraped
+    description, present on roughly half of events — is the only honest
+    source available. Signals without one just show the title; no filler
+    text stands in for it."""
+    summary = (s.get("raw_summary") or "").strip()
+    if not summary:
+        return None
+    return _truncate_clean(summary, 130)
+
+
+def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4, max_medium: int = 3) -> list[str]:
+    """Shared HIGH/MEDIUM signal renderer for Morning Brief and EOD Summary
+    (2026-08-13, replaces each brief's own flat top-N list). LOW/none-rated
+    signals are never shown here — same "only surface what's worth a
+    look" principle _format_infra_block already uses."""
+    high = [s for s in signals if s.get("risk_rating") == "HIGH"][:max_high]
+    medium = [s for s in signals if s.get("risk_rating") == "MEDIUM"][:max_medium]
+    if not high and not medium:
+        return []
+
+    count_bits = []
+    if high:
+        count_bits.append(f"{len(high)} HIGH")
+    if medium:
+        count_bits.append(f"{len(medium)} MEDIUM")
+    lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
+    for s in high + medium:
+        lines.append(f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}")
+        commentary = _format_signal_commentary(s)
+        if commentary:
+            lines.append(f"     <i>{commentary}</i>")
+    lines.append("")
+    return lines
 
 
 # ── Weekly OSINT roll-up (2026-08-10 weekly report redesign) ──────────────────
@@ -825,13 +864,9 @@ def generate_morning_brief() -> str:
         ]
 
     # Intelligence signals
-    if signals:
-        lines.append("<b>📡 INTELLIGENCE (24h)</b>")
-        for s in signals[:4]:
-            lines.append(
-                f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}"
-            )
-        lines.append("")
+    signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
+    if signal_block:
+        lines += signal_block
     elif brief:
         snap = brief.get("executive_snapshot") or brief.get("bottom_line") or ""
         if snap:
@@ -874,6 +909,13 @@ def generate_eod_summary() -> str:
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
+    # 2026-08-13: EOD previously carried no intelligence section at all —
+    # the day could close showing zero signal activity regardless of what
+    # actually happened. Scoped to "since this morning's 07:00 brief"
+    # rather than a flat 24h window, so it reads as today's activity, not
+    # a re-run of the same lookback the morning brief already showed.
+    hours_since_morning = max(1, min(24, int((now - now.replace(hour=7, minute=0, second=0, microsecond=0)).total_seconds() / 3600)))
+    todays_signals = _get_recent_signals(hours=hours_since_morning)
     # Part 1 item 2: fetch this morning's persisted text so repeated blocks
     # below can be marked "(unchanged since this morning)" instead of
     # silently re-rendering identically.
@@ -919,6 +961,7 @@ def generate_eod_summary() -> str:
             lines.append(f"  {' · '.join(signals)}")
         lines.append("")
 
+    lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")
     lines += _format_infra_block(infra, morning_text)
 
     lines += [
