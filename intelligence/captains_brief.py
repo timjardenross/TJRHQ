@@ -274,12 +274,28 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
 
 
 def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
+    """2026-08-13: excludes raw vulnerability-bulletin noise (Captain:
+    "I thought we excluded CVEs") — a live brief had all 4 HIGH slots
+    filled by generic vendor CVSS bulletins (1 literal CVE-titled, 3
+    Fortinet PSIRT advisories with no CVE- prefix but the same templated
+    "CVSSv3 Score: X.X ... [CWE-nnn] ..." shape and zero Captain-specific
+    relevance). event_type/sector don't distinguish these from real cyber
+    incident news (both are 'cyber'/'cyber_security' — a sector-level
+    exclusion would also hide genuine breach/ransomware/outage reporting),
+    so this matches on the two concrete fingerprints instead: a CVE-*
+    title, or a raw_summary in the CVSSv3-bulletin template. The `or=` OR
+    on raw_summary explicitly re-admits NULL — PostgREST's `not.ilike`
+    alone silently drops NULL rows (NULL NOT ILIKE '%x%' is NULL, not
+    true), which would have dropped every event with no raw_summary at
+    all, not just the bulletins."""
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     rows = _sb_get(
         "intelligence_events",
         f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+        f"&raw_title=not.ilike.CVE-*"
+        f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit={limit}"
         f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary",
     )
