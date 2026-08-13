@@ -154,18 +154,6 @@ def _get_infra_verification() -> Optional[dict]:
         return None
 
 
-def _get_content_review_queue(limit: int = 5) -> list[dict]:
-    """Content pipeline items awaiting the Captain's own review/publish
-    decision — the intelligence-to-writing loop, distinct from RESIL-EXT's
-    intelligence signals. 2026-07-18 audit: this pipeline had produced real
-    drafts that were never surfaced anywhere, so nobody knew to look."""
-    return _sb_get(
-        "comms_content",
-        "status=in.(draft,review,ready_to_publish)&order=draft_generated_at.desc.nullslast"
-        f"&limit={limit}&select=title,pillar,status,draft_generated_at",
-    )
-
-
 def _get_todays_morning_brief_text() -> Optional[str]:
     """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
     morning's already-persisted brief text so the EOD summary can detect
@@ -345,10 +333,9 @@ def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
 
 def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
     """Content published or moved to review/approval in the last `days` days —
-    extends _get_content_review_queue's status set with 'published' and
-    'approved' and windows by updated_at (comms_content has no dedicated
-    status-change timestamp) instead of returning the standing pending-queue
-    snapshot the daily briefs use."""
+    windows by updated_at (comms_content has no dedicated status-change
+    timestamp), for the weekly report only (the daily briefs' own pending-queue
+    snapshot was removed 2026-08-13)."""
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     return _sb_get(
         "comms_content",
@@ -625,30 +612,6 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     ]
 
 
-def _format_content_review_block(content_queue: list[dict], morning_text: Optional[str] = None) -> list[str]:
-    """Shared Content Review renderer (Part 1 item 2: de-dupe the block that
-    was copy-pasted verbatim between generate_morning_brief() and
-    generate_eod_summary()). Each item now also shows its age (item 3).
-    `morning_text`, when supplied (EOD only), is this morning's already-
-    persisted brief text — if every title shown here already appeared
-    there, the header is marked "(unchanged since this morning)" instead of
-    silently re-listing an identical queue."""
-    if not content_queue:
-        return []
-    titles = [c.get("title") or "(untitled)" for c in content_queue]
-    unchanged = bool(morning_text) and all(t in morning_text for t in titles)
-    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
-    lines = [f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>{suffix}"]
-    for c in content_queue:
-        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-        age = _relative_age(c.get("draft_generated_at"))
-        lines.append(
-            f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar} · {age}]"
-        )
-    lines.append("")
-    return lines
-
-
 def _format_weekly_osint_block(
     title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
     summary: Optional[str] = None, top_n: int = 3,
@@ -700,9 +663,7 @@ def _format_weekly_osint_block(
 
 
 def _format_weekly_content_block(items: list[dict]) -> list[str]:
-    """Content published or moved to review/approval this week — weekly
-    counterpart to _format_content_review_block's standing pending-queue
-    snapshot."""
+    """Content published or moved to review/approval this week."""
     if not items:
         return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
     status_counts = Counter(c.get("status", "?") for c in items)
@@ -817,7 +778,6 @@ def generate_morning_brief() -> str:
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
     infra = _get_infra_verification()
-    content_queue = _get_content_review_queue()
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
@@ -889,10 +849,6 @@ def generate_morning_brief() -> str:
     # of the day, so there is no "unchanged since this morning" to check.
     lines += _format_infra_block(infra)
 
-    # Content pipeline — intelligence-to-writing drafts awaiting the
-    # Captain's own review/publish decision. Only shown when non-empty.
-    lines += _format_content_review_block(content_queue)
-
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -918,7 +874,6 @@ def generate_eod_summary() -> str:
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
-    content_queue = _get_content_review_queue()
     # Part 1 item 2: fetch this morning's persisted text so repeated blocks
     # below can be marked "(unchanged since this morning)" instead of
     # silently re-rendering identically.
@@ -965,7 +920,6 @@ def generate_eod_summary() -> str:
         lines.append("")
 
     lines += _format_infra_block(infra, morning_text)
-    lines += _format_content_review_block(content_queue, morning_text)
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",
