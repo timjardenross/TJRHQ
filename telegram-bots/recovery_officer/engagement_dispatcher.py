@@ -174,7 +174,7 @@ def _bar(pct: int) -> str:
 
 
 def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) -> str:
-    """Build a friendly L1 pulse reminder message."""
+    """Build a calm, caring L1 pulse reminder message."""
     target = pulse_type or status.next_suggested_pulse or "morning"
     label  = _PULSE_LABELS.get(target, target.replace("_", " ").title())
     hint   = _PULSE_HINTS.get(target, "")
@@ -203,31 +203,31 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
 
 
 def build_escalation_message(status: RecoveryStatus, level: int) -> str:
-    """Build an escalation message for L2 or L3 scenarios."""
+    """Build a calm, caring check-in for L2/L3 — a nudge, not a warning."""
     today = _brisbane_today()
 
     if level == 3:
-        header = "🔴 *Recovery Officer — Critical Alert*"
+        header = "🫂 *Recovery Officer — Checking In*"
         body = (
-            f"No recovery pulses logged today ({today}).\n"
-            f"Recovery confidence is at {status.recovery_confidence}%.\n\n"
-            "This affects mission planning accuracy and crew capacity assessment.\n\n"
-            "*Action required:* Log at least one pulse to restore telemetry baseline.\n"
+            f"No pulses logged yet today ({today}). No judgement here — "
+            "just want to make sure the system has something to go on.\n\n"
+            f"Whenever it suits, even one pulse gives today a baseline to work from.\n"
             "Portal: Medical Bay → Recovery Pulse\n"
             "Slack: `/recovery-pulse`"
         )
     else:
-        header = "🟠 *Recovery Officer — Confidence Low*"
+        header = "🌤 *Recovery Officer — Gentle Nudge*"
         body = (
-            f"Recovery confidence is at {status.recovery_confidence}% ({today}).\n"
-            f"{status.pulses_completed}/3 pulses logged.\n\n"
-            f"*Missing:* "
+            f"Confidence is sitting at {status.recovery_confidence}% ({today}), "
+            f"{status.pulses_completed}/3 pulses in so far.\n\n"
+            f"*Still open:* "
             + ", ".join(filter(None, [
                 "Morning" if not status.morning_done else None,
                 "Midday"  if not status.midday_done  else None,
                 "Evening" if not status.evening_done else None,
             ]))
-            + "\n\nLow confidence may trigger mission deferral recommendations."
+            + "\n\nNo pressure — logging one when it's convenient just helps today's "
+              "picture stay accurate."
         )
 
     return f"{header}\n\n{body}"
