@@ -180,12 +180,15 @@ def _start_scheduler() -> None:
     # ── USS-TJR-MSN-0207A: Knowledge Platform daily digest ──────────────────────
     # 08:00 AEST — after the morning brief, before midday. Telegram only per
     # Captain's explicit direction (no Slack routing for this pipeline).
-    scheduler.add_job(
-        _knowledge_ops_brief_job,
-        CronTrigger(hour=8, minute=0, timezone=tz),
-        id="knowledge_ops_brief",
-        replace_existing=True,
-    )
+    # Paused 2026-08-13 (Captain: review queue backlog isn't actionable daily
+    # noise right now) — flip KNOWLEDGE_OPS_BRIEF_ENABLED=true to resume.
+    if os.environ.get("KNOWLEDGE_OPS_BRIEF_ENABLED", "false").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _knowledge_ops_brief_job,
+            CronTrigger(hour=8, minute=0, timezone=tz),
+            id="knowledge_ops_brief",
+            replace_existing=True,
+        )
 
     # ── MSN-0200-P1F: Daily collection from all 30+ registered sources ──────────
     # 06:00 AEST daily — runs before morning brief (07:00) to pre-populate intelligence_events
