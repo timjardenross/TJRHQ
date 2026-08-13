@@ -1381,7 +1381,9 @@ def start_scheduler(client) -> None:
     # scheduler.add_job(_job_mission_escalation, ...)
 
     # Health nudge — RETIRED D-3C-04 (2026-06-27)
-    # Owned by Command Centre notification engine (checkHealthDecline + checkRecoveryGap).
+    # Owned by Command Centre notification engine (checkHealthDecline). Recovery-gap
+    # coverage moved to human_systems_scheduler.py's morning/degradation pushes
+    # (2026-08-13, Command Centre's checkRecoveryGap retired as a duplicate).
     # scheduler.add_job(_job_health_nudge, ...)
 
     # Forgotten decisions alert — Monday + Thursday 09:30  [M-20260615]

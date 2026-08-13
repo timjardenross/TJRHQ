@@ -15,14 +15,15 @@ Usage (from an existing bot):
 Standalone (cron / APScheduler):
     python -m telegram_bots.recovery_officer.engagement_dispatcher --dispatch
 
-2026-08-10: now actually scheduled — intelligence/scheduler.py's
-_wellness_reminder_job() calls run_dispatch_check() on an interval (see
-that module for the live wiring), using _StandaloneTelegramBot below as the
-`bot` argument since the scheduler daemon has no live python-telegram-bot
-Application/event loop to reuse. run_dispatch_check() de-dups per
-(Brisbane day, pulse window, action) via the wellness_reminder_log table
-(migration 0118), so it's safe to call on a timer without re-sending an
-identical reminder while a pulse window stays open and unlogged.
+2026-08-10: was scheduled automatically via intelligence/scheduler.py's
+_wellness_reminder_job(). 2026-08-13: that automatic timer was retired —
+this module's compliance-toned copy duplicated and contradicted
+platform-runtime/human_systems_scheduler.py + lib/human_systems/push.py,
+which the Captain designated the sole automated recovery messenger (calmer,
+caring tone; same recovery_confidence_today-adjacent data, read once).
+run_dispatch_check() is still reachable manually via `/dispatch` in
+Telegram (telegram-bots/xo/app.py) — only the unattended interval call
+was removed.
 
 Environment variables required (set in bot's .env):
     SUPABASE_URL       — Supabase project URL
