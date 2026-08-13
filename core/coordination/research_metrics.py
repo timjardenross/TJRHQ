@@ -42,7 +42,7 @@ class ResearchMetrics:
     # Provider tracking
     primary_provider: Optional[str] = None
     provider_failures: int = 0
-    provider_path: Optional[str] = None  # "gemini-2.5-flash → ollama"
+    provider_path: Optional[str] = None  # "gemini-3.5-flash-lite → ollama"
 
     # Consolidation method
     consolidation_success: bool = False

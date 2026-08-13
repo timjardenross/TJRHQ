@@ -56,7 +56,7 @@ class ProviderHealth:
         Mark provider as unavailable with reason.
 
         Args:
-            provider_name: Name of provider (e.g., "gemini-2.5-flash")
+            provider_name: Name of provider (e.g., "gemini-3.5-flash-lite")
             reason: Why it's unavailable (e.g., "quota_exceeded", "model_not_found", "auth_failed")
         """
         self._provider_status[provider_name] = False

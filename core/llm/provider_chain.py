@@ -33,7 +33,7 @@ def call_gemini(
 
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.5-flash:generateContent?key={api_key}"
+        f"gemini-3.5-flash-lite:generateContent?key={api_key}"
     )
     body = json.dumps({
         "system_instruction": {"parts": [{"text": system_prompt}]},

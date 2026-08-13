@@ -63,7 +63,7 @@ class ProviderMetadata:
     # Examples: "google", "openrouter", "ollama", "anthropic", "openai"
 
     model_name: Optional[str] = None
-    # Examples: "gemini-2.5-flash", "gemini-2.5-flash-lite", "mistral-small"
+    # Examples: "gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "mistral-small"
 
     provider_route: Optional[str] = None
     # Examples: "primary", "fallback", "local_fallback", "consolidation"
@@ -155,7 +155,7 @@ class LearningLoopService:
             decision_timestamp: When decision was made (default: now)
             provider_metadata: ProviderMetadata for recommendation provenance (optional)
                 - provider_name: e.g., "google", "openrouter", "ollama"
-                - model_name: e.g., "gemini-2.5-flash"
+                - model_name: e.g., "gemini-3.5-flash-lite"
                 - provider_route: e.g., "primary", "fallback"
                 - research_execution_id: Links to specific research execution
 

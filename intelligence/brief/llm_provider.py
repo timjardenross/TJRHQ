@@ -58,7 +58,7 @@ class LLMProvider:
         providers = [
             ("model-router",            self._model_router),
             ("mistral-4stage-pipeline", self._mistral_pipeline),
-            ("gemini-2.5-flash",        self._gemini),
+            ("gemini-3.5-flash-lite",        self._gemini),
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]

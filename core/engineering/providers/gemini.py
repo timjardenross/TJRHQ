@@ -8,7 +8,7 @@ Required env var:
     GEMINI_API_KEY
 
 Optional env vars:
-    GEMINI_ENGINEERING_MODEL   (default: gemini-2.5-flash)
+    GEMINI_ENGINEERING_MODEL   (default: gemini-3.5-flash-lite)
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 
 def check_connectivity() -> tuple[bool, str]:

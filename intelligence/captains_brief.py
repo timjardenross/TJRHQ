@@ -464,7 +464,7 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
     if call_gemini is None:
         return None
     providers = [
-        ("gemini-2.5-flash", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
         ("mistral-small",    lambda p: call_mistral(system_prompt, p, api_key=_MISTRAL_API_KEY, max_tokens=400)),
         (_OLLAMA_WEEKLY_MODEL, lambda p: call_ollama(
             system_prompt, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_WEEKLY_MODEL, num_predict=350,

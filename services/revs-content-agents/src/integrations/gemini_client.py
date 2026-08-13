@@ -25,7 +25,7 @@ from src.utils.logging import get_logger
 
 _IMAGE_MODEL = "gemini-3-pro-image-preview"
 _TTS_MODEL = "gemini-2.5-flash-preview-tts"
-_TEXT_MODEL = "gemini-2.5-flash"
+_TEXT_MODEL = "gemini-3.5-flash-lite"
 _TTS_SAMPLE_RATE = 24000
 _CACHE_DIR = Path(__file__).resolve().parents[2] / "outputs" / ".cache"
 _client: genai.Client | None = None

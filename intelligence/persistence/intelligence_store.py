@@ -408,7 +408,7 @@ def _call_blast_radius_llm(
     ollama_model = os.getenv("OLLAMA_OUTAGE_MODEL") or os.getenv("OLLAMA_MODEL", "qwen3:8b")
 
     providers = [
-        ("gemini-2.5-flash", lambda p: call_gemini(
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(
             _BLAST_RADIUS_SYSTEM_PROMPT, p, api_key=gemini_key, max_output_tokens=200)),
         ("mistral-small", lambda p: call_mistral(
             _BLAST_RADIUS_SYSTEM_PROMPT, p, api_key=mistral_key, max_tokens=200)),

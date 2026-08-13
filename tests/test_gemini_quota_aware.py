@@ -75,7 +75,7 @@ class TestGeminiQuotaAware:
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
             mock_gemini.return_value = ResearchOutcome(
                 status="quota_exhausted",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 error_message="Gemini daily quota exhausted (retry_delay=86400s). No fallback retry.",
                 fallback_reason="gemini_quota_exhausted"
             )
@@ -95,7 +95,7 @@ class TestGeminiQuotaAware:
                 )
 
                 # Verify: Gemini was attempted (returned quota_exhausted)
-                assert "gemini-2.5-flash-lite" in result.provider_attempted
+                assert "gemini-3.5-flash-lite" in result.provider_attempted
                 log.info("✓ Gemini was attempted")
 
                 # Verify: Fallback to Ollama occurred
@@ -118,7 +118,7 @@ class TestGeminiQuotaAware:
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
             mock_gemini.return_value = ResearchOutcome(
                 status="success",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 findings="First task findings"
             )
 
@@ -129,7 +129,7 @@ class TestGeminiQuotaAware:
             )
 
             assert result1.status == "success"
-            assert result1.provider == "gemini-2.5-flash-lite"
+            assert result1.provider == "gemini-3.5-flash-lite"
             log.info("✓ First task: Gemini succeeded")
 
             # Verify: Mission quota now exhausted
@@ -142,7 +142,7 @@ class TestGeminiQuotaAware:
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
             mock_gemini.return_value = ResearchOutcome(
                 status="error",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 error_message="Should not be called"
             )
 
@@ -160,7 +160,7 @@ class TestGeminiQuotaAware:
                 )
 
                 # Verify: Gemini skipped (not in attempted list)
-                assert "gemini-2.5-flash-lite" not in result2.provider_attempted
+                assert "gemini-3.5-flash-lite" not in result2.provider_attempted
                 log.info("✓ Gemini skipped (not in attempted list)")
 
                 # Verify: Ollama used instead
@@ -183,7 +183,7 @@ class TestGeminiQuotaAware:
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
             mock_gemini.return_value = ResearchOutcome(
                 status="quota_exhausted",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 error_message="Gemini daily quota exhausted",
                 fallback_reason="gemini_quota_exhausted"
             )
@@ -203,7 +203,7 @@ class TestGeminiQuotaAware:
 
                 assert result1.provider == "ollama"
                 # Verify Gemini was marked unavailable
-                assert not provider_health.is_available("gemini-2.5-flash-lite")
+                assert not provider_health.is_available("gemini-3.5-flash-lite")
                 log.info("✓ Task 1: Gemini quota exhausted, Ollama used, Gemini marked unavailable")
 
         # Task 2: Gemini should be skipped (marked unavailable by circuit breaker)
@@ -241,7 +241,7 @@ class TestGeminiQuotaAware:
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
             mock_gemini.return_value = ResearchOutcome(
                 status="quota_exhausted",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 error_message="Gemini quota exhausted",
                 fallback_reason="gemini_quota_exhausted"
             )
@@ -275,7 +275,7 @@ class TestGeminiQuotaAware:
             call_count["gemini"] += 1
             return ResearchOutcome(
                 status="quota_exhausted",
-                provider="gemini-2.5-flash-lite",
+                provider="gemini-3.5-flash-lite",
                 error_message="Daily quota exhausted"
             )
 
