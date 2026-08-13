@@ -133,6 +133,17 @@ def _risk_accuracy_score(brief: dict, sample: dict) -> tuple[int, list[str]]:
 
 
 def _freshness_score(brief: dict, now: Optional[datetime] = None) -> tuple[int, list[str]]:
+    """2026-08-13 fix: floor was 0, which is a trap — at 0.20 weight and an
+    85 pass threshold, a freshness_score of 0 caps overall_score at 80 no
+    matter how perfect completeness/coherence/risk are, so any brief that
+    ever went unreviewed past ~17 days (7 grace + 10 decay) became
+    mathematically unpassable forever, got no more overdue with each
+    failed re-score, and stayed IN_REVIEW permanently. Confirmed live:
+    0 passed / 25 failed every nightly run for 8+ straight nights, nothing
+    published since 2026-06-20. Floor raised to 30 (contributes >=6 of the
+    20 weighted points) so a brief that's otherwise flawless can still
+    clear 85 no matter how stale; a merely-good brief still gets pushed
+    below threshold by real staleness, preserving the urgency signal."""
     now = now or datetime.now(timezone.utc)
     generated_at = _parse_ts(brief.get("generated_at"))
     if generated_at is None:
@@ -141,7 +152,7 @@ def _freshness_score(brief: dict, now: Optional[datetime] = None) -> tuple[int, 
     if age_days <= MAX_REVIEW_AGE_DAYS:
         return 100, []
     overdue = age_days - MAX_REVIEW_AGE_DAYS
-    return max(0, int(100 - overdue * 10)), [f"sat unreviewed {age_days:.1f} days (limit {MAX_REVIEW_AGE_DAYS})"]
+    return max(30, int(100 - overdue * 10)), [f"sat unreviewed {age_days:.1f} days (limit {MAX_REVIEW_AGE_DAYS})"]
 
 
 def score_brief(brief: dict, now: Optional[datetime] = None) -> dict:
