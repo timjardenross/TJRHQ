@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.request
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
@@ -265,10 +266,13 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     the same as a query that succeeded and found zero signals."""
     rows = _sb_request(
         "intelligence_events",
-        f"collected_at=gte.{since_iso}&suppressed=eq.false"
+        f"collected_at=gte.{since_iso}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
+        f"&raw_title=not.ilike.CVE-*"
+        f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit=10"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
+        f"intelligence_source_registry(source_name)",
     )
     return _with_risk_label(rows)
 
@@ -297,9 +301,30 @@ def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
         f"&raw_title=not.ilike.CVE-*"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit={limit}"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary",
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
+        f"intelligence_source_registry(source_name)",
     )
     return _with_risk_label(rows)
+
+
+def _format_signal_title(s: dict) -> str:
+    """2026-08-13 (Captain: "titles what's actually impacted") — many raw
+    titles don't name the impacted product/company at all: "Degraded
+    performance for multiple models" turned out to be Anthropic's own
+    status feed (source_name via the intelligence_source_registry FK
+    embed), with the actual impacted models named in raw_summary, not the
+    title. GitHub/Cloudflare-sourced titles already self-identify
+    ("GitHub Status: ...") and are left alone; only titles that don't
+    already mention the source get it prefixed."""
+    title = s.get("raw_title") or "—"
+    source = ((s.get("intelligence_source_registry") or {}).get("source_name") or "").strip()
+    if not source:
+        return title
+    label = source[:-len(" Status")] if source.endswith(" Status") else source
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", label) if len(w) > 2]
+    if any(w.lower() in title.lower() for w in words):
+        return title
+    return f"{label}: {title}"
 
 
 def _format_signal_commentary(s: dict) -> Optional[str]:
@@ -313,7 +338,7 @@ def _format_signal_commentary(s: dict) -> Optional[str]:
     summary = (s.get("raw_summary") or "").strip()
     if not summary:
         return None
-    return _truncate_clean(summary, 130)
+    return _truncate_clean(summary, 170)
 
 
 def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4, max_medium: int = 3) -> list[str]:
@@ -333,7 +358,7 @@ def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4
         count_bits.append(f"{len(medium)} MEDIUM")
     lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
     for s in high + medium:
-        lines.append(f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}")
+        lines.append(f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}")
         commentary = _format_signal_commentary(s)
         if commentary:
             lines.append(f"     <i>{commentary}</i>")
@@ -914,7 +939,7 @@ def generate_midday_update(signals: list[dict]) -> str:
     ]
     for s in signals[:5]:
         lines.append(
-            f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}"
+            f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}"
         )
     lines += ["", "🤖 <i>XO · Starship Endeavour</i>"]
     return "\n".join(lines)
