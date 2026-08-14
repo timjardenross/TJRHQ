@@ -75,7 +75,15 @@ async def handle_onboarding_callback(update: Update, context: ContextTypes.DEFAU
     await query.answer()
     user_id = update.effective_user.id
     data = query.data  # "onb:<action>[:<value>]"
-    parts = data.split(":")
+    # maxsplit=2, not unlimited split(":") — am/pm preset values are
+    # themselves "HH:MM" (e.g. "onb:am:07:00"), so an unlimited split
+    # broke that into 4 parts instead of 3 and truncated value to "07",
+    # which then failed writing to the Postgres `time` column and
+    # silently crashed the handler (no user-visible error — looked like
+    # the button just didn't work). Found live 2026-08-14 when preset
+    # time buttons didn't respond but "Pick a time" (free text, not
+    # parsed through this split) did.
+    parts = data.split(":", 2)
     action = parts[1] if len(parts) > 1 else ""
     value = parts[2] if len(parts) > 2 else None
 
@@ -494,9 +502,14 @@ async def _show_timing_weekly(update: Update):
 
 
 async def _show_baseline(update: Update):
+    # Source doc's §1.6 copy ("roughly what fits?") is missing its
+    # object — reported live 2026-08-14 as not making sense. Answer
+    # options (A little / Some / A fair bit / Most of what I need to)
+    # only parse against a capacity-vs-demand question, so that's the
+    # intent being preserved here, just with the noun put back in.
     text = (
         "Last thing. On an ordinary day — not a good one, not a bad "
-        "one — roughly what fits?"
+        "one — roughly how much of what you need to do usually fits in?"
     )
     kb = _kb(
         [
