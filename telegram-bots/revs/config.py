@@ -9,7 +9,7 @@ import os
 import sys
 import logging
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 _BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(os.path.dirname(_BOT_DIR))
@@ -36,6 +36,17 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
 # gate like XO's _global_auth_gate, by design (it's a public bot).
 _admin_raw = os.environ.get("REVS_ADMIN_USER_IDS", "").strip()
 ADMIN_USER_IDS = {int(x) for x in _admin_raw.split(",") if x.strip().isdigit()}
+
+# §5.4 escalation: crisis triggers alert the Captain via XO's own bot
+# identity/chat, not this bot's. Read directly from telegram-bots/xo/.env
+# with dotenv_values() (doesn't touch os.environ) rather than load_dotenv()
+# — XO's .env also defines TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID, and a
+# normal load_dotenv() here would clobber this bot's OWN
+# TELEGRAM_BOT_TOKEN depending on load order. Keeping the two entirely
+# separate avoids that footgun regardless of ordering.
+_xo_env = dotenv_values(os.path.join(_REPO_ROOT, "telegram-bots", "xo", ".env"))
+XO_ESCALATION_BOT_TOKEN = (_xo_env.get("TELEGRAM_BOT_TOKEN") or "").strip()
+XO_ESCALATION_CHAT_ID = (_xo_env.get("TELEGRAM_CHAT_ID") or "").strip()
 
 
 def require(value: str, name: str) -> str:

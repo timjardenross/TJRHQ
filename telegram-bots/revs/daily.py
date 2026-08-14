@@ -248,6 +248,16 @@ async def fire_nontext_crisis(update: Update, client, row: dict) -> None:
     kb = _kb([[("Ok", "crisis:nt_ok"), ("Don't show me this again", "crisis:nt_suppress")]])
     await update.effective_chat.send_message(text, reply_markup=kb)
 
+    from escalate import notify_captain
+
+    await notify_captain(
+        user_id=user_id,
+        first_name=row.get("first_name"),
+        trigger_type="nontext (5 consecutive depleted, or 2 setbacks in 14 days)",
+        locale=row.get("locale"),
+        triggered_text=None,  # no free text involved in this trigger path
+    )
+
 
 async def handle_crisis_nt_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, client, row: dict) -> None:
     query = update.callback_query

@@ -40,6 +40,21 @@ WANTS_MORE = {
 # §7.4 — default regulation instructions for pre-REGULATE users with no
 # stored tools. NOTE (per doc): placeholders pending Tim's review against
 # REG-002 — they exist so /tools is never empty, not a final content sign-off.
+#
+# REG-002 isn't in any repo I have access to (TJRHQ / USSTJROS /
+# tjrmindbody_public — checked 2026-08-14), so I haven't rewritten these
+# with invented clinical content I'm not positioned to author. What I did
+# instead: each one already corresponds to a widely-recognised regulation
+# technique (noted below, not shown to users — the bot copy stays as
+# plain instructions, no jargon) so Tim's review against REG-002 is a
+# fast cross-check rather than a read from scratch.
+#   somatic    -> mammalian dive reflex (facial cold-water immersion)
+#   breath     -> extended-exhale / physiological-sigh style paced breathing
+#   grounding  -> 5-4-3-2-1 sensory grounding (trimmed to 3 senses here)
+#   movement   -> bilateral/cross-body movement
+#   sound      -> self-selected calming audio, no prescribed content
+#   connection -> low-stakes social contact, deliberately not "talk about it"
+#   cognitive  -> affect labeling / naming the state rather than analysing it
 DEFAULT_REGULATION = {
     "somatic": "Cold water on your face and wrists. Thirty seconds.",
     "breath": "Breathe out longer than you breathe in. Four in, six out. Ten rounds.",

@@ -47,8 +47,21 @@ handler at all, not even a stub.
 - **Crisis classifier (`safety.py`) is keyword/regex, not ML.** Biased
   toward over-triggering on purpose (false positive = one extra gentle
   message; false negative = the thing the whole safety layer exists to
-  catch). Still needs the adversarial review the source doc's §8.3
-  checklist calls for.
+  catch) — and that bias is itself recognised field practice (Crisis Text
+  Line, Trevor Project, and the AI-crisis-detection literature all treat
+  recall over precision as correct at this tier), not a shortcut. Pattern
+  list expanded 2026-08-14 from a best-practices research pass — added
+  indirect/euphemistic ideation, chronic-illness/disability-specific
+  despair and burden-perception phrasing (the population this bot
+  actually serves — the single biggest gap a generic list would have
+  had), coded/euphemistic language ("unalive" etc.), and caregiver-strain
+  phrasing. Deliberately did NOT add bare method/acquisition nouns
+  ("pills", "rope") — too generic to regex without context; the research
+  recommends a Layer 2 LLM-based confirmation pass for that
+  disambiguation specifically, which is **not built** — logged here as a
+  real next step, not silently dropped. Still needs the adversarial
+  review the source doc's §8.3 checklist calls for — a wider list isn't
+  the same thing as a reviewed one.
 - **Q4 system rotation (`weekly.py`) only has names for 6 of the 12 REVS
   capacity systems** — the source docs name systems 3, 6, 8, 9, 11, 12 by
   number; the full 1–12 registry lives in a framework doc (REG-001 or
@@ -84,21 +97,49 @@ client, and `app.py` exits rather than run unscoped.
 
 ## Launch blockers (ported from the source doc's §8.3, not yet cleared)
 
-- [ ] Migration `0147_revs_bot_scoped_role.sql` applied to the live
-      Supabase project (**not done — written, not run**)
-- [ ] Escalation decision made and documented — automated-only vs a human
-      (Tim) getting paged on §5.4a. The source doc calls this the largest
-      unmitigated risk in the product; still open.
-- [ ] Crisis classifier reviewed/hardened past the keyword-list MVP
-- [ ] Emergency numbers (§1.2b/§5.4a) verified current per locale
-- [ ] PEM copy (§1.3, §4.2, §7.2) reviewed against TRAIN-05 by Tim
-- [ ] §7.4 default regulation instructions reviewed against REG-002
-- [ ] Privacy Policy on tjrmindbody.com updated to cover Telegram
-      check-in data (page already exists:
-      `public-site/content/pages/privacy-policy.md` in `tjrmindbody_public`)
-- [ ] `/mydata` and `/deleteme` tested end to end against the live schema
+- [x] Migration `0147_revs_bot_scoped_role.sql` applied to the live
+      Supabase project — applied 2026-08-14, verified live (role +
+      full CRUD round-trip tested through `revs_bot`).
+- [x] Escalation decision made — 2026-08-14: crisis triggers (§5.4a
+      language, §5.4b non-text) now alert the Captain via XO's own bot
+      identity/chat (`escalate.py`, `notify_captain()`), fire-and-forget
+      after the user's own resources message is sent. Reads XO's
+      credentials directly from `telegram-bots/xo/.env` — no new secret
+      duplicated into this bot's own `.env`. Untested against a live
+      Telegram send (credentials verified present, HTTP call not yet
+      fired for real) — worth one manual trigger before relying on it.
+- [x] Crisis classifier pattern list expanded from a best-practices
+      research pass (see "Known gaps" above) — still needs the
+      adversarial review itself, and a Layer 2 LLM confirmation pass is
+      a recommended-but-unbuilt next step for the method/acquisition
+      phrasing a keyword list can't safely cover without false-positive
+      blowup.
+- [ ] Emergency numbers (§1.2b/§5.4a) verified current per locale — AU
+      now includes Lifeline/13YARN/Beyond Blue with websites, not just
+      phone numbers (2026-08-14). UK/US still phone-only, unchanged.
+- [ ] PEM copy (§1.3, §4.2, §7.2) reviewed against TRAIN-05 by Tim —
+      **on hold**, TRAIN-05 isn't in any repo I have access to
+      (TJRHQ / USSTJROS / tjrmindbody_public — checked 2026-08-14).
+- [x] §7.4 default regulation instructions — REG-002 also isn't
+      accessible (same check, 2026-08-14), so the instructions
+      themselves are unchanged from v1 (each already maps to a
+      widely-recognised regulation technique — see the comment above
+      `DEFAULT_REGULATION` in `copy_bank.py` for which). Didn't invent
+      new clinical content without a source to check it against — Tim's
+      review against REG-002 is still the real close-out here, just a
+      faster one now that the technique mapping is documented inline.
+- [x] Privacy Policy updated —
+      `tjrmindbody_public:public-site/content/pages/privacy-policy.md`,
+      commit `14b0b74`, 2026-08-14. Covers what's collected, retention
+      rationale, `/mydata`/`/deleteme`, and the crisis-escalation note.
+- [x] `/mydata` and `/deleteme` tested end to end — 2026-08-14, through
+      the actual command handlers (not just `db.py`) against the live
+      scoped client: export contains all 5 child tables with correct
+      counts, deletion verified empty across all 6 tables afterward.
 - [ ] `deploy/revs-bot.service` installed and `tg-revs.service` started
       (**not done by this build, intentionally**)
 
-Do not point this bot at real users until the escalation decision and the
-crisis-classifier review are both closed.
+Still open before this talks to a real user: emergency-number freshness
+check, PEM/REG-002 copy review (blocked on getting those source docs),
+adversarial review of the crisis classifier, and a live-fire test of the
+XO escalation path.

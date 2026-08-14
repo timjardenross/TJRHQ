@@ -85,6 +85,7 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     import datetime as dt
     from copy_bank import crisis_language_response
+    from escalate import notify_captain
 
     now = dt.datetime.now(dt.timezone.utc)
     recontact_due = now + dt.timedelta(hours=24)
@@ -93,6 +94,18 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     text = crisis_language_response(safety.locale_resources(row.get("locale")))
     await update.message.reply_text(text)
+
+    # Escalation runs after the user's own resources message is already
+    # sent — never delays it — and a failure here (bad XO credentials,
+    # network hiccup) is logged, not raised, so it can't break the user
+    # -facing crisis path itself.
+    await notify_captain(
+        user_id=user_id,
+        first_name=row.get("first_name"),
+        trigger_type="language",
+        locale=row.get("locale"),
+        triggered_text=update.message.text,
+    )
     raise ApplicationHandlerStop
 
 
