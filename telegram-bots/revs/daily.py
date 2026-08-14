@@ -253,8 +253,9 @@ async def fire_nontext_crisis(update: Update, client, row: dict) -> None:
     await notify_captain(
         user_id=user_id,
         first_name=row.get("first_name"),
-        trigger_type="nontext (5 consecutive depleted, or 2 setbacks in 14 days)",
+        trigger_type="nontext",
         locale=row.get("locale"),
+        detail="5 consecutive depleted check-ins, or 2 setbacks logged within 14 days",
         triggered_text=None,  # no free text involved in this trigger path
     )
 
