@@ -121,11 +121,14 @@ _LOCALE_RESOURCES = {
     ),
     "UK": (
         "If you're in immediate danger, call 999.\n"
-        "Samaritans 116 123"
+        "Samaritans 116 123 · samaritans.org\n"
+        "Shout (text 85258) · giveusashout.org\n"
+        "CALM 0800 58 58 58 · thecalmzone.net"
     ),
     "US": (
         "If you're in immediate danger, call 911.\n"
-        "988"
+        "988 Suicide & Crisis Lifeline · 988lifeline.org\n"
+        "Crisis Text Line (text HOME to 741741) · crisistextline.org"
     ),
     "OTHER": (
         "If you're in immediate danger, call your local emergency number.\n"
@@ -134,9 +137,9 @@ _LOCALE_RESOURCES = {
 }
 
 _CRISIS_LINE_SHORT = {
-    "AU": "Lifeline (13 11 14)",
-    "UK": "Samaritans (116 123)",
-    "US": "988",
+    "AU": "Lifeline (13 11 14, lifeline.org.au)",
+    "UK": "Samaritans (116 123, samaritans.org)",
+    "US": "988 (988lifeline.org)",
     "OTHER": "findahelpline.com",
 }
 
