@@ -105,9 +105,11 @@ client, and `app.py` exits rather than run unscoped.
       identity/chat (`escalate.py`, `notify_captain()`), fire-and-forget
       after the user's own resources message is sent. Reads XO's
       credentials directly from `telegram-bots/xo/.env` — no new secret
-      duplicated into this bot's own `.env`. Untested against a live
-      Telegram send (credentials verified present, HTTP call not yet
-      fired for real) — worth one manual trigger before relying on it.
+      duplicated into this bot's own `.env`. Live-fired 2026-08-14 against
+      the real Captain chat (both `language` and `nontext` variants) and
+      the alert format was iterated on directly with Tim — HTML-formatted
+      (bold/italic labels, timestamp, human-readable trigger reason,
+      what-the-bot-already-did note). Confirmed landing correctly.
 - [x] Crisis classifier pattern list expanded from a best-practices
       research pass (see "Known gaps" above) — still needs the
       adversarial review itself, and a Layer 2 LLM confirmation pass is
