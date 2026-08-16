@@ -91,6 +91,7 @@ export function CaptainApprovalQueue() {
   return (
     <ApprovalQueue
       title="Captain's Queue"
+      theme="wb"
       items={missions.map(toItem)}
       loading={loading}
       actingId={acting}

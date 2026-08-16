@@ -118,3 +118,25 @@ const STATE_CLASSES: Record<StateTone, { text: string; border: string; bg: strin
 export function stateToneClasses(tone: StateTone): { text: string; border: string; bg: string; dot: string; on: string } {
   return STATE_CLASSES[tone];
 }
+
+/** Map common mission/service status strings to a department tone. Shared by
+ *  StatusBadge (legacy) and WorkbenchBadge (wb-* system) so both render off
+ *  one inference rule instead of forking it. */
+export function inferTone(status: string): StatusTone {
+  const s = status.toUpperCase();
+  if (s.includes('BLOCK') || s.includes('OFFLINE') || s.includes('CRITICAL'))
+    return 'operations';
+  if (s.includes('REVIEW') || s.includes('DEGRADED') || s.includes('PENDING'))
+    return 'command';
+  if (
+    s.includes('COMPLET') ||
+    s.includes('OPERATIONAL') ||
+    s.includes('GREEN') ||
+    s.includes('DONE') ||
+    s.includes('ON DUTY')
+  )
+    return 'status';
+  if (s.includes('PROGRESS') || s.includes('ACTIVE') || s.includes('ASSIGNED'))
+    return 'medical';
+  return 'neutral';
+}

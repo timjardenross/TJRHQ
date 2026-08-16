@@ -67,9 +67,9 @@ export function ExecutiveSummary({
         compact={compact}
       />
 
-      <div className={`rounded-lcars border border-edge bg-panel/60 ${compact ? 'p-4' : 'p-3'}`}>
+      <div className={`rounded-lg border border-wb-border bg-wb-bg/60 ${compact ? 'p-4' : 'p-3'}`}>
         <p
-          className={`mb-2 text-[10px] uppercase tracking-[0.25em] text-lcars-muted ${compact ? 'tracking-[0.3em]' : 'font-bold'}`}
+          className={`mb-2 text-[10px] uppercase tracking-[0.25em] text-wb-ink2 ${compact ? 'tracking-[0.3em]' : 'font-bold'}`}
         >
           {statusTitle}
         </p>
@@ -79,29 +79,29 @@ export function ExecutiveSummary({
               const c = stateToneClasses(d.tone);
               if (compact) {
                 return (
-                  <div key={d.key} className="rounded-md border border-edge bg-panel-2/60 p-2">
+                  <div key={d.key} className="rounded-md border border-wb-border bg-white p-2">
                     <div className="flex items-center gap-1.5">
                       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-                      <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{d.label}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-wb-ink2">{d.label}</span>
                     </div>
                     <p className={`mt-0.5 text-xs font-bold ${c.text}`}>{d.state}</p>
                   </div>
                 );
               }
               return (
-                <div key={d.key} className={`rounded-md border ${c.border} bg-panel-2/60 p-2`}>
+                <div key={d.key} className={`rounded-md border ${c.border} bg-white p-2`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wide text-lcars-muted">{d.label}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-wb-ink2">{d.label}</span>
                     {d.trend && <span className={`text-[10px] ${c.text}`}>{TREND_GLYPH[d.trend]}</span>}
                   </div>
-                  <p className={`mt-1 font-lcars text-sm font-bold ${c.text}`}>{d.state}</p>
-                  {d.detail && <p className="mt-0.5 text-[10px] leading-tight text-lcars-muted">{d.detail}</p>}
+                  <p className={`mt-1 text-sm font-bold ${c.text}`}>{d.state}</p>
+                  {d.detail && <p className="mt-0.5 text-[10px] leading-tight text-wb-ink2">{d.detail}</p>}
                 </div>
               );
             })}
           </div>
         ) : (
-          <p className="text-[11px] text-lcars-muted">{isLoading ? loadingStatusMessage : emptyStatusMessage}</p>
+          <p className="text-[11px] text-wb-ink2">{isLoading ? loadingStatusMessage : emptyStatusMessage}</p>
         )}
       </div>
     </div>

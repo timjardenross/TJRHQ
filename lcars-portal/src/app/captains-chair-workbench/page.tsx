@@ -379,12 +379,12 @@ export default function CaptainsChairWorkbench() {
             stack simultaneously on the same viewport (was doubling scroll
             length exactly where the 2026-08-09 mobile review's collapsed-
             <details> fix below was trying to reduce it). No outer card
-            wrapper — LCARSPanel already supplies its own card chrome per
+            wrapper — WorkbenchPanel already supplies its own card chrome per
             panel; wrapping it again was card-in-card with no purpose. */}
         <div className="hidden lg:block"><ROSPanels /></div>
         <MobileOperatingPicture />
 
-        {/* Captain Intelligence — LCARSPanel supplies its own chrome. */}
+        {/* Captain Intelligence — WorkbenchPanel supplies its own chrome. */}
         <CaptainIntelligencePanel />
 
         {/* Fleet Section — Hidden on FRAGILE/REST.
