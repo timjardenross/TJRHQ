@@ -21,7 +21,7 @@
 import { supabase } from './supabase';
 import { loadHumanSystems, fetchOpenMissionCount } from './human-systems';
 import { loadDelivery } from './delivery';
-import type { StatusTone } from './types';
+import type { StatusTone, StateTone } from './types';
 
 function isoDaysAgo(n: number): string {
   const d = new Date();
@@ -84,15 +84,22 @@ export interface ShipDomain {
   key: string;
   label: string;
   state: string;
-  tone: StatusTone;
+  /** Health/state tone (MSN-0315 Phase 1A) — NOT department identity. This
+   *  field communicates live/health/escalation state, so it belongs on
+   *  StateTone per ./types's own documented rule; it was previously routed
+   *  through StatusTone (department colours), which ExecutiveSummary then
+   *  rendered via toneClasses() — collapsed to one flat navy for every
+   *  non-neutral value since the 2026-07-10 revision, so "BLOCKED"/"CHECK"
+   *  never actually read as alarming (design-audit finding). */
+  tone: StateTone;
   trend: 'up' | 'down' | 'steady';
   detail: string;
 }
 
-const RISK_TONE: Record<string, { tone: StatusTone; trend: ShipDomain['trend'] }> = {
-  GREEN: { tone: 'status', trend: 'steady' },
-  AMBER: { tone: 'operations', trend: 'down' },
-  RED: { tone: 'operations', trend: 'down' },
+const RISK_TONE: Record<string, { tone: StateTone; trend: ShipDomain['trend'] }> = {
+  GREEN: { tone: 'ok', trend: 'steady' },
+  AMBER: { tone: 'warn', trend: 'down' },
+  RED: { tone: 'crit', trend: 'down' },
 };
 
 async function fetchResilienceDomain(): Promise<ShipDomain | null> {
@@ -106,7 +113,7 @@ async function fetchResilienceDomain(): Promise<ShipDomain | null> {
       .maybeSingle<{ overall_risk: string | null; bottom_line: string | null }>();
     if (!data) return null;
     const risk = (data.overall_risk ?? 'GREEN').toUpperCase();
-    const t = RISK_TONE[risk] ?? { tone: 'neutral' as StatusTone, trend: 'steady' as const };
+    const t = RISK_TONE[risk] ?? { tone: 'unknown' as StateTone, trend: 'steady' as const };
     return {
       key: 'resilience', label: 'Resilience', state: risk, tone: t.tone, trend: t.trend,
       detail: (data.bottom_line ?? 'Operational resilience nominal').slice(0, 80),
@@ -116,8 +123,8 @@ async function fetchResilienceDomain(): Promise<ShipDomain | null> {
   }
 }
 
-const BAND_TONE: Record<string, StatusTone> = {
-  good: 'status', moderate: 'command', limited: 'operations', depleted: 'operations',
+const BAND_TONE: Record<string, StateTone> = {
+  good: 'ok', moderate: 'warn', limited: 'warn', depleted: 'crit',
 };
 
 export async function fetchShipStatus(): Promise<ShipDomain[] | null> {
@@ -134,13 +141,13 @@ export async function fetchShipStatus(): Promise<ShipDomain[] | null> {
     domains.push({
       key: 'human-systems', label: 'Human Systems',
       state: `${band.toUpperCase()} ${Math.round(hs.snapshot.overallScore)}`,
-      tone: BAND_TONE[band] ?? 'neutral', trend: 'steady',
+      tone: BAND_TONE[band] ?? 'unknown', trend: 'steady',
       detail: `Capacity ${band} · ${openCount ?? '—'} open missions`,
     });
 
     // Engineering (reused EDO control tower).
     const m = del.metrics;
-    const engTone: StatusTone = !m ? 'neutral' : m.blocked_count > 0 ? 'operations' : 'status';
+    const engTone: StateTone = !m ? 'unknown' : m.blocked_count > 0 ? 'crit' : 'ok';
     domains.push({
       key: 'engineering', label: 'Engineering',
       state: m ? (m.blocked_count > 0 ? 'BLOCKED' : 'FLOWING') : 'NO DATA',
@@ -152,7 +159,7 @@ export async function fetchShipStatus(): Promise<ShipDomain[] | null> {
     const open = openCount ?? 0;
     domains.push({
       key: 'operations', label: 'Operations',
-      state: open > 5 ? 'BUSY' : 'NOMINAL', tone: open > 5 ? 'command' : 'status', trend: 'steady',
+      state: open > 5 ? 'BUSY' : 'NOMINAL', tone: open > 5 ? 'warn' : 'ok', trend: 'steady',
       detail: `${open} active mission(s)`,
     });
 
@@ -164,7 +171,7 @@ export async function fetchShipStatus(): Promise<ShipDomain[] | null> {
       .from('lessons_learned').select('*', { count: 'exact', head: true });
     domains.push({
       key: 'knowledge', label: 'Knowledge',
-      state: lessons ? 'ACTIVE' : 'NO DATA', tone: lessons ? 'science' : 'neutral', trend: 'up',
+      state: lessons ? 'ACTIVE' : 'NO DATA', tone: lessons ? 'ok' : 'unknown', trend: 'up',
       detail: `${lessons ?? 0} lessons in Command Memory`,
     });
 
@@ -174,7 +181,7 @@ export async function fetchShipStatus(): Promise<ShipDomain[] | null> {
     domains.push({
       key: 'infrastructure', label: 'Infrastructure',
       state: failed && failed > 0 ? 'CHECK' : 'NOMINAL',
-      tone: failed && failed > 0 ? 'operations' : 'status', trend: 'steady',
+      tone: failed && failed > 0 ? 'crit' : 'ok', trend: 'steady',
       detail: failed && failed > 0 ? `${failed} failed dispatch(es)` : 'Dispatch healthy',
     });
 

@@ -32,16 +32,16 @@ export function LCARSPanel({
 }: LCARSPanelProps) {
   return (
     <section
-      className={`overflow-hidden rounded-[20px] border border-[#d9e1f0] bg-white/92 shadow-[0_8px_28px_rgba(23,32,51,0.05)] ${className}`}
+      className={`overflow-hidden rounded-[20px] border border-lcars-chrome-border bg-white/92 shadow-[0_8px_28px_rgba(23,32,51,0.05)] ${className}`}
     >
-      <div className="flex items-center gap-3 border-b border-[#eef1f8] px-4 py-3.5">
+      <div className="flex items-center gap-3 border-b border-lcars-chrome-border-soft px-4 py-3.5">
         <div className="flex flex-1 flex-col">
           {eyebrow && (
-            <span className="text-[11px] uppercase tracking-[0.2em] text-[#61718c]">
+            <span className="text-[11px] uppercase tracking-[0.2em] text-lcars-chrome-muted">
               {eyebrow}
             </span>
           )}
-          <h2 className="text-base font-semibold text-[#18223a]">{title}</h2>
+          <h2 className="text-base font-semibold text-lcars-chrome-text">{title}</h2>
         </div>
         {actions}
       </div>

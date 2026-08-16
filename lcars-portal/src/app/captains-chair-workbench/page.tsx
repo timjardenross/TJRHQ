@@ -7,7 +7,6 @@ import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
-import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
@@ -22,6 +21,12 @@ import {
   type EngineeringQueueData,
 } from '@/lib/engineering-queue';
 import type { AlertSeverity } from '@/lib/alerts';
+
+const ALERT_SEVERITY_BORDER: Record<AlertSeverity, string> = {
+  critical: 'border-state-crit',
+  high: 'border-state-crit',
+  warning: 'border-state-warn',
+};
 import { departments } from '@/lib/mockData';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
@@ -235,7 +240,7 @@ function NotebookCard() {
     <div className={`rounded-lg border bg-white p-4 ${hasAction ? 'border-wb-sage-deep/40' : 'border-wb-border'}`}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-wb-ink">Captain&apos;s Notebook</h3>
-        <Link href="/captains-notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline">
+        <Link href="/captains-notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Open →
         </Link>
       </div>
@@ -369,16 +374,18 @@ export default function CaptainsChairWorkbench() {
             rendered here; the state existed but was dead. */}
         <SinceLastSessionCard summary={summary} loading={summaryLoading} />
 
-        {/* Recovery Posture */}
-        <div className="rounded-lg border border-wb-border bg-white p-4">
-          <ROSPanels />
-          <MobileOperatingPicture />
-        </div>
+        {/* Recovery Posture — desktop hidden below lg to avoid rendering both
+            ROSPanels' full desktop stack AND MobileOperatingPicture's mobile
+            stack simultaneously on the same viewport (was doubling scroll
+            length exactly where the 2026-08-09 mobile review's collapsed-
+            <details> fix below was trying to reduce it). No outer card
+            wrapper — LCARSPanel already supplies its own card chrome per
+            panel; wrapping it again was card-in-card with no purpose. */}
+        <div className="hidden lg:block"><ROSPanels /></div>
+        <MobileOperatingPicture />
 
-        {/* Captain Intelligence */}
-        <div className="rounded-lg border border-wb-border bg-white p-4">
-          <CaptainIntelligencePanel />
-        </div>
+        {/* Captain Intelligence — LCARSPanel supplies its own chrome. */}
+        <CaptainIntelligencePanel />
 
         {/* Fleet Section — Hidden on FRAGILE/REST.
             2026-08-09 mobile/iPad review (P1): this is ~8 panels deep on
@@ -404,7 +411,7 @@ export default function CaptainsChairWorkbench() {
             </summary>
             {/* Mission Overview */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-border bg-white p-5">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Priority Overview</h3>
                 {missionStatsLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -465,9 +472,9 @@ export default function CaptainsChairWorkbench() {
                   {departments.filter((d) => d.key !== 'status').map((dept) => {
                     const theme = DEPARTMENTS[dept.key];
                     return (
-                      <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1">
+                      <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                         <div className="flex items-center gap-2 rounded-md border border-wb-border bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
-                          <span className={`h-4 w-4 shrink-0 rounded ${theme.bg}`} />
+                          <span className={`h-4 w-4 shrink-0 rounded ${theme.bg} ring-1 ring-inset ring-black/25`} />
                           <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
                         </div>
                       </Link>
@@ -536,28 +543,31 @@ export default function CaptainsChairWorkbench() {
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
                 ) : engQueueData ? (
                   <div className="space-y-2 text-xs">
-                    {Object.entries(engQueueData.counts).map(([status, count]) => (
-                      <div key={status} className="flex justify-between">
-                        <span className="text-wb-ink2">{LIFECYCLE_LABEL[status as keyof typeof LIFECYCLE_LABEL] || status}</span>
-                        <span className="font-semibold text-wb-ink">{count as number}</span>
-                      </div>
-                    ))}
+                    {[...LIFECYCLE_ORDER, 'rejected' as const].map((status) => {
+                      const c = toneClasses(LIFECYCLE_TONE[status]);
+                      return (
+                        <div key={status} className="flex justify-between">
+                          <span className={c.text}>{LIFECYCLE_LABEL[status]}</span>
+                          <span className="font-semibold text-wb-ink">{engQueueData.counts[status] ?? 0}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-wb-ink2">No data</p>
                 )}
               </div>
 
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-border bg-white p-3">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
                 <div className="space-y-2">
-                  <Link href="/human-systems-workbench" className="block text-xs text-wb-sage-deep hover:underline">
+                  <Link href="/human-systems-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     → Medical Bay
                   </Link>
-                  <Link href="/mission-workbench" className="block text-xs text-wb-sage-deep hover:underline">
+                  <Link href="/mission-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     → Mission Registry
                   </Link>
-                  <Link href="/captains-brief-workbench" className="block text-xs text-wb-sage-deep hover:underline">
+                  <Link href="/captains-brief-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     → Full Brief
                   </Link>
                 </div>
@@ -575,7 +585,7 @@ export default function CaptainsChairWorkbench() {
                 ) : (
                   <ul className="space-y-2">
                     {liveAlerts.slice(0, 5).map((alert) => (
-                      <li key={alert.id} className="border-l-2 border-wb-orange pl-2 text-xs">
+                      <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
                         <p className="font-semibold text-wb-ink">{alert.title}</p>
                         <p className="text-wb-ink2">{alert.detail}</p>
                       </li>
@@ -587,7 +597,7 @@ export default function CaptainsChairWorkbench() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-border bg-white p-5">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Approvals Pending</h3>
                 <CaptainApprovalQueue />
               </div>

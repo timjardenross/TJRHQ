@@ -96,9 +96,9 @@ export const DEPARTMENTS: Record<DepartmentKey, DepartmentTheme> = {
  * below - and is deliberately untouched by this change. */
 export function toneClasses(tone: StatusTone): { text: string; border: string; bg: string; dot: string } {
   if (tone === 'neutral') {
-    return { text: 'text-[#61718c]', border: 'border-[#d9e1f0]', bg: 'bg-[#eef1f8]', dot: 'bg-[#61718c]' };
+    return { text: 'text-lcars-chrome-muted', border: 'border-lcars-chrome-border', bg: 'bg-lcars-chrome-border-soft', dot: 'bg-lcars-chrome-muted' };
   }
-  return { text: 'text-[#243b7a]', border: 'border-[#243b7a]/30', bg: 'bg-[#243b7a]/10', dot: 'bg-[#243b7a]' };
+  return { text: 'text-lcars-chrome-accent', border: 'border-lcars-chrome-accent/30', bg: 'bg-lcars-chrome-accent/10', dot: 'bg-lcars-chrome-accent' };
 }
 
 /**

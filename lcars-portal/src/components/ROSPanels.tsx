@@ -162,7 +162,12 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
   const tone = POSTURE_STATE_TONE[posture];
   const c    = stateToneClasses(tone);
   return (
-    <LCARSPanel title="Today's Sustainable Load" accent="medical" eyebrow="What is safe and sustainable today?">
+    <LCARSPanel
+      title="Today's Sustainable Load"
+      accent="medical"
+      eyebrow="What is safe and sustainable today?"
+      actions={<DataSourceIndicator live={false} variant="inline" mockLabel="Mock data — not yet wired" />}
+    >
       <div className="flex flex-col gap-2">
         <div className={`rounded-lcars border ${c.border} ${c.bg} px-4 py-3`}>
           <p className={`text-sm font-semibold ${c.text}`}>Posture: {posture}</p>

@@ -1,12 +1,16 @@
-import type { StatusTone } from '@/lib/types';
-import { toneClasses } from '@/lib/departments';
+import type { StateTone } from '@/lib/types';
+import { stateToneClasses } from '@/lib/departments';
 import { RecommendationCard, type RecommendedAction } from './RecommendationCard';
 
 export interface ShipStatusItem {
   key: string;
   label: string;
   state: string;
-  tone: StatusTone;
+  /** Health/state tone, not department identity — see StateTone's doc
+   *  comment in ./types. Was StatusTone (design-audit finding: routed
+   *  through toneClasses(), which flattens every non-neutral value to one
+   *  navy since 2026-07-10 — tiles never colour-coded even when critical). */
+  tone: StateTone;
   trend?: 'up' | 'down' | 'steady';
   detail?: string;
 }
@@ -72,7 +76,7 @@ export function ExecutiveSummary({
         {items.length > 0 ? (
           <div className={compact ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6'}>
             {items.map((d) => {
-              const c = toneClasses(d.tone);
+              const c = stateToneClasses(d.tone);
               if (compact) {
                 return (
                   <div key={d.key} className="rounded-md border border-edge bg-panel-2/60 p-2">

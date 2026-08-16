@@ -131,7 +131,7 @@ export function ApprovalQueue({
                   placeholder="Rejection reason (required)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus:border-state-crit/60 focus:outline-none"
+                  className="w-full min-h-[44px] rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-state-crit focus-visible:outline-offset-1"
                 />
                 <div className="flex gap-2">
                   <button
