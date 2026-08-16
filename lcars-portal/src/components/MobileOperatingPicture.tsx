@@ -55,7 +55,7 @@ export function MobileOperatingPicture() {
     <div className="flex flex-col gap-3 lg:hidden">
       {/* ── What needs my decision? banner ── */}
       <Link
-        href="/alerts"
+        href="/captains-chair-workbench/alerts"
         className={[
           'block rounded-lg border p-4',
           decisionAlerts.length > 0 || escalations.length > 0
@@ -91,7 +91,7 @@ export function MobileOperatingPicture() {
             DOM order puts it right before this) already shows it; this
             card's job is just the at-a-glance band + label. */}
         <div className="mt-2 flex gap-2">
-          <Link href="/recovery-brief" className="flex-1 rounded-lg border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
+          <Link href="/human-systems-workbench/recovery-brief" className="flex-1 rounded-lg border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
             Recovery brief
           </Link>
           <Link href="/capture-workbench" className="flex-1 rounded-lg border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
@@ -123,7 +123,7 @@ export function MobileOperatingPicture() {
 
       {/* ── Blocked work ── */}
       {blocked.length > 0 && (
-        <Link href="/engineering-queue" className="block rounded-lg border border-operations/40 bg-operations/5 p-4">
+        <Link href="/captains-chair-workbench/engineering-queue" className="block rounded-lg border border-operations/40 bg-operations/5 p-4">
           <p className="text-[10px] uppercase tracking-[0.3em] text-operations">Blocked / failed</p>
           <p className="mt-1 text-sm font-semibold text-operations">{blocked.length} item{blocked.length === 1 ? '' : 's'} need clearing</p>
           <p className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2">Open engineering queue →</p>

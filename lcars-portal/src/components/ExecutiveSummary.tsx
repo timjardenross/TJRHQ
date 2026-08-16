@@ -67,7 +67,7 @@ export function ExecutiveSummary({
         compact={compact}
       />
 
-      <div className={`rounded-lg border border-wb-border bg-wb-bg/60 ${compact ? 'p-4' : 'p-3'}`}>
+      <div className={`rounded-lg border border-wb-line bg-wb-bg/60 ${compact ? 'p-4' : 'p-3'}`}>
         <p
           className={`mb-2 text-[10px] uppercase tracking-[0.25em] text-wb-ink2 ${compact ? 'tracking-[0.3em]' : 'font-bold'}`}
         >
@@ -79,7 +79,7 @@ export function ExecutiveSummary({
               const c = stateToneClasses(d.tone);
               if (compact) {
                 return (
-                  <div key={d.key} className="rounded-md border border-wb-border bg-white p-2">
+                  <div key={d.key} className="rounded-md border border-wb-line bg-white p-2">
                     <div className="flex items-center gap-1.5">
                       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
                       <span className="text-[10px] uppercase tracking-wide text-wb-ink2">{d.label}</span>

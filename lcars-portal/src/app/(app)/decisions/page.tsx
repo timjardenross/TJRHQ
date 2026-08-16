@@ -1,24 +1,12 @@
-import Link from 'next/link';
-import { LCARSPanel } from '@/components/LCARSPanel';
+import { redirect } from 'next/navigation';
 
-// This page's real function - merging mission and engineering approvals
-// into one queue - moved to /decide (STARSHIP-REDESIGN.md §5): one item
-// at a time, plain question and reasoning, Approve/Hold/Undo, no ranked
-// list. Retired here rather than deleted outright, matching the
-// /stage-progression precedent, so a bookmark or old link lands on an
-// honest notice instead of a 404 or a page slowly drifting out of date
-// next to its replacement.
-
+// This page's real function — merging mission and engineering approvals
+// into one queue — was planned as /decide (STARSHIP-REDESIGN.md §5) but
+// that route was never built; the "moved" notice here pointed at a
+// destination that doesn't exist. The closest real destination today is
+// Captain's Chair, which already has both a mission Approvals Pending
+// panel and an Engineering Queue panel (design-audit fleet-sweep
+// follow-up, 2026-08-16).
 export default function DecisionsPage() {
-  return (
-    <div className="flex flex-col gap-4">
-      <LCARSPanel title="Decisions" accent="command" eyebrow="Moved">
-        <p className="text-sm text-lcars-text/90 leading-relaxed">
-          This page moved.{' '}
-          {' '}
-          for mission and engineering approvals, one at a time.
-        </p>
-      </LCARSPanel>
-    </div>
-  );
+  redirect('/captains-chair-workbench');
 }

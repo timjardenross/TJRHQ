@@ -82,7 +82,7 @@ export default function ProactiveSignals() {
                 linked to it -- the Captain had no way to jump straight to
                 the mission this is about. */}
             {signal.mission_id && (
-              <Link href={`/missions/${encodeURIComponent(signal.mission_id)}`} className="text-xs text-lcars-muted underline underline-offset-2 hover:text-status-on w-fit">
+              <Link href={`/mission-workbench/${encodeURIComponent(signal.mission_id)}`} className="text-xs text-lcars-muted underline underline-offset-2 hover:text-status-on w-fit">
                 View mission →
               </Link>
             )}

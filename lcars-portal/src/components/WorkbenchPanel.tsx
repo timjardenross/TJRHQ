@@ -26,9 +26,9 @@ export function WorkbenchPanel({
 }: WorkbenchPanelProps) {
   return (
     <section
-      className={`overflow-hidden rounded-lg border border-wb-border bg-wb-surface shadow-sm ${className}`}
+      className={`overflow-hidden rounded-lg border border-wb-line bg-wb-surface shadow-sm ${className}`}
     >
-      <div className="flex items-center gap-3 border-b border-wb-border px-4 py-3.5">
+      <div className="flex items-center gap-3 border-b border-wb-line px-4 py-3.5">
         <div className="flex flex-1 flex-col">
           {eyebrow && (
             <span className="text-[11px] uppercase tracking-[0.2em] text-wb-ink2">

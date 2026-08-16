@@ -237,10 +237,10 @@ function NotebookCard() {
   }
 
   return (
-    <div className={`rounded-lg border bg-white p-4 ${hasAction ? 'border-wb-sage-deep/40' : 'border-wb-border'}`}>
+    <div className={`rounded-lg border bg-white p-4 ${hasAction ? 'border-wb-sage-deep/40' : 'border-wb-line'}`}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-wb-ink">Captain&apos;s Notebook</h3>
-        <Link href="/captains-notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+        <Link href="/captains-chair-workbench/notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Open →
         </Link>
       </div>
@@ -295,14 +295,14 @@ function SinceLastSessionCard({ summary, loading }: { summary: SinceLastSessionS
   if (loading || !summary) return null;
   if (summary.firstSession) {
     return (
-      <div className="rounded-lg border border-wb-border bg-white p-4">
+      <div className="rounded-lg border border-wb-line bg-white p-4">
         <h3 className="mb-1 text-sm font-semibold text-wb-ink">Since Last Session</h3>
         <p className="text-xs text-wb-ink2">First session on this browser — nothing to compare against yet.</p>
       </div>
     );
   }
   return (
-    <div className="rounded-lg border border-wb-border bg-white p-4">
+    <div className="rounded-lg border border-wb-line bg-white p-4">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h3 className="text-sm font-semibold text-wb-ink">Since Last Session</h3>
         <span className="text-[10px] uppercase tracking-wide text-wb-ink2">
@@ -411,7 +411,7 @@ export default function CaptainsChairWorkbench() {
             </summary>
             {/* Mission Overview */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-border bg-white p-5">
+              <div className="rounded-lg border border-wb-line bg-white p-5">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Priority Overview</h3>
                 {missionStatsLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -434,7 +434,7 @@ export default function CaptainsChairWorkbench() {
               </div>
 
               {/* Mission Board */}
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Mission Status</h3>
                 {missionStatsLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -465,7 +465,7 @@ export default function CaptainsChairWorkbench() {
                 Names/links are real (route to real live pages); no per-dept
                 metric values, same as legacy — building a real cross-domain
                 metrics query was out of that mission's scope. */}
-            <div className="rounded-lg border border-wb-border bg-white p-4">
+            <div className="rounded-lg border border-wb-line bg-white p-4">
               <h3 className="mb-3 text-sm font-semibold text-wb-ink">Departments</h3>
               <div className="overflow-x-auto">
                 <div className="flex gap-3" style={{ minWidth: `${departments.filter((d) => d.key !== 'status').length * 140}px` }}>
@@ -473,7 +473,7 @@ export default function CaptainsChairWorkbench() {
                     const theme = DEPARTMENTS[dept.key];
                     return (
                       <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                        <div className="flex items-center gap-2 rounded-md border border-wb-border bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
+                        <div className="flex items-center gap-2 rounded-md border border-wb-line bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
                           <span className={`h-4 w-4 shrink-0 rounded ${theme.bg} ring-1 ring-inset ring-black/25`} />
                           <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
                         </div>
@@ -487,7 +487,7 @@ export default function CaptainsChairWorkbench() {
             {/* Captain's Timeline & Captain's Notebook — ported from legacy
                 (app)/captains-chair (MSN-0345 / EXEC-010B WP9). */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Captain&apos;s Timeline</h3>
                 {timelineLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -511,7 +511,7 @@ export default function CaptainsChairWorkbench() {
 
             {/* Today's Briefing & Engineering Queue */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
                 {briefingLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -537,7 +537,7 @@ export default function CaptainsChairWorkbench() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Engineering Queue</h3>
                 {engQueueLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -558,7 +558,7 @@ export default function CaptainsChairWorkbench() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-wb-border bg-white p-3">
+              <div className="rounded-lg border border-wb-line bg-white p-3">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
                 <div className="space-y-2">
                   <Link href="/human-systems-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
@@ -576,7 +576,7 @@ export default function CaptainsChairWorkbench() {
 
             {/* Alerts & Approval Queue */}
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-border bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Live Alerts</h3>
                 {alertsLoading ? (
                   <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
@@ -597,7 +597,7 @@ export default function CaptainsChairWorkbench() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-wb-border bg-white p-5">
+              <div className="rounded-lg border border-wb-line bg-white p-5">
                 <h3 className="mb-3 text-sm font-semibold text-wb-ink">Approvals Pending</h3>
                 <CaptainApprovalQueue />
               </div>

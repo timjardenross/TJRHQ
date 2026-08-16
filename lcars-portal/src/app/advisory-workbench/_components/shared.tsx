@@ -109,7 +109,7 @@ export function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
           {p.success && (
             <>
               {' '}
-              <Link href="/decisions" className="font-normal underline hover:text-wb-sage-deep">Open Decide →</Link>
+              <Link href="/captains-chair-workbench" className="font-normal underline hover:text-wb-sage-deep">Open Captain&apos;s Chair →</Link>
             </>
           )}
         </div>

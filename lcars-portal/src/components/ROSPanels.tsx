@@ -88,7 +88,7 @@ function RecoveryPostureBlock({ posture }: { posture: RecoveryPosture }) {
           <p className={`text-2xl font-bold ${c.text}`}>{posture.posture}</p>
           <p className="mt-2 text-sm text-wb-ink/90 leading-relaxed">{posture.posture_message}</p>
         </div>
-        <div className="rounded-lg border border-wb-border bg-wb-bg/60 p-4 flex flex-col gap-1">
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 p-4 flex flex-col gap-1">
           <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{posture.capacity_band}</p>
           <p className="text-sm text-wb-ink/90 leading-relaxed">{posture.capacity_message}</p>
           {posture.best_window && (
@@ -144,7 +144,7 @@ function RecoveryGuidanceBlock({ guidance }: { guidance: string[] }) {
     >
       <ol className="flex flex-col gap-2">
         {guidance.map((item, i) => (
-          <li key={i} className="flex gap-3 rounded-lg border border-wb-border bg-wb-bg/60 p-3 text-sm text-wb-ink/90 leading-relaxed">
+          <li key={i} className="flex gap-3 rounded-lg border border-wb-line bg-wb-bg/60 p-3 text-sm text-wb-ink/90 leading-relaxed">
             <span className="text-medical shrink-0">{i + 1}.</span>
             {item}
           </li>
@@ -169,16 +169,16 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
         <div className={`rounded-lg border ${c.border} ${c.bg} px-4 py-3`}>
           <p className={`text-sm font-semibold ${c.text}`}>Posture: {posture}</p>
         </div>
-        <div className="rounded-lg border border-wb-border bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
           <span className="text-wb-ink2">Active mission · </span>
           {mlg.active_mission_id} — {mlg.active_mission_safe ? 'safe to continue' : 'review recommended'}
         </div>
-        <div className="rounded-lg border border-wb-border bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
           <span className="text-wb-ink2">New starts · </span>
           {mlg.new_starts_recommended ? 'Appropriate today' : 'Not recommended today — hold for a STRONG day'}
         </div>
         {mlg.decisions_pending > 0 && (
-          <div className="rounded-lg border border-wb-border bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+          <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
             <span className="text-wb-ink2">Decisions · </span>
             {mlg.decisions_pending} pending — {mlg.defer_decisions ? 'defer to tomorrow if capacity allows' : 'within capacity to address'}
           </div>

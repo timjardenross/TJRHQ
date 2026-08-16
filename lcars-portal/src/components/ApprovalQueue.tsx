@@ -72,17 +72,17 @@ const CHROME = {
     cancel: 'border-edge text-lcars-muted hover:text-lcars-text',
   },
   wb: {
-    box: 'rounded-lg border border-wb-border bg-wb-bg/60 p-3',
+    box: 'rounded-lg border border-wb-line bg-wb-bg/60 p-3',
     boxLabel: 'text-wb-ink2',
     boxBody: 'text-wb-ink2',
     container: 'rounded-lg border border-wb-sage-deep/40 bg-wb-sage-deep/5 p-3',
     headerLabel: 'text-wb-sage-deep',
     refresh: 'text-wb-ink2 hover:text-wb-sage-deep',
-    item: 'rounded border border-wb-border bg-wb-bg/60 p-3',
+    item: 'rounded border border-wb-line bg-wb-bg/60 p-3',
     itemMeta: 'text-wb-ink2',
     itemTitle: 'text-wb-ink',
-    input: 'border-wb-border bg-white text-wb-ink placeholder:text-wb-ink2',
-    cancel: 'border-wb-border text-wb-ink2 hover:text-wb-ink',
+    input: 'border-wb-line bg-white text-wb-ink placeholder:text-wb-ink2',
+    cancel: 'border-wb-line text-wb-ink2 hover:text-wb-ink',
   },
 } as const;
 

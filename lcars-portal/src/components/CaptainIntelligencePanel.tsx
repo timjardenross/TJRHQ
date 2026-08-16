@@ -83,7 +83,7 @@ export function CaptainIntelligencePanel() {
           <button
             onClick={generate}
             disabled={generating}
-            className="rounded-full border border-wb-border px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-wb-ink hover:bg-wb-bg disabled:opacity-50"
+            className="rounded-full border border-wb-line px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-wb-ink hover:bg-wb-bg disabled:opacity-50"
           >
             {generating ? 'Synthesising… (can take 1-4 min)' : 'Generate New Insights'}
           </button>
@@ -104,7 +104,7 @@ export function CaptainIntelligencePanel() {
 
       <div className="flex flex-col gap-3">
         {insights.map((insight) => (
-          <div key={insight.id} className="rounded-lg border border-wb-border/60 bg-wb-bg/60 p-3">
+          <div key={insight.id} className="rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3">
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
                 {insight.source_domains?.join(', ')} · {new Date(insight.generated_at).toLocaleString()}
@@ -116,7 +116,7 @@ export function CaptainIntelligencePanel() {
             <p className="text-sm font-semibold text-wb-ink">{insight.observation}</p>
             <p className="mt-1 text-sm text-wb-ink2">{insight.why_it_matters}</p>
             {insight.recommended_action && (
-              <div className="mt-2 border-t border-wb-border/40 pt-2">
+              <div className="mt-2 border-t border-wb-line/40 pt-2">
                 <p className="text-sm text-wb-ink">
                   <span className="font-semibold">Recommended: </span>
                   {insight.recommended_action}
