@@ -103,7 +103,7 @@ export default function AlertsPage() {
       <header className="flex items-end justify-between gap-2">
         <div>
           <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Push Alerts</p>
-          <h1 className="font-lcars text-2xl font-bold text-operations">What needs you</h1>
+          <h1 className="font-sans text-2xl font-bold text-operations">What needs you</h1>
         </div>
         <button onClick={refresh} className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-lcars-text">
           Refresh
@@ -116,7 +116,7 @@ export default function AlertsPage() {
         <p className="text-sm text-lcars-muted italic">Checking…</p>
       ) : alerts.length === 0 ? (
         <div className="rounded-lcars border border-status/40 bg-status/5 p-6 text-center">
-          <p className="font-lcars text-lg font-bold text-status">All clear</p>
+          <p className="font-sans text-lg font-bold text-status">All clear</p>
           <p className="mt-1 text-sm text-lcars-muted">
             Nothing needs your decision, nothing has escalated, nothing is blocked. You&apos;ll only see an alert here when it genuinely matters.
           </p>

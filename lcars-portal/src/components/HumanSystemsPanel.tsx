@@ -101,7 +101,7 @@ export function HumanSystemsPanel() {
           Body Signal/Movement metrics below already use. */}
       <div className="flex items-start gap-4">
         <div className="shrink-0 text-center">
-          <div className="font-lcars text-4xl font-bold text-medical">
+          <div className="font-sans text-4xl font-bold text-medical">
             {snapshot.dataAvailable ? snapshot.overallScore : '—'}
           </div>
           <StatusBadge

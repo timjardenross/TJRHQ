@@ -96,7 +96,7 @@ function EngineeringRatesPanel({ perfs, jobs, requests }: { perfs: AgentPerf[]; 
           {rates.map((r) => (
             <div key={r.key} className="rounded-lcars border border-edge bg-space/40 p-3">
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{r.label}</p>
-              <p className="font-lcars text-2xl font-bold text-engineering-on mt-0.5">{engineeringRatePct(r.ratio)}</p>
+              <p className="font-sans text-2xl font-bold text-engineering-on mt-0.5">{engineeringRatePct(r.ratio)}</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">{r.detail}</p>
             </div>
           ))}
@@ -165,17 +165,17 @@ function AgentPerformancePanel({ perfs }: { perfs: AgentPerf[] }) {
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Tasks</p>
-          <p className="font-lcars text-xl font-bold text-engineering-on mt-0.5">{perfs.length}</p>
+          <p className="font-sans text-xl font-bold text-engineering-on mt-0.5">{perfs.length}</p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Success rate</p>
-          <p className="font-lcars text-xl font-bold text-status-on mt-0.5">
+          <p className="font-sans text-xl font-bold text-status-on mt-0.5">
             {Math.round((successCount / perfs.length) * 100)}%
           </p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Total cost</p>
-          <p className="font-lcars text-xl font-bold text-command-on mt-0.5">
+          <p className="font-sans text-xl font-bold text-command-on mt-0.5">
             ${totalCost.toFixed(3)}
           </p>
         </div>

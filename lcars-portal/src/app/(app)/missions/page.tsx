@@ -134,7 +134,7 @@ export default function MissionsPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {stats.map((s) => (
                 <div key={s.label} className="rounded-lcars border border-[#d9e1f0] bg-white-2/60 p-3 text-center">
-                  <p className={`font-lcars text-2xl font-bold ${s.tone}`}>{s.value}</p>
+                  <p className={`font-sans text-2xl font-bold ${s.tone}`}>{s.value}</p>
                   <p className="text-[10px] uppercase tracking-wider text-[#61718c]">{s.label}</p>
                 </div>
               ))}

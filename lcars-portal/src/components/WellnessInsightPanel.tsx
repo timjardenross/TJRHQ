@@ -162,7 +162,7 @@ export function WellnessInsightPanel() {
           {insights?.cpap_compliance_rate != null && (
             <div className="rounded-lcars border border-edge bg-space/40 p-3">
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">CPAP Compliance (7d)</p>
-              <p className="font-lcars text-lg font-semibold text-command mt-0.5">
+              <p className="font-sans text-lg font-semibold text-command mt-0.5">
                 {Math.round(insights.cpap_compliance_rate * 100)}%
               </p>
             </div>

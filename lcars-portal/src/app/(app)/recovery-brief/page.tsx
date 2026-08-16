@@ -99,7 +99,7 @@ export default function RecoveryBriefPage() {
       {/* ── Recovery Posture ── */}
       <LCARSPanel title="Recovery Posture" accent="medical" eyebrow="What does my system need today?">
         <div className={`rounded-lcars border ${pc.border} ${pc.bg} p-5`}>
-          <p className={`font-lcars text-3xl font-bold ${pc.text}`}>{brief.posture}</p>
+          <p className={`font-sans text-3xl font-bold ${pc.text}`}>{brief.posture}</p>
           <p className="mt-2 text-sm text-lcars-text/90 leading-relaxed">{brief.posture_message}</p>
         </div>
 
@@ -126,7 +126,7 @@ export default function RecoveryBriefPage() {
           <div className="mt-3 flex flex-wrap gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Best window</p>
-              <p className="font-lcars text-lg font-semibold text-command-on">{brief.best_window}</p>
+              <p className="font-sans text-lg font-semibold text-command-on">{brief.best_window}</p>
             </div>
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function RecoveryBriefPage() {
         </div>
         <Link
           href="/captains-log"
-          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-white hover:opacity-80 transition-opacity"
+          className="shrink-0 rounded-lcars bg-medical px-4 py-2 font-sans text-xs font-bold uppercase tracking-[0.2em] text-white hover:opacity-80 transition-opacity"
         >
           Log Today →
         </Link>

@@ -195,7 +195,7 @@ export default function MissionDetailPage() {
 
       {/* Header */}
       <LCARSPanel title={mission.mission_id} accent="command" eyebrow={eyebrow} actions={<StatusBadge label={mission.status} status={mission.status} />}>
-        <h2 className="font-lcars text-xl font-bold text-[#18223a]">{mission.title}</h2>
+        <h2 className="font-sans text-xl font-bold text-[#18223a]">{mission.title}</h2>
         {mission.description && (
           <p className="mt-2 text-sm text-[#61718c] leading-relaxed">{mission.description}</p>
         )}
@@ -322,7 +322,7 @@ export default function MissionDetailPage() {
           <button
             onClick={handleSave}
             disabled={saving || (newStatus === mission.status && !note)}
-            className="w-full rounded-lcars bg-[#243b7a] px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+            className="w-full rounded-lcars bg-[#243b7a] px-4 py-2.5 font-sans text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Update Mission'}
           </button>

@@ -10,7 +10,7 @@ import Link from 'next/link';
 export default function CaptainsBriefPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="font-lcars text-lg font-bold uppercase tracking-wider text-lcars-text">
+      <h1 className="font-sans text-lg font-bold uppercase tracking-wider text-lcars-text">
         Captain&apos;s Brief
       </h1>
       <p className="mt-3 text-[13px] leading-relaxed text-wb-ink2">

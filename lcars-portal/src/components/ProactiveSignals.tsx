@@ -56,7 +56,7 @@ export default function ProactiveSignals() {
   if (signals.length === 0) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-medical font-lcars text-sm">All systems nominal</p>
+        <p className="text-medical font-sans text-sm">All systems nominal</p>
       </div>
     );
   }
@@ -73,7 +73,7 @@ export default function ProactiveSignals() {
               <span className="text-lcars-muted text-xs uppercase tracking-wider">
                 {signal.category}
               </span>
-              <span className={`font-lcars text-sm font-semibold ${SEVERITY_COLOR[signal.severity]}`}>
+              <span className={`font-sans text-sm font-semibold ${SEVERITY_COLOR[signal.severity]}`}>
                 {signal.title}
               </span>
             </div>

@@ -223,7 +223,7 @@ function NoteCard({
               {note.strategic_alignment_score !== null && (
                 <div className="rounded border border-edge bg-panel/60 px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Strategic</p>
-                  <p className="font-lcars text-base font-bold text-command-on">
+                  <p className="font-sans text-base font-bold text-command-on">
                     {Math.round(note.strategic_alignment_score * 100)}
                   </p>
                 </div>
@@ -231,7 +231,7 @@ function NoteCard({
               {note.confidence_score !== null && (
                 <div className="rounded border border-edge bg-panel/60 px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Confidence</p>
-                  <p className="font-lcars text-base font-bold text-science-on">
+                  <p className="font-sans text-base font-bold text-science-on">
                     {Math.round(note.confidence_score * 100)}
                   </p>
                 </div>
@@ -472,7 +472,7 @@ export default function CaptainsNotebookPage() {
               type="button"
               onClick={handleCapture}
               disabled={capturing || !captureContent.trim()}
-              className="w-full rounded-lcars bg-command px-4 py-3.5 font-lcars text-base font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="w-full rounded-lcars bg-command px-4 py-3.5 font-sans text-base font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
             >
               {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
             </button>
@@ -516,7 +516,7 @@ export default function CaptainsNotebookPage() {
               type="button"
               onClick={handleCapture}
               disabled={capturing || !captureContent.trim()}
-              className="w-full rounded-lcars bg-command px-4 py-2.5 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="w-full rounded-lcars bg-command px-4 py-2.5 font-sans text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
             >
               {captureSuccess ? '✓ Captured' : capturing ? 'Capturing…' : 'Capture'}
             </button>

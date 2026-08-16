@@ -166,11 +166,11 @@ export default function WorkoutHistoryPage() {
 
       <div className="grid grid-cols-2 gap-3">
         <LCARSPanel title="This Week" accent="medical">
-          <p className="font-lcars text-3xl font-bold text-medical-on">{weeklyCompleted.length}</p>
+          <p className="font-sans text-3xl font-bold text-medical-on">{weeklyCompleted.length}</p>
           <p className="text-[11px] text-lcars-muted">completed sessions</p>
         </LCARSPanel>
         <LCARSPanel title="Avg Duration" accent="medical">
-          <p className="font-lcars text-3xl font-bold text-medical-on">{avgDuration ?? '—'}</p>
+          <p className="font-sans text-3xl font-bold text-medical-on">{avgDuration ?? '—'}</p>
           <p className="text-[11px] text-lcars-muted">minutes</p>
         </LCARSPanel>
       </div>
@@ -178,19 +178,19 @@ export default function WorkoutHistoryPage() {
       <LCARSPanel title="Pain Trend" accent="medical">
         <div className="flex items-center justify-between text-sm">
           <span className="text-lcars-muted">Before session (avg)</span>
-          <span className="font-lcars font-bold">{avgPainBefore != null ? avgPainBefore.toFixed(1) : '—'}/10</span>
+          <span className="font-sans font-bold">{avgPainBefore != null ? avgPainBefore.toFixed(1) : '—'}/10</span>
         </div>
         <div className="mt-1 flex items-center justify-between text-sm">
           <span className="text-lcars-muted">After session (avg)</span>
-          <span className="font-lcars font-bold">{avgPainAfter != null ? avgPainAfter.toFixed(1) : '—'}/10</span>
+          <span className="font-sans font-bold">{avgPainAfter != null ? avgPainAfter.toFixed(1) : '—'}/10</span>
         </div>
       </LCARSPanel>
 
       <LCARSPanel title="Energy: Before vs After" accent="medical">
         <div className="grid grid-cols-3 gap-2 text-center text-sm">
-          <div><p className="font-lcars text-xl font-bold text-status-on">{energyImproved}</p><p className="text-[10px] text-lcars-muted uppercase">Improved</p></div>
-          <div><p className="font-lcars text-xl font-bold text-lcars-muted">{energySame}</p><p className="text-[10px] text-lcars-muted uppercase">Same</p></div>
-          <div><p className="font-lcars text-xl font-bold text-operations-on">{energyWorse}</p><p className="text-[10px] text-lcars-muted uppercase">Lower</p></div>
+          <div><p className="font-sans text-xl font-bold text-status-on">{energyImproved}</p><p className="text-[10px] text-lcars-muted uppercase">Improved</p></div>
+          <div><p className="font-sans text-xl font-bold text-lcars-muted">{energySame}</p><p className="text-[10px] text-lcars-muted uppercase">Same</p></div>
+          <div><p className="font-sans text-xl font-bold text-operations-on">{energyWorse}</p><p className="text-[10px] text-lcars-muted uppercase">Lower</p></div>
         </div>
       </LCARSPanel>
 

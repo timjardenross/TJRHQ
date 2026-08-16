@@ -204,19 +204,19 @@ function FrictionPanel({ items, events }: { items: CapturedItem[]; events: Comma
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <div className={`rounded-lcars border p-3 text-center ${failedItems.length > 0 ? 'border-operations/40 bg-operations/5' : 'border-edge bg-space/40'}`}>
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Failed processing</p>
-          <p className={`font-lcars text-2xl font-bold mt-0.5 ${failedItems.length > 0 ? 'text-operations-on' : 'text-status-on'}`}>
+          <p className={`font-sans text-2xl font-bold mt-0.5 ${failedItems.length > 0 ? 'text-operations-on' : 'text-status-on'}`}>
             {failedItems.length}
           </p>
         </div>
         <div className={`rounded-lcars border p-3 text-center ${unreviewedHigh.length > 0 ? 'border-command/40 bg-command/5' : 'border-edge bg-space/40'}`}>
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Unreviewed (high)</p>
-          <p className={`font-lcars text-2xl font-bold mt-0.5 ${unreviewedHigh.length > 0 ? 'text-command-on' : 'text-status-on'}`}>
+          <p className={`font-sans text-2xl font-bold mt-0.5 ${unreviewedHigh.length > 0 ? 'text-command-on' : 'text-status-on'}`}>
             {unreviewedHigh.length}
           </p>
         </div>
         <div className="rounded-lcars border border-status/40 bg-status/5 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Friction removed</p>
-          <p className="font-lcars text-2xl font-bold text-status-on mt-0.5">{resolvedItems.length}</p>
+          <p className="font-sans text-2xl font-bold text-status-on mt-0.5">{resolvedItems.length}</p>
         </div>
       </div>
 

@@ -131,7 +131,6 @@ const config: Config = {
       },
       fontFamily: {
         sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        lcars: ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
         // TJR Design System — locked serif for wb.* headings (Card/Shell titles).
         // Loaded via next/font/google in src/app/layout.tsx as --font-serif.

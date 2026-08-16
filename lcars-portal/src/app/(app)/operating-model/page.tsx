@@ -104,7 +104,7 @@ export default function OperatingModelPage() {
       {/* Section 1 — Header + Live Stats */}
       <LCARSPanel title="Operating Model" accent="command" eyebrow="USS-TJR-MSN-3B-002">
         <div className="mb-6">
-          <h1 className="font-lcars text-2xl text-foreground tracking-wide">
+          <h1 className="font-sans text-2xl text-foreground tracking-wide">
             Captain TJR — Personal Operating Model
           </h1>
           <p className="text-lcars-muted text-sm mt-1">
@@ -123,19 +123,19 @@ export default function OperatingModelPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Active Missions</div>
-            <div className="font-lcars text-3xl text-command-on">
+            <div className="font-sans text-3xl text-command-on">
               {loading ? '—' : activeMissionsCount ?? '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Capacity Rating</div>
-            <div className="font-lcars text-3xl text-science-on">
+            <div className="font-sans text-3xl text-science-on">
               {loading ? '—' : lastLog?.captain_capacity_rating != null ? `${lastLog.captain_capacity_rating}/10` : '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Last Recovery</div>
-            <div className="font-lcars text-2xl text-medical-on truncate">
+            <div className="font-sans text-2xl text-medical-on truncate">
               {loading ? '—' : lastPulse?.pulse_type ?? '—'}
             </div>
           </div>
@@ -149,11 +149,11 @@ export default function OperatingModelPage() {
             <div key={d.name} className="bg-panel border border-edge rounded-lcars p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xl">{d.icon}</span>
-                <span className={`text-xs font-lcars px-2 py-0.5 rounded ${priorityColor(d.priority)}`}>
+                <span className={`text-xs font-sans px-2 py-0.5 rounded ${priorityColor(d.priority)}`}>
                   {d.priority}
                 </span>
               </div>
-              <div className={`font-lcars text-lg ${d.accent}`}>{d.name}</div>
+              <div className={`font-sans text-lg ${d.accent}`}>{d.name}</div>
               <p className="text-lcars-muted text-sm leading-snug">{d.description}</p>
             </div>
           ))}
@@ -165,9 +165,9 @@ export default function OperatingModelPage() {
         <ol className="space-y-3">
           {PRINCIPLES.map((p) => (
             <li key={p.num} className="flex gap-4 items-start bg-panel border border-edge rounded-lcars px-4 py-3">
-              <span className="font-lcars text-medical-on text-xl w-6 shrink-0">{p.num}</span>
+              <span className="font-sans text-medical-on text-xl w-6 shrink-0">{p.num}</span>
               <div>
-                <div className="font-lcars text-foreground text-sm">{p.title}</div>
+                <div className="font-sans text-foreground text-sm">{p.title}</div>
                 <div className="text-lcars-muted text-sm mt-0.5">{p.body}</div>
               </div>
             </li>
@@ -201,7 +201,7 @@ export default function OperatingModelPage() {
             <ul className="space-y-2">
               {SCHEDULE.map((s) => (
                 <li key={s.label} className="flex items-start gap-3 bg-panel border border-edge rounded-lcars px-4 py-2">
-                  <span className={`font-lcars text-sm w-44 shrink-0 ${s.accent}`}>{s.label}</span>
+                  <span className={`font-sans text-sm w-44 shrink-0 ${s.accent}`}>{s.label}</span>
                   <span className="text-lcars-muted text-sm">{s.time}</span>
                 </li>
               ))}
@@ -216,15 +216,15 @@ export default function OperatingModelPage() {
               <div className="bg-panel border border-edge rounded-lcars p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Type</span>
-                  <span className="text-foreground text-sm font-lcars capitalize">{lastPulse.pulse_type ?? '—'}</span>
+                  <span className="text-foreground text-sm font-sans capitalize">{lastPulse.pulse_type ?? '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Pain</span>
-                  <span className="text-medical-on text-sm font-lcars">{lastPulse.pain_score != null ? `${lastPulse.pain_score}/10` : '—'}</span>
+                  <span className="text-medical-on text-sm font-sans">{lastPulse.pain_score != null ? `${lastPulse.pain_score}/10` : '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Energy</span>
-                  <span className="text-engineering-on text-sm font-lcars capitalize">{lastPulse.energy ?? '—'}</span>
+                  <span className="text-engineering-on text-sm font-sans capitalize">{lastPulse.energy ?? '—'}</span>
                 </div>
                 {/* Nervous system is the canonical Telegram-bot field
                     (Captain directive, 2026-08-10), replacing Mood here.
@@ -232,7 +232,7 @@ export default function OperatingModelPage() {
                     predates the canonical field (no nervous_system value). */}
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">{lastPulse.nervous_system ? 'Nervous system' : 'Mood (legacy)'}</span>
-                  <span className="text-science-on text-sm font-lcars capitalize">{lastPulse.nervous_system ?? lastPulse.mood ?? '—'}</span>
+                  <span className="text-science-on text-sm font-sans capitalize">{lastPulse.nervous_system ?? lastPulse.mood ?? '—'}</span>
                 </div>
                 {lastPulse.captured_at && (
                   <div className="text-lcars-muted text-xs pt-1 border-t border-edge">

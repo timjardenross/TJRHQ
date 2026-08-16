@@ -18,7 +18,7 @@ function NextActionHero({ item }: { item: QueueItem | null }) {
     return (
       <div className="rounded-lcars border border-status/40 bg-status/5 p-4">
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Next engineering action</p>
-        <p className="mt-1 font-lcars text-lg font-bold text-status">Queue is clear</p>
+        <p className="mt-1 font-sans text-lg font-bold text-status">Queue is clear</p>
         <p className="text-xs text-lcars-muted">Nothing is waiting on a decision right now.</p>
       </div>
     );
@@ -26,7 +26,7 @@ function NextActionHero({ item }: { item: QueueItem | null }) {
   return (
     <div className="rounded-lcars border border-engineering/50 bg-engineering/5 p-4">
       <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Next engineering action</p>
-      <p className="mt-1 font-lcars text-lg font-bold text-engineering leading-snug">{item.nextAction}</p>
+      <p className="mt-1 font-sans text-lg font-bold text-engineering leading-snug">{item.nextAction}</p>
       <p className="mt-1 text-sm text-lcars-text/80">{item.title}</p>
       <div className="mt-2">
         <StatusBadge label={LIFECYCLE_LABEL[item.lifecycle]} tone={LIFECYCLE_TONE[item.lifecycle]} />
@@ -123,7 +123,7 @@ export default function EngineeringQueuePage() {
     <div className="mx-auto flex max-w-[640px] flex-col gap-4">
       <header>
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Engineering</p>
-        <h1 className="font-lcars text-2xl font-bold text-engineering">Engineering Queue</h1>
+        <h1 className="font-sans text-2xl font-bold text-engineering">Engineering Queue</h1>
         <p className="text-xs text-lcars-muted">
           {loading ? 'Loading…' : data?.isLive ? '● Live · build inbox + delivery' : '○ No engineering data'}
         </p>
