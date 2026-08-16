@@ -63,7 +63,7 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
               {PILLAR_LABEL[item.pillar] ?? item.pillar}
             </span>
           )}
-          <span className="text-[11px] text-wb-ink2/70">{item.updated_at.slice(0, 10)}</span>
+          <span className="text-[11px] text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
           <span className="ml-auto text-[10px] text-wb-ink2">{open ? '▲' : '▼'}</span>
         </div>
         <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>

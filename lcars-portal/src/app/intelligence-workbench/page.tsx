@@ -67,7 +67,7 @@ function Workbench() {
   const renderSignal = (s: any) => (
     <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
       {s.canonical_url ? (
-        <a href={s.canonical_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+        <a href={s.canonical_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
           {s.raw_title}
         </a>
       ) : (
@@ -80,7 +80,7 @@ function Workbench() {
         {s.sector && <> • {s.sector.replace(/_/g, ' ')}</>}
         {s.published_at && <> • {new Date(s.published_at).toLocaleDateString()}</>}
       </div>
-      {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+      {s.summary && <div className="mt-1 text-wb-ink2">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
     </div>
   );
 

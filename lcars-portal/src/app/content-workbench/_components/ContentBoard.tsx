@@ -696,10 +696,10 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
           <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${accent.chip}`}>{items.length}</span>
         </div>
       </div>
-      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2/80">{STAGE_HINT[stage]}</p>
+      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
       <div className="flex flex-col gap-2" role="list" aria-label={`Items in ${STAGE_LABEL[stage]}`}>
         {items.map((item) => (<ItemCard key={item.id} item={item} onChanged={onChanged} />))}
-        {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2/60">Empty</p>}
+        {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2">Empty</p>}
       </div>
     </div>
   );

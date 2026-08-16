@@ -95,7 +95,7 @@ function Workbench() {
     return (
       <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
         {s.source_url ? (
-          <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+          <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
             {domainEmoji(s.health_domain)} {s.title}
           </a>
         ) : (
@@ -159,7 +159,7 @@ function Workbench() {
               {data.signals?.slice(0, 10).map((s: any) => (
                 <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   {s.source_url ? (
-                    <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-accent">
+                    <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
                       {domainEmoji(s.health_domain)} {s.title}
                     </a>
                   ) : (
