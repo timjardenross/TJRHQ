@@ -76,7 +76,7 @@ export function CaptureBox({ onCaptured }: { onCaptured: () => void }) {
           rows={3}
           placeholder="Capture a content idea or topic — it's scored and pillar-classified automatically."
           aria-label="Capture content idea"
-          className="w-full resize-none rounded-lg border border-wb-line bg-wb-bg px-3 py-3 text-[14px] leading-snug text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
+          className="w-full resize-none rounded-lg border border-wb-line bg-wb-bg px-3 py-3 text-[14px] leading-snug text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button onClick={submit} disabled={saving || !text.trim()}>
@@ -87,15 +87,17 @@ export function CaptureBox({ onCaptured }: { onCaptured: () => void }) {
           </span>
         </div>
 
-        {result && (
-          <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[12px] text-wb-ok-on" role="status" aria-live="polite">
-            <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Captured</span>
-            <span>{result.pillar_name} · rank {result.rank_score.toFixed(1)}</span>
-            {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 font-semibold text-wb-warn-on">⭐ Captain Priority</span>}
-            <span className="text-wb-ink2">— add a research brief below to move it forward.</span>
-          </p>
-        )}
-        {error && <p className="mt-3 text-[12px] text-wb-crit-on">{error}</p>}
+        <p className="mt-3 flex min-h-[1lh] flex-wrap items-center gap-1.5 text-[12px] text-wb-ok-on" role="status" aria-live="polite">
+          {result && (
+            <>
+              <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Captured</span>
+              <span>{result.pillar_name} · rank {result.rank_score.toFixed(1)}</span>
+              {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 font-semibold text-wb-warn-on">★ Captain Priority</span>}
+              <span className="text-wb-ink2">— add a research brief below to move it forward.</span>
+            </>
+          )}
+        </p>
+        <p className="mt-3 min-h-[1lh] text-[12px] text-wb-crit-on">{error}</p>
       </div>
     </section>
   );

@@ -95,7 +95,7 @@ export function AskView({
   };
 
   const perspectives = summary?.officer_perspectives ?? [];
-  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep';
+  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 
   return (
     <div className="space-y-5">
@@ -114,7 +114,7 @@ export function AskView({
                 <p className="text-[10px] text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
               </div>
               <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); }}
-                className="shrink-0 text-[9px] uppercase tracking-widest text-wb-sage-deep hover:underline">View</button>
+                className="shrink-0 text-[9px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">View</button>
             </div>
           ))}
         </div>
@@ -126,9 +126,9 @@ export function AskView({
         <div className="space-y-2 text-left">
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
             placeholder="Bring a question…" disabled={loading}
-            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none disabled:opacity-50" />
+            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
           <button onClick={submit} disabled={loading || !input.trim()}
-            className="w-full rounded-md bg-wb-sage-deep px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+            className="w-full rounded-md bg-wb-sage-deep px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Ask
           </button>
         </div>
@@ -153,7 +153,7 @@ export function AskView({
 
           <div>
             <button onClick={() => setShowPerspectives((v) => !v)}
-              className="text-[11px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline">
+              className="text-[11px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
               {showPerspectives ? '▲ Hide' : '▼ Pull apart'} — {perspectives.length} specialist perspective{perspectives.length === 1 ? '' : 's'}
             </button>
             {showPerspectives && (

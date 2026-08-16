@@ -159,9 +159,9 @@ function PulseForm({
           value={energy}
           onChange={setEnergy}
           options={[
-            { value: 'high',     label: '⚡ High' },
-            { value: 'moderate', label: '〜 Moderate' },
-            { value: 'low',      label: '🔋 Low' },
+            { value: 'high',     label: 'High' },
+            { value: 'moderate', label: 'Moderate' },
+            { value: 'low',      label: 'Low' },
           ]}
         />
       )}
@@ -171,9 +171,9 @@ function PulseForm({
           value={nervousSystem}
           onChange={setNervousSystem}
           options={[
-            { value: 'calm',         label: '🟢 Calm' },
-            { value: 'activated',    label: '🟡 Activated' },
-            { value: 'dysregulated', label: '🔴 Dysregulated' },
+            { value: 'calm',         label: 'Calm' },
+            { value: 'activated',    label: 'Activated' },
+            { value: 'dysregulated', label: 'Dysregulated' },
           ]}
         />
       )}
@@ -184,9 +184,9 @@ function PulseForm({
           value={bodySignals}
           onChange={setBodySignals}
           options={[
-            { value: 'quiet',       label: '🤫 Quiet' },
-            { value: 'present',     label: '💬 Present' },
-            { value: 'significant', label: '📢 Significant' },
+            { value: 'quiet',       label: 'Quiet' },
+            { value: 'present',     label: 'Present' },
+            { value: 'significant', label: 'Significant' },
           ]}
         />
       )}
@@ -196,9 +196,9 @@ function PulseForm({
           value={dayWin}
           onChange={setDayWin}
           options={[
-            { value: 'something_did', label: '🙂 Something did' },
-            { value: 'nothing_much',  label: '😐 Nothing much' },
-            { value: 'rough_day',     label: '😞 Rough day' },
+            { value: 'something_did', label: 'Something did' },
+            { value: 'nothing_much',  label: 'Nothing much' },
+            { value: 'rough_day',     label: 'Rough day' },
           ]}
         />
       )}
@@ -340,10 +340,10 @@ export default function RecoveryPulsePage() {
                 type="button"
                 onClick={() => setSelectedPulse(p.type)}
                 aria-pressed={isSelected}
-                className={`rounded-lg p-4 text-left transition-all ${
+                className={`rounded-lg border p-4 text-left transition-colors ${
                   isSelected
-                    ? `border-2 ${p.tone}`
-                    : 'border border-wb-line bg-wb-surface hover:bg-wb-line'
+                    ? p.tone
+                    : 'border-wb-line bg-wb-surface hover:bg-wb-line'
                 }`}
               >
                 <div className="mb-1 flex items-start justify-between gap-2">

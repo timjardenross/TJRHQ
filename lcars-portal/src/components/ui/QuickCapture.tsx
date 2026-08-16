@@ -119,7 +119,7 @@ export function QuickCapture() {
               type="button"
               onClick={submit}
               disabled={saving || !text.trim()}
-              className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? 'Capturing…' : 'Capture'}
             </button>

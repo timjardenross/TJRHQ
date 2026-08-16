@@ -152,18 +152,18 @@ export default function BriefReview({ params }: { params: { id: string } }) {
               {audit?.qa?.approved_by && <span className="text-[11.5px] text-wb-ink2">{audit.qa.approved_by}</span>}
               {!gatePassed('qa') && (
                 <button disabled={!!busy} onClick={() => act('brief.qa_pass', {}, 'QA pass')}
-                  className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+                  className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
                   Pass
                 </button>
               )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.publish', {}, 'Publish')}
-                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Publish
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to RED')}
-                className="rounded-md border border-wb-crit-on bg-wb-crit-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
+                className="rounded-md border border-wb-crit-on bg-wb-crit-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
                 Escalate to RED
               </button>
               <a href={`/intelligence-workbench/escalation/${id}`}

@@ -58,7 +58,7 @@ export function useElapsed(active: boolean) {
 export function Dots({ size = 'md' }: { size?: 'sm' | 'md' }) {
   const dot = size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2';
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5" aria-hidden="true">
       {[0, 1, 2].map((i) => (
         <span key={i} className={`${dot} animate-pulse rounded-full bg-wb-sage-deep`} style={{ animationDelay: `${i * 150}ms` }} />
       ))}

@@ -1,9 +1,11 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
+import type { StateTone } from '@/lib/types';
+import { stateToneClasses } from '@/lib/departments';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment';
 
@@ -16,17 +18,47 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'threat-assessment', label: 'Threat Assessment' },
 ];
 
-const DOMAIN_EMOJI: Record<string, string> = {
-  epidemiology: '🧬',
-  treatment: '💊',
-  supplement: '💊',
-  performance: '🏋️',
-  mental_health: '🧠',
-  vaccine: '💉',
+// Health category tag on each signal — purely categorical, not a status/
+// severity signal, so it deliberately uses the neutral 'unknown' state tone
+// for every entry rather than fabricating an ok/warn/crit reading for a
+// topic tag (e.g. "vaccine" is not inherently more/less severe than
+// "epidemiology"). Replaces the old per-category emoji glyphs.
+const DOMAIN_LABEL: Record<string, string> = {
+  epidemiology: 'Epidemiology',
+  treatment: 'Treatment',
+  supplement: 'Supplement',
+  performance: 'Performance',
+  mental_health: 'Mental Health',
+  vaccine: 'Vaccine',
 };
 
-function domainEmoji(d?: string) {
-  return (d && DOMAIN_EMOJI[d]) || '🩺';
+function domainLabel(d?: string) {
+  return (d && DOMAIN_LABEL[d]) || 'Health';
+}
+
+/** Small filled-dot + text-label tag, replacing decorative emoji glyphs with
+ *  the app's state.ok/warn/crit/unknown token family (tailwind.config.ts /
+ *  @/lib/departments). */
+function StateTag({ tone, label, className = '' }: { tone: StateTone; label: string; className?: string }) {
+  const c = stateToneClasses(tone);
+  return (
+    <span className={`inline-flex items-center gap-1 align-middle ${className}`}>
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${c.dot}`} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+/** Card title replacement (Card's `title` prop is string-only) that renders
+ *  the same h2 styling Card would, plus a state dot before the label. */
+function CardTitleWithDot({ tone, children }: { tone: StateTone; children: ReactNode }) {
+  const c = stateToneClasses(tone);
+  return (
+    <h2 className="mb-3 flex items-center gap-2 border-b border-wb-line pb-3 font-serif text-lg text-wb-ink">
+      <span className={`inline-block h-2 w-2 rounded-full ${c.dot}`} aria-hidden />
+      {children}
+    </h2>
+  );
 }
 
 function isDomain(v: string | null): v is Domain {
@@ -96,10 +128,12 @@ function Workbench() {
       <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
         {s.source_url ? (
           <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-            {domainEmoji(s.health_domain)} {s.title}
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
           </a>
         ) : (
-          <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+          <div className="font-semibold text-wb-ink">
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+          </div>
         )}
         <div>
           {s.source_name}
@@ -112,8 +146,8 @@ function Workbench() {
             <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[10px] font-medium text-wb-warn-on">{discoveredNote}</span>
           )}
         </div>
-        {s.summary && <div className="mt-1 text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
-        {s.actionable_recommendation && <div className="mt-1 italic">→ {s.actionable_recommendation}</div>}
+        {s.summary && <div className="mt-1 max-w-[70ch] text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+        {s.actionable_recommendation && <div className="mt-1 max-w-[70ch] italic">→ {s.actionable_recommendation}</div>}
       </div>
     );
   };
@@ -132,7 +166,9 @@ function Workbench() {
       }
     >
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Health OSINT…</div>}
-      {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
+      <div className="mb-4 min-h-[1lh]">
+        {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
+      </div>
 
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
@@ -160,10 +196,12 @@ function Workbench() {
                 <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   {s.source_url ? (
                     <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-                      {domainEmoji(s.health_domain)} {s.title}
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
                     </a>
                   ) : (
-                    <div className="font-semibold text-wb-ink">{domainEmoji(s.health_domain)} {s.title}</div>
+                    <div className="font-semibold text-wb-ink">
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+                    </div>
                   )}
                   <div>{s.category} • {s.confidence_level.toUpperCase()} • {s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
                 </div>
@@ -176,22 +214,26 @@ function Workbench() {
       {domain === 'intelligence-summary' && data && (
         <div className="space-y-4">
           {data.high?.length > 0 && (
-            <Card title="🟢 HIGH CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="ok">HIGH CONFIDENCE</CardTitleWithDot>
               <div className="space-y-2">{data.high.map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
-            <Card title="🟡 MEDIUM CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="warn">MEDIUM CONFIDENCE</CardTitleWithDot>
               <div className="space-y-2">{data.medium.map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
-            <Card title="🔴 LOW CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="crit">LOW CONFIDENCE</CardTitleWithDot>
               <div className="space-y-2">{data.low.map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
-            <Card title="⚠️ KNOWN UNKNOWNS">
+            <Card>
+              <CardTitleWithDot tone="unknown">KNOWN UNKNOWNS</CardTitleWithDot>
               <div className="space-y-2">
                 {data.unknowns.map((u: any) => (
                   <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
@@ -226,7 +268,7 @@ function Workbench() {
                 <div key={t.source}>{t.source} → SRS {t.srs_to}</div>
               ))}
             </div>
-            {data.note && <p className="mt-2 text-[11px] italic text-wb-ink2">{data.note}</p>}
+            {data.note && <p className="mt-2 max-w-[70ch] text-[11px] italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -237,9 +279,12 @@ function Workbench() {
             <div className="space-y-2">
               {data.threats?.map((t: any) => (
                 <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
-                  <div className="font-semibold text-wb-ink">{t.threat}{t.fda_flagged ? ' 🚩 FDA-flagged' : ''}</div>
+                  <div className="font-semibold text-wb-ink">
+                    {t.threat}
+                    {t.fda_flagged && <StateTag tone="crit" label="FDA-flagged" className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-state-crit" />}
+                  </div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()} {t.frequency_reported ? `• ${t.frequency_reported} reports` : ''}</div>
-                  <div className="italic">{t.recommendation}</div>
+                  <div className="max-w-[70ch] italic">{t.recommendation}</div>
                 </div>
               ))}
               {!data.threats?.length && <p>No adverse-event or safety-alert signals in window.</p>}
@@ -249,7 +294,7 @@ function Workbench() {
             <Card title="Evidence Gaps">
               <div className="text-[12px] text-wb-ink2 space-y-1">
                 {data.gaps.map((g: any) => (
-                  <div key={g.area}>{g.area}: {g.risk} — {g.evidence_gap}</div>
+                  <div key={g.area} className="max-w-[70ch]">{g.area}: {g.risk} — {g.evidence_gap}</div>
                 ))}
               </div>
             </Card>

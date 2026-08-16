@@ -3,6 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
+import { stateToneClasses } from '@/lib/departments';
+import type { StateTone } from '@/lib/types';
 
 type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
@@ -18,6 +20,18 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
 
 function isDomain(v: string | null): v is Domain {
   return DOMAIN_OPTIONS.some((o) => o.key === v);
+}
+
+/** Card title with a semantic state dot in place of a functional emoji glyph.
+ * Card's `title` prop only accepts a plain string, so this renders as a
+ * first child inside the Card body, matching Card's own title styling. */
+function CardTitleWithDot({ tone, label }: { tone: StateTone; label: string }) {
+  return (
+    <h2 className="mb-3 flex items-center gap-2 border-b border-wb-line pb-3 font-serif text-lg text-wb-ink">
+      <span className={`inline-block h-2 w-2 rounded-full ${stateToneClasses(tone).dot}`} aria-hidden />
+      {label}
+    </h2>
+  );
 }
 
 function Workbench() {
@@ -122,22 +136,26 @@ function Workbench() {
       {domain === 'intelligence-summary' && data && (
         <div className="space-y-4">
           {data.high?.length > 0 && (
-            <Card title="🟢 HIGH CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="ok" label="HIGH CONFIDENCE" />
               <div className="space-y-2">{data.high.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.medium?.length > 0 && (
-            <Card title="🟡 MEDIUM CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="warn" label="MEDIUM CONFIDENCE" />
               <div className="space-y-2">{data.medium.slice(0, 15).map(renderSignal)}</div>
             </Card>
           )}
           {data.low?.length > 0 && (
-            <Card title="🔴 LOW CONFIDENCE">
+            <Card>
+              <CardTitleWithDot tone="crit" label="LOW CONFIDENCE" />
               <div className="space-y-2">{data.low.slice(0, 8).map(renderSignal)}</div>
             </Card>
           )}
           {data.unknowns?.length > 0 && (
-            <Card title="⚠️ KNOWN UNKNOWNS">
+            <Card>
+              <CardTitleWithDot tone="unknown" label="KNOWN UNKNOWNS" />
               <div className="space-y-2">
                 {data.unknowns.map((u: any) => (
                   <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
