@@ -237,7 +237,6 @@ def generate_insights(
     graph: OperationalContextGraph,
     *,
     min_strength: float = 0.4,
-    recent_aggregation_keys: frozenset[str] = frozenset(),
     max_candidates: int = DEFAULT_MAX_CANDIDATES,
 ) -> list[Insight]:
     """Only relationships clearing `min_strength` and all conflicts are
@@ -248,19 +247,17 @@ def generate_insights(
     empty result, not a fabricated fallback insight.
 
     2026-08-19: 'aggregation'-kind relationships are excluded from
-    synthesis entirely, not just deduped. Their evidence
-    (_aggregation_relationships() in understanding_engine.py) is only
-    ever "N events sharing <key> in this batch" — a count, with no
-    title/content field on AttentionDecision to synthesize meaning
-    from — so every first-occurrence synthesis produced the same
-    generic "review and prioritize the N signals" filler regardless of
-    what the batch actually contained. The 2026-08-10 fix
-    (`recent_aggregation_keys`) only suppressed *repeat* synthesis for a
-    key already seen recently; it never stopped the noisy first
-    occurrence, which is what this excludes. `recent_aggregation_keys`
-    is now unused here but kept as a parameter — callers (e.g.
-    captain_brief_evolution.py) still fetch and pass it, and removing it
-    would be a wider, unrelated cleanup.
+    synthesis entirely. Their evidence (_aggregation_relationships() in
+    understanding_engine.py) is only ever "N events sharing <key> in
+    this batch" — a count, with no title/content field on
+    AttentionDecision to synthesize meaning from — so every
+    first-occurrence synthesis produced the same generic "review and
+    prioritize the N signals" filler regardless of what the batch
+    actually contained. Replaces the 2026-08-10 `recent_aggregation_keys`
+    dedup, which only suppressed *repeat* synthesis for a key already
+    seen recently and never stopped the noisy first occurrence; that
+    parameter and its fetch (insight_outcomes.fetch_recent_aggregation_keys)
+    are removed as of this change, having no remaining purpose.
 
     2026-08-13: `max_candidates` bounds the sequential model-router calls
     this makes (see module-level note above). Conflicts are real detected
