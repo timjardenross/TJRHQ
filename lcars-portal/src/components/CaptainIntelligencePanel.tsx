@@ -31,6 +31,7 @@ export function CaptainIntelligencePanel() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recordingId, setRecordingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +67,27 @@ export function CaptainIntelligencePanel() {
       setGenerating(false);
     }
   }, [load]);
+
+  const recordOutcome = useCallback(async (id: string, outcome: 'useful' | 'not_useful' | 'incorrect') => {
+    setRecordingId(id);
+    try {
+      const res = await fetch(`/api/captain-intelligence/insights/${id}/outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? 'Failed to record outcome');
+        return;
+      }
+      setInsights((prev) => prev.map((i) => (i.id === id ? { ...i, outcome } : i)));
+    } catch {
+      setError('Failed to record outcome');
+    } finally {
+      setRecordingId(null);
+    }
+  }, []);
 
   return (
     <WorkbenchPanel
@@ -124,6 +146,22 @@ export function CaptainIntelligencePanel() {
                 {insight.trade_offs && (
                   <p className="mt-1 text-xs text-wb-ink2">Trade-off: {insight.trade_offs}</p>
                 )}
+              </div>
+            )}
+            {insight.outcome === 'pending' && (
+              <div className="mt-2 flex items-center gap-2 border-t border-wb-line/40 pt-2">
+                <span className="text-[10px] uppercase tracking-wider text-wb-ink2">Was this useful?</span>
+                {(['useful', 'not_useful', 'incorrect'] as const).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    disabled={recordingId === insight.id}
+                    onClick={() => recordOutcome(insight.id, o)}
+                    className="rounded-full border border-wb-line px-2 py-0.5 text-[10px] font-medium text-wb-ink hover:bg-wb-bg disabled:opacity-50"
+                  >
+                    {o === 'useful' ? '✓ Useful' : o === 'not_useful' ? 'Not useful' : '✗ Incorrect'}
+                  </button>
+                ))}
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import { ROSPanels } from '@/components/ROSPanels';
 import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
+import { PendingBriefsPanel } from '@/components/PendingBriefsPanel';
 import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
@@ -386,6 +387,10 @@ export default function CaptainsChairWorkbench() {
 
         {/* Captain Intelligence — WorkbenchPanel supplies its own chrome. */}
         <CaptainIntelligencePanel />
+
+        {/* Pending Intelligence Briefs — renders nothing when the queue is
+            empty, so this is a zero-effect addition on a quiet day. */}
+        <PendingBriefsPanel />
 
         {/* Fleet Section — Hidden on FRAGILE/REST.
             2026-08-09 mobile/iPad review (P1): this is ~8 panels deep on
