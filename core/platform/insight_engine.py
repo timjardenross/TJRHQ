@@ -247,17 +247,20 @@ def generate_insights(
     is unreachable or every response was malformed — a real, honest
     empty result, not a fabricated fallback insight.
 
-    2026-08-10: `recent_aggregation_keys` skips 'aggregation'-kind
-    relationships whose (domain, event_type) identity already produced an
-    insight recently (see captain_brief_evolution.py, which fetches this
-    set from insight_outcomes before calling here). Aggregation
-    relationships describe a same-batch count, not a novel finding —
-    without this, a structurally bursty domain (e.g. Downdetector
-    collection runs, daily readiness snapshots) re-synthesizes the exact
-    same non-actionable claim on every scheduled run, forever. Filtered
-    here (before the model router call) rather than after, so the LLM
-    call — the expensive, slow step — is skipped entirely, not just its
-    output discarded.
+    2026-08-19: 'aggregation'-kind relationships are excluded from
+    synthesis entirely, not just deduped. Their evidence
+    (_aggregation_relationships() in understanding_engine.py) is only
+    ever "N events sharing <key> in this batch" — a count, with no
+    title/content field on AttentionDecision to synthesize meaning
+    from — so every first-occurrence synthesis produced the same
+    generic "review and prioritize the N signals" filler regardless of
+    what the batch actually contained. The 2026-08-10 fix
+    (`recent_aggregation_keys`) only suppressed *repeat* synthesis for a
+    key already seen recently; it never stopped the noisy first
+    occurrence, which is what this excludes. `recent_aggregation_keys`
+    is now unused here but kept as a parameter — callers (e.g.
+    captain_brief_evolution.py) still fetch and pass it, and removing it
+    would be a wider, unrelated cleanup.
 
     2026-08-13: `max_candidates` bounds the sequential model-router calls
     this makes (see module-level note above). Conflicts are real detected
@@ -267,8 +270,7 @@ def generate_insights(
     relationship_candidates = sorted(
         (
             r for r in graph.relationships
-            if r.strength >= min_strength
-            and not (r.kind == "aggregation" and r.aggregation_key in recent_aggregation_keys)
+            if r.strength >= min_strength and r.kind != "aggregation"
         ),
         key=lambda r: r.strength,
         reverse=True,
