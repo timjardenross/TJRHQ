@@ -73,6 +73,14 @@ function Workbench() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/health-osint-curation/pending')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setPendingCount(d?.signals?.length ?? null))
+      .catch(() => setPendingCount(null));
+  }, []);
 
   const load = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
@@ -161,7 +169,7 @@ function Workbench() {
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={
         <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">
-          Curation Queue →
+          Curation Queue{pendingCount != null && pendingCount > 0 ? ` (${pendingCount})` : ''} →
         </Link>
       }
     >

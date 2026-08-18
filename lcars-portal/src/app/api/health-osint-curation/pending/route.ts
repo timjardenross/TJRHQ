@@ -34,7 +34,7 @@ export async function GET() {
       .eq('auto_ingested', true)
       .eq('auto_ingest_reviewed', false)
       .order('collected_at', { ascending: false })
-      .limit(50);
+      .limit(500);
     if (error) throw error;
 
     const { data: fetchStats } = await sb

@@ -41,7 +41,10 @@ async function getIntelligenceSummary(sb: any, days: number, includeSuppressed: 
     domain: 'intelligence-summary',
     high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 15),
     medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 15),
-    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 8),
+    // LOW is ~90% of daily volume (corroboration-gated promotion keeps most
+    // signals here) — an 8-item cap made the dashboard look unchanged
+    // day-to-day even with hundreds of new rows landing underneath.
+    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 25),
     unknowns: [
       { title: 'Internal network security', impact: 'Blind to internal compromise', need: 'SIEM integration' },
       { title: 'Supply chain threats', impact: 'Third-party compromise', need: 'Vendor monitoring' },
