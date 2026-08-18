@@ -80,13 +80,23 @@ def _to_coherence_sample(brief: dict) -> dict:
             }
             for e in top_events[:3]
         ],
+        # Untruncated, unlike brief_sample()'s REST-query output (which trims
+        # for human-readable display in print_brief_coherence_template()).
+        # brief_coherence_checks()'s automated checks do substring/keyword
+        # matching against these fields — truncating to 150-200 chars here
+        # was silently cutting off the very reference (e.g. a CVE ID or
+        # named event mentioned only in the back half of the snapshot)
+        # the check exists to find, producing false "not grounded" failures
+        # on real, well-grounded briefs. Confirmed live: this alone caused
+        # snapshot_reflects_events to fail on briefs whose snapshot genuinely
+        # named a top event past the first 200 characters.
         "narrative": {
-            "executive_snapshot": _s(brief.get("executive_snapshot"))[:200] + "...",
-            "emerging_themes": _s(brief.get("emerging_themes"))[:150] + "...",
-            "forward_watch": _s(brief.get("forward_watch"))[:150] + "...",
-            "bottom_line": _s(brief.get("bottom_line"))[:200] + "...",
+            "executive_snapshot": _s(brief.get("executive_snapshot")),
+            "emerging_themes": _s(brief.get("emerging_themes")),
+            "forward_watch": _s(brief.get("forward_watch")),
+            "bottom_line": _s(brief.get("bottom_line")),
         },
-        "cps230_implications": _s(brief.get("cps230_implications"))[:200] + "...",
+        "cps230_implications": _s(brief.get("cps230_implications")),
     }
 
 
