@@ -43,4 +43,9 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Advisory Workbench',
     description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
   },
+  {
+    href: '/briefs',
+    title: 'Briefs',
+    description: 'The intelligence brief archive - every synthesized brief across every domain, filterable by review/publish status.',
+  },
 ];

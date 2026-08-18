@@ -47,7 +47,15 @@ export function PendingBriefsPanel() {
   if (!loading && briefs.length === 0) return null;
 
   return (
-    <WorkbenchPanel title="Pending Intelligence Briefs" eyebrow="Awaiting review or publish decision">
+    <WorkbenchPanel
+      title="Pending Intelligence Briefs"
+      eyebrow="Awaiting review or publish decision"
+      actions={
+        <Link href="/briefs" className="text-xs font-medium text-wb-sage-deep hover:underline">
+          All briefs →
+        </Link>
+      }
+    >
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Loading…</p>
       ) : (
