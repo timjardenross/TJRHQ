@@ -16,8 +16,8 @@ export interface Kpis {
   sessions_7d: number;
   capacity_band: Band;
   sleep_hours: number | null;
-  pulse_confidence: number; // 0–100, recovery_confidence_today
-  pulses_completed: number; // 0–3 today (morning/midday/evening — 3x/day model, 2026-08-10)
+  checkins_today: number; // raw count of today's capacity_checkins rows (capacity_checkins_today view, replaces the retired 3x/day pulse model, 2026-08-21) — unlimited per day, not a percentage
+  latest_capacity_state: string | null; // 'green' | 'orange' | 'red' | null, from capacity_checkins_today
 }
 
 export interface WellnessInsight {
@@ -41,12 +41,14 @@ export interface RecoveryPayload {
   sleep_quality: string | null;
   nervous_system: string | null;
   energy: string | null;
-  /** Pulse completion for today. Canonical cadence (2026-08-10) is
-   *  morning/midday/evening — `end_of_day` is a retired bucket kept here
-   *  only because recovery_confidence_today still exposes the column for
-   *  backward compat (matches RecoveryConfidencePanel's own deferred
-   *  reconciliation); the UI no longer renders it as a 4th slot. */
-  pulses: { morning: boolean; midday: boolean; end_of_day: boolean; evening: boolean };
+  /** "MY CAPACITY TODAY" telemetry (capacity_checkins_today view,
+   *  2026-08-21) — replaces the retired 3x/day recovery-pulse model.
+   *  There is no slot concept any more (no morning/midday/evening): a
+   *  Captain can log an unlimited number of capacity check-ins per day, so
+   *  this is just today's raw count plus the latest reading. */
+  checkins_today: number;
+  latest_capacity_state: string | null;
+  latest_regulation_state: string | null;
   confidence_label: string;
   wellness: WellnessInsight;
   /** true when the posture engine had a real check-in to work from. */

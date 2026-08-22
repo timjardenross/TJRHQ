@@ -304,66 +304,84 @@ function daysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export interface RecoveryPulse {
+/**
+ * MY CAPACITY TODAY (2026-08-21) replaced recovery_pulses as the Captain's
+ * day-to-day capacity input — see telegram-bots/xo/capacity_today.py and
+ * core/health/capacity_score.py's capacity_zone_from_checkin() for the
+ * canonical backend adapter this mirrors. Only the fields this module's
+ * merge/scoring actually reads are selected.
+ */
+export interface CapacityCheckin {
   log_date: string;
-  pulse_type: string;
   captured_at: string;
-  energy: string | null;
-  mood: string | null;
-  stress: string | null;
-  readiness: string | null;
+  capacity_state: string | null;
+  regulation_state: string | null;
   pain_score: number | null;
+  pain_state: string | null;
   notes: string | null;
-  /** Directly captured nervous-system reading from the pulse (MSN-0355). */
-  nervous_system: string | null;
-}
-
-/** Map stress → nervous_system_state for capacity scoring. */
-function stressToNsState(stress: string | null): string | null {
-  if (!stress) return null;
-  return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
+  trigger_note: string | null;
 }
 
 /**
- * Resolve a pulse's nervous-system state (MSN-0355). Prefers the directly
- * captured `nervous_system` reading — real signal, not an inference — and
- * only falls back to deriving it from `stress` when the real value is null.
- * Many July check-ins record `nervous_system` with `stress` left null (or
- * vice versa), so this priority order matters for both directions, not just
- * the common case. Exported so every consumer of pulse data (this module's
- * own capacity scoring, and ros-data.ts's Emotional Load Flag) applies the
- * exact same rule rather than re-deriving it independently.
+ * Resolve a check-in's nervous-system state. Unlike the retired pulse
+ * model's `pulseNsState`, this is a direct mapping, not a fallback chain —
+ * `regulation_state` is itself a real-time captured reading (spec §1 Q4),
+ * never a derived heuristic. `manageable` collapses to `calm` rather than
+ * `activated`: the spec's own definition ("can function, but it is taking
+ * more effort") is still closer to "settled" than to the old model's
+ * `activated` bucket, which meant genuine nervous-system activation.
+ * Exported so every consumer (ros-data.ts's Emotional Load Flag, this
+ * module's own capacity scoring) applies the same rule.
  */
-export function pulseNsState(pulse: Pick<RecoveryPulse, 'nervous_system' | 'stress'>): string | null {
-  return pulse.nervous_system ?? stressToNsState(pulse.stress);
+export function checkinNsState(checkin: Pick<CapacityCheckin, 'regulation_state'>): string | null {
+  return (
+    ({
+      settled: 'calm',
+      manageable: 'calm',
+      activated: 'activated',
+      overloaded: 'dysregulated',
+    } as Record<string, string>)[checkin.regulation_state ?? ''] ?? null
+  );
 }
 
-/** Map readiness → captain_capacity_rating. */
-function readinessToCapacity(readiness: string | null): string | null {
-  if (!readiness) return null;
-  return ({ high: 'green', moderate: 'amber', low: 'red' } as Record<string, string>)[readiness] ?? null;
+/** Map capacity_state → captain_capacity_rating's lowercase green/amber/red vocabulary. */
+function capacityStateToCapacity(state: string | null): string | null {
+  if (!state) return null;
+  return ({ green: 'green', orange: 'amber', red: 'red' } as Record<string, string>)[state] ?? null;
+}
+
+/** Map capacity_state → a coarse energy proxy — the new model has no
+ * separate energy field, so capacity_state is the closest available signal
+ * (same reasoning as capacity_score.py's capacity_zone_from_checkin()). */
+function capacityStateToEnergy(state: string | null): string | null {
+  if (!state) return null;
+  return ({ green: 'high', orange: 'moderate', red: 'low' } as Record<string, string>)[state] ?? null;
+}
+
+/** Fallback numeric pain when pain_score wasn't given but pain_state was
+ * (pain_score is optional in the quick check-in, spec §1 Q3). */
+function painStateToScore(state: string | null): number | null {
+  if (!state) return null;
+  return ({ low: 2, baseline: 4, elevated: 7, high: 9 } as Record<string, number>)[state] ?? null;
 }
 
 /**
- * Merge a Captain's Log row with the most-recent pulse for that day.
- * Pulse wins on energy/mood/pain/nervous_system_state — they are more current.
- * Log wins on sleep_hours/movement_completed/sitting_tolerance — pulses don't carry these.
+ * Merge a Captain's Log row with the most-recent capacity check-in for that
+ * day. Check-in wins on energy/pain/nervous_system_state/capacity_rating —
+ * they are more current. Log wins on sleep_hours/movement_completed/
+ * sitting_tolerance — check-ins don't carry these (spec §13, not built yet).
  */
-function mergeWithPulse(log: HealthRow | null, pulse: RecoveryPulse | null): HealthRow | null {
-  if (!pulse && !log) return null;
-  if (!pulse) return log;
-  const base: HealthRow = log ?? { log_date: pulse.log_date };
+function mergeWithCheckin(log: HealthRow | null, checkin: CapacityCheckin | null): HealthRow | null {
+  if (!checkin && !log) return null;
+  if (!checkin) return log;
+  const base: HealthRow = log ?? { log_date: checkin.log_date };
   return {
     ...base,
-    energy: pulse.energy ?? base.energy,
-    mood: pulse.mood ?? base.mood,
-    pain_score: pulse.pain_score ?? base.pain_score,
-    // MSN-0355: prefer the real captured nervous_system reading; only fall
-    // back to the stress-derived heuristic when it's null, and only fall
-    // back to the log's own value when the pulse has neither.
-    nervous_system_state: pulseNsState(pulse) ?? base.nervous_system_state,
-    captain_capacity_rating: readinessToCapacity(pulse.readiness) ?? base.captain_capacity_rating,
-    notes: pulse.notes ?? base.notes,
+    energy: capacityStateToEnergy(checkin.capacity_state) ?? base.energy,
+    pain_score: checkin.pain_score ?? painStateToScore(checkin.pain_state) ?? base.pain_score,
+    nervous_system_state: checkinNsState(checkin) ?? base.nervous_system_state,
+    captain_capacity_rating: capacityStateToCapacity(checkin.capacity_state) ?? base.captain_capacity_rating,
+    notes: checkin.notes ?? checkin.trigger_note ?? base.notes,
   };
 }
 
@@ -394,55 +412,56 @@ async function fetchLogRows(days: number): Promise<FetchResult<HealthRow>> {
   }
 }
 
-/** Fetch recent recovery pulses — most recent per day returned. */
-async function fetchPulseRows(days: number): Promise<FetchResult<RecoveryPulse>> {
+/** Fetch recent capacity check-ins — most recent per day returned. */
+async function fetchCheckinRows(days: number): Promise<FetchResult<CapacityCheckin>> {
   const supabase = client();
   try {
     const { data, error } = await supabase
-      .from('recovery_pulses')
-      .select('log_date,pulse_type,captured_at,energy,mood,stress,readiness,pain_score,notes,nervous_system')
+      .from('capacity_checkins')
+      .select('log_date,captured_at,capacity_state,regulation_state,pain_score,pain_state,notes,trigger_note')
+      .eq('checkin_type', 'capacity')
       .gte('log_date', daysAgo(days))
       .order('captured_at', { ascending: false });
     if (error) return { rows: [], failed: true };
-    return { rows: (data ?? []) as RecoveryPulse[], failed: false };
+    return { rows: (data ?? []) as CapacityCheckin[], failed: false };
   } catch {
     return { rows: [], failed: true };
   }
 }
 
 /**
- * Merge log rows with pulse data.
- * Priority: recovery_pulses (real-time) take precedence over log fields for
- * energy/mood/pain/stress. Log provides sleep, movement, sitting tolerance.
- * Days with pulses but no log still produce a usable row.
+ * Merge log rows with capacity check-in data.
+ * Priority: capacity_checkins (real-time) take precedence over log fields
+ * for energy/pain/nervous_system. Log provides sleep, movement, sitting
+ * tolerance. Days with a check-in but no log still produce a usable row.
  */
 export async function fetchHumanSystemsRowsWithStatus(
   days = 7
 ): Promise<{ rows: HealthRow[]; failed: boolean }> {
-  const [logRes, pulseRes] = await Promise.all([fetchLogRows(days), fetchPulseRows(days)]);
+  const [logRes, checkinRes] = await Promise.all([fetchLogRows(days), fetchCheckinRows(days)]);
 
-  // Latest pulse per day (pulses already ordered desc by captured_at)
-  const latestPulseByDate = new Map<string, RecoveryPulse>();
-  for (const p of pulseRes.rows) {
-    if (!latestPulseByDate.has(p.log_date)) {
-      latestPulseByDate.set(p.log_date, p);
+  // Latest check-in per day (check-ins already ordered desc by captured_at)
+  const latestCheckinByDate = new Map<string, CapacityCheckin>();
+  for (const c of checkinRes.rows) {
+    if (!latestCheckinByDate.has(c.log_date)) {
+      latestCheckinByDate.set(c.log_date, c);
     }
   }
 
   // All dates represented across both sources
   const allDates = new Set<string>([
     ...logRes.rows.map((r) => String(r.log_date)),
-    ...latestPulseByDate.keys(),
+    ...latestCheckinByDate.keys(),
   ]);
 
   const logByDate = new Map(logRes.rows.map((r) => [String(r.log_date), r]));
 
   const rows = Array.from(allDates)
     .sort((a, b) => b.localeCompare(a)) // newest first
-    .map((date) => mergeWithPulse(logByDate.get(date) ?? null, latestPulseByDate.get(date) ?? null))
+    .map((date) => mergeWithCheckin(logByDate.get(date) ?? null, latestCheckinByDate.get(date) ?? null))
     .filter((r): r is HealthRow => r !== null);
 
-  return { rows, failed: logRes.failed || pulseRes.failed };
+  return { rows, failed: logRes.failed || checkinRes.failed };
 }
 
 export async function fetchHumanSystemsRows(days = 7): Promise<HealthRow[]> {

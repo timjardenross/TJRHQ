@@ -21,9 +21,9 @@ import { loadHumanSystems } from './human-systems';
 import { loadDelivery } from './delivery';
 import { fetchRecoveryPosture, fetchEmotionalLoadFlag } from './ros-data';
 
-// Session-aware client (2026-07-18): recovery_pulses/build_request_inbox/
-// mission_execution_events either never had an anon grant or (recovery_pulses)
-// were tightened tonight - same fix as ros-data.ts/human-systems.ts/
+// Session-aware client (2026-07-18): capacity_checkins (recovery_pulses'
+// successor)/build_request_inbox/mission_execution_events either never had
+// an anon grant or were tightened - same fix as ros-data.ts/human-systems.ts/
 // delivery.ts. Constructed fresh per call, matching every other caller.
 function client() {
   return createSupabaseBrowserClient();
@@ -137,12 +137,16 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
   // /api/proactive-signals — a real pain-trend average genuinely passes
   // this file's own "why now" bar (unlike that route's staleness/log-gap
   // checks, which are hygiene reminders, not urgent alerts — kept
-  // separate, not merged here).
+  // separate, not merged here). Realigned 2026-08-22: recovery_pulses ->
+  // capacity_checkins (pain_score is optional in the new model's quick
+  // check-in, so this naturally averages over whichever recent check-ins
+  // actually recorded one).
   if (supabase) {
     try {
       const { data } = await supabase
-        .from('recovery_pulses')
+        .from('capacity_checkins')
         .select('pain_score, captured_at')
+        .eq('checkin_type', 'capacity')
         .order('captured_at', { ascending: false })
         .limit(5);
       if (data && data.length > 0) {
@@ -153,7 +157,7 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
             kind: 'wellness',
             severity: 'critical',
             title: 'Pain critically high',
-            detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 8).`,
+            detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 8).`,
             why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
             href: '/medical',
             at: nowIso(),
@@ -164,7 +168,7 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
             kind: 'wellness',
             severity: 'high',
             title: 'Pain trend elevated',
-            detail: `Average pain score over last ${data.length} pulses is ${avg.toFixed(1)} (threshold: 6).`,
+            detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 6).`,
             why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
             href: '/medical',
             at: nowIso(),

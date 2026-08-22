@@ -6,8 +6,10 @@
 // scattered (app) health pages show:
 //
 //   Recovery  — get_recovery_posture(date) RPC (the ROS-001 Posture Engine,
-//               migration 0018) + recovery_pulses / recovery_confidence_today
-//               (the current Telegram-fed signal) + health_insights.
+//               migration 0018) + capacity_checkins / capacity_checkins_today
+//               (the current Telegram-fed "MY CAPACITY TODAY" signal,
+//               2026-08-21 — recovery_pulses / recovery_confidence_today are
+//               retired, the bot no longer writes to them) + health_insights.
 //   Medical   — analytics_health_daily (Life Participation + 30d trends),
 //               human_systems_daily (four energy domains), recovery_indexes
 //               derived from the same daily row.
@@ -59,19 +61,35 @@ function deriveBestWindow(capacity_band: string | null | undefined): string {
 }
 
 /**
- * Resolve a pulse's nervous-system state (MSN-0355 rule; realigned
- * 2026-08-10 as part of the Recovery Pulse mood/stress decommission).
- * Prefers the directly captured `nervous_system` reading (the canonical
- * Telegram-bot field) and only falls back to deriving it from the legacy
- * `stress` field when `nervous_system` is null — mirrors /api/wellness and
- * lib/human-systems.ts's pulseNsState so every reader agrees.
+ * Resolve a capacity check-in's nervous-system state — the same mapping as
+ * the canonical `checkinNsState()` in lib/human-systems.ts, re-declared here
+ * because that module pulls in supabase-browser.ts, a 'use client' file,
+ * which this server Route Handler shouldn't depend on (same constraint
+ * api/wellness/route.ts already documents and works around). Every consumer
+ * of capacity_checkins data in this codebase must apply this same mapping or
+ * they'll disagree on a given check-in's nervous-system reading.
  */
-function pulseNsState(pulse: { nervous_system?: string | null; stress?: string | null } | null | undefined): string | null {
-  if (!pulse) return null;
-  if (pulse.nervous_system) return pulse.nervous_system;
-  const stress = pulse.stress ?? null;
-  if (!stress) return null;
-  return ({ low: 'calm', moderate: 'activated', high: 'dysregulated' } as Record<string, string>)[stress] ?? null;
+function checkinNsState(checkin: { regulation_state?: string | null } | null | undefined): string | null {
+  const regulation = checkin?.regulation_state ?? null;
+  if (!regulation) return null;
+  return ({
+    settled: 'calm',
+    manageable: 'calm',
+    activated: 'activated',
+    overloaded: 'dysregulated',
+  } as Record<string, string>)[regulation] ?? null;
+}
+
+/**
+ * Energy proxy derived from capacity_state — the new "MY CAPACITY TODAY"
+ * model has no direct energy measure, so green/orange/red is the closest
+ * analogue (same reasoning as api/wellness/route.ts's capacityEnergy() and
+ * lib/human-systems.ts's capacityStateToEnergy()). Title Case to match this
+ * file's own analytics_health_daily `energy` comparisons in
+ * computeRecoveryIndexes() ('High'/'Moderate'/'Low').
+ */
+function energyFromCapacityState(state: string | null | undefined): string | null {
+  return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[state ?? ''] ?? null;
 }
 
 interface RawPostureRow {
@@ -99,28 +117,24 @@ interface DailyRow {
   captain_capacity_rating: string | null;
 }
 
-interface PulseRow {
+interface CheckinRow {
   captured_at: string;
-  energy: string | null;
-  nervous_system: string | null;
-  body_signals: string | null;
-  mood: string | null;
-  stress: string | null;
-  readiness: string | null;
+  capacity_state: string | null;
+  regulation_state: string | null;
   pain_score: number | null;
+  executive_function: string | null;
 }
 
-interface ConfidenceRow {
-  pulses_completed: number | null;
-  recovery_confidence: number | null;
-  confidence_label: string | null;
-  morning_done: boolean | null;
-  midday_done: boolean | null;
-  end_of_day_done: boolean | null;
-  evening_done: boolean | null;
-  latest_energy: string | null;
-  latest_nervous_system: string | null;
+interface CheckinsTodayRow {
+  assessment_date: string;
+  checkins_today: number;
+  has_checked_in: boolean;
+  checkin_label: string;
+  last_checkin_at: string | null;
+  latest_capacity_state: string | null;
+  latest_regulation_state: string | null;
   latest_pain_score: number | null;
+  latest_executive_function: string | null;
 }
 
 // ── Life Participation (mirror of compute_life_participation / fetchLifeParticipation) ──
@@ -181,8 +195,8 @@ function computeRecoveryIndexes(d: DailyRow | null): RecoveryIndex[] {
 interface Ctx {
   posture: RawPostureRow | null;
   daily: DailyRow | null;
-  latestPulse: PulseRow | null;
-  confidence: ConfidenceRow | null;
+  latestCheckin: CheckinRow | null;
+  checkinsToday: CheckinsTodayRow | null;
   sessions7d: number;
 }
 
@@ -190,18 +204,20 @@ async function loadCtx(sb: any): Promise<Ctx> {
   const t = today();
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
-  const [postureRes, dailyRes, pulseRes, confRes, sessionCountRes] = await Promise.all([
+  const [postureRes, dailyRes, checkinRes, checkinsTodayRes, sessionCountRes] = await Promise.all([
     sb.rpc('get_recovery_posture', { p_date: t }).single(),
     sb.from('analytics_health_daily')
       .select('sleep_hours,sleep_quality,cpap_status,nervous_system_state,energy,pain_score,movement_notes,pleasure_creativity_marker,what_happened,sitting_tolerance_minutes,workload_constraint,captain_capacity_rating')
       .eq('log_date', t).maybeSingle(),
-    sb.from('recovery_pulses')
-      // energy/nervous_system/body_signals are canonical (Captain directive,
-      // 2026-08-10); mood/stress kept selected only for historical display
-      // via pulseNsState's fallback — no new writes to them.
-      .select('captured_at,energy,nervous_system,body_signals,mood,stress,readiness,pain_score')
+    sb.from('capacity_checkins')
+      // capacity_state/regulation_state/executive_function are the canonical
+      // Telegram-bot "MY CAPACITY TODAY" fields (recovery_pulses is
+      // retired, 2026-08-21). Quick check-ins only — checkin_type also
+      // covers 'evening' rows, which this route doesn't merge in here.
+      .select('captured_at,capacity_state,regulation_state,pain_score,executive_function')
+      .eq('checkin_type', 'capacity')
       .eq('log_date', t).order('captured_at', { ascending: false }).limit(1).maybeSingle(),
-    sb.from('recovery_confidence_today').select('*').maybeSingle(),
+    sb.from('capacity_checkins_today').select('*').maybeSingle(),
     sb.from('physical_workout_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed').gte('started_at', sevenDaysAgo),
@@ -210,8 +226,8 @@ async function loadCtx(sb: any): Promise<Ctx> {
   return {
     posture: (postureRes.data as RawPostureRow) ?? null,
     daily: (dailyRes.data as DailyRow) ?? null,
-    latestPulse: (pulseRes.data as PulseRow) ?? null,
-    confidence: (confRes.data as ConfidenceRow) ?? null,
+    latestCheckin: (checkinRes.data as CheckinRow) ?? null,
+    checkinsToday: (checkinsTodayRes.data as CheckinsTodayRow) ?? null,
     sessions7d: sessionCountRes.count ?? 0,
   };
 }
@@ -224,8 +240,8 @@ function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
     sessions_7d: ctx.sessions7d,
     capacity_band: capacityToBand(ctx.posture?.capacity_band),
     sleep_hours: ctx.daily?.sleep_hours ?? null,
-    pulse_confidence: ctx.confidence?.recovery_confidence ?? 0,
-    pulses_completed: ctx.confidence?.pulses_completed ?? 0,
+    checkins_today: ctx.checkinsToday?.checkins_today ?? 0,
+    latest_capacity_state: ctx.checkinsToday?.latest_capacity_state ?? null,
   };
 }
 
@@ -233,13 +249,21 @@ function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
 
 async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const p = ctx.posture;
-  const c = ctx.confidence;
+  const c = ctx.checkinsToday;
 
-  // Energy / nervous-system: prefer today's daily row, fall back to the latest
-  // pulse (the current signal) exactly as /api/wellness does.
-  const energy = ctx.daily?.energy ?? ctx.latestPulse?.energy ?? c?.latest_energy ?? null;
+  // Energy / nervous-system: prefer today's daily row, fall back to the
+  // latest capacity check-in (the current signal), then the today-view's own
+  // latest reading — exactly as /api/wellness does.
+  const energy =
+    ctx.daily?.energy ??
+    energyFromCapacityState(ctx.latestCheckin?.capacity_state) ??
+    energyFromCapacityState(c?.latest_capacity_state) ??
+    null;
   const nervous_system =
-    ctx.daily?.nervous_system_state ?? pulseNsState(ctx.latestPulse) ?? c?.latest_nervous_system ?? null;
+    ctx.daily?.nervous_system_state ??
+    checkinNsState(ctx.latestCheckin) ??
+    checkinNsState({ regulation_state: c?.latest_regulation_state ?? null }) ??
+    null;
 
   // health_insights has no `insight_date` column (the existing /api/wellness
   // route selects one that doesn't exist and silently gets nothing) — the real
@@ -265,13 +289,10 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     sleep_quality: ctx.daily?.sleep_quality ?? null,
     nervous_system,
     energy,
-    pulses: {
-      morning: !!c?.morning_done,
-      midday: !!c?.midday_done,
-      end_of_day: !!c?.end_of_day_done,
-      evening: !!c?.evening_done,
-    },
-    confidence_label: c?.confidence_label ?? 'No telemetry today',
+    checkins_today: c?.checkins_today ?? 0,
+    latest_capacity_state: c?.latest_capacity_state ?? null,
+    latest_regulation_state: c?.latest_regulation_state ?? null,
+    confidence_label: c?.checkin_label ?? 'No telemetry today',
     wellness: {
       narrative: ins?.llm_narrative ?? null,
       // Guard: these columns are arrays in the live schema, but coerce

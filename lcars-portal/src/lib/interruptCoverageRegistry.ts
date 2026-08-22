@@ -56,7 +56,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     canInterrupt: 'yes',
     conditions:
       'Free-text health notes match a red-flag pattern (suicidal ideation/self-harm, chest pain/breathing difficulty, new neuro symptoms, fever/infection) and the match is not negated. EOS reconciliation: also wired into EOS Interrupt Assembly as recoveryEscalationNominator (lib/interruptAssembly.ts), reusing the exact same scanEscalation() detector.',
-    evidenceSource: 'human_systems_daily.notes, recovery_pulses.notes',
+    evidenceSource: 'human_systems_daily.notes, capacity_checkins.notes',
     evaluationMethod: 'server-on-demand',
     falsePositiveGuard:
       'MSN-0351: negation-aware matching (isNegated()) — "no chest pain"/"denies suicidal ideation" no longer fire.',
@@ -64,7 +64,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
       'MSN-0351: an explicit escalationCheckFailed state renders a distinct "could not check" banner on both /human-systems and /medical, instead of silently returning null. A recoveryEscalationNominator query failure marks the Recovery escalation domain unchecked in EOS (uncheckedDomains), forcing Home to Unsure rather than a silent pass.',
     degradationIsHonest: true,
     knownGap:
-      '/human-systems and /medical themselves are still evaluated only when a human opens the page - no scheduled evaluator exists for those pages. recoveryEscalationNominator narrows this for EOS Home specifically, but reads recovery_pulses.notes only (the actively-written real-time channel per MSN-0355), not the merged human_systems_daily.notes fallback the page-level check also considers - a real, disclosed narrower scope, not full parity.',
+      '/human-systems and /medical themselves are still evaluated only when a human opens the page - no scheduled evaluator exists for those pages. recoveryEscalationNominator narrows this for EOS Home specifically, but reads capacity_checkins.notes (and trigger_note) only (the actively-written real-time channel, capacity_checkins since 2026-08-22, previously recovery_pulses per MSN-0355), not the merged human_systems_daily.notes fallback the page-level check also considers - a real, disclosed narrower scope, not full parity.',
   },
   {
     capability: 'human-systems-recovery-debt',
@@ -84,7 +84,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     canInterrupt: 'conditional',
     conditions: 'Worst-of-day nervous-system state in {activated, dysregulated} on 3+ of any 7 recorded days.',
     evidenceSource:
-      "MSN-0355: merged analytics_health_daily.nervous_system_state AND recovery_pulses (real nervous_system column, falling back to the stress-derived heuristic only when null) - analytics_health_daily's underlying source tables (captains_log_entries, health_daily_logs) stopped receiving rows after 2026-06-28 when the daily check-in habit moved to recovery_pulses; the view itself is not broken, so both sources are now merged per day rather than switching exclusively to one.",
+      "MSN-0355: merged analytics_health_daily.nervous_system_state AND recovery_pulses (real nervous_system column, falling back to the stress-derived heuristic only when null) - analytics_health_daily's underlying source tables (captains_log_entries, health_daily_logs) stopped receiving rows after 2026-06-28 when the daily check-in habit moved to recovery_pulses; the view itself is not broken, so both sources are now merged per day rather than switching exclusively to one. (recovery_pulses since retired in favour of capacity_checkins, 2026-08-22 - the merged source is now analytics_health_daily.nervous_system_state AND capacity_checkins.regulation_state, not a nervous_system column.)",
     evaluationMethod: 'client-render-only',
     falsePositiveGuard: 'Real 3-of-7 threshold over RECORDED days only (fetchEmotionalLoadFlag) - a day with no signal from either source is not counted as calm.',
     degradationBehaviour:
@@ -123,8 +123,8 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     capability: 'recovery-pain-trend',
     label: 'Recovery Pulse — pain trend (EOS interrupt only)',
     canInterrupt: 'yes',
-    conditions: 'Average pain_score over the last 5 recovery_pulses is > 6 (elevated) or > 8 (critical).',
-    evidenceSource: 'recovery_pulses.pain_score, recovery_pulses.captured_at',
+    conditions: 'Average pain_score over the last 5 capacity_checkins is > 6 (elevated) or > 8 (critical).',
+    evidenceSource: 'capacity_checkins.pain_score, capacity_checkins.captured_at',
     evaluationMethod: 'server-on-demand',
     falsePositiveGuard:
       'Real 5-pulse rolling average, the exact same disclosed thresholds already used in lib/alerts.ts (MSN-0335, "folded in from the now-retired duplicate check in /api/proactive-signals") - not a single bad reading, not a new scale.',
@@ -285,7 +285,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     label: 'Unified Timeline',
     canInterrupt: 'no',
     conditions: 'N/A - passive chronological aggregation, no severity dimension in any source field.',
-    evidenceSource: 'mission_state_transitions, recovery_pulses, captains_log_entries, mission_execution_events, captured_items',
+    evidenceSource: 'mission_state_transitions, capacity_checkins, captains_log_entries, mission_execution_events, captured_items',
     evaluationMethod: 'none',
     falsePositiveGuard: 'N/A',
     degradationBehaviour: 'MSN-0351: per-source failure tracking added; a quiet inline note now discloses which sources could not be checked, distinct from a genuine "no events" result.',
@@ -309,7 +309,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     label: 'Operating Model / Captain Profile',
     canInterrupt: 'no',
     conditions: 'N/A - ~85% static reference copy; live elements are lagging mirrors of data owned by other capabilities (Missions, Captain\'s Log, Recovery Pulse).',
-    evidenceSource: 'missions (count), captains_log_entries, recovery_pulses',
+    evidenceSource: 'missions (count), captains_log_entries, capacity_checkins',
     evaluationMethod: 'none',
     falsePositiveGuard: 'N/A - any real alerting should come from the owning capability, not this page.',
     degradationBehaviour: 'MSN-0351: fetchAll() now has real try/catch/finally (was previously unguarded, could leave tiles at "—" forever on a rejection); reference sections are now explicitly labelled "authored doctrine, not live data" vs. "live" sections.',

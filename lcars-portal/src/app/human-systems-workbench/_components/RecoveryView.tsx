@@ -1,27 +1,29 @@
 'use client';
 
-import Link from 'next/link';
-import { Badge, Card } from '@/components/ui';
+import { Badge, Card, type BadgeStatus } from '@/components/ui';
 import { postureStatus, type RecoveryPayload } from './types';
 
-function PulseDot({ done, label }: { done: boolean; label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className={`h-2.5 w-2.5 rounded-full ${done ? 'bg-wb-sage-deep' : 'bg-wb-line'}`} />
-      <span className="text-[9px] uppercase tracking-wide text-wb-ink2">{label}</span>
-    </div>
-  );
+/** capacity_state ('green'|'orange'|'red'|null, capacity_checkins_today) →
+ *  Badge status. Same success/warning/error vocabulary bandStatus() uses
+ *  for good/moderate/limited/rest bands elsewhere in this workbench. */
+function capacityStateStatus(state: string | null): BadgeStatus {
+  switch (state) {
+    case 'green': return 'success';
+    case 'orange': return 'warning';
+    case 'red': return 'error';
+    default: return 'neutral';
+  }
 }
 
 /** Recovery tab — "What does my system need today?" Leads with the posture band
- *  from the ROS-001 Posture Engine, then capacity, pulse telemetry, and wellness. */
+ *  from the ROS-001 Posture Engine, then capacity, check-in telemetry, and wellness. */
 export function RecoveryView({ data }: { data: RecoveryPayload }) {
   return (
     <div className="flex flex-col gap-4">
       {!data.data_available && (
         <div className="rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3 text-[13px] text-wb-warn-on">
           No health check-in recorded for today yet — posture shows the last available reading or “No data”.
-          Log a pulse to refresh.
+          Log a capacity check-in via the Telegram bot (/capacity) to refresh.
         </div>
       )}
 
@@ -67,21 +69,21 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         </div>
       </Card>
 
-      <Card title="Recovery Confidence">
-        <p className="mb-3 text-[13px] text-wb-ink2">
-          {data.confidence_label} — telemetry from today&rsquo;s recovery pulses.
-        </p>
-        <div className="flex items-center gap-5">
-          <PulseDot done={data.pulses.morning} label="AM" />
-          <PulseDot done={data.pulses.midday} label="Mid" />
-          <PulseDot done={data.pulses.evening} label="PM" />
-          <Link
-            href="/human-systems-workbench/medical/pulse"
-            className="ml-auto rounded-md bg-wb-sage-deep px-3 py-1.5 text-[12px] font-semibold text-white transition hover:opacity-90"
-          >
-            + Log pulse
-          </Link>
+      <Card title="Today's Check-ins">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-serif text-3xl text-wb-ink">{data.checkins_today}</div>
+            <p className="mt-1 text-[13px] text-wb-ink2">{data.confidence_label}</p>
+          </div>
+          {data.latest_capacity_state && (
+            <Badge status={capacityStateStatus(data.latest_capacity_state)}>
+              {data.latest_capacity_state.toUpperCase()}
+            </Badge>
+          )}
         </div>
+        <p className="mt-3 text-[12px] text-wb-ink2">
+          Log check-ins via the XO Telegram bot&rsquo;s /capacity command.
+        </p>
       </Card>
 
       {(data.wellness.narrative || data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (

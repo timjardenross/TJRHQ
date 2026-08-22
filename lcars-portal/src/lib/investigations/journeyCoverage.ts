@@ -254,7 +254,7 @@ export const JOURNEY_COVERAGE: JourneyCoverageEntry[] = [
     configUsed: 'general registry-vs-live-NOMINATORS check — the real mechanism now closed by MSN-0355',
     limitations: null,
     definition: upstreamCoverageGap,
-    trigger: { investigationType: 'upstream-coverage-gap', reason: 'Re-confirming recovery_pulses.nervous_system now reaches an evaluator, per MSN-0355.', originatedAt: now },
+    trigger: { investigationType: 'upstream-coverage-gap', reason: 'Re-confirming recovery_pulses.nervous_system now reaches an evaluator, per MSN-0355. (capacity_checkins since 2026-08-22.)', originatedAt: now },
     pickDecision: firstOption,
   },
 

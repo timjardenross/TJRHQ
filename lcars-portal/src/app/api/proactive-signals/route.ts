@@ -95,21 +95,22 @@ export async function GET() {
     }
   } catch {}
 
-  // 4. No recovery_pulses in last 48 hours
+  // 4. No capacity_checkins in last 48 hours (recovery_pulses is retired)
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const { data } = await supabase
-      .from('recovery_pulses')
+      .from('capacity_checkins')
       .select('id')
+      .eq('checkin_type', 'capacity')
       .gte('captured_at', cutoff)
       .limit(1);
     if (!data || data.length === 0) {
       signals.push({
-        id: 'recovery-gap',
+        id: 'capacity-checkin-gap',
         severity: 'medium',
         category: 'Health',
-        title: 'Recovery gap detected',
-        detail: 'No recovery pulses recorded in the last 48 hours.',
+        title: 'Capacity check-in gap detected',
+        detail: 'No capacity check-ins recorded in the last 48 hours.',
       });
     }
   } catch {}

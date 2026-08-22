@@ -90,11 +90,11 @@ async function fetchKnowledgeSummary(db: any) {
   }));
 }
 
-async function fetchTodayPulses(db: any) {
+async function fetchTodayCheckins(db: any) {
   const today = todayBrisbane();
   const { data } = await db
-    .from('recovery_pulses')
-    .select('pulse_type, captured_at, energy, nervous_system, body_signals, readiness, pain_score, notes')
+    .from('capacity_checkins')
+    .select('checkin_type, captured_at, capacity_state, regulation_state, executive_function, compensation_load, pain_score, selected_action, notes, trigger_note')
     .eq('log_date', today)
     .order('captured_at', { ascending: true });
   return data ?? [];
@@ -147,14 +147,14 @@ export async function buildShipContext(): Promise<AIContextBlock> {
   }
 
   // Run all fetches in parallel
-  const [missions, decisions, architecture, todayHealth, recentHealth, todayPulses, knowledge, memory, engQueue] =
+  const [missions, decisions, architecture, todayHealth, recentHealth, todayCheckins, knowledge, memory, engQueue] =
     await Promise.all([
       fetchActiveMissions(db).catch(() => []),
       fetchRecentDecisions(db).catch(() => []),
       fetchArchitectureRecords(db).catch(() => []),
       fetchTodayHealth(db).catch(() => null),
       fetchRecentHealthLog(db).catch(() => []),
-      fetchTodayPulses(db).catch(() => []),
+      fetchTodayCheckins(db).catch(() => []),
       fetchKnowledgeSummary(db).catch(() => []),
       fetchWorkingMemory(db).catch(() => []),
       fetchEngineeringQueue(db).catch(() => []),
@@ -183,13 +183,13 @@ Constraint: ${last.workload_constraint ?? 'Unknown'} · NS: ${last.nervous_syste
     );
   }
 
-  // ── Recovery pulses (today) ────────────────────────────────────────────────
-  if (todayPulses.length > 0) {
-    sources.push('recovery_pulses');
-    const pulseLines = (todayPulses as Array<Record<string, string>>).map(
-      (p) => `  [${p.pulse_type}] energy: ${p.energy ?? '—'} · NS: ${p.nervous_system ?? '—'}${p.readiness ? ` · readiness: ${p.readiness}` : ''}${p.pain_score ? ` · pain: ${p.pain_score}` : ''}${p.notes ? ` — ${String(p.notes).slice(0, 80)}` : ''}`
+  // ── Capacity check-ins (today) ─────────────────────────────────────────────
+  if (todayCheckins.length > 0) {
+    sources.push('capacity_checkins');
+    const checkinLines = (todayCheckins as Array<Record<string, string>>).map(
+      (c) => `  [${c.checkin_type}] capacity: ${c.capacity_state ?? '—'} · regulation: ${c.regulation_state ?? '—'}${c.executive_function ? ` · executive function: ${c.executive_function}` : ''}${c.pain_score ? ` · pain: ${c.pain_score}` : ''}${c.selected_action ? ` · action: ${c.selected_action}` : ''}${(c.notes || c.trigger_note) ? ` — ${String(c.notes || c.trigger_note).slice(0, 80)}` : ''}`
     );
-    sections.push(`TODAY'S RECOVERY PULSES\n${pulseLines.join('\n')}`);
+    sections.push(`TODAY'S CAPACITY CHECK-INS\n${checkinLines.join('\n')}`);
   }
 
   // ── Active missions ────────────────────────────────────────────────────────

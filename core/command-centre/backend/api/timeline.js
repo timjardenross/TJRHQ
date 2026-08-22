@@ -5,7 +5,7 @@
  *
  * Sources:
  *   mission_state_transitions — lifecycle changes
- *   recovery_pulses           — health check-ins
+ *   capacity_checkins         — health check-ins (recovery_pulses' successor)
  *   captains_log_entries      — daily log filings
  *   commander_events          — escalations, decisions, notes
  *   intelligence_briefs       — published briefs
@@ -52,31 +52,30 @@ async function fetchMissionTransitions(from, to, limit) {
   }));
 }
 
-async function fetchRecoveryPulses(from, to, limit) {
-  // energy/nervous_system are the canonical Telegram-bot fields (Captain
-  // directive, 2026-08-10); `mood` is kept selected only as a legacy signal
-  // for rows that predate nervous_system — no new writes to it.
-  let q = `recovery_pulses?select=id,log_date,pulse_type,pain_score,energy,nervous_system,mood,readiness,captured_at&order=captured_at.desc&limit=${limit}`;
+async function fetchCapacityCheckins(from, to, limit) {
+  // capacity_checkins is recovery_pulses' successor (Captain directive,
+  // 2026-08-1x migration 0148/0150): no pulse_type/slot concept — check-ins
+  // are unlimited per day. Filter to checkin_type='capacity' so evening
+  // reflections don't show up as quick check-ins here.
+  let q = `capacity_checkins?select=id,log_date,checkin_type,pain_score,capacity_state,regulation_state,captured_at&checkin_type=eq.capacity&order=captured_at.desc&limit=${limit}`;
   if (from) q += `&captured_at=gte.${_enc(from)}`;
   if (to)   q += `&captured_at=lte.${_enc(to)}`;
   const rows = await supabaseGet(q).catch(() => []);
   return (rows || []).map(r => {
     const signals = [];
     if (r.pain_score != null) signals.push(`pain ${r.pain_score}`);
-    if (r.energy)   signals.push(`energy ${r.energy}`);
-    if (r.nervous_system) signals.push(`ns ${r.nervous_system}`);
-    else if (r.mood)      signals.push(`mood ${r.mood} (legacy)`);
-    if (r.readiness) signals.push(`readiness ${r.readiness}`);
+    if (r.capacity_state)   signals.push(`capacity ${r.capacity_state}`);
+    if (r.regulation_state) signals.push(`regulation ${r.regulation_state}`);
     return {
-      id:          `rp-${r.id || r.log_date + r.pulse_type}`,
-      event_type:  'recovery_pulse',
+      id:          `cc-${r.id || r.log_date}`,
+      event_type:  'capacity_checkin',
       source:      'health',
-      title:       `Recovery pulse — ${r.pulse_type} (${r.log_date})`,
+      title:       `Capacity check-in (${r.log_date})`,
       detail:      signals.length ? signals.join(' · ') : null,
       timestamp:   r.captured_at || `${r.log_date}T00:00:00Z`,
       entity_id:   r.log_date,
       entity_type: 'health',
-      metadata:    { pulse_type: r.pulse_type, pain_score: r.pain_score },
+      metadata:    { capacity_state: r.capacity_state, regulation_state: r.regulation_state, pain_score: r.pain_score },
     };
   });
 }
@@ -174,7 +173,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
   const fetchers = [];
   if (types.includes('missions'))     fetchers.push(fetchMissionTransitions(from, to, perSource));
-  if (types.includes('health'))       fetchers.push(fetchRecoveryPulses(from, to, perSource));
+  if (types.includes('health'))       fetchers.push(fetchCapacityCheckins(from, to, perSource));
   if (types.includes('log'))          fetchers.push(fetchLogEntries(from, to, perSource));
   if (types.includes('events'))       fetchers.push(fetchCommanderEvents(from, to, perSource));
   if (types.includes('intelligence')) fetchers.push(fetchIntelligenceBriefs(from, to, perSource));
