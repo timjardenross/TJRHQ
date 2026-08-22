@@ -276,207 +276,18 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
     )
 
 
-# ── Inline pulse flow ─────────────────────────────────────────────────────────
-# Callback data format: pl|pt=<type>|e=<energy>|m=<nervous_system>|s=<body_signals>|w=<day_win>
-#
-# Time-of-day-asymmetric question flow (Captain-approved 2026-08-10, see
-# .claude/skills/bot-reviews/fixes-2026-08-09/recovery-pulse-redesign-proposal.md):
-#   morning: energy → nervous_system → body_signals   (3 taps, unchanged)
-#   midday:  energy → nervous_system                  (2 taps — body_signals dropped;
-#            least-distinguishable axis at the shortest re-ask interval)
-#   evening: energy → nervous_system → day_win         (3 taps — 3rd tap is a NEW
-#            reflective close-out question, not a repeat of body_signals)
-#
-# `_pulse_final_key()` below is the single source of truth for which pulse
-# types ask a 3rd question and what it is; add a new pulse type there (and to
-# _PULSE_LABELS) rather than special-casing pt strings elsewhere.
-
-_PULSE_LABELS = {
-    "morning": "🌅 Morning Readiness",
-    "midday":  "🌤 Midday Status",
-    "evening": "🌃 Evening Recovery",
-}
-
-_DAY_WIN_LABELS = {
-    "something_did": "Something did",
-    "nothing_much":  "Nothing much",
-    "rough_day":     "Rough day",
-}
-
-def _pulse_final_key(pt: str) -> str:
-    """The callback-data key that carries this pulse type's LAST tap:
-    - midday ends after 2 taps, so its own key ('m', nervous_system) is final.
-    - morning ends on body_signals ('s') — unchanged 3-tap diagnostic.
-    - evening ends on day_win ('w') — the new reflective question.
-    Any unrecognised pulse type defaults to the full morning-shaped 3-tap
-    flow (safe fallback, matches _PULSE_LABELS.get(pt, pt)'s pattern)."""
-    if pt == "midday":
-        return "m"
-    if pt == "evening":
-        return "w"
-    return "s"
-
-def _current_pulse_type() -> str:
-    # EOS Phase 2 Priority 3: extracted to pulse_time.py so voice_capture.py's
-    # automatic recovery-pulse promotion can reuse the exact same bucketing
-    # instead of a second, drifting copy - one source of truth, per the
-    # mission's own "no duplicated business logic" requirement.
-    from telegram_bots.xo.pulse_time import current_pulse_type
-    return current_pulse_type()
-
-def _parse_cb(data: str) -> dict:
-    result = {}
-    for part in data.split("|")[1:]:
-        if "=" in part:
-            k, v = part.split("=", 1)
-            result[k] = v
-    return result
-
-def _kb_energy(pt: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("⚡ High",     callback_data=f"pl|pt={pt}|e=high"),
-        InlineKeyboardButton("〜 Moderate", callback_data=f"pl|pt={pt}|e=moderate"),
-        InlineKeyboardButton("🔋 Low",      callback_data=f"pl|pt={pt}|e=low"),
-    ]])
-
-def _kb_mood(pt: str, e: str) -> InlineKeyboardMarkup:
-    """Step 2: Nervous system state (PNE/PRT core signal)."""
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("🟢 Calm",        callback_data=f"pl|pt={pt}|e={e}|m=calm"),
-        InlineKeyboardButton("🟡 Activated",   callback_data=f"pl|pt={pt}|e={e}|m=activated"),
-        InlineKeyboardButton("🔴 Dysregulated", callback_data=f"pl|pt={pt}|e={e}|m=dysregulated"),
-    ]])
-
-def _kb_stress(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
-    """Step 3 — morning only: Body signals (PNE framing — context not score).
-    Midday drops this question entirely; evening replaces it with _kb_day_win."""
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("🤫 Quiet",      callback_data=f"pl|pt={pt}|e={e}|m={m}|s=quiet"),
-        InlineKeyboardButton("💬 Present",    callback_data=f"pl|pt={pt}|e={e}|m={m}|s=present"),
-        InlineKeyboardButton("📢 Significant", callback_data=f"pl|pt={pt}|e={e}|m={m}|s=significant"),
-    ]])
-
-def _kb_day_win(pt: str, e: str, m: str) -> InlineKeyboardMarkup:
-    """Step 3 — evening only: reflective close-out question, replacing a
-    repeat of body_signals (PERMA/Accomplishment gap — see the redesign
-    proposal §2.5/§4). Writes recovery_pulses.day_win, added in migration
-    0119_recovery_pulses_add_day_win.sql."""
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("🙂 Something did", callback_data=f"pl|pt={pt}|e={e}|m={m}|w=something_did"),
-        InlineKeyboardButton("😐 Nothing much",  callback_data=f"pl|pt={pt}|e={e}|m={m}|w=nothing_much"),
-        InlineKeyboardButton("😞 Rough day",     callback_data=f"pl|pt={pt}|e={e}|m={m}|w=rough_day"),
-    ]])
-
-
-_MOOD_SCORE_EMOJI = {
-    1: "😭", 2: "😞", 3: "😕", 4: "😐", 5: "🙂",
-    6: "😊", 7: "😄", 8: "😃", 9: "😍", 10: "🤩",
-}
-
-
-def _kb_mood_score(pt: str, e: str, m: str, s: str | None, w: str | None) -> InlineKeyboardMarkup:
-    """Optional extra step, shown once the pulse's normal required taps are
-    already complete (2026-08-11) — a Captain directive to fold a holistic
-    mood_score into this existing flow rather than deploy a second,
-    independent mood-capture surface (see migration 0140's header comment).
-    Skippable — the pulse is written either way, this only adds mood_score
-    when the Captain bothers to tap a number. Carries every prior field in
-    the callback data so the terminal write below has everything regardless
-    of which pulse type led here."""
-    def _cb(v: str) -> str:
-        parts = [f"pl|pt={pt}", f"e={e}", f"m={m}"]
-        if s is not None:
-            parts.append(f"s={s}")
-        if w is not None:
-            parts.append(f"w={w}")
-        parts.append(f"o={v}")
-        return "|".join(parts)
-
-    rows = [
-        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(1, 4)],
-        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(4, 7)],
-        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[i]} {i}", callback_data=_cb(str(i))) for i in range(7, 10)],
-        [InlineKeyboardButton(f"{_MOOD_SCORE_EMOJI[10]} 10", callback_data=_cb("10"))],
-        [InlineKeyboardButton("⏭ Skip", callback_data=_cb("skip"))],
-    ]
-    return InlineKeyboardMarkup(rows)
-
-
-async def _write_pulse(
-    pt: str,
-    energy: str,
-    nervous_system: str,
-    body_signals: str | None = None,
-    day_win: str | None = None,
-    mood_score: int | None = None,
-) -> tuple[bool, RecoveryStatus, str | None]:
-    """Write a pulse row. body_signals is only ever passed for morning pulses;
-    day_win only for evening; midday passes neither (2-tap flow) — see the
-    time-of-day-asymmetric flow comment above _PULSE_LABELS. mood_score
-    (2026-08-11) is optional for every pulse type — the Captain can skip it.
-    Absent fields are simply left out of the upsert payload rather than
-    written as NULL explicitly, so re-submitting a slot never clobbers a
-    previously-written value for a column this pulse type doesn't ask
-    about."""
-    db = _get_supabase()
-    saved = False
-    err_msg: str | None = None
-    if not db:
-        err_msg = "Supabase unavailable (check SUPABASE_KEY)"
-        log.error("[pulse] %s", err_msg)
-    else:
-        try:
-            payload = {
-                "log_date":       datetime.now(_TZ).date().isoformat(),
-                "pulse_type":     pt,
-                "energy":         energy,
-                "nervous_system": nervous_system,
-                "source":         "telegram",
-            }
-            if body_signals is not None:
-                payload["body_signals"] = body_signals
-            if day_win is not None:
-                payload["day_win"] = day_win
-            if mood_score is not None:
-                payload["mood_score"] = mood_score
-            res = db.table("recovery_pulses").upsert(
-                payload,
-                on_conflict="log_date,pulse_type",
-            ).execute()
-            saved = True
-            log.info("Pulse written: %s energy=%s ns=%s body=%s day_win=%s mood_score=%s rows=%s",
-                     pt, energy, nervous_system, body_signals, day_win, mood_score, len(res.data) if res.data else 0)
-            # ADR-024 second-pass audit: 'recovery_pulses' had zero
-            # record_heartbeat() calls across any write path — never_succeeded
-            # in verification_state despite this being the primary Telegram
-            # pulse surface. Non-blocking.
-            try:
-                from core.platform.heartbeat import record_heartbeat
-                record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pt} source=telegram")
-            except Exception:
-                pass
-        except Exception as exc:
-            err_msg = str(exc)
-            log.error("pulse upsert failed: %s | energy=%s ns=%s body=%s day_win=%s mood_score=%s",
-                       exc, energy, nervous_system, body_signals, day_win, mood_score)
-    status = get_recovery_status(db)
-    return saved, status, err_msg
-
-
 # ── Command handlers ──────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         f"*XO online* — @Starship\\_endeavour\\_xO\\_bot\n\n"
         f"Chat ID: `{update.effective_chat.id}`\n\n"
-        "*Recovery*\n"
-        "/recovery\\_status · /recovery\\_pulse\n\n"
+        "*MY CAPACITY TODAY*\n"
+        "/capacity · /deepcheck · /evening · /today\n\n"
         "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|all\\]\n"
         "/mission\\_status \\<id\\>\n"
         "/mission\\_create \\<title\\>\n\n"
-        "*Logging*\n"
-        "/log\\_activity · /log\\_weight \\(retired — see /recovery\\_pulse\\)\n\n"
         "*Ops*\n"
         "/dispatch · /db\\_status\n\n"
         "_Proactive Daily Operating Picture arrives at 07:00 AEST\\._\n"
@@ -495,10 +306,14 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/pending — attention queue \\+ quick outcome capture \\(tap buttons\\)\n\n"
         "*Intelligence*\n"
         "/brief — intelligence brief on demand\n\n"
-        "*Health \\& Recovery*\n"
-        "/recovery\\_status — today's confidence bar \\+ pulse ledger \\(AM/Mid/PM\\)\n"
-        "/recovery\\_pulse — log a pulse inline \\(tap buttons; 2 taps midday, "
-        "3 taps morning/evening — evening's 3rd tap is a reflection, not a repeat\\)\n\n"
+        "*MY CAPACITY TODAY*\n"
+        "/capacity — quick check\\-in \\(30\\-60s, tap buttons\\)\n"
+        "/deepcheck — deeper reflection\n"
+        "/evening — evening reflection \\(3 questions\\)\n"
+        "/today, /week, /month — check\\-ins \\+ pattern review\n"
+        "/capacity\\_patterns, /actions — common patterns, what's helped most\n"
+        "/therapy — therapist\\-friendly summary\n"
+        "/recovery\\_status — legacy pulse\\-ledger status \\(retired capture path\\)\n\n"
         "*Missions*\n"
         "/mission\\_list \\[active|idea|blocked|completed|all\\] — list missions by status\n"
         "/mission\\_status \\<id\\> — mission detail \\(e\\.g\\. `/mission_status 0167` or full ID\\)\n"
@@ -509,9 +324,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/mission\\_submit \\<id\\> — submit for Captain approval \\(Tested/Validated/Implemented\\)\n"
         "/handoff\\_engineering \\<id\\> — hand off to Engineering \\(Idea/Designed/Approved/Requires Rework\\)\n"
         "/operating\\_picture — Captain's live operating picture\n\n"
-        "*Logging \\(retired 2026\\-08\\-10\\)*\n"
-        "/log\\_activity, /log\\_weight — retired\\. Recovery Pulse \\(/recovery\\_pulse\\) is now the "
-        "only manual health\\-data capture mechanism\\.\n\n"
         "*Content*\n"
         "/revs\\_generate \\<brief path\\> \\[formats\\] — REVS: design brief \\-\\> 7 formats "
         "\\(e\\.g\\. `/revs_generate examples/sample_brief.md poster,social`\\)\n\n"
@@ -537,20 +349,6 @@ async def cmd_recovery_status(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(_escape(build_daily_summary(status)), parse_mode="MarkdownV2")
 
 
-async def cmd_recovery_pulse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    status = get_recovery_status(_get_supabase())
-    pt = status.next_suggested_pulse or _current_pulse_type()
-    label = _PULSE_LABELS.get(pt, pt)
-    conf = status.recovery_confidence
-    await update.message.reply_text(
-        f"📡 *{_escape(label)}*\n\n"
-        f"Confidence: `{_escape(_bar(conf))}` {conf}%\n\n"
-        "Capacity right now?",
-        parse_mode="MarkdownV2",
-        reply_markup=_kb_energy(pt),
-    )
-
-
 async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log mood (1-10 scale) at different times of day with optional context."""
     from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
@@ -563,6 +361,89 @@ async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"When did you feel this way?",
         parse_mode="MarkdownV2",
         reply_markup=kb_time_of_day(),
+    )
+
+
+# ── MY CAPACITY TODAY (2026-08-21, replaces Recovery Pulse) ──────────────────
+
+async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Quick capacity check-in. See capacity_today.py for the full flow."""
+    from telegram_bots.xo import capacity_today
+    await update.message.reply_text(
+        "MY CAPACITY TODAY\n\nHow is your capacity right now?",
+        reply_markup=capacity_today.kb_capacity(),
+    )
+
+
+async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Deeper reflection, standalone (not following a quick check-in)."""
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    saved, row, err = await capacity_today.write_quick_checkin(db, {})
+    if not saved or not row:
+        await update.message.reply_text(f"⚠️ Could not start deep check-in: {err}")
+        return
+    await update.message.reply_text(
+        "Going deeper.\n\nWhat was the main load — physical, cognitive, sensory, emotional, social, or environmental?",
+        reply_markup=capacity_today.kb_deep_load_category(str(row["id"])),
+    )
+
+
+async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    await update.message.reply_text(
+        "Evening reflection\n\nDid your capacity improve, stay the same, or decline today?",
+        reply_markup=capacity_today.kb_evening_trajectory(),
+    )
+
+
+async def cmd_capacity_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/today — show today's check-ins."""
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    rows = await capacity_today.fetch_recent(db, days=0)
+    today = datetime.now(_TZ).date().isoformat()
+    rows = [r for r in rows if r.get("log_date") == today]
+    if not rows:
+        await update.message.reply_text("No check-ins logged today yet. /capacity to start one.")
+        return
+    parts = [capacity_today.render_summary(r) for r in rows if r.get("checkin_type") == "capacity"]
+    await update.message.reply_text("\n\n---\n\n".join(parts) if parts else "No capacity check-ins today yet.")
+
+
+async def cmd_capacity_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    rows = await capacity_today.fetch_recent(db, days=7)
+    await update.message.reply_text(capacity_today.render_trend_summary(rows, "WEEKLY CAPACITY REVIEW"))
+
+
+async def cmd_capacity_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    rows = await capacity_today.fetch_recent(db, days=30)
+    await update.message.reply_text(capacity_today.render_trend_summary(rows, "MONTHLY CAPACITY REVIEW"))
+
+
+async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    rows = await capacity_today.fetch_recent(db, days=30)
+    await update.message.reply_text(capacity_today.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS"))
+
+
+async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    db = _get_supabase()
+    rows = await capacity_today.fetch_recent(db, days=30)
+    await update.message.reply_text(capacity_today.render_actions_summary(rows))
+
+
+async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today
+    await update.message.reply_text(
+        "Therapy summary — how far back?",
+        reply_markup=capacity_today.kb_therapy_window(),
     )
 
 
@@ -592,38 +473,6 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
             parse_mode="MarkdownV2",
         )
-
-
-async def cmd_log_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
-    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
-    Recovery Pulse is now the platform's only manual health-data capture
-    mechanism. This standalone activity-logging command is disabled — it no
-    longer writes to activity_logs. Kept registered (rather than removed) so
-    it replies with a clear message instead of the command silently doing
-    nothing or erroring."""
-    await update.message.reply_text(
-        "🚫 *Log Activity — retired*\n\n"
-        "Manual activity logging has been retired\\. Recovery Pulse is now the platform's only "
-        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
-        parse_mode="MarkdownV2",
-    )
-
-
-async def cmd_log_weight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Retired 2026-08-10 (Captain directive — manual capture retirement, see
-    .claude/skills/bot-reviews/fixes-2026-08-09/manual-capture-retirement.md):
-    Recovery Pulse is now the platform's only manual health-data capture
-    mechanism. This standalone weight-logging command is disabled — it no
-    longer writes to weight_logs. Kept registered (rather than removed) so
-    it replies with a clear message instead of the command silently doing
-    nothing or erroring."""
-    await update.message.reply_text(
-        "🚫 *Log Weight — retired*\n\n"
-        "Manual weight logging has been retired\\. Recovery Pulse is now the platform's only "
-        "manual health\\-data capture mechanism — use /recovery\\_pulse instead\\.",
-        parse_mode="MarkdownV2",
-    )
 
 
 async def cmd_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1849,119 +1698,6 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
 
 
-# ── Inline pulse callbacks ────────────────────────────────────────────────────
-
-async def handle_pulse_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    data = query.data or ""
-    if not data.startswith("pl|"):
-        return
-
-    f = _parse_cb(data)
-    pt = f.get("pt", _current_pulse_type())
-    e  = f.get("e")
-    m  = f.get("m")
-    s  = f.get("s")
-    w  = f.get("w")
-    o  = f.get("o")  # mood_score (2026-08-11) — optional, "skip" or "1".."10"
-    label = _PULSE_LABELS.get(pt, pt)
-    final_key = _pulse_final_key(pt)
-    final_val = {"e": e, "m": m, "s": s, "w": w}.get(final_key)
-
-    # Terminal state: every tap this pulse type's flow asks for is present,
-    # AND the optional mood-score step has been resolved (tapped or skipped).
-    # midday's final_key is 'm' itself, so (e and m) alone is already terminal
-    # for midday's REQUIRED taps — no 3rd tap exists to wait for there.
-    if e and m and final_val and o is not None:
-        body_signals = s if final_key == "s" else None
-        day_win      = w if final_key == "w" else None
-        mood_score   = None if o == "skip" else int(o)
-        saved, status, err_msg = await _write_pulse(
-            pt, e, m, body_signals=body_signals, day_win=day_win, mood_score=mood_score,
-        )
-        icon = "✅" if saved else "⚠️"
-        conf = status.recovery_confidence
-        done = " ".join([
-            "✅" if status.morning_done else "❌",
-            "✅" if status.midday_done  else "❌",
-            "✅" if status.evening_done else "❌",
-        ])
-        e_cap = _escape(e.capitalize())
-        m_cap = _escape(m.capitalize())
-        summary = f"Capacity: {e_cap} · NS: {m_cap}"
-        if body_signals:
-            summary += f" · Body: {_escape(body_signals.capitalize())}"
-        elif day_win:
-            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
-        if mood_score is not None:
-            summary += f" · Mood: {_MOOD_SCORE_EMOJI.get(mood_score, '')} {mood_score}/10"
-        error_line = f"\n\n_Error: {_escape_strict(err_msg)}_" if err_msg else ""
-        await query.edit_message_text(
-            f"{icon} *{_escape(label)} logged*\n\n"
-            f"{summary}\n\n"
-            f"Confidence: `{_escape(_bar(conf))}` {conf}%\n"
-            f"Pulses: {_escape(done)}  AM · Mid · PM"
-            f"{error_line}",
-            parse_mode="MarkdownV2",
-        )
-        return
-
-    # Required taps just completed, mood-score step not yet shown — offer it
-    # (skippable). 2026-08-11: Captain directive to fold a holistic mood
-    # rating into this existing flow instead of a second capture surface —
-    # see migration 0140 / _kb_mood_score's own docstring.
-    if e and m and final_val:
-        body_signals = s if final_key == "s" else None
-        day_win      = w if final_key == "w" else None
-        e_cap = _escape(e.capitalize())
-        m_cap = _escape(m.capitalize())
-        summary = f"Capacity: {e_cap} · NS: {m_cap}"
-        if body_signals:
-            summary += f" · Body: {_escape(body_signals.capitalize())}"
-        elif day_win:
-            summary += f" · Today: {_escape(_DAY_WIN_LABELS.get(day_win, day_win.capitalize()))}"
-        await query.edit_message_text(
-            f"📡 *{_escape(label)}*\n\n"
-            f"{summary}\n\n"
-            f"{_escape('Rate your mood? (optional, 1=worst · 10=best)')}",
-            parse_mode="MarkdownV2",
-            reply_markup=_kb_mood_score(pt, e, m, s, w),
-        )
-        return
-
-    if e and m:
-        # Only reached for morning (final_key='s') and evening (final_key='w') —
-        # midday is already terminal above the instant e and m are both set.
-        if final_key == "w":
-            await query.edit_message_text(
-                f"📡 *{_escape(label)}*\n\n"
-                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
-                "One thing that went okay today?",
-                parse_mode="MarkdownV2",
-                reply_markup=_kb_day_win(pt, e, m),
-            )
-        else:
-            await query.edit_message_text(
-                f"📡 *{_escape(label)}*\n\n"
-                f"Capacity: {_escape(e.capitalize())} · NS: {_escape(m.capitalize())}\n\n"
-                "Body signals right now?",
-                parse_mode="MarkdownV2",
-                reply_markup=_kb_stress(pt, e, m),
-            )
-        return
-
-    if e:
-        await query.edit_message_text(
-            f"📡 *{_escape(label)}*\n\n"
-            f"Capacity: {_escape(e.capitalize())}\n\n"
-            "Nervous system state?",
-            parse_mode="MarkdownV2",
-            reply_markup=_kb_mood(pt, e),
-        )
-        return
-
-
 # ── Inline mood chart callbacks ──────────────────────────────────────────────────
 
 async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2036,6 +1772,249 @@ async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAU
         context.user_data = context.user_data or {}
         context.user_data["mood_entry"] = {"tod": tod, "ms": ms}
         return
+
+
+# ── Inline MY CAPACITY TODAY callbacks (2026-08-21) ──────────────────────────
+# Same convention as the retired pulse flow: state lives entirely in the
+# pipe-delimited callback data, checked from most-complete field backward to
+# least-complete (capacity_today.base_from() rebuilds the next screen's
+# prefix from parsed fields rather than string-slicing the raw callback).
+
+async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Two phases. Phase 1 (no `id` yet, Q1-Q5): state lives entirely in the
+    callback string — cheap, these fields are all single-char codes, never
+    close to Telegram's 64-byte callback_data limit. Phase 2 (Q6 onward,
+    `id` present): the multi-select steps (active_loads, identified_needs)
+    can select up to 16 items each — carrying that plus every prior field in
+    the callback data blew past 64 bytes in testing (measured 103 bytes
+    worst-case). So from Q6 on, the row is created in the DB and every tap
+    writes through immediately; callback data only ever carries the row id
+    (a short bigint) plus the field being set *this* tap."""
+    from telegram_bots.xo import capacity_today as ct
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("ct|"):
+        return
+    f = ct.parse_cb(data)
+    if "noop" in f:
+        return
+
+    db = _get_supabase()
+    row_id = f.get("id")
+
+    # ── Phase 2: id present — every step reads/writes the DB row directly ──
+    if row_id is not None:
+        id_base = f"ct|id={row_id}"
+
+        if f.get("done") == "1":
+            row = await ct.fetch_checkin(db, row_id)
+            await query.edit_message_text(ct.render_summary(row or {}))
+            return
+
+        if f.get("act") is not None:
+            saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "act": f["act"]})
+            if saved and row:
+                await query.edit_message_text(
+                    ct.render_summary(row),
+                    reply_markup=ct.kb_go_deeper(str(row["id"])),
+                )
+            else:
+                await query.edit_message_text(f"⚠️ Could not save check-in: {err}")
+            return
+
+        if f.get("nd") is not None:
+            saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "nd": f["nd"]})
+            if f.get("next") == "1":
+                codes = ct.suggest_actions(row or {})
+                await query.edit_message_text(
+                    "What would help your system most right now?\n\nOne small thing you can do next:",
+                    reply_markup=ct.kb_actions(id_base, codes),
+                )
+            else:
+                await query.edit_message_text(
+                    "What would help your system most right now? (tap all that apply)",
+                    reply_markup=ct.kb_multiselect(id_base, "nd", ct.IDENTIFIED_NEEDS, f["nd"]),
+                )
+            return
+
+        if f.get("cp") is not None:
+            await ct.write_quick_checkin(db, {"id": row_id, "cp": f["cp"]})
+            await query.edit_message_text(
+                "What would help your system most right now? (tap all that apply)",
+                reply_markup=ct.kb_multiselect(id_base, "nd", ct.IDENTIFIED_NEEDS, ""),
+            )
+            return
+
+        if f.get("ld") is not None:
+            saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "ld": f["ld"]})
+            if f.get("next") == "1":
+                await query.edit_message_text(
+                    "How much are you having to push, mask, or compensate today?",
+                    reply_markup=ct.kb_compensation(id_base),
+                )
+            else:
+                await query.edit_message_text(
+                    "What's taking the most capacity right now? (tap all that apply)",
+                    reply_markup=ct.kb_multiselect(id_base, "ld", ct.ACTIVE_LOADS, f["ld"]),
+                )
+            return
+
+        # just transitioned into Phase 2 with nothing selected yet
+        await query.edit_message_text(
+            "What's taking the most capacity right now? (tap all that apply)",
+            reply_markup=ct.kb_multiselect(id_base, "ld", ct.ACTIVE_LOADS, ""),
+        )
+        return
+
+    # ── Phase 1: Q1-Q5, pure callback-data state ────────────────────────────
+
+    if f.get("done") == "1":
+        saved, row, err = await ct.write_quick_checkin(db, f)
+        text = ct.render_summary(row or f)
+        text += "\n\n(Saved — partial check-in.)" if saved else f"\n\n⚠️ {err}"
+        await query.edit_message_text(text)
+        return
+
+    if f.get("e") is not None:
+        # Q5 answered — create the row now, hand off to Phase 2 (id-based).
+        saved, row, err = await ct.write_quick_checkin(db, f)
+        if not saved or not row:
+            await query.edit_message_text(f"⚠️ Could not start check-in: {err}")
+            return
+        await query.edit_message_text(
+            "What's taking the most capacity right now? (tap all that apply)",
+            reply_markup=ct.kb_multiselect(f"ct|id={row['id']}", "ld", ct.ACTIVE_LOADS, ""),
+        )
+        return
+
+    if f.get("r") is not None:
+        await query.edit_message_text(
+            "How easy is it to think, decide, start, and switch tasks?",
+            reply_markup=ct.kb_executive_function(f["c"], f["t"], f["p"], f["ps"], f["r"]),
+        )
+        return
+
+    if f.get("ps") is not None:
+        await query.edit_message_text(
+            "How activated or overloaded does your system feel?",
+            reply_markup=ct.kb_regulation(f["c"], f["t"], f["p"], f["ps"]),
+        )
+        return
+
+    if f.get("p") is not None:
+        await query.edit_message_text(
+            "Pain intensity right now? (optional, 0=none · 10=worst)",
+            reply_markup=ct.kb_pain_score(f["c"], f["t"], f["p"]),
+        )
+        return
+
+    if f.get("t") is not None:
+        await query.edit_message_text(
+            "How is your pain compared with your usual baseline?",
+            reply_markup=ct.kb_pain(f["c"], f["t"]),
+        )
+        return
+
+    # only capacity_state chosen so far
+    await query.edit_message_text(
+        "Where is your stimulation level?",
+        reply_markup=ct.kb_stimulation(f["c"]),
+    )
+
+
+async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today as ct
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("ctd|"):
+        return
+    f = ct.parse_cb(data)
+    row_id = f.get("id")
+    if not row_id:
+        return
+    db = _get_supabase()
+    base = f"ctd|id={row_id}"
+
+    if f.get("rd") is not None:
+        saved, err = await ct.write_deep_checkin(db, row_id, f)
+        text = "🔎 Deep check-in saved." if saved else f"⚠️ Could not save: {err}"
+        await query.edit_message_text(text)
+        return
+
+    if f.get("mp") is not None:
+        base2 = f"{base}|lc={f.get('lc')}|uc={f.get('uc')}|mp={f['mp']}"
+        await query.edit_message_text(
+            "Did you skip food, movement, rest, medication, sleep, or recovery — and if so, how long did recovery take?",
+            reply_markup=ct.kb_deep_recovery_duration(base2),
+        )
+        return
+
+    if f.get("uc") is not None:
+        base2 = f"{base}|lc={f.get('lc')}|uc={f['uc']}"
+        await query.edit_message_text(
+            "Were you masking or forcing yourself to function?",
+            reply_markup=ct.kb_deep_yesno(base2, "mp"),
+        )
+        return
+
+    if f.get("lc") is not None:
+        base2 = f"{base}|lc={f['lc']}"
+        await query.edit_message_text(
+            "Did something unexpected change?",
+            reply_markup=ct.kb_deep_yesno(base2, "uc"),
+        )
+        return
+
+
+async def handle_capacity_evening_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today as ct
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cte|"):
+        return
+    f = ct.parse_cb(data)
+    db = _get_supabase()
+
+    if f.get("cd") is not None:
+        saved, err = await ct.write_evening(db, f)
+        text = "🌙 Evening reflection saved." if saved else f"⚠️ Could not save: {err}"
+        await query.edit_message_text(text)
+        return
+
+    if f.get("hf") is not None:
+        await query.edit_message_text(
+            "Did you borrow capacity from tomorrow?",
+            reply_markup=ct.kb_evening_debt(f["dt"], f["hf"]),
+        )
+        return
+
+    if f.get("dt") is not None:
+        await query.edit_message_text(
+            "What helped most?",
+            reply_markup=ct.kb_evening_helpful(f["dt"]),
+        )
+        return
+
+
+async def handle_capacity_therapy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from telegram_bots.xo import capacity_today as ct
+
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cty|"):
+        return
+    f = ct.parse_cb(data)
+    weeks = int(f.get("w", "2"))
+    db = _get_supabase()
+    rows = await ct.fetch_recent(db, days=weeks * 7)
+    await query.edit_message_text(ct.render_therapy_summary(rows, weeks))
 
 
 # ── Voice-to-Capture ──────────────────────────────────────────────────────────
@@ -2646,11 +2625,18 @@ _BOT_COMMANDS = [
     ("debrief_close",   "Force-close the active debrief and get today's log"),
     ("debrief_weekly",  "Weekly debrief digest — recurring stressors, ideas, open loops"),
     # Health & recovery
-    ("recovery_pulse",  "Log a pulse (energy → nervous system → body signals)"),
-    ("recovery_status", "Today's confidence bar + pulse ledger"),
+    ("recovery_status", "Today's confidence bar (legacy — see /today for MY CAPACITY TODAY)"),
     ("mood_chart",      "Log mood (1-10 scale) with optional context"),
-    ("log_activity",    "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
-    ("log_weight",      "Retired — use /recovery_pulse (manual capture is Recovery Pulse-only)"),
+    # MY CAPACITY TODAY
+    ("capacity",         "Quick capacity check-in (30-60s, tap buttons)"),
+    ("deepcheck",        "Deeper reflection — what happened, what helped"),
+    ("evening",          "Evening capacity reflection (3 questions)"),
+    ("today",            "Show today's capacity check-ins"),
+    ("week",             "Weekly capacity review"),
+    ("month",            "Monthly capacity pattern review"),
+    ("capacity_patterns", "Most common capacity patterns (30d)"),
+    ("actions",          "Which strategies have helped most"),
+    ("therapy",          "Generate a therapist-friendly summary"),
     # System
     ("dispatch",        "Manual XO dispatch check"),
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
@@ -2699,9 +2685,16 @@ def main() -> None:
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("recovery_status", cmd_recovery_status))
-    app.add_handler(CommandHandler("recovery_pulse",  cmd_recovery_pulse))
-    app.add_handler(CommandHandler("pulse_check",     cmd_recovery_pulse))
     app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
+    app.add_handler(CommandHandler("capacity",           cmd_capacity))
+    app.add_handler(CommandHandler("deepcheck",          cmd_deepcheck))
+    app.add_handler(CommandHandler("evening",            cmd_evening))
+    app.add_handler(CommandHandler("today",              cmd_capacity_today))
+    app.add_handler(CommandHandler("week",               cmd_capacity_week))
+    app.add_handler(CommandHandler("month",              cmd_capacity_month))
+    app.add_handler(CommandHandler("capacity_patterns",  cmd_capacity_patterns))
+    app.add_handler(CommandHandler("actions",            cmd_capacity_actions))
+    app.add_handler(CommandHandler("therapy",            cmd_therapy))
     app.add_handler(CommandHandler("mission_list",    cmd_mission_list))
     app.add_handler(CommandHandler("mission_status",  cmd_mission_status))
     app.add_handler(CommandHandler("mission_create",   cmd_mission_create))
@@ -2718,8 +2711,6 @@ def main() -> None:
     app.add_handler(CommandHandler("revs_generate",       cmd_revs_generate))
     app.add_handler(CommandHandler("note",                cmd_note))
     app.add_handler(CommandHandler("missions",            cmd_mission_list))
-    app.add_handler(CommandHandler("log_activity",    cmd_log_activity))
-    app.add_handler(CommandHandler("log_weight",      cmd_log_weight))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("dispatch",        cmd_dispatch))
     app.add_handler(CommandHandler("brief",           cmd_brief))
@@ -2731,8 +2722,11 @@ def main() -> None:
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CommandHandler("debrief_close",   cmd_debrief_close))
     app.add_handler(CommandHandler("debrief_weekly",  cmd_debrief_weekly))
-    app.add_handler(CallbackQueryHandler(handle_pulse_callback,         pattern=r"^pl\|"))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,    pattern=r"^mc\|"))
+    app.add_handler(CallbackQueryHandler(handle_capacity_callback,         pattern=r"^ct\|"))
+    app.add_handler(CallbackQueryHandler(handle_capacity_deep_callback,    pattern=r"^ctd\|"))
+    app.add_handler(CallbackQueryHandler(handle_capacity_evening_callback, pattern=r"^cte\|"))
+    app.add_handler(CallbackQueryHandler(handle_capacity_therapy_callback, pattern=r"^cty\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))

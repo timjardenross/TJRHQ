@@ -466,16 +466,22 @@ def _fetch_readiness_block() -> str:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
         from readiness_score import compute_readiness_score, format_readiness_for_slack
-        from capacity_score import compute_capacity_score
+        from capacity_score import capacity_zone_from_checkin
         from supabase_client import supabase_get, is_configured
 
         if not is_configured():
             return ""
 
         today = _today_iso()
-        rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1") or []
+        # MY CAPACITY TODAY (2026-08-21) replaced Recovery Pulse/
+        # captains_log_entries as the Captain's day-to-day capacity input —
+        # see capacity_zone_from_checkin()'s docstring.
+        rows = supabase_get(
+            f"capacity_checkins?log_date=eq.{today}&checkin_type=eq.capacity"
+            "&order=captured_at.desc&limit=1"
+        ) or []
         entry = rows[0] if rows else {}
-        cap_score, cap_status = compute_capacity_score(entry) if entry else (None, "Unknown")
+        cap_score, cap_status = capacity_zone_from_checkin(entry) if entry else (None, "Unknown")
 
         # Fetch missions for ops component — Supabase is system of record (MSN-BOT-SOR)
         missions = []
