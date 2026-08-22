@@ -8,32 +8,34 @@
 //
 // VNext consolidation (Human_Systems_Workbench_VNext_Consolidation_Mission_
 // Scope.md, WP01): the former Recovery/Medical tab split is removed. Both
-// domain payloads (plus Readiness, already folded into the Recovery tab on
-// 2026-08-10) are fetched together and rendered as one continuous page — the
-// doc's "seven major sections read top to bottom as a decision-support
-// flow" model, not a collection of tabs. /api/human-systems itself is
-// untouched (still domain-branched: ?domain=recovery|medical|readiness) —
-// this page just stops choosing between them and fetches all three.
+// domain payloads are fetched together and rendered as one continuous page
+// — a decision-support flow read top to bottom, not a collection of tabs.
+// /api/human-systems itself is untouched (still domain-branched:
+// ?domain=recovery|medical|readiness) — this page just stops choosing
+// between them.
+//
+// Readiness (2026-08-22): no longer fetched or rendered here — Captain
+// directive to declutter, along with Life Participation and Sleep. The
+// ?domain=readiness API branch, ReadinessView component, and the
+// readiness/* sub-routes are all still intact if this needs to come back;
+// this page just stopped calling any of them.
 //
 // The 8 internal sub-route back-links across log/, medical/*, and
 // readiness/* still append `?domain=medical|recovery|readiness` to their
-// return link — harmless now (this route ignores the param and always
-// renders everything), so none of them needed touching to avoid a 404 or a
-// broken bookmark.
+// return link — harmless (this route ignores the param and always renders
+// everything it fetches), so none of them needed touching.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { RecoveryView } from './_components/RecoveryView';
 import { MedicalView } from './_components/MedicalView';
-import { ReadinessView } from './_components/ReadinessView';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
-import type { MedicalPayload, ReadinessPayload, RecoveryPayload } from './_components/types';
+import type { MedicalPayload, RecoveryPayload } from './_components/types';
 
 interface Loaded {
   recovery: RecoveryPayload | null;
   medical: MedicalPayload | null;
-  readiness: ReadinessPayload | null;
 }
 
 function Workbench() {
@@ -48,12 +50,11 @@ function Workbench() {
     return Promise.all([
       fetch('/api/human-systems?domain=recovery').then((r) => r.json()),
       fetch('/api/human-systems?domain=medical').then((r) => r.json()),
-      fetch('/api/human-systems?domain=readiness').then((r) => r.json()),
     ])
-      .then(([recovery, medical, readiness]: [unknown, unknown, unknown]) => {
+      .then(([recovery, medical]: [unknown, unknown]) => {
         const clean = <T,>(p: unknown): T | null =>
           p && typeof p === 'object' && !('error' in (p as Record<string, unknown>)) ? (p as T) : null;
-        setData({ recovery: clean<RecoveryPayload>(recovery), medical: clean<MedicalPayload>(medical), readiness: clean<ReadinessPayload>(readiness) });
+        setData({ recovery: clean<RecoveryPayload>(recovery), medical: clean<MedicalPayload>(medical) });
         setLoadFailed(!recovery || (typeof recovery === 'object' && recovery !== null && 'error' in recovery));
         setLastUpdated(new Date());
       })
@@ -65,17 +66,9 @@ function Workbench() {
     load(true);
   }, [load]);
 
-  // Live refresh: every section reads the capacity_checkins signal, plus
-  // Readiness additionally watches workout sessions.
+  // Live refresh: every remaining section reads the capacity_checkins signal.
   useRealtimeRefresh({
     table: 'capacity_checkins',
-    events: ['INSERT', 'UPDATE'],
-    enabled: true,
-    onChange: () => load(false),
-    onStatusChange: (s) => setLive(s === 'SUBSCRIBED'),
-  });
-  useRealtimeRefresh({
-    table: 'physical_workout_sessions',
     events: ['INSERT', 'UPDATE'],
     enabled: true,
     onChange: () => load(false),
@@ -100,12 +93,6 @@ function Workbench() {
           <KpiDashboard kpis={data.recovery.kpis} />
           <div className="flex flex-col gap-4">
             <RecoveryView data={data.recovery} />
-            {data.readiness && (
-              <>
-                <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">Readiness</div>
-                <ReadinessView data={data.readiness} />
-              </>
-            )}
             {data.medical && <MedicalView data={data.medical} />}
           </div>
         </>

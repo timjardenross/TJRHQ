@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge, Card } from '@/components/ui';
+import { Badge } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
 import { BAND_LABEL, bandStatus, type MedicalPayload } from './types';
 
@@ -44,21 +44,10 @@ const OUTCOME_LABEL: Record<string, string> = { better: 'Better', same: 'Same', 
  *  page.tsx, already carries that content. */
 export function MedicalView({ data }: { data: MedicalPayload }) {
   const [trendWindow, setTrendWindow] = useState<'7d' | '30d'>('7d');
-  const lp = data.life_participation;
-  const c = lp.components;
-  const sittingPct = Math.min(Math.round((c.sitting_minutes / c.sitting_baseline) * 100), 100);
 
   const windowedTrends = trendWindow === '7d' ? data.trends.slice(-7) : data.trends;
   const energyTrend = windowedTrends.map((t) => (t.energy ? TREND_ENERGY[t.energy] ?? null : null));
   const painTrend = windowedTrends.map((t) => t.pain_score);
-
-  const signals: { label: string; value: string; met: boolean }[] = [
-    { label: 'Movement', value: c.movement ? 'Done' : 'Not recorded', met: c.movement },
-    { label: 'Pleasure / creativity', value: c.pleasure ?? 'Not recorded', met: !!c.pleasure },
-    { label: 'Social noted', value: c.social ? 'Present' : 'Not recorded', met: c.social },
-    { label: 'Sitting tolerance', value: `${c.sitting_minutes} min (${sittingPct}% of ${c.sitting_baseline})`, met: sittingPct >= 50 },
-    { label: 'Workload', value: c.workload, met: c.workload === 'none' || c.workload === 'light' },
-  ];
 
   const debtPct = data.capacity_debt.days_total > 0
     ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
@@ -69,31 +58,6 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card title="Life Participation">
-        <p className="mb-3 text-[13px] text-wb-ink2">
-          Measures participation in life — not productivity. Recovery follows when the conditions for
-          life are present; pain reduction is a downstream effect.
-        </p>
-        <div className="flex items-center gap-4 rounded-md border border-wb-line bg-wb-bg p-4">
-          <span className="font-serif text-5xl text-wb-ink">{lp.score ?? '—'}</span>
-          <div>
-            <Badge status={bandStatus(lp.band)}>{BAND_LABEL[lp.band]}</Badge>
-            <div className="mt-1 text-[12px] text-wb-ink2">out of 100 · today</div>
-          </div>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {signals.map((s) => (
-            <div key={s.label} className="flex items-start gap-2 rounded-md border border-wb-line bg-wb-surface p-3">
-              <span className={`mt-0.5 text-[12px] ${s.met ? 'text-wb-ok-on' : 'text-wb-ink2'}`}>{s.met ? '●' : '○'}</span>
-              <div>
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{s.label}</div>
-                <div className="text-[13px] capitalize text-wb-ink">{s.value}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
       <CollapsibleSection title="Capacity Domains">
         <p className="mb-3 text-[13px] text-wb-ink2">Five perspectives on available capacity — not independent batteries.</p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">

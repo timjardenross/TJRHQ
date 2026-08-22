@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui';
-import { BAND_LABEL, CAPACITY_STATE_LABEL, bandStatus, capacityStateStatus, systemPostureStatus, type Kpis } from './types';
+import { CAPACITY_STATE_LABEL, capacityStateStatus, systemPostureStatus, type Kpis } from './types';
 
 function KpiCard({
   label,
@@ -33,7 +33,6 @@ function KpiCard({
  *  mobile stack DOM order IS visual order, which the doc's desktop-only
  *  ASCII layout doesn't have to account for. */
 export function KpiDashboard({ kpis }: { kpis: Kpis }) {
-  const lp = kpis.lp_score;
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <KpiCard
@@ -45,22 +44,6 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
         label="System Posture"
         value={kpis.system_posture}
         badge={<Badge status={systemPostureStatus(kpis.system_posture)}>{kpis.system_posture}</Badge>}
-      />
-      <KpiCard
-        label="Life Participation"
-        value={lp == null ? '—' : String(lp)}
-        sub={BAND_LABEL[kpis.lp_band]}
-        badge={
-          <span className="flex items-baseline gap-2">
-            <span className="font-serif text-[20px] leading-none text-wb-ink">{lp == null ? '—' : lp}</span>
-            <Badge status={bandStatus(kpis.lp_band)}>{BAND_LABEL[kpis.lp_band]}</Badge>
-          </span>
-        }
-      />
-      <KpiCard
-        label="Sleep Last Night"
-        value={kpis.sleep_hours == null ? '—' : `${kpis.sleep_hours}h`}
-        sub={kpis.sleep_hours == null ? 'not recorded' : undefined}
       />
       <KpiCard
         label="Check-ins Today"
