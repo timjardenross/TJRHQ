@@ -38,9 +38,12 @@ function Sparkline({ values }: { values: (number | null)[] }) {
  *  capacity_checkins.stimulation_state field rendered twice, and "Recovery
  *  Time" was rendered as both a grid tile and a separate stat block below
  *  it. Capacity Domains and Recovery Conditions are now one merged grid —
- *  8 unique signals, not 10 — under a single "Capacity & Recovery
- *  Conditions" card. What Helps Me moved to RecoveryView (next to My REVS
- *  Position); this file no longer renders it. */
+ *  7 unique signals, not 10 — under a single "Capacity & Recovery
+ *  Conditions" card. Physical dropped entirely (2026-08-22, Captain
+ *  directive): human_systems_daily is dead and capacity_checkins has no
+ *  substitute field for it, unlike Cognitive (now sourced from
+ *  executive_function, route.ts). What Helps Me moved to RecoveryView
+ *  (next to My REVS Position); this file no longer renders it. */
 export function MedicalView({ data }: { data: MedicalPayload }) {
   const [trendWindow, setTrendWindow] = useState<'7d' | '30d'>('7d');
 
@@ -68,7 +71,7 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <CollapsibleSection title="Capacity & Recovery Conditions" className="md:col-span-2">
         <p className="mb-3 text-[13px] text-wb-ink2">
-          Eight perspectives on capacity and what feeds it — not independent batteries, and not Capacity itself
+          Perspectives on capacity and what feeds it — not independent batteries, and not Capacity itself
           (Capacity is the outcome these produce).
         </p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

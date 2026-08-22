@@ -738,9 +738,28 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const domainBand = (v: string | null): Band =>
     v === 'good' ? 'good' : v === 'moderate' ? 'moderate' : v === 'limited' ? 'limited' : v === 'depleted' ? 'rest' : 'unknown';
   const sensory = deriveSensoryBand(ctx.latestCheckin);
+
+  // Cognitive: capacity_checkins.executive_function is a direct, dedicated
+  // cognitive-capacity question every /capacity check-in asks ("how easy
+  // is it to think, decide, start, switch tasks?") — real signal that was
+  // sitting unused while this domain read the dead human_systems_daily
+  // source. Same 4-value scale the bot itself uses (capacity_today.py's
+  // EF_CODE_TO_STATE), mapped to this workbench's band vocabulary.
+  const efBand = (ef: string | null | undefined): Band => ({
+    good: 'good', strained: 'moderate', difficult: 'limited', very_difficult: 'rest',
+  } as Record<string, Band>)[ef ?? ''] ?? 'unknown';
+  const efLabel: Record<string, string> = {
+    good: 'Working well', strained: 'More effort than usual', difficult: 'Difficult', very_difficult: 'Very difficult',
+  };
+  const ef = ctx.latestCheckin?.executive_function ?? null;
+
+  // Physical dropped (Captain directive, 2026-08-22) — human_systems_daily
+  // is dead and, unlike Cognitive, capacity_checkins has no dedicated
+  // physical-capacity field to substitute (only a weak active_loads tag
+  // presence signal), so this domain is removed rather than shown empty
+  // or backed by a low-confidence proxy.
   const capacity_domains = [
-    { key: 'physical', label: 'Physical', band: domainBand(hsRow?.energy_physical ?? null), value: hsRow?.energy_physical ?? null },
-    { key: 'cognitive', label: 'Cognitive', band: domainBand(hsRow?.energy_cognitive ?? null), value: hsRow?.energy_cognitive ?? null },
+    { key: 'cognitive', label: 'Cognitive', band: efBand(ef), value: ef ? efLabel[ef] ?? ef : null },
     { key: 'emotional', label: 'Emotional', band: domainBand(hsRow?.energy_emotional ?? null), value: hsRow?.energy_emotional ?? null },
     { key: 'social', label: 'Social', band: domainBand(hsRow?.energy_social ?? null), value: hsRow?.energy_social ?? null },
     { key: 'sensory', label: 'Sensory', band: sensory.band, value: sensory.value },
