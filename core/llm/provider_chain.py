@@ -38,12 +38,16 @@ def call_gemini(
     body = json.dumps({
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": [{"parts": [{"text": prompt}]}],
-        # thinkingBudget=0 disables Gemini 2.5's internal reasoning tokens —
-        # without this, maxOutputTokens is consumed by hidden thought tokens
-        # before any visible text, silently truncating short responses.
+        # 2026-08-22: thinkingConfig.thinkingBudget=0 (added for Gemini 2.5's
+        # hidden-reasoning-token truncation behavior) is REJECTED outright by
+        # gemini-3.5-flash-lite with HTTP 400 INVALID_ARGUMENT — confirmed
+        # live, this was silently failing every call in every pipeline using
+        # this module (100% Mistral-fallback rate, never actually reaching
+        # Gemini). Removed rather than reworked: live-verified this model
+        # doesn't need it — finishReason=STOP, full untruncated text, well
+        # under maxOutputTokens, with no thinkingConfig at all.
         "generationConfig": {
             "maxOutputTokens": max_output_tokens, "temperature": temperature,
-            "thinkingConfig": {"thinkingBudget": 0},
         },
     }).encode()
     req = urllib.request.Request(
