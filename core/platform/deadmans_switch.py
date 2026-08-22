@@ -73,27 +73,28 @@ def _supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
     return parsed if isinstance(parsed, list) else [parsed]
 
 
-def _escape_telegram_markdown(text: str) -> str:
-    """Copy of the same fix in core/platform/notification_service.py
-    (2026-08-22, confirmed live) - legacy Telegram Markdown hard-rejects
-    the WHOLE message on an unescaped _, *, `, or [ in dynamic content.
-    Duplicated rather than imported, same reasoning as this file's other
-    duplicated senders - see module docstring."""
-    for ch in ("\\", "_", "*", "`", "["):
-        text = text.replace(ch, "\\" + ch)
-    return text
-
-
 def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
     """Copy of core/platform/notification_service.py's _send_telegram(),
-    deliberately duplicated rather than imported - see module docstring."""
+    deliberately duplicated rather than imported - see module docstring.
+
+    2026-08-22, corrected same day: had a Markdown-escaping helper here
+    (matching an earlier fix in notification_service.py) for legacy
+    Telegram "Markdown" parse_mode's HTTP-400-on-unescaped-underscore
+    bug - but real-device verification showed that escaping approach
+    renders literal visible backslashes instead of being consumed, so it
+    was replaced platform-wide with HTML parse_mode elsewhere. This file
+    never uses any intentional formatting (no *bold*/`code` anywhere in
+    its one message) - simplest and most robust fix here is to drop
+    parse_mode entirely: Telegram sends plain text by default, which
+    needs no escaping at all regardless of what `reason` (the only
+    dynamic content this file ever sends) happens to contain."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     raw_ids = os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
     chat_id = raw_ids.split(",")[0].strip() if raw_ids else os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
         return False, "missing TELEGRAM_BOT_TOKEN or chat id"
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}).encode()
+    payload = json.dumps({"chat_id": chat_id, "text": text}).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10):
@@ -161,7 +162,7 @@ def check() -> Dict[str, Any]:
         if cooldown_elapsed:
             ok, err = _send_telegram(
                 "I can't verify anything right now. "
-                f"{_escape_telegram_markdown(reason)}. Treat silence as unknown, not as calm."
+                f"{reason}. Treat silence as unknown, not as calm."
             )
             alerted = ok
             if ok:
