@@ -245,6 +245,21 @@ def _start_scheduler() -> None:
     else:
         log.info("Content intelligence scoring disabled (set CONTENT_INTEL_PUSH_ENABLED=1 to enable)")
 
+    # ── 2026-08-22 gap-closure: Technical OSINT suppression audit ───────────────
+    # 06:40 AEST daily — after collection (06:00) and content scoring (06:15).
+    # Read-only LLM second-opinion QA pass over should_suppress()'s two
+    # content-judgment reasons (media_no_or_signal, media_source_low_relevance)
+    # for events the pipeline's own operational_relevance still rated >=0.5.
+    # See tools/intelligence/suppression_audit.py's docstring for the full
+    # investigation and rationale. Never mutates intelligence_events; logs
+    # verdicts to audit_events (category='intelligence_suppression_audit').
+    scheduler.add_job(
+        _suppression_audit_job,
+        CronTrigger(hour=6, minute=40, timezone=tz),
+        id="intelligence_suppression_audit",
+        replace_existing=True,
+    )
+
     # ── USS-TJR-MSN-0339 WP3: continuous Attention Engine evaluation ──────────
     # MSN-0338 Gap #5 — evaluate_batch() was only ever invoked from a manual
     # LCARS/Slack '/brief' click, never autonomously. Reuses this already-live
@@ -654,6 +669,57 @@ def _health_osint_weekly_fetch_job() -> None:
     except Exception as exc:
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
+
+
+def _suppression_audit_job() -> None:
+    """2026-08-22 gap-closure (Technical OSINT suppression audit — see
+    tools/intelligence/suppression_audit.py's own docstring for the full
+    investigation this came out of).
+
+    Technical OSINT's intelligence_events has no human review queue for
+    suppressed=true rows at all (unlike Health OSINT's health_signals /
+    /health-osint-curation) — should_suppress() (intelligence/classification/
+    filter.py) is fire-and-forget: it decides at classification time and
+    nothing ever revisits that decision. A full curation UI+backend would
+    not be a quick win (no existing queue to hook into). What's quick and
+    real: a small daily LLM second-opinion pass over the two suppression
+    reasons that involve actual content judgment (media_no_or_signal,
+    media_source_low_relevance), restricted to events the pipeline's own
+    operational_relevance score still rated >=0.5 — live-checked 2026-08-22,
+    this sizes at ~24/day and surfaced genuine misses (e.g. a
+    operational_relevance=1.0 data-breach story suppressed anyway).
+
+    READ-ONLY against intelligence_events — never writes suppressed/
+    suppression_reason. Logs AGREE/DISAGREE/UNCERTAIN verdicts to the
+    existing audit_events table (category='intelligence_suppression_audit')
+    for a human to review; never auto-unsuppresses anything.
+
+    Run as a subprocess for the same reason as
+    _health_osint_weekly_fetch_job (clean argparse CLI entrypoint, isolates
+    this job's failures from the scheduler process) — 06:40 AEST, after
+    daily collection (06:00) and content scoring (06:15) so the day's fresh
+    suppressions are already written.
+    """
+    log.info("Suppression audit triggered")
+    try:
+        import subprocess
+
+        script = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "tools", "intelligence", "suppression_audit.py"
+        )
+        result = subprocess.run(
+            [sys.executable, script, "--days", "1"],
+            capture_output=True, text=True, timeout=900,
+        )
+        if result.returncode != 0:
+            log.error("Suppression audit failed (exit %d): %s", result.returncode, result.stderr[-2000:])
+            _record_heartbeat("intelligence_suppression_audit", "failed", error_message=result.stderr[-500:])
+            return
+        log.info("Suppression audit: %s", result.stdout[-2000:])
+        _record_heartbeat("intelligence_suppression_audit", "ok", detail=result.stdout[-500:])
+    except Exception as exc:
+        log.error("Suppression audit job failed: %s", exc)
+        _record_heartbeat("intelligence_suppression_audit", "failed", error_message=str(exc))
 
 
 # Categories treated as "critical status" for the intraday tier below —
