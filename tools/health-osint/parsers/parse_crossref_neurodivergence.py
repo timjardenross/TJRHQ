@@ -58,7 +58,7 @@ _DOMAIN_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
       "community perspective", "interview study", "phenomenological"), "neuro_lived_experience"),
     (("autistic burnout", "autism burnout", "camouflaging fatigue", "monotropic split"), "neuro_burnout"),
     (("masking", "camouflaging", "camouflage"), "neuro_masking"),
-    (("sensory processing", "sensory overload", "interoception", "hypersensitivity",
+    (("sensory processing", "sensory integration", "sensory overload", "interoception", "hypersensitivity",
       "hyposensitivity", "auditory processing", "tactile defensiveness"), "neuro_sensory"),
     (("emotional regulation", "self-regulation", "nervous system", "co-regulation",
       "stimming", "self-stimulatory"), "neuro_regulation"),

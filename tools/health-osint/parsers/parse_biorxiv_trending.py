@@ -119,7 +119,7 @@ _DOMAIN_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
     # or sleep-disorder preprints.
     (("autistic burnout", "autism burnout", "camouflaging fatigue", "monotropic split"), "neuro_burnout"),
     (("masking", "camouflaging", "camouflage"), "neuro_masking"),
-    (("sensory processing", "sensory overload", "interoception", "hypersensitivity",
+    (("sensory processing", "sensory integration", "sensory overload", "interoception", "hypersensitivity",
       "hyposensitivity", "auditory processing", "tactile defensiveness"), "neuro_sensory"),
     (("audhd", "autism and adhd", "comorbid adhd and autism"), "neuro_audhd"),
     (("adhd", "attention deficit", "hyperactivity"), "neuro_adhd"),
