@@ -100,13 +100,27 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # finishing, producing an unparseable truncated response — same
     # failure mode this file's own summarise-document entry already
     # documents for a different task_type.
-    "captain-insight-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300, "num_predict": 400},
+    # 2026-08-22: moved from local MODEL_LARGE (mistral-small3.2:24b) to
+    # Gemini — same reasoning as self-improvement-* below. Real observed
+    # latency on this CPU-only box was 168-238s per call, occasionally
+    # exceeding even the 300s timeout outright ("unexpected=timed out" in
+    # this service's own log, every ~4h, matching the scheduled job that
+    # calls this task type). When that happened the caller gave up and
+    # closed its connection before this service finished, so the eventual
+    # response write hit a dead socket -- BrokenPipeError, every time,
+    # confirmed live via journalctl. Also kept a 15GB model resident in
+    # RAM (of 23GB total) for the run's duration, on the very first LLM
+    # tier every pipeline on this platform tries before anything else.
+    # Uses the shared GEMINI_API_KEY (not the billing-report key -- these
+    # aren't billing/cost-report calls).
+    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
     # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
     # captain-insight-synthesis (different prompt/purpose) so the call
     # log stays distinguishable, matching this file's own established
     # convention (see classify-document vs summarise-note's comment).
     # Consumes a Step 3 Insight, never the raw event stream directly.
-    "captain-reasoning-synthesis": {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300, "num_predict": 400},
+    # Moved to Gemini 2026-08-22 for the same reason as the entry above.
+    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
     "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
@@ -380,12 +394,26 @@ class RouterHandler(BaseHTTPRequestHandler):
 
     def _send_json(self, code: int, body: dict | list) -> None:
         payload = json.dumps(body, ensure_ascii=False).encode()
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(payload)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            # 2026-08-22: a slow task (captain-insight-synthesis on the old
+            # 24b local model, confirmed live, real latency 168-238s
+            # sometimes exceeding its own timeout) meant the caller had
+            # already given up and closed its connection by the time this
+            # response was ready to write -- this raised an unhandled
+            # exception through socketserver's request-handling machinery,
+            # logging a full traceback every time it happened rather than
+            # the one-line "client already gone" this actually is. The
+            # slow-task root cause is fixed separately (that task now
+            # routes to Gemini), but any task type can still race a client
+            # timeout in principle, so this stays as a general guard.
+            log.warning("client disconnected before response could be sent")
 
     def _read_body(self) -> dict:
         length = int(self.headers.get("Content-Length", 0))
