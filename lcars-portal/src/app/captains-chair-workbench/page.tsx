@@ -479,30 +479,6 @@ export default function CaptainsChairWorkbench() {
 
           <NotebookCard />
         </div>
-
-        {/* Quick Links — sole nav strip on this page. Previously duplicated
-            by a separate "Departments" row whose links (/command, /science)
-            didn't even resolve to real routes and whose others pointed at
-            legacy (app)/* pages instead of the live *-workbench routes —
-            removed rather than fixed, since every real destination it could
-            point to already belongs here. */}
-        <div className="rounded-lg border border-wb-line bg-white p-3">
-          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Link href="/human-systems-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Medical Bay
-            </Link>
-            <Link href="/engineering" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Engineering
-            </Link>
-            <Link href="/intelligence-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → OSINT Workbench
-            </Link>
-            <Link href="/captains-brief-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Full Brief
-            </Link>
-          </div>
-        </div>
       </div>
     </WorkbenchShell>
   );
