@@ -27,12 +27,22 @@ interface SearchOutcome {
 
 // ── Supabase search functions ─────────────────────────────────────────────────
 
+// 2026-08-22: raw `q` was interpolated straight into every .or() ilike
+// filter below with no escaping — `,` is the Supabase .or() clause
+// separator, so a comma typed into the search box silently mangled the
+// filter (a real, reachable bug, not hypothetical — confirmed live).
+// Same escaping api/knowledge-library/documents/route.ts already uses.
+function escapeIlike(term: string): string {
+  return term.replace(/[%_,]/g, (c) => `\\${c}`);
+}
+
 async function searchMissions(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
+  const term = escapeIlike(q);
   const { data, error } = await supabase
     .from('missions')
     .select('mission_id, title, status, description, updated_at')
-    .or(`title.ilike.%${q}%,mission_id.ilike.%${q}%,description.ilike.%${q}%`)
+    .or(`title.ilike.%${term}%,mission_id.ilike.%${term}%,description.ilike.%${term}%`)
     .order('updated_at', { ascending: false })
     .limit(6);
   const results = (data ?? []).map(r => ({
@@ -48,10 +58,11 @@ async function searchMissions(q: string): Promise<SearchOutcome> {
 
 async function searchLog(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
+  const term = escapeIlike(q);
   const { data, error } = await supabase
     .from('captains_log_entries')
     .select('log_date, tomorrows_priority, overall_note')
-    .or(`tomorrows_priority.ilike.%${q}%,overall_note.ilike.%${q}%`)
+    .or(`tomorrows_priority.ilike.%${term}%,overall_note.ilike.%${term}%`)
     .order('log_date', { ascending: false })
     .limit(4);
   const results = (data ?? []).map(r => ({
@@ -71,10 +82,11 @@ async function searchLog(q: string): Promise<SearchOutcome> {
 
 async function searchCaptures(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
+  const term = escapeIlike(q);
   const { data, error } = await supabase
     .from('captured_items')
     .select('id, title, raw_text, item_type, processing_status, captured_at')
-    .or(`title.ilike.%${q}%,raw_text.ilike.%${q}%`)
+    .or(`title.ilike.%${term}%,raw_text.ilike.%${term}%`)
     .order('captured_at', { ascending: false })
     .limit(4);
   const results = (data ?? []).map(r => ({
@@ -94,10 +106,11 @@ async function searchCaptures(q: string): Promise<SearchOutcome> {
 
 async function searchEvents(q: string): Promise<SearchOutcome> {
   const supabase = createSupabaseBrowserClient();
+  const term = escapeIlike(q);
   const { data, error } = await supabase
     .from('mission_execution_events')
     .select('id, status, mission_id, created_at')
-    .or(`status.ilike.%${q}%,mission_id.ilike.%${q}%`)
+    .or(`status.ilike.%${term}%,mission_id.ilike.%${term}%`)
     .order('created_at', { ascending: false })
     .limit(4);
   const results = (data ?? []).map(r => ({
