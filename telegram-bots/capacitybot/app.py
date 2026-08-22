@@ -74,6 +74,8 @@ from telegram.ext import (
 )
 
 from telegram_bots.capacitybot import capacity_today as ct
+from telegram_bots.capacitybot import helpme
+from telegram_bots.capacitybot import intervention_engine as ie
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -579,9 +581,203 @@ async def handle_capacity_therapy_callback(update: Update, context: ContextTypes
     await query.edit_message_text(ct.render_therapy_summary(rows, weeks))
 
 
+# ── /helpme (V02 WP04 + WP05) ────────────────────────────────────────────────
+# "Something is difficult right now. Help me do something about it." See
+# helpme.py's module docstring for the full design. context.user_data holds
+# the flow's browsing state (help_state, optional triage context, which
+# intervention ids have already been declined) — ephemeral, cleared on
+# accept/stop, lost on a bot restart mid-browse (acceptable, matches this
+# bot's existing tolerance for in-flight non-persistent state).
+
+async def cmd_helpme(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("helpme_ctx", None)
+    context.user_data.pop("helpme_seen", None)
+    context.user_data.pop("helpme_current", None)
+    await update.message.reply_text(helpme.q_helpme_entry(), reply_markup=helpme.kb_helpme_entry())
+
+
+async def _helpme_offer_next(query, context: ContextTypes.DEFAULT_TYPE, state: str) -> None:
+    """Ranks candidates for the current flow context and shows the
+    highest-scored one not already declined this session (spec §7: offer
+    ONE intervention, not a list)."""
+    flow_ctx = context.user_data.get("helpme_ctx", {})
+    seen = context.user_data.get("helpme_seen", [])
+    db = _get_supabase()
+    ranked = await ie.rank_interventions(
+        db,
+        help_state=state,
+        capacity_state=flow_ctx.get("capacity_state"),
+        stimulation_state=flow_ctx.get("stimulation_state"),
+        pain_state=flow_ctx.get("pain_state"),
+        limit=10,
+    )
+    candidates = [r for r in ranked if r["intervention_id"] not in seen]
+    if not candidates:
+        await query.edit_message_text(helpme.render_no_more_options())
+        return
+    top = candidates[0]
+    context.user_data["helpme_current"] = top["intervention_id"]
+    await query.edit_message_text(
+        helpme.render_offer(top),
+        reply_markup=helpme.kb_offer(state, top["intervention_id"]),
+    )
+
+
+async def handle_helpme_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """State selection + the 3 states with an optional one-tap clarifying
+    question (overwhelmed/sensory_overload/unknown — spec §8.1/§8.5/§8.9)."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("ch|"):
+        return
+    f = helpme.parse_cb(data)
+    state = f.get("s")
+    if not state:
+        return
+
+    if state == "overwhelmed" and "c" not in f:
+        await query.edit_message_text(helpme.q_reduce_first(), reply_markup=helpme.kb_reduce_first(state))
+        return
+
+    if state == "sensory_overload" and "c" not in f:
+        await query.edit_message_text(helpme.q_sensory_dominant(), reply_markup=helpme.kb_sensory_dominant(state))
+        return
+
+    if state == "unknown":
+        if "cap" not in f:
+            await query.edit_message_text(ct.q_capacity(), reply_markup=helpme.kb_triage_capacity())
+            return
+        if "stim" not in f:
+            await query.edit_message_text(ct.q_stimulation(), reply_markup=helpme.kb_triage_stimulation(f["cap"]))
+            return
+        if "pain" not in f:
+            await query.edit_message_text(ct.q_pain(), reply_markup=helpme.kb_triage_pain(f["cap"], f["stim"]))
+            return
+
+    context.user_data["helpme_ctx"] = {
+        "capacity_state": ct.CAPACITY_CODE_TO_STATE.get(f.get("cap")) if f.get("cap") else None,
+        "stimulation_state": ct.STIM_CODE_TO_STATE.get(f.get("stim")) if f.get("stim") else None,
+        "pain_state": ct.PAIN_CODE_TO_STATE.get(f.get("pain")) if f.get("pain") else None,
+        "context_note": f.get("c"),
+    }
+    context.user_data["helpme_seen"] = []
+    await _helpme_offer_next(query, context, state)
+
+
+async def handle_helpme_offer_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Accept / Something else / Can't do that / Stop on the offered
+    intervention (spec §8.1's button pattern, generalised to every state)."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("chi|"):
+        return
+    f = helpme.parse_cb(data)
+    state = f.get("s")
+    iid = f.get("iid")
+    action = f.get("act")
+    if not state or not iid:
+        return
+
+    if action == "stop":
+        await query.edit_message_text(helpme.render_stopped())
+        context.user_data.pop("helpme_ctx", None)
+        context.user_data.pop("helpme_seen", None)
+        context.user_data.pop("helpme_current", None)
+        return
+
+    if action == "skip":
+        context.user_data.setdefault("helpme_seen", []).append(iid)
+        await _helpme_offer_next(query, context, state)
+        return
+
+    if action == "accept":
+        db = _get_supabase()
+        intervention = await ie.get_intervention(db, iid)
+        if not intervention:
+            await query.edit_message_text("⚠️ Could not load that intervention.")
+            return
+        flow_ctx = context.user_data.get("helpme_ctx", {})
+        ok, row, err = await ie.create_event(
+            db,
+            source="helpme",
+            intervention_id=iid,
+            help_state=state,
+            capacity_before=flow_ctx.get("capacity_state"),
+            stimulation_before=flow_ctx.get("stimulation_state"),
+            pain_before=flow_ctx.get("pain_state"),
+            context_loads=[flow_ctx["context_note"]] if flow_ctx.get("context_note") else None,
+        )
+        if not ok or not row:
+            await query.edit_message_text(f"⚠️ Could not log this: {err}")
+            return
+
+        reminder_minutes = None
+        if intervention.get("requires_followup"):
+            reminder_minutes = intervention.get("estimated_minutes") or 15
+            chat_id = update.effective_chat.id
+            event_id = row["id"]
+
+            async def _fire(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+                await ctx.bot.send_message(
+                    chat_id=chat_id,
+                    text=helpme.q_reassess_outcome(),
+                    reply_markup=helpme.kb_reassess_outcome(event_id),
+                )
+
+            context.job_queue.run_once(_fire, when=reminder_minutes * 60, name=f"helpme-reassess-{event_id}")
+
+        await query.edit_message_text(helpme.render_accepted(intervention, reminder_minutes))
+        context.user_data.pop("helpme_ctx", None)
+        context.user_data.pop("helpme_seen", None)
+        context.user_data.pop("helpme_current", None)
+
+
+async def handle_helpme_reassessment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Better/Same/Worse -> optional capacity-after -> optional
+    would-use-again (spec §12). Reachable either from the reminder DM or by
+    tapping into a still-open reassessment prompt."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("chr|"):
+        return
+    f = helpme.parse_cb(data)
+    event_id = f.get("ev")
+    if not event_id:
+        return
+    db = _get_supabase()
+
+    if f.get("ua") is not None:
+        ok, err = await ie.complete_reassessment(
+            db, event_id,
+            outcome=f.get("o", "unknown"),
+            capacity_after=None if f.get("ca") in (None, "skip") else f["ca"],
+            would_use_again=None if f["ua"] == "skip" else f["ua"],
+        )
+        await query.edit_message_text(helpme.render_reassess_done() if ok else f"⚠️ Could not save: {err}")
+        return
+
+    if f.get("ca") is not None:
+        await query.edit_message_text(
+            helpme.q_reassess_use_again(),
+            reply_markup=helpme.kb_reassess_use_again(event_id, f["o"], f["ca"]),
+        )
+        return
+
+    if f.get("o") is not None:
+        await query.edit_message_text(
+            helpme.q_reassess_capacity_after(),
+            reply_markup=helpme.kb_reassess_capacity_after(event_id, f["o"]),
+        )
+        return
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
+    ("helpme",            "Something's hard right now — get one thing to try"),
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
     ("evening",           "Evening capacity reflection (3 questions)"),
@@ -630,6 +826,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start",              cmd_start))
     app.add_handler(CommandHandler("help",               cmd_help))
+    app.add_handler(CommandHandler("helpme",             cmd_helpme))
     app.add_handler(CommandHandler("capacity",           cmd_capacity))
     app.add_handler(CommandHandler("deepcheck",          cmd_deepcheck))
     app.add_handler(CommandHandler("evening",            cmd_evening))
@@ -645,6 +842,9 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_capacity_evening_callback, pattern=r"^cte\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_therapy_callback, pattern=r"^cty\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_reminder_callback, pattern=r"^ctr\|"))
+    app.add_handler(CallbackQueryHandler(handle_helpme_callback,              pattern=r"^ch\|"))
+    app.add_handler(CallbackQueryHandler(handle_helpme_offer_callback,        pattern=r"^chi\|"))
+    app.add_handler(CallbackQueryHandler(handle_helpme_reassessment_callback, pattern=r"^chr\|"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
