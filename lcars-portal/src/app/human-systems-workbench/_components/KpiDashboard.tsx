@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui';
-import { BAND_LABEL, bandStatus, postureStatus, type Kpis } from './types';
+import { BAND_LABEL, bandStatus, systemPostureStatus, type Kpis } from './types';
 
 function KpiCard({
   label,
@@ -33,9 +33,9 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <KpiCard
-        label="Recovery Posture"
-        value={kpis.posture}
-        badge={<Badge status={postureStatus(kpis.posture)}>{kpis.posture}</Badge>}
+        label="System Posture"
+        value={kpis.system_posture}
+        badge={<Badge status={systemPostureStatus(kpis.system_posture)}>{kpis.system_posture}</Badge>}
       />
       <KpiCard
         label="Life Participation"

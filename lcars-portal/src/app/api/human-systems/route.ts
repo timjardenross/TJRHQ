@@ -24,10 +24,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type {
   Band,
+  CapacityBalance,
+  CapacityLoad,
   Kpis,
+  NextMove,
   Payload,
   PostureBand,
   RecoveryIndex,
+  SystemPostureBand,
   TrendRow,
 } from '@/app/human-systems-workbench/_components/types';
 
@@ -108,6 +112,109 @@ function capacityStateDetail(state: string | null | undefined): string | null {
   } as Record<string, string>)[state ?? ''] ?? null;
 }
 
+// ── VNext consolidation (WP02-04) — System Posture, Capacity Balance, Next Move ──
+// Deterministic, no LLM (spec §35) — same discipline as the Capacity Bot's
+// own intervention_engine.py. Rules mirror spec §36/§37 exactly; illustrative
+// per the doc, tuned here against the same field vocabulary the bot writes.
+
+function deriveSystemPosture(c: CheckinRow | null): { posture: SystemPostureBand; message: string } {
+  if (!c || !c.capacity_state) {
+    return { posture: 'UNKNOWN', message: 'No capacity check-in recorded for today yet.' };
+  }
+  const cap = c.capacity_state; // green | orange | red
+  const reg = c.regulation_state; // settled | manageable | activated | overloaded
+  const ef = c.executive_function; // good | strained | difficult | very_difficult
+  const comp = c.compensation_load; // low | moderate | high | extreme
+  const stim = c.stimulation_state; // low | balanced | high
+  const painElevated = c.pain_state === 'elevated' || c.pain_state === 'high';
+  const highPain = c.pain_state === 'high';
+
+  if (cap === 'red' || (reg === 'overloaded' && ef === 'very_difficult') || (highPain && cap === 'red')) {
+    return { posture: 'RECOVER', message: 'Capacity is depleted or recovery debt is high. Recovery is the primary objective.' };
+  }
+  // RESET: stimulation significantly mismatched AND dysregulated — a short
+  // regulation intervention before deciding the rest of the day.
+  if ((stim === 'low' || stim === 'high') && (reg === 'overloaded' || reg === 'activated') && cap !== 'green') {
+    return { posture: 'RESET', message: 'The system appears mismatched or dysregulated — a short regulation step before deciding what comes next.' };
+  }
+  if (cap === 'orange' || comp === 'high' || comp === 'extreme' || reg === 'activated' || (painElevated && cap !== 'green')) {
+    return { posture: 'PROTECT', message: 'Capacity is stretched. Reduce unnecessary demand and intervene early.' };
+  }
+  if (cap === 'green' && (stim === 'balanced' || !stim) && !painElevated && comp !== 'high' && comp !== 'extreme') {
+    return { posture: 'ENGAGE', message: 'Capacity is available and the system can tolerate meaningful demand.' };
+  }
+  if (cap === 'green') {
+    return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
+  }
+  return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
+}
+
+function deriveCapacityBalance(c: CheckinRow | null): CapacityBalance {
+  if (!c || !c.capacity_state) return 'unknown';
+  // "Too much" and "not enough" are about stimulation direction relative to
+  // capacity, not capacity alone (spec §11 — regulation may mean reducing
+  // OR adding input).
+  if (c.stimulation_state === 'high' || c.capacity_state === 'red') return 'too_much';
+  if (c.stimulation_state === 'low' && c.capacity_state !== 'red') return 'not_enough';
+  if (c.capacity_state === 'green' && (c.stimulation_state === 'balanced' || !c.stimulation_state)) return 'sustainable';
+  if (c.capacity_state === 'orange') return 'too_much';
+  return 'sustainable';
+}
+
+function rankCapacityLoads(rows: Pick<CheckinRow, 'active_loads'>[]): CapacityLoad[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    for (const load of r.active_loads ?? []) {
+      counts.set(load, (counts.get(load) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function buildNextMove(
+  event: InterventionEventRow | null,
+  intervention: InterventionRow | null,
+  fallbackSelectedAction: string | null,
+): NextMove {
+  if (event && intervention) {
+    return {
+      lever: intervention.management_lever,
+      intervention_title: intervention.title,
+      intervention_description: intervention.full_description,
+      event_id: event.id,
+      event_source: event.source,
+      accepted_at: event.started_at,
+      outcome: event.outcome,
+    };
+  }
+  // No intervention_events row yet (bot's WP04-06 just shipped, or the
+  // Captain hasn't accepted a suggestion today) — fall back to the older
+  // capacity_checkins.selected_action text the Q9 flow has always written,
+  // so "My Next Move" isn't empty on day one of this integration.
+  if (fallbackSelectedAction) {
+    return {
+      lever: null,
+      intervention_title: fallbackSelectedAction,
+      intervention_description: null,
+      event_id: null,
+      event_source: null,
+      accepted_at: null,
+      outcome: null,
+    };
+  }
+  return {
+    lever: null,
+    intervention_title: null,
+    intervention_description: null,
+    event_id: null,
+    event_source: null,
+    accepted_at: null,
+    outcome: null,
+  };
+}
+
 /**
  * health_insights.llm_narrative (migration 0008) is JSONB — legacy rows
  * store a plain string, the documented/current shape is a structured object
@@ -160,6 +267,29 @@ interface CheckinRow {
   regulation_state: string | null;
   pain_score: number | null;
   executive_function: string | null;
+  // VNext consolidation additions (WP02-03) — already written by the
+  // Capacity Bot since its V01 launch, never previously read here.
+  stimulation_state: string | null;
+  pain_state: string | null;
+  compensation_load: string | null;
+  active_loads: string[] | null;
+  identified_needs: string[] | null;
+  selected_action: string | null;
+}
+
+interface InterventionEventRow {
+  id: number;
+  source: 'capacity_q9' | 'helpme' | 'guide' | 'manual';
+  intervention_id: string;
+  started_at: string;
+  outcome: 'better' | 'same' | 'worse' | 'not_completed' | 'unknown' | null;
+}
+
+interface InterventionRow {
+  intervention_id: string;
+  title: string;
+  full_description: string | null;
+  management_lever: 'reduce_load' | 'regulate' | 'recover' | 'redesign';
 }
 
 interface CheckinsTodayRow {
@@ -246,30 +376,63 @@ interface Ctx {
   latestCheckin: CheckinRow | null;
   checkinsToday: CheckinsTodayRow | null;
   sessions7d: number;
+  /** Every capacity check-in logged today (not just the latest) — needed
+   *  for WP03's "today's capacity load" ranking across all of today's
+   *  active_loads selections, not just the most recent one. */
+  checkinsTodayRows: Pick<CheckinRow, 'active_loads'>[];
+  /** Most recent capacity_intervention_events row across ALL sources
+   *  (capacity_q9/helpme/guide/manual) — WP04's "My Next Move" (spec §10)
+   *  shows whatever was actually last accepted, not a re-ranked
+   *  suggestion, so the workbench never disagrees with what the bot just
+   *  offered. */
+  latestInterventionEvent: InterventionEventRow | null;
+  latestInterventionCatalogue: InterventionRow | null;
 }
 
 async function loadCtx(sb: any): Promise<Ctx> {
   const t = today();
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const CHECKIN_FIELDS =
+    'captured_at,capacity_state,regulation_state,pain_score,executive_function,stimulation_state,pain_state,compensation_load,active_loads,identified_needs,selected_action';
 
-  const [postureRes, dailyRes, checkinRes, checkinsTodayRes, sessionCountRes] = await Promise.all([
-    sb.rpc('get_recovery_posture', { p_date: t }).single(),
-    sb.from('analytics_health_daily')
-      .select('sleep_hours,sleep_quality,cpap_status,nervous_system_state,energy,pain_score,movement_notes,pleasure_creativity_marker,what_happened,sitting_tolerance_minutes,workload_constraint,captain_capacity_rating')
-      .eq('log_date', t).maybeSingle(),
-    sb.from('capacity_checkins')
-      // capacity_state/regulation_state/executive_function are the canonical
-      // Telegram-bot "MY CAPACITY TODAY" fields (recovery_pulses is
-      // retired, 2026-08-21). Quick check-ins only — checkin_type also
-      // covers 'evening' rows, which this route doesn't merge in here.
-      .select('captured_at,capacity_state,regulation_state,pain_score,executive_function')
-      .eq('checkin_type', 'capacity')
-      .eq('log_date', t).order('captured_at', { ascending: false }).limit(1).maybeSingle(),
-    sb.from('capacity_checkins_today').select('*').maybeSingle(),
-    sb.from('physical_workout_sessions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'completed').gte('started_at', sevenDaysAgo),
-  ]);
+  const [postureRes, dailyRes, checkinRes, checkinsTodayRes, sessionCountRes, checkinsTodayRowsRes, eventRes] =
+    await Promise.all([
+      sb.rpc('get_recovery_posture', { p_date: t }).single(),
+      sb.from('analytics_health_daily')
+        .select('sleep_hours,sleep_quality,cpap_status,nervous_system_state,energy,pain_score,movement_notes,pleasure_creativity_marker,what_happened,sitting_tolerance_minutes,workload_constraint,captain_capacity_rating')
+        .eq('log_date', t).maybeSingle(),
+      sb.from('capacity_checkins')
+        // capacity_state/regulation_state/executive_function are the canonical
+        // Telegram-bot "MY CAPACITY TODAY" fields (recovery_pulses is
+        // retired, 2026-08-21). Quick check-ins only — checkin_type also
+        // covers 'evening' rows, which this route doesn't merge in here.
+        .select(CHECKIN_FIELDS)
+        .eq('checkin_type', 'capacity')
+        .eq('log_date', t).order('captured_at', { ascending: false }).limit(1).maybeSingle(),
+      sb.from('capacity_checkins_today').select('*').maybeSingle(),
+      sb.from('physical_workout_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'completed').gte('started_at', sevenDaysAgo),
+      sb.from('capacity_checkins')
+        .select('active_loads')
+        .eq('checkin_type', 'capacity')
+        .eq('log_date', t),
+      sb.from('capacity_intervention_events')
+        .select('id,source,intervention_id,started_at,outcome')
+        .order('started_at', { ascending: false })
+        .limit(1).maybeSingle(),
+    ]);
+
+  let latestInterventionCatalogue: InterventionRow | null = null;
+  const event = (eventRes.data as InterventionEventRow) ?? null;
+  if (event) {
+    const { data: interventionRow } = await sb
+      .from('capacity_interventions')
+      .select('intervention_id,title,full_description,management_lever')
+      .eq('intervention_id', event.intervention_id)
+      .maybeSingle();
+    latestInterventionCatalogue = (interventionRow as InterventionRow) ?? null;
+  }
 
   return {
     posture: (postureRes.data as RawPostureRow) ?? null,
@@ -277,6 +440,9 @@ async function loadCtx(sb: any): Promise<Ctx> {
     latestCheckin: (checkinRes.data as CheckinRow) ?? null,
     checkinsToday: (checkinsTodayRes.data as CheckinsTodayRow) ?? null,
     sessions7d: sessionCountRes.count ?? 0,
+    checkinsTodayRows: (checkinsTodayRowsRes.data as Pick<CheckinRow, 'active_loads'>[]) ?? [],
+    latestInterventionEvent: event,
+    latestInterventionCatalogue,
   };
 }
 
@@ -321,6 +487,7 @@ function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
     sleep_hours: ctx.daily?.sleep_hours ?? null,
     checkins_today: ctx.checkinsToday?.checkins_today ?? 0,
     latest_capacity_state: ctx.checkinsToday?.latest_capacity_state ?? null,
+    system_posture: deriveSystemPosture(ctx.latestCheckin).posture,
   };
 }
 
@@ -341,6 +508,7 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     .order('created_at', { ascending: false })
     .limit(1);
   const ins = insightRows?.[0] ?? null;
+  const { posture: system_posture, message: system_posture_message } = deriveSystemPosture(ctx.latestCheckin);
 
   return {
     domain: 'recovery',
@@ -369,6 +537,23 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
       insight_date: ins?.created_at ?? null,
     },
     data_available: !!p?.data_available,
+
+    // ── VNext consolidation (WP02-04) ────────────────────────────────────
+    system_posture,
+    system_posture_message,
+    stimulation_state: ctx.latestCheckin?.stimulation_state ?? null,
+    pain_state: ctx.latestCheckin?.pain_state ?? null,
+    pain_score: ctx.latestCheckin?.pain_score ?? null,
+    executive_function: ctx.latestCheckin?.executive_function ?? null,
+    compensation_load: ctx.latestCheckin?.compensation_load ?? null,
+    capacity_balance: deriveCapacityBalance(ctx.latestCheckin),
+    active_loads_today: rankCapacityLoads(ctx.checkinsTodayRows),
+    identified_needs_latest: ctx.latestCheckin?.identified_needs ?? [],
+    next_move: buildNextMove(
+      ctx.latestInterventionEvent,
+      ctx.latestInterventionCatalogue,
+      ctx.latestCheckin?.selected_action ?? null,
+    ),
   };
 }
 
