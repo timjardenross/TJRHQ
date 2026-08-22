@@ -459,10 +459,15 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
 
 
 async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Deep check-in. Two phases like the main quick check-in: lc/uc/mp/rd
-    accumulate in the callback string itself; once `rd` is answered the
-    draft is written to the row and every step after that (rf/ha/ua) is
-    write-through, id-only in the callback."""
+    """Deep check-in. Two phases like the main quick check-in: lc/uc/mp
+    accumulate in the callback string itself; once `mp` is answered the
+    draft (lc/uc/mp) is written to the row and every step after that
+    (V3 burnout-tier bf/cpt/bc/pd, then rd, then rf/ha/ua) is write-through,
+    id-only in the callback. (Previously the Phase 1 -> Phase 2 switch
+    happened at `rd` instead of `mp` — moved a step earlier, V3 Mission 1,
+    so the four new questions between masking_present and recovery_duration
+    never have to chain onto the growing lc/uc/mp/rd prefix; see the
+    comment above kb_deep_yesno in capacity_today.py for why.)"""
     query = update.callback_query
     await query.answer()
     data = query.data or ""
@@ -549,8 +554,6 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
             )
         return
 
-    # ── Phase 1: lc/uc/mp/rd — accumulate in the callback string ────────────
-
     if f.get("rd") is not None:
         saved, err = await ct.write_deep_checkin(db, row_id, f)
         if not saved:
@@ -565,11 +568,66 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
         )
         return
 
-    if f.get("mp") is not None:
-        base2 = f"{base}|lc={f.get('lc')}|uc={f.get('uc')}|mp={f['mp']}"
+    # ── V3 burnout-tier: bf/cpt/bc/pd — id-only base, write-through per tap
+    # (spec Mission 1 Part D). Order here is downstream-to-upstream (pd was
+    # asked last, right before rd; bf first, right after mp), matching the
+    # existing convention above (rd checked before mp).
+
+    if f.get("pd") is not None:
+        await ct.write_deep_checkin(db, row_id, {"pd": f["pd"]})
         await query.edit_message_text(
             ct.q_deep_recovery_duration(),
-            reply_markup=ct.kb_deep_recovery_duration(base2),
+            reply_markup=ct.kb_deep_recovery_duration(base),
+        )
+        return
+
+    if f.get("bc") is not None:
+        await ct.write_deep_checkin(db, row_id, {"bc": f["bc"]})
+        await query.edit_message_text(
+            ct.q_predictability(),
+            reply_markup=ct.kb_predictability(base),
+        )
+        return
+
+    if f.get("cpt") is not None:
+        await ct.write_deep_checkin(db, row_id, {"cpt": f["cpt"]})
+        if f.get("next") == "1" or f.get("done") == "1":
+            await query.edit_message_text(
+                ct.q_body_signal_clarity(),
+                reply_markup=ct.kb_body_signal_clarity(base),
+            )
+        else:
+            await query.edit_message_text(
+                ct.q_deep_multiselect(
+                    "Which of these have you been doing to keep functioning?",
+                    ct.COMPENSATION_TYPE_OPTIONS, f["cpt"]),
+                reply_markup=ct.kb_deep_multiselect(
+                    row_id, "cpt", ct.COMPENSATION_TYPE_OPTIONS, ct.COMPENSATION_TYPE_SHORT, f["cpt"], page=_page(f)),
+            )
+        return
+
+    if f.get("bf") is not None:
+        await ct.write_deep_checkin(db, row_id, {"bf": f["bf"]})
+        await query.edit_message_text(
+            ct.q_deep_multiselect(
+                "Which of these have you been doing to keep functioning?",
+                ct.COMPENSATION_TYPE_OPTIONS, ""),
+            reply_markup=ct.kb_deep_multiselect(
+                row_id, "cpt", ct.COMPENSATION_TYPE_OPTIONS, ct.COMPENSATION_TYPE_SHORT, "", page=0),
+        )
+        return
+
+    # ── Phase 1: lc/uc/mp — accumulate in the callback string, written to
+    # the row as soon as mp is answered ─────────────────────────────────────
+
+    if f.get("mp") is not None:
+        saved, err = await ct.write_deep_checkin(db, row_id, {"lc": f.get("lc"), "uc": f.get("uc"), "mp": f["mp"]})
+        if not saved:
+            await query.edit_message_text(f"⚠️ Could not save: {err}")
+            return
+        await query.edit_message_text(
+            ct.q_burnout_framing(),
+            reply_markup=ct.kb_burnout_framing(base),
         )
         return
 

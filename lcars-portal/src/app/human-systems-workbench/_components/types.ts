@@ -16,6 +16,63 @@ export type Band = 'good' | 'moderate' | 'limited' | 'rest' | 'unknown';
  *  distinct from RECOVER's rest-priority). */
 export type SystemPostureBand = 'ENGAGE' | 'STEADY' | 'PROTECT' | 'RECOVER' | 'RESET' | 'UNKNOWN';
 
+/** V3 Mission 1 (TJR_Human_Systems_Workbench_V3_Mission_and_Change_Proposal.md
+ *  §5) — the TRAJECTORY signal: "what condition has my system been
+ *  operating in over days/weeks?", kept strictly separate from
+ *  SystemPostureBand (the NOW signal, unchanged by V3). Mirrors
+ *  burnout_profile.system_trajectory (migration 0154) and the bucket names
+ *  core/health/burnout_trajectory.py's compute_burnout_trajectory() /
+ *  this file's computeStrategicPosture() (api/human-systems/route.ts)
+ *  return — the two must stay in lock-step (see that function's header
+ *  comment). §2: "These must never be collapsed into one score." */
+export type SystemTrajectory =
+  | 'insufficient_data' | 'stable' | 'accumulating_strain' | 'sustained_high_strain'
+  | 'burnout_like_depletion' | 'recovery_signals_emerging' | 'rebuilding';
+
+/** V3 doc §18 "Confidence" line (e.g. "Moderate — 12 relevant check-ins
+ *  across 18 days") — sample-size derived, never a fabricated percentage
+ *  (Rule F: "if data is insufficient, say so; do not fabricate a
+ *  trajectory"). */
+export type TrajectoryConfidence = 'low' | 'moderate' | 'high';
+
+/** V3 doc §7 — Strategic Posture, TRAJECTORY-aware and distinct from
+ *  SystemPostureBand. Shares engage/steady/protect/recover vocabulary
+ *  (lowercased) with SystemPostureBand so Rule A ("today's capacity
+ *  improves but sustained strain remains high -> strategic posture must
+ *  stay protective, never jump to engage") is a same-scale comparison;
+ *  stabilise/re_engage/rebuild/redesign are the additional Burnout
+ *  Recovery Stage postures (§8) SystemPostureBand has no equivalent for.
+ *  Mirrors burnout_profile.strategic_posture. */
+export type StrategicPosture =
+  | 'engage' | 'steady' | 'protect' | 'recover' | 'stabilise' | 're_engage' | 'rebuild' | 'redesign';
+
+/** V3 doc §8 — Burnout Recovery Stages (PROTECT -> STABILISE -> RECOVER ->
+ *  RE-ENGAGE -> REBUILD -> REDESIGN). Mirrors
+ *  burnout_profile.current_recovery_stage; null when the trajectory is
+ *  'stable' or 'insufficient_data' — there is no active recovery stage to
+ *  name. */
+export type RecoveryStage = 'protect' | 'stabilise' | 'recover' | 're_engage' | 'rebuild' | 'redesign';
+
+/** V3 doc §5.1 "User framing" — the user's OWN self-identification,
+ *  captured on capacity_checkins.user_burnout_framing (migration 0153,
+ *  deep-check tier). Strictly independent of SystemTrajectory (the
+ *  system's own observation) — the two must never be silently converted
+ *  into each other (§5.1: "The system must never silently convert its
+ *  observation into a diagnosis"). null means no deep-check has ever
+ *  asked/answered this yet, distinct from the explicit 'not_set' value a
+ *  user can choose (V3 doc's own enumeration lists "not set" as one of
+ *  the framing options, alongside a genuine "I don't want a label"). */
+export type UserBurnoutFraming =
+  | 'identify_as_burnout' | 'may_be_in_burnout' | 'recovering_from_burnout' | 'no_label' | 'not_set';
+
+export const USER_BURNOUT_FRAMING_LABEL: Record<UserBurnoutFraming, string> = {
+  identify_as_burnout: 'Identifies this period as autistic burnout',
+  may_be_in_burnout: 'May be in burnout',
+  recovering_from_burnout: 'Recovering from burnout',
+  no_label: "Doesn't want a label",
+  not_set: 'Not sure yet',
+};
+
 export type ManagementLever = 'reduce_load' | 'regulate' | 'recover' | 'redesign';
 
 /** Spec §11 — TOO MUCH / SUSTAINABLE / NOT ENOUGH, derived from capacity +
@@ -117,6 +174,23 @@ export interface RecoveryPayload {
    *  not an interpretation (spec §17 example: "8 check-ins recorded in
    *  the last 7 days"). */
   checkins_last_7d: number;
+
+  // ── V3 Mission 1 — Burnout / Sustained-Strain Trajectory ────────────────
+  // (TJR_Human_Systems_Workbench_V3_Mission_and_Change_Proposal.md §5-§8).
+  // Computed by computeStrategicPosture() in the API route, a TypeScript
+  // mirror of core/health/burnout_trajectory.py's
+  // compute_burnout_trajectory() — see that route function's header
+  // comment for the lock-step requirement. Never collapsed into
+  // `system_posture` above — that field stays NOW-only and unchanged.
+  system_trajectory: SystemTrajectory;
+  trajectory_confidence: TrajectoryConfidence;
+  strategic_posture: StrategicPosture;
+  strategic_posture_message: string;
+  current_recovery_stage: RecoveryStage | null;
+  /** The user's own self-identification (V3 doc §5.1), from the latest
+   *  check-in that has one set — not aggregated/derived, displayed
+   *  verbatim (or via USER_BURNOUT_FRAMING_LABEL) exactly as chosen. */
+  user_burnout_framing: UserBurnoutFraming | null;
 }
 
 export interface RecoveryIndex {
@@ -175,6 +249,19 @@ export interface InterventionEffectiveness {
    *  /helpme-sourced events exist for it (spec: "most often useful
    *  when: Stretched + high stimulation"). */
   common_context: string | null;
+  /** General (non-personal) evidence metadata from capacity_interventions,
+   *  V3 doc §16 "Evidence Metadata" — migration 0157. Deliberately kept
+   *  separate from the personal attempts/better/same/worse fields above:
+   *  §16 requires personal and general evidence to never be blended into
+   *  one confidence number. 'unknown' means nobody has reviewed this
+   *  intervention's evidence yet, not that it was checked and found
+   *  lacking — the UI should treat 'unknown' as "nothing to show", not
+   *  render it as a badge. */
+  evidence_strength: 'established_guideline_aligned' | 'moderate' | 'emerging' | 'lived_experience_informed' | 'personal_only' | 'unknown';
+  /** Free-text summary of what the general evidence says (spec §16). Null
+   *  for the 30 originally-seeded interventions until a human curates it
+   *  — never fabricated. */
+  evidence_basis: string | null;
 }
 
 /** Spec §23 — a recurring load/state combination that shows up often
@@ -261,6 +348,63 @@ export function systemPostureStatus(p: SystemPostureBand): BadgeStatus {
     default: return 'neutral';
   }
 }
+
+/** System Trajectory → Badge status. Deliberately its own scale, not
+ *  reused from systemPostureStatus() — a trajectory read must never
+ *  visually read as identical to a NOW posture (V3 doc §2). */
+export function systemTrajectoryStatus(t: SystemTrajectory): BadgeStatus {
+  switch (t) {
+    case 'stable': return 'success';
+    case 'recovery_signals_emerging': return 'info';
+    case 'rebuilding': return 'info';
+    case 'accumulating_strain': return 'warning';
+    case 'sustained_high_strain': return 'warning';
+    case 'burnout_like_depletion': return 'error';
+    default: return 'neutral'; // insufficient_data
+  }
+}
+
+/** V3 doc §5/§14 plain-language labels — never a percentage, never a
+ *  diagnostic claim (spec §27 language standard). */
+export const SYSTEM_TRAJECTORY_LABEL: Record<SystemTrajectory, string> = {
+  insufficient_data: 'Not enough data yet',
+  stable: 'Stable',
+  accumulating_strain: 'Accumulating strain',
+  sustained_high_strain: 'Sustained high strain',
+  burnout_like_depletion: 'Burnout-like depletion',
+  recovery_signals_emerging: 'Recovery signals emerging',
+  rebuilding: 'Rebuilding',
+};
+
+export const STRATEGIC_POSTURE_LABEL: Record<StrategicPosture, string> = {
+  engage: 'ENGAGE', steady: 'STEADY', protect: 'PROTECT', recover: 'RECOVER',
+  stabilise: 'STABILISE', re_engage: 'RE-ENGAGE', rebuild: 'REBUILD', redesign: 'REDESIGN',
+};
+
+/** Strategic Posture → Badge status. Mirrors systemPostureStatus()'s
+ *  colour intent for the shared engage/steady/protect/recover vocabulary;
+ *  the additional burnout-stage postures read progressively more settled
+ *  (stabilise/re_engage warning, rebuild info) without ever reaching the
+ *  unqualified 'success' engage carries — a rebuild/re-engage state is
+ *  still a recovery-in-progress state, not a clean bill of health. */
+export function strategicPostureStatus(p: StrategicPosture): BadgeStatus {
+  switch (p) {
+    case 'engage': return 'success';
+    case 'steady': return 'info';
+    case 'rebuild': return 'info';
+    case 're_engage': return 'warning';
+    case 'stabilise': return 'warning';
+    case 'protect': return 'warning';
+    case 'recover': return 'error';
+    case 'redesign': return 'neutral';
+    default: return 'neutral';
+  }
+}
+
+export const RECOVERY_STAGE_LABEL: Record<RecoveryStage, string> = {
+  protect: 'Protect', stabilise: 'Stabilise', recover: 'Recover',
+  re_engage: 'Re-engage', rebuild: 'Rebuild', redesign: 'Redesign',
+};
 
 export const CAPACITY_BALANCE_LABEL: Record<CapacityBalance, string> = {
   too_much: 'Too Much',

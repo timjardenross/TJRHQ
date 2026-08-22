@@ -35,6 +35,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { computeInterventionEffectiveness } from './intervention-effectiveness';
+import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
 import type {
   Band,
   CapacityBalance,
@@ -47,6 +49,7 @@ import type {
   PostureBand,
   RecoveryDurationSummary,
   RecoveryIndex,
+  RecoveryPayload,
   RedesignCandidate,
   SystemPostureBand,
   TrendRow,
@@ -297,6 +300,9 @@ interface CheckinRow {
   sleep_state: string | null;
   emotional_state: string | null;
   social_state: string | null;
+  // V3 Mission 1 (0153) — deep-check tier, may be null on any given
+  // check-in even when a burnout-relevant window exists (V3 doc §5.1).
+  user_burnout_framing: string | null;
 }
 
 interface InterventionEventRow {
@@ -482,43 +488,47 @@ async function computeRecoveryDuration(sb: any, windowDays: number): Promise<Rec
   return { most_common, most_common_count, sample_size: rows.length };
 }
 
-const MIN_SAMPLE_FOR_EFFECTIVENESS = 3; // mirrors the bot's intervention_engine.py MIN_SAMPLE_FOR_WEIGHTING
+// computeInterventionEffectiveness() lives in ./intervention-effectiveness.ts
+// (not here) — Next.js route files only allow HTTP-method exports, so a
+// directly-testable helper has to sit in a sibling module. See that file's
+// header comment.
 
-/** What Helps Me (spec §18) — TypeScript mirror of the Capacity Bot's
- *  personal_effectiveness_summary() (intervention_engine.py). All-time,
- *  same as the bot (no window filter) — counts accumulate meaning over
- *  time, and this is exactly the same query the bot's /actions and this
- *  workbench should never disagree on. */
-async function computeInterventionEffectiveness(sb: any): Promise<InterventionEffectiveness[]> {
-  const [{ data: events }, { data: catalogueRows }] = await Promise.all([
-    sb.from('capacity_intervention_events').select('intervention_id,outcome,help_state'),
-    sb.from('capacity_interventions').select('intervention_id,title'),
-  ]);
-  const catalogue = new Map<string, string>((catalogueRows ?? []).map((r: any) => [r.intervention_id, r.title]));
-  const byId = new Map<string, { outcome: string | null; help_state: string | null }[]>();
-  for (const e of (events ?? []) as any[]) {
-    const arr = byId.get(e.intervention_id) ?? [];
-    arr.push({ outcome: e.outcome, help_state: e.help_state });
-    byId.set(e.intervention_id, arr);
-  }
-  const out: InterventionEffectiveness[] = [];
-  for (const [intervention_id, rows] of byId) {
-    const attempts = rows.length;
-    const better = rows.filter((r) => r.outcome === 'better').length;
-    const same = rows.filter((r) => r.outcome === 'same').length;
-    const worse = rows.filter((r) => r.outcome === 'worse').length;
-    const not_completed = rows.filter((r) => !r.outcome || r.outcome === 'not_completed').length;
-    const stateCounts = new Map<string, number>();
-    for (const r of rows) if (r.help_state) stateCounts.set(r.help_state, (stateCounts.get(r.help_state) ?? 0) + 1);
-    const common_context = stateCounts.size
-      ? Array.from(stateCounts.entries()).sort((a, b) => b[1] - a[1])[0][0].replace(/_/g, ' ')
-      : null;
-    out.push({
-      intervention_id, title: catalogue.get(intervention_id) ?? intervention_id, attempts, better, same, worse, not_completed,
-      meets_sample_threshold: attempts >= MIN_SAMPLE_FOR_EFFECTIVENESS, common_context,
-    });
-  }
-  return out.sort((a, b) => b.attempts - a.attempts);
+// computeStrategicPosture() lives in ./strategic-posture.ts for the same
+// reason — see that file's header comment for the lock-step requirement
+// against core/health/burnout_trajectory.py.
+
+const BURNOUT_WINDOW_DAYS = 21; // V3 doc §18 worked example window
+
+/** V3 Mission 1 — every capacity_checkins row (both checkin_type='capacity'
+ *  and 'evening') in the trajectory window, the raw input
+ *  computeStrategicPosture() reads. A dedicated fetch rather than reusing
+ *  loadCtx()'s existing queries: those are all TODAY-scoped or
+ *  30-day-medical-trend-scoped, and this route's own doc comment insists
+ *  NOW and TRAJECTORY data never share a query/cache path (V3 doc §2). */
+async function fetchBurnoutWindow(sb: any, windowDays: number): Promise<BurnoutWindowRow[]> {
+  const { data } = await sb
+    .from('capacity_checkins')
+    .select('checkin_type,capacity_state,executive_function,stimulation_state,compensation_load,recovery_duration,capacity_debt,log_date,captured_at')
+    .gte('log_date', daysAgo(windowDays - 1))
+    .lte('log_date', today());
+  return (data ?? []) as BurnoutWindowRow[];
+}
+
+/** The user's own framing (V3 doc §5.1) is a deep-check-tier field, not
+ *  asked every check-in, so it may not exist on today's row even when the
+ *  Captain has one recorded — read the most recent non-null value from
+ *  ANY check-in, not just today's or the trajectory window's, same as
+ *  the fallback logic already used elsewhere in this route for sparse
+ *  optional fields. */
+async function fetchLatestUserBurnoutFraming(sb: any): Promise<string | null> {
+  const { data } = await sb
+    .from('capacity_checkins')
+    .select('user_burnout_framing')
+    .not('user_burnout_framing', 'is', null)
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { user_burnout_framing: string | null } | null)?.user_burnout_framing ?? null;
 }
 
 /** Redesign candidates (spec §23) — loads that recur often enough on
@@ -706,6 +716,16 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     .eq('checkin_type', 'capacity')
     .gte('log_date', daysAgo(6));
 
+  // V3 Mission 1 — Burnout / Sustained-Strain Trajectory (§5-§8). Reads its
+  // own window independently of everything above; system_posture/
+  // system_posture_message (just computed) are passed in only as the
+  // strategic-posture ceiling/fallback (Rule A/F), never recomputed here.
+  const [burnoutWindowRows, userBurnoutFraming] = await Promise.all([
+    fetchBurnoutWindow(sb, BURNOUT_WINDOW_DAYS),
+    fetchLatestUserBurnoutFraming(sb),
+  ]);
+  const trajectory = computeStrategicPosture(burnoutWindowRows, BURNOUT_WINDOW_DAYS, system_posture);
+
   return {
     domain: 'recovery',
     kpis,
@@ -751,6 +771,14 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
       ctx.latestCheckin?.selected_action ?? null,
     ),
     checkins_last_7d: checkins_last_7d ?? 0,
+
+    // ── V3 Mission 1 — Burnout / Sustained-Strain Trajectory ─────────────
+    system_trajectory: trajectory.system_trajectory,
+    trajectory_confidence: trajectory.trajectory_confidence,
+    strategic_posture: trajectory.strategic_posture,
+    strategic_posture_message: trajectory.strategic_posture_message,
+    current_recovery_stage: trajectory.current_recovery_stage,
+    user_burnout_framing: (userBurnoutFraming as RecoveryPayload['user_burnout_framing']) ?? null,
   };
 }
 

@@ -25,25 +25,37 @@ sys.path.insert(0, str(Path(__file__).parents[2]))
 from telegram_bots.capacitybot.capacity_today import (
     ACTIVE_LOADS,
     ACTIVE_LOADS_SHORT,
+    BODY_CLARITY_OPTIONS,
+    BURNOUT_FRAMING_OPTIONS,
+    COMPENSATION_TYPE_OPTIONS,
+    COMPENSATION_TYPE_SHORT,
+    COMPENSATION_TYPE_VALUES,
     HELPFUL_ACTIONS_OPTIONS,
     IDENTIFIED_NEEDS,
     PAGE_SIZE,
+    PREDICTABILITY_OPTIONS,
     RECOVERY_FACTORS,
     UNHELPFUL_ACTIONS_OPTIONS,
     base_from,
+    kb_body_signal_clarity,
+    kb_burnout_framing,
     kb_capacity,
     kb_deep_multiselect,
     kb_emotional,
     kb_multiselect,
     kb_pain,
+    kb_predictability,
     kb_sleep,
     kb_social,
     kb_stimulation,
     parse_cb,
     q_active_loads,
+    q_body_signal_clarity,
+    q_burnout_framing,
     q_capacity,
     q_emotional,
     q_executive_function,
+    q_predictability,
     q_sleep,
     q_social,
     render_multiselect_question,
@@ -215,6 +227,153 @@ def test_write_deep_checkin_closing_note():
     payload = table.update.call_args[0][0]
     check("trigger_note saved", payload.get("trigger_note") == text)
     check("notes saved", payload.get("notes") == text)
+
+
+# ── V3 burnout-tier deep-check questions (Mission 1 Part D) ─────────────────
+
+def test_burnout_tier_option_lists_populated_and_skippable():
+    print("\n── V3 burnout-tier option lists — populated, every one has a not-sure value ─")
+    check("BURNOUT_FRAMING_OPTIONS has 5 options", len(BURNOUT_FRAMING_OPTIONS) == 5)
+    check("burnout framing includes an explicit not-sure/skip option",
+          any(code == "ns" for code, _ in BURNOUT_FRAMING_OPTIONS))
+    check("COMPENSATION_TYPE_OPTIONS/SHORT/VALUES same length",
+          len(COMPENSATION_TYPE_OPTIONS) == len(COMPENSATION_TYPE_SHORT) == len(COMPENSATION_TYPE_VALUES))
+    check("BODY_CLARITY_OPTIONS includes 'No idea'",
+          any(label == "No idea" for _, label in BODY_CLARITY_OPTIONS))
+    check("PREDICTABILITY_OPTIONS includes an 'I don't know' value",
+          any(code == "dk" for code, _ in PREDICTABILITY_OPTIONS))
+
+
+def test_q_and_kb_burnout_framing():
+    print("\n── q_burnout_framing/kb_burnout_framing ──────────────────────────")
+    text = q_burnout_framing()
+    check("all 5 framing options present in body",
+          all(label in text for _, label in BURNOUT_FRAMING_OPTIONS))
+    kb = kb_burnout_framing("ctd|id=42")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("5 buttons, one per option", len(buttons) == 5)
+    check("callback carries the row id and bf code", buttons[0].callback_data == "ctd|id=42|bf=ib")
+
+
+def test_q_and_kb_body_signal_clarity():
+    print("\n── q_body_signal_clarity/kb_body_signal_clarity ──────────────────")
+    text = q_body_signal_clarity()
+    check("all body-clarity options present in body",
+          all(label in text for _, label in BODY_CLARITY_OPTIONS))
+    kb = kb_body_signal_clarity("ctd|id=42")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("4 buttons, one per option", len(buttons) == 4)
+
+
+def test_q_and_kb_predictability():
+    print("\n── q_predictability/kb_predictability ─────────────────────────────")
+    text = q_predictability()
+    check("all predictability options present in body",
+          all(label in text for _, label in PREDICTABILITY_OPTIONS))
+    kb = kb_predictability("ctd|id=42")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("4 buttons, one per option", len(buttons) == 4)
+
+
+def test_write_deep_checkin_burnout_framing():
+    print("\n── write_deep_checkin — user_burnout_framing ─────────────────────")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"bf": "mb"}))
+    payload = table.update.call_args[0][0]
+    check("code decoded to canonical value", payload.get("user_burnout_framing") == "may_be_in_burnout")
+
+
+def test_write_deep_checkin_compensation_type_stores_canonical_values_not_labels():
+    print("\n── write_deep_checkin — compensation_type stores canonical codes ─")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"cpt": "0,3"}))
+    payload = table.update.call_args[0][0]
+    check("compensation_type decoded to canonical snake_case values",
+          payload.get("compensation_type") == [COMPENSATION_TYPE_VALUES[0], COMPENSATION_TYPE_VALUES[3]])
+    check("compensation_type is NOT the display label text (unlike active_loads)",
+          payload.get("compensation_type") != [COMPENSATION_TYPE_OPTIONS[0], COMPENSATION_TYPE_OPTIONS[3]])
+
+
+def test_write_deep_checkin_body_clarity_and_predictability():
+    print("\n── write_deep_checkin — body_signal_clarity + predictability ────")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"bc": "hi", "pd": "ch"}))
+    payload = table.update.call_args[0][0]
+    check("body_signal_clarity decoded", payload.get("body_signal_clarity") == "hard_to_interpret")
+    check("predictability decoded", payload.get("predictability") == "lots_changing")
+
+
+def test_deep_callback_mp_writes_early_and_asks_burnout_framing():
+    print("\n── handle_capacity_deep_callback — mp answered -> asks burnout framing ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|lc=p|uc=y|mp=n")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks the burnout-framing question next, not recovery duration",
+          "frame this period" in text_arg.lower())
+    kb_arg = query.edit_message_text.call_args[1].get("reply_markup")
+    check("next screen's base is id-only (no lc/uc/mp chained on)",
+          all("lc=" not in b.callback_data for row in kb_arg.inline_keyboard for b in row))
+
+
+def test_deep_callback_bf_asks_compensation_type_multiselect():
+    print("\n── handle_capacity_deep_callback — bf answered -> asks compensation type ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|bf=rb")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks the compensation-type question", "keep functioning" in text_arg.lower())
+    check("all compensation-type options in body",
+          all(o in text_arg for o in COMPENSATION_TYPE_OPTIONS))
+
+
+def test_deep_callback_cpt_continue_asks_body_signal_clarity():
+    print("\n── handle_capacity_deep_callback — cpt Continue -> asks body-signal clarity ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|cpt=0,2|next=1")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks body-signal clarity question next", "body's signals" in text_arg.lower())
+
+
+def test_deep_callback_cpt_toggle_without_continue_redraws_multiselect():
+    print("\n── handle_capacity_deep_callback — cpt toggle (no next/done) redraws ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|cpt=0|pg=0")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("still on the compensation-type question", "keep functioning" in text_arg.lower())
+
+
+def test_deep_callback_bc_asks_predictability():
+    print("\n── handle_capacity_deep_callback — bc answered -> asks predictability ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|bc=cl")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks predictability question next", "predictable" in text_arg.lower())
+
+
+def test_deep_callback_pd_asks_recovery_duration():
+    print("\n── handle_capacity_deep_callback — pd answered -> asks recovery duration ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|pd=su")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks recovery-duration question, unchanged from before this mission",
+          "how long did recovery take" in text_arg.lower())
 
 
 def test_parse_cb_handles_pagination_field():
@@ -554,6 +713,21 @@ def main():
     test_q_active_loads_lists_all_12_regardless_of_page()
     test_write_deep_checkin_recovery_factors()
     test_write_deep_checkin_closing_note()
+
+    test_burnout_tier_option_lists_populated_and_skippable()
+    test_q_and_kb_burnout_framing()
+    test_q_and_kb_body_signal_clarity()
+    test_q_and_kb_predictability()
+    test_write_deep_checkin_burnout_framing()
+    test_write_deep_checkin_compensation_type_stores_canonical_values_not_labels()
+    test_write_deep_checkin_body_clarity_and_predictability()
+    test_deep_callback_mp_writes_early_and_asks_burnout_framing()
+    test_deep_callback_bf_asks_compensation_type_multiselect()
+    test_deep_callback_cpt_continue_asks_body_signal_clarity()
+    test_deep_callback_cpt_toggle_without_continue_redraws_multiselect()
+    test_deep_callback_bc_asks_predictability()
+    test_deep_callback_pd_asks_recovery_duration()
+
     test_parse_cb_handles_pagination_field()
     test_capacity_callback_active_loads_redraw_passes_page_through()
     test_deep_callback_ua_continue_prompts_for_free_text_note()

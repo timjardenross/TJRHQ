@@ -6,6 +6,20 @@ import type { InterventionEffectiveness } from './types';
 
 const OUTCOME_LABEL: Record<string, string> = { better: 'Better', same: 'Same', worse: 'Worse', not_completed: "Didn't do it" };
 
+/** V3 doc §16/§27 — general-evidence labels, deliberately not phrased as
+ *  clinical certainty. 'unknown' has no entry here on purpose: it means
+ *  nobody has reviewed this intervention's evidence yet, not "checked and
+ *  found nothing", so it renders nothing rather than a noisy badge on all
+ *  30 catalogue rows (see the `evidence_strength !== 'unknown'` guard
+ *  below). */
+const EVIDENCE_LABEL: Record<string, string> = {
+  established_guideline_aligned: 'Evidence-informed · guideline-aligned',
+  moderate: 'Evidence-informed · moderate support',
+  emerging: 'Evidence-informed · emerging, worth testing',
+  lived_experience_informed: 'Evidence-informed · lived-experience pattern',
+  personal_only: 'Evidence-informed · personal pattern only',
+};
+
 /** Extracted from MedicalView so it can render next to My REVS Position in
  *  RecoveryView instead — same intervention-effectiveness data (spec §18),
  *  just relocated. Data still comes from MedicalPayload; page.tsx passes
@@ -30,6 +44,17 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
                     {r.attempts} attempts
                     {r.common_context && <> · most often used for {r.common_context}</>}
                   </div>
+                  {/* Secondary, muted, and deliberately separate from the personal
+                   *  better/same/worse Badge to the right — spec §16: general evidence
+                   *  and personal outcome data must never be blended into one score.
+                   *  Suppressed entirely for 'unknown' (the default for all 30 seeded
+                   *  rows until a human reviews them) so this doesn't read as "checked,
+                   *  found nothing" on every row. */}
+                  {r.evidence_strength !== 'unknown' && (
+                    <div className="mt-0.5 text-[11px] italic text-wb-ink2/70" title={r.evidence_basis ?? undefined}>
+                      {EVIDENCE_LABEL[r.evidence_strength]}
+                    </div>
+                  )}
                 </div>
                 <Badge status={r.better > r.worse ? 'success' : r.worse > r.better ? 'warning' : 'neutral'}>
                   {completed === 0 ? 'No reassessments yet' : `${r.better}/${completed} ${OUTCOME_LABEL.better}`}

@@ -3,7 +3,20 @@
 import { Badge, Card } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
 import { WhatHelpsMeCard } from './WhatHelpsMeCard';
-import { CAPACITY_BALANCE_LABEL, CAPACITY_STATE_LABEL as CAPACITY_LABEL, capacityStateStatus, type InterventionEffectiveness, type RecoveryPayload } from './types';
+import {
+  CAPACITY_BALANCE_LABEL,
+  CAPACITY_STATE_LABEL as CAPACITY_LABEL,
+  capacityStateStatus,
+  RECOVERY_STAGE_LABEL,
+  STRATEGIC_POSTURE_LABEL,
+  strategicPostureStatus,
+  SYSTEM_TRAJECTORY_LABEL,
+  systemTrajectoryStatus,
+  USER_BURNOUT_FRAMING_LABEL,
+  type InterventionEffectiveness,
+  type RecoveryPayload,
+  type RecoveryStage,
+} from './types';
 
 const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ Balanced', high: '⬆ Too much' };
 const PAIN_LABEL: Record<string, string> = {
@@ -21,6 +34,64 @@ const COMPENSATION_LABEL: Record<string, string> = {
 const LEVER_LABEL: Record<string, string> = {
   reduce_load: 'REDUCE LOAD', regulate: 'REGULATE', recover: 'RECOVER', redesign: 'REDESIGN',
 };
+
+// ── REVS V3 (V3 doc §9) — RECOGNISE -> REGULATE -> RECOVER -> REBUILD ->
+// REDESIGN. "These are not completion stages. They are management
+// orientations that can overlap." current_recovery_stage (from the
+// Burnout Trajectory engine, burnout_trajectory.py / computeStrategicPosture())
+// has 6 values (protect/stabilise/recover/re_engage/rebuild/redesign) —
+// more granular than REVS's 5 stages, so this maps each onto the REVS
+// stage it most directly corresponds to for the purpose of highlighting
+// "current priority": protect/stabilise are both early-stage load
+// reduction and condition-stabilising work, which REVS has no dedicated
+// stage for — REGULATE is the closest existing orientation. re_engage
+// sits between recover and rebuild; REBUILD is the closer of the two
+// (both gate against over-claiming readiness).
+const RECOVERY_STAGE_TO_REVS: Record<RecoveryStage, 'regulate' | 'recover' | 'rebuild' | 'redesign'> = {
+  protect: 'regulate',
+  stabilise: 'regulate',
+  recover: 'recover',
+  re_engage: 'rebuild',
+  rebuild: 'rebuild',
+  redesign: 'redesign',
+};
+
+type RevsKey = 'recognise' | 'regulate' | 'recover' | 'rebuild' | 'redesign';
+const REVS_STAGES: { key: RevsKey; label: string }[] = [
+  { key: 'recognise', label: 'Recognise' },
+  { key: 'regulate', label: 'Regulate' },
+  { key: 'recover', label: 'Recover' },
+  { key: 'rebuild', label: 'Rebuild' },
+  { key: 'redesign', label: 'Redesign' },
+];
+
+/** No active trajectory stage (system_trajectory 'stable' or
+ *  'insufficient_data', current_recovery_stage null) — Regulate stays the
+ *  default day-to-day orientation, same as this card's previous
+ *  always-hardcoded behaviour, so the common no-sustained-strain case
+ *  still reads exactly as it always has. */
+function activeRevsStage(stage: RecoveryStage | null): RevsKey {
+  return stage ? RECOVERY_STAGE_TO_REVS[stage] : 'regulate';
+}
+
+/** Status text per REVS tile (V3 doc §9 worked example during burnout:
+ *  Recognise=Ongoing, Regulate=Supportive, Recover=Current priority,
+ *  Rebuild=Gated, Redesign=Active where recurring strain is clear —
+ *  simplified here to "As patterns emerge" for the non-active default
+ *  since this view has no redesign-candidate count to ground a stronger
+ *  claim; see MedicalPayload.redesign_candidates for that, a different
+ *  tab). */
+function revsStatusText(key: RevsKey, active: RevsKey): string {
+  if (key === 'recognise') return 'Ongoing';
+  if (key === active) return 'Current priority';
+  switch (key) {
+    case 'regulate': return 'Supportive';
+    case 'recover': return 'Gated';
+    case 'rebuild': return 'Gated';
+    case 'redesign': return 'As patterns emerge';
+    default: return '';
+  }
+}
 
 function StateTile({ label, value }: { label: string; value: string | null }) {
   return (
@@ -41,6 +112,7 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
   const nm = data.next_move;
   const hasNextMove = !!(nm.intervention_title);
   const testingSuggestion = worthTesting(data);
+  const activeRevs = activeRevsStage(data.current_recovery_stage);
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -73,6 +145,52 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
           <StateTile label="Executive Function" value={data.executive_function ? EF_LABEL[data.executive_function] ?? data.executive_function : null} />
           <StateTile label="Masking / Compensation" value={data.compensation_load ? COMPENSATION_LABEL[data.compensation_load] ?? data.compensation_load : null} />
         </div>
+      </Card>
+
+      {/* ── BURNOUT & RECOVERY (V3 doc §5/§18) — directly under the hero so
+           sustained strain can never be hidden below today's GREEN status.
+           TRAJECTORY, never collapsed into the NOW capacity/posture above
+           (V3 doc §2). Always rendered, even when trajectory_confidence is
+           low/insufficient — Rule F requires SAYING so, not hiding the
+           card. ─────────────────────────────────────────────────────── */}
+      <Card className="md:col-span-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
+          <Badge status={strategicPostureStatus(data.strategic_posture)}>
+            {STRATEGIC_POSTURE_LABEL[data.strategic_posture]}
+          </Badge>
+        </div>
+
+        {data.user_burnout_framing && (
+          <p className="mt-2 text-[13px] text-wb-ink2">
+            <span className="font-medium text-wb-ink">User framing — </span>
+            {USER_BURNOUT_FRAMING_LABEL[data.user_burnout_framing]}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge status={systemTrajectoryStatus(data.system_trajectory)}>
+            {SYSTEM_TRAJECTORY_LABEL[data.system_trajectory]}
+          </Badge>
+          {data.current_recovery_stage && (
+            <span className="text-[12px] text-wb-ink2">
+              Recovery stage: {RECOVERY_STAGE_LABEL[data.current_recovery_stage]}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-3 text-[14px] leading-relaxed text-wb-ink">{data.strategic_posture_message}</p>
+
+        {/* Rule F — say "insufficient data" explicitly rather than hiding
+            the card or fabricating confidence. */}
+        <p className="mt-3 text-[12px] text-wb-ink2">
+          Confidence — {data.trajectory_confidence === 'low' ? 'Low' : data.trajectory_confidence === 'moderate' ? 'Moderate' : 'High'}
+          {data.system_trajectory === 'insufficient_data'
+            ? '. Not enough recent check-ins yet to read a sustained-strain trend.'
+            : data.trajectory_confidence === 'low'
+              ? '. Based on a small number of recent check-ins — an early read, not a settled pattern.'
+              : '.'}
+        </p>
       </Card>
 
       {/* ── CAPACITY BALANCE (spec §11) ──────────────────────────────────── */}
@@ -185,28 +303,36 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
       {/* ── WHAT HELPS ME (spec §18) — placed next to REVS, same row ────────── */}
       <WhatHelpsMeCard data={interventionEffectiveness} />
 
-      {/* ── MY REVS POSITION (spec §22) — orientation, not a maturity score ── */}
-      <CollapsibleSection title="My REVS Position">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Recognise</div>
-            <div className="mt-1 text-[12px] text-wb-ink2">Ongoing</div>
-          </div>
-          <div className="rounded-md border-2 border-wb-sage-deep bg-wb-sage-deep/10 p-3 text-center">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep">Regulate</div>
-            <div className="mt-1 text-[12px] font-medium text-wb-ink">Current priority</div>
-          </div>
-          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Rebuild</div>
-            <div className="mt-1 text-[12px] text-wb-ink2">Not yet</div>
-          </div>
-          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Redesign</div>
-            <div className="mt-1 text-[12px] text-wb-ink2">As patterns emerge</div>
-          </div>
+      {/* ── MY REVS POSITION (V3 doc §9) — RECOGNISE -> REGULATE -> RECOVER
+           -> REBUILD -> REDESIGN, dynamic from the Burnout Trajectory
+           engine's current_recovery_stage instead of hardcoding Regulate
+           as always-current. Orientation, not a maturity score. ───────── */}
+      <CollapsibleSection title="My REVS Position" className="md:col-span-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {REVS_STAGES.map(({ key, label }) => {
+            const status = revsStatusText(key, activeRevs);
+            const isCurrent = status === 'Current priority';
+            return (
+              <div
+                key={key}
+                className={
+                  isCurrent
+                    ? 'rounded-md border-2 border-wb-sage-deep bg-wb-sage-deep/10 p-3 text-center'
+                    : 'rounded-md border border-wb-line bg-wb-bg p-3 text-center'
+                }
+              >
+                <div className={isCurrent ? 'text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-[11px] uppercase tracking-wide text-wb-ink2'}>
+                  {label}
+                </div>
+                <div className={isCurrent ? 'mt-1 text-[12px] font-medium text-wb-ink' : 'mt-1 text-[12px] text-wb-ink2'}>
+                  {status}
+                </div>
+              </div>
+            );
+          })}
         </div>
         <p className="mt-3 text-[12px] text-wb-ink2">
-          A management orientation, not a completion score. See &ldquo;Things I Should Change&rdquo; below for redesign candidates.
+          A management orientation, not a completion score — these can overlap. See &ldquo;Things I Should Change&rdquo; below for redesign candidates.
         </p>
       </CollapsibleSection>
     </div>

@@ -582,6 +582,109 @@ def kb_deep_yesno(base: str, key: str) -> InlineKeyboardMarkup:
     ]])
 
 
+# ── V3 burnout-tier questions (TJR_Human_Systems_Workbench_V3_Mission_and_
+# Change_Proposal.md Mission 1 Part D) — inserted after masking_present,
+# before recovery_duration. Four optional deep-check-tier questions:
+# user_burnout_framing (single-select), compensation_type (multiselect),
+# body_signal_clarity (single-select), predictability (single-select).
+# Every option is itself a "not sure" / "I don't know" value (spec §24 —
+# "the user must be able to answer 'I don't know'"), so none of these
+# needs a separate Skip button the way the quick check-in's yes/no steps
+# don't either. Columns: migration 0153_capacity_checkins_burnout_
+# semantic_fields.sql.
+#
+# id-based, write-through per tap (same convention as rf/ha/ua below, NOT
+# the lc/uc/mp/rd string-accumulation above it) — chaining four more
+# fields (one of them an 8-option multiselect) onto lc/uc/mp's
+# already-accumulated prefix would risk the same 64-byte callback_data
+# overflow already documented above kb_multiselect for the quick
+# check-in's own Phase 1 -> Phase 2 switch. app.py's mp handler now writes
+# lc/uc/mp to the row immediately (instead of waiting for rd) so every
+# step from here on can use a bare `ctd|id={row_id}` base.
+
+BURNOUT_FRAMING_OPTIONS = [
+    ("ib", "I identify this period as autistic burnout"),
+    ("mb", "I think I may be in burnout"),
+    ("rb", "I am recovering from burnout"),
+    ("nl", "I don't want a label"),
+    ("ns", "Not sure / skip for now"),
+]
+BURNOUT_FRAMING_SHORT = {
+    "ib": "Identify burnout", "mb": "May be burnout", "rb": "Recovering",
+    "nl": "No label", "ns": "Not sure",
+}
+BURNOUT_FRAMING_CODE_TO_STATE = {
+    "ib": "identify_as_burnout", "mb": "may_be_in_burnout", "rb": "recovering_from_burnout",
+    "nl": "no_label", "ns": "not_set",
+}
+
+# Canonical values match migration 0153's comment
+# (core/health/burnout_trajectory.py and api/human-systems/route.ts read
+# these as plain frequency counts, not the display label text — unlike
+# active_loads/identified_needs, which store the label itself).
+COMPENSATION_TYPE_OPTIONS = [
+    "Suppressing movement / stimming", "Suppressing sensory needs",
+    "Performing expected social behaviour", "Forcing speech",
+    "Hiding pain or fatigue", "Hiding need for solitude",
+    "Pretending to understand / process immediately",
+    "Suppressing need for routine or predictability",
+]
+COMPENSATION_TYPE_SHORT = [
+    "Suppress movement", "Suppress sensory", "Perform social", "Force speech",
+    "Hide pain/fatigue", "Hide need solitude", "Pretend understand", "Suppress routine",
+]
+COMPENSATION_TYPE_VALUES = [
+    "suppressing_movement", "suppressing_sensory_needs", "performing_social", "forcing_speech",
+    "hiding_pain_fatigue", "hiding_need_for_solitude", "pretending_to_understand",
+    "suppressing_need_for_routine",
+]
+
+BODY_CLARITY_OPTIONS = [
+    ("cl", "Clear"), ("sc", "Somewhat clear"), ("hi", "Hard to interpret"), ("ni", "No idea"),
+]
+BODY_CLARITY_SHORT = {"cl": "Clear", "sc": "Somewhat clear", "hi": "Hard to interpret", "ni": "No idea"}
+BODY_CLARITY_CODE_TO_STATE = {"cl": "clear", "sc": "somewhat_clear", "hi": "hard_to_interpret", "ni": "no_idea"}
+
+PREDICTABILITY_OPTIONS = [
+    ("cp", "Clear / predictable"), ("su", "Some uncertainty"),
+    ("ch", "Lots changing"), ("dk", "I don't know what happens next"),
+]
+PREDICTABILITY_SHORT = {"cp": "Clear/predictable", "su": "Some uncertainty", "ch": "Lots changing", "dk": "Don't know"}
+PREDICTABILITY_CODE_TO_STATE = {
+    "cp": "clear_predictable", "su": "some_uncertainty", "ch": "lots_changing", "dk": "dont_know",
+}
+
+
+def q_burnout_framing() -> str:
+    return render_question("How would you frame this period, if at all? (optional)",
+                            [label for _, label in BURNOUT_FRAMING_OPTIONS])
+
+
+def kb_burnout_framing(base: str) -> InlineKeyboardMarkup:
+    rows = _select_rows(base, "bf", BURNOUT_FRAMING_OPTIONS, BURNOUT_FRAMING_SHORT, per_row=1)
+    return InlineKeyboardMarkup(rows)
+
+
+def q_body_signal_clarity() -> str:
+    return render_question("How clear are your body's signals right now?",
+                            [label for _, label in BODY_CLARITY_OPTIONS])
+
+
+def kb_body_signal_clarity(base: str) -> InlineKeyboardMarkup:
+    rows = _select_rows(base, "bc", BODY_CLARITY_OPTIONS, BODY_CLARITY_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
+def q_predictability() -> str:
+    return render_question("How predictable does what's ahead feel?",
+                            [label for _, label in PREDICTABILITY_OPTIONS])
+
+
+def kb_predictability(base: str) -> InlineKeyboardMarkup:
+    rows = _select_rows(base, "pd", PREDICTABILITY_OPTIONS, PREDICTABILITY_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
 def q_deep_recovery_duration() -> str:
     return render_question("How long did recovery take?",
                             [label for _, label in RECOVERY_DURATION_OPTIONS])
@@ -733,6 +836,14 @@ def _idx_list(csv: str | None, options: list[str]) -> list[str]:
     return out
 
 
+def _idx_values(csv: str | None, values: list[str]) -> list[str]:
+    """Same index-decoding as _idx_list(), but returns the canonical
+    snake_case VALUE at each position rather than the display label —
+    used for compensation_type (migration 0153), which stores canonical
+    codes, not label text (unlike active_loads/identified_needs)."""
+    return _idx_list(csv, values)
+
+
 # ── Writes ──────────────────────────────────────────────────────────────────
 
 def _now_iso() -> str:
@@ -832,6 +943,17 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         payload["unexpected_change"] = f["uc"] == "y"
     if f.get("mp"):
         payload["masking_present"] = f["mp"] == "y"
+    # V3 burnout-tier fields (migration 0153) — see the section above
+    # kb_deep_yesno for why these are written through individually rather
+    # than accumulated with lc/uc/mp above.
+    if f.get("bf"):
+        payload["user_burnout_framing"] = BURNOUT_FRAMING_CODE_TO_STATE.get(f["bf"])
+    if f.get("cpt") is not None:
+        payload["compensation_type"] = _idx_values(f["cpt"], COMPENSATION_TYPE_VALUES)
+    if f.get("bc"):
+        payload["body_signal_clarity"] = BODY_CLARITY_CODE_TO_STATE.get(f["bc"])
+    if f.get("pd"):
+        payload["predictability"] = PREDICTABILITY_CODE_TO_STATE.get(f["pd"])
     if f.get("rd"):
         payload["recovery_duration"] = _RD_CODE_TO_LABEL.get(f["rd"], f["rd"])
     if f.get("rf") is not None:
