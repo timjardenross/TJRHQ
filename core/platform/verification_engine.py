@@ -54,7 +54,11 @@ _BACKEND_HEALTH_URL = os.environ.get("COMMAND_CENTRE_HEALTH_URL", "http://localh
 # a real monitoring gap, disclosed not fixed here (out of this change's
 # scope: needs a record_heartbeat() call wired into telegram-bots/
 # capacitybot's write path plus a new domain_registry row).
-_MUTED_DOMAINS = frozenset({"captains_log", "health_daily_logs", "recovery_pulses"})
+#
+# 2026-08-22: missions muted per Captain's direction — Mission Registry
+# isn't in active use, so its heartbeat (stale since 2026-08-09) is
+# permanent noise, not a real degradation signal.
+_MUTED_DOMAINS = frozenset({"captains_log", "health_daily_logs", "recovery_pulses", "missions"})
 
 
 def _check_command_centre_backend() -> bool:
