@@ -132,8 +132,17 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick capacity check-in. See capacity_today.py for the full flow."""
-    await update.message.reply_text(ct.q_capacity(), reply_markup=ct.kb_capacity())
+    """Quick capacity check-in. See capacity_today.py for the full flow.
+    Sleep (spec: 2026-08-22 workbench review) is asked once per day only —
+    on the first /capacity check-in, before capacity_state itself."""
+    db = _get_supabase()
+    today = datetime.now(_TZ).date().isoformat()
+    rows = await ct.fetch_recent(db, days=0)
+    already_checked_in = any(r.get("log_date") == today and r.get("checkin_type") == "capacity" for r in rows)
+    if already_checked_in:
+        await update.message.reply_text(ct.q_capacity(), reply_markup=ct.kb_capacity())
+    else:
+        await update.message.reply_text(ct.q_sleep(), reply_markup=ct.kb_sleep())
 
 
 async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -345,12 +354,20 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
             )
             return
 
+        if f.get("so") is not None:
+            await ct.write_quick_checkin(db, {"id": row_id, "so": f["so"]})
+            await query.edit_message_text(
+                ct.q_compensation(),
+                reply_markup=ct.kb_compensation(id_base),
+            )
+            return
+
         if f.get("ld") is not None:
             saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "ld": f["ld"]})
             if f.get("next") == "1":
                 await query.edit_message_text(
-                    ct.q_compensation(),
-                    reply_markup=ct.kb_compensation(id_base),
+                    ct.q_social(),
+                    reply_markup=ct.kb_social(id_base),
                 )
             else:
                 await query.edit_message_text(
@@ -390,38 +407,54 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
-    if f.get("r") is not None:
+    if f.get("em") is not None:
         await query.edit_message_text(
             ct.q_executive_function(),
-            reply_markup=ct.kb_executive_function(f["c"], f["t"], f["p"], f["ps"], f["r"]),
+            reply_markup=ct.kb_executive_function(f),
+        )
+        return
+
+    if f.get("r") is not None:
+        await query.edit_message_text(
+            ct.q_emotional(),
+            reply_markup=ct.kb_emotional(f),
         )
         return
 
     if f.get("ps") is not None:
         await query.edit_message_text(
             ct.q_regulation(),
-            reply_markup=ct.kb_regulation(f["c"], f["t"], f["p"], f["ps"]),
+            reply_markup=ct.kb_regulation(f),
         )
         return
 
     if f.get("p") is not None:
         await query.edit_message_text(
             ct.q_pain_score(),
-            reply_markup=ct.kb_pain_score(f["c"], f["t"], f["p"]),
+            reply_markup=ct.kb_pain_score(f),
         )
         return
 
     if f.get("t") is not None:
         await query.edit_message_text(
             ct.q_pain(),
-            reply_markup=ct.kb_pain(f["c"], f["t"]),
+            reply_markup=ct.kb_pain(f),
         )
         return
 
-    # only capacity_state chosen so far
+    if f.get("c") is not None:
+        # only capacity_state chosen so far
+        await query.edit_message_text(
+            ct.q_stimulation(),
+            reply_markup=ct.kb_stimulation(f),
+        )
+        return
+
+    # only the optional once-a-day sleep question answered so far — ask
+    # capacity next, carrying sl forward via kb_capacity(f).
     await query.edit_message_text(
-        ct.q_stimulation(),
-        reply_markup=ct.kb_stimulation(f["c"]),
+        ct.q_capacity(),
+        reply_markup=ct.kb_capacity(f),
     )
 
 

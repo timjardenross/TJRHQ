@@ -110,6 +110,37 @@ COMPENSATION_LABEL = {
 }
 COMP_CODE_TO_STATE = {"l": "low", "m": "moderate", "h": "high", "e": "extreme"}
 
+# V02.1 (2026-08-22) — Sleep, Emotional, Social. Added to close 3 of the 5
+# data gaps in the Human Systems Workbench's Capacity & Recovery Conditions
+# card; migration 0152_capacity_checkins_sleep_emotional_social.sql. Sleep
+# is asked once per day only (cmd_capacity checks for an existing today's
+# check-in first); Emotional and Social are asked on every quick check-in
+# — Captain's explicit choice over the cheaper active_loads-tag-presence
+# proxy that was also on the table.
+
+SLEEP_OPTIONS = [
+    ("u5", "Under 5h"), ("56", "5-6h"), ("67", "6-7h"), ("78", "7-8h"), ("8p", "8h+"),
+]
+SLEEP_SHORT = {"u5": "Under 5h", "56": "5-6h", "67": "6-7h", "78": "7-8h", "8p": "8h+"}
+SLEEP_CODE_TO_STATE = {"u5": "under_5", "56": "5_6", "67": "6_7", "78": "7_8", "8p": "8_plus"}
+SLEEP_LABEL = {"under_5": "Under 5h", "5_6": "5-6h", "6_7": "6-7h", "7_8": "7-8h", "8_plus": "8h+"}
+
+EMOTIONAL_OPTIONS = [
+    ("l", "🟢 Light"), ("m", "🟡 Moderate"), ("h", "🟠 Heavy"), ("o", "🔴 Overwhelming"),
+]
+EMOTIONAL_SHORT = {"l": "Light", "m": "Moderate", "h": "Heavy", "o": "Overwhelming"}
+EMOTIONAL_CODE_TO_STATE = {"l": "light", "m": "moderate", "h": "heavy", "o": "overwhelming"}
+EMOTIONAL_LABEL = {
+    "light": "🟢 Light", "moderate": "🟡 Moderate", "heavy": "🟠 Heavy", "overwhelming": "🔴 Overwhelming",
+}
+
+SOCIAL_OPTIONS = [
+    ("g", "🟢 Plenty"), ("m", "🟡 Some"), ("l", "🟠 Limited"), ("n", "🔴 None left"),
+]
+SOCIAL_SHORT = {"g": "Plenty", "m": "Some", "l": "Limited", "n": "None left"}
+SOCIAL_CODE_TO_STATE = {"g": "plenty", "m": "some", "l": "limited", "n": "none"}
+SOCIAL_LABEL = {"plenty": "🟢 Plenty", "some": "🟡 Some", "limited": "🟠 Limited", "none": "🔴 None left"}
+
 # index-coded multi-select — position in this list IS the callback digit
 ACTIVE_LOADS = [
     "🔊 Noise / sensory input", "👥 People / social interaction", "💼 Work",
@@ -246,13 +277,32 @@ def _select_rows(base: str, key: str, options: list[tuple[str, str]],
 
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
+def q_sleep() -> str:
+    return render_question("How much sleep did you get last night?",
+                            [label for _, label in SLEEP_OPTIONS])
+
+
+def kb_sleep() -> InlineKeyboardMarkup:
+    """Always the true start of the flow when shown (once per day, before
+    capacity_state is even asked) — no prior fields to carry, base is
+    always bare "ct"."""
+    buttons = [InlineKeyboardButton(f"{i} · {SLEEP_SHORT[code]}", callback_data=f"ct|sl={code}")
+               for i, (code, _label) in enumerate(SLEEP_OPTIONS, 1)]
+    rows = [buttons[i:i + 3] for i in range(0, len(buttons), 3)]
+    return InlineKeyboardMarkup(rows)
+
+
 def q_capacity() -> str:
     return render_question("MY CAPACITY TODAY\n\nHow is your capacity right now?",
                             [label for _, label in CAPACITY_OPTIONS])
 
 
-def kb_capacity() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(_select_rows("ct", "c", CAPACITY_OPTIONS, CAPACITY_SHORT, per_row=3))
+def kb_capacity(f: dict | None = None) -> InlineKeyboardMarkup:
+    """`f` carries `sl` forward when /capacity's optional sleep question
+    was just answered (base_from() rebuilds "ct|sl=X"); omitted (or with
+    no `sl` key) on every subsequent check-in today, same as always."""
+    base = base_from(f) if f else "ct"
+    return InlineKeyboardMarkup(_select_rows(base, "c", CAPACITY_OPTIONS, CAPACITY_SHORT, per_row=3))
 
 
 def _done_row(prefix_state: str) -> list[InlineKeyboardButton]:
@@ -264,8 +314,8 @@ def q_stimulation() -> str:
                             [label for _, label in STIMULATION_OPTIONS])
 
 
-def kb_stimulation(c: str) -> InlineKeyboardMarkup:
-    base = f"ct|c={c}"
+def kb_stimulation(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
     rows = _select_rows(base, "t", STIMULATION_OPTIONS, STIMULATION_SHORT, per_row=3)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
@@ -276,8 +326,8 @@ def q_pain() -> str:
                             [label for _, label in PAIN_OPTIONS])
 
 
-def kb_pain(c: str, t: str) -> InlineKeyboardMarkup:
-    base = f"ct|c={c}|t={t}"
+def kb_pain(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
     rows = _select_rows(base, "p", PAIN_OPTIONS, PAIN_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
@@ -287,8 +337,8 @@ def q_pain_score() -> str:
     return "Pain intensity right now? (optional, 0=none · 10=worst)"
 
 
-def kb_pain_score(c: str, t: str, p: str) -> InlineKeyboardMarkup:
-    base = f"ct|c={c}|t={t}|p={p}"
+def kb_pain_score(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
     rows = [
         [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(0, 6)],
         [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6, 11)],
@@ -302,9 +352,21 @@ def q_regulation() -> str:
                             [label for _, label in REGULATION_OPTIONS])
 
 
-def kb_regulation(c: str, t: str, p: str, ps: str) -> InlineKeyboardMarkup:
-    base = f"ct|c={c}|t={t}|p={p}|ps={ps}"
+def kb_regulation(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
     rows = _select_rows(base, "r", REGULATION_OPTIONS, REGULATION_SHORT, per_row=2)
+    rows.append(_done_row(base))
+    return InlineKeyboardMarkup(rows)
+
+
+def q_emotional() -> str:
+    return render_question("How much emotional load are you carrying right now?",
+                            [label for _, label in EMOTIONAL_OPTIONS])
+
+
+def kb_emotional(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
+    rows = _select_rows(base, "em", EMOTIONAL_OPTIONS, EMOTIONAL_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
 
@@ -314,9 +376,21 @@ def q_executive_function() -> str:
                             [label for _, label in EF_OPTIONS])
 
 
-def kb_executive_function(c: str, t: str, p: str, ps: str, r: str) -> InlineKeyboardMarkup:
-    base = f"ct|c={c}|t={t}|p={p}|ps={ps}|r={r}"
+def kb_executive_function(f: dict) -> InlineKeyboardMarkup:
+    base = base_from(f)
     rows = _select_rows(base, "e", EF_OPTIONS, EF_SHORT, per_row=2)
+    rows.append(_done_row(base))
+    return InlineKeyboardMarkup(rows)
+
+
+def q_social() -> str:
+    return render_question("How much social capacity do you have right now?",
+                            [label for _, label in SOCIAL_OPTIONS])
+
+
+def kb_social(base: str) -> InlineKeyboardMarkup:
+    """Phase 2 (id-based, write-through) — same shape as kb_compensation."""
+    rows = _select_rows(base, "so", SOCIAL_OPTIONS, SOCIAL_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
 
@@ -636,7 +710,7 @@ def parse_cb(data: str) -> dict:
     return result
 
 
-_FIELD_ORDER = ["c", "t", "p", "ps", "r", "e", "ld", "cp", "nd"]
+_FIELD_ORDER = ["sl", "c", "t", "p", "ps", "r", "em", "e", "ld", "cp", "so", "nd"]
 
 
 def base_from(f: dict, keys: list[str] | None = None) -> str:
@@ -683,6 +757,8 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         return False, None, "Supabase unavailable (check SUPABASE_KEY)"
 
     payload: dict = {"checkin_type": "capacity", "source": "telegram"}
+    if f.get("sl"):
+        payload["sleep_state"] = SLEEP_CODE_TO_STATE.get(f["sl"])
     if f.get("c"):
         payload["capacity_state"] = CAPACITY_CODE_TO_STATE.get(f["c"])
     if f.get("t"):
@@ -696,6 +772,8 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
             pass
     if f.get("r"):
         payload["regulation_state"] = REG_CODE_TO_STATE.get(f["r"])
+    if f.get("em"):
+        payload["emotional_state"] = EMOTIONAL_CODE_TO_STATE.get(f["em"])
     if f.get("e"):
         payload["executive_function"] = EF_CODE_TO_STATE.get(f["e"])
     if f.get("ld") is not None:
@@ -703,6 +781,8 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         payload["active_loads"] = loads
     if f.get("cp"):
         payload["compensation_load"] = COMP_CODE_TO_STATE.get(f["cp"])
+    if f.get("so"):
+        payload["social_state"] = SOCIAL_CODE_TO_STATE.get(f["so"])
     if f.get("nd") is not None:
         needs = _idx_list(f["nd"], IDENTIFIED_NEEDS)
         payload["identified_needs"] = needs
@@ -804,6 +884,8 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
 
 def render_summary(row: dict) -> str:
     lines = ["MY CAPACITY TODAY", ""]
+    if row.get("sleep_state"):
+        lines.append(f"Sleep: {SLEEP_LABEL.get(row['sleep_state'], row['sleep_state'])}")
     if row.get("capacity_state"):
         lines.append(f"Capacity: {CAPACITY_LABEL.get(row['capacity_state'], row['capacity_state'])}")
     if row.get("stimulation_state"):
@@ -812,10 +894,14 @@ def render_summary(row: dict) -> str:
         lines.append(f"Pain: {PAIN_LABEL.get(row['pain_state'], row['pain_state'])}")
     if row.get("regulation_state"):
         lines.append(f"System: {REGULATION_LABEL.get(row['regulation_state'], row['regulation_state'])}")
+    if row.get("emotional_state"):
+        lines.append(f"Emotional load: {EMOTIONAL_LABEL.get(row['emotional_state'], row['emotional_state'])}")
     if row.get("executive_function"):
         lines.append(f"Executive function: {EF_LABEL.get(row['executive_function'], row['executive_function'])}")
     if row.get("compensation_load"):
         lines.append(f"Compensation: {COMPENSATION_LABEL.get(row['compensation_load'], row['compensation_load'])}")
+    if row.get("social_state"):
+        lines.append(f"Social capacity: {SOCIAL_LABEL.get(row['social_state'], row['social_state'])}")
     loads = row.get("active_loads") or []
     if loads:
         lines += ["", "Main loads:"] + [f"  {l}" for l in loads]
