@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Badge, Card } from '@/components/ui';
 import { BAND_LABEL, bandStatus, type MedicalPayload } from './types';
 
@@ -51,18 +50,14 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card title="Quick actions">
-        <div className="flex flex-wrap gap-3">
-          <Link href="/human-systems-workbench/medical/check-in" className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition hover:opacity-90">Check-in</Link>
-        </div>
-        {/* Manual capture retirement (Captain directive, 2026-08-10, extended
-            2026-08-22): the standalone "Log activity" quick action was
-            removed first — manual activity entry is retired platform-wide.
-            Recovery Pulse (the manual 3x-daily form) was itself later
-            retired in favour of the Telegram bot's "MY CAPACITY TODAY" flow
-            (capacity_checkins, /capacity /deepcheck /evening), which is now
-            the sole manual health-data capture mechanism. */}
-      </Card>
+      {/* Manual capture retirement (Captain directive, 2026-08-10, extended
+          2026-08-22): "Log activity" was removed first, then Recovery Pulse
+          (retired to the Telegram bot's capacity_checkins flow), then this
+          tab's own Daily Check-In form — the last holdout still writing
+          health_daily_logs directly. With no actionable quick action left,
+          the "Quick actions" card itself is retired rather than kept as an
+          empty shell; every index below now blends live capacity_checkins
+          data instead (see api/human-systems/route.ts's deriveBlendedSignals). */}
 
       <Card title="Life Participation">
         <p className="mb-3 text-[13px] text-wb-ink2">
@@ -102,11 +97,8 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
       </Card>
 
       <Card title="Recovery Indexes">
-        <p className="mb-3 text-[13px] text-wb-ink2">Four clinical indicators derived from today&rsquo;s check-in.</p>
+        <p className="mb-3 text-[13px] text-wb-ink2">Four clinical indicators, blended from today&rsquo;s capacity check-in and daily log.</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          {data.recovery_indexes.length === 0 && (
-            <div className="text-[13px] text-wb-ink2">No check-in recorded for today.</div>
-          )}
           {data.recovery_indexes.map((idx) => (
             <div key={idx.key} className="flex items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-bg p-3">
               <div>

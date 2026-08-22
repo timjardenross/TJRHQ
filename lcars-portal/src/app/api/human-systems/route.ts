@@ -93,6 +93,22 @@ function energyFromCapacityState(state: string | null | undefined): string | nul
 }
 
 /**
+ * Capacity band/detail from a capacity_checkins.capacity_state reading —
+ * same green/orange/red → good/moderate/limited mapping
+ * compute_recovery_score() (migration 0150) uses for its capacity subscore.
+ */
+function capacityStateBand(state: string | null | undefined): Band | null {
+  return ({ green: 'good', orange: 'moderate', red: 'limited' } as Record<string, Band>)[state ?? ''] ?? null;
+}
+function capacityStateDetail(state: string | null | undefined): string | null {
+  return ({
+    green: 'Green — full operational window (capacity check-in)',
+    orange: 'Orange — moderate operational window (capacity check-in)',
+    red: 'Red — minimal operational window (capacity check-in)',
+  } as Record<string, string>)[state ?? ''] ?? null;
+}
+
+/**
  * health_insights.llm_narrative (migration 0008) is JSONB — legacy rows
  * store a plain string, the documented/current shape is a structured object
  * {situation, patterns_noticed, what_it_means, recommended_focus,
@@ -185,26 +201,37 @@ function computeLifeParticipation(d: DailyRow | null): { score: number | null; b
 }
 
 // ── Recovery indexes (mirror of fetchRecoveryIndexes) ────────────────────────
+//
+// Nervous System, Energy, and Capacity now prefer a live capacity_checkins
+// reading over the (likely-frozen, post manual-capture-retirement)
+// analytics_health_daily row — same blend priority buildRecovery() and
+// compute_recovery_score() (migration 0150) already use. Sleep has no
+// capacity_checkins equivalent (spec doesn't track it) and stays sourced
+// from analytics_health_daily alone — this index will not update once that
+// table stops receiving new manual check-in rows.
+function computeRecoveryIndexes(d: DailyRow | null, blended: BlendedSignals): RecoveryIndex[] {
+  const sleepHrs = d?.sleep_hours ?? 0;
+  const sleepBand: Band = !d?.sleep_hours ? 'unknown' : sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
+  const cpapNote = d?.cpap_status?.toLowerCase() === 'yes' ? ' · CPAP compliant' : '';
 
-function computeRecoveryIndexes(d: DailyRow | null): RecoveryIndex[] {
-  if (!d) return [];
-  const sleepHrs = d.sleep_hours ?? 0;
-  const sleepBand: Band = sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
-  const cpapNote = d.cpap_status?.toLowerCase() === 'yes' ? ' · CPAP compliant' : '';
-
-  const ns = d.nervous_system_state;
+  const ns = blended.nervous_system;
   const nsBand: Band = ns === 'calm' ? 'good' : ns === 'activated' ? 'moderate' : ns === 'dysregulated' ? 'limited' : 'unknown';
   const nsDetail = ns === 'calm' ? 'Calm — settled baseline' : ns === 'activated' ? 'Activated — protect capacity' : ns === 'dysregulated' ? 'Dysregulated — rest priority' : 'Not recorded';
 
-  const energy = d.energy;
+  const energy = blended.energy;
   const energyBand: Band = energy === 'High' ? 'good' : energy === 'Moderate' ? 'moderate' : energy === 'Low' ? 'limited' : 'unknown';
 
-  const cap = d.captain_capacity_rating;
-  const capBand: Band = cap === 'Green' ? 'good' : cap === 'Amber' ? 'moderate' : cap === 'Red' ? 'limited' : 'unknown';
-  const capDetail = cap === 'Green' ? 'Green — full operational window' : cap === 'Amber' ? 'Amber — moderate window' : cap === 'Red' ? 'Red — minimal window' : 'Not recorded';
+  // Capacity: capacity_checkins wins when present (mirrors
+  // compute_recovery_score()'s SQL priority); falls back to the old
+  // captains_log_entries field for historical days it still has data for.
+  const cap = d?.captain_capacity_rating;
+  const capBand: Band = capacityStateBand(blended.capacityState) ??
+    (cap === 'Green' ? 'good' : cap === 'Amber' ? 'moderate' : cap === 'Red' ? 'limited' : 'unknown');
+  const capDetail = capacityStateDetail(blended.capacityState) ??
+    (cap === 'Green' ? 'Green — full operational window' : cap === 'Amber' ? 'Amber — moderate window' : cap === 'Red' ? 'Red — minimal window' : 'Not recorded');
 
   return [
-    { key: 'sleep', label: 'Sleep', band: sleepBand, detail: `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` },
+    { key: 'sleep', label: 'Sleep', band: sleepBand, detail: d?.sleep_hours ? `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` : 'Not recorded (no capacity-checkin equivalent)' },
     { key: 'nervous_system', label: 'Nervous System', band: nsBand, detail: nsDetail },
     { key: 'energy', label: 'Energy', band: energyBand, detail: energy ? `${energy} — subjective daily report` : 'Not recorded' },
     { key: 'capacity', label: 'Capacity', band: capBand, detail: capDetail },
@@ -253,6 +280,37 @@ async function loadCtx(sb: any): Promise<Ctx> {
   };
 }
 
+interface BlendedSignals {
+  energy: string | null;
+  nervous_system: string | null;
+  capacityState: string | null;
+}
+
+/**
+ * Energy / nervous-system / capacity, blended capacity_checkins-first —
+ * shared by buildRecovery() and buildMedical() (previously buildRecovery
+ * alone had this fallback chain; buildMedical's Recovery Indexes card
+ * still read analytics_health_daily exclusively, so it went stale the
+ * moment health_daily_logs stopped receiving new manual check-in rows).
+ */
+function deriveBlendedSignals(ctx: Ctx): BlendedSignals {
+  const c = ctx.checkinsToday;
+  const capacityState = ctx.latestCheckin?.capacity_state ?? c?.latest_capacity_state ?? null;
+  return {
+    energy:
+      ctx.daily?.energy ??
+      energyFromCapacityState(ctx.latestCheckin?.capacity_state) ??
+      energyFromCapacityState(c?.latest_capacity_state) ??
+      null,
+    nervous_system:
+      ctx.daily?.nervous_system_state ??
+      checkinNsState(ctx.latestCheckin) ??
+      checkinNsState({ regulation_state: c?.latest_regulation_state ?? null }) ??
+      null,
+    capacityState,
+  };
+}
+
 function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
   return {
     posture: ((ctx.posture?.posture as PostureBand) ?? 'UNKNOWN'),
@@ -271,20 +329,7 @@ function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
 async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const p = ctx.posture;
   const c = ctx.checkinsToday;
-
-  // Energy / nervous-system: prefer today's daily row, fall back to the
-  // latest capacity check-in (the current signal), then the today-view's own
-  // latest reading — exactly as /api/wellness does.
-  const energy =
-    ctx.daily?.energy ??
-    energyFromCapacityState(ctx.latestCheckin?.capacity_state) ??
-    energyFromCapacityState(c?.latest_capacity_state) ??
-    null;
-  const nervous_system =
-    ctx.daily?.nervous_system_state ??
-    checkinNsState(ctx.latestCheckin) ??
-    checkinNsState({ regulation_state: c?.latest_regulation_state ?? null }) ??
-    null;
+  const { energy, nervous_system } = deriveBlendedSignals(ctx);
 
   // health_insights has no `insight_date` column (the existing /api/wellness
   // route selects one that doesn't exist and silently gets nothing) — the real
@@ -329,7 +374,11 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
 
 async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const lp = computeLifeParticipation(ctx.daily);
-  const recovery_indexes = computeRecoveryIndexes(ctx.daily);
+  // Nervous System / Energy / Capacity now blend in capacity_checkins the
+  // same way buildRecovery() does — see computeRecoveryIndexes()'s own
+  // comment for why Sleep and Life Participation can't follow (no
+  // capacity_checkins equivalent for those fields).
+  const recovery_indexes = computeRecoveryIndexes(ctx.daily, deriveBlendedSignals(ctx));
 
   // Four energy domains from the human_systems_daily view (today).
   const { data: hsRow } = await sb
@@ -347,21 +396,61 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     { key: 'social', label: 'Social', band: domainBand(hsRow?.energy_social ?? null), value: hsRow?.energy_social ?? null },
   ];
 
-  // 30-day trends.
-  const { data: trendRows } = await sb
-    .from('analytics_health_daily')
-    .select('log_date,energy,sleep_quality,nervous_system_state,pain_score')
-    .gte('log_date', daysAgo(29))
-    .lte('log_date', today())
-    .order('log_date', { ascending: true });
+  // 30-day trends — backfilled with capacity_checkins so a day with only a
+  // Telegram check-in (no analytics_health_daily row at all, or a row with
+  // a null energy/pain field) still shows up instead of silently vanishing
+  // from the sparklines. Previously this queried analytics_health_daily
+  // exclusively, so trends would visibly stop moving the day the manual
+  // check-in form (health_daily_logs' only writer) was retired.
+  const [{ data: trendRows }, { data: checkinTrendRows }] = await Promise.all([
+    sb.from('analytics_health_daily')
+      .select('log_date,energy,sleep_quality,nervous_system_state,pain_score')
+      .gte('log_date', daysAgo(29))
+      .lte('log_date', today())
+      .order('log_date', { ascending: true }),
+    sb.from('capacity_checkins')
+      .select('log_date,captured_at,capacity_state,regulation_state,pain_score')
+      .eq('checkin_type', 'capacity')
+      .gte('log_date', daysAgo(29))
+      .lte('log_date', today())
+      .order('captured_at', { ascending: true }),
+  ]);
 
-  const trends: TrendRow[] = (trendRows ?? []).map((r: any) => ({
-    log_date: r.log_date,
-    energy: r.energy ?? null,
-    sleep_quality: r.sleep_quality ?? null,
-    nervous_system_state: r.nervous_system_state ?? null,
-    pain_score: r.pain_score ?? null,
-  }));
+  // Ascending by captured_at, so the last write per log_date wins — same
+  // most-recent-reading priority deriveBlendedSignals() uses for today.
+  const checkinByDate = new Map<string, { capacity_state: string | null; regulation_state: string | null; pain_score: number | null }>();
+  for (const r of (checkinTrendRows ?? []) as any[]) {
+    checkinByDate.set(r.log_date, { capacity_state: r.capacity_state, regulation_state: r.regulation_state, pain_score: r.pain_score });
+  }
+
+  const trendByDate = new Map<string, TrendRow>();
+  for (const r of (trendRows ?? []) as any[]) {
+    trendByDate.set(r.log_date, {
+      log_date: r.log_date,
+      energy: r.energy ?? null,
+      sleep_quality: r.sleep_quality ?? null,
+      nervous_system_state: r.nervous_system_state ?? null,
+      pain_score: r.pain_score ?? null,
+    });
+  }
+  for (const [date, chk] of checkinByDate) {
+    const existing = trendByDate.get(date);
+    const chkEnergy = energyFromCapacityState(chk.capacity_state);
+    const chkNs = checkinNsState({ regulation_state: chk.regulation_state });
+    trendByDate.set(date, existing ? {
+      ...existing,
+      energy: existing.energy ?? chkEnergy,
+      nervous_system_state: existing.nervous_system_state ?? chkNs,
+      pain_score: existing.pain_score ?? chk.pain_score,
+    } : {
+      log_date: date,
+      energy: chkEnergy,
+      sleep_quality: null,
+      nervous_system_state: chkNs,
+      pain_score: chk.pain_score,
+    });
+  }
+  const trends: TrendRow[] = Array.from(trendByDate.values()).sort((a, b) => a.log_date.localeCompare(b.log_date));
 
   return {
     domain: 'medical',
