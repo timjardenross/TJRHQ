@@ -41,6 +41,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from core.platform.notification_service import Severity, Transport
+from core.platform.notification_service import notify as _notify
+
 log = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -228,51 +231,69 @@ def _slack(message: str) -> bool:
         return False
 
 
-def _esc_md(value: object) -> str:
-    """Escape a DYNAMIC value (not a whole composed message — this file's
-    tg/msg strings mix intentional *bold*/`code` Markdown with interpolated
-    runtime values, so escaping has to happen per-value before interpolation,
-    not on the final string) for legacy Telegram Markdown. 2026-08-22,
-    confirmed live: an unescaped _, *, `, or [ anywhere in the message
-    (including inside a dynamic value like a request ID or raw error text)
-    makes Telegram reject the WHOLE message with HTTP 400 — nothing sent,
-    no exception raised here to notice by. Real risk in this file
-    specifically: req_id, svc, and _restart_executor()'s raw error detail
-    can all plausibly contain underscores."""
+def _esc_html(value: object) -> str:
+    """Escape a DYNAMIC value for Telegram's HTML parse_mode, before it's
+    interpolated into `tg` — the Telegram-bound message string, which mixes
+    intentional <b>/<code> HTML with runtime values. `msg` (the Slack-bound
+    string built alongside `tg` at each call site) intentionally does NOT
+    use this — Slack was never affected by the bug this exists for, and
+    its own mrkdwn (*bold*) formatting is unrelated to Telegram's parser.
+
+    2026-08-22, corrected same day: this used to escape for legacy
+    Telegram "Markdown" parse_mode (backslash before _, *, `, [). That
+    stopped an HTTP 400 hard-reject on unescaped underscores (real risk in
+    this file: req_id, svc, and _restart_executor()'s raw error detail can
+    all plausibly contain underscores) — but real-device verification
+    showed the backslashes render as LITERAL visible characters, not
+    consumed as escapes; legacy Markdown's escaping does not behave the
+    way it was assumed to. Switched to Telegram's HTML parse_mode instead
+    (see core/platform/notification_service.py's matching fix and its
+    _escape_telegram_html docstring for the full story) — HTML only needs
+    &, <, > escaped, no ambiguity.
+
+    Still required after the notification_service cutover below: _route()
+    sends via notify(..., template="raw"), which does NOT escape the body
+    for us (that would double-escape these already-escaped values). This
+    file remains the one place responsible for escaping its own dynamic
+    Telegram-bound content."""
     text = str(value)
-    for ch in ("\\", "_", "*", "`", "["):
-        text = text.replace(ch, "\\" + ch)
+    for ch, esc in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;")):
+        text = text.replace(ch, esc)
     return text
 
 
-def _telegram(message: str) -> bool:
-    if not _TG_TOKEN or not _TG_CHAT_ID:
-        log.debug("[bus:telegram] No Telegram token/chat_id configured — skipping")
-        return False
-    payload = json.dumps({"chat_id": _TG_CHAT_ID, "text": message,
-                           "parse_mode": "Markdown"}).encode()
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{_TG_TOKEN}/sendMessage",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            resp = json.load(r)
-            if not resp.get("ok"):
-                log.warning("[bus:telegram] API error: %s", resp.get("description"))
-                return False
-        return True
-    except Exception as exc:
-        log.error("[bus:telegram] Request failed: %s", exc)
-        return False
+_SEVERITY_MAP = {
+    "CRITICAL": Severity.CRITICAL,
+    "ALERT": Severity.ALERT,
+    "HIGH": Severity.ALERT,
+    "MEDIUM": Severity.WARNING,
+}
 
 
 def _route(severity: str, slack_msg: str, tg_msg: str | None = None) -> bool:
-    """Post to Slack (always) and Telegram (ALERT/CRITICAL). Returns True if Slack succeeded."""
-    ok = _slack(slack_msg)
+    """Post to Slack (always) and Telegram (ALERT/CRITICAL). Returns True if Slack succeeded.
+
+    2026-08-22 Wave 2 cutover: sends now go through
+    notification_service.notify() instead of this file's own raw
+    urllib senders (_slack/_telegram have been retired from this path —
+    notification_service owns retry/backoff and the call-log now).
+    template="raw" is deliberate: slack_msg/tg_msg are already fully
+    composed (tg_msg's dynamic values already HTML-escaped via _esc_html()
+    above) — notify() must pass them through unchanged, not re-escape them
+    (see _esc_html's docstring and notification_service._RAW_TEMPLATES).
+
+    Severity routing is preserved exactly: Slack always fires; Telegram
+    fires only when `severity` is literally "ALERT" or "CRITICAL" (a
+    "HIGH" service-health alert does NOT get Telegram — that was already
+    true of the pre-cutover code: the caller's `tg if crit in
+    ("CRITICAL", "HIGH") else None` ternary was live but the check here
+    excluded "HIGH" regardless of tg_msg, so Telegram never fired for it).
+    """
+    ok = _notify(slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
+                 template="raw", transport=Transport.SLACK).ok
     if severity in ("ALERT", "CRITICAL") and (tg_msg or slack_msg):
-        _telegram(tg_msg or slack_msg)
+        _notify(tg_msg or slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
+                template="raw", transport=Transport.TELEGRAM)
     return ok
 
 
@@ -357,15 +378,15 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
         if _should_notify(ev, _NOTIFY_COOLDOWN_H):
             msg = (
                 f":warning: *Build Executor Stuck* [{age_min}m]\n"
-                f"Request `{_esc_md(req_id)}` has been at `engineering_running` for {age_min} minutes.\n"
+                f"Request `{req_id}` has been at `engineering_running` for {age_min} minutes.\n"
                 "The executor may have died mid-run. Manual intervention required:\n"
                 "• Reset the row status to `approved` to re-queue, OR\n"
                 "• Archive the request if it should not be retried."
             )
             tg = (
-                f"⚠️ *Build Executor Stuck* [{age_min}m]\n"
-                f"`{_esc_md(req_id)}` stuck at `engineering_running` for {age_min}m.\n"
-                "Reset to `approved` to re-queue or archive if stale."
+                f"⚠️ <b>Build Executor Stuck</b> [{age_min}m]\n"
+                f"<code>{_esc_html(req_id)}</code> stuck at <code>engineering_running</code> for {age_min}m.\n"
+                "Reset to <code>approved</code> to re-queue or archive if stale."
             )
             if _route("ALERT", msg, tg):
                 _mark_notified(conn, key)
@@ -459,10 +480,10 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
         sev_emoji = {"CRITICAL": ":sos:", "HIGH": ":rotating_light:", "MEDIUM": ":warning:"}.get(crit, ":bell:")
         msg = (
             f"{sev_emoji} *Service Health Alert* [{crit}]\n"
-            f"`{_esc_md(svc)}` is *{_esc_md(state)}*.\n"
+            f"`{svc}` is *{state}*.\n"
             "Check: `systemctl status <service>` | `journalctl -u <service> -n 50`"
         )
-        tg = f"🆘 *Service Down* [{crit}]\n`{_esc_md(svc)}` is *{_esc_md(state)}*."
+        tg = f"🆘 <b>Service Down</b> [{crit}]\n<code>{_esc_html(svc)}</code> is <b>{_esc_html(state)}</b>."
         if _route(crit, msg, tg if crit in ("CRITICAL", "HIGH") else None):
             _mark_notified(conn, key)
             log.info("[bus:health] Alerted: %s is %s [%s]", svc, state, crit)
@@ -503,25 +524,28 @@ def _rule_executor_needs_restart(conn: sqlite3.Connection, client) -> None:
         ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
 
     action_note = ""
+    action_note_html = ""
     if _should_act(ev, _RESTART_COOLDOWN):
         ok, detail = _restart_executor()
         _mark_acted(conn, key)
-        action_note = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {_esc_md(detail)}'}"
+        action_note = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {detail}'}"
+        action_note_html = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {_esc_html(detail)}'}"
         log.info("[bus:restart] Executor restart %s: %s", "ok" if ok else "FAILED", detail)
     else:
         action_note = "\n• Restart already attempted recently — manual check may be needed."
+        action_note_html = action_note
 
     if _should_notify(ev, _NOTIFY_COOLDOWN_H):
         count = len(approved_pending)
         msg = (
             f":construction: *Build Executor Down — Work Queued*\n"
-            f"`telegram-build-executor.service` is {_esc_md(executor_state)} with "
+            f"`telegram-build-executor.service` is {executor_state} with "
             f"*{count} approved request(s)* waiting to be processed.{action_note}\n"
-            f"Requests: {_esc_md(', '.join(approved_pending[:5]))}"
+            f"Requests: {', '.join(approved_pending[:5])}"
             + (f" (+{count - 5} more)" if count > 5 else "")
         )
         tg = (
-            f"🚧 *Executor Down — {count} request(s) queued*{action_note}"
+            f"🚧 <b>Executor Down — {count} request(s) queued</b>{action_note_html}"
         )
         if _route("ALERT", msg, tg):
             _mark_notified(conn, key)
