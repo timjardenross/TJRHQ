@@ -74,6 +74,7 @@ from telegram.ext import (
 )
 
 from telegram_bots.capacitybot import capacity_today as ct
+from telegram_bots.capacitybot import guide
 from telegram_bots.capacitybot import helpme
 from telegram_bots.capacitybot import intervention_engine as ie
 
@@ -819,10 +820,178 @@ async def handle_helpme_reassessment_callback(update: Update, context: ContextTy
         return
 
 
+# ── /guide (V02 WP08) ─────────────────────────────────────────────────────────
+# "I am not necessarily in distress, but I do not know what would be
+# sensible to do next" (spec §16). Reuses a recent /capacity check-in when
+# one exists rather than re-asking; always asks "available time", the one
+# dimension capacity_checkins has no equivalent for.
+
+async def _find_recent_checkin(db) -> dict | None:
+    rows = await ct.fetch_recent(db, days=1)
+    now = datetime.now(_TZ)
+    recent = None
+    for r in rows:
+        if r.get("checkin_type") != "capacity" or not r.get("capacity_state") or not r.get("captured_at"):
+            continue
+        try:
+            captured = datetime.fromisoformat(r["captured_at"])
+        except ValueError:
+            continue
+        age_minutes = (now - captured).total_seconds() / 60
+        if age_minutes <= guide.RECENT_CHECKIN_WINDOW_MINUTES:
+            recent = r  # rows are ascending by captured_at — last match wins
+    return recent
+
+
+async def cmd_guide(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    db = _get_supabase()
+    recent = await _find_recent_checkin(db)
+    if recent:
+        parts = ["cg", f"cap={guide.STATE_TO_CAPACITY_CODE.get(recent['capacity_state'])}"]
+        if recent.get("stimulation_state"):
+            parts.append(f"stim={guide.STATE_TO_STIM_CODE.get(recent['stimulation_state'])}")
+        if recent.get("pain_state"):
+            parts.append(f"pain={guide.STATE_TO_PAIN_CODE.get(recent['pain_state'])}")
+        prefix = "|".join(parts)
+        await update.message.reply_text(guide.q_time_available(), reply_markup=guide.kb_time_available(prefix))
+    else:
+        await update.message.reply_text(ct.q_capacity(), reply_markup=guide.kb_guide_capacity())
+
+
+async def handle_guide_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cg|"):
+        return
+    f = guide.parse_cb(data)
+
+    if "cap" not in f:
+        return
+    if "stim" not in f and "t" not in f:
+        await query.edit_message_text(ct.q_stimulation(), reply_markup=guide.kb_guide_stimulation(f["cap"]))
+        return
+    if "pain" not in f and "t" not in f:
+        await query.edit_message_text(ct.q_pain(), reply_markup=guide.kb_guide_pain(f["cap"], f["stim"]))
+        return
+    if "t" not in f:
+        prefix = f"cg|cap={f['cap']}" + (f"|stim={f['stim']}" if f.get("stim") else "") + \
+                 (f"|pain={f['pain']}" if f.get("pain") else "")
+        await query.edit_message_text(guide.q_time_available(), reply_markup=guide.kb_time_available(prefix))
+        return
+
+    capacity_state = ct.CAPACITY_CODE_TO_STATE.get(f.get("cap"))
+    stimulation_state = ct.STIM_CODE_TO_STATE.get(f.get("stim")) if f.get("stim") else None
+    pain_state = ct.PAIN_CODE_TO_STATE.get(f.get("pain")) if f.get("pain") else None
+    max_minutes = guide.TIME_TO_MAX_MINUTES.get(f["t"])
+
+    context.user_data["guide_ctx"] = {
+        "capacity_state": capacity_state,
+        "stimulation_state": stimulation_state,
+        "pain_state": pain_state,
+        "max_minutes": max_minutes,
+    }
+    context.user_data["guide_seen"] = []
+
+    db = _get_supabase()
+    ranked = await ie.rank_interventions(
+        db, capacity_state=capacity_state, stimulation_state=stimulation_state,
+        pain_state=pain_state, max_minutes=max_minutes, limit=10,
+    )
+    if not ranked:
+        await query.edit_message_text(guide.render_no_options())
+        return
+    top = ranked[0]
+    context.user_data["guide_current"] = top["intervention_id"]
+    await query.edit_message_text(guide.render_offer(top), reply_markup=guide.kb_offer(top["intervention_id"]))
+
+
+async def handle_guide_offer_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cgi|"):
+        return
+    f = guide.parse_cb(data)
+    iid = f.get("iid")
+    action = f.get("act")
+    if not iid or not action:
+        return
+
+    db = _get_supabase()
+    flow_ctx = context.user_data.get("guide_ctx", {})
+
+    if action == "why":
+        intervention = await ie.get_intervention(db, iid)
+        if not intervention:
+            return
+        why_text = guide.render_why(
+            intervention, flow_ctx.get("capacity_state"),
+            flow_ctx.get("stimulation_state"), flow_ctx.get("pain_state"),
+        )
+        await query.edit_message_text(
+            f"{guide.render_offer(intervention)}\n\n{why_text}",
+            reply_markup=guide.kb_offer(iid, showing_why=True),
+        )
+        return
+
+    if action == "another":
+        context.user_data.setdefault("guide_seen", []).append(iid)
+        seen = context.user_data["guide_seen"]
+        ranked = await ie.rank_interventions(
+            db, capacity_state=flow_ctx.get("capacity_state"), stimulation_state=flow_ctx.get("stimulation_state"),
+            pain_state=flow_ctx.get("pain_state"), max_minutes=flow_ctx.get("max_minutes"), limit=10,
+        )
+        candidates = [r for r in ranked if r["intervention_id"] not in seen]
+        if not candidates:
+            await query.edit_message_text(guide.render_no_options())
+            return
+        top = candidates[0]
+        context.user_data["guide_current"] = top["intervention_id"]
+        await query.edit_message_text(guide.render_offer(top), reply_markup=guide.kb_offer(top["intervention_id"]))
+        return
+
+    if action == "accept":
+        intervention = await ie.get_intervention(db, iid)
+        if not intervention:
+            await query.edit_message_text("⚠️ Could not load that intervention.")
+            return
+        ok, row, err = await ie.create_event(
+            db, source="guide", intervention_id=iid,
+            capacity_before=flow_ctx.get("capacity_state"),
+            stimulation_before=flow_ctx.get("stimulation_state"),
+            pain_before=flow_ctx.get("pain_state"),
+        )
+        if not ok or not row:
+            await query.edit_message_text(f"⚠️ Could not log this: {err}")
+            return
+
+        reminder_minutes = None
+        if intervention.get("requires_followup"):
+            reminder_minutes = intervention.get("estimated_minutes") or 15
+            chat_id = update.effective_chat.id
+            event_id = row["id"]
+
+            async def _fire(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+                await ctx.bot.send_message(
+                    chat_id=chat_id,
+                    text=helpme.q_reassess_outcome(),
+                    reply_markup=helpme.kb_reassess_outcome(event_id),
+                )
+
+            context.job_queue.run_once(_fire, when=reminder_minutes * 60, name=f"guide-reassess-{event_id}")
+
+        await query.edit_message_text(guide.render_accepted(intervention, reminder_minutes))
+        context.user_data.pop("guide_ctx", None)
+        context.user_data.pop("guide_seen", None)
+        context.user_data.pop("guide_current", None)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
     ("helpme",            "Something's hard right now — get one thing to try"),
+    ("guide",             "Not sure what to do next — get a sensible suggestion"),
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
     ("evening",           "Evening capacity reflection (3 questions)"),
@@ -872,6 +1041,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start",              cmd_start))
     app.add_handler(CommandHandler("help",               cmd_help))
     app.add_handler(CommandHandler("helpme",             cmd_helpme))
+    app.add_handler(CommandHandler("guide",              cmd_guide))
     app.add_handler(CommandHandler("capacity",           cmd_capacity))
     app.add_handler(CommandHandler("deepcheck",          cmd_deepcheck))
     app.add_handler(CommandHandler("evening",            cmd_evening))
@@ -890,6 +1060,8 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_helpme_callback,              pattern=r"^ch\|"))
     app.add_handler(CallbackQueryHandler(handle_helpme_offer_callback,        pattern=r"^chi\|"))
     app.add_handler(CallbackQueryHandler(handle_helpme_reassessment_callback, pattern=r"^chr\|"))
+    app.add_handler(CallbackQueryHandler(handle_guide_callback,               pattern=r"^cg\|"))
+    app.add_handler(CallbackQueryHandler(handle_guide_offer_callback,         pattern=r"^cgi\|"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 

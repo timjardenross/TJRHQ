@@ -142,14 +142,27 @@ async def rank_interventions(
     stimulation_state: str | None = None,
     pain_state: str | None = None,
     executive_function: str | None = None,
+    max_minutes: int | None = None,
     limit: int = 5,
 ) -> list[dict]:
     """Returns up to `limit` candidate rows from capacity_interventions,
     highest-scored first, safety-filtered by capacity/pain compatibility.
-    Every caller (Q9, /helpme, /guide) goes through this one function."""
+    Every caller (Q9, /helpme, /guide) goes through this one function.
+
+    max_minutes (spec §16 — /guide's "available time" dimension): excludes
+    anything with a longer estimated_minutes than the caller has time for.
+    An intervention with no fixed duration (estimated_minutes is null) is
+    never excluded by this filter."""
     candidates = await _fetch_candidates(db, capacity_state)
     if not candidates:
         return []
+    if max_minutes is not None:
+        candidates = [
+            c for c in candidates
+            if c.get("estimated_minutes") is None or c["estimated_minutes"] <= max_minutes
+        ]
+        if not candidates:
+            return []
 
     outcomes_by_id = await _fetch_personal_outcomes(db, [c["intervention_id"] for c in candidates])
 
