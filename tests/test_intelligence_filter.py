@@ -28,6 +28,7 @@ def _make_event(
     banking_relevance: str = "high",
     cps230_relevance: bool = True,
     source_priority: int = 2,
+    source_category: str = "media",
     suppressed: bool = False,
 ) -> ClassifiedEvent:
     return ClassifiedEvent(
@@ -36,7 +37,7 @@ def _make_event(
         source_name="Test Source",
         source_priority=source_priority,
         source_confidence_weight=0.8,
-        source_category="media",
+        source_category=source_category,
         raw_title=title,
         raw_summary="",
         canonical_url="https://example.com/item",
@@ -129,13 +130,29 @@ class TestLowOperationalRelevance(unittest.TestCase):
 
 
 class TestMediaSourceFilter(unittest.TestCase):
+    """2026-08-22: the strict banking-keyword + banking_relevance/cps230_relevance
+    gate now only applies to genuinely OSINT/resilience-specific categories
+    (_OR_SPECIFIC_MEDIA_CATEGORIES in filter.py) — general "media" (mainstream
+    news) falls through to the generic _MIN_OP_RELEVANCE floor instead, since
+    that's the world-news content the daily digest exists to carry, not noise
+    to filter out. See intelligence/brief/daily_digest.py and the plan this
+    landed under."""
 
-    def test_media_source_low_relevance_suppressed(self):
+    def test_general_media_low_relevance_but_above_floor_now_passes(self):
+        # Was suppressed under the old policy (media always held to the
+        # banking bar); now a general "media" source only needs to clear
+        # the generic operational_relevance floor (0.20), which 0.25 does.
         ev = _make_event(source_priority=4, banking_relevance="low", cps230_relevance=False,
                          operational_relevance=0.25)
+        suppressed, _ = should_suppress(ev)
+        self.assertFalse(suppressed)
+
+    def test_general_media_below_relevance_floor_still_suppressed(self):
+        ev = _make_event(source_priority=4, banking_relevance="low", cps230_relevance=False,
+                         operational_relevance=0.10)
         suppressed, reason = should_suppress(ev)
         self.assertTrue(suppressed)
-        self.assertIn("media_source", reason)
+        self.assertIn("low_operational_relevance", reason)
 
     def test_media_source_with_banking_relevance_passes(self):
         ev = _make_event(source_priority=4, banking_relevance="high", cps230_relevance=False,
@@ -148,6 +165,18 @@ class TestMediaSourceFilter(unittest.TestCase):
                          operational_relevance=0.25)
         suppressed, _ = should_suppress(ev)
         self.assertFalse(suppressed)
+
+    def test_osint_category_low_relevance_still_suppressed(self):
+        # The strict gate is still real for actually OSINT/resilience-specific
+        # categories (regulatory/cybersecurity/banking_payments/
+        # critical_infrastructure/emergency_management/transport) — this is
+        # the case that matters for keeping banking-brief quality intact.
+        ev = _make_event(source_priority=4, source_category="regulatory",
+                         banking_relevance="low", cps230_relevance=False,
+                         operational_relevance=0.25)
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertIn("media_source", reason)
 
 
 class TestHighRelevancePasses(unittest.TestCase):

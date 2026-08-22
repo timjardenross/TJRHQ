@@ -1,6 +1,8 @@
 """
-LLM provider chain for OR Intelligence brief narrative generation.
-Used ONLY for executive narrative sections (not classification/ranking).
+LLM provider chain for the daily Captain's Brief digest narrative generation
+(2026-08-22: generalized from OR/banking-only narrative to the full daily
+digest — world news + every tracked personal domain). Used ONLY for
+narrative sections (not classification/ranking).
 
 Provider order (MSN-0209 — local-first):
   0. Model Router :8891/api/model/intelligence-brief (local, preferred — 80% of briefs)
@@ -30,19 +32,33 @@ from intelligence.config import (
     MISTRAL_RESEARCH_AGENT_ID, MISTRAL_RESEARCH_AGENT_VERSION,
     MISTRAL_TAO_AGENT_ID, MISTRAL_TAO_AGENT_VERSION,
     MISTRAL_BRIEFING_AGENT_ID, MISTRAL_BRIEFING_AGENT_VERSION,
+    MISTRAL_DECOMPOSITION_AGENT_ID, MISTRAL_DECOMPOSITION_AGENT_VERSION,
+    MISTRAL_ENGINEERING_AGENT_ID, MISTRAL_ENGINEERING_AGENT_VERSION,
+    MISTRAL_CHALLENGE_AGENT_ID, MISTRAL_CHALLENGE_AGENT_VERSION,
+    MISTRAL_SUMMARY_AGENT_ID, MISTRAL_SUMMARY_AGENT_VERSION,
+    MISTRAL_QA_AGENT_ID, MISTRAL_QA_AGENT_VERSION,
     MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are the Operational Resilience Intelligence Officer for USS Starship Endeavour.
-You are generating sections of an executive intelligence brief for Captain TJR.
+# 2026-08-22: generalized from a banking/CPS230-only frame to the daily
+# educational digest frame. This is the same LLM call chain (Model Router →
+# Mistral 4-stage agents → Gemini → Mistral Small → Ollama below) — only the
+# framing changed, so every provider in the chain picks it up for free.
+_SYSTEM_PROMPT = """You are Captain TJR's daily briefing officer aboard USS Starship Endeavour.
+You are generating a daily digest to help him stay educated and informed on what
+is happening today — across the wider world (from OSINT/news sources) and across
+his own tracked domains (health, engineering, operational resilience, learning,
+opportunities).
 
 Rules:
 - Only synthesise from the event data provided. Do not invent incidents.
-- Be concise, factual, and use plain English.
-- Prioritise Australian banking and CPS 230 implications.
+- Be concise, factual, plain English — written to inform and educate, not just alert.
+- Explain WHY something matters, not just what happened, so it's genuinely educational.
+- Cover every domain present in the input; don't let one domain (e.g. banking/cyber
+  OSINT) crowd out the others if multiple are present.
 - Use present tense for ongoing events, past tense for resolved events.
 - Do not include caveats about your own uncertainty — that is handled by the confidence score.
 """
@@ -50,6 +66,68 @@ Rules:
 
 class LLMProvider:
     """Attempts each provider in preference order. Never raises — returns None on total failure."""
+
+    def check_brief_quality(self, brief_text: str) -> Optional[str]:
+        """
+        2026-08-22: post-generation sanity check via the QA Validation
+        Officer agent — a real LLM pass, not the pure-Python heuristics
+        intelligence/audit/brief_qa_agent.py runs (which have no LLM in them
+        at all). Non-blocking by design: the caller only logs whatever this
+        returns, it never withholds or modifies the brief. Returns None if
+        unconfigured or the call fails — never raises.
+        """
+        if not MISTRAL_API_KEY or not MISTRAL_QA_AGENT_ID:
+            return None
+        prompt = (
+            f"{_SYSTEM_PROMPT}\n\n"
+            "You are the QA Validation Officer. Review the finished brief below for one thing "
+            "only: is any framing being forced onto content that doesn't warrant it (e.g. general "
+            "world news given manufactured 'operational resilience', 'compliance', or 'third-party "
+            "risk' language it doesn't actually have)? Reply in 1-2 sentences: either 'OK' with a "
+            "short reason, or a specific concern. Do not rewrite the brief.\n\n"
+            f"FINISHED BRIEF:\n{brief_text}"
+        )
+        try:
+            return self._call_agent(
+                stage="qa-validation",
+                agent_id=MISTRAL_QA_AGENT_ID,
+                agent_version=int(MISTRAL_QA_AGENT_VERSION),
+                prompt=prompt,
+            )
+        except Exception as exc:
+            log.warning("[qa-validation] check failed: %s", exc)
+            return None
+
+    def check_risk_rating(self, brief_text: str, overall_risk: str) -> Optional[str]:
+        """
+        2026-08-22: Risk & Challenge Officer, moved here from the narrative
+        pipeline itself (see the comment in _mistral_pipeline for why —
+        chaining it as another sequential re-compression stage before the
+        Briefing Officer caused fabricated specifics). Reviews the FINISHED
+        brief's risk rating adversarially — distinct from check_brief_quality
+        above (framing/tone), this checks whether overall_risk is actually
+        earned by the events. Non-blocking, log-only. Never raises.
+        """
+        if not MISTRAL_API_KEY or not MISTRAL_CHALLENGE_AGENT_ID:
+            return None
+        prompt = (
+            f"{_SYSTEM_PROMPT}\n\n"
+            "You are the Risk & Challenge Officer. The finished brief below was rated "
+            f"'{overall_risk}'. Is that earned by what's actually described, or overstated/"
+            "understated? Reply in 1-2 sentences: either 'OK' with a short reason, or a specific "
+            "concern. Do not rewrite the brief.\n\n"
+            f"FINISHED BRIEF:\n{brief_text}"
+        )
+        try:
+            return self._call_agent(
+                stage="risk-challenge",
+                agent_id=MISTRAL_CHALLENGE_AGENT_ID,
+                agent_version=int(MISTRAL_CHALLENGE_AGENT_VERSION),
+                prompt=prompt,
+            )
+        except Exception as exc:
+            log.warning("[risk-challenge] check failed: %s", exc)
+            return None
 
     def generate(self, prompt: str) -> tuple[Optional[str], Optional[str]]:
         """
@@ -103,9 +181,15 @@ class LLMProvider:
 
     def _mistral_pipeline(self, prompt: str) -> Optional[str]:
         """
-        Chains all 4 Mistral agents. Each stage gets a fresh conversation.
-        Falls back gracefully if any intermediate stage fails — later stages
-        receive whatever the best available input is.
+        Chains up to 7 Mistral agents (2026-08-22: expanded from 4 — CSD Unit,
+        Engineering Officer, and Risk & Challenge Officer were provisioned in
+        Mistral but never wired in). Each stage gets a fresh conversation.
+        Every stage past Research Scout / Briefing Officer is optional and
+        degrades gracefully — a stage failing or its agent id being unset
+        just means the pipeline continues with the best output so far, never
+        a hard failure. Order: CSD Unit -> Research Scout -> Engineering
+        Officer (only if engineering-domain content is present) -> TAO ->
+        Risk & Challenge Officer -> Summary Officer -> Briefing Officer.
         """
         if not MISTRAL_API_KEY:
             raise RuntimeError("MISTRAL_API_KEY not set")
@@ -114,16 +198,44 @@ class LLMProvider:
         if not MISTRAL_RESEARCH_AGENT_ID or not MISTRAL_BRIEFING_AGENT_ID:
             raise RuntimeError("MISTRAL_RESEARCH_AGENT_ID or MISTRAL_BRIEFING_AGENT_ID not configured")
 
-        log.info("[pipeline] Starting 4-stage Mistral brief pipeline")
+        log.info("[pipeline] Starting Mistral brief pipeline")
+
+        # ── Stage 0: Cognitive Subspace Decomposition Unit (CSD) ─────────────
+        # Pre-processing: frame the raw event dump into structured research
+        # directives before the Research Scout sees it. Optional — the Scout
+        # already handles a raw dump fine, this just gives it a better brief.
+        research_input = prompt
+        if MISTRAL_DECOMPOSITION_AGENT_ID:
+            stage0_prompt = (
+                f"{_SYSTEM_PROMPT}\n\n"
+                "STAGE 0 — TASK DECOMPOSITION\n"
+                "Break the following raw events into structured research directives — one per "
+                "domain actually represented (world/OSINT news, health, engineering, operational "
+                "resilience, learning, opportunities). Each directive should frame what the Research "
+                "Scout should focus on for that domain.\n\n"
+                f"{prompt}"
+            )
+            decomposed = self._call_agent(
+                stage="stage0-decomposition",
+                agent_id=MISTRAL_DECOMPOSITION_AGENT_ID,
+                agent_version=int(MISTRAL_DECOMPOSITION_AGENT_VERSION),
+                prompt=stage0_prompt,
+            )
+            if decomposed:
+                log.info("[pipeline] Stage 0 (CSD) complete (%d chars)", len(decomposed))
+                research_input = decomposed
+            else:
+                log.warning("[pipeline] Stage 0 (CSD) failed — continuing with raw event dump")
 
         # ── Stage 1: Research Scout ──────────────────────────────────────────
         stage1_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
             "STAGE 1 — RESEARCH SYNTHESIS\n"
-            "Review the following operational events and produce a structured research package. "
-            "Identify what is happening, what the operational significance is, and which events "
-            "have the highest potential impact on Australian banking resilience.\n\n"
-            f"{prompt}"
+            "Review the following events and produce a structured research package. "
+            "Identify what is happening, why it matters, and which events have the highest "
+            "significance for Captain TJR across whichever domains are represented — world/OSINT "
+            "news, health, engineering, operational resilience, learning, opportunities.\n\n"
+            f"{research_input}"
         )
         research_package = self._call_agent(
             stage="stage1-research",
@@ -134,6 +246,31 @@ class LLMProvider:
         if not research_package:
             raise RuntimeError("Stage 1 (Research Scout) returned no output")
         log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
+
+        # ── Stage 1b: Engineering Officer (domain specialist) ────────────────
+        # Only runs when the input actually contains engineering-domain
+        # content (daily_digest.py labels its section "Engineering:") — no
+        # point spending a call framing an empty section.
+        if MISTRAL_ENGINEERING_AGENT_ID and "Engineering:" in prompt:
+            stage1b_prompt = (
+                f"{_SYSTEM_PROMPT}\n\n"
+                "You are the Engineering Officer. The events below include an Engineering section. "
+                "Write a short specialist take on the engineering-domain items only — what's "
+                "happening and why it matters technically. This will be merged into the wider "
+                "research package, not read standalone.\n\n"
+                f"{research_input}"
+            )
+            eng_take = self._call_agent(
+                stage="stage1b-engineering",
+                agent_id=MISTRAL_ENGINEERING_AGENT_ID,
+                agent_version=int(MISTRAL_ENGINEERING_AGENT_VERSION),
+                prompt=stage1b_prompt,
+            )
+            if eng_take:
+                log.info("[pipeline] Stage 1b (Engineering Officer) complete (%d chars)", len(eng_take))
+                research_package = f"{research_package}\n\nENGINEERING OFFICER NOTES:\n{eng_take}"
+            else:
+                log.warning("[pipeline] Stage 1b (Engineering Officer) failed — continuing without it")
 
         # ── Stage 2: Tactical Analysis Officer (TAO) ─────────────────────────
         # Single agent combining challenge review + summary compression (web search OFF)
@@ -156,23 +293,45 @@ class LLMProvider:
             else:
                 log.warning("[pipeline] Stage 2 (TAO) failed — continuing with raw research package")
 
-        # ── Stage 3: Briefing Officer ─────────────────────────────────────────
-        # Use TAO output if available, otherwise fall back to raw research package
+        # 2026-08-22: Risk & Challenge Officer and Summary Officer were tried
+        # here as two more sequential re-compression stages after TAO
+        # (TAO -> Challenge -> Summary -> Briefing). Isolated per-agent
+        # testing showed every stage individually stayed faithful to its
+        # input, but the CHAINED result fabricated specifics never present
+        # anywhere in the source events ("850ms latency", "7,500-user
+        # capacity", "Kubernetes clusters" — none of that was real). Root
+        # cause: TAO already does "challenge + compress" as one designed
+        # unit (see root .env's original comment — Challenge/Summary were
+        # marked "not used in pipeline" for exactly this reason before
+        # today). Re-summarizing an already-compressed, caveat-stripped
+        # package twice more gives the final Briefing Officer a vaguer input
+        # and more room to confabulate confident-sounding filler. Reverted
+        # to TAO as the single compression checkpoint; Risk & Challenge
+        # Officer is still used, just moved to a POST-generation check on
+        # the finished brief (see check_brief_quality() below and
+        # brief_generator.py) where it can only flag, never corrupt the
+        # input to the stage that actually writes the brief. Summary
+        # Officer is left configured but unused in this pipeline, same as
+        # it was before this session — TAO already fills that role.
         briefing_input = tao_output if tao_output else research_package
 
         stage4_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
             "STAGE 3 — EXECUTIVE BRIEF GENERATION\n"
-            "You have received a compressed intelligence package from the Tactical Analysis Officer. "
+            "You have received a compressed intelligence package. "
             "Generate the final executive brief for Captain TJR.\n\n"
             f"INTELLIGENCE PACKAGE:\n{briefing_input}\n\n"
             "Respond with a JSON object containing exactly these keys:\n"
             "{\n"
-            '  "executive_snapshot": "<2-3 sentence overall summary of the intelligence period>",\n'
+            '  "executive_snapshot": "<2-3 sentence overall summary of the period — cover every domain '
+            'actually present (world/OSINT news, health, engineering, operational resilience, learning, '
+            'opportunities), don\'t let one domain crowd out the others>",\n'
             '  "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],\n'
-            '  "forward_watch": ["<upcoming risk or watch item 1>", "<upcoming risk or watch item 2>"],\n'
-            '  "cps230_implications": ["<implication 1>", "<implication 2>"],\n'
-            '  "bottom_line": "<one paragraph, what Captain TJR should know and do>"\n'
+            '  "forward_watch": ["<upcoming item to watch 1>", "<upcoming item to watch 2>"],\n'
+            '  "cps230_implications": ["<operational-resilience/regulatory implication, ONLY if the input '
+            'actually contains banking/CPS230-relevant events — empty list otherwise, do not force one>"],\n'
+            '  "bottom_line": "<one paragraph, what Captain TJR should know and do today, across all his '
+            'domains, in plain educational language>"\n'
             "}\n\n"
             "Only use information from the intelligence package provided. Do not invent incidents."
         )
@@ -235,12 +394,26 @@ class LLMProvider:
         return None
 
     def _call_mistral_direct(self, stage: str, prompt: str) -> Optional[str]:
-        """Direct mistral-small-latest chat completions — used when conversations API stalls on tool calls."""
+        """Direct mistral-small-latest chat completions — used when conversations API stalls on tool calls.
+        2026-08-22: this path has no search/tool access at all, but the
+        agent it's replacing (e.g. Research Scout) may be built around an
+        expectation of searched, verified specifics — confirmed live this
+        session as the exact mechanism that produced fabricated statistics
+        and a fake citation. The explicit no-search notice below is
+        defense-in-depth alongside the equivalent instruction added to
+        Research Scout's own system prompt on Mistral's console (v24)."""
+        no_search_notice = (
+            "\n\nNOTE: search is unavailable for this response — you are working from the input "
+            "text only, with no ability to verify or look anything up. Do not invent statistics, "
+            "percentages, dates, or specific facts (including ones that might be true from general "
+            "knowledge) to fill gaps or match an expected format. State plainly that search was "
+            "unavailable if relevant, and report only what is directly present in the input below."
+        )
         try:
             body = json.dumps({
                 "model": "mistral-small-latest",
                 "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": _SYSTEM_PROMPT + no_search_notice},
                     {"role": "user", "content": prompt},
                 ],
                 "max_tokens": 2048,

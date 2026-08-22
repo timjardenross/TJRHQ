@@ -971,6 +971,15 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
         "confidence": float(brief.confidence) if brief.confidence else None,
         "narrative_available": brief.narrative_available,
         "trigger_type": brief.trigger_type,
+        # 2026-08-22: this is a single-user platform — the IN_REVIEW /
+        # QA_PASSED / PUBLISHED approval chain (intelligence/workflow/
+        # service.py) was built for a multi-reviewer newsroom and had no
+        # reachable "publish" action anywhere in the portal for this daily
+        # path, so briefs piled up IN_REVIEW forever (26/28 rows, confirmed
+        # live 2026-08-22). Auto-publish at generation time instead. The
+        # workflow module itself is left in place, just unused by this path.
+        "approval_status": "PUBLISHED",
+        "published_at": brief.generated_at.isoformat(),
     }
     result = _post("intelligence_briefs", row)
     if result:

@@ -45,9 +45,25 @@ MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8080")
 # for the real cost math and which sources are approved to use this path.
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
 
-# Mistral Agents — OR Intelligence pipeline
-# Stage 1: Endeavour Research Scout  → synthesise raw events into research package
-# Stage 2: TAO / Briefing Officer    → challenge + compress → executive brief JSON
+# Mistral Agents — daily digest pipeline (2026-08-22: expanded from 3 stages
+# to use more of the 8 already-provisioned agents; see
+# intelligence/brief/llm_provider.py's _mistral_pipeline for exact order).
+# Narrative-generation chain (sequential, each feeds the next):
+#   CSD Unit → Endeavour Research Scout → Engineering Officer (specialist
+#   pass, engineering-domain content only) → TAO (challenge + compress,
+#   web search OFF) → Briefing Officer (executive brief JSON)
+# Post-generation checks (run on the FINISHED brief, non-blocking, log
+# only — never alter or withhold it):
+#   QA Validation Officer (forced/mismatched framing) and Risk & Challenge
+#   Officer (is the risk rating earned) — see brief_generator.py.
+# Summary Officer is configured but NOT used: TAO already does
+# "challenge + compress" as one designed unit. Chaining Risk & Challenge
+# and Summary as two MORE sequential re-compression stages before Briefing
+# Officer was tried and reverted 2026-08-22 — isolated per-agent testing
+# showed every stage individually stayed faithful to its input, but the
+# chained result fabricated specifics that were never in any source event.
+# Moving those two to post-generation checks keeps them useful without
+# risking corrupting what the Briefing Officer actually writes from.
 MISTRAL_RESEARCH_AGENT_ID      = os.getenv("MISTRAL_RESEARCH_AGENT_ID", "")
 MISTRAL_RESEARCH_AGENT_VERSION = os.getenv("MISTRAL_RESEARCH_AGENT_VERSION", "1")
 
@@ -58,9 +74,35 @@ MISTRAL_BRIEFING_AGENT_VERSION = os.getenv("MISTRAL_BRIEFING_AGENT_VERSION", "2"
 MISTRAL_TAO_AGENT_ID      = os.getenv("MISTRAL_TAO_AGENT_ID", "")
 MISTRAL_TAO_AGENT_VERSION = os.getenv("MISTRAL_TAO_AGENT_VERSION", "0")
 
+# Cognitive Subspace Decomposition Unit (CSD) — pre-processing task framing
+MISTRAL_DECOMPOSITION_AGENT_ID      = os.getenv("MISTRAL_DECOMPOSITION_AGENT_ID", "")
+MISTRAL_DECOMPOSITION_AGENT_VERSION = os.getenv("MISTRAL_DECOMPOSITION_AGENT_VERSION", "1")
+
+# Engineering Officer — engineering-domain specialist (core_events, not OSINT)
+MISTRAL_ENGINEERING_AGENT_ID      = os.getenv("MISTRAL_ENGINEERING_OFFICER_AGENT_ID", "")
+MISTRAL_ENGINEERING_AGENT_VERSION = os.getenv("MISTRAL_ENGINEERING_OFFICER_AGENT_VERSION", "1")
+
+# Risk & Challenge Officer — web-search-enabled, was excluded from the
+# pipeline previously for that reason (see git history on this file /
+# .env's old comment); _call_agent()'s existing direct-completions fallback
+# now covers the tool-call-stall failure mode, so it's back in as an
+# optional adversarial stage — degrades gracefully like every other stage.
+MISTRAL_CHALLENGE_AGENT_ID      = os.getenv("MISTRAL_CHALLENGE_AGENT_ID", "")
+MISTRAL_CHALLENGE_AGENT_VERSION = os.getenv("MISTRAL_CHALLENGE_AGENT_VERSION", "1")
+
+# Summary Officer — web-search-enabled, same caveat as Risk & Challenge above
+MISTRAL_SUMMARY_AGENT_ID      = os.getenv("MISTRAL_SUMMARY_AGENT_ID", "")
+MISTRAL_SUMMARY_AGENT_VERSION = os.getenv("MISTRAL_SUMMARY_AGENT_VERSION", "1")
+
+# QA Validation Officer — post-generation check, wired in brief_generator.py, not the narrative pipeline itself
+MISTRAL_QA_AGENT_ID      = os.getenv("MISTRAL_QA_VALIDATION_OFFICER_AGENT_ID", "")
+MISTRAL_QA_AGENT_VERSION = os.getenv("MISTRAL_QA_VALIDATION_OFFICER_AGENT_VERSION", "1")
+
 # ─── Scheduling ───────────────────────────────────────────────────────────────
-# Cron expression for scheduled brief generation (default: fortnightly, Monday 06:00 AEST)
-SCHEDULE_CRON = os.getenv("OR_INTEL_SCHEDULE_CRON", "0 6 1,15 * *")
+# Cron expression for scheduled brief generation (2026-08-22: daily 06:30 AEST,
+# after the 06:00 daily_source_collection job — was fortnightly, "0 6 1,15 * *",
+# which is why the archive only ever had ~2 real published entries a month).
+SCHEDULE_CRON = os.getenv("OR_INTEL_SCHEDULE_CRON", "30 6 * * *")
 
 # Daily incremental sync of the GitHub OR Briefs source (USS-TJR-MSN-0074).
 # Upstream briefs publish ~10:00 Melbourne daily; sync 30 min later for headroom.
@@ -77,7 +119,12 @@ DAILY_BRIEF_AFTER_SYNC = os.getenv("OR_INTEL_DAILY_BRIEF_AFTER_SYNC", "0") == "1
 HTTP_TIMEOUT_SECONDS   = int(os.getenv("OR_INTEL_HTTP_TIMEOUT", "15"))
 MAX_ITEMS_PER_SOURCE   = int(os.getenv("OR_INTEL_MAX_ITEMS_PER_SOURCE", "20"))
 STALE_ITEM_HOURS       = int(os.getenv("OR_INTEL_STALE_ITEM_HOURS", "24"))
-BRIEF_PERIOD_DAYS      = int(os.getenv("OR_INTEL_BRIEF_PERIOD_DAYS", "14"))
+# 2026-08-22: was 14 — fine for a fortnightly cadence, wrong for daily.
+# At 14 days with a daily cron, each day's digest would re-summarize the
+# same rolling 2-week window as yesterday's, near-total overlap. 1 day
+# matches the new daily cadence; the weekly report path (generate_weekly_report()
+# in captains_brief.py) does its own independent 7-day roll-up already.
+BRIEF_PERIOD_DAYS      = int(os.getenv("OR_INTEL_BRIEF_PERIOD_DAYS", "1"))
 
 # Bright Data Web Unlocker API — on-demand rendered-page fetch for sources
 # behind bot/CAPTCHA challenges a plain GET can't reach (2026-08-10,

@@ -32,11 +32,16 @@ const STATUS_LABEL: Record<ApprovalStatus, string> = {
   PUBLISHED: 'Published',
 };
 
+// 2026-08-22: single-user platform, briefs now auto-publish at generation
+// time (intelligence/persistence/intelligence_store.py:save_brief()) — the
+// IN_REVIEW/QA_PASSED states are pre-2026-08-22 history, not an active queue
+// anyone works through. Default view is Published; the others stay
+// selectable for that history, not because anything new lands there.
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'IN_REVIEW', label: 'In Review' },
-  { key: 'QA_PASSED', label: 'Awaiting Publish' },
   { key: 'PUBLISHED', label: 'Published' },
+  { key: 'all', label: 'All' },
+  { key: 'IN_REVIEW', label: 'In Review (legacy)' },
+  { key: 'QA_PASSED', label: 'Awaiting Publish (legacy)' },
 ];
 
 export default function BriefsPage() {
@@ -44,7 +49,7 @@ export default function BriefsPage() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('PUBLISHED');
 
   useEffect(() => {
     fetch('/api/briefs')

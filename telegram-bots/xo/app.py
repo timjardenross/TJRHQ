@@ -501,14 +501,61 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 _RISK_ICON = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}
 
 
+_brief_regen_started_at: float | None = None  # monotonic timestamp — cooldown guard, not a completion signal
+_BRIEF_REGEN_COOLDOWN_SECONDS = 25 * 60  # a detached Popen can't report back when it's actually done
+
+
+def _launch_brief_regen_detached() -> None:
+    """Kick off `python -m intelligence.scheduler --once` (trigger="on_demand",
+    intelligence/scheduler.py:run_once) as a DETACHED background process —
+    2026-08-22: this was originally a synchronous subprocess.run() with a
+    180s timeout, but a live timed run (2026-08-22, post the collection-
+    widening change — 1,193 items vs ~200 before) took ~25 minutes end to
+    end, dominated by brief_generator.py's per-item Supabase dedup-check
+    loop (event_hash_exists/event_canonical_url_exists/event_title_date_exists,
+    one round-trip per item — a real N+1 pattern, not yet fixed) plus the
+    now-7-stage Mistral pipeline on top. A 180s timeout would have failed
+    on every single call. Fire-and-forget is the honest fix for a chat
+    command — blocking Telegram for 20-30 minutes isn't a real option
+    either way."""
+    subprocess.Popen(
+        [sys.executable, "-m", "intelligence.scheduler", "--once"],
+        cwd=str(_REPO_ROOT),
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/brief — latest OR Intelligence Brief from intelligence_briefs table."""
+    """/brief — shows the latest Captain's Brief digest now, and kicks off a
+    fresh regenerate in the background (takes ~15-25 min; run /brief again
+    after that to see it)."""
+    global _brief_regen_started_at
     db = _get_supabase()
     if not db:
         await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
         return
 
-    await update.message.reply_text("⚙️ Fetching latest OR Intelligence Brief…")
+    now_mono = time.monotonic()
+    cooling_down = (
+        _brief_regen_started_at is not None
+        and (now_mono - _brief_regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
+    )
+    if cooling_down:
+        await update.message.reply_text("⚙️ A regenerate was started recently and is likely still running — showing the latest available digest for now.")
+    else:
+        try:
+            _launch_brief_regen_detached()
+            _brief_regen_started_at = now_mono
+            await update.message.reply_text(
+                "⚙️ Kicked off a fresh regenerate in the background (~15-25 min — full source "
+                "collection + LLM synthesis). Showing the latest available digest below now; "
+                "run /brief again once that's had time to land."
+            )
+        except Exception as exc:
+            log.warning("[brief] failed to launch on-demand regenerate: %s", exc)
+            await update.message.reply_text("⚠️ Couldn't start a regenerate — showing the last available digest instead.")
+
     try:
         res = (
             db.table("intelligence_briefs")

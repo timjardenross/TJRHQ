@@ -139,6 +139,28 @@ class BriefGenerator:
             self._generate_narrative(top5, brief_events, period_start, period_end,
                                      sources_available, sources_failed)
 
+        # ── 8b. QA Validation Officer — non-blocking sanity check ─────────────
+        # 2026-08-22: real LLM check for forced/mismatched framing (the bug
+        # found live this session — general world news getting manufactured
+        # "operational resilience"/"compliance" language). Logs only, never
+        # withholds or alters the brief — this is a single-user platform with
+        # auto-publish (see intelligence/persistence/intelligence_store.py:
+        # save_brief()), not a review gate.
+        if executive_snapshot or bottom_line:
+            brief_text_for_checks = f"Executive snapshot: {executive_snapshot}\nBottom line: {bottom_line}"
+            try:
+                qa_note = self.llm.check_brief_quality(brief_text_for_checks)
+                if qa_note:
+                    log.info("[qa-validation] %s", qa_note)
+            except Exception as exc:
+                log.warning("[qa-validation] check errored: %s", exc)
+            try:
+                risk_note = self.llm.check_risk_rating(brief_text_for_checks, overall_risk)
+                if risk_note:
+                    log.info("[risk-challenge] %s", risk_note)
+            except Exception as exc:
+                log.warning("[risk-challenge] check errored: %s", exc)
+
         # ── 9. Assemble brief ─────────────────────────────────────────────────
         brief_id = str(uuid.uuid4())
         confidence = round(
@@ -360,7 +382,16 @@ class BriefGenerator:
             for e in brief_events
         ])
 
-        prompt = f"""Generate the following sections of an Operational Resilience Intelligence Brief.
+        # 2026-08-22: generalized from a forced "Operational Resilience
+        # Intelligence Brief" framing to a plain educational daily-digest
+        # framing — this collection still only carries OSINT/world events
+        # (health/engineering/learning/opportunities are merged in separately
+        # by intelligence/brief/daily_digest.py), but the narrative itself
+        # should read as "what happened in the world today", not manufacture
+        # a banking angle on every story. cps230_implications stays in the
+        # schema (it's a persisted DB column) but is only populated when the
+        # events actually warrant it.
+        prompt = f"""Generate a daily world-news digest for Captain TJR, in plain educational language.
 Period: {period_start.strftime('%d %b %Y')} to {period_end.strftime('%d %b %Y')}
 Sources available: {sources_available} ({sources_failed} failed)
 
@@ -369,11 +400,11 @@ TOP EVENTS THIS PERIOD:
 
 Respond with a JSON object containing exactly these keys:
 {{
-  "executive_snapshot": "<2-3 sentence overall summary of the intelligence period — must explicitly name or closely paraphrase at least one of the TOP EVENTS titles above, not a generic summary>",
+  "executive_snapshot": "<2-3 sentence overall summary of the period — must explicitly name or closely paraphrase at least one of the TOP EVENTS titles above, not a generic summary. Explain why it matters, not just what happened>",
   "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],
-  "forward_watch": ["<upcoming risk or watch item 1>", "<upcoming risk or watch item 2>"],
-  "cps230_implications": ["<implication 1 — use operational resilience terms like resilience, continuity, availability, or recovery where relevant>", "<implication 2>"],
-  "bottom_line": "<one paragraph, what Captain TJR should know and do>"
+  "forward_watch": ["<upcoming item to watch 1>", "<upcoming item to watch 2>"],
+  "cps230_implications": ["<operational-resilience/regulatory implication, ONLY if these events actually touch Australian banking/CPS230 — empty list otherwise, do not force one>"],
+  "bottom_line": "<one paragraph, what Captain TJR should know today>"
 }}
 
 Only use information from the TOP EVENTS provided. Do not invent incidents."""

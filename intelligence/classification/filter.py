@@ -107,6 +107,24 @@ _MEDIA_OR_SIGNALS = [
     "critical infrastructure", "vulnerability", "exploit",
 ]
 
+# 2026-08-22: the banking/cyber keyword allowlist above (plus the
+# banking_relevance/cps230_relevance requirement below) is the right bar for
+# an OSINT/resilience source, but was being applied to EVERY category
+# — including the literal "media" category and every low-priority-ranked
+# source regardless of category — killing 100% of wellness/thought_leadership
+# items (they were never going to carry banking_relevance or
+# cps230_relevance) AND every general-news "media" item that didn't happen
+# to mention a bank or a CVE. That second part matters more than it looks:
+# general world news IS the content the daily-digest brief exists to carry,
+# not noise to be filtered out. Scope the banking-specific bar to the
+# categories that are actually about banking/operational resilience;
+# "media" and everything else still has to clear the generic
+# _MIN_OP_RELEVANCE floor below, just not this stricter one.
+_OR_SPECIFIC_MEDIA_CATEGORIES = {
+    "regulatory", "cybersecurity", "banking_payments",
+    "critical_infrastructure", "emergency_management", "transport",
+}
+
 _MIN_TITLE_LENGTH = 10
 _MIN_OP_RELEVANCE = 0.20
 
@@ -196,8 +214,13 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
         if m and m.group(1).lower() in _STATUSPAGE_LOW_IMPACT:
             return True, f"status_page_low_impact_{m.group(1).lower()}"
 
-    # ── Media sources: suppress if no direct OR signal in title ───────────────
-    if event.source_category == "media" or event.source_priority >= 4:
+    # ── OSINT-category sources: suppress if no direct OR signal in title ──────
+    # Only applies to categories that are actually OSINT/resilience-specific
+    # (see _OR_SPECIFIC_MEDIA_CATEGORIES above, 2026-08-22). General "media"
+    # (mainstream news) and every non-OSINT category now fall through to the
+    # generic _MIN_OP_RELEVANCE floor instead — they're the world-news
+    # content the daily digest is meant to carry, not noise.
+    if event.source_category in _OR_SPECIFIC_MEDIA_CATEGORIES and event.source_priority >= 4:
         if not any(sig in title_lower for sig in _MEDIA_OR_SIGNALS):
             return True, "media_no_or_signal"
         # Fleet Engineering Review 2026-08-11: a title-level keyword match
