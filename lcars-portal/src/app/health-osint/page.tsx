@@ -32,8 +32,23 @@ const DOMAIN_LABEL: Record<string, string> = {
   vaccine: 'Vaccine',
 };
 
+// neuro_* (migration 0160 — adhd/autism/audhd/burnout/masking/regulation/
+// sensory/work/sleep/executive_function/treatment/australia_policy/
+// lived_experience) is derived rather than hand-listed here: 13 fixed
+// entries would drift out of sync the next time a neuro_ code is added
+// (exactly what happened to DOMAIN_LABEL itself, which never picked up
+// the granular epi_*/performance_*/factor_* codes already live before
+// this fix — not backfilled here, out of scope for this change, but
+// worth noting DOMAIN_LABEL was already incomplete).
 function domainLabel(d?: string) {
-  return (d && DOMAIN_LABEL[d]) || 'Health';
+  if (d && DOMAIN_LABEL[d]) return DOMAIN_LABEL[d];
+  if (d?.startsWith('neuro_')) {
+    const ACRONYMS: Record<string, string> = { adhd: 'ADHD', audhd: 'AuDHD', ndis: 'NDIS' };
+    return d.slice('neuro_'.length).split('_')
+      .map((w) => ACRONYMS[w] || w[0].toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return 'Health';
 }
 
 /** Small filled-dot + text-label tag, replacing decorative emoji glyphs with
