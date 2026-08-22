@@ -3,7 +3,24 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
-import { BAND_LABEL, bandStatus, type MedicalPayload } from './types';
+import {
+  BAND_LABEL,
+  bandStatus,
+  NATURAL_REGULATION_LABEL,
+  SENSORY_CHANNEL_LABEL,
+  SENSORY_RESPONSE_LABEL,
+  sensoryResponseStatus,
+  type MedicalPayload,
+} from './types';
+
+// Coarse stimulation_state ('low'|'balanced'|'high') display labels — same
+// vocabulary RecoveryView.tsx's own local STIMULATION_LABEL uses, kept as
+// a separate local const here rather than promoted to a shared types.ts
+// export to avoid touching RecoveryView.tsx (a peer agent's file this
+// mission) for an unrelated rename.
+const STIMULATION_STATE_LABEL: Record<string, string> = {
+  low: 'Not enough', balanced: 'Balanced', high: 'Too much',
+};
 
 const TREND_ENERGY: Record<string, number> = { High: 3, Moderate: 2, Low: 1 };
 
@@ -130,6 +147,54 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
         <p className="mt-3 text-[12px] text-wb-ink2">
           {windowedTrends.length} day{windowedTrends.length === 1 ? '' : 's'} of recorded data in the window.
         </p>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Sensory & Regulation" className="md:col-span-2">
+        <p className="mb-3 text-[13px] text-wb-ink2">
+          Detail underneath the Stimulation reading above — an optional deeper layer (V3 doc §10/§11), not asked
+          on every check-in, so it may be empty even on days with a lot recorded elsewhere.
+        </p>
+
+        <div className="rounded-md border border-wb-line bg-wb-bg p-3">
+          <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Sensory profile</div>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-[13px] text-wb-ink">Overall stimulation</span>
+            <Badge status="neutral">
+              {data.sensory_profile.stimulation_state
+                ? STIMULATION_STATE_LABEL[data.sensory_profile.stimulation_state] ?? data.sensory_profile.stimulation_state
+                : 'Not recorded'}
+            </Badge>
+          </div>
+          {data.sensory_profile.channels && Object.keys(data.sensory_profile.channels).length > 0 ? (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {(Object.entries(data.sensory_profile.channels) as [keyof typeof SENSORY_CHANNEL_LABEL, keyof typeof SENSORY_RESPONSE_LABEL][]).map(
+                ([channel, response]) => (
+                  <div key={channel} className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] text-wb-ink">{SENSORY_CHANNEL_LABEL[channel]}</span>
+                    <Badge status={sensoryResponseStatus(response)}>{SENSORY_RESPONSE_LABEL[response]}</Badge>
+                  </div>
+                ),
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-[12px] text-wb-ink2">No specific channel recorded as standing out.</p>
+          )}
+        </div>
+
+        <div className="mt-3 rounded-md border border-wb-line bg-wb-bg p-3">
+          <div className="text-[11px] uppercase tracking-wide text-wb-ink2">What my system seems to want</div>
+          <div className="mt-1">
+            <Badge status="neutral">
+              {data.natural_regulation.response ? NATURAL_REGULATION_LABEL[data.natural_regulation.response] : 'Not recorded'}
+            </Badge>
+          </div>
+          {data.natural_regulation.suppressed === true && (
+            <p className="mt-2 text-[12px] text-wb-ink2">
+              Flagged as something being held back because it feels inappropriate, inconvenient, or noticeable —
+              this feeds compensation-cost learning, not a prompt to correct it.
+            </p>
+          )}
+        </div>
       </CollapsibleSection>
 
       {data.redesign_candidates.length > 0 && (

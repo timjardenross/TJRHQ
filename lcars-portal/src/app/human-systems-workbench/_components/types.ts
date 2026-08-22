@@ -191,7 +191,61 @@ export interface RecoveryPayload {
    *  check-in that has one set — not aggregated/derived, displayed
    *  verbatim (or via USER_BURNOUT_FRAMING_LABEL) exactly as chosen. */
   user_burnout_framing: UserBurnoutFraming | null;
+
+  // ── V3 Mission 4 — Personal Experiment Engine (§15/§19) ──────────────────
+  // Every 'proposed'/'active' experiment plus recently completed/stopped
+  // ones (see buildRecovery()'s fetch window) — ordered newest-first by
+  // the API. RecoveryView.tsx picks the current proposed/active one (if
+  // any) to replace the narrative worthTesting() fallback, and the most
+  // recent completed/stopped one with a `result` to populate "What
+  // Changed". An empty array is the honest default (V3 Rule F — don't
+  // fabricate structure where there isn't any) and worthTesting() keeps
+  // running exactly as before in that case.
+  experiments: CapacityExperiment[];
 }
+
+/** V3 doc §15 "Personal Experiment Engine" / §19 "System Learning Upgrade"
+ *  — mirrors capacity_experiments (migration 0159). Written only by the
+ *  Capacity Bot's /experiment command (this route has no POST/PATCH — see
+ *  route.ts's header comment, all writes go through the bot); the
+ *  workbench reads it read-only. 'stopped' is kept distinct from
+ *  'completed' — §15: an experiment must "be stoppable if worse", and that
+ *  is a different, equally legitimate outcome from one that ran its full
+ *  trial window. */
+export type ExperimentStatus = 'proposed' | 'active' | 'completed' | 'stopped';
+export type ExperimentConfidence = 'low' | 'moderate' | 'high';
+
+export interface CapacityExperiment {
+  id: number;
+  hypothesis: string;
+  target_condition: string | null;
+  proposed_change: string;
+  /** Free text, not a date range (V3 §15 example: "4 of 5 office
+   *  afternoons reached Stretched or Depleted"). */
+  baseline_window: string | null;
+  /** Free text (e.g. "two weeks"). See migration 0159's comment — a small
+   *  set of presets drive reminder scheduling in the bot, but this field
+   *  itself is never parsed as a structured duration. */
+  trial_window: string | null;
+  outcome_measures: string[];
+  status: ExperimentStatus;
+  /** Non-null once status is 'completed' or 'stopped' — the §19 "WHAT
+   *  CHANGED" layer's source. Deliberately free text/personal-language,
+   *  never a supported/not-supported flag (§15: must not masquerade as a
+   *  medical/diagnostic conclusion). */
+  result: string | null;
+  confidence: ExperimentConfidence | null;
+  notes: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export const EXPERIMENT_STATUS_LABEL: Record<ExperimentStatus, string> = {
+  proposed: 'Worth testing',
+  active: 'In progress',
+  completed: 'Completed',
+  stopped: 'Stopped',
+};
 
 export interface RecoveryIndex {
   key: string;
@@ -275,6 +329,76 @@ export interface RedesignCandidate {
   window_days: number;
 }
 
+// ── V3 Mission 3 — Sensory + Regulation Profile ─────────────────────────────
+// (TJR_Human_Systems_Workbench_V3_Mission_and_Change_Proposal.md §10
+// "Sensory Regulation Upgrade" + §11 "Natural Regulation Response").
+// Deep-check-tier, additive on top of the unchanged coarse
+// stimulation_state summary — mirrors capacity_checkins.sensory_channels /
+// natural_regulation_response / suppressed_regulation_response (migration
+// 0158).
+
+/** V3 doc §10 — the 8 potential sensory channels a deep check can flag
+ *  ("most check-ins will only flag 1-2 channels, not all 8" — migration
+ *  0158's comment). Keys match the jsonb keys
+ *  telegram-bots/capacitybot/capacity_today.py's SENSORY_CHANNEL_KEYS
+ *  writes. */
+export type SensoryChannelKey =
+  | 'auditory' | 'visual' | 'touch' | 'smell' | 'movement' | 'pressure'
+  | 'temperature' | 'environmental_complexity';
+
+/** V3 doc §10's per-channel response vocabulary. */
+export type SensoryChannelResponse =
+  | 'reduce_avoid' | 'neutral' | 'seek_helpful' | 'context_dependent' | 'unknown';
+
+/** capacity_checkins.sensory_channels (migration 0158) — sparse by design;
+ *  only channels the Captain actually flagged appear as keys. Never
+ *  backfilled with a default for an unflagged channel (V3 doc's "do not
+ *  fabricate" discipline applies to display, not just missing values). */
+export type SensoryChannelBreakdown = Partial<Record<SensoryChannelKey, SensoryChannelResponse>>;
+
+export const SENSORY_CHANNEL_LABEL: Record<SensoryChannelKey, string> = {
+  auditory: 'Auditory', visual: 'Visual', touch: 'Touch', smell: 'Smell',
+  movement: 'Movement', pressure: 'Pressure', temperature: 'Temperature',
+  environmental_complexity: 'Environmental complexity',
+};
+
+export const SENSORY_RESPONSE_LABEL: Record<SensoryChannelResponse, string> = {
+  reduce_avoid: 'Reduce / avoid', neutral: 'Neutral', seek_helpful: 'Seek / helpful',
+  context_dependent: 'Context dependent', unknown: 'Unknown',
+};
+
+/** Sensory response → Badge status. Deliberately non-pathologising: a
+ *  channel someone reduces/avoids is not shown as "bad" and one they seek
+ *  out is not shown as automatically "good" — reduce_avoid/context_
+ *  dependent read as a mild flag worth noting, seek_helpful reads as a
+ *  positive signal, neutral/unknown as plain info (V3 doc §3.6 — sensory
+ *  responses are not symptoms to correct). */
+export function sensoryResponseStatus(r: SensoryChannelResponse): BadgeStatus {
+  switch (r) {
+    case 'seek_helpful': return 'success';
+    case 'neutral': return 'info';
+    case 'reduce_avoid': return 'warning';
+    case 'context_dependent': return 'warning';
+    default: return 'neutral'; // unknown
+  }
+}
+
+/** V3 doc §11 "Natural Regulation Response" — "what does my system seem to
+ *  want right now?". capacity_checkins.natural_regulation_response
+ *  (migration 0158). */
+export type NaturalRegulationResponse =
+  | 'less_input' | 'more_input' | 'move' | 'fidget_repeat' | 'quiet' | 'stop_talking'
+  | 'be_alone' | 'connect_with_someone_safe' | 'something_familiar' | 'something_interesting'
+  | 'pressure_sensory_comfort' | 'get_thoughts_out' | 'rest' | 'dont_know';
+
+export const NATURAL_REGULATION_LABEL: Record<NaturalRegulationResponse, string> = {
+  less_input: 'Less input', more_input: 'More input', move: 'Move', fidget_repeat: 'Fidget / repeat',
+  quiet: 'Quiet', stop_talking: 'Stop talking', be_alone: 'Be alone',
+  connect_with_someone_safe: 'Connect with someone safe', something_familiar: 'Something familiar',
+  something_interesting: 'Something interesting', pressure_sensory_comfort: 'Pressure / sensory comfort',
+  get_thoughts_out: 'Get thoughts out', rest: 'Rest', dont_know: "Doesn't know",
+};
+
 export interface MedicalPayload {
   domain: 'medical';
   kpis: Kpis;
@@ -303,6 +427,31 @@ export interface MedicalPayload {
   recovery_duration: RecoveryDurationSummary;
   intervention_effectiveness: InterventionEffectiveness[];
   redesign_candidates: RedesignCandidate[];
+
+  // ── V3 Mission 3 — Sensory + Regulation Profile (§10/§11) ───────────────
+  /** V3 doc §10 — the coarse stimulation_state summary paired with an
+   *  optional deeper per-channel breakdown, so the UI can say something
+   *  like "Overall stimulation is balanced, but auditory load is high"
+   *  (the worked example in §10 itself) instead of collapsing all sensory
+   *  experience into one value. `channels` is read from the most recent
+   *  check-in that has ANY channel flagged, not restricted to today — same
+   *  deep-check-tier latest-non-null fallback user_burnout_framing already
+   *  uses elsewhere in this workbench, since this is an optional,
+   *  occasionally-answered layer (spec §24). */
+  sensory_profile: {
+    stimulation_state: string | null;
+    channels: SensoryChannelBreakdown | null;
+  };
+  /** V3 doc §11 — "what does my system seem to want right now?" plus the
+   *  optional suppressed-response flag ("Am I stopping myself from doing
+   *  something that may help because it feels inappropriate, inconvenient
+   *  or noticeable?"). Feeds compensation-cost learning per the doc — never
+   *  render `suppressed` as something to correct. Same latest-non-null
+   *  fallback as sensory_profile.channels above. */
+  natural_regulation: {
+    response: NaturalRegulationResponse | null;
+    suppressed: boolean | null;
+  };
 }
 
 export interface ReadinessPayload {

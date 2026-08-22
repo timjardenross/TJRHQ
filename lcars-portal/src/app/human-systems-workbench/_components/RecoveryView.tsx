@@ -7,12 +7,14 @@ import {
   CAPACITY_BALANCE_LABEL,
   CAPACITY_STATE_LABEL as CAPACITY_LABEL,
   capacityStateStatus,
+  EXPERIMENT_STATUS_LABEL,
   RECOVERY_STAGE_LABEL,
   STRATEGIC_POSTURE_LABEL,
   strategicPostureStatus,
   SYSTEM_TRAJECTORY_LABEL,
   systemTrajectoryStatus,
   USER_BURNOUT_FRAMING_LABEL,
+  type CapacityExperiment,
   type InterventionEffectiveness,
   type RecoveryPayload,
   type RecoveryStage,
@@ -111,7 +113,17 @@ function StateTile({ label, value }: { label: string; value: string | null }) {
 export function RecoveryView({ data, interventionEffectiveness }: { data: RecoveryPayload; interventionEffectiveness: InterventionEffectiveness[] }) {
   const nm = data.next_move;
   const hasNextMove = !!(nm.intervention_title);
-  const testingSuggestion = worthTesting(data);
+  // V3 Mission 4 (§15/§19) — a structured experiment takes over from the
+  // narrative worthTesting() heuristic once one exists (proposed/active).
+  // Most-recently-started-or-proposed wins when more than one is somehow
+  // open at once (experiments are ordered newest-created-first from the
+  // API, so [0] among the proposed/active ones is the newest).
+  const currentExperiment = data.experiments.find((e) => e.status === 'proposed' || e.status === 'active') ?? null;
+  const testingSuggestion = currentExperiment ? null : worthTesting(data);
+  // Most recently finished experiment that actually has a result to show —
+  // one without a result yet (e.g. marked stopped with no note) has
+  // nothing for "What Changed" to say.
+  const changedExperiment = data.experiments.find((e) => (e.status === 'completed' || e.status === 'stopped') && e.result) ?? null;
   const activeRevs = activeRevsStage(data.current_recovery_stage);
 
   return (
@@ -291,10 +303,39 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
             </div>
           )}
 
-          {testingSuggestion && (
+          {currentExperiment && (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+                <Badge status={currentExperiment.status === 'active' ? 'info' : 'neutral'}>
+                  {EXPERIMENT_STATUS_LABEL[currentExperiment.status]}
+                </Badge>
+              </div>
+              <ExperimentCard experiment={currentExperiment} />
+            </div>
+          )}
+
+          {!currentExperiment && testingSuggestion && (
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
               <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{testingSuggestion}</p>
+            </div>
+          )}
+
+          {/* V3 doc §19 fourth layer — only once an experiment has actually
+              finished and left a result behind. */}
+          {changedExperiment && (
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What Changed</div>
+              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{changedExperiment.hypothesis}</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{changedExperiment.result}</p>
+              <p className="mt-1 text-[12px] text-wb-ink2">
+                {changedExperiment.status === 'stopped' ? 'Stopped' : 'Completed'}
+                {changedExperiment.confidence ? ` · Confidence — ${changedExperiment.confidence}` : ''}
+                {changedExperiment.completed_at
+                  ? ` · ${new Date(changedExperiment.completed_at).toLocaleDateString('en-AU')}`
+                  : ''}
+              </p>
             </div>
           )}
         </div>
@@ -335,6 +376,53 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
           A management orientation, not a completion score — these can overlap. See &ldquo;Things I Should Change&rdquo; below for redesign candidates.
         </p>
       </CollapsibleSection>
+    </div>
+  );
+}
+
+/** V3 doc §15 — the structured experiment object, replacing the narrative
+ *  string for the "Worth Testing" subsection whenever a proposed/active
+ *  capacity_experiments row exists. Copy is deliberately framed as
+ *  reversible/stoppable, never as a commitment (§15: experiments must "be
+ *  reversible where practical" and "be stoppable if worse" — and must
+ *  never masquerade as medical treatment). Created/updated only via the
+ *  Capacity Bot's /experiment command. */
+function ExperimentCard({ experiment: e }: { experiment: CapacityExperiment }) {
+  return (
+    <div className="mt-2 rounded-md border border-wb-line bg-wb-bg p-3">
+      <p className="text-[13px] leading-relaxed text-wb-ink">
+        <span className="font-medium">Hypothesis — </span>
+        {e.hypothesis}
+      </p>
+      <p className="mt-2 text-[13px] leading-relaxed text-wb-ink2">
+        <span className="font-medium text-wb-ink">Trying — </span>
+        {e.proposed_change}
+      </p>
+      {e.baseline_window && (
+        <p className="mt-2 text-[12px] leading-relaxed text-wb-ink2">
+          <span className="font-medium text-wb-ink">Baseline — </span>
+          {e.baseline_window}
+        </p>
+      )}
+      {e.trial_window && (
+        <p className="mt-2 text-[12px] leading-relaxed text-wb-ink2">
+          <span className="font-medium text-wb-ink">Trial — </span>
+          {e.trial_window}
+        </p>
+      )}
+      {e.outcome_measures.length > 0 && (
+        <div className="mt-2">
+          <div className="text-[12px] font-medium text-wb-ink">Watching:</div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {e.outcome_measures.map((m) => (
+              <Badge key={m} status="neutral">{m}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="mt-3 text-[11px] italic text-wb-ink2">
+        Worth testing, not a commitment — stop it anytime with /experiment on the Capacity Bot if it makes things worse.
+      </p>
     </div>
   );
 }

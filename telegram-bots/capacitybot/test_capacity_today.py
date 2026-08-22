@@ -32,9 +32,17 @@ from telegram_bots.capacitybot.capacity_today import (
     COMPENSATION_TYPE_VALUES,
     HELPFUL_ACTIONS_OPTIONS,
     IDENTIFIED_NEEDS,
+    NATURAL_REGULATION_CODE_TO_STATE,
+    NATURAL_REGULATION_OPTIONS,
     PAGE_SIZE,
     PREDICTABILITY_OPTIONS,
     RECOVERY_FACTORS,
+    SENSORY_CHANNEL_KEYS,
+    SENSORY_CHANNEL_LABELS,
+    SENSORY_CHANNEL_SHORT,
+    SENSORY_CHANNELS,
+    SENSORY_RESPONSE_CODE_TO_VALUE,
+    SENSORY_RESPONSE_OPTIONS,
     UNHELPFUL_ACTIONS_OPTIONS,
     base_from,
     kb_body_signal_clarity,
@@ -43,11 +51,14 @@ from telegram_bots.capacitybot.capacity_today import (
     kb_deep_multiselect,
     kb_emotional,
     kb_multiselect,
+    kb_natural_regulation,
     kb_pain,
     kb_predictability,
+    kb_sensory_channel_response,
     kb_sleep,
     kb_social,
     kb_stimulation,
+    kb_suppressed_regulation,
     parse_cb,
     q_active_loads,
     q_body_signal_clarity,
@@ -55,12 +66,16 @@ from telegram_bots.capacitybot.capacity_today import (
     q_capacity,
     q_emotional,
     q_executive_function,
+    q_natural_regulation,
     q_predictability,
+    q_sensory_channel_response,
     q_sleep,
     q_social,
+    q_suppressed_regulation,
     render_multiselect_question,
     render_question,
     write_deep_checkin,
+    write_deep_sensory_channel,
     write_quick_checkin,
 )
 
@@ -364,15 +379,194 @@ def test_deep_callback_bc_asks_predictability():
     check("asks predictability question next", "predictable" in text_arg.lower())
 
 
-def test_deep_callback_pd_asks_recovery_duration():
-    print("\n── handle_capacity_deep_callback — pd answered -> asks recovery duration ─")
+def test_deep_callback_pd_asks_sensory_channels():
+    print("\n── handle_capacity_deep_callback — pd answered -> asks sensory channels (V3 Mission 3) ─")
     from telegram_bots.capacitybot.app import handle_capacity_deep_callback
 
     update, context, query = _make_update_and_context("ctd|id=99|pd=su")
     asyncio.run(handle_capacity_deep_callback(update, context))
 
     text_arg = query.edit_message_text.call_args[0][0]
-    check("asks recovery-duration question, unchanged from before this mission",
+    check("asks the sensory-channels question next, not recovery duration",
+          "stand out" in text_arg.lower())
+    check("all 8 sensory channels present in body",
+          all(label in text_arg for label in SENSORY_CHANNEL_LABELS))
+
+
+# ── V3 Mission 3 — Sensory + Regulation Profile (§10/§11) ───────────────────
+
+def test_sensory_channel_option_lists_populated():
+    print("\n── sensory channel option lists — populated, index/label/short in sync ─")
+    check("SENSORY_CHANNELS has 8 channels", len(SENSORY_CHANNELS) == 8)
+    check("SENSORY_CHANNEL_KEYS/LABELS/SHORT same length",
+          len(SENSORY_CHANNEL_KEYS) == len(SENSORY_CHANNEL_LABELS) == len(SENSORY_CHANNEL_SHORT) == 8)
+    check("SENSORY_RESPONSE_OPTIONS has 5 responses (V3 doc §10)", len(SENSORY_RESPONSE_OPTIONS) == 5)
+    check("sensory response options include an 'unknown' value",
+          any(code == "uk" for code, _ in SENSORY_RESPONSE_OPTIONS))
+    check("NATURAL_REGULATION_OPTIONS has 14 options (V3 doc §11)", len(NATURAL_REGULATION_OPTIONS) == 14)
+    check("natural regulation options include an 'I don't know' value",
+          any(code == "dk" for code, _ in NATURAL_REGULATION_OPTIONS))
+
+
+def test_q_and_kb_sensory_channel_response():
+    print("\n── q_sensory_channel_response/kb_sensory_channel_response ───────")
+    text = q_sensory_channel_response("0")
+    check("names the flagged channel (auditory) in the question",
+          SENSORY_CHANNEL_LABELS[0] in text)
+    check("all 5 response options present in body",
+          all(label in text for _, label in SENSORY_RESPONSE_OPTIONS))
+    kb = kb_sensory_channel_response("99", "0", "2,4")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("5 buttons, one per response option", len(buttons) == 5)
+    check("callback carries row id, current channel idx, and remaining queue",
+          buttons[0].callback_data == "ctd|id=99|sci=0|scq=2,4|scr=ra")
+
+
+def test_q_and_kb_natural_regulation():
+    print("\n── q_natural_regulation/kb_natural_regulation ────────────────────")
+    text = q_natural_regulation()
+    check("all 14 natural-regulation options present in body",
+          all(label in text for _, label in NATURAL_REGULATION_OPTIONS))
+    kb = kb_natural_regulation("ctd|id=42")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("15 buttons: 14 options + Skip", len(buttons) == 15)
+    check("Skip button present", any("Skip" in b.text for b in buttons))
+
+
+def test_q_and_kb_suppressed_regulation():
+    print("\n── q_suppressed_regulation/kb_suppressed_regulation ──────────────")
+    text = q_suppressed_regulation()
+    check("frames as compensation-cost learning, not correction",
+          "compensation" in text.lower() and "fix" not in text.lower())
+    kb = kb_suppressed_regulation("ctd|id=42")
+    buttons = [b for row in kb.inline_keyboard for b in row]
+    check("Yes/No/Skip — 3 buttons", len(buttons) == 3)
+    check("callbacks carry the row id and sr code",
+          buttons[0].callback_data == "ctd|id=42|sr=y")
+
+
+def test_write_deep_checkin_natural_regulation_and_suppressed():
+    print("\n── write_deep_checkin — natural_regulation_response + suppressed_regulation_response ─")
+    db, table = _make_db()
+    asyncio.run(write_deep_checkin(db, "7", {"nr": "ba", "sr": "y"}))
+    payload = table.update.call_args[0][0]
+    check("natural_regulation_response decoded", payload.get("natural_regulation_response") == "be_alone")
+    check("suppressed_regulation_response decoded to boolean True", payload.get("suppressed_regulation_response") is True)
+
+    db2, table2 = _make_db()
+    asyncio.run(write_deep_checkin(db2, "7", {"nr": "skip", "sr": "skip"}))
+    payload2 = table2.update.call_args[0][0]
+    check("nr=skip is not written", "natural_regulation_response" not in payload2)
+    check("sr=skip is not written", "suppressed_regulation_response" not in payload2)
+
+
+def test_write_deep_sensory_channel_merges_without_clobbering():
+    print("\n── write_deep_sensory_channel — read-merge-write, doesn't clobber prior channels ─")
+    db, table = _make_db()
+    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+        MagicMock(data=[{"sensory_channels": {"auditory": "reduce_avoid"}}])
+    ok, err = asyncio.run(write_deep_sensory_channel(db, "7", "visual", "neutral"))
+    check("write reports success", ok)
+    check("no error message", err is None)
+    payload = table.update.call_args[0][0]
+    check("previously-set channel preserved", payload["sensory_channels"].get("auditory") == "reduce_avoid")
+    check("new channel merged in", payload["sensory_channels"].get("visual") == "neutral")
+
+
+def test_deep_callback_sc_skip_goes_straight_to_natural_regulation():
+    print("\n── handle_capacity_deep_callback — sc Done with nothing flagged -> natural regulation ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|sc=|done=1")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("skips the per-channel loop entirely, asks natural regulation next",
+          "want right now" in text_arg.lower())
+
+
+def test_deep_callback_sc_toggle_without_continue_redraws_multiselect():
+    print("\n── handle_capacity_deep_callback — sc toggle (no next/done) redraws ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|sc=0|pg=0")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("still on the sensory-channels question", "stand out" in text_arg.lower())
+
+
+def test_deep_callback_sc_flagged_channels_asks_first_channel_response():
+    print("\n── handle_capacity_deep_callback — sc Continue with 2 flagged -> asks first channel ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|sc=0,3|next=1")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks about the first flagged channel (index 0 = auditory)",
+          SENSORY_CHANNEL_LABELS[0] in text_arg)
+    kb_arg = query.edit_message_text.call_args[1].get("reply_markup")
+    check("remaining queue (index 3) carried in the callback base",
+          all("scq=3" in b.callback_data for row in kb_arg.inline_keyboard for b in row))
+
+
+def test_deep_callback_scr_advances_to_next_flagged_channel():
+    print("\n── handle_capacity_deep_callback — scr answered, queue not empty -> next channel ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    db, table = _make_db()
+    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{}])
+    import telegram_bots.capacitybot.app as app_module
+    app_module._supabase = db
+
+    update, context, query = _make_update_and_context("ctd|id=99|sci=0|scq=3|scr=ra")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("moves on to the next flagged channel (index 3 = smell)",
+          SENSORY_CHANNEL_LABELS[3] in text_arg)
+    app_module._supabase = None
+
+
+def test_deep_callback_scr_last_channel_advances_to_natural_regulation():
+    print("\n── handle_capacity_deep_callback — scr answered, queue empty -> natural regulation ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    db, table = _make_db()
+    table.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{}])
+    import telegram_bots.capacitybot.app as app_module
+    app_module._supabase = db
+
+    update, context, query = _make_update_and_context("ctd|id=99|sci=3|scq=|scr=nu")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("empty queue -> asks natural regulation, not another channel",
+          "want right now" in text_arg.lower())
+    app_module._supabase = None
+
+
+def test_deep_callback_nr_asks_suppressed_regulation():
+    print("\n── handle_capacity_deep_callback — nr answered -> asks suppressed-regulation ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|nr=rs")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks the suppressed-regulation question next", "stopping yourself" in text_arg.lower())
+
+
+def test_deep_callback_sr_asks_recovery_duration():
+    print("\n── handle_capacity_deep_callback — sr answered -> asks recovery duration ─")
+    from telegram_bots.capacitybot.app import handle_capacity_deep_callback
+
+    update, context, query = _make_update_and_context("ctd|id=99|sr=n")
+    asyncio.run(handle_capacity_deep_callback(update, context))
+
+    text_arg = query.edit_message_text.call_args[0][0]
+    check("asks recovery-duration question, rejoining the pre-existing flow",
           "how long did recovery take" in text_arg.lower())
 
 
@@ -726,7 +920,21 @@ def main():
     test_deep_callback_cpt_continue_asks_body_signal_clarity()
     test_deep_callback_cpt_toggle_without_continue_redraws_multiselect()
     test_deep_callback_bc_asks_predictability()
-    test_deep_callback_pd_asks_recovery_duration()
+    test_deep_callback_pd_asks_sensory_channels()
+
+    test_sensory_channel_option_lists_populated()
+    test_q_and_kb_sensory_channel_response()
+    test_q_and_kb_natural_regulation()
+    test_q_and_kb_suppressed_regulation()
+    test_write_deep_checkin_natural_regulation_and_suppressed()
+    test_write_deep_sensory_channel_merges_without_clobbering()
+    test_deep_callback_sc_skip_goes_straight_to_natural_regulation()
+    test_deep_callback_sc_toggle_without_continue_redraws_multiselect()
+    test_deep_callback_sc_flagged_channels_asks_first_channel_response()
+    test_deep_callback_scr_advances_to_next_flagged_channel()
+    test_deep_callback_scr_last_channel_advances_to_natural_regulation()
+    test_deep_callback_nr_asks_suppressed_regulation()
+    test_deep_callback_sr_asks_recovery_duration()
 
     test_parse_cb_handles_pagination_field()
     test_capacity_callback_active_loads_redraw_passes_page_through()

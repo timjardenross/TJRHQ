@@ -75,6 +75,7 @@ from telegram.ext import (
 
 from telegram_bots.capacitybot import capacity_today as ct
 from telegram_bots.capacitybot import distract
+from telegram_bots.capacitybot import experiments as exp
 from telegram_bots.capacitybot import guide
 from telegram_bots.capacitybot import helpme
 from telegram_bots.capacitybot import intervention_engine as ie
@@ -122,6 +123,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/week, /month — trend reviews\n"
         "/capacity_patterns — common patterns (30d)\n"
         "/actions — which strategies helped most\n"
+        "/experiment — propose or update a personal experiment\n"
         "/therapy — therapist-friendly summary\n\n"
         "/help for this list again."
     )
@@ -218,9 +220,23 @@ async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text(ct.q_therapy_window(), reply_markup=ct.kb_therapy_window())
 
 
+async def cmd_experiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """V3 Mission 4 — single entry point for the Personal Experiment Engine
+    (see experiments.py's module docstring). Clears any stale in-flight
+    propose/complete/stop state, same defensive reset cmd_helpme does."""
+    _clear_experiment_flow_state(context)
+    db = _get_supabase()
+    open_experiments = await exp.list_experiments(db)
+    await update.message.reply_text(exp.render_menu(open_experiments), reply_markup=exp.kb_menu(open_experiments))
+
+
 async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Only free-text input this bot expects: the deep check-in's closing
-    note (trigger + notes). Anything else gets pointed back at /capacity —
+    """Free-text input this bot expects: the deep check-in's closing note
+    (trigger + notes), and every free-text step of the /experiment propose
+    /complete/stop flows (see experiments.py's module docstring — hypothesis
+    and proposed_change have no sensible enumerated set, so this is the
+    other place besides the deep-check note where cross-message state lives
+    in context.user_data). Anything else gets pointed back at /capacity —
     this bot has no LLM/general-chat path, unlike XO."""
     text = (update.message.text or "").strip()
     if not text:
@@ -233,6 +249,11 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(
             "🔎 Deep check-in saved." if saved else f"⚠️ Could not save note: {err}"
         )
+        return
+
+    stage = context.user_data.get("experiment_stage") if context.user_data else None
+    if stage:
+        await _handle_experiment_text(update, context, stage, text)
         return
 
     await update.message.reply_text("Not sure what to do with that — try /capacity or /help.")
@@ -462,12 +483,13 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
     """Deep check-in. Two phases like the main quick check-in: lc/uc/mp
     accumulate in the callback string itself; once `mp` is answered the
     draft (lc/uc/mp) is written to the row and every step after that
-    (V3 burnout-tier bf/cpt/bc/pd, then rd, then rf/ha/ua) is write-through,
-    id-only in the callback. (Previously the Phase 1 -> Phase 2 switch
-    happened at `rd` instead of `mp` — moved a step earlier, V3 Mission 1,
-    so the four new questions between masking_present and recovery_duration
-    never have to chain onto the growing lc/uc/mp/rd prefix; see the
-    comment above kb_deep_yesno in capacity_today.py for why.)"""
+    (V3 burnout-tier bf/cpt/bc/pd, then V3 Mission 3's sc/scr/nr/sr, then
+    rd, then rf/ha/ua) is write-through, id-only in the callback.
+    (Previously the Phase 1 -> Phase 2 switch happened at `rd` instead of
+    `mp` — moved a step earlier, V3 Mission 1, so the new questions between
+    masking_present and recovery_duration never have to chain onto the
+    growing lc/uc/mp/rd prefix; see the comment above kb_deep_yesno in
+    capacity_today.py for why.)"""
     query = update.callback_query
     await query.answer()
     data = query.data or ""
@@ -568,6 +590,74 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
         )
         return
 
+    # ── V3 Mission 3: sr/nr/scr/sc — sensory channels + natural regulation
+    # response (spec §10/§11), id-only base, write-through per tap. Sits
+    # between predictability (pd) and recovery_duration (rd): pd now routes
+    # here instead of straight to rd; sr (the last of these four steps)
+    # routes on to rd. Order here is downstream-to-upstream, same
+    # convention as the V3 Mission 1 block below it.
+
+    if f.get("sr") is not None:
+        await ct.write_deep_checkin(db, row_id, {"sr": f["sr"]})
+        await query.edit_message_text(
+            ct.q_deep_recovery_duration(),
+            reply_markup=ct.kb_deep_recovery_duration(base),
+        )
+        return
+
+    if f.get("nr") is not None:
+        await ct.write_deep_checkin(db, row_id, {"nr": f["nr"]})
+        await query.edit_message_text(
+            ct.q_suppressed_regulation(),
+            reply_markup=ct.kb_suppressed_regulation(base),
+        )
+        return
+
+    if f.get("scr") is not None:
+        chan_idx = f.get("sci")
+        if chan_idx is not None and chan_idx.isdigit() and int(chan_idx) < len(ct.SENSORY_CHANNEL_KEYS):
+            channel_key = ct.SENSORY_CHANNEL_KEYS[int(chan_idx)]
+            response_value = ct.SENSORY_RESPONSE_CODE_TO_VALUE.get(f["scr"])
+            if response_value:
+                await ct.write_deep_sensory_channel(db, row_id, channel_key, response_value)
+        remaining = [t for t in (f.get("scq") or "").split(",") if t]
+        if remaining:
+            nxt, rest = remaining[0], ",".join(remaining[1:])
+            await query.edit_message_text(
+                ct.q_sensory_channel_response(nxt),
+                reply_markup=ct.kb_sensory_channel_response(row_id, nxt, rest),
+            )
+        else:
+            await query.edit_message_text(
+                ct.q_natural_regulation(),
+                reply_markup=ct.kb_natural_regulation(base),
+            )
+        return
+
+    if f.get("sc") is not None:
+        if f.get("next") == "1" or f.get("done") == "1":
+            flagged = [t for t in f["sc"].split(",") if t]
+            if flagged:
+                first, rest = flagged[0], ",".join(flagged[1:])
+                await query.edit_message_text(
+                    ct.q_sensory_channel_response(first),
+                    reply_markup=ct.kb_sensory_channel_response(row_id, first, rest),
+                )
+            else:
+                await query.edit_message_text(
+                    ct.q_natural_regulation(),
+                    reply_markup=ct.kb_natural_regulation(base),
+                )
+        else:
+            await query.edit_message_text(
+                ct.q_deep_multiselect(
+                    "Did any specific sensory channels stand out? (optional — flag only what stood out)",
+                    ct.SENSORY_CHANNEL_LABELS, f["sc"]),
+                reply_markup=ct.kb_deep_multiselect(
+                    row_id, "sc", ct.SENSORY_CHANNEL_LABELS, ct.SENSORY_CHANNEL_SHORT, f["sc"], page=_page(f)),
+            )
+        return
+
     # ── V3 burnout-tier: bf/cpt/bc/pd — id-only base, write-through per tap
     # (spec Mission 1 Part D). Order here is downstream-to-upstream (pd was
     # asked last, right before rd; bf first, right after mp), matching the
@@ -576,8 +666,11 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
     if f.get("pd") is not None:
         await ct.write_deep_checkin(db, row_id, {"pd": f["pd"]})
         await query.edit_message_text(
-            ct.q_deep_recovery_duration(),
-            reply_markup=ct.kb_deep_recovery_duration(base),
+            ct.q_deep_multiselect(
+                "Did any specific sensory channels stand out? (optional — flag only what stood out)",
+                ct.SENSORY_CHANNEL_LABELS, ""),
+            reply_markup=ct.kb_deep_multiselect(
+                row_id, "sc", ct.SENSORY_CHANNEL_LABELS, ct.SENSORY_CHANNEL_SHORT, "", page=0),
         )
         return
 
@@ -1171,6 +1264,264 @@ async def handle_protocol_callback(update: Update, context: ContextTypes.DEFAULT
     await query.edit_message_text(distract.render_protocol(protocol, steps))
 
 
+# ── /experiment (V3 Mission 4 — Personal Experiment Engine) ─────────────────
+# See experiments.py's module docstring for the full design. cmd_experiment
+# above is the single entry point; everything else routes through
+# handle_experiment_callback ("cx|" prefix) plus cmd_message's free-text
+# handoff for the two fields with no sensible enumerated set (hypothesis,
+# proposed_change) and the optional free-text steps (target_condition,
+# baseline_window, custom trial_window, outcome_measures, result,
+# stop reason). Flow state lives in context.user_data — ephemeral, same
+# tolerance as /helpme's browsing state.
+
+_EXPERIMENT_FLOW_KEYS = (
+    "experiment_stage", "experiment_draft", "experiment_target_id", "experiment_pending_result",
+)
+
+
+def _clear_experiment_flow_state(context: ContextTypes.DEFAULT_TYPE) -> None:
+    for key in _EXPERIMENT_FLOW_KEYS:
+        context.user_data.pop(key, None)
+
+
+async def _create_experiment_from_draft(context: ContextTypes.DEFAULT_TYPE, db, draft: dict):
+    ok, row, err = await exp.create_experiment(
+        db,
+        hypothesis=draft.get("hypothesis", ""),
+        proposed_change=draft.get("proposed_change", ""),
+        target_condition=draft.get("target_condition"),
+        baseline_window=draft.get("baseline_window"),
+        trial_window=draft.get("trial_window"),
+        outcome_measures=draft.get("outcome_measures"),
+    )
+    _clear_experiment_flow_state(context)
+    return ok, row, err
+
+
+async def _handle_experiment_text(update: Update, context: ContextTypes.DEFAULT_TYPE, stage: str, text: str) -> None:
+    """The free-text half of the /experiment flow — see cmd_message, which
+    hands off here whenever context.user_data["experiment_stage"] is set."""
+    draft = context.user_data.get("experiment_draft", {})
+
+    if stage == "hypothesis":
+        draft = {"hypothesis": text}
+        context.user_data["experiment_draft"] = draft
+        context.user_data["experiment_stage"] = "proposed_change"
+        await update.message.reply_text(exp.q_propose_change())
+        return
+
+    if stage == "proposed_change":
+        draft["proposed_change"] = text
+        context.user_data["experiment_draft"] = draft
+        context.user_data.pop("experiment_stage", None)
+        await update.message.reply_text("Got it.", reply_markup=exp.kb_after_minimal())
+        return
+
+    if stage == "target_condition":
+        draft["target_condition"] = text
+        context.user_data["experiment_draft"] = draft
+        context.user_data["experiment_stage"] = "baseline"
+        await update.message.reply_text(exp.q_baseline(), reply_markup=exp.kb_skip("skip_baseline"))
+        return
+
+    if stage == "baseline":
+        draft["baseline_window"] = text
+        context.user_data["experiment_draft"] = draft
+        context.user_data.pop("experiment_stage", None)
+        await update.message.reply_text(exp.q_trial_window(), reply_markup=exp.kb_trial_window())
+        return
+
+    if stage == "trial_custom":
+        draft["trial_window"] = text
+        context.user_data["experiment_draft"] = draft
+        context.user_data.pop("experiment_stage", None)
+        await update.message.reply_text(exp.q_outcome_measures(), reply_markup=exp.kb_skip("skip_measures"))
+        return
+
+    if stage == "measures":
+        draft["outcome_measures"] = [s.strip() for s in text.split(",") if s.strip()]
+        db = _get_supabase()
+        ok, row, err = await _create_experiment_from_draft(context, db, draft)
+        await update.message.reply_text(
+            exp.render_proposed_confirmation(row) if ok and row else f"⚠️ Could not save experiment: {err}"
+        )
+        return
+
+    if stage == "result":
+        eid = context.user_data.get("experiment_target_id")
+        context.user_data["experiment_pending_result"] = text
+        context.user_data.pop("experiment_stage", None)
+        await update.message.reply_text("Confidence in this result? (optional)", reply_markup=exp.kb_confidence(eid))
+        return
+
+    if stage == "stop_reason":
+        eid = context.user_data.get("experiment_target_id")
+        db = _get_supabase()
+        ok, err = await exp.stop_experiment(db, eid, result=text)
+        row = await exp.get_experiment(db, eid) if ok else None
+        _clear_experiment_flow_state(context)
+        await update.message.reply_text(exp.render_stopped(row) if ok and row else f"⚠️ Could not stop: {err}")
+        return
+
+
+async def handle_experiment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cx|"):
+        return
+    f = exp.parse_cb(data)
+    action = f.get("a")
+    db = _get_supabase()
+
+    if action == "menu":
+        open_experiments = await exp.list_experiments(db)
+        await query.edit_message_text(exp.render_menu(open_experiments), reply_markup=exp.kb_menu(open_experiments))
+        return
+
+    if action == "propose":
+        _clear_experiment_flow_state(context)
+        context.user_data["experiment_stage"] = "hypothesis"
+        await query.edit_message_text(exp.q_propose_hypothesis())
+        return
+
+    if action == "view":
+        row = await exp.get_experiment(db, f.get("id"))
+        if not row:
+            await query.edit_message_text("⚠️ Could not load that experiment.")
+            return
+        await query.edit_message_text(exp.render_experiment_detail(row), reply_markup=exp.kb_experiment_detail(row))
+        return
+
+    if action == "save_now":
+        draft = context.user_data.get("experiment_draft", {})
+        ok, row, err = await _create_experiment_from_draft(context, db, draft)
+        await query.edit_message_text(
+            exp.render_proposed_confirmation(row) if ok and row else f"⚠️ Could not save experiment: {err}"
+        )
+        return
+
+    if action == "add_details":
+        context.user_data["experiment_stage"] = "target_condition"
+        await query.edit_message_text(exp.q_target_condition(), reply_markup=exp.kb_skip("skip_target_condition"))
+        return
+
+    if action == "skip_target_condition":
+        context.user_data["experiment_stage"] = "baseline"
+        await query.edit_message_text(exp.q_baseline(), reply_markup=exp.kb_skip("skip_baseline"))
+        return
+
+    if action == "skip_baseline":
+        context.user_data.pop("experiment_stage", None)
+        await query.edit_message_text(exp.q_trial_window(), reply_markup=exp.kb_trial_window())
+        return
+
+    if action == "trial":
+        days = int(f.get("d", 0) or 0)
+        label = next((lbl for _code, lbl, d in exp.TRIAL_WINDOW_PRESETS if d == days), f"{days} days")
+        draft = context.user_data.get("experiment_draft", {})
+        draft["trial_window"] = label
+        context.user_data["experiment_draft"] = draft
+        await query.edit_message_text(exp.q_outcome_measures(), reply_markup=exp.kb_skip("skip_measures"))
+        return
+
+    if action == "trial_custom":
+        context.user_data["experiment_stage"] = "trial_custom"
+        await query.edit_message_text(exp.q_trial_custom())
+        return
+
+    if action == "skip_trial":
+        await query.edit_message_text(exp.q_outcome_measures(), reply_markup=exp.kb_skip("skip_measures"))
+        return
+
+    if action == "skip_measures":
+        draft = context.user_data.get("experiment_draft", {})
+        ok, row, err = await _create_experiment_from_draft(context, db, draft)
+        await query.edit_message_text(
+            exp.render_proposed_confirmation(row) if ok and row else f"⚠️ Could not save experiment: {err}"
+        )
+        return
+
+    if action == "activate":
+        await query.edit_message_text(exp.q_activate_reminder(), reply_markup=exp.kb_activate_reminder(f.get("id")))
+        return
+
+    if action == "activate_confirm":
+        eid = f.get("id")
+        days = int(f.get("d", 0) or 0)
+        ok, err = await exp.mark_active(db, eid)
+        if not ok:
+            await query.edit_message_text(f"⚠️ Could not mark active: {err}")
+            return
+        row = await exp.get_experiment(db, eid)
+        if days > 0:
+            chat_id = update.effective_chat.id
+
+            async def _fire(ctx: ContextTypes.DEFAULT_TYPE, _eid=eid) -> None:
+                exp_row = await exp.get_experiment(_get_supabase(), _eid)
+                # Already resolved (completed/stopped) by the time the
+                # reminder fires — don't nag about a finished experiment.
+                if not exp_row or exp_row["status"] != "active":
+                    return
+                await ctx.bot.send_message(
+                    chat_id=chat_id, text=exp.q_reassess_prompt(exp_row), reply_markup=exp.kb_reassess_prompt(_eid),
+                )
+
+            context.job_queue.run_once(_fire, when=days * 86400, name=f"experiment-reassess-{eid}")
+        await query.edit_message_text(exp.render_activated(row or {"hypothesis": ""}, days))
+        return
+
+    if action == "complete":
+        eid = f.get("id")
+        context.user_data["experiment_stage"] = "result"
+        context.user_data["experiment_target_id"] = eid
+        await query.edit_message_text(exp.q_complete_result())
+        return
+
+    if action == "conf":
+        eid = f.get("id")
+        confidence = None if f.get("c") == "skip" else f.get("c")
+        result = context.user_data.pop("experiment_pending_result", None)
+        ok, err = await exp.complete_experiment(db, eid, result=result, confidence=confidence)
+        row = await exp.get_experiment(db, eid) if ok else None
+        context.user_data.pop("experiment_target_id", None)
+        await query.edit_message_text(exp.render_completed(row) if ok and row else f"⚠️ Could not save: {err}")
+        return
+
+    if action == "stop":
+        eid = f.get("id")
+        context.user_data["experiment_stage"] = "stop_reason"
+        context.user_data["experiment_target_id"] = eid
+        await query.edit_message_text(exp.q_stop_reason(), reply_markup=exp.kb_stop_now(eid))
+        return
+
+    if action == "stop_now":
+        eid = f.get("id")
+        _clear_experiment_flow_state(context)
+        ok, err = await exp.stop_experiment(db, eid, result=None)
+        row = await exp.get_experiment(db, eid) if ok else None
+        await query.edit_message_text(exp.render_stopped(row) if ok and row else f"⚠️ Could not stop: {err}")
+        return
+
+    if action == "snooze":
+        eid = f.get("id")
+        row = await exp.get_experiment(db, eid)
+        if row and row.get("status") == "active":
+            chat_id = update.effective_chat.id
+
+            async def _fire(ctx: ContextTypes.DEFAULT_TYPE, _eid=eid) -> None:
+                exp_row = await exp.get_experiment(_get_supabase(), _eid)
+                if not exp_row or exp_row["status"] != "active":
+                    return
+                await ctx.bot.send_message(
+                    chat_id=chat_id, text=exp.q_reassess_prompt(exp_row), reply_markup=exp.kb_reassess_prompt(_eid),
+                )
+
+            context.job_queue.run_once(_fire, when=7 * 86400, name=f"experiment-reassess-{eid}")
+        await query.edit_message_text("OK — I'll check back in a week.")
+        return
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
@@ -1186,6 +1537,7 @@ _BOT_COMMANDS = [
     ("month",             "Monthly capacity pattern review"),
     ("capacity_patterns", "Most common capacity patterns (30d)"),
     ("actions",           "Which strategies have helped most"),
+    ("experiment",        "Propose or update a personal experiment"),
     ("therapy",           "Generate a therapist-friendly summary"),
     ("start",             "Introduction and quick-start"),
     ("help",              "Commands"),
@@ -1238,6 +1590,7 @@ def main() -> None:
     app.add_handler(CommandHandler("month",              cmd_capacity_month))
     app.add_handler(CommandHandler("capacity_patterns",  cmd_capacity_patterns))
     app.add_handler(CommandHandler("actions",            cmd_capacity_actions))
+    app.add_handler(CommandHandler("experiment",         cmd_experiment))
     app.add_handler(CommandHandler("therapy",            cmd_therapy))
 
     app.add_handler(CallbackQueryHandler(handle_capacity_callback,         pattern=r"^ct\|"))
@@ -1253,6 +1606,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_distract_callback,            pattern=r"^cd\|"))
     app.add_handler(CallbackQueryHandler(handle_distract_offer_callback,      pattern=r"^cdi\|"))
     app.add_handler(CallbackQueryHandler(handle_protocol_callback,            pattern=r"^cp\|"))
+    app.add_handler(CallbackQueryHandler(handle_experiment_callback,          pattern=r"^cx\|"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 

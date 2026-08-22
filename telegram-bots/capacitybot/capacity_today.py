@@ -654,6 +654,89 @@ PREDICTABILITY_CODE_TO_STATE = {
     "cp": "clear_predictable", "su": "some_uncertainty", "ch": "lots_changing", "dk": "dont_know",
 }
 
+# ── V3 Mission 3 (TJR_Human_Systems_Workbench_V3_Mission_and_Change_
+# Proposal.md §10 "Sensory Regulation Upgrade" + §11 "Natural Regulation
+# Response") — inserted after predictability (pd), before recovery_duration
+# (rd). Migration 0158_capacity_checkins_sensory_regulation.sql.
+#
+# Sensory channels — interaction-design tradeoff (documented per the
+# mission brief): §10 lists 8 channels x 5 responses = 40 combinations,
+# too many for one screen and a clear violation of §24 ("must not become a
+# 50-question assessment") if asked as 8 separate mandatory questions.
+# Chosen design: (1) one skippable multiselect ("did any specific channels
+# stand out?") using the SAME kb_deep_multiselect/generic ct.q_deep_
+# multiselect convention as cpt/rf/ha/ua — flag only what stood out, 0
+# flags is a valid, fully-skippable answer; then (2) a short one-
+# question-per-flagged-channel follow-up loop (q_sensory_channel_response/
+# kb_sensory_channel_response below), since the doc's own worked example
+# ("auditory load is high") needs a RESPONSE per channel, not just a flag,
+# and the doc explicitly says "most check-ins will only flag 1-2 channels,
+# not all 8" — so the realistic loop length is 1-2 taps, not 8. The
+# remaining-channel queue rides in callback data as bare indices
+# (sci=current, scq=remaining csv), never accumulating full channel names/
+# responses in the callback string (same 64-byte-limit discipline
+# documented above kb_deep_yesno) — each tap writes straight to the row's
+# sensory_channels jsonb (write_deep_sensory_channel()) instead.
+# Alternative considered and rejected: collapsing to a single combined
+# "how did today's sensory input feel overall" question — rejected because
+# it would just re-ask stimulation_state (already captured every quick
+# check-in) instead of adding the genuinely new per-channel signal §10
+# asks for.
+
+SENSORY_CHANNELS = [
+    ("auditory", "🔊 Auditory (sound)"),
+    ("visual", "👁️ Visual (light / visual clutter)"),
+    ("touch", "✋ Touch / texture"),
+    ("smell", "👃 Smell"),
+    ("movement", "🌀 Movement / vestibular"),
+    ("pressure", "🤲 Pressure / proprioceptive"),
+    ("temperature", "🌡️ Temperature"),
+    ("environmental_complexity", "🏙️ Environmental complexity"),
+]
+SENSORY_CHANNEL_KEYS = [key for key, _label in SENSORY_CHANNELS]
+SENSORY_CHANNEL_LABELS = [label for _key, label in SENSORY_CHANNELS]
+SENSORY_CHANNEL_SHORT = [
+    "Auditory", "Visual", "Touch", "Smell", "Movement", "Pressure", "Temperature", "Env. complexity",
+]
+
+SENSORY_RESPONSE_OPTIONS = [
+    ("ra", "Reduce / avoid"), ("nu", "Neutral"), ("sh", "Seek / helpful"),
+    ("cd", "Context dependent"), ("uk", "Unknown"),
+]
+SENSORY_RESPONSE_SHORT = {
+    "ra": "Reduce/avoid", "nu": "Neutral", "sh": "Seek/helpful", "cd": "Context dep.", "uk": "Unknown",
+}
+SENSORY_RESPONSE_CODE_TO_VALUE = {
+    "ra": "reduce_avoid", "nu": "neutral", "sh": "seek_helpful", "cd": "context_dependent", "uk": "unknown",
+}
+
+# Natural regulation response (V3 doc §11) — single-select, 14 options
+# (including "I don't know"), same _select_rows convention as
+# BURNOUT_FRAMING_OPTIONS above, just more rows (per_row=2, no pagination —
+# single-select screens don't paginate in this codebase, only multiselects
+# do; 14 short buttons across 7 rows is well within Telegram's per-message
+# limits, same as the option-count precedent COMPENSATION_TYPE_OPTIONS (8)
+# already sets for a *multiselect*).
+NATURAL_REGULATION_OPTIONS = [
+    ("li", "Less input"), ("mi", "More input"), ("mv", "Move"), ("fr", "Fidget / repeat"),
+    ("qt", "Quiet"), ("st", "Stop talking"), ("ba", "Be alone"),
+    ("cs", "Connect with someone safe"), ("sf", "Something familiar"),
+    ("si", "Something interesting"), ("pc", "Pressure / sensory comfort"),
+    ("gt", "Get thoughts out"), ("rs", "Rest"), ("dk", "I don't know"),
+]
+NATURAL_REGULATION_SHORT = {
+    "li": "Less input", "mi": "More input", "mv": "Move", "fr": "Fidget/repeat",
+    "qt": "Quiet", "st": "Stop talking", "ba": "Be alone", "cs": "Connect safe",
+    "sf": "Familiar", "si": "Interesting", "pc": "Pressure/comfort",
+    "gt": "Thoughts out", "rs": "Rest", "dk": "Don't know",
+}
+NATURAL_REGULATION_CODE_TO_STATE = {
+    "li": "less_input", "mi": "more_input", "mv": "move", "fr": "fidget_repeat",
+    "qt": "quiet", "st": "stop_talking", "ba": "be_alone", "cs": "connect_with_someone_safe",
+    "sf": "something_familiar", "si": "something_interesting", "pc": "pressure_sensory_comfort",
+    "gt": "get_thoughts_out", "rs": "rest", "dk": "dont_know",
+}
+
 
 def q_burnout_framing() -> str:
     return render_question("How would you frame this period, if at all? (optional)",
@@ -683,6 +766,54 @@ def q_predictability() -> str:
 def kb_predictability(base: str) -> InlineKeyboardMarkup:
     rows = _select_rows(base, "pd", PREDICTABILITY_OPTIONS, PREDICTABILITY_SHORT, per_row=2)
     return InlineKeyboardMarkup(rows)
+
+
+# ── Sensory channel follow-up loop (V3 doc §10, see the design-tradeoff
+# comment above SENSORY_CHANNELS) ────────────────────────────────────────
+
+def q_sensory_channel_response(channel_idx: str) -> str:
+    label = SENSORY_CHANNEL_LABELS[int(channel_idx)]
+    return render_question(f"How does {label} feel right now?",
+                            [label for _, label in SENSORY_RESPONSE_OPTIONS])
+
+
+def kb_sensory_channel_response(row_id: str, channel_idx: str, remaining_csv: str) -> InlineKeyboardMarkup:
+    """`channel_idx` is the channel currently being asked about;
+    `remaining_csv` is the still-to-ask queue (both indices into
+    SENSORY_CHANNELS) — carried in the callback base so the handler knows
+    which channel to write this tap's response against and what to ask
+    next. No prior fields chain here beyond that (write-through per tap,
+    same convention as the cpt/bc/pd steps above)."""
+    base = f"ctd|id={row_id}|sci={channel_idx}|scq={remaining_csv}"
+    rows = _select_rows(base, "scr", SENSORY_RESPONSE_OPTIONS, SENSORY_RESPONSE_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
+# ── Natural regulation response (V3 doc §11) ─────────────────────────────
+
+def q_natural_regulation() -> str:
+    return render_question("What does your system seem to want right now? (optional)",
+                            [label for _, label in NATURAL_REGULATION_OPTIONS])
+
+
+def kb_natural_regulation(base: str) -> InlineKeyboardMarkup:
+    rows = _select_rows(base, "nr", NATURAL_REGULATION_OPTIONS, NATURAL_REGULATION_SHORT, per_row=2)
+    rows.append([InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|nr=skip")])
+    return InlineKeyboardMarkup(rows)
+
+
+def q_suppressed_regulation() -> str:
+    return ("Are you stopping yourself from doing something that might help, because it feels "
+            "inappropriate, inconvenient, or noticeable? (optional — this is for spotting where "
+            "compensation is costing you, not a prompt to correct anything.)")
+
+
+def kb_suppressed_regulation(base: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("Yes", callback_data=f"{base}|sr=y"),
+        InlineKeyboardButton("No", callback_data=f"{base}|sr=n"),
+        InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|sr=skip"),
+    ]])
 
 
 def q_deep_recovery_duration() -> str:
@@ -954,6 +1085,16 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         payload["body_signal_clarity"] = BODY_CLARITY_CODE_TO_STATE.get(f["bc"])
     if f.get("pd"):
         payload["predictability"] = PREDICTABILITY_CODE_TO_STATE.get(f["pd"])
+    # V3 Mission 3 fields (migration 0158) — natural_regulation_response/
+    # suppressed_regulation_response. sensory_channels is NOT written here:
+    # it's merged in incrementally, one channel per tap, by
+    # write_deep_sensory_channel() below (a plain payload["sensory_
+    # channels"] = ... here would clobber previously-flagged channels
+    # since supabase-py has no partial-jsonb-key update).
+    if f.get("nr") and f["nr"] != "skip":
+        payload["natural_regulation_response"] = NATURAL_REGULATION_CODE_TO_STATE.get(f["nr"])
+    if f.get("sr") and f["sr"] != "skip":
+        payload["suppressed_regulation_response"] = f["sr"] == "y"
     if f.get("rd"):
         payload["recovery_duration"] = _RD_CODE_TO_LABEL.get(f["rd"], f["rd"])
     if f.get("rf") is not None:
@@ -971,6 +1112,27 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         return True, None
     except Exception as exc:
         log.error("capacity_checkins deep-check update failed: %s", exc)
+        return False, str(exc)
+
+
+async def write_deep_sensory_channel(db, row_id: str, channel_key: str, value: str) -> tuple[bool, str | None]:
+    """Read-merge-write a single channel into the row's sensory_channels
+    jsonb. supabase-py/PostgREST has no partial-jsonb-key update, so each
+    per-channel tap in the follow-up loop (see the design-tradeoff comment
+    above SENSORY_CHANNELS) reads the column's current value, merges in
+    just this channel, and writes the whole object back — safe here
+    because sensory_channels holds at most 8 keys."""
+    if not db:
+        return False, "Supabase unavailable (check SUPABASE_KEY)"
+    try:
+        res = db.table(TABLE).select("sensory_channels").eq("id", row_id).limit(1).execute()
+        rows = res.data or []
+        current = dict((rows[0].get("sensory_channels") if rows else None) or {})
+        current[channel_key] = value
+        db.table(TABLE).update({"sensory_channels": current, "updated_at": _now_iso()}).eq("id", row_id).execute()
+        return True, None
+    except Exception as exc:
+        log.error("capacity_checkins sensory_channels write failed: %s", exc)
         return False, str(exc)
 
 

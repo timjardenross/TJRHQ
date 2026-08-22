@@ -14,7 +14,10 @@
 //               CAPACITY TODAY" signal, 2026-08-21 — recovery_pulses /
 //               recovery_confidence_today are retired, the bot no longer
 //               writes to them) + health_insights + capacity_intervention_
-//               events/capacity_interventions (My Next Move, spec §10).
+//               events/capacity_interventions (My Next Move, spec §10) +
+//               capacity_experiments (Worth Testing / What Changed, V3
+//               doc §15/§19 — migration 0159, written only by the Capacity
+//               Bot's /experiment command, this route reads it read-only).
 //   Medical   — analytics_health_daily (Life Participation + 30d trends),
 //               Capacity Domains (Cognitive/Emotional/Social from
 //               capacity_checkins, Sensory derived, Physical dropped
@@ -36,11 +39,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { computeInterventionEffectiveness } from './intervention-effectiveness';
+import { fetchSensoryRegulation } from './sensory-regulation';
 import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
 import type {
   Band,
   CapacityBalance,
   CapacityDebt,
+  CapacityExperiment,
   CapacityLoad,
   InterventionEffectiveness,
   Kpis,
@@ -498,6 +503,7 @@ async function computeRecoveryDuration(sb: any, windowDays: number): Promise<Rec
 // against core/health/burnout_trajectory.py.
 
 const BURNOUT_WINDOW_DAYS = 21; // V3 doc §18 worked example window
+const EXPERIMENT_COMPLETED_WINDOW_DAYS = 30; // how long a finished experiment still shows in "What Changed"
 
 /** V3 Mission 1 — every capacity_checkins row (both checkin_type='capacity'
  *  and 'evening') in the trajectory window, the raw input
@@ -555,6 +561,27 @@ async function computeRedesignCandidates(sb: any, windowDays: number, threshold 
     .filter(([, count]) => count >= threshold)
     .map(([load, count]) => ({ load, stretched_or_depleted_count: count, window_days: windowDays }))
     .sort((a, b) => b.stretched_or_depleted_count - a.stretched_or_depleted_count);
+}
+
+/** V3 Mission 4 (§15/§19) — capacity_experiments (migration 0159), written
+ *  only by the Capacity Bot's /experiment command (this route has no
+ *  POST/PATCH — see this file's header comment, all writes go through the
+ *  bot). Every 'proposed'/'active' row plus 'completed'/'stopped' rows
+ *  from the last N days — recent enough for the §19 "WHAT CHANGED" layer
+ *  to still be relevant, without the list growing unbounded as old
+ *  experiments accumulate. Ordered newest-created-first;
+ *  RecoveryView.tsx finds the current proposed/active experiment and the
+ *  most recently completed/stopped one with a `result` from this list
+ *  rather than assuming a particular index, since 'created_at' order
+ *  isn't the same thing as 'most recently finished' order.
+ */
+async function fetchExperiments(sb: any, completedWindowDays: number): Promise<CapacityExperiment[]> {
+  const { data } = await sb
+    .from('capacity_experiments')
+    .select('id,hypothesis,target_condition,proposed_change,baseline_window,trial_window,outcome_measures,status,result,confidence,notes,started_at,completed_at')
+    .or(`status.in.(proposed,active),and(status.in.(completed,stopped),completed_at.gte.${daysAgo(completedWindowDays - 1)})`)
+    .order('created_at', { ascending: false });
+  return (data ?? []) as CapacityExperiment[];
 }
 
 // ── Shared fetch: today's context reused across KPIs + every domain ──────────
@@ -720,9 +747,10 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // own window independently of everything above; system_posture/
   // system_posture_message (just computed) are passed in only as the
   // strategic-posture ceiling/fallback (Rule A/F), never recomputed here.
-  const [burnoutWindowRows, userBurnoutFraming] = await Promise.all([
+  const [burnoutWindowRows, userBurnoutFraming, experiments] = await Promise.all([
     fetchBurnoutWindow(sb, BURNOUT_WINDOW_DAYS),
     fetchLatestUserBurnoutFraming(sb),
+    fetchExperiments(sb, EXPERIMENT_COMPLETED_WINDOW_DAYS),
   ]);
   const trajectory = computeStrategicPosture(burnoutWindowRows, BURNOUT_WINDOW_DAYS, system_posture);
 
@@ -779,6 +807,9 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     strategic_posture_message: trajectory.strategic_posture_message,
     current_recovery_stage: trajectory.current_recovery_stage,
     user_burnout_framing: (userBurnoutFraming as RecoveryPayload['user_burnout_framing']) ?? null,
+
+    // ── V3 Mission 4 — Personal Experiment Engine ────────────────────────
+    experiments,
   };
 }
 
@@ -834,11 +865,22 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // needs recovery_duration first, so it's computed before the rest.
   const recovery_duration = await computeRecoveryDuration(sb, 30);
   const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration, ctx.todaySleepState);
-  const [capacity_debt, intervention_effectiveness, redesign_candidates] = await Promise.all([
-    computeCapacityDebt(sb, 7),
-    computeInterventionEffectiveness(sb),
-    computeRedesignCandidates(sb, 30),
-  ]);
+  // V3 Mission 3 (§10/§11) — see sensory-regulation.ts's header comment
+  // for why sensory_channels/natural_regulation_response/suppressed_
+  // regulation_response are read together off the most recent row that
+  // has any of them set, rather than off today's latestCheckin.
+  // stimulation_state IS read off today's latestCheckin (same as the
+  // 'sensory' capacity_domains entry above) — it's the coarse signal
+  // that's paired alongside the deeper channel breakdown, per the doc's
+  // own worked example ("Overall stimulation is balanced, but auditory
+  // load is high").
+  const [capacity_debt, intervention_effectiveness, redesign_candidates, { sensory_profile, natural_regulation }] =
+    await Promise.all([
+      computeCapacityDebt(sb, 7),
+      computeInterventionEffectiveness(sb),
+      computeRedesignCandidates(sb, 30),
+      fetchSensoryRegulation(sb, ctx.latestCheckin?.stimulation_state ?? null),
+    ]);
 
   // 30-day trends — backfilled with capacity_checkins so a day with only a
   // Telegram check-in (no analytics_health_daily row at all, or a row with
@@ -907,6 +949,8 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     recovery_duration,
     intervention_effectiveness,
     redesign_candidates,
+    sensory_profile,
+    natural_regulation,
   };
 }
 
