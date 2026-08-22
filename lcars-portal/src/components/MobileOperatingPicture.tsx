@@ -123,10 +123,10 @@ export function MobileOperatingPicture() {
 
       {/* ── Blocked work ── */}
       {blocked.length > 0 && (
-        <Link href="/captains-chair-workbench/engineering-queue" className="block rounded-lg border border-operations/40 bg-operations/5 p-4">
+        <Link href="/engineering" className="block rounded-lg border border-operations/40 bg-operations/5 p-4">
           <p className="text-[10px] uppercase tracking-[0.3em] text-operations">Blocked / failed</p>
           <p className="mt-1 text-sm font-semibold text-operations">{blocked.length} item{blocked.length === 1 ? '' : 's'} need clearing</p>
-          <p className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2">Open engineering queue →</p>
+          <p className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2">Open engineering →</p>
         </Link>
       )}
     </div>

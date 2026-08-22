@@ -494,11 +494,8 @@ export default function CaptainsChairWorkbench() {
             <Link href="/human-systems-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → Medical Bay
             </Link>
-            <Link href="/mission-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Mission Registry
-            </Link>
-            <Link href="/captains-chair-workbench/engineering-queue" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Engineering Queue
+            <Link href="/engineering" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Engineering
             </Link>
             <Link href="/intelligence-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → OSINT Workbench

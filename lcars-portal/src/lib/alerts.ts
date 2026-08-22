@@ -219,7 +219,10 @@ async function engineeringAlerts(): Promise<AlertGroupResult> {
           title: `Blocked: ${r.title}`,
           detail: `Blocked for ${r.age_days ?? '?'}d — work cannot progress until cleared.`,
           why: 'A blocked mission stalls everything downstream of it. It needs a decision to move.',
-          href: '/engineering-queue',
+          // Captain's Chair's dedicated Engineering Queue sub-page was
+          // removed 2026-08-22 — /engineering (legacy build-request inbox,
+          // read-only) is the nearest remaining live view of this data.
+          href: '/engineering',
           at: nowIso(),
         }),
       );
@@ -236,7 +239,7 @@ async function engineeringAlerts(): Promise<AlertGroupResult> {
           title: `Review needed: ${r.title}`,
           detail: `${(r.priority_norm ?? '').toUpperCase()} awaiting review${(r.pr_url ?? '').trim() ? '' : ' (no PR/evidence)'}.`,
           why: 'High-priority work is finished but parked until you approve or reject it.',
-          href: '/engineering-queue',
+          href: '/engineering',
           at: nowIso(),
         }),
       );
@@ -262,7 +265,7 @@ async function engineeringAlerts(): Promise<AlertGroupResult> {
           title: `Approve / reject: ${r.title}`,
           detail: 'Build request is awaiting your review in the engineering queue.',
           why: 'This item will not ship until you approve it. It is blocked on your decision.',
-          href: '/engineering-queue',
+          href: '/engineering',
           at: nowIso(),
         }),
       );
@@ -287,7 +290,7 @@ async function engineeringAlerts(): Promise<AlertGroupResult> {
           title: `${count} failed dispatch${count > 1 ? 'es' : ''}`,
           detail: 'One or more mission dispatches failed in the last 3 days.',
           why: 'Failed dispatches mean work you expected to be running silently is not. It needs re-driving.',
-          href: '/engineering-queue',
+          href: '/engineering',
           at: nowIso(),
         });
       }
