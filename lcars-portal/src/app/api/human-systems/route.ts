@@ -16,10 +16,13 @@
 //               writes to them) + health_insights + capacity_intervention_
 //               events/capacity_interventions (My Next Move, spec §10).
 //   Medical   — analytics_health_daily (Life Participation + 30d trends),
-//               human_systems_daily (four Capacity Domains) + a derived
-//               fifth Sensory domain, Recovery Conditions (spec §16,
-//               replaces Recovery Indexes) derived from the same daily
-//               row plus capacity_checkins, Capacity Debt (evening
+//               Capacity Domains (Cognitive/Emotional/Social from
+//               capacity_checkins, Sensory derived, Physical dropped
+//               2026-08-22 — human_systems_daily is dead, no longer
+//               queried), Recovery Conditions (spec §16, replaces Recovery
+//               Indexes) derived from the daily row plus capacity_checkins
+//               (Sleep now sourced from capacity_checkins.sleep_state,
+//               2026-08-22), Capacity Debt (evening
 //               reflections), Recovery Duration (deep-check field),
 //               intervention effectiveness ("What Helps Me", spec §18),
 //               and auto-detected redesign candidates (spec §23).
@@ -289,6 +292,11 @@ interface CheckinRow {
   active_loads: string[] | null;
   identified_needs: string[] | null;
   selected_action: string | null;
+  // 2026-08-22 data-gap close (0152) — sleep asked once/day, emotional and
+  // social asked on every quick check-in.
+  sleep_state: string | null;
+  emotional_state: string | null;
+  social_state: string | null;
 }
 
 interface InterventionEventRow {
@@ -349,10 +357,10 @@ function computeLifeParticipation(d: DailyRow | null): { score: number | null; b
 // Nervous System, Energy, and Capacity now prefer a live capacity_checkins
 // reading over the (likely-frozen, post manual-capture-retirement)
 // analytics_health_daily row — same blend priority buildRecovery() and
-// compute_recovery_score() (migration 0150) already use. Sleep has no
-// capacity_checkins equivalent (spec doesn't track it) and stays sourced
-// from analytics_health_daily alone — this index will not update once that
-// table stops receiving new manual check-in rows.
+// compute_recovery_score() (migration 0150) already use. Sleep (2026-08-22,
+// 0152) now has its own capacity_checkins.sleep_state, asked once per day
+// on the first /capacity check-in — preferred over analytics_health_daily,
+// which stopped receiving new rows weeks ago.
 /**
  * Recovery CONDITIONS (spec §16, replaces "Recovery Indexes") — the
  * inputs that influence replenishment, not the outcome (Capacity) they
@@ -361,15 +369,29 @@ function computeLifeParticipation(d: DailyRow | null): { score: number | null; b
  * Capacity is the outcome these conditions influence"); Pain Burden,
  * Sensory Load, and Recovery Time are new.
  */
+const SLEEP_STATE_LABEL: Record<string, string> = {
+  under_5: 'Under 5h', '5_6': '5-6h', '6_7': '6-7h', '7_8': '7-8h', '8_plus': '8h+',
+};
+const SLEEP_STATE_BAND: Record<string, Band> = {
+  under_5: 'rest', '5_6': 'limited', '6_7': 'moderate', '7_8': 'good', '8_plus': 'good',
+};
+
 function computeRecoveryConditions(
   d: DailyRow | null,
   blended: BlendedSignals,
   latestCheckin: CheckinRow | null,
   recoveryDuration: RecoveryDurationSummary,
+  todaySleepState: string | null,
 ): RecoveryIndex[] {
+  const sleepState = todaySleepState;
   const sleepHrs = d?.sleep_hours ?? 0;
-  const sleepBand: Band = !d?.sleep_hours ? 'unknown' : sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
   const cpapNote = d?.cpap_status?.toLowerCase() === 'yes' ? ' · CPAP compliant' : '';
+  const sleepBand: Band = sleepState
+    ? SLEEP_STATE_BAND[sleepState] ?? 'unknown'
+    : !d?.sleep_hours ? 'unknown' : sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
+  const sleepDetail = sleepState
+    ? SLEEP_STATE_LABEL[sleepState] ?? sleepState
+    : d?.sleep_hours ? `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` : 'Not recorded';
 
   const ns = blended.nervous_system;
   const nsBand: Band = ns === 'calm' ? 'good' : ns === 'activated' ? 'moderate' : ns === 'dysregulated' ? 'limited' : 'unknown';
@@ -395,7 +417,7 @@ function computeRecoveryConditions(
     : `${recoveryDuration.most_common} most common (${recoveryDuration.most_common_count}/${recoveryDuration.sample_size} records)`;
 
   return [
-    { key: 'sleep', label: 'Sleep', band: sleepBand, detail: d?.sleep_hours ? `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` : 'Not recorded (no capacity-checkin equivalent)' },
+    { key: 'sleep', label: 'Sleep', band: sleepBand, detail: sleepDetail },
     { key: 'nervous_system', label: 'Nervous-system regulation', band: nsBand, detail: nsDetail },
     { key: 'pain_burden', label: 'Pain burden', band: painBand, detail: painDetail },
     { key: 'sensory_load', label: 'Sensory load', band: sensoryBand, detail: sensoryDetail },
@@ -537,6 +559,10 @@ interface Ctx {
    *  for WP03's "today's capacity load" ranking across all of today's
    *  active_loads selections, not just the most recent one. */
   checkinsTodayRows: Pick<CheckinRow, 'active_loads'>[];
+  /** sleep_state is only ever written on the FIRST capacity check-in of the
+   *  day (asked once/day, spec 2026-08-22) — so it can live on an earlier
+   *  row than latestCheckin. Read separately from today's rows. */
+  todaySleepState: string | null;
   /** Most recent capacity_intervention_events row across ALL sources
    *  (capacity_q9/helpme/guide/manual) — WP04's "My Next Move" (spec §10)
    *  shows whatever was actually last accepted, not a re-ranked
@@ -550,7 +576,7 @@ async function loadCtx(sb: any): Promise<Ctx> {
   const t = today();
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const CHECKIN_FIELDS =
-    'captured_at,capacity_state,regulation_state,pain_score,executive_function,stimulation_state,pain_state,compensation_load,active_loads,identified_needs,selected_action';
+    'captured_at,capacity_state,regulation_state,pain_score,executive_function,stimulation_state,pain_state,compensation_load,active_loads,identified_needs,selected_action,sleep_state,emotional_state,social_state';
 
   const [postureRes, dailyRes, checkinRes, checkinsTodayRes, sessionCountRes, checkinsTodayRowsRes, eventRes] =
     await Promise.all([
@@ -571,9 +597,10 @@ async function loadCtx(sb: any): Promise<Ctx> {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'completed').gte('started_at', sevenDaysAgo),
       sb.from('capacity_checkins')
-        .select('active_loads')
+        .select('active_loads,sleep_state')
         .eq('checkin_type', 'capacity')
-        .eq('log_date', t),
+        .eq('log_date', t)
+        .order('captured_at', { ascending: true }),
       sb.from('capacity_intervention_events')
         .select('id,source,intervention_id,started_at,outcome')
         .order('started_at', { ascending: false })
@@ -591,13 +618,17 @@ async function loadCtx(sb: any): Promise<Ctx> {
     latestInterventionCatalogue = (interventionRow as InterventionRow) ?? null;
   }
 
+  const checkinsTodayRows = (checkinsTodayRowsRes.data as (Pick<CheckinRow, 'active_loads'> & { sleep_state: string | null })[]) ?? [];
+  const todaySleepState = checkinsTodayRows.find((r) => r.sleep_state)?.sleep_state ?? null;
+
   return {
     posture: (postureRes.data as RawPostureRow) ?? null,
     daily: (dailyRes.data as DailyRow) ?? null,
     latestCheckin: (checkinRes.data as CheckinRow) ?? null,
     checkinsToday: (checkinsTodayRes.data as CheckinsTodayRow) ?? null,
     sessions7d: sessionCountRes.count ?? 0,
-    checkinsTodayRows: (checkinsTodayRowsRes.data as Pick<CheckinRow, 'active_loads'>[]) ?? [],
+    checkinsTodayRows,
+    todaySleepState,
     latestInterventionEvent: event,
     latestInterventionCatalogue,
   };
@@ -726,18 +757,23 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
 async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const lp = computeLifeParticipation(ctx.daily);
 
-  // Four energy domains from the human_systems_daily view (today), plus a
-  // fifth Sensory domain derived from capacity_checkins (spec §15 — no
-  // dedicated source table exists for this yet).
-  const { data: hsRow } = await sb
-    .from('human_systems_daily')
-    .select('energy_physical,energy_cognitive,energy_emotional,energy_social,daily_capacity_score')
-    .eq('log_date', today())
-    .maybeSingle();
-
-  const domainBand = (v: string | null): Band =>
-    v === 'good' ? 'good' : v === 'moderate' ? 'moderate' : v === 'limited' ? 'limited' : v === 'depleted' ? 'rest' : 'unknown';
+  // Sensory domain derived from capacity_checkins (spec §15 — no dedicated
+  // source table exists for this yet). Cognitive/Emotional/Social all now
+  // read capacity_checkins directly (below) — human_systems_daily is dead
+  // (manual daily check-in form retired weeks ago) and no longer queried.
   const sensory = deriveSensoryBand(ctx.latestCheckin);
+
+  // Emotional / Social: capacity_checkins.emotional_state / social_state
+  // (0152, 2026-08-22) are dedicated questions asked on every quick
+  // check-in — replaces the dead human_systems_daily.energy_emotional /
+  // energy_social fields (Captain's choice over a cheaper active_loads-tag
+  // proxy, discussed and declined for weaker precision).
+  const emotionalBand: Record<string, Band> = { light: 'good', moderate: 'moderate', heavy: 'limited', overwhelming: 'rest' };
+  const emotionalLabel: Record<string, string> = { light: 'Light', moderate: 'Moderate', heavy: 'Heavy', overwhelming: 'Overwhelming' };
+  const socialBand: Record<string, Band> = { plenty: 'good', some: 'moderate', limited: 'limited', none: 'rest' };
+  const socialLabel: Record<string, string> = { plenty: 'Plenty', some: 'Some', limited: 'Limited', none: 'None left' };
+  const emotionalState = ctx.latestCheckin?.emotional_state ?? null;
+  const socialState = ctx.latestCheckin?.social_state ?? null;
 
   // Cognitive: capacity_checkins.executive_function is a direct, dedicated
   // cognitive-capacity question every /capacity check-in asks ("how easy
@@ -760,8 +796,8 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // or backed by a low-confidence proxy.
   const capacity_domains = [
     { key: 'cognitive', label: 'Cognitive', band: efBand(ef), value: ef ? efLabel[ef] ?? ef : null },
-    { key: 'emotional', label: 'Emotional', band: domainBand(hsRow?.energy_emotional ?? null), value: hsRow?.energy_emotional ?? null },
-    { key: 'social', label: 'Social', band: domainBand(hsRow?.energy_social ?? null), value: hsRow?.energy_social ?? null },
+    { key: 'emotional', label: 'Emotional', band: emotionalState ? emotionalBand[emotionalState] ?? 'unknown' : 'unknown', value: emotionalState ? emotionalLabel[emotionalState] ?? emotionalState : null },
+    { key: 'social', label: 'Social', band: socialState ? socialBand[socialState] ?? 'unknown' : 'unknown', value: socialState ? socialLabel[socialState] ?? socialState : null },
     { key: 'sensory', label: 'Sensory', band: sensory.band, value: sensory.value },
   ];
 
@@ -769,7 +805,7 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   // intervention effectiveness, redesign candidates. Recovery Conditions
   // needs recovery_duration first, so it's computed before the rest.
   const recovery_duration = await computeRecoveryDuration(sb, 30);
-  const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration);
+  const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration, ctx.todaySleepState);
   const [capacity_debt, intervention_effectiveness, redesign_candidates] = await Promise.all([
     computeCapacityDebt(sb, 7),
     computeInterventionEffectiveness(sb),
