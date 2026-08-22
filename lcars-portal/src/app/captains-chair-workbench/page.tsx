@@ -50,6 +50,31 @@ const RISK_STATE_TONE: Record<string, StateTone> = {
   RED: 'crit',
 };
 
+// Signal Snapshot's own small local maps (2026-08-22) — matching
+// capacity_checkins.capacity_state's green/orange/red vocabulary and
+// health_signals' severity vocabulary (see human-systems-workbench/
+// _components/types.ts's CAPACITY_STATE_LABEL/capacityStateStatus and
+// health-osint's threat-assessment/route.ts's SEVERITY_IMPACT for the
+// canonical versions) — defined locally rather than imported, matching
+// how this file already keeps its own POSTURE_STATE_TONE/RISK_STATE_TONE
+// rather than reaching into another workbench's _components.
+const CAPACITY_STATE_LABEL: Record<string, string> = {
+  green: 'Sustainable',
+  orange: 'Stretched',
+  red: 'Depleted',
+};
+
+const CAPACITY_STATE_TONE: Record<string, StateTone> = {
+  green: 'ok',
+  orange: 'warn',
+  red: 'crit',
+};
+
+const HEALTH_SEVERITY_TONE: Record<string, StateTone> = {
+  critical: 'crit',
+  severe: 'warn',
+};
+
 function SituationBadge({ label, value, tone, sublabel }: { label: string; value: string; tone: StateTone; sublabel?: string }) {
   const c = stateToneClasses(tone);
   return (
@@ -158,28 +183,38 @@ interface AttentionCounts {
   contentPriorityFlagged: number | null;
   capturePending: number | null;
   wellnessRiskFlags: number | null;
-  /** RED/AMBER intelligence_events, last 7 days — computed nowhere on
-   *  Chair before this (2026-08-22). True count, not the top-5-item list
-   *  /api/home/needs-attention keeps for a different purpose. */
-  hotSignals: number | null;
-  /** Stale/failed intelligence_source_health rows — same fix, same
-   *  true-count reasoning. */
-  sourcesDegraded: number | null;
-  /** health_signals landing in the 'escalate' bucket (high confidence +
-   *  critical/high impact), 365d window — Health OSINT Workbench fed
-   *  nothing into Chair before this (2026-08-22). */
-  healthEscalations: number | null;
 }
 
-function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors: string[] } {
+interface TopOsintSignal {
+  title: string;
+  risk_rating: string;
+  canonical_url: string | null;
+}
+
+interface TopHealthSignal {
+  title: string;
+  severity: string;
+}
+
+interface SignalSnapshot {
+  capacityState: string | null;
+  postureMessage: string | null;
+  topOsintSignal: TopOsintSignal | null;
+  topHealthSignal: TopHealthSignal | null;
+}
+
+function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot; loading: boolean; errors: string[] } {
   const [data, setData] = useState<AttentionCounts>({
     contentAwaitingPublish: null,
     contentPriorityFlagged: null,
     capturePending: null,
     wellnessRiskFlags: null,
-    hotSignals: null,
-    sourcesDegraded: null,
-    healthEscalations: null,
+  });
+  const [snapshot, setSnapshot] = useState<SignalSnapshot>({
+    capacityState: null,
+    postureMessage: null,
+    topOsintSignal: null,
+    topHealthSignal: null,
   });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
@@ -200,13 +235,18 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .catch((e) => { console.error('[CaptainsChair] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
 
+      // Signal Snapshot (2026-08-22): curated top items, not raw counts —
+      // a first pass surfaced raw counts (e.g. 1,851 degraded intelligence
+      // sources) directly in "Needs Your Attention" and that read as
+      // overwhelming noise, not a curated signal. These two feed the
+      // separate Signal Snapshot card instead.
       const osintAttention = await fetch('/api/intelligence-workbench/attention-count')
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] hot signals / source health failed:', e); errs.push('OSINT signals'); return null; });
+        .catch((e) => { console.error('[CaptainsChair] top OSINT signal failed:', e); errs.push('OSINT signal'); return null; });
 
       const healthOsint = await fetch('/api/health-osint/attention-count')
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] health OSINT escalation count failed:', e); errs.push('Health OSINT signals'); return null; });
+        .catch((e) => { console.error('[CaptainsChair] top health OSINT signal failed:', e); errs.push('Health OSINT signal'); return null; });
 
       if (cancelled) return;
 
@@ -217,9 +257,12 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
         contentPriorityFlagged: content ? items.filter((i) => i.captain_focus).length : null,
         capturePending: capture ? capture.pending : null,
         wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
-        hotSignals: osintAttention ? (osintAttention.hotSignals ?? 0) : null,
-        sourcesDegraded: osintAttention ? (osintAttention.sourcesDegraded ?? 0) : null,
-        healthEscalations: healthOsint ? (healthOsint.count ?? 0) : null,
+      });
+      setSnapshot({
+        capacityState: wellness ? (wellness.latest_capacity_state ?? null) : null,
+        postureMessage: wellness ? (wellness.system_posture_message ?? null) : null,
+        topOsintSignal: osintAttention ? (osintAttention.top ?? null) : null,
+        topHealthSignal: healthOsint ? (healthOsint.top ?? null) : null,
       });
       setErrors(errs);
       setLoading(false);
@@ -228,7 +271,7 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
     return () => { cancelled = true; };
   }, []);
 
-  return { data, loading, errors };
+  return { data, snapshot, loading, errors };
 }
 
 function CountTile({ label, value, href, loading }: { label: string; value: number | null; href: string; loading: boolean }) {
@@ -372,7 +415,7 @@ export default function CaptainsChairWorkbench() {
   const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
-  const { data: attention, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
+  const { data: attention, snapshot, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
 
   const postureBand = currentPosture.posture;
   const postureTone = POSTURE_STATE_TONE[postureBand];
@@ -421,13 +464,10 @@ export default function CaptainsChairWorkbench() {
         <div className="rounded-lg border border-wb-line bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
 
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} />
             <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} />
             <CountTile label="Wellness Risk Flags" value={attention.wellnessRiskFlags} href="/human-systems-workbench" loading={attentionLoading} />
-            <CountTile label="Hot OSINT Signals" value={attention.hotSignals} href="/intelligence-workbench" loading={attentionLoading} />
-            <CountTile label="Sources Degraded" value={attention.sourcesDegraded} href="/intelligence-workbench" loading={attentionLoading} />
-            <CountTile label="Health Signals — Escalate" value={attention.healthEscalations} href="/health-osint" loading={attentionLoading} />
           </div>
           {attentionErrors.length > 0 && (
             <p className="mb-4 text-[10px] text-wb-ink2">
@@ -467,6 +507,64 @@ export default function CaptainsChairWorkbench() {
             direct-to-main commits (see delivery_reconciler), not this queue.
             Component kept at components/CaptainApprovalQueue.tsx in case the
             gate is revived. */}
+
+        {/* ── Signal Snapshot (2026-08-22) — curated top items from Human
+            Systems / Technical OSINT / Health OSINT, replacing a first pass
+            that put raw counts (incl. 1,851 degraded intelligence sources)
+            straight into "Needs Your Attention" and read as noise, not
+            signal. One item per source, "all clear" when there's nothing
+            worth surfacing — never a false zero. */}
+        <div className="rounded-lg border border-wb-line bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Signal Snapshot</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className={`rounded-lg border ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').border} ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').bg} p-3`}>
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Capacity Today</p>
+              <p className={`mt-0.5 text-lg font-bold ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').text}`}>
+                {attentionLoading ? '…' : snapshot.capacityState ? CAPACITY_STATE_LABEL[snapshot.capacityState] ?? snapshot.capacityState : 'No data'}
+              </p>
+              {snapshot.postureMessage && (
+                <p className="mt-1 text-xs text-wb-ink/80">{snapshot.postureMessage}</p>
+              )}
+              <Link href="/human-systems-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
+                Human Systems →
+              </Link>
+            </div>
+
+            <div className={`rounded-lg border ${stateToneClasses(snapshot.topOsintSignal ? RISK_STATE_TONE[snapshot.topOsintSignal.risk_rating] ?? 'unknown' : 'ok').border} ${stateToneClasses(snapshot.topOsintSignal ? RISK_STATE_TONE[snapshot.topOsintSignal.risk_rating] ?? 'unknown' : 'ok').bg} p-3`}>
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Top OSINT Signal</p>
+              {attentionLoading ? (
+                <p className="mt-0.5 text-sm text-wb-ink2">…</p>
+              ) : snapshot.topOsintSignal ? (
+                <>
+                  <p className="mt-0.5 text-sm font-semibold text-wb-ink">{snapshot.topOsintSignal.risk_rating}</p>
+                  <p className="mt-1 text-xs text-wb-ink/80">{snapshot.topOsintSignal.title}</p>
+                </>
+              ) : (
+                <p className="mt-0.5 text-sm text-wb-ink2">All clear — nothing rated RED/AMBER this week.</p>
+              )}
+              <Link href="/intelligence-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
+                OSINT Workbench →
+              </Link>
+            </div>
+
+            <div className={`rounded-lg border ${stateToneClasses(snapshot.topHealthSignal ? HEALTH_SEVERITY_TONE[snapshot.topHealthSignal.severity] ?? 'unknown' : 'ok').border} ${stateToneClasses(snapshot.topHealthSignal ? HEALTH_SEVERITY_TONE[snapshot.topHealthSignal.severity] ?? 'unknown' : 'ok').bg} p-3`}>
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Top Health Signal</p>
+              {attentionLoading ? (
+                <p className="mt-0.5 text-sm text-wb-ink2">…</p>
+              ) : snapshot.topHealthSignal ? (
+                <>
+                  <p className="mt-0.5 text-sm font-semibold text-wb-ink capitalize">{snapshot.topHealthSignal.severity}</p>
+                  <p className="mt-1 text-xs text-wb-ink/80">{snapshot.topHealthSignal.title}</p>
+                </>
+              ) : (
+                <p className="mt-0.5 text-sm text-wb-ink2">All clear — nothing escalating right now.</p>
+              )}
+              <Link href="/health-osint" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
+                Health OSINT →
+              </Link>
+            </div>
+          </div>
+        </div>
 
         {/* Pending Intelligence Briefs — renders nothing when the queue is
             genuinely empty; shows its own error state on failure. */}
