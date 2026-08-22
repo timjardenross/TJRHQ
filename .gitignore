@@ -54,3 +54,9 @@ outputs/
 # id_registry.py's fcntl lock file — ephemeral, recreated on every mint.
 # Track .id-counters.json itself (it's the durable counter state); never this.
 .id-counters.lock
+
+# core/platform/memory_graph.py's embedded FalkorDB Lite store (via
+# redislite) — a local binary graph database file, not a durable evidence
+# artifact like data/self-improvement/runs/ (which IS tracked) — rebuilt
+# from core_events by re-running the backfill, never hand-authored.
+data/memory_graph.db*
