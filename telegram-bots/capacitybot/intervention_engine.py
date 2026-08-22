@@ -303,3 +303,54 @@ async def personal_effectiveness_summary(db, min_sample: int = MIN_SAMPLE_FOR_WE
         })
     out.sort(key=lambda r: r["attempts"], reverse=True)
     return out
+
+
+def render_effectiveness_summary(summary: list[dict], min_sample: int = MIN_SAMPLE_FOR_WEIGHTING) -> str:
+    """V02 WP07 — /actions upgrade (spec §20): "which strategies were used
+    most" -> "which strategies actually helped". Four sections, kept
+    strictly separate so a once-tried action never reads as proven (spec
+    §15/§31): most attempted, most often rated better, ineffective/neutral,
+    insufficient data."""
+    if not summary:
+        return "No strategies tried yet. Use /capacity or /helpme to start building a track record."
+
+    lines = ["STRATEGIES — WHAT'S ACTUALLY HELPING", ""]
+
+    by_attempts = sorted(summary, key=lambda r: r["attempts"], reverse=True)[:5]
+    lines.append("Most attempted:")
+    for i, r in enumerate(by_attempts, 1):
+        lines.append(f"  {i}. {r['title']} ({r['attempts']}x)")
+    lines.append("")
+
+    qualified = [r for r in summary if r["meets_sample_threshold"]]
+
+    helped = sorted(
+        (r for r in qualified if r["better"] > r["worse"]),
+        key=lambda r: (r["better"] - r["worse"]) / r["attempts"],
+        reverse=True,
+    )[:5]
+    if helped:
+        lines.append("Most often rated better:")
+        for i, r in enumerate(helped, 1):
+            lines.append(f"  {i}. {r['title']} (better {r['better']}/{r['attempts']})")
+        lines.append("")
+
+    ineffective = sorted(
+        (r for r in qualified if r["worse"] >= r["better"] and r["worse"] > 0),
+        key=lambda r: r["worse"],
+        reverse=True,
+    )[:5]
+    if ineffective:
+        lines.append("Ineffective or neutral so far:")
+        for i, r in enumerate(ineffective, 1):
+            lines.append(f"  {i}. {r['title']} (worse {r['worse']}/{r['attempts']})")
+        lines.append("")
+
+    insufficient = [r for r in summary if not r["meets_sample_threshold"]]
+    if insufficient:
+        lines.append(
+            f"Insufficient data yet ({len(insufficient)} strateg{'y' if len(insufficient) == 1 else 'ies'}, "
+            f"fewer than {min_sample} attempts each) — worth testing more before drawing conclusions."
+        )
+
+    return "\n".join(lines).rstrip()

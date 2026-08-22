@@ -913,17 +913,6 @@ def render_trend_summary(rows: list[dict], label: str) -> str:
     return "\n".join(lines).rstrip()
 
 
-def render_actions_summary(rows: list[dict]) -> str:
-    quick = [r for r in rows if r.get("checkin_type") == "capacity" and r.get("selected_action")]
-    if not quick:
-        return "No actions logged yet in this window."
-    counts = Counter(r["selected_action"] for r in quick)
-    lines = ["Strategies used most often:", ""]
-    for i, (act, n) in enumerate(counts.most_common(10), 1):
-        lines.append(f"{i}. {act} ({n}x)")
-    return "\n".join(lines)
-
-
 def render_therapy_summary(rows: list[dict], weeks: int) -> str:
     quick = [r for r in rows if r.get("checkin_type") == "capacity"]
     evenings = [r for r in rows if r.get("checkin_type") == "evening"]

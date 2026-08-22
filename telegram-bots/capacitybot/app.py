@@ -187,9 +187,13 @@ async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """V02 WP07 — "which strategies were used most" -> "which strategies
+    actually helped", sourced from capacity_intervention_events (both
+    /capacity Q9 and /helpme accepts), not just capacity_checkins'
+    selected_action text."""
     db = _get_supabase()
-    rows = await ct.fetch_recent(db, days=30)
-    await update.message.reply_text(ct.render_actions_summary(rows))
+    summary = await ie.personal_effectiveness_summary(db)
+    await update.message.reply_text(ie.render_effectiveness_summary(summary))
 
 
 async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

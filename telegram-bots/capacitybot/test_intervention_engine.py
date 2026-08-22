@@ -26,6 +26,7 @@ from telegram_bots.capacitybot.intervention_engine import (
     create_event,
     personal_effectiveness_summary,
     rank_interventions,
+    render_effectiveness_summary,
 )
 
 PASS = "PASS"
@@ -265,6 +266,48 @@ def test_personal_effectiveness_summary_counts_by_outcome():
     check("no percentage field present — counts only (spec §15/§31)", "percentage" not in row and "pct" not in row)
 
 
+# ── render_effectiveness_summary — WP07 /actions upgrade ────────────────────
+
+def _summary_row(iid, attempts, better=0, same=0, worse=0, not_completed=0, min_sample=MIN_SAMPLE_FOR_WEIGHTING):
+    return {
+        "intervention_id": iid, "title": iid, "attempts": attempts,
+        "better": better, "same": same, "worse": worse, "not_completed": not_completed,
+        "meets_sample_threshold": attempts >= min_sample,
+    }
+
+
+def test_render_effectiveness_summary_empty():
+    print("\n── render_effectiveness_summary — no data yet ───────────────────")
+    text = render_effectiveness_summary([])
+    check("points to /capacity or /helpme rather than showing an empty table", "helpme" in text.lower())
+
+
+def test_render_effectiveness_summary_separates_sections():
+    print("\n── render_effectiveness_summary — attempted/helped/ineffective/insufficient stay separate ─")
+    summary = [
+        _summary_row("popular_but_bad", attempts=10, better=1, worse=8, same=1),
+        _summary_row("reliable_helper", attempts=5, better=4, worse=1),
+        _summary_row("too_new", attempts=1, better=1),
+    ]
+    text = render_effectiveness_summary(summary)
+    check("most-attempted section present", "Most attempted" in text)
+    check("popular-but-ineffective action appears under ineffective, not most-attempted-implies-good",
+          "Ineffective or neutral" in text and "popular_but_bad" in text.split("Ineffective")[1])
+    check("a net-positive qualifying action appears under 'rated better'",
+          "Most often rated better" in text and "reliable_helper" in text.split("Most often rated better")[1])
+    check("a single-attempt action is flagged insufficient, not ranked as helpful or harmful",
+          "Insufficient data" in text and "too_new" not in text.split("Most often rated better")[1].split("Ineffective")[0]
+          if "Most often rated better" in text else True)
+
+
+def test_render_effectiveness_summary_never_ranks_single_attempt_as_proven():
+    print("\n── render_effectiveness_summary — spec §15/§31: no certainty from 1 attempt ─")
+    summary = [_summary_row("lucky_once", attempts=1, better=1)]
+    text = render_effectiveness_summary(summary)
+    check("single-attempt success lands in insufficient-data, not 'rated better'",
+          "Insufficient data" in text and "Most often rated better" not in text)
+
+
 def main():
     print("=" * 60)
     print("Intervention Engine — V02 WP03 test suite")
@@ -286,6 +329,9 @@ def main():
     test_create_event_no_db_fails_gracefully()
     test_complete_reassessment_writes_outcome()
     test_personal_effectiveness_summary_counts_by_outcome()
+    test_render_effectiveness_summary_empty()
+    test_render_effectiveness_summary_separates_sections()
+    test_render_effectiveness_summary_never_ranks_single_attempt_as_proven()
 
     passed = sum(1 for tag, _ in _results if tag == PASS)
     total = len(_results)
