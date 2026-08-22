@@ -148,6 +148,43 @@ CREATE INDEX idx_health_source_fetch_active
 - evidence_shift (Retractions, Contradictions)
 - evidence_reversal (Accepted Finding Now Questioned)
 
+**NEURODIVERGENCE** (added 2026-08-22, per TJR_Human_Systems_Workbench_V3_Mission_and_Change_Proposal.md §16
+"Evidence Metadata" — capacity_interventions.evidence_strength has sat at
+'unknown' for all 30 seeded interventions since migration 0157 because
+nothing fed it real evidence. This category exists to close that gap: the
+30 interventions are almost all autism/ADHD/sensory-regulation strategies
+(sensory reduction, pacing, masking-reduction, movement, timers) and none
+of the prior 6 domains cover that literature. Classification buckets below
+are the user's own taxonomy, not invented here.)
+- neuro_adhd (executive function, attention, hyperactivity, medication)
+- neuro_autism (sensory processing, communication, monotropism, masking)
+- neuro_audhd (interaction between ADHD + autistic characteristics)
+- neuro_burnout (autistic burnout, exhaustion, capacity loss — distinct
+  from the existing generic mental_health_risk burnout code, which a
+  keyword scan showed catches occupational/clinical burnout literature
+  but not autistic-burnout-specific research using terms like "autistic
+  burnout", "camouflaging fatigue", "monotropic split")
+- neuro_masking (camouflaging, compensation, identity)
+- neuro_regulation (nervous system, emotional regulation, stimulation)
+- neuro_sensory (noise, light, interoception, sensory overload)
+- neuro_work (employment, accommodations, executive functioning)
+- neuro_sleep (circadian rhythm, insomnia, fatigue — neurodivergence-
+  specific; the existing factor_sleep code stays for general population
+  sleep research)
+- neuro_executive_function (initiation, switching, working memory)
+- neuro_treatment (medication, psychology, occupational therapy)
+- neuro_australia_policy (Medicare, diagnosis rules, NDIS, government
+  policy — surfaced from author affiliation + policy-term keyword matches
+  on the same research sources below, not a separate government-site
+  scraper; see §4a for why)
+- neuro_lived_experience (qualitative studies, community/autistic-led
+  perspectives)
+
+Not added as a domain: the user's "New Research" bucket. That is a
+signal_type distinction (study_result / mechanism_discovery, already
+existing columns), not a topic — forcing it into health_domain would
+collide with the 13 topic codes above rather than compose with them.
+
 ### Signal Types (Always + Confidence)
 
 ```
@@ -200,6 +237,59 @@ trend_reversal    → previously accepted now contradicted
 
 **Firecrawl total:** ~390/1000 (62% buffer)  
 **Bright Data total:** ~130/5000 (97% buffer)
+
+### §4a. Neurodivergence Sources (added 2026-08-22)
+
+Requested source list (33 candidates from ADHD Evidence Project down to
+ScienceDaily) validated by live connectivity test before wiring anything
+in — same discipline as the 6 dynamic sources above. Real outcome:
+
+**Wired (4, all direct-fetch, no key, no Firecrawl/Bright Data budget
+spent — confirmed live 2026-08-22):**
+
+| # | Source | Tool | Cadence | Gives us |
+|---|--------|------|---------|----------|
+| 23 | Europe PMC | direct | weekly | PubMed + preprints + qualitative research, single-call abstracts — supersedes a standalone PubMed E-utils source (PubMed needs 2 calls — esearch then esummary — for title+abstract in one shot; Europe PMC's `resultType=core` returns both in the one call this pipeline's fetch/parse contract supports) |
+| 24 | Crossref | direct | weekly | Newly-published DOI metadata, per the user's own framing ("excellent machine source") |
+| 25 | ScienceDaily (autism RSS) | direct | weekly | Research-digest journalism, real topic RSS feed |
+| 26 | Medical Xpress (autism search RSS) | direct | weekly | Same — real feed, needs the same User-Agent this pipeline already sends (a UA-less request 400s) |
+
+**Explicitly not wired — identified, tested, and rejected/deferred rather
+than silently dropped:**
+
+- **Google Scholar** — no public API; scraping it violates Google's ToS
+  and its result pages are reCAPTCHA-gated. Not a viable automated
+  source at any tier.
+- **Individual journals** (Molecular Psychiatry, JAMA Psychiatry, The
+  Lancet Psychiatry, BMJ, Autism Research, Journal of Attention
+  Disorders, Research in Autism Spectrum Disorders, Nature/Nature Mental
+  Health, INSAR conference output, ADHD Evidence Project) — all already
+  indexed by Europe PMC/Crossref above. Building 10 separate per-journal
+  scrapers against paywalled sites this session couldn't live-verify the
+  markup of would mean guessing parse logic, which this codebase's
+  existing parsers explicitly refuse to do. Query Europe PMC/Crossref
+  filtered by `container-title`/journal name instead of a new source row
+  per journal.
+- **Australian orgs** (Autism CRC, Olga Tennison Autism Research Centre,
+  Autism Spectrum Australia, ADHD Australia, Reframing Autism, RANZCP,
+  Australian Psychological Society, Dept of Health, NHMRC, AIHW, ABS) —
+  connectivity-tested 2026-08-22: Autism CRC (200), Autism Spectrum
+  Australia (200), AIHW (200) and ABS (200) are real reachable pages, but
+  all four are plain HTML with no feed/API — a real parser needs their
+  actual fetched markup inspected first (Firecrawl budget + a per-site
+  parser built the way parse_who_alerts.py/parse_biorxiv_trending.py
+  were, against real observed structure, not guessed). Olga Tennison ARC
+  (403, bot-challenge) and RANZCP/ADHD Australia/Reframing Autism/APS
+  (404 on every guessed path) need corrected URLs before anything can be
+  built. `neuro_australia_policy` above is filled for now by
+  keyword/affiliation matches inside the Europe PMC feed rather than a
+  dedicated AU-org source — real but partial coverage; promoting any of
+  these 11 to a wired source is future work, not done here.
+- **The Conversation, ABC, Neuroscience News, university newsrooms** —
+  The Conversation's guessed topic-feed URL redirected to an unrelated
+  section (bad slug, not re-guessed further); ABC's guessed topic RSS
+  404'd; Neuroscience News 403'd (bot-blocked, would need Firecrawl).
+  Same disposition as the AU orgs above: identified, not fabricated.
 
 ---
 

@@ -111,6 +111,19 @@ from typing import Any
 _DOMAIN_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
     (("vaccine", "vaccination", "immuniz"), "epi_vaccination"),
     (("outbreak", "epidemic surveillance", "pandemic"), "epi_outbreak"),
+    # Neurodivergence codes (added 2026-08-22, per HEALTH_OSINT_IMPLEMENTATION.md
+    # §3's NEURODIVERGENCE block) checked ahead of the generic mental_health_*/
+    # factor_sleep buckets below — "autistic burnout"/"masking" preprints
+    # were previously falling into mental_health_mood/general_biomedical
+    # with no way to distinguish them from ordinary occupational-burnout
+    # or sleep-disorder preprints.
+    (("autistic burnout", "autism burnout", "camouflaging fatigue", "monotropic split"), "neuro_burnout"),
+    (("masking", "camouflaging", "camouflage"), "neuro_masking"),
+    (("sensory processing", "sensory overload", "interoception", "hypersensitivity",
+      "hyposensitivity", "auditory processing", "tactile defensiveness"), "neuro_sensory"),
+    (("audhd", "autism and adhd", "comorbid adhd and autism"), "neuro_audhd"),
+    (("adhd", "attention deficit", "hyperactivity"), "neuro_adhd"),
+    (("autism", "autistic", "asperger", "autism spectrum"), "neuro_autism"),
     (("insomnia", "sleep"), "factor_sleep"),
     (("cortisol", "hpa axis", "hpa-axis", "chronic stress"), "mental_health_stress"),
     (("depression", "anxiety", "burnout", "mood disorder"), "mental_health_mood"),
