@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
-import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { PendingBriefsPanel } from '@/components/PendingBriefsPanel';
 import { stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
@@ -408,39 +407,38 @@ export default function CaptainsChairWorkbench() {
             </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-wb-ink2">Live Alerts</h3>
-                {alertsFailedSources > 0 && (
-                  <span className="text-[10px] text-wb-ink2">{alertsFailedSources} of {alertsTotalSources} sources unavailable</span>
-                )}
-              </div>
-              {alertsLoading ? (
-                <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-              ) : liveAlerts.length === 0 ? (
-                <p className="text-xs text-wb-ink2">No alerts.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {liveAlerts.slice(0, 5).map((alert) => (
-                    <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
-                      <p className="font-semibold text-wb-ink">{alert.title}</p>
-                      <p className="text-wb-ink2">{alert.detail}</p>
-                    </li>
-                  ))}
-                  {liveAlerts.length > 5 && (
-                    <p className="text-xs text-wb-ink2">+{liveAlerts.length - 5} more</p>
-                  )}
-                </ul>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-wb-ink2">Live Alerts</h3>
+              {alertsFailedSources > 0 && (
+                <span className="text-[10px] text-wb-ink2">{alertsFailedSources} of {alertsTotalSources} sources unavailable</span>
               )}
             </div>
-
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-wb-ink2">Approvals Pending</h3>
-              <CaptainApprovalQueue />
-            </div>
+            {alertsLoading ? (
+              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+            ) : liveAlerts.length === 0 ? (
+              <p className="text-xs text-wb-ink2">No alerts.</p>
+            ) : (
+              <ul className="space-y-2">
+                {liveAlerts.slice(0, 5).map((alert) => (
+                  <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
+                    <p className="font-semibold text-wb-ink">{alert.title}</p>
+                    <p className="text-wb-ink2">{alert.detail}</p>
+                  </li>
+                ))}
+                {liveAlerts.length > 5 && (
+                  <p className="text-xs text-wb-ink2">+{liveAlerts.length - 5} more</p>
+                )}
+              </ul>
+            )}
           </div>
         </div>
+        {/* Approvals Pending (CaptainApprovalQueue) removed 2026-08-22, Captain
+            directive — the manual mission-approval gate (Awaiting Captain/XO
+            Approval statuses) sits permanently empty; real delivery is
+            direct-to-main commits (see delivery_reconciler), not this queue.
+            Component kept at components/CaptainApprovalQueue.tsx in case the
+            gate is revived. */}
 
         {/* Pending Intelligence Briefs — renders nothing when the queue is
             genuinely empty; shows its own error state on failure. */}
@@ -499,9 +497,6 @@ export default function CaptainsChairWorkbench() {
             </Link>
             <Link href="/intelligence-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → OSINT Workbench
-            </Link>
-            <Link href="/knowledge-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-              → Knowledge Workbench
             </Link>
             <Link href="/captains-brief-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → Full Brief

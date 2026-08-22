@@ -7,49 +7,22 @@
 // /workbenches; not promoted into the LCARS navigation model. The two domains
 // are views over organisational decisions and personal documents.
 
-import { Suspense, useCallback, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { WorkbenchShell, DomainToggle } from '@/components/ui';
+import { Suspense } from 'react';
+import { WorkbenchShell } from '@/components/ui';
 import { MemoryView } from './_components/MemoryView';
-import { LibraryView } from './_components/LibraryView';
-import type { Domain } from './_components/types';
 
-const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
-  { key: 'memory', label: 'Memory' },
-  { key: 'library', label: 'Library' },
-];
-
-const EYEBROW: Record<Domain, string> = {
-  memory: 'Command Memory',
-  library: 'Document Library',
-};
-
-function isDomain(v: string | null): v is Domain {
-  return v === 'memory' || v === 'library';
-}
+// Library (document cataloguing/review, MSN-0331) pulled back to draft
+// 2026-08-22, Captain directive — mid-setup, not fully operational, hidden
+// from view until it's ready. Memory is unaffected and stays live; the
+// domain-toggle (Memory | Library) is dropped along with it — pointless
+// with only one destination — and comes back if/when Library returns.
 
 function Workbench() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const initial = params.get('domain');
-  const [domain, setDomain] = useState<Domain>(isDomain(initial) ? initial : 'memory');
-
-  const changeDomain = (d: Domain) => {
-    setDomain(d);
-    // Keep the URL shareable/bookmarkable without a full navigation.
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('domain', d);
-    router.replace(`/knowledge-workbench?${sp.toString()}`, { scroll: false });
-  };
-
-  const right = <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Knowledge domain" />;
-
   return (
-    <WorkbenchShell title="Knowledge Workbench" eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Knowledge · Memory · Library · Organisational decisions and personal documents"
-      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
-      {domain === 'memory' && <MemoryView />}
-      {domain === 'library' && <LibraryView />}
+    <WorkbenchShell title="Knowledge Workbench" eyebrow="Command Memory"
+      tagline="USS TJR · Knowledge · Memory · Organisational decisions"
+      back={{ href: '/workbenches', label: 'Workbenches' }}>
+      <MemoryView />
     </WorkbenchShell>
   );
 }
