@@ -42,7 +42,19 @@ _BACKEND_HEALTH_URL = os.environ.get("COMMAND_CENTRE_HEALTH_URL", "http://localh
 # heartbeat already covers the equivalent "is health data flowing" signal.
 # The Captain's Chair Workbench hit the identical stale-nag problem the same
 # day and fixed it the same way (removed the now-unresolvable rule).
-_MUTED_DOMAINS = frozenset({"captains_log", "health_daily_logs"})
+#
+# 2026-08-22: recovery_pulses itself joins the mute list — MY CAPACITY TODAY
+# (capacity_checkins, migrations 0148/0150) replaced it as the write path the
+# same way it replaced captains_log/health_daily_logs above, so its heartbeat
+# can now never succeed again by design (last real write 2026-08-21). It was
+# never actually wired live anyway (domain_registry.notes: "write point not
+# yet wired") — this was permanently unresolvable stale-domain noise in
+# PLATFORM HEALTH before and after the migration, just for a different
+# reason. capacity_checkins has no domain_registry heartbeat of its own yet —
+# a real monitoring gap, disclosed not fixed here (out of this change's
+# scope: needs a record_heartbeat() call wired into telegram-bots/
+# capacitybot's write path plus a new domain_registry row).
+_MUTED_DOMAINS = frozenset({"captains_log", "health_daily_logs", "recovery_pulses"})
 
 
 def _check_command_centre_backend() -> bool:

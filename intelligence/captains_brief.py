@@ -31,6 +31,17 @@ try:
 except Exception:  # pragma: no cover — import-time guard, not a runtime path
     generate_infra_narrative = None  # type: ignore[assignment]
 
+# 2026-08-22: the daily digest — combines the OSINT/world-news brief above
+# with the platform's own multi-domain events (engineering/learning/
+# opportunities; health is already covered by _get_capacity_today() above
+# via a more specific query) into one LLM narrative. Same guarded-import
+# convention as generate_infra_narrative:
+# a problem here degrades this one section, never the whole brief.
+try:
+    from intelligence.brief.daily_digest import build_daily_digest
+except Exception:  # pragma: no cover — import-time guard, not a runtime path
+    build_daily_digest = None  # type: ignore[assignment]
+
 # Weekly OSINT exec-summary narration (2026-08-10) — reuses the exact same
 # shared provider chain as core/platform/infra_narrative.py rather than a
 # third bespoke LLM call implementation. Guarded the same way: a problem
@@ -127,18 +138,16 @@ def _get_latest_ori_brief() -> Optional[dict]:
     return rows[0] if rows else None
 
 
-def _get_todays_health() -> Optional[dict]:
-    today = date.today().isoformat()
-    rows = _sb_get(
-        "captains_log_entries",
-        f"log_date=eq.{today}&limit=1"
-        f"&select=captain_capacity_rating,energy,pain_score,sleep_hours,health_status",
-    )
-    return rows[0] if rows else None
-
-
-def _get_recovery_status() -> Optional[dict]:
-    rows = _sb_get("recovery_confidence_today", "limit=1")
+def _get_capacity_today() -> Optional[dict]:
+    """MY CAPACITY TODAY (2026-08-22 migration) replaced Recovery Pulse /
+    captains_log_entries as the Captain's day-to-day capacity input —
+    captains_log_entries stopped being written 2026-06-28, recovery_pulses
+    stopped 2026-08-21 (see core/infrastructure/supabase/migrations/0148 +
+    0150). capacity_checkins_today is the honest replacement view: a raw
+    check-in count + latest reading, no fabricated slot-based percentage
+    (that concept doesn't exist under "allow more than one check-in a day,
+    never overwrite")."""
+    rows = _sb_get("capacity_checkins_today", "limit=1")
     return rows[0] if rows else None
 
 
@@ -449,12 +458,16 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     written to on 2026-06-28 — this was the one fetcher in the file that
     still trusted it unconditionally, so the weekly Capacity block silently
     rendered "No capacity logs this week" every week regardless of reality.
-    Morning/EOD already fall back to recovery_pulses / recovery_confidence_
-    today when captains_log_entries is empty (see _get_todays_health() /
-    _get_recovery_status()) — this applies the same fallback, aggregated
-    across the window instead of a single day. Returns {"source":
-    "log"|"pulse"|"none", "entries": [...]} so the renderer can tell which
-    shape it got."""
+    Falls back to recovery_pulses, aggregated across the window instead of a
+    single day. Returns {"source": "log"|"pulse"|"none", "entries": [...]}
+    so the renderer can tell which shape it got.
+
+    2026-08-22 note: both captains_log_entries and recovery_pulses are now
+    permanently frozen (see _get_capacity_today() — Morning/EOD moved to
+    capacity_checkins). This weekly fetcher was NOT part of that migration
+    and will keep degrading toward "source: none" as the 7-day window rolls
+    past 2026-08-21 — a real gap, left open here since only the daily briefs
+    were in scope for the capacity_checkins cutover."""
     since = (date.today() - timedelta(days=days - 1)).isoformat()
     log_entries = _sb_get(
         "captains_log_entries",
@@ -625,6 +638,13 @@ def _rating_emoji(rating) -> str:
     return _severity_emoji({"green": "green", "amber": "yellow", "red": "red"}.get((rating or "").lower(), "none"))
 
 
+def _capacity_state_emoji(state) -> str:
+    """capacity_checkins.capacity_state is green/orange/red (MY CAPACITY
+    TODAY's own vocabulary) — orange maps onto the same yellow/caution
+    glyph amber does everywhere else in these briefs."""
+    return _severity_emoji({"green": "green", "orange": "yellow", "red": "red"}.get((state or "").lower(), "none"))
+
+
 def _confidence_bar(pct) -> str:
     try:
         p = int(pct)
@@ -688,6 +708,36 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     return [
         f"<b>🛰 PLATFORM HEALTH</b>{suffix}",
         f"  ⚠️ {narrative}",
+        "",
+    ]
+
+
+def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODAY") -> list[str]:
+    """Shared MY CAPACITY TODAY renderer for Morning Brief and EOD Summary —
+    replaces the old captains_log_entries/recovery_pulses capacity blocks
+    (both tables permanently frozen, see _get_capacity_today()). Renders the
+    Captain's own latest capacity_state reading plus whatever companion
+    signals (pain, regulation, executive function) were captured alongside
+    it — no synthesized score, per capacity_zone_from_checkin()'s "the
+    Captain's own report IS the signal" philosophy."""
+    if not cap or not cap.get("has_checked_in"):
+        return [
+            f"<b>{header}</b>",
+            "  No check-in yet today — log one via capacitybot (/capacity)",
+            "",
+        ]
+    state = cap.get("latest_capacity_state")
+    bits = [f"{_capacity_state_emoji(state)} Capacity <b>{(state or '?').capitalize()}</b>"]
+    if cap.get("latest_pain_score") is not None:
+        bits.append(f"Pain {cap['latest_pain_score']}")
+    if cap.get("latest_regulation_state"):
+        bits.append(f"NS {cap['latest_regulation_state'].capitalize()}")
+    if cap.get("latest_executive_function"):
+        bits.append(f"EF {cap['latest_executive_function'].replace('_', ' ').capitalize()}")
+    return [
+        f"<b>{header}</b>",
+        f"  {'  ·  '.join(bits)}",
+        f"  <i>{cap.get('checkin_label', '')}</i>",
         "",
     ]
 
@@ -854,8 +904,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
-    health = _get_todays_health()
-    recovery = _get_recovery_status()
+    capacity = _get_capacity_today()
     signals = _get_recent_signals(hours=24)
     infra = _get_infra_verification()
 
@@ -865,44 +914,7 @@ def generate_morning_brief() -> str:
         "",
     ]
 
-    # Capacity block
-    if health:
-        cap = health.get("captain_capacity_rating") or "?"
-        pain = health.get("pain_score", 0)
-        energy = health.get("energy", "?")
-        sleep = health.get("sleep_hours", "?")
-        lines += [
-            "<b>⚡ CAPACITY</b>",
-            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}"
-            f"  ·  Energy {energy}  ·  Sleep {sleep}h",
-            "",
-        ]
-    elif recovery and recovery.get("pulses_completed", 0) > 0:
-        conf = recovery.get("recovery_confidence", 0)
-        signals_str = [
-            s for s in (
-                f"Energy {recovery['latest_energy'].capitalize()}"
-                if recovery.get("latest_energy") else None,
-                f"NS {recovery['latest_nervous_system'].capitalize()}"
-                if recovery.get("latest_nervous_system") else None,
-                f"Body {recovery['latest_body_signals'].capitalize()}"
-                if recovery.get("latest_body_signals") else None,
-            )
-            if s
-        ]
-        lines += [
-            "<b>⚡ CAPACITY</b>",
-            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>",
-        ]
-        if signals_str:
-            lines.append(f"  {' · '.join(signals_str)}")
-        lines.append("")
-    else:
-        lines += [
-            "<b>⚡ CAPACITY</b>",
-            "  No pulse logged yet — /recovery_pulse to log your morning pulse",
-            "",
-        ]
+    lines += _format_capacity_block(capacity)
 
     # Intelligence signals
     signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
@@ -916,6 +928,23 @@ def generate_morning_brief() -> str:
                 f"  {_truncate_clean(snap, 350)}",
                 f"  <i>Risk: {brief.get('overall_risk', '?')}"
                 f" · ORI brief {brief.get('period_end', '')}</i>",
+                "",
+            ]
+
+    # Daily digest — engineering/learning/opportunities (health is already
+    # covered above) plus the widened world/OSINT brief, synthesised into
+    # one educational paragraph. Best-effort: LLM/event-bus unavailability
+    # just means this section doesn't appear, never a failed brief.
+    if build_daily_digest is not None:
+        try:
+            digest_text = build_daily_digest(brief)
+        except Exception as exc:
+            log.warning("Daily digest synthesis failed: %s", exc)
+            digest_text = None
+        if digest_text:
+            lines += [
+                "<b>🌐 TODAY, EXPLAINED</b>",
+                f"  {_truncate_clean(digest_text, 900)}",
                 "",
             ]
 
@@ -947,8 +976,7 @@ def generate_midday_update(signals: list[dict]) -> str:
 
 def generate_eod_summary() -> str:
     now = _now_aest()
-    health = _get_todays_health()
-    recovery = _get_recovery_status()
+    capacity = _get_capacity_today()
     infra = _get_infra_verification()
     # 2026-08-13: EOD previously carried no intelligence section at all —
     # the day could close showing zero signal activity regardless of what
@@ -968,49 +996,11 @@ def generate_eod_summary() -> str:
         "",
     ]
 
-    if health:
-        cap = health.get("captain_capacity_rating") or "?"
-        pain = health.get("pain_score", 0)
-        lines += [
-            "<b>⚡ TODAY</b>",
-            f"  {_rating_emoji(cap)} Capacity <b>{cap}</b>  ·  Pain {pain}",
-            "",
-        ]
-
-    if recovery:
-        conf = recovery.get("recovery_confidence", 0)
-        done = [
-            "✅" if recovery.get("morning_done") else "❌",
-            "✅" if recovery.get("midday_done") else "❌",
-            "✅" if recovery.get("evening_done") else "❌",
-        ]
-        lines += [
-            "<b>🔋 RECOVERY PULSES</b>",
-            f"  <code>{_confidence_bar(conf)}</code> {conf}%  ·  {' '.join(done)}",
-            "  <i>AM · Mid · PM</i>",
-        ]
-        signals = [
-            s for s in (
-                f"NS {recovery['latest_nervous_system'].capitalize()}"
-                if recovery.get("latest_nervous_system") else None,
-                f"Body {recovery['latest_body_signals'].capitalize()}"
-                if recovery.get("latest_body_signals") else None,
-            )
-            if s
-        ]
-        if signals:
-            lines.append(f"  {' · '.join(signals)}")
-        lines.append("")
-
+    lines += _format_capacity_block(capacity)
     lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")
     lines += _format_infra_block(infra, morning_text)
 
-    lines += [
-        "<b>📝 LOG YOUR DAY</b>",
-        "  Reply <code>/log</code> to record today's reflection",
-        "",
-        "🤖 <i>XO · Starship Endeavour</i>",
-    ]
+    lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
 
@@ -1222,7 +1212,7 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
-    _persist_brief(brief_type, text, signals_count=len(signals), health=_get_todays_health())
+    _persist_brief(brief_type, text, signals_count=len(signals), health=_get_capacity_today())
     return _send_telegram(text)
 
 

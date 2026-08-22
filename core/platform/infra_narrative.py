@@ -22,6 +22,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -138,11 +139,22 @@ def generate_infra_narrative() -> Optional[dict]:
     detail = _degraded_domain_detail(degraded)
     lines = []
     for d in detail or degraded:
+        last_success = d.get("last_success_at")
+        if last_success:
+            try:
+                ts = datetime.fromisoformat(str(last_success).replace("Z", "+00:00"))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                age_desc = f"last succeeded {(datetime.now(timezone.utc) - ts).days} day(s) ago ({last_success})"
+            except (ValueError, TypeError):
+                age_desc = f"last succeeded at {last_success}"
+        else:
+            age_desc = "has never once succeeded"
         lines.append(
             f"- {d.get('display_name', d.get('domain_key', '?'))} "
             f"(category={d.get('category', '?')}, last_status={d.get('last_status', '?')}, "
             f"error={d.get('last_error_message') or 'none reported'}, "
-            f"never_succeeded={d.get('never_succeeded', '?')})"
+            f"never_succeeded={d.get('never_succeeded', '?')}, {age_desc})"
         )
     prompt = (
         "The following platform domains are currently degraded (stale or never succeeded):\n"
