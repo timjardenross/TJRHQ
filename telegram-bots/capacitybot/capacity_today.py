@@ -1,27 +1,24 @@
-"""XO Bot — MY CAPACITY TODAY (2026-08-21).
+"""Capacity Bot — MY CAPACITY TODAY (V02 — Regulate, WP01: Telegram rendering fix).
 
-Replaces Recovery Pulse. Purpose: "track what my system needs today, not
-what diagnosis explains it." Not a diagnostic tool — tracks capacity,
-stimulation, pain, overload, masking/compensation, and what actually
-helps. See docs/capacity-today-spec.md (Captain's original brief) for the
-full product spec this module implements section-by-section.
+Purpose: "track what my system needs today, not what diagnosis explains
+it." Not a diagnostic tool — tracks capacity, stimulation, pain, overload,
+masking/compensation, and what actually helps. See
+MY_CAPACITY_TODAY_V02_Mission_and_Scope.md for the full product spec.
 
-Convention, matching app.py's retired pulse flow and mood_chart.py:
+Convention:
   - Callback data is pipe-delimited key=value pairs, flow tag `ct|`.
   - All state lives in the callback data itself — no ConversationHandler.
   - query.edit_message_text() updates the same message in place.
   - Terminal state is detected by field presence, not a step counter.
 
-New pattern this module adds — multi-select steps (Q6 active_loads, Q8
-identified_needs): each option is a single-digit/letter index into a fixed
-array; selections are a comma-joined index list in the callback data.
-Telegram's callback_data hard limit is 64 bytes, so every field uses a
-single-character code and multi-select lists use bare digit indices — a
-fully-populated quick check-in's callback data stays well under that limit.
-
-Messages are plain text (no MarkdownV2) throughout — deliberately, to avoid
-escaping bugs across rich, punctuation-heavy summary text. Matches
-mood_chart.py's callback-edit messages, which do the same.
+V02 WP01 rendering rule (spec §3): every question's full text and every
+option's full wording is always shown in the MESSAGE BODY. Inline buttons
+never carry the full wording — only a compact "N · short label", numbered
+to match the body listing. `stored_value` (the single-letter/word code)
+never changes: this is a presentation-layer fix only, no data migration.
+Long multi-select lists (>6 options) paginate the BUTTON rows only; the
+body always lists every option, unpaginated, with a checkmark per
+selection — see PAGE_SIZE / kb_multiselect below.
 """
 
 from __future__ import annotations
@@ -38,14 +35,17 @@ log = logging.getLogger(__name__)
 
 TABLE = "capacity_checkins"
 
+PAGE_SIZE = 6  # spec §3.3: prefer 4-6 visible multi-select options per page
 
-# ── Option tables (index-coded for multi-select callback data) ────────────────
+
+# ── Option tables (full wording — always shown in the message body) ───────────
 
 CAPACITY_OPTIONS = [
     ("g", "🟢 Sustainable"),
     ("o", "🟠 Stretched"),
     ("r", "🔴 Depleted"),
 ]
+CAPACITY_SHORT = {"g": "Sustainable", "o": "Stretched", "r": "Depleted"}
 CAPACITY_LABEL = {"green": "🟢 Sustainable", "orange": "🟠 Stretched", "red": "🔴 Depleted"}
 CAPACITY_CODE_TO_STATE = {"g": "green", "o": "orange", "r": "red"}
 
@@ -54,6 +54,7 @@ STIMULATION_OPTIONS = [
     ("b", "⚖️ About right"),
     ("h", "⬆️ Too much"),
 ]
+STIMULATION_SHORT = {"l": "Not enough", "b": "About right", "h": "Too much"}
 STIMULATION_LABEL = {"low": "⬇️ Not enough", "balanced": "⚖️ About right", "high": "⬆️ Too much"}
 STIM_CODE_TO_STATE = {"l": "low", "b": "balanced", "h": "high"}
 
@@ -63,6 +64,7 @@ PAIN_OPTIONS = [
     ("e", "🟠 Higher than usual"),
     ("h", "🔴 Much higher than usual"),
 ]
+PAIN_SHORT = {"l": "Lower", "b": "Around usual", "e": "Higher", "h": "Much higher"}
 PAIN_LABEL = {
     "low": "🟢 Lower than usual", "baseline": "🟡 Around usual",
     "elevated": "🟠 Higher than usual", "high": "🔴 Much higher than usual",
@@ -75,6 +77,7 @@ REGULATION_OPTIONS = [
     ("a", "😣 Activated"),
     ("o", "🚨 Overloaded"),
 ]
+REGULATION_SHORT = {"s": "Settled", "m": "Manageable", "a": "Activated", "o": "Overloaded"}
 REGULATION_LABEL = {
     "settled": "😌 Settled", "manageable": "🙂 Manageable",
     "activated": "😣 Activated", "overloaded": "🚨 Overloaded",
@@ -87,6 +90,7 @@ EF_OPTIONS = [
     ("d", "🟠 Difficult"),
     ("v", "🔴 Very difficult"),
 ]
+EF_SHORT = {"g": "Working well", "s": "More effort", "d": "Difficult", "v": "Very difficult"}
 EF_LABEL = {
     "good": "✅ Working well", "strained": "🟡 More effort than usual",
     "difficult": "🟠 Difficult", "very_difficult": "🔴 Very difficult",
@@ -99,6 +103,7 @@ COMPENSATION_OPTIONS = [
     ("h", "🟠 A lot"),
     ("e", "🔴 I'm forcing myself through"),
 ]
+COMPENSATION_SHORT = {"l": "Very little", "m": "Some", "h": "A lot", "e": "Forcing through"}
 COMPENSATION_LABEL = {
     "low": "🟢 Very little", "moderate": "🟡 Some",
     "high": "🟠 A lot", "extreme": "🔴 I'm forcing myself through",
@@ -112,6 +117,10 @@ ACTIVE_LOADS = [
     "😟 Anxiety / emotional load", "😴 Poor sleep / fatigue", "📱 Too much stimulation",
     "🥱 Not enough stimulation", "🏠 Life admin / chores", "❓ Something else",
 ]
+ACTIVE_LOADS_SHORT = [
+    "Noise", "People", "Work", "Thinking", "Change", "Pain",
+    "Anxiety", "Poor sleep", "Overstim.", "Understim.", "Admin", "Other",
+]
 ACTIVE_LOADS_OTHER_IDX = 11
 
 IDENTIFIED_NEEDS = [
@@ -120,6 +129,11 @@ IDENTIFIED_NEEDS = [
     "🩹 Pain management", "📋 Clear plan / structure", "🔄 More predictability",
     "💬 Connection / talk to someone", "🍽️ Food / hydration", "🌿 Outside / change of environment",
     "⏸️ Stop pushing", "❓ Something else",
+]
+IDENTIFIED_NEEDS_SHORT = [
+    "Less input", "Reduce demands", "Solitude", "Movement", "Music",
+    "Focus task", "Rest", "Sleep", "Pain mgmt", "Structure",
+    "Predictability", "Connection", "Food/water", "Change env.", "Stop pushing", "Other",
 ]
 IDENTIFIED_NEEDS_OTHER_IDX = 15
 
@@ -130,6 +144,10 @@ LOAD_CATEGORY_OPTIONS = [
 DAY_WIN_HELPED_OPTIONS = [
     "Rest", "Movement", "Reduced demands", "Sensory control", "Structure",
     "Connection", "Interesting activity", "Pain management", "Nothing clearly helped",
+]
+DAY_WIN_HELPED_SHORT = [
+    "Rest", "Movement", "Less demand", "Sensory ctrl", "Structure",
+    "Connection", "Interesting", "Pain mgmt", "None helped",
 ]
 
 
@@ -170,6 +188,21 @@ MASTER_ACTIONS: dict[str, str] = {
     "take_recovery":  "Take recovery time",
     "maintain":       "Maintain — no need to add load just because capacity is available",
     "early_reduce":   "What can you reduce, regulate, or change before this becomes red?",
+}
+
+MASTER_ACTIONS_SHORT: dict[str, str] = {
+    "reduce_input": "Reduce input", "postpone": "Postpone task", "quieter_place": "Quieter space",
+    "rest_20": "Rest 20 min", "pain_strategy": "Pain strategy", "move_5": "Move 5 min",
+    "music_on": "Music on", "bounded_task": "Bounded task", "change_env": "Change env.",
+    "talk_briefly": "Talk briefly", "reduce_physical": "Reduce physical", "pain_mgmt": "Pain mgmt",
+    "change_posture": "Change posture", "pace_not_push": "Pace, don't push",
+    "protect_recovery": "Protect recovery", "one_task": "One task only", "first_action": "First action",
+    "remove_optional": "Remove optional", "use_timer": "Use timer", "defer_admin": "Defer admin",
+    "stop_performing": "Stop performing?", "cancel_unnecessary": "Cancel task",
+    "reduce_social": "Reduce social", "work_directly": "Work directly",
+    "drop_eye_contact": "Drop eye contact", "ask_dont_guess": "Ask, don't guess",
+    "simplify_expect": "Simplify expect.", "take_recovery": "Take recovery",
+    "maintain": "Maintain", "early_reduce": "Reduce early?",
 }
 
 
@@ -215,30 +248,85 @@ def suggest_actions(row: dict) -> list[str]:
     return codes[:5] if len(codes) > 5 else codes
 
 
+# ── Central rendering utility (V02 WP01 — spec §3.4) ──────────────────────────
+# Single place that turns (question, full-wording options) into a message
+# body. Buttons are built separately and only ever carry "N · short label".
+
+def render_question(question: str, full_options: list[str]) -> str:
+    """Full question + full numbered option wording, always shown in the
+    message body regardless of how buttons render."""
+    lines = [question, ""]
+    lines += [f"{i}. {opt}" for i, opt in enumerate(full_options, 1)]
+    return "\n".join(lines)
+
+
+def render_multiselect_question(question: str, full_options: list[str], selected: str) -> str:
+    """Same as render_question but marks selected items — used for every
+    multi-select screen so the full list (not just the current button
+    page) is always visible, per spec §3.3."""
+    sel_set = set((selected or "").split(",")) if selected else set()
+    lines = [question, ""]
+    for i, opt in enumerate(full_options):
+        mark = "✅" if str(i) in sel_set else "▫️"
+        lines.append(f"{i + 1}. {mark} {opt}")
+    lines.append("")
+    lines.append("Tap a number below to toggle it, then Continue.")
+    return "\n".join(lines)
+
+
+def _select_rows(base: str, key: str, options: list[tuple[str, str]],
+                  shorts: dict[str, str], per_row: int = 2) -> list[list[InlineKeyboardButton]]:
+    """Compact numbered buttons for a single-select question — button text
+    is never the full label, only 'N · short'. Order matches render_question's
+    numbering exactly (both iterate `options` in the same order)."""
+    buttons = [
+        InlineKeyboardButton(f"{i} · {shorts[code]}", callback_data=f"{base}|{key}={code}")
+        for i, (code, _label) in enumerate(options, 1)
+    ]
+    return [buttons[i:i + per_row] for i in range(0, len(buttons), per_row)]
+
+
 # ── Keyboard builders ──────────────────────────────────────────────────────────
 
+def q_capacity() -> str:
+    return render_question("MY CAPACITY TODAY\n\nHow is your capacity right now?",
+                            [label for _, label in CAPACITY_OPTIONS])
+
+
 def kb_capacity() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(label, callback_data=f"ct|c={code}") for code, label in CAPACITY_OPTIONS],
-    ])
+    return InlineKeyboardMarkup(_select_rows("ct", "c", CAPACITY_OPTIONS, CAPACITY_SHORT, per_row=3))
 
 
 def _done_row(prefix_state: str) -> list[InlineKeyboardButton]:
     return [InlineKeyboardButton("✅ Done for now", callback_data=f"{prefix_state}|done=1")]
 
 
+def q_stimulation() -> str:
+    return render_question("Where is your stimulation level?",
+                            [label for _, label in STIMULATION_OPTIONS])
+
+
 def kb_stimulation(c: str) -> InlineKeyboardMarkup:
     base = f"ct|c={c}"
-    rows = [[InlineKeyboardButton(label, callback_data=f"{base}|t={code}") for code, label in STIMULATION_OPTIONS]]
+    rows = _select_rows(base, "t", STIMULATION_OPTIONS, STIMULATION_SHORT, per_row=3)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
+
+
+def q_pain() -> str:
+    return render_question("How is your pain compared with your usual baseline?",
+                            [label for _, label in PAIN_OPTIONS])
 
 
 def kb_pain(c: str, t: str) -> InlineKeyboardMarkup:
     base = f"ct|c={c}|t={t}"
-    rows = [[InlineKeyboardButton(l, callback_data=f"{base}|p={cd}") for cd, l in PAIN_OPTIONS]]
+    rows = _select_rows(base, "p", PAIN_OPTIONS, PAIN_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
+
+
+def q_pain_score() -> str:
+    return "Pain intensity right now? (optional, 0=none · 10=worst)"
 
 
 def kb_pain_score(c: str, t: str, p: str) -> InlineKeyboardMarkup:
@@ -251,16 +339,26 @@ def kb_pain_score(c: str, t: str, p: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+def q_regulation() -> str:
+    return render_question("How activated or overloaded does your system feel?",
+                            [label for _, label in REGULATION_OPTIONS])
+
+
 def kb_regulation(c: str, t: str, p: str, ps: str) -> InlineKeyboardMarkup:
     base = f"ct|c={c}|t={t}|p={p}|ps={ps}"
-    rows = [[InlineKeyboardButton(l, callback_data=f"{base}|r={cd}") for cd, l in REGULATION_OPTIONS]]
+    rows = _select_rows(base, "r", REGULATION_OPTIONS, REGULATION_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
 
 
+def q_executive_function() -> str:
+    return render_question("How easy is it to think, decide, start, and switch tasks?",
+                            [label for _, label in EF_OPTIONS])
+
+
 def kb_executive_function(c: str, t: str, p: str, ps: str, r: str) -> InlineKeyboardMarkup:
     base = f"ct|c={c}|t={t}|p={p}|ps={ps}|r={r}"
-    rows = [[InlineKeyboardButton(l, callback_data=f"{base}|e={cd}") for cd, l in EF_OPTIONS]]
+    rows = _select_rows(base, "e", EF_OPTIONS, EF_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
 
@@ -275,32 +373,74 @@ def _toggle_list(current: str, idx: int) -> str:
     return ",".join(sel)
 
 
-def kb_multiselect(base: str, key: str, options: list[str], selected: str) -> InlineKeyboardMarkup:
-    """Generic toggle-list keyboard. `base` already contains every prior
-    field; `key` is this step's callback-data key (e.g. 'ld' or 'nd').
-    Two options per row (not one) — one-per-row read as a long vertical
-    list that was hard to scan; matches the single-select steps, which
-    already pack their options horizontally."""
+def q_active_loads(selected: str) -> str:
+    return render_multiselect_question("What's taking the most capacity right now?",
+                                        ACTIVE_LOADS, selected)
+
+
+def q_identified_needs(selected: str) -> str:
+    return render_multiselect_question("What would help your system most right now?",
+                                        IDENTIFIED_NEEDS, selected)
+
+
+def kb_multiselect(base: str, key: str, options: list[str], shorts: list[str],
+                    selected: str, page: int = 0) -> InlineKeyboardMarkup:
+    """Paginated toggle-list keyboard (spec §3.3). `base` already contains
+    every prior field; `key` is this step's callback-data key. The full
+    option list is always in the message body (render_multiselect_question)
+    — only the BUTTON rows paginate, PAGE_SIZE per page. Selections and the
+    current page both round-trip through callback data so Prev/Next never
+    lose a prior tap."""
+    start = page * PAGE_SIZE
+    page_indices = list(range(start, min(start + PAGE_SIZE, len(options))))
     sel_set = set((selected or "").split(",")) if selected else set()
+
     buttons = []
-    for i, label in enumerate(options):
-        mark = "✅ " if str(i) in sel_set else ""
+    for i in page_indices:
+        mark = "✅" if str(i) in sel_set else "▫️"
         new_val = _toggle_list(selected, i)
-        buttons.append(InlineKeyboardButton(f"{mark}{label}", callback_data=f"{base}|{key}={new_val}"))
+        buttons.append(InlineKeyboardButton(
+            f"{mark} {i + 1} · {shorts[i]}",
+            callback_data=f"{base}|{key}={new_val}|pg={page}",
+        ))
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀ Previous", callback_data=f"{base}|{key}={selected}|pg={page - 1}"))
+    if start + PAGE_SIZE < len(options):
+        nav.append(InlineKeyboardButton("Next ▶", callback_data=f"{base}|{key}={selected}|pg={page + 1}"))
+    if nav:
+        rows.append(nav)
+
     rows.append([InlineKeyboardButton("➡️ Continue", callback_data=f"{base}|{key}={selected}|next=1")])
     rows.append([InlineKeyboardButton("✅ Done for now", callback_data=f"{base}|{key}={selected}|done=1")])
     return InlineKeyboardMarkup(rows)
 
 
+def q_compensation() -> str:
+    return render_question("How much are you having to push, mask, or compensate today?",
+                            [label for _, label in COMPENSATION_OPTIONS])
+
+
 def kb_compensation(base: str) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(l, callback_data=f"{base}|cp={cd}") for cd, l in COMPENSATION_OPTIONS]]
+    rows = _select_rows(base, "cp", COMPENSATION_OPTIONS, COMPENSATION_SHORT, per_row=2)
     rows.append(_done_row(base))
     return InlineKeyboardMarkup(rows)
 
 
+def q_actions(codes: list[str]) -> str:
+    return render_question(
+        "What would help your system most right now?\n\nOne small thing you can do next:",
+        [MASTER_ACTIONS[c] for c in codes],
+    )
+
+
 def kb_actions(base: str, codes: list[str]) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(MASTER_ACTIONS[c], callback_data=f"{base}|act={c}")] for c in codes]
+    rows = [
+        [InlineKeyboardButton(f"{i} · {MASTER_ACTIONS_SHORT[c]}", callback_data=f"{base}|act={c}")]
+        for i, c in enumerate(codes, 1)
+    ]
     rows.append([InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|act=skip")])
     return InlineKeyboardMarkup(rows)
 
@@ -314,21 +454,23 @@ def kb_go_deeper(row_id: str) -> InlineKeyboardMarkup:
 
 
 # ── Remind me later (spec §2, "optionally allow") ────────────────────────────
-# No existing generic reminder mechanism in this bot to integrate with (the
-# only reminder-shaped code in the repo is platform-runtime/recovery_scheduler
-# .py, a Slack-side L2/L3 escalation DM unrelated to a per-check-in nudge) —
+# No existing generic reminder mechanism in this bot to integrate with —
 # built as a one-off python-telegram-bot JobQueue.run_once, in-memory only:
 # if the bot restarts before it fires, the reminder is lost. Acceptable for a
-# same-day nudge; not durable enough for anything longer.
+# same-day nudge; not durable enough for anything longer (spec §13).
 
 REMIND_OPTIONS = [("15", "15 min"), ("45", "45 min"), ("120", "2 hours")]
 
 
+def q_remind_duration() -> str:
+    return render_question("Remind you in how long?", [label for _, label in REMIND_OPTIONS])
+
+
 def kb_remind_duration(row_id: str) -> InlineKeyboardMarkup:
     base = f"ctr|id={row_id}"
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(label, callback_data=f"{base}|m={mins}") for mins, label in REMIND_OPTIONS
-    ]])
+    buttons = [InlineKeyboardButton(f"{i} · {label}", callback_data=f"{base}|m={mins}")
+               for i, (mins, label) in enumerate(REMIND_OPTIONS, 1)]
+    return InlineKeyboardMarkup([buttons])
 
 
 # ── Deep check-in (spec §4) ───────────────────────────────────────────────────
@@ -348,6 +490,10 @@ RECOVERY_DURATION_OPTIONS = [
     ("fd", "Full day"),
     ("md", "Multiple days"),
 ]
+RECOVERY_DURATION_SHORT = {
+    "n": "No recovery", "30": "<30 min", "2h": "1-2h",
+    "hd": "Half day", "fd": "Full day", "md": "Multi-day",
+}
 _RD_CODE_TO_LABEL = dict(RECOVERY_DURATION_OPTIONS)
 
 # index-coded multi-select, same convention as ACTIVE_LOADS/IDENTIFIED_NEEDS —
@@ -356,11 +502,15 @@ _RD_CODE_TO_LABEL = dict(RECOVERY_DURATION_OPTIONS)
 RECOVERY_FACTORS = [
     "Food", "Movement", "Rest", "Medication", "Sleep", "Recovery time", "Nothing skipped",
 ]
+RECOVERY_FACTORS_SHORT = [
+    "Food", "Movement", "Rest", "Meds", "Sleep", "Recovery time", "None skipped",
+]
 
 # spec §4 Q6 "what helped?" — same set as the evening reflection's
 # DAY_WIN_HELPED_OPTIONS list minus its "nothing helped" catch-all, which
 # reads oddly for a mid-episode question.
 HELPFUL_ACTIONS_OPTIONS = [o for o in DAY_WIN_HELPED_OPTIONS if o != "Nothing clearly helped"]
+HELPFUL_ACTIONS_SHORT = [o for o in DAY_WIN_HELPED_SHORT if o != "None helped"]
 
 # spec §4 Q7 "what made things worse?" — deliberately its own list rather
 # than reusing HELPFUL_ACTIONS_OPTIONS; "what helped" and "what hurt" are not
@@ -370,12 +520,21 @@ UNHELPFUL_ACTIONS_OPTIONS = [
     "Social demands", "Physical exertion", "Skipping rest or food", "Pushing through pain",
     "Nothing made it worse",
 ]
+UNHELPFUL_ACTIONS_SHORT = [
+    "Noise", "Interrupted", "Time pressure", "Uncertainty", "Social demands",
+    "Physical", "Skipped needs", "Pushed pain", "None worse",
+]
+
+
+def q_deep_load_category() -> str:
+    return render_question("What was the main load?",
+                            [label.capitalize() for _, label in LOAD_CATEGORY_OPTIONS])
 
 
 def kb_deep_load_category(row_id: str) -> InlineKeyboardMarkup:
     base = f"ctd|id={row_id}"
-    rows = [[InlineKeyboardButton(label.capitalize(), callback_data=f"{base}|lc={code}")]
-            for code, label in LOAD_CATEGORY_OPTIONS]
+    shorts = {code: label.capitalize() for code, label in LOAD_CATEGORY_OPTIONS}
+    rows = _select_rows(base, "lc", LOAD_CATEGORY_OPTIONS, shorts, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
@@ -386,23 +545,33 @@ def kb_deep_yesno(base: str, key: str) -> InlineKeyboardMarkup:
     ]])
 
 
+def q_deep_recovery_duration() -> str:
+    return render_question("How long did recovery take?",
+                            [label for _, label in RECOVERY_DURATION_OPTIONS])
+
+
 def kb_deep_recovery_duration(base: str) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(label, callback_data=f"{base}|rd={code}")]
-            for code, label in RECOVERY_DURATION_OPTIONS]
+    rows = _select_rows(base, "rd", RECOVERY_DURATION_OPTIONS, RECOVERY_DURATION_SHORT, per_row=2)
     return InlineKeyboardMarkup(rows)
 
 
-def kb_deep_multiselect(row_id: str, key: str, options: list[str], selected: str) -> InlineKeyboardMarkup:
-    """Same toggle-list shape as kb_multiselect, but for the deep-check
-    steps that come after lc/uc/mp/rd are already saved to the row — base is
-    always just the row id (write-through per tap), never an accumulating
-    field string, so these stay well under the callback_data byte limit no
-    matter how many of the (up to 9) options are selected."""
+def q_deep_multiselect(question: str, options: list[str], selected: str) -> str:
+    return render_multiselect_question(question, options, selected)
+
+
+def kb_deep_multiselect(row_id: str, key: str, options: list[str], shorts: list[str],
+                         selected: str, page: int = 0) -> InlineKeyboardMarkup:
+    """Same paginated shape as kb_multiselect, but for the deep-check steps
+    that come after lc/uc/mp/rd are already saved to the row — base is
+    always just the row id (write-through per tap)."""
     base = f"ctd|id={row_id}"
+    start = page * PAGE_SIZE
+    page_indices = list(range(start, min(start + PAGE_SIZE, len(options))))
     sel_set = set((selected or "").split(",")) if selected else set()
+
     buttons = []
-    for i, label in enumerate(options):
-        mark = "✅ " if str(i) in sel_set else ""
+    for i in page_indices:
+        mark = "✅" if str(i) in sel_set else "▫️"
         sel = [x for x in (selected.split(",") if selected else []) if x]
         s = str(i)
         if s in sel:
@@ -410,8 +579,20 @@ def kb_deep_multiselect(row_id: str, key: str, options: list[str], selected: str
         else:
             sel.append(s)
         new_val = ",".join(sel)
-        buttons.append(InlineKeyboardButton(f"{mark}{label}", callback_data=f"{base}|{key}={new_val}"))
+        buttons.append(InlineKeyboardButton(
+            f"{mark} {i + 1} · {shorts[i]}",
+            callback_data=f"{base}|{key}={new_val}|pg={page}",
+        ))
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀ Previous", callback_data=f"{base}|{key}={selected}|pg={page - 1}"))
+    if start + PAGE_SIZE < len(options):
+        nav.append(InlineKeyboardButton("Next ▶", callback_data=f"{base}|{key}={selected}|pg={page + 1}"))
+    if nav:
+        rows.append(nav)
+
     rows.append([InlineKeyboardButton("➡️ Continue", callback_data=f"{base}|{key}={selected}|next=1")])
     rows.append([InlineKeyboardButton("✅ Done for now", callback_data=f"{base}|{key}={selected}|done=1")])
     return InlineKeyboardMarkup(rows)
@@ -425,38 +606,60 @@ def kb_deep_note_prompt(row_id: str) -> InlineKeyboardMarkup:
 
 # ── Evening reflection (spec §5) ─────────────────────────────────────────────
 
+EVENING_TRAJECTORY_OPTIONS = [("u", "⬆️ Improved"), ("s", "➡️ About the same"), ("d", "⬇️ Declined")]
+EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About same", "d": "Declined"}
+
+EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
+EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}
+
+
+def q_evening_trajectory() -> str:
+    return render_question("Did your capacity improve, stay the same, or decline today?",
+                            [label for _, label in EVENING_TRAJECTORY_OPTIONS])
+
+
 def kb_evening_trajectory() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("⬆️ Improved", callback_data="cte|dt=u"),
-        InlineKeyboardButton("➡️ About the same", callback_data="cte|dt=s"),
-        InlineKeyboardButton("⬇️ Declined", callback_data="cte|dt=d"),
-    ]])
+    rows = _select_rows("cte", "dt", EVENING_TRAJECTORY_OPTIONS, EVENING_TRAJECTORY_SHORT, per_row=3)
+    return InlineKeyboardMarkup(rows)
+
+
+def q_evening_helpful() -> str:
+    return render_question("What helped most?", DAY_WIN_HELPED_OPTIONS)
 
 
 def kb_evening_helpful(dt: str) -> InlineKeyboardMarkup:
     base = f"cte|dt={dt}"
-    rows = [[InlineKeyboardButton(label, callback_data=f"{base}|hf={i}")]
-            for i, label in enumerate(DAY_WIN_HELPED_OPTIONS)]
+    buttons = [InlineKeyboardButton(f"{i} · {short}", callback_data=f"{base}|hf={i - 1}")
+               for i, short in enumerate(DAY_WIN_HELPED_SHORT, 1)]
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
     return InlineKeyboardMarkup(rows)
+
+
+def q_evening_debt() -> str:
+    return render_question("Did you borrow capacity from tomorrow?",
+                            [label for _, label in EVENING_DEBT_OPTIONS])
 
 
 def kb_evening_debt(dt: str, hf: str) -> InlineKeyboardMarkup:
     base = f"cte|dt={dt}|hf={hf}"
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("No", callback_data=f"{base}|cd=n"),
-        InlineKeyboardButton("Maybe", callback_data=f"{base}|cd=m"),
-        InlineKeyboardButton("Yes", callback_data=f"{base}|cd=y"),
-    ]])
+    rows = _select_rows(base, "cd", EVENING_DEBT_OPTIONS, EVENING_DEBT_SHORT, per_row=3)
+    return InlineKeyboardMarkup(rows)
 
 
 # ── Therapy summary window selector ─────────────────────────────────────────
 
+THERAPY_WINDOW_OPTIONS = [("1", "1 week"), ("2", "2 weeks"), ("4", "4 weeks")]
+THERAPY_WINDOW_SHORT = {"1": "1 week", "2": "2 weeks", "4": "4 weeks"}
+
+
+def q_therapy_window() -> str:
+    return render_question("Therapy summary — how far back?",
+                            [label for _, label in THERAPY_WINDOW_OPTIONS])
+
+
 def kb_therapy_window() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton("1 week", callback_data="cty|w=1"),
-        InlineKeyboardButton("2 weeks", callback_data="cty|w=2"),
-        InlineKeyboardButton("4 weeks", callback_data="cty|w=4"),
-    ]])
+    rows = _select_rows("cty", "w", THERAPY_WINDOW_OPTIONS, THERAPY_WINDOW_SHORT, per_row=3)
+    return InlineKeyboardMarkup(rows)
 
 
 # ── Parsing ─────────────────────────────────────────────────────────────────
