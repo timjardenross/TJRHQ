@@ -142,6 +142,26 @@ class HealthSignalCurator:
         self.limit = limit
         self.supabase = None if dry_run else _client()
 
+    @staticmethod
+    def _dedup_key(signal: dict[str, Any]) -> str:
+        """2026-08-22 — the first live backlog run published 3 near-identical
+        WHO outbreak bulletins independently ("Ebola disease caused by
+        Bundibugyo virus, Democratic Republic of the Congo & Ug...", each
+        with a slightly different trailing location list) because the
+        classifier judges one signal at a time with no memory across the
+        batch — exact-duplicate detection already happens upstream at
+        ingestion (dedup_hash on source_id + canonical URL), this catches
+        the case that slips past that: the same underlying bulletin
+        mirrored/re-published under a different URL. Same source + same
+        normalized title prefix = same real-world signal; deciding it once
+        and applying that decision to every signal in the group is cheaper
+        and more consistent than asking the LLM the same question 3 times
+        and risking 3 different answers."""
+        title = (signal.get("title") or "").lower()
+        normalized = re.sub(r"[^a-z0-9 ]", "", title)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        return f"{signal.get('source_id')}::{normalized[:60]}"
+
     def _pending(self) -> list[dict[str, Any]]:
         query = (
             self.supabase.table("health_signals")
@@ -181,19 +201,32 @@ class HealthSignalCurator:
         pending = self._pending()
         log.info("Curating %d pending signal(s)", len(pending))
 
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for signal in pending:
+            groups.setdefault(self._dedup_key(signal), []).append(signal)
+        if len(groups) < len(pending):
+            log.info("Deduped %d signal(s) into %d group(s) before classifying", len(pending), len(groups))
+
         counts = {"PUBLISH": 0, "REJECT": 0, "ESCALATE": 0}
         details = []
-        for signal in pending:
-            decision, reason = _classify(signal)
-            counts[decision] += 1
-            self._apply(signal["signal_id"], decision)
-            details.append({
-                "signal_id": signal["signal_id"],
-                "title": signal.get("title"),
-                "decision": decision,
-                "reason": reason,
-            })
-            log.info("[%s] %s — %s", decision, (signal.get("title") or "")[:80], reason)
+        for group in groups.values():
+            representative = group[0]
+            decision, reason = _classify(representative)
+            if len(group) > 1:
+                reason = f"{reason} (applied to {len(group)} near-duplicate signals from the same source)"
+
+            for signal in group:
+                counts[decision] += 1
+                self._apply(signal["signal_id"], decision)
+                details.append({
+                    "signal_id": signal["signal_id"],
+                    "title": signal.get("title"),
+                    "decision": decision,
+                    "reason": reason,
+                })
+
+            dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""
+            log.info("[%s]%s %s — %s", decision, dup_note, (representative.get("title") or "")[:80], reason)
 
         return {
             "total": len(pending),
