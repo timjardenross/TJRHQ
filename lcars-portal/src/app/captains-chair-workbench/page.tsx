@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
+import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
@@ -564,6 +565,8 @@ export default function CaptainsChairWorkbench() {
             </div>
           </div>
         </div>
+
+        <TodaysBriefPanel />
 
         {/* ── Narrative cards ── */}
         <div className="grid gap-4 md:grid-cols-2">
