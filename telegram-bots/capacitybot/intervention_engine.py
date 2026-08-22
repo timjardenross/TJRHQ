@@ -367,3 +367,120 @@ def render_effectiveness_summary(summary: list[dict], min_sample: int = MIN_SAMP
         )
 
     return "\n".join(lines).rstrip()
+
+
+# ── V02 WP10 — analytics integration (/capacity_patterns, /therapy) ─────────
+
+async def intervention_context_by_state(db) -> list[dict]:
+    """Per help_state: event count, most-common intervention tried, and its
+    improvement rate among completed reassessments. Spec §21's "common
+    states" + "interventions associated with improvement"."""
+    if not db:
+        return []
+    try:
+        events = (
+            db.table(EVENTS_TABLE)
+            .select("help_state,intervention_id,outcome")
+            .not_.is_("help_state", "null")
+            .execute()
+        ).data or []
+        catalogue = {
+            row["intervention_id"]: row["title"]
+            for row in (db.table(TABLE).select("intervention_id,title").execute()).data or []
+        }
+    except Exception as exc:
+        log.error("intervention_context_by_state fetch failed: %s", exc)
+        return []
+
+    by_state: dict[str, list[dict]] = {}
+    for e in events:
+        by_state.setdefault(e["help_state"], []).append(e)
+
+    out = []
+    for state, evs in by_state.items():
+        iid_counts = Counter(e["intervention_id"] for e in evs)
+        top_iid, _n = iid_counts.most_common(1)[0]
+        completed = [e for e in evs if e.get("outcome") in ("better", "same", "worse")]
+        better = sum(1 for e in completed if e["outcome"] == "better")
+        out.append({
+            "help_state": state,
+            "count": len(evs),
+            "top_intervention_id": top_iid,
+            "top_intervention_title": catalogue.get(top_iid, top_iid),
+            "completed_reassessments": len(completed),
+            "better_count": better,
+        })
+    out.sort(key=lambda r: r["count"], reverse=True)
+    return out
+
+
+def render_intervention_context(context_rows: list[dict], all_help_states: list[str]) -> str:
+    """Spec §21 worked-example format, plus "states with poor intervention
+    coverage" — help_states from the full 9-state /helpme list that have
+    never had an intervention tried."""
+    if not context_rows:
+        return ""
+    lines = ["", "INTERVENTION CONTEXT", ""]
+    for r in context_rows[:5]:
+        state_label = r["help_state"].replace("_", " ")
+        if r["completed_reassessments"] >= 3:
+            lines.append(
+                f"You recorded {r['count']} {state_label} event{'s' if r['count'] != 1 else ''} this month. "
+                f"{r['top_intervention_title']} was followed by improvement in "
+                f"{r['better_count']} of {r['completed_reassessments']} completed reassessments."
+            )
+        else:
+            lines.append(
+                f"You recorded {r['count']} {state_label} event{'s' if r['count'] != 1 else ''} — "
+                f"not enough completed reassessments yet to say what's helping."
+            )
+    covered = {r["help_state"] for r in context_rows}
+    uncovered = [s for s in all_help_states if s not in covered]
+    if uncovered:
+        lines.append("")
+        lines.append("No interventions tried yet for: " + ", ".join(s.replace("_", " ") for s in uncovered) + ".")
+    return "\n".join(lines)
+
+
+def render_management_learning_section(
+    effectiveness_summary: list[dict],
+    context_rows: list[dict],
+) -> str:
+    """Spec §22 — /therapy's "Management & Learning" section. Compensation
+    frequency, pain interaction, stimulation pattern, recovery duration,
+    and capacity-debt frequency already exist in capacity_today's own
+    render_therapy_summary output; this adds only what's new in V02: which
+    states are most difficult, and which interventions actually helped."""
+    if not effectiveness_summary and not context_rows:
+        return ""
+
+    lines = ["", "MANAGEMENT & LEARNING", ""]
+
+    if context_rows:
+        lines.append("Most common difficult states:")
+        for r in context_rows[:3]:
+            lines.append(f"  - {r['help_state'].replace('_', ' ')} ({r['count']}x)")
+        lines.append("")
+
+    if effectiveness_summary:
+        qualified = [r for r in effectiveness_summary if r["meets_sample_threshold"]]
+        useful = sorted(
+            (r for r in qualified if r["better"] > r["worse"]),
+            key=lambda r: r["better"] - r["worse"], reverse=True,
+        )[:3]
+        not_useful = sorted(
+            (r for r in qualified if r["worse"] >= r["better"] and r["worse"] > 0),
+            key=lambda r: r["worse"], reverse=True,
+        )[:3]
+
+        lines.append(f"Interventions tried: {len(effectiveness_summary)}")
+        if useful:
+            lines.append("Appear most useful:")
+            for r in useful:
+                lines.append(f"  - {r['title']}")
+        if not_useful:
+            lines.append("Did not appear useful:")
+            for r in not_useful:
+                lines.append(f"  - {r['title']}")
+
+    return "\n".join(lines).rstrip()

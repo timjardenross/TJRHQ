@@ -183,9 +183,16 @@ async def cmd_capacity_month(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """V02 WP10 (spec §21) — appends intervention context (common
+    difficult states, which intervention helped most per state, states
+    with zero interventions tried) after the existing check-in trend
+    summary."""
     db = _get_supabase()
     rows = await ct.fetch_recent(db, days=30)
-    await update.message.reply_text(ct.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS"))
+    base = ct.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS")
+    context_rows = await ie.intervention_context_by_state(db)
+    all_states = [code for code, _label in helpme.HELP_STATE_OPTIONS]
+    await update.message.reply_text(base + ie.render_intervention_context(context_rows, all_states))
 
 
 async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -625,7 +632,11 @@ async def handle_capacity_therapy_callback(update: Update, context: ContextTypes
     weeks = int(f.get("w", "2"))
     db = _get_supabase()
     rows = await ct.fetch_recent(db, days=weeks * 7)
-    await query.edit_message_text(ct.render_therapy_summary(rows, weeks))
+    base = ct.render_therapy_summary(rows, weeks)
+    # V02 WP10 (spec §22) — Management & Learning section
+    summary = await ie.personal_effectiveness_summary(db)
+    context_rows = await ie.intervention_context_by_state(db)
+    await query.edit_message_text(base + ie.render_management_learning_section(summary, context_rows))
 
 
 # ── /helpme (V02 WP04 + WP05) ────────────────────────────────────────────────
