@@ -2,10 +2,12 @@
 Tests for capacity_today.py — MY CAPACITY TODAY (V02 WP01).
 
 Covers: the V02 WP01 rendering utility (full-body question/option text,
-paginated multi-select keyboards, short-label buttons), the deep check-in
-extension, and the action-suggestion rule table. Same check()/main() style
-as test_voice_capture.py so a bare `python test_capacity_today.py` run
-gives a real pass/fail signal.
+paginated multi-select keyboards, short-label buttons) and the deep
+check-in extension. The old rule-based action-suggestion table
+(suggest_actions) was superseded by intervention_engine.py in WP06 — see
+test_intervention_engine.py for its coverage. Same check()/main() style as
+test_voice_capture.py so a bare `python test_capacity_today.py` run gives
+a real pass/fail signal.
 
 Run from repo root:
     python telegram-bots/capacitybot/test_capacity_today.py
@@ -37,7 +39,6 @@ from telegram_bots.capacitybot.capacity_today import (
     q_executive_function,
     render_multiselect_question,
     render_question,
-    suggest_actions,
     write_deep_checkin,
 )
 
@@ -206,21 +207,6 @@ def test_write_deep_checkin_closing_note():
     check("notes saved", payload.get("notes") == text)
 
 
-# ── suggest_actions — unchanged rule table ───────────────────────────────────
-
-def test_suggest_actions_red_high_stimulation():
-    print("\n── suggest_actions — red + high stimulation (spec worked example) ─")
-    codes = suggest_actions({"capacity_state": "red", "stimulation_state": "high"})
-    check("returns 3-5 codes", 3 <= len(codes) <= 5)
-    check("includes reduce_input", "reduce_input" in codes)
-
-
-def test_suggest_actions_green_default():
-    print("\n── suggest_actions — green capacity, no other flags ─────────────")
-    codes = suggest_actions({"capacity_state": "green"})
-    check("falls through to maintain", codes == ["maintain"])
-
-
 def test_parse_cb_handles_pagination_field():
     print("\n── parse_cb — pg round-trips like any other field ───────────────")
     f = parse_cb("ct|id=1|ld=0,2|pg=1")
@@ -345,8 +331,6 @@ def main():
     test_q_active_loads_lists_all_12_regardless_of_page()
     test_write_deep_checkin_recovery_factors()
     test_write_deep_checkin_closing_note()
-    test_suggest_actions_red_high_stimulation()
-    test_suggest_actions_green_default()
     test_parse_cb_handles_pagination_field()
     test_capacity_callback_active_loads_redraw_passes_page_through()
     test_deep_callback_ua_continue_prompts_for_free_text_note()

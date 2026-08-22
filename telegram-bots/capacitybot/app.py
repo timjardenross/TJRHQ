@@ -258,6 +258,40 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         if f.get("act") is not None:
             saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "act": f["act"]})
             if saved and row:
+                # V02 WP06 — Q9 acceptance now also feeds the same
+                # outcome-learning table /helpme writes to (spec §19), not
+                # just the free-text selected_action column on the
+                # check-in row (kept for dashboard/history compatibility).
+                if f["act"] != "skip":
+                    intervention = await ie.get_intervention(db, f["act"])
+                    if intervention:
+                        ok, event_row, _err = await ie.create_event(
+                            db,
+                            source="capacity_q9",
+                            intervention_id=f["act"],
+                            checkin_id=row_id,
+                            capacity_before=row.get("capacity_state"),
+                            stimulation_before=row.get("stimulation_state"),
+                            pain_before=row.get("pain_state"),
+                            pain_score_before=row.get("pain_score"),
+                            regulation_before=row.get("regulation_state"),
+                            executive_before=row.get("executive_function"),
+                            compensation_before=row.get("compensation_load"),
+                            context_loads=row.get("active_loads"),
+                        )
+                        if ok and event_row and intervention.get("requires_followup"):
+                            minutes = intervention.get("estimated_minutes") or 15
+                            chat_id = update.effective_chat.id
+                            event_id = event_row["id"]
+
+                            async def _fire(ctx: ContextTypes.DEFAULT_TYPE, _eid=event_id) -> None:
+                                await ctx.bot.send_message(
+                                    chat_id=chat_id,
+                                    text=helpme.q_reassess_outcome(),
+                                    reply_markup=helpme.kb_reassess_outcome(_eid),
+                                )
+
+                            context.job_queue.run_once(_fire, when=minutes * 60, name=f"capacity-q9-reassess-{event_id}")
                 await query.edit_message_text(
                     ct.render_summary(row),
                     reply_markup=ct.kb_go_deeper(str(row["id"])),
@@ -269,10 +303,17 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         if f.get("nd") is not None:
             saved, row, err = await ct.write_quick_checkin(db, {"id": row_id, "nd": f["nd"]})
             if f.get("next") == "1":
-                codes = ct.suggest_actions(row or {})
+                ranked = await ie.rank_interventions(
+                    db,
+                    capacity_state=(row or {}).get("capacity_state"),
+                    stimulation_state=(row or {}).get("stimulation_state"),
+                    pain_state=(row or {}).get("pain_state"),
+                    executive_function=(row or {}).get("executive_function"),
+                    limit=5,
+                )
                 await query.edit_message_text(
-                    ct.q_actions(codes),
-                    reply_markup=ct.kb_actions(id_base, codes),
+                    ct.q_actions(ranked),
+                    reply_markup=ct.kb_actions(id_base, ranked),
                 )
             else:
                 await query.edit_message_text(

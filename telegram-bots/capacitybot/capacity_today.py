@@ -206,48 +206,6 @@ MASTER_ACTIONS_SHORT: dict[str, str] = {
 }
 
 
-def suggest_actions(row: dict) -> list[str]:
-    """Rule-based, spec §2 — returns 3-5 MASTER_ACTIONS codes.
-    Order of rules matches the spec's own worked examples; later rules can
-    add to an already-partly-filled list without duplicating a code."""
-    codes: list[str] = []
-
-    def add(*cs: str) -> None:
-        for c in cs:
-            if c not in codes:
-                codes.append(c)
-
-    cap, stim, pain, ef, comp = (
-        row.get("capacity_state"), row.get("stimulation_state"),
-        row.get("pain_state"), row.get("executive_function"), row.get("compensation_load"),
-    )
-
-    if cap == "red" and stim == "high":
-        add("reduce_input", "postpone", "quieter_place", "rest_20", "pain_strategy")
-    elif cap == "orange" and stim == "low":
-        add("move_5", "music_on", "bounded_task", "change_env", "talk_briefly")
-
-    if pain in ("elevated", "high"):
-        add("reduce_physical", "pain_mgmt", "change_posture", "pace_not_push", "protect_recovery")
-
-    if ef == "very_difficult":
-        add("one_task", "first_action", "remove_optional", "use_timer", "defer_admin")
-
-    if comp == "extreme":
-        add("stop_performing", "cancel_unnecessary", "reduce_social", "work_directly",
-            "ask_dont_guess", "simplify_expect", "take_recovery")
-
-    if not codes:
-        if cap == "green":
-            add("maintain")
-        elif cap == "orange":
-            add("early_reduce", "move_5", "quieter_place")
-        elif cap == "red":
-            add("rest_20", "quieter_place", "protect_recovery")
-
-    return codes[:5] if len(codes) > 5 else codes
-
-
 # ── Central rendering utility (V02 WP01 — spec §3.4) ──────────────────────────
 # Single place that turns (question, full-wording options) into a message
 # body. Buttons are built separately and only ever carry "N · short label".
@@ -429,17 +387,22 @@ def kb_compensation(base: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def q_actions(codes: list[str]) -> str:
+def q_actions(interventions: list[dict]) -> str:
+    """V02 WP06 — `interventions` are ranked rows from
+    intervention_engine.rank_interventions(), not the old static
+    MASTER_ACTIONS codes."""
+    if not interventions:
+        return "No ranked suggestions available right now — tap Done to finish."
     return render_question(
         "What would help your system most right now?\n\nOne small thing you can do next:",
-        [MASTER_ACTIONS[c] for c in codes],
+        [row["title"] for row in interventions],
     )
 
 
-def kb_actions(base: str, codes: list[str]) -> InlineKeyboardMarkup:
+def kb_actions(base: str, interventions: list[dict]) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(f"{i} · {MASTER_ACTIONS_SHORT[c]}", callback_data=f"{base}|act={c}")]
-        for i, c in enumerate(codes, 1)
+        [InlineKeyboardButton(f"{i} · {row['button_label']}", callback_data=f"{base}|act={row['intervention_id']}")]
+        for i, row in enumerate(interventions, 1)
     ]
     rows.append([InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|act=skip")])
     return InlineKeyboardMarkup(rows)
