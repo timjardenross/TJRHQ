@@ -6,31 +6,45 @@
 // scattered (app) health pages show:
 //
 //   Recovery  — get_recovery_posture(date) RPC (the ROS-001 Posture Engine,
-//               migration 0018) + capacity_checkins / capacity_checkins_today
-//               (the current Telegram-fed "MY CAPACITY TODAY" signal,
-//               2026-08-21 — recovery_pulses / recovery_confidence_today are
-//               retired, the bot no longer writes to them) + health_insights.
+//               migration 0018, retained for its legacy `posture` field only
+//               — System Posture, spec §6, is now the primary indicator,
+//               deterministic from capacity_checkins, see
+//               deriveSystemPosture()) + capacity_checkins /
+//               capacity_checkins_today (the current Telegram-fed "MY
+//               CAPACITY TODAY" signal, 2026-08-21 — recovery_pulses /
+//               recovery_confidence_today are retired, the bot no longer
+//               writes to them) + health_insights + capacity_intervention_
+//               events/capacity_interventions (My Next Move, spec §10).
 //   Medical   — analytics_health_daily (Life Participation + 30d trends),
-//               human_systems_daily (four energy domains), recovery_indexes
-//               derived from the same daily row.
+//               human_systems_daily (four Capacity Domains) + a derived
+//               fifth Sensory domain, Recovery Conditions (spec §16,
+//               replaces Recovery Indexes) derived from the same daily
+//               row plus capacity_checkins, Capacity Debt (evening
+//               reflections), Recovery Duration (deep-check field),
+//               intervention effectiveness ("What Helps Me", spec §18),
+//               and auto-detected redesign candidates (spec §23).
 //   Readiness — physical_workout_sessions (last session + 7d completed count)
 //               and physical_readiness_checkins.
 //
-// The Life Participation and Recovery-Index derivations mirror the canonical
-// logic in src/lib/ros-data.ts / the compute_life_participation SQL function so
-// the workbench and the Medical Bay never disagree.
+// The Life Participation and Recovery-Conditions derivations mirror the
+// canonical logic in src/lib/ros-data.ts / the compute_life_participation
+// SQL function so the workbench and the Medical Bay never disagree.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type {
   Band,
   CapacityBalance,
+  CapacityDebt,
   CapacityLoad,
+  InterventionEffectiveness,
   Kpis,
   NextMove,
   Payload,
   PostureBand,
+  RecoveryDurationSummary,
   RecoveryIndex,
+  RedesignCandidate,
   SystemPostureBand,
   TrendRow,
 } from '@/app/human-systems-workbench/_components/types';
@@ -339,7 +353,20 @@ function computeLifeParticipation(d: DailyRow | null): { score: number | null; b
 // capacity_checkins equivalent (spec doesn't track it) and stays sourced
 // from analytics_health_daily alone — this index will not update once that
 // table stops receiving new manual check-in rows.
-function computeRecoveryIndexes(d: DailyRow | null, blended: BlendedSignals): RecoveryIndex[] {
+/**
+ * Recovery CONDITIONS (spec §16, replaces "Recovery Indexes") — the
+ * inputs that influence replenishment, not the outcome (Capacity) they
+ * produce. Sleep and Nervous System carry over unchanged; Energy and
+ * Capacity are dropped per spec ("do not re-display Capacity here —
+ * Capacity is the outcome these conditions influence"); Pain Burden,
+ * Sensory Load, and Recovery Time are new.
+ */
+function computeRecoveryConditions(
+  d: DailyRow | null,
+  blended: BlendedSignals,
+  latestCheckin: CheckinRow | null,
+  recoveryDuration: RecoveryDurationSummary,
+): RecoveryIndex[] {
   const sleepHrs = d?.sleep_hours ?? 0;
   const sleepBand: Band = !d?.sleep_hours ? 'unknown' : sleepHrs >= 7 ? 'good' : sleepHrs >= 5.5 ? 'moderate' : 'limited';
   const cpapNote = d?.cpap_status?.toLowerCase() === 'yes' ? ' · CPAP compliant' : '';
@@ -348,24 +375,154 @@ function computeRecoveryIndexes(d: DailyRow | null, blended: BlendedSignals): Re
   const nsBand: Band = ns === 'calm' ? 'good' : ns === 'activated' ? 'moderate' : ns === 'dysregulated' ? 'limited' : 'unknown';
   const nsDetail = ns === 'calm' ? 'Calm — settled baseline' : ns === 'activated' ? 'Activated — protect capacity' : ns === 'dysregulated' ? 'Dysregulated — rest priority' : 'Not recorded';
 
-  const energy = blended.energy;
-  const energyBand: Band = energy === 'High' ? 'good' : energy === 'Moderate' ? 'moderate' : energy === 'Low' ? 'limited' : 'unknown';
+  const painState = latestCheckin?.pain_state ?? null;
+  const painBand: Band = painState === 'low' ? 'good' : painState === 'baseline' ? 'good' :
+    painState === 'elevated' ? 'moderate' : painState === 'high' ? 'limited' : 'unknown';
+  const painDetail = painState
+    ? `${{ low: 'Lower than usual', baseline: 'Around baseline', elevated: 'Higher than usual', high: 'Much higher than usual' }[painState] ?? painState}${latestCheckin?.pain_score != null ? ` (${latestCheckin.pain_score}/10)` : ''}`
+    : 'Not recorded';
 
-  // Capacity: capacity_checkins wins when present (mirrors
-  // compute_recovery_score()'s SQL priority); falls back to the old
-  // captains_log_entries field for historical days it still has data for.
-  const cap = d?.captain_capacity_rating;
-  const capBand: Band = capacityStateBand(blended.capacityState) ??
-    (cap === 'Green' ? 'good' : cap === 'Amber' ? 'moderate' : cap === 'Red' ? 'limited' : 'unknown');
-  const capDetail = capacityStateDetail(blended.capacityState) ??
-    (cap === 'Green' ? 'Green — full operational window' : cap === 'Amber' ? 'Amber — moderate window' : cap === 'Red' ? 'Red — minimal window' : 'Not recorded');
+  const stim = latestCheckin?.stimulation_state ?? null;
+  const sensoryBand: Band = stim === 'balanced' ? 'good' : (stim === 'low' || stim === 'high') ? 'moderate' : 'unknown';
+  const sensoryDetail = stim === 'balanced' ? 'Balanced' : stim === 'low' ? 'Not enough — understimulated' : stim === 'high' ? 'Too much — overstimulated' : 'Not recorded';
+
+  const rdBand: Band = !recoveryDuration.most_common ? 'unknown' :
+    recoveryDuration.most_common === 'No recovery needed' || recoveryDuration.most_common === 'Under 30 minutes' ? 'good' :
+    recoveryDuration.most_common === '1-2 hours' ? 'moderate' :
+    recoveryDuration.most_common === 'Half a day' ? 'limited' : 'rest';
+  const rdDetail = recoveryDuration.sample_size < 3
+    ? 'Not enough deep-check records yet'
+    : `${recoveryDuration.most_common} most common (${recoveryDuration.most_common_count}/${recoveryDuration.sample_size} records)`;
 
   return [
     { key: 'sleep', label: 'Sleep', band: sleepBand, detail: d?.sleep_hours ? `${sleepHrs}h · ${d.sleep_quality ?? 'Unknown quality'}${cpapNote}` : 'Not recorded (no capacity-checkin equivalent)' },
-    { key: 'nervous_system', label: 'Nervous System', band: nsBand, detail: nsDetail },
-    { key: 'energy', label: 'Energy', band: energyBand, detail: energy ? `${energy} — subjective daily report` : 'Not recorded' },
-    { key: 'capacity', label: 'Capacity', band: capBand, detail: capDetail },
+    { key: 'nervous_system', label: 'Nervous-system regulation', band: nsBand, detail: nsDetail },
+    { key: 'pain_burden', label: 'Pain burden', band: painBand, detail: painDetail },
+    { key: 'sensory_load', label: 'Sensory load', band: sensoryBand, detail: sensoryDetail },
+    { key: 'recovery_time', label: 'Recovery time', band: rdBand, detail: rdDetail },
   ];
+}
+
+/** Sensory — the 5th Capacity Domain (spec §15: "too important to hide
+ *  inside other domains"). No dedicated source table exists yet, so this
+ *  is derived from today's latest stimulation_state + whether a
+ *  sensory-tagged load was actively selected — same honest-proxy pattern
+ *  energyFromCapacityState() already uses for Energy. */
+function deriveSensoryBand(c: CheckinRow | null): { band: Band; value: string | null } {
+  if (!c || !c.stimulation_state) return { band: 'unknown', value: null };
+  const sensoryLoadActive = (c.active_loads ?? []).some((l) => l.includes('sensory') || l.includes('stimulation'));
+  if (c.stimulation_state === 'balanced' && !sensoryLoadActive) return { band: 'good', value: 'balanced' };
+  if (sensoryLoadActive && c.stimulation_state !== 'balanced') return { band: 'limited', value: c.stimulation_state };
+  return { band: 'moderate', value: c.stimulation_state };
+}
+
+/** Capacity debt (spec §19) — from evening reflections' capacity_debt
+ *  field ('no'|'maybe'|'yes'). 'maybe' counts as debt, matching the
+ *  bot's own render_trend_summary()'s yes_maybe grouping. */
+async function computeCapacityDebt(sb: any, windowDays: number): Promise<CapacityDebt> {
+  const { data } = await sb
+    .from('capacity_checkins')
+    .select('capacity_debt')
+    .eq('checkin_type', 'evening')
+    .gte('log_date', daysAgo(windowDays - 1))
+    .lte('log_date', today());
+  const rows = (data ?? []) as { capacity_debt: string | null }[];
+  const days_with_debt = rows.filter((r) => r.capacity_debt === 'yes' || r.capacity_debt === 'maybe').length;
+  return { days_with_debt, days_total: rows.length, window_days: windowDays };
+}
+
+const RECOVERY_DURATION_LABEL: Record<string, string> = {
+  n: 'No recovery needed', '30': 'Under 30 minutes', '2h': '1-2 hours', hd: 'Half a day', fd: 'Full day', md: 'Multiple days',
+  'No recovery needed': 'No recovery needed', 'Under 30 minutes': 'Under 30 minutes', '1-2 hours': '1-2 hours',
+  'Half a day': 'Half a day', 'Full day': 'Full day', 'Multiple days': 'Multiple days',
+};
+
+/** Recovery duration summary (spec §20) — most common value from deep-check
+ *  capacity_checkins.recovery_duration over the window. Spec: "only
+ *  produce summary when enough records exist" — sample_size lets the
+ *  caller decide the cutoff (this route doesn't hide the raw count). */
+async function computeRecoveryDuration(sb: any, windowDays: number): Promise<RecoveryDurationSummary> {
+  const { data } = await sb
+    .from('capacity_checkins')
+    .select('recovery_duration')
+    .eq('checkin_type', 'capacity')
+    .not('recovery_duration', 'is', null)
+    .gte('log_date', daysAgo(windowDays - 1))
+    .lte('log_date', today());
+  const rows = (data ?? []) as { recovery_duration: string }[];
+  if (rows.length === 0) return { most_common: null, most_common_count: 0, sample_size: 0 };
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const label = RECOVERY_DURATION_LABEL[r.recovery_duration] ?? r.recovery_duration;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const [most_common, most_common_count] = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+  return { most_common, most_common_count, sample_size: rows.length };
+}
+
+const MIN_SAMPLE_FOR_EFFECTIVENESS = 3; // mirrors the bot's intervention_engine.py MIN_SAMPLE_FOR_WEIGHTING
+
+/** What Helps Me (spec §18) — TypeScript mirror of the Capacity Bot's
+ *  personal_effectiveness_summary() (intervention_engine.py). All-time,
+ *  same as the bot (no window filter) — counts accumulate meaning over
+ *  time, and this is exactly the same query the bot's /actions and this
+ *  workbench should never disagree on. */
+async function computeInterventionEffectiveness(sb: any): Promise<InterventionEffectiveness[]> {
+  const [{ data: events }, { data: catalogueRows }] = await Promise.all([
+    sb.from('capacity_intervention_events').select('intervention_id,outcome,help_state'),
+    sb.from('capacity_interventions').select('intervention_id,title'),
+  ]);
+  const catalogue = new Map<string, string>((catalogueRows ?? []).map((r: any) => [r.intervention_id, r.title]));
+  const byId = new Map<string, { outcome: string | null; help_state: string | null }[]>();
+  for (const e of (events ?? []) as any[]) {
+    const arr = byId.get(e.intervention_id) ?? [];
+    arr.push({ outcome: e.outcome, help_state: e.help_state });
+    byId.set(e.intervention_id, arr);
+  }
+  const out: InterventionEffectiveness[] = [];
+  for (const [intervention_id, rows] of byId) {
+    const attempts = rows.length;
+    const better = rows.filter((r) => r.outcome === 'better').length;
+    const same = rows.filter((r) => r.outcome === 'same').length;
+    const worse = rows.filter((r) => r.outcome === 'worse').length;
+    const not_completed = rows.filter((r) => !r.outcome || r.outcome === 'not_completed').length;
+    const stateCounts = new Map<string, number>();
+    for (const r of rows) if (r.help_state) stateCounts.set(r.help_state, (stateCounts.get(r.help_state) ?? 0) + 1);
+    const common_context = stateCounts.size
+      ? Array.from(stateCounts.entries()).sort((a, b) => b[1] - a[1])[0][0].replace(/_/g, ' ')
+      : null;
+    out.push({
+      intervention_id, title: catalogue.get(intervention_id) ?? intervention_id, attempts, better, same, worse, not_completed,
+      meets_sample_threshold: attempts >= MIN_SAMPLE_FOR_EFFECTIVENESS, common_context,
+    });
+  }
+  return out.sort((a, b) => b.attempts - a.attempts);
+}
+
+/** Redesign candidates (spec §23) — loads that recur often enough on
+ *  stretched/depleted days over the last 30 days to be worth changing
+ *  rather than repeatedly regulating around. Read-only auto-detection
+ *  only, no manual-entry form (deferred — spec frames V02 as "capture as
+ *  they become obvious", not a full redesign-log CRUD surface). Threshold
+ *  of 3 is a starting point, same conservatism as the bot's own
+ *  MIN_SAMPLE_FOR_WEIGHTING — a load seen once or twice isn't "recurring".
+ */
+async function computeRedesignCandidates(sb: any, windowDays: number, threshold = 3): Promise<RedesignCandidate[]> {
+  const { data } = await sb
+    .from('capacity_checkins')
+    .select('active_loads')
+    .eq('checkin_type', 'capacity')
+    .in('capacity_state', ['orange', 'red'])
+    .gte('log_date', daysAgo(windowDays - 1))
+    .lte('log_date', today());
+  const counts = new Map<string, number>();
+  for (const r of (data ?? []) as { active_loads: string[] | null }[]) {
+    for (const load of r.active_loads ?? []) counts.set(load, (counts.get(load) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .filter(([, count]) => count >= threshold)
+    .map(([load, count]) => ({ load, stretched_or_depleted_count: count, window_days: windowDays }))
+    .sort((a, b) => b.stretched_or_depleted_count - a.stretched_or_depleted_count);
 }
 
 // ── Shared fetch: today's context reused across KPIs + every domain ──────────
@@ -510,6 +667,14 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const ins = insightRows?.[0] ?? null;
   const { posture: system_posture, message: system_posture_message } = deriveSystemPosture(ctx.latestCheckin);
 
+  // WP09 System Learning "What I Know" fact (spec §17 example: "8
+  // check-ins recorded in the last 7 days").
+  const { count: checkins_last_7d } = await sb
+    .from('capacity_checkins')
+    .select('id', { count: 'exact', head: true })
+    .eq('checkin_type', 'capacity')
+    .gte('log_date', daysAgo(6));
+
   return {
     domain: 'recovery',
     kpis,
@@ -554,18 +719,16 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
       ctx.latestInterventionCatalogue,
       ctx.latestCheckin?.selected_action ?? null,
     ),
+    checkins_last_7d: checkins_last_7d ?? 0,
   };
 }
 
 async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   const lp = computeLifeParticipation(ctx.daily);
-  // Nervous System / Energy / Capacity now blend in capacity_checkins the
-  // same way buildRecovery() does — see computeRecoveryIndexes()'s own
-  // comment for why Sleep and Life Participation can't follow (no
-  // capacity_checkins equivalent for those fields).
-  const recovery_indexes = computeRecoveryIndexes(ctx.daily, deriveBlendedSignals(ctx));
 
-  // Four energy domains from the human_systems_daily view (today).
+  // Four energy domains from the human_systems_daily view (today), plus a
+  // fifth Sensory domain derived from capacity_checkins (spec §15 — no
+  // dedicated source table exists for this yet).
   const { data: hsRow } = await sb
     .from('human_systems_daily')
     .select('energy_physical,energy_cognitive,energy_emotional,energy_social,daily_capacity_score')
@@ -574,12 +737,25 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
 
   const domainBand = (v: string | null): Band =>
     v === 'good' ? 'good' : v === 'moderate' ? 'moderate' : v === 'limited' ? 'limited' : v === 'depleted' ? 'rest' : 'unknown';
-  const energy_domains = [
+  const sensory = deriveSensoryBand(ctx.latestCheckin);
+  const capacity_domains = [
     { key: 'physical', label: 'Physical', band: domainBand(hsRow?.energy_physical ?? null), value: hsRow?.energy_physical ?? null },
     { key: 'cognitive', label: 'Cognitive', band: domainBand(hsRow?.energy_cognitive ?? null), value: hsRow?.energy_cognitive ?? null },
     { key: 'emotional', label: 'Emotional', band: domainBand(hsRow?.energy_emotional ?? null), value: hsRow?.energy_emotional ?? null },
     { key: 'social', label: 'Social', band: domainBand(hsRow?.energy_social ?? null), value: hsRow?.energy_social ?? null },
+    { key: 'sensory', label: 'Sensory', band: sensory.band, value: sensory.value },
   ];
+
+  // VNext consolidation (WP07-08) — capacity debt, recovery duration,
+  // intervention effectiveness, redesign candidates. Recovery Conditions
+  // needs recovery_duration first, so it's computed before the rest.
+  const recovery_duration = await computeRecoveryDuration(sb, 30);
+  const recovery_indexes = computeRecoveryConditions(ctx.daily, deriveBlendedSignals(ctx), ctx.latestCheckin, recovery_duration);
+  const [capacity_debt, intervention_effectiveness, redesign_candidates] = await Promise.all([
+    computeCapacityDebt(sb, 7),
+    computeInterventionEffectiveness(sb),
+    computeRedesignCandidates(sb, 30),
+  ]);
 
   // 30-day trends — backfilled with capacity_checkins so a day with only a
   // Telegram check-in (no analytics_health_daily row at all, or a row with
@@ -641,9 +817,13 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     domain: 'medical',
     kpis,
     life_participation: { score: lp.score, band: lp.band, components: lp.components },
-    energy_domains,
-    recovery_indexes,
+    capacity_domains,
+    recovery_conditions: recovery_indexes,
     trends,
+    capacity_debt,
+    recovery_duration,
+    intervention_effectiveness,
+    redesign_candidates,
   };
 }
 

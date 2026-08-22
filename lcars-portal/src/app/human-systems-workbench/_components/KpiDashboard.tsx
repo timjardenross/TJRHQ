@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui';
-import { BAND_LABEL, bandStatus, systemPostureStatus, type Kpis } from './types';
+import { BAND_LABEL, CAPACITY_STATE_LABEL, bandStatus, capacityStateStatus, systemPostureStatus, type Kpis } from './types';
 
 function KpiCard({
   label,
@@ -25,13 +25,22 @@ function KpiCard({
   );
 }
 
-/** Cross-domain KPI strip — always visible above the active tab so recovery,
+/** Cross-domain KPI strip — always visible above every section so recovery,
  *  readiness, and medical concerns are all legible at a glance (design
- *  proposition §4). Responsive: 3-up desktop, 2-up tablet, 1-up mobile. */
+ *  proposition §4). Responsive: 3-up desktop, 2-up tablet, 1-up mobile.
+ *  Card order is mobile-priority first (spec §25/§33: Capacity Today,
+ *  then System Posture, are the two most prominent items) — on a 1-column
+ *  mobile stack DOM order IS visual order, which the doc's desktop-only
+ *  ASCII layout doesn't have to account for. */
 export function KpiDashboard({ kpis }: { kpis: Kpis }) {
   const lp = kpis.lp_score;
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <KpiCard
+        label="Capacity Today"
+        value={kpis.latest_capacity_state ? CAPACITY_STATE_LABEL[kpis.latest_capacity_state] ?? kpis.latest_capacity_state : 'No data'}
+        badge={<Badge status={capacityStateStatus(kpis.latest_capacity_state)}>{(kpis.latest_capacity_state ?? 'no data').toUpperCase()}</Badge>}
+      />
       <KpiCard
         label="System Posture"
         value={kpis.system_posture}
@@ -48,12 +57,6 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
           </span>
         }
       />
-      <KpiCard
-        label="Capacity Today"
-        value={BAND_LABEL[kpis.capacity_band]}
-        badge={<Badge status={bandStatus(kpis.capacity_band)}>{BAND_LABEL[kpis.capacity_band]}</Badge>}
-      />
-      <KpiCard label="Sessions · 7d" value={String(kpis.sessions_7d)} sub={kpis.sessions_7d === 1 ? 'completed session' : 'completed sessions'} />
       <KpiCard
         label="Sleep Last Night"
         value={kpis.sleep_hours == null ? '—' : `${kpis.sleep_hours}h`}

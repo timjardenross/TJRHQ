@@ -113,6 +113,10 @@ export interface RecoveryPayload {
    *  not show 15 empty tiles", current selection only, not aggregated). */
   identified_needs_latest: string[];
   next_move: NextMove;
+  /** WP09 System Learning "What I Know" layer — a directly observed fact,
+   *  not an interpretation (spec §17 example: "8 check-ins recorded in
+   *  the last 7 days"). */
+  checkins_last_7d: number;
 }
 
 export interface RecoveryIndex {
@@ -137,6 +141,53 @@ export interface TrendRow {
   pain_score: number | null;
 }
 
+/** Spec §19 — capacity debt trend from evening reflections
+ *  (capacity_checkins.checkin_type='evening'). */
+export interface CapacityDebt {
+  days_with_debt: number; // 'yes' or 'maybe' in the window
+  days_total: number; // evening reflections logged in the window
+  window_days: number;
+}
+
+/** Spec §20 — recovery-duration summary from deep-check
+ *  capacity_checkins.recovery_duration. Only meaningful once enough
+ *  records exist (spec: "only produce summary when enough records
+ *  exist") — `sample_size` lets the view decide whether to show it. */
+export interface RecoveryDurationSummary {
+  most_common: string | null;
+  most_common_count: number;
+  sample_size: number;
+}
+
+/** Spec §18 — What Helps Me. Mirrors the Capacity Bot's own
+ *  personal_effectiveness_summary() (intervention_engine.py) — counts
+ *  only, never a percentage below the sample floor (spec §15/§31). */
+export interface InterventionEffectiveness {
+  intervention_id: string;
+  title: string;
+  attempts: number;
+  better: number;
+  same: number;
+  worse: number;
+  not_completed: number;
+  meets_sample_threshold: boolean;
+  /** Most common help_state this intervention was used for, when any
+   *  /helpme-sourced events exist for it (spec: "most often useful
+   *  when: Stretched + high stimulation"). */
+  common_context: string | null;
+}
+
+/** Spec §23 — a recurring load/state combination that shows up often
+ *  enough on stretched/depleted days to be worth redesigning around
+ *  rather than repeatedly regulating. Auto-detected, read-only for V02
+ *  (spec: "V02 may ship with defaults... capture as they become
+ *  obvious" — no manual-entry form yet). */
+export interface RedesignCandidate {
+  load: string;
+  stretched_or_depleted_count: number;
+  window_days: number;
+}
+
 export interface MedicalPayload {
   domain: 'medical';
   kpis: Kpis;
@@ -152,9 +203,19 @@ export interface MedicalPayload {
       workload: string;
     };
   };
-  energy_domains: EnergyDomain[];
-  recovery_indexes: RecoveryIndex[];
+  /** Renamed from "Energy Domains" (spec §15) — same Physical/Cognitive/
+   *  Emotional/Social domains plus a new Sensory domain. */
+  capacity_domains: EnergyDomain[];
+  /** Renamed from "Recovery Indexes" (spec §16) — Sleep/Nervous System/
+   *  Pain Burden/Sensory Load/Recovery Time inputs. Deliberately does NOT
+   *  re-display Capacity — Capacity is the outcome these conditions
+   *  influence, not one of them. */
+  recovery_conditions: RecoveryIndex[];
   trends: TrendRow[];
+  capacity_debt: CapacityDebt;
+  recovery_duration: RecoveryDurationSummary;
+  intervention_effectiveness: InterventionEffectiveness[];
+  redesign_candidates: RedesignCandidate[];
 }
 
 export interface ReadinessPayload {
@@ -206,6 +267,24 @@ export const CAPACITY_BALANCE_LABEL: Record<CapacityBalance, string> = {
   sustainable: 'Sustainable',
   not_enough: 'Not Enough',
   unknown: 'No data',
+};
+
+/** capacity_state ('green'|'orange'|'red'|null, from capacity_checkins) →
+ *  Badge status. THE primary capacity indicator (spec §5 — "Capacity is
+ *  the primary state") — every place that shows Capacity Today should
+ *  read from the same latest_capacity_state field and use this mapping,
+ *  not the older RPC-derived capacity_band. */
+export function capacityStateStatus(state: string | null): BadgeStatus {
+  switch (state) {
+    case 'green': return 'success';
+    case 'orange': return 'warning';
+    case 'red': return 'error';
+    default: return 'neutral';
+  }
+}
+
+export const CAPACITY_STATE_LABEL: Record<string, string> = {
+  green: '🟢 Sustainable', orange: '🟠 Stretched', red: '🔴 Depleted',
 };
 
 /** good/moderate/limited/rest band → Badge status. */

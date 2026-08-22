@@ -1,21 +1,9 @@
 'use client';
 
-import { Badge, Card, type BadgeStatus } from '@/components/ui';
-import { CAPACITY_BALANCE_LABEL, type RecoveryPayload } from './types';
+import { Badge, Card } from '@/components/ui';
+import { CollapsibleSection } from './CollapsibleSection';
+import { CAPACITY_BALANCE_LABEL, CAPACITY_STATE_LABEL as CAPACITY_LABEL, capacityStateStatus, type RecoveryPayload } from './types';
 
-/** capacity_state ('green'|'orange'|'red'|null, capacity_checkins_today) →
- *  Badge status. Same success/warning/error vocabulary bandStatus() uses
- *  for good/moderate/limited/rest bands elsewhere in this workbench. */
-function capacityStateStatus(state: string | null): BadgeStatus {
-  switch (state) {
-    case 'green': return 'success';
-    case 'orange': return 'warning';
-    case 'red': return 'error';
-    default: return 'neutral';
-  }
-}
-
-const CAPACITY_LABEL: Record<string, string> = { green: '🟢 Sustainable', orange: '🟠 Stretched', red: '🔴 Depleted' };
 const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ Balanced', high: '⬆ Too much' };
 const PAIN_LABEL: Record<string, string> = {
   low: 'Lower than usual', baseline: 'Around baseline', elevated: 'Higher than usual', high: 'Much higher than usual',
@@ -51,6 +39,7 @@ function StateTile({ label, value }: { label: string; value: string | null }) {
 export function RecoveryView({ data }: { data: RecoveryPayload }) {
   const nm = data.next_move;
   const hasNextMove = !!(nm.intervention_title);
+  const testingSuggestion = worthTesting(data);
 
   return (
     <div className="flex flex-col gap-4">
@@ -171,23 +160,80 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         </p>
       </Card>
 
-      {(data.wellness.narrative || data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
-        <Card title="Wellness Intelligence">
-          {data.wellness.narrative && (
-            <p className="text-[14px] leading-relaxed text-wb-ink2">{data.wellness.narrative}</p>
-          )}
-          {(data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {data.wellness.positive_flags.map((f, i) => (
-                <Badge key={`p${i}`} status="success">{f}</Badge>
-              ))}
-              {data.wellness.risk_flags.map((f, i) => (
-                <Badge key={`r${i}`} status="warning">{f}</Badge>
-              ))}
+      {/* ── SYSTEM LEARNING (spec §17, renamed from Wellness Intelligence) ── */}
+      <CollapsibleSection title="System Learning">
+        <div className="flex flex-col gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
+            <p className="mt-1 text-[13px] text-wb-ink">
+              {data.checkins_last_7d} check-in{data.checkins_last_7d === 1 ? '' : 's'} recorded in the last 7 days.
+            </p>
+          </div>
+
+          {(data.wellness.narrative || data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Possible Pattern</div>
+              {data.wellness.narrative && (
+                <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{data.wellness.narrative}</p>
+              )}
+              {(data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {data.wellness.positive_flags.map((f, i) => (
+                    <Badge key={`p${i}`} status="success">{f}</Badge>
+                  ))}
+                  {data.wellness.risk_flags.map((f, i) => (
+                    <Badge key={`r${i}`} status="warning">{f}</Badge>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </Card>
-      )}
+
+          {testingSuggestion && (
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{testingSuggestion}</p>
+            </div>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      {/* ── MY REVS POSITION (spec §22) — orientation, not a maturity score ── */}
+      <CollapsibleSection title="My REVS Position">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Recognise</div>
+            <div className="mt-1 text-[12px] text-wb-ink2">Ongoing</div>
+          </div>
+          <div className="rounded-md border-2 border-wb-sage-deep bg-wb-sage-deep/10 p-3 text-center">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep">Regulate</div>
+            <div className="mt-1 text-[12px] font-medium text-wb-ink">Current priority</div>
+          </div>
+          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Rebuild</div>
+            <div className="mt-1 text-[12px] text-wb-ink2">Not yet</div>
+          </div>
+          <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Redesign</div>
+            <div className="mt-1 text-[12px] text-wb-ink2">As patterns emerge</div>
+          </div>
+        </div>
+        <p className="mt-3 text-[12px] text-wb-ink2">
+          A management orientation, not a completion score. See &ldquo;Things I Should Change&rdquo; below for redesign candidates.
+        </p>
+      </CollapsibleSection>
     </div>
   );
+}
+
+/** WP09 "Worth Testing" — a single behavioural-experiment prompt derived
+ *  from today's top active load, when there's enough signal to suggest
+ *  one (spec §17 example format: "On high-pain mornings, try reducing
+ *  task switching before midday and compare evening capacity"). Returns
+ *  null rather than a generic filler when there isn't enough today's-data
+ *  to ground a specific suggestion — an empty section beats a made-up one. */
+function worthTesting(data: RecoveryPayload): string | null {
+  const top = data.active_loads_today[0];
+  if (!top || top.count < 2) return null;
+  return `${top.label} has come up in ${top.count} check-ins today. Worth testing whether addressing it earlier changes how the rest of the day goes.`;
 }
