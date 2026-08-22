@@ -35,15 +35,18 @@ function Sparkline({ values }: { values: (number | null)[] }) {
 /** Medical tab content. VNext consolidation, updated after finding real
  *  duplication between the two source signal sets: "Sensory" (a Capacity
  *  Domain) and "Sensory load" (a Recovery Condition) were the exact same
- *  capacity_checkins.stimulation_state field rendered twice, and "Recovery
- *  Time" was rendered as both a grid tile and a separate stat block below
- *  it. Capacity Domains and Recovery Conditions are now one merged grid —
- *  7 unique signals, not 10 — under a single "Capacity & Recovery
- *  Conditions" card. Physical dropped entirely (2026-08-22, Captain
- *  directive): human_systems_daily is dead and capacity_checkins has no
- *  substitute field for it, unlike Cognitive (now sourced from
- *  executive_function, route.ts). What Helps Me moved to RecoveryView
- *  (next to My REVS Position); this file no longer renders it. */
+ *  capacity_checkins.stimulation_state field rendered twice. Capacity
+ *  Domains and Recovery Conditions are now one merged grid — 8 unique
+ *  signals — under a single "Capacity & Recovery Conditions" card.
+ *  Physical dropped entirely (2026-08-22, Captain directive):
+ *  human_systems_daily is dead and capacity_checkins has no substitute
+ *  field for it, unlike Cognitive (now sourced from executive_function,
+ *  route.ts). Recovery Time moved into the grid (2026-08-22, Captain
+ *  directive — 7 tiles read as an odd fit for the 4-column layout); its
+ *  separate stat block below was dropped as redundant, leaving Capacity
+ *  Debt as the sole remaining stat block. What Helps Me moved to
+ *  RecoveryView (next to My REVS Position); this file no longer renders
+ *  it. */
 export function MedicalView({ data }: { data: MedicalPayload }) {
   const [trendWindow, setTrendWindow] = useState<'7d' | '30d'>('7d');
 
@@ -55,17 +58,18 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
     ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
     : null;
 
-  // Merge domains + conditions, dropping the two exact duplicates: "sensory"
+  // Merge domains + conditions, dropping the one exact duplicate: "sensory"
   // (domain) === "sensory_load" (condition) — same field, keep the
   // condition's version since its `detail` text is more descriptive than
-  // the domain's bare value; "recovery_time" (condition tile) is dropped
-  // because the stat block below already shows the same recovery_duration
-  // data with richer sample-size context.
+  // the domain's bare value. Recovery Time now included in the grid too
+  // (2026-08-22, Captain directive — 7 tiles read as an odd fit for the
+  // 4-column layout; Recovery Time was already tile-shaped, just filtered
+  // out in favour of the stat block below, which is now redundant and
+  // removed).
   const domainSignals = data.capacity_domains
     .filter((d) => d.key !== 'sensory')
     .map((d) => ({ key: d.key, label: d.label, band: d.band, detail: d.value ?? 'Not recorded' }));
-  const conditionSignals = data.recovery_conditions.filter((idx) => idx.key !== 'recovery_time');
-  const signals = [...domainSignals, ...conditionSignals];
+  const signals = [...domainSignals, ...data.recovery_conditions];
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -86,31 +90,18 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
           ))}
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
-            <div className="mt-1 font-serif text-2xl text-wb-ink">
-              {data.capacity_debt.days_total === 0 ? '—' : `${data.capacity_debt.days_with_debt} of ${data.capacity_debt.days_total} days`}
-            </div>
-            <p className="mt-1 text-[12px] text-wb-ink2">
-              {data.capacity_debt.days_total === 0
-                ? 'No evening reflections logged in the last 7 days.'
-                : debtPct && debtPct >= 40
-                  ? 'Maintaining output today appears to be increasing tomorrow’s recovery requirement.'
-                  : `Last ${data.capacity_debt.window_days} days.`}
-            </p>
+        <div className="mt-4 rounded-md border border-wb-line bg-wb-bg p-3">
+          <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
+          <div className="mt-1 font-serif text-2xl text-wb-ink">
+            {data.capacity_debt.days_total === 0 ? '—' : `${data.capacity_debt.days_with_debt} of ${data.capacity_debt.days_total} days`}
           </div>
-          <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Recovery Time</div>
-            <div className="mt-1 font-serif text-2xl text-wb-ink">
-              {data.recovery_duration.sample_size < 3 ? '—' : data.recovery_duration.most_common}
-            </div>
-            <p className="mt-1 text-[12px] text-wb-ink2">
-              {data.recovery_duration.sample_size < 3
-                ? 'Not enough deep-check records yet.'
-                : `Most common of ${data.recovery_duration.sample_size} records (last 30 days).`}
-            </p>
-          </div>
+          <p className="mt-1 text-[12px] text-wb-ink2">
+            {data.capacity_debt.days_total === 0
+              ? 'No evening reflections logged in the last 7 days.'
+              : debtPct && debtPct >= 40
+                ? 'Maintaining output today appears to be increasing tomorrow’s recovery requirement.'
+                : `Last ${data.capacity_debt.window_days} days.`}
+          </p>
         </div>
 
         <div className="mt-4 flex items-center justify-between">
