@@ -191,7 +191,7 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
 // ── Exported composite ───────────────────────────────────────────────────────
 
 export function ROSPanels() {
-  const { posture, bodyContext, guidance, isLive, isLoading } = useROSData();
+  const { posture, bodyContext, guidance, isLive, isLoading, postureFetchFailed } = useROSData();
 
   return (
     <div className="flex flex-col gap-4">
@@ -201,7 +201,7 @@ export function ROSPanels() {
           loading={isLoading}
           variant="inline"
           liveLabel="Live · Supabase"
-          mockLabel="Mock data — no check-in today"
+          mockLabel={postureFetchFailed ? 'Data error — showing placeholder' : 'Mock data — no check-in today'}
           loadingLabel="Loading live data…"
         />
       </div>

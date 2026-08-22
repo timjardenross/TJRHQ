@@ -60,9 +60,21 @@ function nowIso() {
 
 // ── Wellness + escalation (reuse human-systems + ROS posture) ─────────────────
 
-async function wellnessAlerts(): Promise<MobileAlert[]> {
+interface AlertGroupResult {
+  alerts: MobileAlert[];
+  /** Number of independent source fetches that errored — not exposed as an
+   *  alert (keeps the "no alert better than a false alert" design intact),
+   *  but surfaced as a quiet "N sources unavailable" note so a genuine
+   *  outage isn't indistinguishable from a healthy "no alerts" read. */
+  failed: number;
+  total: number;
+}
+
+async function wellnessAlerts(): Promise<AlertGroupResult> {
   const supabase = client();
   const out: MobileAlert[] = [];
+  let failed = 0;
+  const total = 2;
   try {
     const [hs, posture, emo] = await Promise.all([
       loadHumanSystems(),
@@ -129,8 +141,9 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
         at: nowIso(),
       });
     }
-  } catch {
-    /* degrade silently — no alert better than a false alert */
+  } catch (e) {
+    console.error('[alerts] wellnessAlerts source 1 failed:', e);
+    failed++;
   }
 
   // MSN-0335: folded in from the now-retired duplicate check in
@@ -175,19 +188,22 @@ async function wellnessAlerts(): Promise<MobileAlert[]> {
           });
         }
       }
-    } catch {
-      /* degrade */
+    } catch (e) {
+      console.error('[alerts] wellnessAlerts source 2 (pain trend) failed:', e);
+      failed++;
     }
   }
 
-  return out;
+  return { alerts: out, failed, total };
 }
 
 // ── Delivery failures + engineering review (reuse delivery + targeted reads) ───
 
-async function engineeringAlerts(): Promise<MobileAlert[]> {
+async function engineeringAlerts(): Promise<AlertGroupResult> {
   const supabase = client();
   const out: MobileAlert[] = [];
+  let failed = 0;
+  const total = 3;
   try {
     const del = await loadDelivery();
 
@@ -224,8 +240,9 @@ async function engineeringAlerts(): Promise<MobileAlert[]> {
           at: nowIso(),
         }),
       );
-  } catch {
-    /* degrade */
+  } catch (e) {
+    console.error('[alerts] engineeringAlerts source 1 (delivery) failed:', e);
+    failed++;
   }
 
   // Build-inbox items awaiting review → required Captain review.
@@ -249,8 +266,9 @@ async function engineeringAlerts(): Promise<MobileAlert[]> {
           at: nowIso(),
         }),
       );
-    } catch {
-      /* degrade */
+    } catch (e) {
+      console.error('[alerts] engineeringAlerts source 2 (build_request_inbox) failed:', e);
+      failed++;
     }
 
     // Failed dispatch / execution — delivery failure.
@@ -273,19 +291,22 @@ async function engineeringAlerts(): Promise<MobileAlert[]> {
           at: nowIso(),
         });
       }
-    } catch {
-      /* degrade */
+    } catch (e) {
+      console.error('[alerts] engineeringAlerts source 3 (mission_execution_events) failed:', e);
+      failed++;
     }
   }
 
-  return out;
+  return { alerts: out, failed, total };
 }
 
 // ── Decision required (captured missions awaiting triage) ─────────────────────
 
-async function decisionAlerts(): Promise<MobileAlert[]> {
+async function decisionAlerts(): Promise<AlertGroupResult> {
   const supabase = client();
   const out: MobileAlert[] = [];
+  let failed = 0;
+  const total = 1;
   try {
     const { count } = await supabase
       .from('captured_items')
@@ -309,21 +330,36 @@ async function decisionAlerts(): Promise<MobileAlert[]> {
         at: nowIso(),
       });
     }
-  } catch {
-    /* degrade */
+  } catch (e) {
+    console.error('[alerts] decisionAlerts failed:', e);
+    failed++;
   }
-  return out;
+  return { alerts: out, failed, total };
 }
 
-/** Compute the full, gated alert set. Returns [] on total failure. */
-export async function computeAlerts(): Promise<MobileAlert[]> {
+export interface ComputeAlertsResult {
+  alerts: MobileAlert[];
+  /** How many of the underlying source fetches (6 total across the 3
+   *  groups) errored on this run — surfaced as a quiet degraded-source
+   *  note, kept separate from the alert list itself so a real outage
+   *  never masquerades as a false alarm. */
+  failedSources: number;
+  totalSources: number;
+}
+
+/** Compute the full, gated alert set. Alert list is [] on total failure;
+ *  failedSources/totalSources report how much of that emptiness is a real
+ *  outage vs. a genuinely healthy read. */
+export async function computeAlerts(): Promise<ComputeAlertsResult> {
   const groups = await Promise.all([wellnessAlerts(), engineeringAlerts(), decisionAlerts()]);
-  const all = groups.flat();
+  const all = groups.flatMap((g) => g.alerts);
+  const failedSources = groups.reduce((sum, g) => sum + g.failed, 0);
+  const totalSources = groups.reduce((sum, g) => sum + g.total, 0);
   // Dedup by id, then sort by severity then kind.
   const seen = new Set<string>();
   const deduped = all.filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
   deduped.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
-  return deduped;
+  return { alerts: deduped, failedSources, totalSources };
 }
 
 /** Stable signature of the current alert set — used to fire a notification only on change. */

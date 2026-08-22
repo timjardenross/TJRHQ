@@ -35,16 +35,27 @@ const STATUS_LABEL: Record<string, string> = {
 export function PendingBriefsPanel() {
   const [briefs, setBriefs] = useState<PendingBrief[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/home/needs-attention')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setBriefs(d?.pendingBriefs ?? []))
-      .catch(() => setBriefs([]))
+      .then((r) => {
+        if (!r.ok) throw new Error(`needs-attention unavailable (${r.status})`);
+        return r.json();
+      })
+      .then((d) => { setBriefs(d?.pendingBriefs ?? []); setError(null); })
+      .catch((e) => {
+        // Previously any 500/network failure collapsed to briefs=[] and the
+        // whole panel then `return null`-ed — a down endpoint went fully
+        // invisible, reintroducing the exact "piled up with no discoverable
+        // path" bug this panel exists to fix (see header comment above).
+        console.error('[PendingBriefsPanel] load failed:', e);
+        setError(e instanceof Error ? e.message : 'Failed to load pending briefs');
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  if (!loading && briefs.length === 0) return null;
+  if (!loading && !error && briefs.length === 0) return null;
 
   return (
     <WorkbenchPanel
@@ -58,6 +69,8 @@ export function PendingBriefsPanel() {
     >
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-wb-crit-on">Failed to load pending briefs: {error}</p>
       ) : (
         <div className="flex flex-col gap-2">
           {briefs.map((b) => (

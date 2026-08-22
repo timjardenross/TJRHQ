@@ -25,7 +25,7 @@ import {
   fetchLifeParticipation,
   fetchPostureHistory,
   fetchRecoveryIndexes,
-  fetchRecoveryPosture,
+  fetchRecoveryPostureWithStatus,
   fetchWeeklyPatternSummary
 } from './ros-data';
 import type {
@@ -49,6 +49,9 @@ export interface ROSData {
   guidance:          string[];
   isLive:            boolean; // true when at least posture came from Supabase
   isLoading:         boolean;
+  /** True only when the posture fetch itself errored — distinct from
+   *  isLive===false meaning "no check-in today" (a real, empty result). */
+  postureFetchFailed: boolean;
 }
 
 export function useROSData(): ROSData {
@@ -62,7 +65,8 @@ export function useROSData(): ROSData {
     recoveryIndexes:   mockIndexes,
     guidance:          mockGuidance,
     isLive:            false,
-    isLoading:         true
+    isLoading:         true,
+    postureFetchFailed: false
   });
 
   useEffect(() => {
@@ -70,7 +74,7 @@ export function useROSData(): ROSData {
 
     async function load() {
       const [
-        livePosture,
+        postureResult,
         liveBody,
         liveHistory,
         liveWeekly,
@@ -78,7 +82,7 @@ export function useROSData(): ROSData {
         liveLPS,
         liveIndexes
       ] = await Promise.all([
-        fetchRecoveryPosture(),
+        fetchRecoveryPostureWithStatus(),
         fetchBodyContext(),
         fetchPostureHistory(7),
         fetchWeeklyPatternSummary(),
@@ -90,7 +94,7 @@ export function useROSData(): ROSData {
       if (cancelled) return;
 
       setState({
-        posture:           livePosture  ?? mockPosture,
+        posture:           postureResult.posture ?? mockPosture,
         bodyContext:       liveBody     ?? mockBodyContext,
         postureHistory:    liveHistory  ?? mockPostureHistory,
         weeklySummary:     liveWeekly   ?? mockWeeklySummary,
@@ -98,8 +102,9 @@ export function useROSData(): ROSData {
         lifeParticipation: liveLPS      ?? mockLPS,
         recoveryIndexes:   liveIndexes  ?? mockIndexes,
         guidance:          mockGuidance, // Phase 2: replace with health_insights fetch
-        isLive:            livePosture !== null,
-        isLoading:         false
+        isLive:            postureResult.posture !== null,
+        isLoading:         false,
+        postureFetchFailed: postureResult.failed
       });
     }
 

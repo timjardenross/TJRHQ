@@ -3,47 +3,73 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
-import { ROSPanels } from '@/components/ROSPanels';
-import { MobileOperatingPicture } from '@/components/MobileOperatingPicture';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
-import { CaptainIntelligencePanel } from '@/components/CaptainIntelligencePanel';
 import { PendingBriefsPanel } from '@/components/PendingBriefsPanel';
-import { DEPARTMENTS, toneClasses, stateToneClasses } from '@/lib/departments';
+import { DEPARTMENTS, stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { loadSinceLastSession, type SinceLastSessionSummary } from '@/lib/sinceLastSession';
-import { ACTIVE_STATUSES, COMPLETED_STATUSES, AWAITING_CAPTAIN_STATUSES } from '@/lib/missionStatus';
-import {
-  fetchEngineeringQueue,
-  LIFECYCLE_ORDER,
-  LIFECYCLE_LABEL,
-  LIFECYCLE_TONE,
-  type EngineeringQueueData,
-} from '@/lib/engineering-queue';
+import { fetchCaptureAnalytics } from '@/lib/capture';
+import { departments } from '@/lib/mockData';
 import type { AlertSeverity } from '@/lib/alerts';
+import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
 const ALERT_SEVERITY_BORDER: Record<AlertSeverity, string> = {
   critical: 'border-state-crit',
   high: 'border-state-crit',
   warning: 'border-state-warn',
 };
-import { departments } from '@/lib/mockData';
-import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
-// ── All data hooks preserved from legacy /captains-chair ──────────────────────
+// Executive-summary redesign (2026-08-22): Captain's Chair no longer runs a
+// Mission Overview/Board — the Captain doesn't operate on missions as the
+// unit of work day-to-day any more. That removal is UI-only on THIS page;
+// the `missions` table itself is still live and read by ~20 other files
+// (command-centre, decisions, human-systems, engineering-queue's
+// mission_delivery view, the operating-model doctrine page) — nothing there
+// was touched. This page is now: a situation strip (is today okay?), one
+// unified "Needs Your Attention" queue pulling live counts from across the
+// platform, and the two narrative cards worth keeping at exec altitude.
+// Captain's Timeline, Since Last Session, Engineering Queue, Mobile
+// Operating Picture, the ROS Body Context/Recovery Guidance/"Sustainable
+// Load" sub-panels (the latter two were confirmed mock/fake data), and the
+// insight_outcomes-backed Captain Intelligence panel are all cut from this
+// page — not deleted from the app, still reachable via Quick Links or their
+// own workbenches.
 
-interface LiveMissionStats {
-  total: number;
-  active: number;
-  in_progress: number;
-  blocked: number;
-  completed: number;
-  decisionsCount: number;
+// ── Situation strip ──────────────────────────────────────────────────────────
+
+const POSTURE_STATE_TONE: Record<RecoveryPostureBand, StateTone> = {
+  STRONG: 'ok',
+  STABLE: 'ok',
+  FRAGILE: 'warn',
+  REST: 'crit',
+  UNKNOWN: 'unknown',
+};
+
+const RISK_STATE_TONE: Record<string, StateTone> = {
+  GREEN: 'ok',
+  AMBER: 'warn',
+  RED: 'crit',
+};
+
+function SituationBadge({ label, value, tone, sublabel }: { label: string; value: string; tone: StateTone; sublabel?: string }) {
+  const c = stateToneClasses(tone);
+  return (
+    <div className={`flex-1 rounded-lg border ${c.border} ${c.bg} px-4 py-3`}>
+      <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>
+      <p className={`mt-0.5 text-lg font-bold ${c.text}`}>{value}</p>
+      {sublabel && <p className="mt-0.5 text-xs text-wb-ink/80">{sublabel}</p>}
+    </div>
+  );
 }
 
-function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boolean; error: string | null } {
-  const [stats, setStats] = useState<LiveMissionStats | null>(null);
+interface OperationalRiskData {
+  overallRisk: string | null;
+  escalateCount: number;
+}
+
+function useOperationalRisk(): { data: OperationalRiskData | null; loading: boolean; error: string | null } {
+  const [data, setData] = useState<OperationalRiskData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,48 +77,29 @@ function useLiveMissionStats(): { stats: LiveMissionStats | null; loading: boole
     let cancelled = false;
     async function load() {
       try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error: fetchError } = await supabase.from('missions').select('status');
+        const [credRes, threatRes] = await Promise.all([
+          fetch('/api/intelligence-workbench/credibility'),
+          fetch('/api/intelligence-workbench/threat-assessment'),
+        ]);
+        if (!credRes.ok) throw new Error(`Operational risk unavailable (${credRes.status})`);
+        if (!threatRes.ok) throw new Error(`Threat assessment unavailable (${threatRes.status})`);
+        const cred = await credRes.json();
+        const threat = await threatRes.json();
         if (cancelled) return;
-        if (fetchError) throw fetchError;
-        if (!data) return;
-        setStats({
-          total: data.length,
-          active: data.filter((m) => ACTIVE_STATUSES.includes(m.status)).length,
-          in_progress: data.filter((m) => m.status === 'Implemented' || m.status === 'Tested').length,
-          blocked: data.filter((m) => m.status === 'Blocked').length,
-          completed: data.filter((m) => COMPLETED_STATUSES.includes(m.status)).length,
-          decisionsCount: data.filter((m) => AWAITING_CAPTAIN_STATUSES.includes(m.status)).length,
+        const threats: { escalation?: string }[] = Array.isArray(threat.threats) ? threat.threats : [];
+        setData({
+          overallRisk: cred.brief?.overall_risk ?? null,
+          escalateCount: threats.filter((t) => t.escalation === 'escalate').length,
         });
-        // A failed request previously left stats null with no error state —
-        // panels silently rendered 0/"No data", indistinguishable from a
-        // real quiet day. Every other workbench surfaces fetch failures via
-        // an explicit wb-crit banner; this brings Captain's Chair in line.
         setError(null);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load mission stats');
+        console.error('[CaptainsChair] useOperationalRisk failed:', e);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load operational risk');
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
-  }, []);
-
-  return { stats, loading, error };
-}
-
-function useLiveEngineeringQueue(): { data: EngineeringQueueData | null; loading: boolean; error: string | null } {
-  const [data, setData] = useState<EngineeringQueueData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchEngineeringQueue()
-      .then((d) => { if (!cancelled) { setData(d); setError(null); } })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load engineering queue'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
@@ -105,6 +112,7 @@ interface TodaysBriefingStats {
   warnings: number;
   recommendations: number;
   nextActions: number;
+  interruptNow: number;
 }
 
 function useTodaysBriefing(): {
@@ -131,6 +139,9 @@ function useTodaysBriefing(): {
           warnings: doc.warnings?.length ?? 0,
           recommendations: doc.recommendations?.length ?? 0,
           nextActions: doc.next_actions?.length ?? 0,
+          // MSN-0339 Attention Engine "act now" bucket — fetched here since
+          // MSN-0345, but never rendered anywhere on Chair until now.
+          interruptNow: doc.interrupt_now?.length ?? 0,
         });
         setError(null);
       })
@@ -142,52 +153,85 @@ function useTodaysBriefing(): {
   return { stats, loading, error };
 }
 
-// Ported from legacy (app)/captains-chair (MSN-0345): real today's Event Bus
-// activity (core_events), same table 12+ real emit-points across the
-// platform already write to.
-interface LiveTimelineEvent {
-  id: string;
-  time: string;
-  title: string;
+// ── Needs Your Attention: live counts from across the platform ──────────────
+
+interface AttentionCounts {
+  knowledgeReview: number | null;
+  contentAwaitingPublish: number | null;
+  contentPriorityFlagged: number | null;
+  capturePending: number | null;
+  wellnessRiskFlags: number | null;
 }
 
-function useCaptainTimeline(): { events: LiveTimelineEvent[]; loading: boolean } {
-  const [events, setEvents] = useState<LiveTimelineEvent[]>([]);
+function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors: string[] } {
+  const [data, setData] = useState<AttentionCounts>({
+    knowledgeReview: null,
+    contentAwaitingPublish: null,
+    contentPriorityFlagged: null,
+    capturePending: null,
+    wellnessRiskFlags: null,
+  });
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const since = new Date();
-        since.setHours(0, 0, 0, 0);
-        const { data } = await supabase
-          .from('core_events')
-          .select('event_id, event_type, domain, occurred_at')
-          .gte('occurred_at', since.toISOString())
-          .order('occurred_at', { ascending: false })
-          .limit(8);
-        if (cancelled) return;
-        setEvents(
-          (data ?? []).map((e) => ({
-            id: e.event_id,
-            time: new Date(e.occurred_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            title: `${e.domain} · ${e.event_type}`,
-          })),
-        );
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const errs: string[] = [];
+
+      const knowledge = await fetch('/api/knowledge-library/stats')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[CaptainsChair] knowledge review count failed:', e); errs.push('Knowledge review'); return null; });
+
+      const content = await fetch('/api/content-workbench')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[CaptainsChair] content pipeline count failed:', e); errs.push('Content pipeline'); return null; });
+
+      const capture = await fetchCaptureAnalytics();
+      if (capture === null) { console.error('[CaptainsChair] capture pending count failed'); errs.push('Capture pending'); }
+
+      const wellness = await fetch('/api/human-systems?domain=recovery')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[CaptainsChair] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
+
+      if (cancelled) return;
+
+      const items: { status: string; captain_focus?: boolean }[] = Array.isArray(content?.items) ? content.items : [];
+
+      setData({
+        knowledgeReview: knowledge ? (knowledge.needs_your_review ?? 0) + (knowledge.needs_followup ?? 0) : null,
+        contentAwaitingPublish: content ? items.filter((i) => i.status === 'ready_to_publish').length : null,
+        contentPriorityFlagged: content ? items.filter((i) => i.captain_focus).length : null,
+        capturePending: capture ? capture.pending : null,
+        wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
+      });
+      setErrors(errs);
+      setLoading(false);
     }
     load();
     return () => { cancelled = true; };
   }, []);
 
-  return { events, loading };
+  return { data, loading, errors };
 }
 
-// Ported from legacy (app)/captains-chair (EXEC-010B WP9).
+function CountTile({ label, value, href, loading }: { label: string; value: number | null; href: string; loading: boolean }) {
+  const hasAction = (value ?? 0) > 0;
+  return (
+    <Link
+      href={href}
+      className={`block rounded-lg border p-3 transition-colors hover:border-wb-sage-deep/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${hasAction ? 'border-wb-sage-deep/40 bg-wb-sage-deep/5' : 'border-wb-line bg-white'}`}
+    >
+      <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${hasAction ? 'text-wb-sage-deep' : 'text-wb-ink'}`}>
+        {loading ? '…' : value === null ? '—' : value}
+      </p>
+    </Link>
+  );
+}
+
+// ── Captain's Notebook — quick-capture widget ────────────────────────────────
+
 interface NbNote {
   id: string;
   title: string | null;
@@ -205,8 +249,10 @@ function NotebookCard() {
   const [capturedCount, setCapturedCount] = useState<number | null>(null);
   const [topOpportunity, setTopOpportunity] = useState<NbNote | null>(null);
   const [recentRouted, setRecentRouted] = useState<NbNote[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createSupabaseBrowserClient();
     supabase
       .from('intelligence_notes')
@@ -214,7 +260,17 @@ function NotebookCard() {
       .in('status', ['CAPTURED', 'OFFICER_REVIEW', 'NUMBER_ONE_REVIEW', 'READY_FOR_ROUTING', 'ROUTED'])
       .order('created_at', { ascending: false })
       .limit(100)
-      .then(({ data }) => {
+      .then(({ data, error: fetchError }) => {
+        if (cancelled) return;
+        // Previously the `error` field was never checked, so a failed query
+        // just fell into `if (!data) return` — readyCount/capturedCount
+        // stayed null forever and the card was stuck on "Loading…"
+        // indefinitely rather than showing a real error.
+        if (fetchError) {
+          console.error('[NotebookCard] load failed:', fetchError);
+          setError(fetchError.message);
+          return;
+        }
         if (!data) return;
         const ready = data.filter((n) => n.status === 'READY_FOR_ROUTING');
         const captured = data.filter((n) => n.status === 'CAPTURED');
@@ -229,6 +285,7 @@ function NotebookCard() {
         setTopOpportunity(top as NbNote | null);
         setRecentRouted(routed.slice(0, 3) as NbNote[]);
       });
+    return () => { cancelled = true; };
   }, []);
 
   const hasAction = (readyCount ?? 0) > 0;
@@ -245,7 +302,9 @@ function NotebookCard() {
           Open →
         </Link>
       </div>
-      {readyCount === null ? (
+      {error ? (
+        <p className="text-xs text-wb-crit-on">Failed to load: {error}</p>
+      ) : readyCount === null ? (
         <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
       ) : (
         <div className="space-y-2 text-xs">
@@ -290,347 +349,190 @@ function NotebookCard() {
   );
 }
 
-// Ported from legacy (app)/captains-chair (MSN-0345). See lib/sinceLastSession.ts's
-// own header for exactly what this can and can't answer honestly.
-function SinceLastSessionCard({ summary, loading }: { summary: SinceLastSessionSummary | null; loading: boolean }) {
-  if (loading || !summary) return null;
-  if (summary.firstSession) {
-    return (
-      <div className="rounded-lg border border-wb-line bg-white p-4">
-        <h3 className="mb-1 text-sm font-semibold text-wb-ink">Since Last Session</h3>
-        <p className="text-xs text-wb-ink2">First session on this browser — nothing to compare against yet.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-lg border border-wb-line bg-white p-4">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-semibold text-wb-ink">Since Last Session</h3>
-        <span className="text-[10px] uppercase tracking-wide text-wb-ink2">
-          Since {new Date(summary.previousSessionAt!).toLocaleString()}
-        </span>
-      </div>
-      {summary.eventCount === 0 ? (
-        <p className="text-xs text-wb-ink2">Nothing new since your last visit.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-wb-ink">
-            <span className="font-mono font-bold text-wb-sage-deep">{summary.eventCount}</span> event
-            {summary.eventCount === 1 ? '' : 's'} across the platform since your last visit.
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] uppercase tracking-wide text-wb-ink2">
-            {summary.byDomain.map((d) => (
-              <span key={d.domain}>{d.domain} · {d.count}</span>
-            ))}
-          </div>
-        </div>
-      )}
-      <p className="mt-2 text-[10px] text-wb-ink2/70">
-        Answers &quot;what changed.&quot; What completed, worsened, was delegated, or was learned
-        aren&apos;t yet trackable — no data source for those exists in the platform today.
-      </p>
-    </div>
-  );
-}
-
 // ── Workbench Shell Layout ──────────────────────────────────────────────────
 
 export default function CaptainsChairWorkbench() {
-  const { posture: currentPosture } = useROSData();
-  const { alerts: liveAlerts, isLoading: alertsLoading } = useAlerts();
-  const { stats: missionStats, loading: missionStatsLoading, error: missionStatsError } = useLiveMissionStats();
-  const { data: engQueueData, loading: engQueueLoading, error: engQueueError } = useLiveEngineeringQueue();
+  const { posture: currentPosture, postureFetchFailed } = useROSData();
+  const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
+  const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
-  const { events: timelineEvents, loading: timelineLoading } = useCaptainTimeline();
-  const dataErrors = [missionStatsError, engQueueError, briefingError].filter(Boolean) as string[];
-  const [summary, setSummary] = useState<SinceLastSessionSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadSinceLastSession()
-      .then((s) => { if (!cancelled) setSummary(s); })
-      .finally(() => { if (!cancelled) setSummaryLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const { data: attention, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
 
   const postureBand = currentPosture.posture;
+  const postureTone = POSTURE_STATE_TONE[postureBand];
+  const riskTone = opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown';
+  const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
 
   return (
     <WorkbenchShell
       title="Captain's Chair"
-      eyebrow="Operational Dashboard"
-      tagline="USS TJR · Captain's Chair · Operational Dashboard"
+      eyebrow="Executive Summary"
+      tagline="USS TJR · Captain's Chair · Executive Summary"
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
-      {dataErrors.length > 0 && (
-        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-          {dataErrors.length === 1 ? dataErrors[0] : `${dataErrors.length} panels failed to load: ${dataErrors.join('; ')}`}
-        </p>
-      )}
-      {/* ── Always-visible panels ── */}
       <div className="space-y-4">
-        {/* Since Last Session — ported from legacy (app)/captains-chair
-            (MSN-0345). Was fetched (loadSinceLastSession()) but never
-            rendered here; the state existed but was dead. */}
-        <SinceLastSessionCard summary={summary} loading={summaryLoading} />
+        {/* ── Situation strip ── */}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <SituationBadge
+            label="Recovery Posture"
+            value={postureFetchFailed ? 'Data error' : postureBand}
+            tone={postureFetchFailed ? 'unknown' : postureTone}
+            sublabel={postureFetchFailed ? 'Check connection — see console' : currentPosture.capacity_band}
+          />
+          <SituationBadge
+            label="Operational Risk"
+            value={opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data')}
+            tone={opRiskError ? 'unknown' : riskTone}
+            sublabel={opRisk && opRisk.escalateCount > 0 ? `${opRisk.escalateCount} threat${opRisk.escalateCount === 1 ? '' : 's'} at escalate` : undefined}
+          />
+          <SituationBadge
+            label="Interrupt Now"
+            value={briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`}
+            tone={briefingError ? 'unknown' : interruptTone}
+            sublabel={(briefingStats?.interruptNow ?? 0) > 0 ? 'Needs you right now' : undefined}
+          />
+        </div>
 
-        {/* Recovery Posture — desktop hidden below lg to avoid rendering both
-            ROSPanels' full desktop stack AND MobileOperatingPicture's mobile
-            stack simultaneously on the same viewport (was doubling scroll
-            length exactly where the 2026-08-09 mobile review's collapsed-
-            <details> fix below was trying to reduce it). No outer card
-            wrapper — WorkbenchPanel already supplies its own card chrome per
-            panel; wrapping it again was card-in-card with no purpose. */}
-        <div className="hidden lg:block"><ROSPanels /></div>
-        <MobileOperatingPicture />
-
-        {/* Captain Intelligence — WorkbenchPanel supplies its own chrome. */}
-        <CaptainIntelligencePanel />
-
-        {/* Pending Intelligence Briefs — renders nothing when the queue is
-            empty, so this is a zero-effect addition on a quiet day. */}
-        <PendingBriefsPanel />
-
-        {/* Fleet Section — Hidden on FRAGILE/REST.
-            2026-08-09 mobile/iPad review (P1): this is ~8 panels deep on
-            top of the 4 always-visible ones above — a very long single-
-            column scroll on a phone. The full hierarchy rework (hero zone
-            + collapsed-by-default secondary section) is still deferred
-            per the Captain's own call to review this page separately.
-            This is a narrower, lower-risk mobile-only fix in the meantime:
-            a native <details> disclosure, open by default (desktop and
-            first-load mobile both see exactly today's layout, zero
-            behavioural change), with a <summary> toggle that only renders
-            below lg — so a mobile user who's already seen "what needs me"
-            gets a real way to collapse the rest without scrolling past it
-            every time, while lg+ never even renders the toggle and always
-            shows the content open (browsers render <details open> content
-            regardless of viewport, so hiding the summary doesn't hide the
-            content at any breakpoint). No JS state, no hydration risk. */}
-        {postureBand !== 'FRAGILE' && postureBand !== 'REST' && (
-          <details open className="group space-y-4">
-            <summary className="mb-1 flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-wb-ink2 lg:hidden">
-              <span className="transition group-open:rotate-90">▶</span>
-              Operational detail
-            </summary>
-            {/* Mission Overview */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-line bg-white p-5">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Priority Overview</h3>
-                {missionStatsLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Decisions awaiting approval</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.decisionsCount ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Live alerts</span>
-                      <span className="font-semibold text-wb-ink">{liveAlerts.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Active missions</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.active ?? 0}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Mission Board */}
-              <div className="rounded-lg border border-wb-line bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Mission Status</h3>
-                {missionStatsLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Total</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.total ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">In Progress</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.in_progress ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Blocked</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.blocked ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Completed</span>
-                      <span className="font-semibold text-wb-ink">{missionStats?.completed ?? 0}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Departments — ported from legacy (app)/captains-chair (MSN-0345).
-                Names/links are real (route to real live pages); no per-dept
-                metric values, same as legacy — building a real cross-domain
-                metrics query was out of that mission's scope. */}
-            <div className="rounded-lg border border-wb-line bg-white p-4">
-              <h3 className="mb-3 text-sm font-semibold text-wb-ink">Departments</h3>
-              <div className="overflow-x-auto">
-                <div className="flex gap-3" style={{ minWidth: `${departments.filter((d) => d.key !== 'status').length * 140}px` }}>
-                  {departments.filter((d) => d.key !== 'status').map((dept) => {
-                    const theme = DEPARTMENTS[dept.key];
-                    return (
-                      <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                        <div className="flex items-center gap-2 rounded-md border border-wb-line bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
-                          <span className={`h-4 w-4 shrink-0 rounded ${theme.bg} ring-1 ring-inset ring-black/25`} />
-                          <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Captain's Timeline & Captain's Notebook — ported from legacy
-                (app)/captains-chair (MSN-0345 / EXEC-010B WP9). */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-line bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Captain&apos;s Timeline</h3>
-                {timelineLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : timelineEvents.length === 0 ? (
-                  <p className="text-xs text-wb-ink2">No events logged yet today.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {timelineEvents.map((event) => (
-                      <li key={event.id} className="flex items-center gap-2 text-xs">
-                        <span className="w-10 shrink-0 font-mono text-wb-ink2">{event.time}</span>
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
-                        <span className="text-wb-ink">{event.title}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <NotebookCard />
-            </div>
-
-            {/* Today's Briefing & Engineering Queue */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-lg border border-wb-line bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
-                {briefingLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Confidence</span>
-                      <span className="font-semibold text-wb-ink">{briefingStats?.confidence != null ? `${briefingStats.confidence}%` : '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Priorities</span>
-                      <span className="font-semibold text-wb-ink">{briefingStats?.priorities ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Warnings</span>
-                      <span className="font-semibold text-wb-ink">{briefingStats?.warnings ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-wb-ink2">Recommendations</span>
-                      <span className="font-semibold text-wb-ink">{briefingStats?.recommendations ?? 0}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-wb-line bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Engineering Queue</h3>
-                {engQueueLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : engQueueData ? (
-                  <div className="space-y-2 text-xs">
-                    {[...LIFECYCLE_ORDER, 'rejected' as const].map((status) => {
-                      const c = toneClasses(LIFECYCLE_TONE[status]);
-                      return (
-                        <div key={status} className="flex justify-between">
-                          <span className={c.text}>{LIFECYCLE_LABEL[status]}</span>
-                          <span className="font-semibold text-wb-ink">{engQueueData.counts[status] ?? 0}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-wb-ink2">No data</p>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-wb-line bg-white p-3">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
-                <div className="space-y-2">
-                  <Link href="/human-systems-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                    → Medical Bay
-                  </Link>
-                  <Link href="/mission-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                    → Mission Registry
-                  </Link>
-                  <Link href="/captains-brief-workbench" className="block text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                    → Full Brief
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Alerts & Approval Queue */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-wb-line bg-white p-4">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Live Alerts</h3>
-                {alertsLoading ? (
-                  <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-                ) : liveAlerts.length === 0 ? (
-                  <p className="text-xs text-wb-ink2">No alerts.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {liveAlerts.slice(0, 5).map((alert) => (
-                      <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
-                        <p className="font-semibold text-wb-ink">{alert.title}</p>
-                        <p className="text-wb-ink2">{alert.detail}</p>
-                      </li>
-                    ))}
-                    {liveAlerts.length > 5 && (
-                      <p className="text-xs text-wb-ink2">+{liveAlerts.length - 5} more</p>
-                    )}
-                  </ul>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-wb-line bg-white p-5">
-                <h3 className="mb-3 text-sm font-semibold text-wb-ink">Approvals Pending</h3>
-                <CaptainApprovalQueue />
-              </div>
-            </div>
-          </details>
-        )}
-
-        {/* Operational-detail-hidden note. 2026-08-09's own note above this
-            box explains WHY the Fleet section is collapsed on FRAGILE/REST;
-            this used to also restate "Recovery posture is X" via its own
-            StatusBadge — the 3rd/4th time that band appeared on this page
-            (Recovery Posture panel above already shows it, prominently,
-            with real severity colour). Now just explains the hiding, colour
-            matched to severity (wb-warn/wb-crit) instead of a neutral box
-            that didn't read as a warning at all. */}
-        {(postureBand === 'FRAGILE' || postureBand === 'REST') && (
-          <div
-            className={
-              postureBand === 'REST'
-                ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4'
-                : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-4'
-            }
-          >
+        {(postureBand === 'FRAGILE' || postureBand === 'REST') && !postureFetchFailed && (
+          <div className={postureBand === 'REST' ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3' : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3'}>
             <p className={postureBand === 'REST' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
-              Operational detail is hidden while recovery posture is low — see Recovery Posture above. Focus on recovery and immediate priorities.
+              Recovery posture is {postureBand} — consider deferring anything below that isn&apos;t genuinely urgent.
             </p>
           </div>
         )}
+
+        {/* ── Needs Your Attention ── */}
+        <div className="rounded-lg border border-wb-line bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
+
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <CountTile label="Knowledge Review" value={attention.knowledgeReview} href="/knowledge-workbench" loading={attentionLoading} />
+            <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} />
+            <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} />
+            <CountTile label="Wellness Risk Flags" value={attention.wellnessRiskFlags} href="/human-systems-workbench" loading={attentionLoading} />
+          </div>
+          {attentionErrors.length > 0 && (
+            <p className="mb-4 text-[10px] text-wb-ink2">
+              Unavailable right now: {attentionErrors.join(', ')} — see console for detail.
+            </p>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-wb-ink2">Live Alerts</h3>
+                {alertsFailedSources > 0 && (
+                  <span className="text-[10px] text-wb-ink2">{alertsFailedSources} of {alertsTotalSources} sources unavailable</span>
+                )}
+              </div>
+              {alertsLoading ? (
+                <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+              ) : liveAlerts.length === 0 ? (
+                <p className="text-xs text-wb-ink2">No alerts.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {liveAlerts.slice(0, 5).map((alert) => (
+                    <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
+                      <p className="font-semibold text-wb-ink">{alert.title}</p>
+                      <p className="text-wb-ink2">{alert.detail}</p>
+                    </li>
+                  ))}
+                  {liveAlerts.length > 5 && (
+                    <p className="text-xs text-wb-ink2">+{liveAlerts.length - 5} more</p>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-wb-ink2">Approvals Pending</h3>
+              <CaptainApprovalQueue />
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Intelligence Briefs — renders nothing when the queue is
+            genuinely empty; shows its own error state on failure. */}
+        <PendingBriefsPanel />
+
+        {/* ── Narrative cards ── */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-wb-line bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
+            {briefingLoading ? (
+              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+            ) : briefingError ? (
+              <p className="text-xs text-wb-crit-on">Failed to load: {briefingError}</p>
+            ) : (
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-wb-ink2">Confidence</span>
+                  <span className="font-semibold text-wb-ink">{briefingStats?.confidence != null ? `${briefingStats.confidence}%` : '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-wb-ink2">Priorities</span>
+                  <span className="font-semibold text-wb-ink">{briefingStats?.priorities ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-wb-ink2">Warnings</span>
+                  <span className="font-semibold text-wb-ink">{briefingStats?.warnings ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-wb-ink2">Recommendations</span>
+                  <span className="font-semibold text-wb-ink">{briefingStats?.recommendations ?? 0}</span>
+                </div>
+                <Link href="/captains-brief-workbench" className="mt-1 inline-block text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                  Full Brief →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <NotebookCard />
+        </div>
+
+        {/* Departments — real nav links (route to real live pages); no
+            per-dept metric values, out of scope for an exec-summary pass. */}
+        <div className="rounded-lg border border-wb-line bg-white p-4">
+          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Departments</h3>
+          <div className="overflow-x-auto">
+            <div className="flex gap-3" style={{ minWidth: `${departments.filter((d) => d.key !== 'status').length * 140}px` }}>
+              {departments.filter((d) => d.key !== 'status').map((dept) => {
+                const theme = DEPARTMENTS[dept.key];
+                return (
+                  <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                    <div className="flex items-center gap-2 rounded-md border border-wb-line bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
+                      <span className={`h-4 w-4 shrink-0 rounded ${theme.bg} ring-1 ring-inset ring-black/25`} />
+                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Links */}
+        <div className="rounded-lg border border-wb-line bg-white p-3">
+          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <Link href="/human-systems-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Medical Bay
+            </Link>
+            <Link href="/mission-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Mission Registry
+            </Link>
+            <Link href="/captains-chair-workbench/engineering-queue" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Engineering Queue
+            </Link>
+            <Link href="/intelligence-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → OSINT Workbench
+            </Link>
+            <Link href="/captains-brief-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Full Brief
+            </Link>
+          </div>
+        </div>
       </div>
     </WorkbenchShell>
   );

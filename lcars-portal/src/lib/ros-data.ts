@@ -66,26 +66,47 @@ interface RawPostureRow {
   data_available:   boolean;
 }
 
-export async function fetchRecoveryPosture(date?: string): Promise<RecoveryPosture | null> {
+export interface PostureFetchResult {
+  posture: RecoveryPosture | null;
+  /** True only for a genuine query/network failure — never for "no check-in
+   *  today" (a real, empty result). Lets a caller that cares (Captain's
+   *  Chair's situation strip) show "data error" instead of the honest but
+   *  easily-confused-with-a-failure "no check-in today" label. */
+  failed: boolean;
+}
+
+export async function fetchRecoveryPostureWithStatus(date?: string): Promise<PostureFetchResult> {
   const supabase = client();
   try {
     const { data, error } = await supabase
       .rpc('get_recovery_posture', { p_date: date ?? today() })
       .single<RawPostureRow>();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[ros-data] fetchRecoveryPosture query error:', error);
+      return { posture: null, failed: true };
+    }
+    if (!data) return { posture: null, failed: false };
 
     return {
-      posture:          (data.posture as RecoveryPostureBand) ?? 'UNKNOWN',
-      posture_message:  data.posture_message,
-      capacity_band:    (data.capacity_band as CapacityBand) ?? 'UNKNOWN',
-      capacity_message: data.capacity_message,
-      best_window:      deriveBestWindow(data.capacity_band),
-      mission_guidance: data.mission_guidance,
-      data_available:   data.data_available
+      posture: {
+        posture:          (data.posture as RecoveryPostureBand) ?? 'UNKNOWN',
+        posture_message:  data.posture_message,
+        capacity_band:    (data.capacity_band as CapacityBand) ?? 'UNKNOWN',
+        capacity_message: data.capacity_message,
+        best_window:      deriveBestWindow(data.capacity_band),
+        mission_guidance: data.mission_guidance,
+        data_available:   data.data_available
+      },
+      failed: false,
     };
-  } catch {
-    return null;
+  } catch (e) {
+    console.error('[ros-data] fetchRecoveryPosture threw:', e);
+    return { posture: null, failed: true };
   }
+}
+
+export async function fetchRecoveryPosture(date?: string): Promise<RecoveryPosture | null> {
+  return (await fetchRecoveryPostureWithStatus(date)).posture;
 }
 
 function deriveBestWindow(capacity_band: string): string {
