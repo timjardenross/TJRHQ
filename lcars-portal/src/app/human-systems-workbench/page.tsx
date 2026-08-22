@@ -92,7 +92,7 @@ function Workbench() {
         <>
           <KpiDashboard kpis={data.recovery.kpis} />
           <div className="flex flex-col gap-4">
-            <RecoveryView data={data.recovery} />
+            <RecoveryView data={data.recovery} interventionEffectiveness={data.medical?.intervention_effectiveness ?? []} />
             {data.medical && <MedicalView data={data.medical} />}
           </div>
         </>

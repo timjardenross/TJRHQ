@@ -2,7 +2,8 @@
 
 import { Badge, Card } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
-import { CAPACITY_BALANCE_LABEL, CAPACITY_STATE_LABEL as CAPACITY_LABEL, capacityStateStatus, type RecoveryPayload } from './types';
+import { WhatHelpsMeCard } from './WhatHelpsMeCard';
+import { CAPACITY_BALANCE_LABEL, CAPACITY_STATE_LABEL as CAPACITY_LABEL, capacityStateStatus, type InterventionEffectiveness, type RecoveryPayload } from './types';
 
 const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ Balanced', high: '⬆ Too much' };
 const PAIN_LABEL: Record<string, string> = {
@@ -36,7 +37,7 @@ function StateTile({ label, value }: { label: string; value: string | null }) {
  *  what's driving it, what the system needs, compensation cost, and the
  *  next recommended move — in that order, matching the doc's
  *  STATE→INFLUENCES→NEED→ACTION model (§3). */
-export function RecoveryView({ data }: { data: RecoveryPayload }) {
+export function RecoveryView({ data, interventionEffectiveness }: { data: RecoveryPayload; interventionEffectiveness: InterventionEffectiveness[] }) {
   const nm = data.next_move;
   const hasNextMove = !!(nm.intervention_title);
   const testingSuggestion = worthTesting(data);
@@ -143,23 +144,6 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
         )}
       </Card>
 
-      <Card title="Today's Check-ins">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="font-serif text-3xl text-wb-ink">{data.checkins_today}</div>
-            <p className="mt-1 text-[13px] text-wb-ink2">{data.confidence_label}</p>
-          </div>
-          {data.latest_capacity_state && (
-            <Badge status={capacityStateStatus(data.latest_capacity_state)}>
-              {data.latest_capacity_state.toUpperCase()}
-            </Badge>
-          )}
-        </div>
-        <p className="mt-3 text-[12px] text-wb-ink2">
-          Log check-ins via the Capacity Bot&rsquo;s /capacity, /helpme, or /guide commands.
-        </p>
-      </Card>
-
       {/* ── SYSTEM LEARNING (spec §17, renamed from Wellness Intelligence) ── */}
       <CollapsibleSection title="System Learning" className="md:col-span-2">
         <div className="flex flex-col gap-3">
@@ -197,6 +181,9 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
           )}
         </div>
       </CollapsibleSection>
+
+      {/* ── WHAT HELPS ME (spec §18) — placed next to REVS, same row ────────── */}
+      <WhatHelpsMeCard data={interventionEffectiveness} />
 
       {/* ── MY REVS POSITION (spec §22) — orientation, not a maturity score ── */}
       <CollapsibleSection title="My REVS Position">

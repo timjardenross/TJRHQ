@@ -32,16 +32,15 @@ function Sparkline({ values }: { values: (number | null)[] }) {
   );
 }
 
-const OUTCOME_LABEL: Record<string, string> = { better: 'Better', same: 'Same', worse: 'Worse', not_completed: "Didn't do it" };
-
-/** Medical tab content — VNext consolidation (Human_Systems_Workbench_
- *  VNext_Consolidation_Mission_Scope.md WP05-08): Life Participation
- *  (unchanged, already non-productivity-framed), Capacity Domains
- *  (renamed from Energy Domains, +Sensory), Patterns & Recovery (Recovery
- *  Conditions + Capacity Debt + Recovery Duration + 7D/30D trends), and
- *  What Helps Me (intervention effectiveness). Sessions·7D moved out of
- *  the KPI hero (WP05) — ReadinessView, rendered just above this in
- *  page.tsx, already carries that content. */
+/** Medical tab content. VNext consolidation, updated after finding real
+ *  duplication between the two source signal sets: "Sensory" (a Capacity
+ *  Domain) and "Sensory load" (a Recovery Condition) were the exact same
+ *  capacity_checkins.stimulation_state field rendered twice, and "Recovery
+ *  Time" was rendered as both a grid tile and a separate stat block below
+ *  it. Capacity Domains and Recovery Conditions are now one merged grid —
+ *  8 unique signals, not 10 — under a single "Capacity & Recovery
+ *  Conditions" card. What Helps Me moved to RecoveryView (next to My REVS
+ *  Position); this file no longer renders it. */
 export function MedicalView({ data }: { data: MedicalPayload }) {
   const [trendWindow, setTrendWindow] = useState<'7d' | '30d'>('7d');
 
@@ -53,34 +52,33 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
     ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
     : null;
 
-  const qualified = data.intervention_effectiveness.filter((r) => r.meets_sample_threshold);
-  const unqualified = data.intervention_effectiveness.filter((r) => !r.meets_sample_threshold);
+  // Merge domains + conditions, dropping the two exact duplicates: "sensory"
+  // (domain) === "sensory_load" (condition) — same field, keep the
+  // condition's version since its `detail` text is more descriptive than
+  // the domain's bare value; "recovery_time" (condition tile) is dropped
+  // because the stat block below already shows the same recovery_duration
+  // data with richer sample-size context.
+  const domainSignals = data.capacity_domains
+    .filter((d) => d.key !== 'sensory')
+    .map((d) => ({ key: d.key, label: d.label, band: d.band, detail: d.value ?? 'Not recorded' }));
+  const conditionSignals = data.recovery_conditions.filter((idx) => idx.key !== 'recovery_time');
+  const signals = [...domainSignals, ...conditionSignals];
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <CollapsibleSection title="Capacity Domains" className="md:col-span-2">
-        <p className="mb-3 text-[13px] text-wb-ink2">Five perspectives on available capacity — not independent batteries.</p>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-          {data.capacity_domains.map((d) => (
-            <div key={d.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
-              <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{d.label}</div>
-              <div className="mt-1"><Badge status={bandStatus(d.band)}>{BAND_LABEL[d.band]}</Badge></div>
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Patterns & Recovery" className="md:col-span-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Recovery Conditions</div>
-        <p className="mb-3 mt-1 text-[13px] text-wb-ink2">Inputs that influence replenishment — not Capacity itself, which is the outcome these produce.</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {data.recovery_conditions.map((idx) => (
-            <div key={idx.key} className="flex items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-bg p-3">
+      <CollapsibleSection title="Capacity & Recovery Conditions" className="md:col-span-2">
+        <p className="mb-3 text-[13px] text-wb-ink2">
+          Eight perspectives on capacity and what feeds it — not independent batteries, and not Capacity itself
+          (Capacity is the outcome these produce).
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {signals.map((s) => (
+            <div key={s.key} className="flex items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-bg p-3">
               <div>
-                <div className="text-[13px] font-medium text-wb-ink">{idx.label}</div>
-                <div className="text-[12px] text-wb-ink2">{idx.detail}</div>
+                <div className="text-[13px] font-medium text-wb-ink">{s.label}</div>
+                <div className="text-[12px] text-wb-ink2">{s.detail}</div>
               </div>
-              <Badge status={bandStatus(idx.band)}>{BAND_LABEL[idx.band]}</Badge>
+              <Badge status={bandStatus(s.band)}>{BAND_LABEL[s.band]}</Badge>
             </div>
           ))}
         </div>
@@ -138,37 +136,6 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
         <p className="mt-3 text-[12px] text-wb-ink2">
           {windowedTrends.length} day{windowedTrends.length === 1 ? '' : 's'} of recorded data in the window.
         </p>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="What Helps Me">
-        {data.intervention_effectiveness.length === 0 ? (
-          <p className="text-[13px] text-wb-ink2">No interventions tried yet. Use /capacity, /helpme, or /guide on the Capacity Bot to start building a track record.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {qualified.map((r) => {
-              const completed = r.better + r.same + r.worse;
-              return (
-                <div key={r.intervention_id} className="flex items-center justify-between gap-2 rounded-md border border-wb-line bg-wb-bg p-3">
-                  <div>
-                    <div className="text-[13px] font-medium text-wb-ink">{r.title}</div>
-                    <div className="text-[12px] text-wb-ink2">
-                      {r.attempts} attempts
-                      {r.common_context && <> · most often used for {r.common_context}</>}
-                    </div>
-                  </div>
-                  <Badge status={r.better > r.worse ? 'success' : r.worse > r.better ? 'warning' : 'neutral'}>
-                    {completed === 0 ? 'No reassessments yet' : `${r.better}/${completed} ${OUTCOME_LABEL.better}`}
-                  </Badge>
-                </div>
-              );
-            })}
-            {unqualified.length > 0 && (
-              <p className="mt-1 text-[12px] text-wb-ink2">
-                {unqualified.length} more strateg{unqualified.length === 1 ? 'y' : 'ies'} tried fewer than 3 times — not enough data yet.
-              </p>
-            )}
-          </div>
-        )}
       </CollapsibleSection>
 
       {data.redesign_candidates.length > 0 && (
