@@ -112,6 +112,46 @@ def _section_for_domain(domain: str) -> Optional[str]:
     return _DOMAIN_SECTION_MAP.get(domain)
 
 
+def _value_dimensions_from_event(event: dict[str, Any]) -> dict[str, int]:
+    """First-pass value-dimension derivation for `PriorityInputs.value_dimensions`
+    (Priority Engine wiring fix). NOT a dedicated value-scoring subsystem —
+    priority_engine.py's own module docstring names the real source as
+    Relationship Model edges linking an event to a mission/capability the
+    Captain has previously weighted, and those mostly don't exist yet
+    (MSN-0302: only 6/28 capabilities graph-linked). Until real edges
+    exist, the only honest signal available at this call site is the
+    event's own domain, so this reuses this module's existing domain ->
+    section grouping (`_DOMAIN_SECTION_MAP` / `_section_for_domain`) as the
+    value-dimension key and the event's own `importance` as the magnitude —
+    the same "categorical field -> plain lookup, no new score invented"
+    pattern `intelligence_reporter.py` uses for `risk_rating`. A domain
+    with no section mapping falls back to its own raw domain string as the
+    dimension key, so it still gets scored rather than silently dropped."""
+    importance = event.get("importance")
+    if importance is None:
+        return {}
+    domain = event.get("domain") or "unknown"
+    dimension = _section_for_domain(domain) or domain
+    return {dimension: int(importance)}
+
+
+def _opportunity_value_from_event(event: dict[str, Any]) -> Optional[int]:
+    """First-pass opportunity-value derivation for
+    `PriorityInputs.opportunity_value` (Priority Engine wiring fix). Same
+    honesty caveat as `_value_dimensions_from_event` above: this is not
+    Content Intelligence's real opportunity-scoring logic
+    (`comms/opportunities.py`) generalised — that integration doesn't
+    exist yet. Only events already grouped into this module's own
+    "opportunities" section (content-intelligence domain, per
+    `_DOMAIN_SECTION_MAP`) get a value here, scaled by the event's own
+    `importance`; every other domain gets None — an honest absence, not a
+    fabricated number."""
+    if _section_for_domain(event.get("domain") or "unknown") != "opportunities":
+        return None
+    importance = event.get("importance")
+    return int(importance) if importance is not None else None
+
+
 def _generate_summary(
     total_events: int,
     domains_represented: set[str],
@@ -189,6 +229,8 @@ def assemble_captain_brief_document(
             importance=e.get("importance"),
             confidence=e.get("confidence"),
             time_sensitivity=e.get("time_sensitivity"),
+            value_dimensions=_value_dimensions_from_event(e),
+            opportunity_value=_opportunity_value_from_event(e),
         )
         for e in events
     ]

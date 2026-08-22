@@ -184,8 +184,45 @@ def _supabase_get_mission(mission_id: str) -> Optional[dict]:
         return None
 
 
-def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
-    """Update mission status in Supabase. Returns True on success."""
+def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
+    """0-100 urgency derived from days-until-due, for
+    `PriorityInputs.time_sensitivity` (Priority Engine wiring fix — see
+    core/platform/priority_engine.py). Mirrors the days-until-due curve
+    core/coordination/recommendation_engine.py's `_due_date_score`/
+    `_deadline_urgency` already use for missions (overdue/due-today highest,
+    decaying by week/month) — rescaled 0-100 here instead of that module's
+    own 0-0.25 additive bonus, not a new curve invented for this fix.
+    Returns None (not 0) when there is no due date to derive from — absent
+    means no signal, matching `event_bus.publish_event()`'s own contract
+    for this field, not a fabricated "not urgent"."""
+    if not due_date:
+        return None
+    try:
+        from datetime import date as _date
+        d = _date.fromisoformat(str(due_date)[:10])
+        days_until = (d - _date.today()).days
+        if days_until <= 0:
+            return 100  # due today or overdue
+        if days_until <= 3:
+            return 80
+        if days_until <= 7:
+            return 60
+        if days_until <= 30:
+            return 30
+        return 10
+    except (ValueError, TypeError):
+        return None
+
+
+def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: Optional[str] = None) -> bool:
+    """Update mission status in Supabase. Returns True on success.
+
+    `due_date`: the mission's own `due_date` column, if the caller already
+    has it in scope (e.g. from a prior `_supabase_missions()` read) — used
+    only to derive `time_sensitivity` for the Event Bus emission below.
+    Optional and defaults to None (no urgency signal), never fetched here
+    itself, so this function's own contract (one PATCH + one best-effort
+    event) doesn't grow an extra read."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
         from tools.supabase.client import CommanderSupabaseClient
@@ -212,6 +249,7 @@ def _supabase_update_mission_status(mission_id: str, new_status: str) -> bool:
                     publish_event(
                         "mission.status_changed", domain="mission-lifecycle",
                         source="slack-bot:mission_lifecycle",
+                        time_sensitivity=_time_sensitivity_from_due_date(due_date),
                         linked_missions=[mid_try], recommended_action=new_status,
                     )
                 except Exception:
@@ -476,19 +514,21 @@ def _handle_status_transition(
     # Fetch current status for audit trail
     from_status = "Unknown"
     mission_title = ""
+    due_date = None
     db_missions = _supabase_missions()
     for m in db_missions:
         mid = (m.get("id") or m.get("mission_id") or "").upper()
         if mid in (mission_id, mission_id_full):
             from_status = m.get("status", "Unknown")
             mission_title = m.get("title", "") or ""
+            due_date = m.get("due_date")  # feeds time_sensitivity — see _time_sensitivity_from_due_date
             break
 
     # Apply the transition
-    updated = _supabase_update_mission_status(mission_id, new_status)
+    updated = _supabase_update_mission_status(mission_id, new_status, due_date=due_date)
     if not updated:
         # Try prefixed form
-        updated = _supabase_update_mission_status(mission_id_full, new_status)
+        updated = _supabase_update_mission_status(mission_id_full, new_status, due_date=due_date)
 
     # Write audit record regardless of Supabase outcome
     _write_transition_audit(mission_id, from_status, new_status, user_id or "Captain", note)
