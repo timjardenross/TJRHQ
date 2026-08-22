@@ -158,6 +158,17 @@ interface AttentionCounts {
   contentPriorityFlagged: number | null;
   capturePending: number | null;
   wellnessRiskFlags: number | null;
+  /** RED/AMBER intelligence_events, last 7 days — computed nowhere on
+   *  Chair before this (2026-08-22). True count, not the top-5-item list
+   *  /api/home/needs-attention keeps for a different purpose. */
+  hotSignals: number | null;
+  /** Stale/failed intelligence_source_health rows — same fix, same
+   *  true-count reasoning. */
+  sourcesDegraded: number | null;
+  /** health_signals landing in the 'escalate' bucket (high confidence +
+   *  critical/high impact), 365d window — Health OSINT Workbench fed
+   *  nothing into Chair before this (2026-08-22). */
+  healthEscalations: number | null;
 }
 
 function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors: string[] } {
@@ -166,6 +177,9 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
     contentPriorityFlagged: null,
     capturePending: null,
     wellnessRiskFlags: null,
+    hotSignals: null,
+    sourcesDegraded: null,
+    healthEscalations: null,
   });
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
@@ -186,6 +200,14 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .catch((e) => { console.error('[CaptainsChair] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
 
+      const osintAttention = await fetch('/api/intelligence-workbench/attention-count')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[CaptainsChair] hot signals / source health failed:', e); errs.push('OSINT signals'); return null; });
+
+      const healthOsint = await fetch('/api/health-osint/attention-count')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[CaptainsChair] health OSINT escalation count failed:', e); errs.push('Health OSINT signals'); return null; });
+
       if (cancelled) return;
 
       const items: { status: string; captain_focus?: boolean }[] = Array.isArray(content?.items) ? content.items : [];
@@ -195,6 +217,9 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
         contentPriorityFlagged: content ? items.filter((i) => i.captain_focus).length : null,
         capturePending: capture ? capture.pending : null,
         wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
+        hotSignals: osintAttention ? (osintAttention.hotSignals ?? 0) : null,
+        sourcesDegraded: osintAttention ? (osintAttention.sourcesDegraded ?? 0) : null,
+        healthEscalations: healthOsint ? (healthOsint.count ?? 0) : null,
       });
       setErrors(errs);
       setLoading(false);
@@ -396,10 +421,13 @@ export default function CaptainsChairWorkbench() {
         <div className="rounded-lg border border-wb-line bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
 
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} />
             <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} />
             <CountTile label="Wellness Risk Flags" value={attention.wellnessRiskFlags} href="/human-systems-workbench" loading={attentionLoading} />
+            <CountTile label="Hot OSINT Signals" value={attention.hotSignals} href="/intelligence-workbench" loading={attentionLoading} />
+            <CountTile label="Sources Degraded" value={attention.sourcesDegraded} href="/intelligence-workbench" loading={attentionLoading} />
+            <CountTile label="Health Signals — Escalate" value={attention.healthEscalations} href="/health-osint" loading={attentionLoading} />
           </div>
           {attentionErrors.length > 0 && (
             <p className="mb-4 text-[10px] text-wb-ink2">
