@@ -1,5 +1,5 @@
 // Home dashboard — "needs attention" aggregation across all surfaces
-// Pulls from: hot signals, interrupt_now, IN_REVIEW briefs, stale sources
+// Pulls from: hot signals, interrupt_now, stale sources
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
@@ -24,19 +24,16 @@ export async function GET(req: NextRequest) {
       .limit(5);
     if (signalsError) throw signalsError;
 
-    // ── Pending QA briefs (IN_REVIEW or QA_PASSED, i.e. not yet PUBLISHED)
-    // QA_PASSED is the actionable state — nightly QA already promoted it,
-    // it's just waiting on a human executive_approver — so it belongs here
-    // alongside IN_REVIEW, not just the pre-QA state (migration 0084
-    // consolidated the old 7-state ladder to IN_REVIEW -> QA_PASSED ->
-    // PUBLISHED; this used to only check the first of the two).
-    const { data: pendingBriefs, error: briefsError } = await sb
-      .from('intelligence_briefs')
-      .select('brief_id,overall_risk,approval_status,generated_at,executive_snapshot')
-      .in('approval_status', ['IN_REVIEW', 'QA_PASSED'])
-      .order('generated_at', { ascending: true })
-      .limit(3);
-    if (briefsError) throw briefsError;
+    // 2026-08-22: the IN_REVIEW/QA_PASSED "pending briefs" section that used
+    // to live here is gone — briefs now auto-publish at generation
+    // (intelligence/persistence/intelligence_store.py:save_brief()), so
+    // this is a single-user platform with no review queue left to surface.
+    // The ~27 rows still sitting IN_REVIEW/QA_PASSED are pre-redesign
+    // history that will never move (nothing publishes them, nothing ever
+    // will) — querying them here just showed the same 3 stale legacy
+    // briefs forever, permanently reading as "awaiting your decision" when
+    // there was nothing to decide. See /briefs (defaults to Today) for the
+    // real archive, including that legacy history if wanted.
 
     // ── Captain's Brief interrupt_now items ──────────────────────────────
     const { data: interrupts, error: interruptsError } = await sb
@@ -60,10 +57,9 @@ export async function GET(req: NextRequest) {
 
     const items = {
       hotSignals: hotSignals ?? [],
-      pendingBriefs: pendingBriefs ?? [],
       interrupts: interrupts ?? [],
       staleSources: staleSources ?? [],
-      hasAnything: (hotSignals?.length ?? 0) + (pendingBriefs?.length ?? 0) +
+      hasAnything: (hotSignals?.length ?? 0) +
                    (interrupts?.length ?? 0) + (staleSources?.length ?? 0) > 0,
     };
 

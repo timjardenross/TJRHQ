@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
-import { PendingBriefsPanel } from '@/components/PendingBriefsPanel';
 import { stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
@@ -565,10 +564,6 @@ export default function CaptainsChairWorkbench() {
             </div>
           </div>
         </div>
-
-        {/* Pending Intelligence Briefs — renders nothing when the queue is
-            genuinely empty; shows its own error state on failure. */}
-        <PendingBriefsPanel />
 
         {/* ── Narrative cards ── */}
         <div className="grid gap-4 md:grid-cols-2">
