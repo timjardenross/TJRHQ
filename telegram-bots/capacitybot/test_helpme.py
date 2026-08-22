@@ -113,6 +113,7 @@ def _make_db(interventions=None, events=None):
         if name == "capacity_interventions":
             sel = MagicMock()
             sel.eq.return_value.contains.return_value.execute.return_value = MagicMock(data=interventions or [])
+            sel.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=interventions or [])
             sel.eq.return_value.execute.return_value = MagicMock(data=interventions or [])
             t.select.return_value = sel
         elif name == "capacity_intervention_events":

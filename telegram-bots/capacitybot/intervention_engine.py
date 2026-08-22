@@ -94,16 +94,17 @@ def _score(
         score += 5.0  # no state signal to match (Q9/guide path) — flat base
 
     stim_effect = row.get("stimulation_effect")
-    if stimulation_state == "low" and stim_effect == "increase":
-        score += 3.0
-    elif stimulation_state == "high" and stim_effect == "decrease":
-        score += 3.0
-    elif stim_effect == "neutral":
-        score += 1.0
-    elif stimulation_state == "low" and stim_effect == "decrease":
-        score -= 3.0
-    elif stimulation_state == "high" and stim_effect == "increase":
-        score -= 3.0
+    if stimulation_state is not None:
+        if stimulation_state == "low" and stim_effect == "increase":
+            score += 3.0
+        elif stimulation_state == "high" and stim_effect == "decrease":
+            score += 3.0
+        elif stim_effect == "neutral":
+            score += 1.0
+        elif stimulation_state == "low" and stim_effect == "decrease":
+            score -= 3.0
+        elif stimulation_state == "high" and stim_effect == "increase":
+            score -= 3.0
 
     if pain_state in ("elevated", "high") and not row.get("pain_compatible", True):
         return None  # hard exclude — spec §26, never push through pain incompatibly

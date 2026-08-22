@@ -115,17 +115,15 @@ def test_score_high_executive_effort_penalised_in_red():
 def test_score_personal_outcomes_below_sample_floor_ignored():
     print("\n── _score — outcome weighting skipped below MIN_SAMPLE_FOR_WEIGHTING ─")
     check("floor is a small positive number", 1 <= MIN_SAMPLE_FOR_WEIGHTING <= 5)
-    few_bad = ["worse"] * (MIN_SAMPLE_FOR_WEIGHTING - 1) if MIN_SAMPLE_FOR_WEIGHTING > 1 else []
     row = _row()
+    # exactly one "worse" — below the sample floor AND below the 2-in-a-row
+    # fresh-failure check, so neither penalty path should fire.
     s_no_outcomes = _score(row, help_state=None, stimulation_state=None, pain_state=None,
                             capacity_state=None, executive_function=None, outcomes=None)
-    s_few_bad = _score(row, help_state=None, stimulation_state=None, pain_state=None,
-                        capacity_state=None, executive_function=None, outcomes=few_bad or None)
-    # below the floor, only the fresh-2-in-a-row-failure check can fire —
-    # with fewer than 2 samples that can't trigger either, so scores match.
-    if MIN_SAMPLE_FOR_WEIGHTING > 2:
-        check("a single/zero bad outcomes below the sample floor don't move the score",
-              s_no_outcomes == s_few_bad)
+    s_one_bad = _score(row, help_state=None, stimulation_state=None, pain_state=None,
+                        capacity_state=None, executive_function=None, outcomes=["worse"])
+    check("a single outcome below both the sample floor and the 2-in-a-row check doesn't move the score",
+          s_no_outcomes == s_one_bad)
 
 
 def test_score_recent_double_failure_penalised_even_below_floor():
@@ -156,7 +154,11 @@ def test_score_sufficient_sample_applies_weighting():
 def _make_db(interventions, events=None):
     db = MagicMock()
 
+    _table_mocks: dict[str, MagicMock] = {}
+
     def table_side_effect(name):
+        if name in _table_mocks:
+            return _table_mocks[name]
         t = MagicMock()
         if name == "capacity_interventions":
             select_mock = MagicMock()
@@ -172,6 +174,7 @@ def _make_db(interventions, events=None):
             t.select.return_value = sel
             t.insert.return_value.execute.return_value = MagicMock(data=[{"id": 42}])
             t.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        _table_mocks[name] = t
         return t
 
     db.table.side_effect = table_side_effect
