@@ -96,9 +96,9 @@ export const DEPARTMENTS: Record<DepartmentKey, DepartmentTheme> = {
  * below - and is deliberately untouched by this change. */
 export function toneClasses(tone: StatusTone): { text: string; border: string; bg: string; dot: string } {
   if (tone === 'neutral') {
-    return { text: 'text-[#61718c]', border: 'border-[#d9e1f0]', bg: 'bg-[#eef1f8]', dot: 'bg-[#61718c]' };
+    return { text: 'text-lcars-chrome-muted', border: 'border-lcars-chrome-border', bg: 'bg-lcars-chrome-border-soft', dot: 'bg-lcars-chrome-muted' };
   }
-  return { text: 'text-[#243b7a]', border: 'border-[#243b7a]/30', bg: 'bg-[#243b7a]/10', dot: 'bg-[#243b7a]' };
+  return { text: 'text-lcars-chrome-accent', border: 'border-lcars-chrome-accent/30', bg: 'bg-lcars-chrome-accent/10', dot: 'bg-lcars-chrome-accent' };
 }
 
 /**
@@ -117,4 +117,26 @@ const STATE_CLASSES: Record<StateTone, { text: string; border: string; bg: strin
 /** Map a state tone to text/border/bg/dot classes, plus a high-contrast `on` variant for text on solid fills. */
 export function stateToneClasses(tone: StateTone): { text: string; border: string; bg: string; dot: string; on: string } {
   return STATE_CLASSES[tone];
+}
+
+/** Map common mission/service status strings to a department tone. Shared by
+ *  StatusBadge (legacy) and WorkbenchBadge (wb-* system) so both render off
+ *  one inference rule instead of forking it. */
+export function inferTone(status: string): StatusTone {
+  const s = status.toUpperCase();
+  if (s.includes('BLOCK') || s.includes('OFFLINE') || s.includes('CRITICAL'))
+    return 'operations';
+  if (s.includes('REVIEW') || s.includes('DEGRADED') || s.includes('PENDING'))
+    return 'command';
+  if (
+    s.includes('COMPLET') ||
+    s.includes('OPERATIONAL') ||
+    s.includes('GREEN') ||
+    s.includes('DONE') ||
+    s.includes('ON DUTY')
+  )
+    return 'status';
+  if (s.includes('PROGRESS') || s.includes('ACTIVE') || s.includes('ASSIGNED'))
+    return 'medical';
+  return 'neutral';
 }

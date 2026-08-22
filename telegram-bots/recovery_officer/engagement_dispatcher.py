@@ -15,14 +15,15 @@ Usage (from an existing bot):
 Standalone (cron / APScheduler):
     python -m telegram_bots.recovery_officer.engagement_dispatcher --dispatch
 
-2026-08-10: now actually scheduled — intelligence/scheduler.py's
-_wellness_reminder_job() calls run_dispatch_check() on an interval (see
-that module for the live wiring), using _StandaloneTelegramBot below as the
-`bot` argument since the scheduler daemon has no live python-telegram-bot
-Application/event loop to reuse. run_dispatch_check() de-dups per
-(Brisbane day, pulse window, action) via the wellness_reminder_log table
-(migration 0118), so it's safe to call on a timer without re-sending an
-identical reminder while a pulse window stays open and unlogged.
+2026-08-10: was scheduled automatically via intelligence/scheduler.py's
+_wellness_reminder_job(). 2026-08-13: that automatic timer was retired —
+this module's compliance-toned copy duplicated and contradicted
+platform-runtime/human_systems_scheduler.py + lib/human_systems/push.py,
+which the Captain designated the sole automated recovery messenger (calmer,
+caring tone; same recovery_confidence_today-adjacent data, read once).
+run_dispatch_check() is still reachable manually via `/dispatch` in
+Telegram (telegram-bots/xo/app.py) — only the unattended interval call
+was removed.
 
 Environment variables required (set in bot's .env):
     SUPABASE_URL       — Supabase project URL
@@ -173,7 +174,7 @@ def _bar(pct: int) -> str:
 
 
 def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) -> str:
-    """Build a friendly L1 pulse reminder message."""
+    """Build a calm, caring L1 pulse reminder message."""
     target = pulse_type or status.next_suggested_pulse or "morning"
     label  = _PULSE_LABELS.get(target, target.replace("_", " ").title())
     hint   = _PULSE_HINTS.get(target, "")
@@ -202,31 +203,31 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
 
 
 def build_escalation_message(status: RecoveryStatus, level: int) -> str:
-    """Build an escalation message for L2 or L3 scenarios."""
+    """Build a calm, caring check-in for L2/L3 — a nudge, not a warning."""
     today = _brisbane_today()
 
     if level == 3:
-        header = "🔴 *Recovery Officer — Critical Alert*"
+        header = "🫂 *Recovery Officer — Checking In*"
         body = (
-            f"No recovery pulses logged today ({today}).\n"
-            f"Recovery confidence is at {status.recovery_confidence}%.\n\n"
-            "This affects mission planning accuracy and crew capacity assessment.\n\n"
-            "*Action required:* Log at least one pulse to restore telemetry baseline.\n"
+            f"No pulses logged yet today ({today}). No judgement here — "
+            "just want to make sure the system has something to go on.\n\n"
+            f"Whenever it suits, even one pulse gives today a baseline to work from.\n"
             "Portal: Medical Bay → Recovery Pulse\n"
             "Slack: `/recovery-pulse`"
         )
     else:
-        header = "🟠 *Recovery Officer — Confidence Low*"
+        header = "🌤 *Recovery Officer — Gentle Nudge*"
         body = (
-            f"Recovery confidence is at {status.recovery_confidence}% ({today}).\n"
-            f"{status.pulses_completed}/3 pulses logged.\n\n"
-            f"*Missing:* "
+            f"Confidence is sitting at {status.recovery_confidence}% ({today}), "
+            f"{status.pulses_completed}/3 pulses in so far.\n\n"
+            f"*Still open:* "
             + ", ".join(filter(None, [
                 "Morning" if not status.morning_done else None,
                 "Midday"  if not status.midday_done  else None,
                 "Evening" if not status.evening_done else None,
             ]))
-            + "\n\nLow confidence may trigger mission deferral recommendations."
+            + "\n\nNo pressure — logging one when it's convenient just helps today's "
+              "picture stay accurate."
         )
 
     return f"{header}\n\n{body}"

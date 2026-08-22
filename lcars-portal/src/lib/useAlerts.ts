@@ -21,6 +21,11 @@ export interface UseAlertsResult {
   isLoading: boolean;
   lastUpdated: Date | null;
   refresh: () => void;
+  /** How many of the 6 underlying alert-source fetches failed on the last
+   *  run — 0 in the common case. Lets a caller show a quiet "N sources
+   *  unavailable" note without turning a real outage into a false alarm. */
+  failedSources: number;
+  totalSources: number;
 }
 
 export interface UseAlertsOptions {
@@ -48,11 +53,16 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
   const [alerts, setAlerts] = useState<MobileAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [failedSources, setFailedSources] = useState(0);
+  const [totalSources, setTotalSources] = useState(0);
   const notifiedRef = useRef<Set<string>>(loadNotified());
 
   const run = useCallback(async () => {
-    const next = await computeAlerts();
+    const result = await computeAlerts();
+    const next = result.alerts;
     setAlerts(next);
+    setFailedSources(result.failedSources);
+    setTotalSources(result.totalSources);
     setLastUpdated(new Date());
     setIsLoading(false);
 
@@ -91,7 +101,7 @@ export function useAlerts(options: UseAlertsOptions = {}): UseAlertsResult {
     };
   }, [run, pollMs]);
 
-  return { alerts, isLoading, lastUpdated, refresh: run };
+  return { alerts, isLoading, lastUpdated, refresh: run, failedSources, totalSources };
 }
 
 /**

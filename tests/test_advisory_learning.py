@@ -20,21 +20,25 @@ for _p in (str(_ADVISORY), str(_COORD)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from _local_import_advisory import reload_sibling  # noqa: E402
+
+# Fleet Engineering Review 2026-08-11: outcomes, learning, service collide
+# with same-named files elsewhere in the repo — see core/advisory/
+# _local_import_advisory.py's own docstring. Routed through
+# reload_sibling().
+
 
 @pytest.fixture()
 def fresh(tmp_path, monkeypatch):
     """Point the advisory data store at a temp dir and reload modules."""
     monkeypatch.setenv("ADVISORY_DATA_ROOT", str(tmp_path))
-    import outcomes
-    importlib.reload(outcomes)
-    import learning
-    importlib.reload(learning)
+    outcomes = reload_sibling("outcomes")
+    learning = reload_sibling("learning")
     import calibration
     importlib.reload(calibration)
     import metrics
     importlib.reload(metrics)
-    import service
-    importlib.reload(service)
+    service = reload_sibling("service")
     return {
         "outcomes": outcomes, "learning": learning,
         "calibration": calibration, "metrics": metrics, "service": service,

@@ -123,7 +123,7 @@ export function ConsultView() {
             const hasHistory = groupHasHistory(advisors);
             return (
               <button key={group} onClick={() => setOpenGroup(isOpen ? null : group)}
-                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.15em] transition-colors ${isOpen ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
+                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-[10px] uppercase tracking-[0.15em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${isOpen ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
                 {group}
                 {hasHistory && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" aria-label="has conversation history" />}
                 <span className="opacity-60">({advisors.length})</span>
@@ -138,7 +138,7 @@ export function ConsultView() {
               const accent = a.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep';
               return (
                 <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
-                  className={`rounded-md border px-2.5 py-2 text-left transition-colors ${active ? `border-wb-sage-deep bg-wb-sage-deep/10 ${accent}` : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
+                  className={`rounded-md border px-2.5 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active ? `border-wb-sage-deep bg-wb-sage-deep/10 ${accent}` : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
                   <p className={`text-xs uppercase tracking-wider ${active ? accent : ''}`}>{a.label}</p>
                   <p className="mt-0.5 text-[9px] leading-tight text-wb-ink2">{a.subtitle}</p>
                 </button>
@@ -152,7 +152,7 @@ export function ConsultView() {
       <Panel title={`${activeAdvisor.label} — ${activeAdvisor.subtitle}`} className="min-w-0 flex-1"
         actions={messages.length > 0 ? (
           <button onClick={clearThread} disabled={loading}
-            className="rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep disabled:opacity-40">
+            className="rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Clear
           </button>
         ) : undefined}>
@@ -187,7 +187,7 @@ export function ConsultView() {
                     <div className={`rounded-md border px-3.5 py-2.5 text-sm leading-relaxed ${isUser ? 'border-wb-sage-deep/40 bg-wb-sage-deep/10 text-wb-ink' : m.error ? 'border-wb-crit/40 bg-wb-crit/10 text-wb-crit-on' : 'border-wb-line bg-wb-surface text-wb-ink/90'}`} style={{ maxWidth: '90%' }}>
                       {!isUser && !m.error && <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>{activeAdvisor.label}</p>}
                       {isUser ? <span className="whitespace-pre-wrap">{m.content}</span> : (
-                        <div className="prose prose-sm max-w-none prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-1 prose-strong:text-wb-ink prose-li:my-0.5">
+                        <div className="prose prose-sm prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-1 prose-strong:text-wb-ink prose-li:my-0.5">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}
@@ -200,8 +200,8 @@ export function ConsultView() {
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                   <div className="max-w-[90%] rounded-md border border-wb-line bg-wb-surface px-3.5 py-2.5 text-sm leading-relaxed text-wb-ink/90">
                     <p className={`mb-1 text-[10px] uppercase tracking-[0.2em] ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>{activeAdvisor.label}</p>
-                    <div className="prose prose-sm max-w-none prose-p:my-1"><ReactMarkdown>{streamBuffer}</ReactMarkdown></div>
-                    <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-wb-sage-deep align-middle" />
+                    <div className="prose prose-sm prose-p:my-1"><ReactMarkdown>{streamBuffer}</ReactMarkdown></div>
+                    <span aria-hidden="true" className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-wb-sage-deep align-middle" />
                   </div>
                 </div>
               )}
@@ -216,7 +216,7 @@ export function ConsultView() {
               <label className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
                 Model
                 <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
-                  className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs normal-case tracking-normal text-wb-ink focus:border-wb-sage-deep focus:outline-none">
+                  className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs normal-case tracking-normal text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
                   {AI_MODELS.filter((m) => m.available).map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
@@ -226,9 +226,9 @@ export function ConsultView() {
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
               <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
                 placeholder={`Message ${activeAdvisor.label}…`} disabled={loading}
-                className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none disabled:opacity-50" />
+                className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
               <button onClick={() => send(input)} disabled={loading || !input.trim()}
-                className="self-stretch rounded-md bg-wb-sage-deep px-4 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 disabled:opacity-40">
+                className="self-stretch rounded-md bg-wb-sage-deep px-4 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
                 Send
               </button>
             </div>

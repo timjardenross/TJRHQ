@@ -119,12 +119,18 @@ const config: Config = {
           lilac: '#6644CC',    // darkened lilac — readable on light bg
           ice: '#1A6EA8',      // darkened ice — readable on light bg
           text: '#0d1f33',     // dark navy text
-          muted: '#3a5a78'     // strengthened blue-grey muted
+          muted: '#3a5a78',    // strengthened blue-grey muted
+          // Chrome tokens for LCARSPanel + departments.ts toneClasses() —
+          // promoted from inline hexes (design-audit finding, gate 48).
+          'chrome-border': '#d9e1f0',
+          'chrome-border-soft': '#eef1f8',
+          'chrome-muted': '#61718c',
+          'chrome-text': '#18223a',
+          'chrome-accent': '#243b7a',
         }
       },
       fontFamily: {
         sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        lcars: ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
         // TJR Design System — locked serif for wb.* headings (Card/Shell titles).
         // Loaded via next/font/google in src/app/layout.tsx as --font-serif.

@@ -232,8 +232,9 @@ async function missionNominator(supabase: SupabaseClient): Promise<Interrupt | n
 //   correct fit; Decide's queue is intentionally left unwidened.
 //
 //   escalation / wellness (lib/alerts.ts wellnessAlerts()) - genuinely new.
-//   These read recovery_pulses / the get_recovery_posture RPC, sources
-//   healthRiskNominator above never touches (it reads health_insights.
+//   These read capacity_checkins (recovery_pulses' successor) / the
+//   get_recovery_posture RPC, sources healthRiskNominator above never
+//   touches (it reads health_insights.
 //   risk_flags only, which is a separate, currently-dormant table). Three
 //   nominators added below, one per real condition already disclosed in
 //   alerts.ts: recoveryEscalationNominator, recoveryPostureNominator,
@@ -291,35 +292,38 @@ async function recoveryPostureNominator(supabase: SupabaseClient): Promise<Inter
 /** scanEscalation is the exact existing red-flag detector (lib/human-
  * systems.ts) alerts.ts already runs over the day's merged human-systems
  * row - reused verbatim, no new keyword/negation logic. Reads the single
- * most recent recovery_pulses.notes entry directly: the actively-written
- * real-time channel (per MSN-0355 - human_systems_daily's own log largely
- * stopped receiving new rows after 2026-06-28, see lib/ros-data.ts's
- * fetchEmotionalLoadFlag comment). Mirrors alerts.ts's wellness-redflag
- * condition, described there as "highest priority of all". */
+ * most recent capacity_checkins entry directly (realigned 2026-08-22;
+ * recovery_pulses was the actively-written real-time channel until MY
+ * CAPACITY TODAY replaced it) - scans both `notes` (deep-check general
+ * note) and `trigger_note` (deep-check "what happened before" note), since
+ * either free-text field could carry a red-flag phrase. Mirrors alerts.ts's
+ * wellness-redflag condition, described there as "highest priority of all". */
 async function recoveryEscalationNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
   const { data } = await supabase
-    .from('recovery_pulses')
-    .select('notes, captured_at')
+    .from('capacity_checkins')
+    .select('notes, trigger_note, captured_at')
     .order('captured_at', { ascending: false })
     .limit(1);
-  const row = data?.[0] as { notes: string | null; captured_at: string } | undefined;
+  const row = data?.[0] as { notes: string | null; trigger_note: string | null; captured_at: string } | undefined;
   if (!row) return null;
-  const escalation = scanEscalation(row.notes);
+  const escalation = scanEscalation(row.notes) ?? scanEscalation(row.trigger_note);
   if (!escalation) return null;
   return { domain: 'Recovery escalation', text: escalation, evidenceAt: row.captured_at };
 }
 
-/** Average pain_score over the last 5 recovery_pulses, thresholds 8/6 - the
- * exact same disclosed thresholds alerts.ts's own pain-trend check already
- * uses (lib/alerts.ts wellnessAlerts(), "MSN-0335: folded in from the
- * now-retired duplicate check in /api/proactive-signals"). Not a new scale. */
+/** Average pain_score over the last 5 capacity_checkins, thresholds 8/6 -
+ * the exact same disclosed thresholds alerts.ts's own pain-trend check
+ * already uses (lib/alerts.ts wellnessAlerts(), "MSN-0335: folded in from
+ * the now-retired duplicate check in /api/proactive-signals"). Not a new
+ * scale. Realigned 2026-08-22: recovery_pulses -> capacity_checkins. */
 const PAIN_CRITICAL_THRESHOLD = 8;
 const PAIN_ELEVATED_THRESHOLD = 6;
 
 async function painTrendNominator(supabase: SupabaseClient): Promise<Interrupt | null> {
   const { data } = await supabase
-    .from('recovery_pulses')
+    .from('capacity_checkins')
     .select('pain_score, captured_at')
+    .eq('checkin_type', 'capacity')
     .order('captured_at', { ascending: false })
     .limit(5);
   const rows = (data ?? []) as { pain_score: number | null; captured_at: string }[];
@@ -329,7 +333,7 @@ async function painTrendNominator(supabase: SupabaseClient): Promise<Interrupt |
   const level = avg > PAIN_CRITICAL_THRESHOLD ? 'critically high' : 'elevated';
   return {
     domain: 'Recovery pain trend',
-    text: `Average pain score over the last ${rows.length} pulses is ${avg.toFixed(1)} - ${level}.`,
+    text: `Average pain score over the last ${rows.length} check-ins is ${avg.toFixed(1)} - ${level}.`,
     evidenceAt: rows[0].captured_at,
   };
 }

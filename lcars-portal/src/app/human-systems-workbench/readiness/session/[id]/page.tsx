@@ -355,7 +355,7 @@ export default function WorkoutRunnerPage() {
       <WorkbenchShell title="Session" eyebrow="Fitness Readiness" tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic" back={shellBack}>
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <div className="flex h-14 w-14 items-center justify-center rounded-full border border-wb-ok bg-wb-ok/10">
-            <span className="font-serif text-2xl text-wb-ok-on">✓</span>
+            <span aria-hidden className="font-serif text-2xl text-wb-ok-on">✓</span>
           </div>
           <p className="font-serif text-lg font-bold text-wb-ok-on">Session logged</p>
           <Link

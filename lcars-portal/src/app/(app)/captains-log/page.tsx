@@ -128,9 +128,9 @@ export default function CaptainsLogPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-status bg-status/10">
-          <span className="font-lcars text-2xl text-status-on">✓</span>
+          <span className="font-sans text-2xl text-status-on">✓</span>
         </div>
-        <p className="font-lcars text-lg font-bold text-status-on">Log entry saved</p>
+        <p className="font-sans text-lg font-bold text-status-on">Log entry saved</p>
         <p className="text-sm text-lcars-muted">Returning to Captain&apos;s Chair…</p>
       </div>
     );
@@ -234,7 +234,7 @@ export default function CaptainsLogPage() {
       <button
         onClick={handleSubmit}
         disabled={saving}
-        className="w-full rounded-lcars bg-command px-4 py-3 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+        className="w-full rounded-lcars bg-command px-4 py-3 font-sans text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
       >
         {saving ? 'Saving…' : 'Save Log Entry'}
       </button>

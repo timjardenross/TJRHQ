@@ -26,7 +26,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import outcomes as _outcomes  # advisory snapshot/ledger paths honour ADVISORY_DATA_ROOT
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_outcomes = _import_sibling("outcomes")  # advisory snapshot/ledger paths honour ADVISORY_DATA_ROOT
 
 _REPO_ROOT = _HERE.parents[1]
 _DECISIONS_DIR = _REPO_ROOT / "logs" / "decisions"

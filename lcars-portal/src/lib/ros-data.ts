@@ -13,7 +13,7 @@
  */
 
 import { createSupabaseBrowserClient } from './supabase-browser';
-import { pulseNsState } from './human-systems';
+import { checkinNsState } from './human-systems';
 
 // Session-aware client (WORKBENCH-REVIEW.md follow-up, 2026-07-18): the old
 // plain `./supabase` client sent the anon key with no user JWT attached, so
@@ -66,26 +66,47 @@ interface RawPostureRow {
   data_available:   boolean;
 }
 
-export async function fetchRecoveryPosture(date?: string): Promise<RecoveryPosture | null> {
+export interface PostureFetchResult {
+  posture: RecoveryPosture | null;
+  /** True only for a genuine query/network failure — never for "no check-in
+   *  today" (a real, empty result). Lets a caller that cares (Captain's
+   *  Chair's situation strip) show "data error" instead of the honest but
+   *  easily-confused-with-a-failure "no check-in today" label. */
+  failed: boolean;
+}
+
+export async function fetchRecoveryPostureWithStatus(date?: string): Promise<PostureFetchResult> {
   const supabase = client();
   try {
     const { data, error } = await supabase
       .rpc('get_recovery_posture', { p_date: date ?? today() })
       .single<RawPostureRow>();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[ros-data] fetchRecoveryPosture query error:', error);
+      return { posture: null, failed: true };
+    }
+    if (!data) return { posture: null, failed: false };
 
     return {
-      posture:          (data.posture as RecoveryPostureBand) ?? 'UNKNOWN',
-      posture_message:  data.posture_message,
-      capacity_band:    (data.capacity_band as CapacityBand) ?? 'UNKNOWN',
-      capacity_message: data.capacity_message,
-      best_window:      deriveBestWindow(data.capacity_band),
-      mission_guidance: data.mission_guidance,
-      data_available:   data.data_available
+      posture: {
+        posture:          (data.posture as RecoveryPostureBand) ?? 'UNKNOWN',
+        posture_message:  data.posture_message,
+        capacity_band:    (data.capacity_band as CapacityBand) ?? 'UNKNOWN',
+        capacity_message: data.capacity_message,
+        best_window:      deriveBestWindow(data.capacity_band),
+        mission_guidance: data.mission_guidance,
+        data_available:   data.data_available
+      },
+      failed: false,
     };
-  } catch {
-    return null;
+  } catch (e) {
+    console.error('[ros-data] fetchRecoveryPosture threw:', e);
+    return { posture: null, failed: true };
   }
+}
+
+export async function fetchRecoveryPosture(date?: string): Promise<RecoveryPosture | null> {
+  return (await fetchRecoveryPostureWithStatus(date)).posture;
 }
 
 function deriveBestWindow(capacity_band: string): string {
@@ -354,26 +375,26 @@ function worseNsState(a: string | null, b: string | null): string | null {
 }
 
 /**
- * MSN-0355: this flag previously read ONLY `analytics_health_daily`, a view
- * over `captains_log_entries` FULL JOIN `health_daily_logs` — both of which
- * stopped receiving rows after 2026-06-28 when the daily check-in habit
- * moved to the actively-written `recovery_pulses` table (multiple pulses/day
- * via Telegram). `analytics_health_daily` itself is not broken — it is a
- * live view correctly reflecting stale source tables — so the fix is not a
- * SQL repair. Per the Captain's instruction not to silently prefer whichever
- * table happens to have rows, this merges BOTH sources per day rather than
- * switching exclusively to one:
+ * MSN-0355 (original), realigned 2026-08-22 for MY CAPACITY TODAY: this flag
+ * previously read ONLY `analytics_health_daily`, a view over
+ * `captains_log_entries` FULL JOIN `health_daily_logs` — both of which
+ * stopped receiving rows well before `recovery_pulses` itself was retired
+ * in favour of `capacity_checkins`. `analytics_health_daily` itself is not
+ * broken — it is a live view correctly reflecting stale source tables — so
+ * the fix is not a SQL repair. Per the Captain's instruction not to
+ * silently prefer whichever table happens to have rows, this merges BOTH
+ * sources per day rather than switching exclusively to one:
  *   - `analytics_health_daily.nervous_system_state` (may be present for
  *     older days, or again if the daily-log habit resumes)
- *   - `recovery_pulses` (the current real signal), resolved per pulse via
- *     `pulseNsState` — the real `nervous_system` reading, falling back to
- *     the `stress`-derived heuristic only when it's null
- * A day can carry several pulses with different readings (confirmed live:
- * e.g. 2026-07-03 has both 'calm' and 'dysregulated' pulses). Because this
- * flag exists to catch sustained activation, a day's state is the WORST
- * (most activated/dysregulated) signal recorded that day, not the latest —
- * averaging or "most recent wins" would let an earlier dysregulated pulse be
- * masked by a later calmer one.
+ *   - `capacity_checkins` (the current real signal), resolved per row via
+ *     `checkinNsState` — `regulation_state` is a direct real-time reading,
+ *     not a derived heuristic
+ * A day can carry several check-ins with different readings (spec allows
+ * unlimited check-ins/day, unlike the retired pulse model's 3-slot cap).
+ * Because this flag exists to catch sustained activation, a day's state is
+ * the WORST (most activated/dysregulated) signal recorded that day, not the
+ * latest — averaging or "most recent wins" would let an earlier
+ * dysregulated check-in be masked by a later calmer one.
  */
 export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null> {
   const supabase = client();
@@ -381,20 +402,21 @@ export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null
     const from = daysAgo(6);
     const to = today();
 
-    const [analyticsRes, pulseRes] = await Promise.all([
+    const [analyticsRes, checkinRes] = await Promise.all([
       supabase
         .from('analytics_health_daily')
         .select('log_date, nervous_system_state')
         .gte('log_date', from)
         .lte('log_date', to),
       supabase
-        .from('recovery_pulses')
-        .select('log_date, nervous_system, stress')
+        .from('capacity_checkins')
+        .select('log_date, regulation_state')
+        .eq('checkin_type', 'capacity')
         .gte('log_date', from)
         .lte('log_date', to)
     ]);
 
-    if (analyticsRes.error || pulseRes.error) return null;
+    if (analyticsRes.error || checkinRes.error) return null;
 
     const byDate = new Map<string, string | null>();
 
@@ -403,11 +425,11 @@ export async function fetchEmotionalLoadFlag(): Promise<EmotionalLoadFlag | null
       byDate.set(row.log_date, row.nervous_system_state ?? null);
     }
 
-    const pulseRows = (pulseRes.data ?? []) as { log_date: string; nervous_system: string | null; stress: string | null }[];
-    for (const pulse of pulseRows) {
-      const ns = pulseNsState(pulse);
+    const checkinRows = (checkinRes.data ?? []) as { log_date: string; regulation_state: string | null }[];
+    for (const checkin of checkinRows) {
+      const ns = checkinNsState(checkin);
       if (!ns) continue;
-      byDate.set(pulse.log_date, worseNsState(byDate.get(pulse.log_date) ?? null, ns));
+      byDate.set(checkin.log_date, worseNsState(byDate.get(checkin.log_date) ?? null, ns));
     }
 
     const states       = Array.from(byDate.values());

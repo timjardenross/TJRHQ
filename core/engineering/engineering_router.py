@@ -255,7 +255,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "router: ignored (Model Router selects model) | "
             "mistral: e.g. mistral-small-2503 | "
             "vm-ollama: e.g. qwen2.5-coder:7b | "
-            "gemini: e.g. gemini-2.5-flash"
+            "gemini: e.g. gemini-3.5-flash-lite"
         )
     )
     parser.add_argument(

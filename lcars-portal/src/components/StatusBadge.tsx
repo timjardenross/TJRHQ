@@ -1,5 +1,5 @@
 import type { StatusTone } from '@/lib/types';
-import { toneClasses } from '@/lib/departments';
+import { toneClasses, inferTone } from '@/lib/departments';
 
 /**
  * StatusBadge — small pill conveying state. Either pass an explicit `tone`,
@@ -9,26 +9,6 @@ export interface StatusBadgeProps {
   label: string;
   tone?: StatusTone;
   status?: string;
-}
-
-/** Map common mission/service status strings to a department tone. */
-export function inferTone(status: string): StatusTone {
-  const s = status.toUpperCase();
-  if (s.includes('BLOCK') || s.includes('OFFLINE') || s.includes('CRITICAL'))
-    return 'operations';
-  if (s.includes('REVIEW') || s.includes('DEGRADED') || s.includes('PENDING'))
-    return 'command';
-  if (
-    s.includes('COMPLET') ||
-    s.includes('OPERATIONAL') ||
-    s.includes('GREEN') ||
-    s.includes('DONE') ||
-    s.includes('ON DUTY')
-  )
-    return 'status';
-  if (s.includes('PROGRESS') || s.includes('ACTIVE') || s.includes('ASSIGNED'))
-    return 'medical';
-  return 'neutral';
 }
 
 export function StatusBadge({ label, tone, status }: StatusBadgeProps) {

@@ -49,7 +49,42 @@ export interface ApprovalQueueProps {
   /** Item id currently mid-decision — disables its buttons and shows a working label. */
   actingId?: string | null;
   flash?: ApprovalQueueFlash | null;
+  /** Chrome skin — 'legacy' (default) for (app)/* pages, 'wb' for *-workbench
+   *  routes. This component's logic (approve/reject, reason capture, flash)
+   *  is genuinely shared, not LCARS-specific — unlike LCARSPanel/StatusBadge
+   *  it was never named after the legacy system, so a theme prop here isn't
+   *  the coupling the WorkbenchPanel/WorkbenchBadge split was fixing. */
+  theme?: 'legacy' | 'wb';
 }
+
+const CHROME = {
+  legacy: {
+    box: 'rounded-lcars border border-edge bg-panel/60 p-3',
+    boxLabel: 'text-lcars-muted',
+    boxBody: 'text-lcars-muted',
+    container: 'rounded-lcars border border-command/40 bg-command/5 p-3',
+    headerLabel: 'text-command',
+    refresh: 'text-lcars-muted hover:text-command',
+    item: 'rounded border border-edge bg-panel-2/60 p-3',
+    itemMeta: 'text-lcars-muted',
+    itemTitle: 'text-lcars-text',
+    input: 'border-edge bg-panel text-lcars-text placeholder:text-lcars-muted',
+    cancel: 'border-edge text-lcars-muted hover:text-lcars-text',
+  },
+  wb: {
+    box: 'rounded-lg border border-wb-line bg-wb-bg/60 p-3',
+    boxLabel: 'text-wb-ink2',
+    boxBody: 'text-wb-ink2',
+    container: 'rounded-lg border border-wb-sage-deep/40 bg-wb-sage-deep/5 p-3',
+    headerLabel: 'text-wb-sage-deep',
+    refresh: 'text-wb-ink2 hover:text-wb-sage-deep',
+    item: 'rounded border border-wb-line bg-wb-bg/60 p-3',
+    itemMeta: 'text-wb-ink2',
+    itemTitle: 'text-wb-ink',
+    input: 'border-wb-line bg-white text-wb-ink placeholder:text-wb-ink2',
+    cancel: 'border-wb-line text-wb-ink2 hover:text-wb-ink',
+  },
+} as const;
 
 export function ApprovalQueue({
   title = "Captain's Queue",
@@ -61,38 +96,40 @@ export function ApprovalQueue({
   onRefresh,
   actingId = null,
   flash = null,
+  theme = 'legacy',
 }: ApprovalQueueProps) {
   const [rejectReasonFor, setRejectReasonFor] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const t = CHROME[theme];
 
   if (loading) {
     return (
-      <div className="rounded-lcars border border-edge bg-panel/60 p-3">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-3">{title}</p>
-        <p className="text-xs text-lcars-muted animate-pulse">Loading…</p>
+      <div className={t.box}>
+        <p className={`text-[10px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
+        <p className={`text-xs animate-pulse ${t.boxBody}`}>Loading…</p>
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lcars border border-edge bg-panel/60 p-3">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-3">{title}</p>
-        <p className="text-xs text-lcars-muted">{emptyMessage}</p>
+      <div className={t.box}>
+        <p className={`text-[10px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
+        <p className={`text-xs ${t.boxBody}`}>{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lcars border border-command/40 bg-command/5 p-3">
+    <div className={t.container}>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-command">
+        <p className={`text-[10px] uppercase tracking-[0.25em] ${t.headerLabel}`}>
           {title} — {items.length} awaiting decision
         </p>
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted hover:text-command transition-colors"
+            className={`text-[10px] uppercase tracking-[0.2em] transition-colors ${t.refresh}`}
           >
             Refresh
           </button>
@@ -109,18 +146,18 @@ export function ApprovalQueue({
 
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
-          <li key={item.id} className="rounded border border-edge bg-panel-2/60 p-3">
+          <li key={item.id} className={t.item}>
             <div className="flex items-start justify-between gap-2 mb-2">
               <div>
-                {item.code && <span className="font-mono text-[10px] text-lcars-muted">{item.code}</span>}
+                {item.code && <span className={`font-mono text-[10px] ${t.itemMeta}`}>{item.code}</span>}
                 {item.href ? (
-                  <Link href={item.href} className="block text-xs font-medium text-lcars-text leading-snug mt-0.5 underline underline-offset-2 hover:text-status-on">
+                  <Link href={item.href} className={`block text-xs font-medium leading-snug mt-0.5 underline underline-offset-2 hover:text-status-on ${t.itemTitle}`}>
                     {item.title}
                   </Link>
                 ) : (
-                  <p className="text-xs font-medium text-lcars-text leading-snug mt-0.5">{item.title}</p>
+                  <p className={`text-xs font-medium leading-snug mt-0.5 ${t.itemTitle}`}>{item.title}</p>
                 )}
-                {item.detail && <p className="text-[10px] text-lcars-muted mt-0.5">{item.detail}</p>}
+                {item.detail && <p className={`text-[10px] mt-0.5 ${t.itemMeta}`}>{item.detail}</p>}
               </div>
             </div>
 
@@ -131,7 +168,7 @@ export function ApprovalQueue({
                   placeholder="Rejection reason (required)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded border border-edge bg-panel px-2 py-1.5 text-xs text-lcars-text placeholder:text-lcars-muted focus:border-state-crit/60 focus:outline-none"
+                  className={`w-full min-h-[44px] rounded border px-2 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-state-crit focus-visible:outline-offset-1 ${t.input}`}
                 />
                 <div className="flex gap-2">
                   <button
@@ -151,7 +188,7 @@ export function ApprovalQueue({
                       setRejectReasonFor(null);
                       setRejectReason('');
                     }}
-                    className="rounded border border-edge px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
+                    className={`rounded border px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] transition-colors ${t.cancel}`}
                   >
                     Cancel
                   </button>

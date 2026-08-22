@@ -60,10 +60,10 @@ export default function LoginPage() {
         <div className="mb-6 flex items-center gap-3">
           <div className="h-8 w-2 rounded-sm bg-medical" aria-hidden="true" />
           <div>
-            <p className="font-lcars text-xs uppercase tracking-[0.3em] text-lcars-muted">
+            <p className="font-sans text-xs uppercase tracking-[0.3em] text-lcars-muted">
               USS TJR · NCC-170239
             </p>
-            <h1 className="font-lcars text-xl font-bold text-lcars-text">
+            <h1 className="font-sans text-xl font-bold text-lcars-text">
               LCARS Portal
             </h1>
           </div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-lcars text-lg font-bold text-command">
+              <h2 className="mb-4 font-sans text-lg font-bold text-command">
                 Captain Access
               </h2>
               <div className="flex flex-col gap-3">
@@ -128,7 +128,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim() || !password}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-lcars bg-command px-4 py-2 font-sans text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
@@ -146,7 +146,7 @@ export default function LoginPage() {
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-lcars text-lg font-bold text-command">
+              <h2 className="mb-4 font-sans text-lg font-bold text-command">
                 Captain Access
               </h2>
               <p className="mb-4 text-sm text-lcars-text/80">
@@ -173,7 +173,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-lcars text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-lcars bg-command px-4 py-2 font-sans text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Sending…' : 'Send Access Link'}
@@ -189,9 +189,9 @@ export default function LoginPage() {
           {mode === 'magic' && sent && (
             <div className="text-center" role="status" aria-live="polite">
               <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-status bg-status/10" aria-hidden="true">
-                <span className="font-lcars text-xl text-status">✓</span>
+                <span className="font-sans text-xl text-status">✓</span>
               </div>
-              <h2 className="mb-2 font-lcars text-lg font-bold text-status">Link sent</h2>
+              <h2 className="mb-2 font-sans text-lg font-bold text-status">Link sent</h2>
               <p className="text-sm text-lcars-text/80">
                 Check <span className="text-command">{email}</span> for your access link. It expires in 1 hour.
               </p>

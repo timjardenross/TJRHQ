@@ -20,8 +20,6 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .pulse_time import pulse_type_for_hour
-
 log = logging.getLogger("xo-bot.voice")
 
 _TZ = ZoneInfo("Australia/Brisbane")
@@ -41,14 +39,15 @@ _RULES: list[tuple[str, str, float]] = [
     (r"\b(i decided|decision|approved|i'?m going with|we'?re going with|"
      r"going to go with|i'?ve decided|final answer)\b",
      "decision", 0.85),
-    # Content ideas — check before recovery_pulse (e.g. "post about recovery" = content not health)
+    # Content ideas — check before capacity_signal (e.g. "post about recovery" = content not health)
     (r"\b(post idea|linkedin|blog post|tweet|newsletter|content idea|"
      r"episode|podcast|article idea|social media post)\b",
      "content_idea", 0.80),
-    # Recovery signals — body/health language
+    # Capacity signals — body/health language (MY CAPACITY TODAY, 2026-08-21;
+    # was "recovery_pulse" before that model retired)
     (r"\b(pain|fatigue|sleep|medication|recovery pulse|feeling tired|headache|cpap|"
      r"energy level|my energy|exhausted|body is|i feel|not well|migraine|fibro)\b",
-     "recovery_pulse", 0.80),
+     "capacity_signal", 0.80),
     # Things to do — action intent
     (r"\b(remind me|i need to|to[\s\-]?do|todo|follow up|don'?t forget|"
      r"remember to|i should|need to|make sure to|schedule)\b",
@@ -65,7 +64,7 @@ _RULES: list[tuple[str, str, float]] = [
 _CAPTURE_META: dict[str, dict] = {
     "thing_to_do":       {"classification": "reference",    "importance": "medium", "requires_review": True},
     "mission_idea":      {"classification": "mission",      "importance": "high",   "requires_review": True},
-    "recovery_pulse":    {"classification": "personal",     "importance": "medium", "requires_review": False},
+    "capacity_signal":   {"classification": "personal",     "importance": "medium", "requires_review": False},
     "content_idea":      {"classification": "research",     "importance": "medium", "requires_review": True},
     "decision":          {"classification": "decision",     "importance": "high",   "requires_review": True},
     "note":              {"classification": "reference",    "importance": "medium", "requires_review": True},
@@ -81,7 +80,7 @@ _VOICE_TYPE_LABEL: dict[str, str] = {
     "note":              "Note",
     "mission_idea":      "Mission Idea",
     "decision":          "Decision",
-    "recovery_pulse":    "Recovery Pulse",
+    "capacity_signal":   "Capacity Signal",
     "content_idea":      "Content Idea",
     "operational_alert": "Operational Alert",
     "knowledge_record":  "Knowledge Record",
@@ -204,9 +203,10 @@ def save_capture(
     return result.data[0]
 
 
-# ── Recovery Pulse promotion (EOS Phase 2 Priority 3) ─────────────────────────
+# ── Capacity check-in promotion (ported 2026-08-21 from the retired Recovery
+# Pulse model's promote_recovery_pulse, EOS Phase 2 Priority 3) ──────────────
 # The one classification meta already marks requires_review=False
-# (_CAPTURE_META above) - a real, existing signal that recovery_pulse
+# (_CAPTURE_META above) - a real, existing signal that capacity_signal
 # captures were always meant to need no further human gate, not a new
 # judgement call introduced here. Every other voice_type still lands
 # pending/unreviewed exactly as before - only this one promotes.
@@ -215,105 +215,82 @@ def _pulse_reference_tag(capture_id: str) -> str:
     return f"[voice:{capture_id}]"
 
 
-def promote_recovery_pulse(supabase, capture_id: str, transcript: str, captured_at: datetime) -> dict:
+def _voice_time_of_day_label(dt: datetime) -> str:
+    h = dt.hour
+    if 5 <= h < 12:
+        return "Morning"
+    if 12 <= h < 17:
+        return "Afternoon"
+    if 17 <= h < 21:
+        return "Evening"
+    return "Night"
+
+
+def promote_capacity_checkin(supabase, capture_id: str, transcript: str, captured_at: datetime) -> dict:
     """
-    Folds a recovery_pulse-classified capture's transcript into the
-    canonical recovery_pulses model for its log_date/pulse_type slot -
-    reusing pulse_time.pulse_type_for_hour (the exact bucketing app.py's
-    structured Telegram button flow already uses, extracted to one shared
-    module rather than duplicated) and the exact idempotency/audit
-    convention core/command-centre/backend/api/capture.js's promote-mission
-    already established (flip processing_status/review_status/
-    routed_to_table on the source captured_items row after promoting -
-    same three fields, same values, same mechanism).
+    Folds a capacity_signal-classified capture's transcript into
+    capacity_checkins as a notes-only row - same reasoning as the retired
+    recovery_pulses version this replaces: a voice transcript is strictly
+    less complete than a real structured check-in (capacity_state,
+    stimulation_state, etc.), so it never fabricates those fields from free
+    text, only ever populates `notes`.
 
-    Never overwrites real structured telemetry (energy/nervous_system/
-    body_signals) a Captain already logged for that slot via the button
-    flow: recovery_pulses is UNIQUE on (log_date, pulse_type) (migration
-    0020), and a voice transcript is strictly less complete than a real
-    structured submission, so an existing row is only ever appended to via
-    `notes` - never replaced. A slot with no existing row gets a new one
-    with only `notes` populated; every structured field stays null and
-    honest, not fabricated from free text.
-
-    2026-08-10 time-of-day-asymmetric redesign note: app.py's button flow
-    now asks a different question set per pulse_type (morning: energy/
-    nervous_system/body_signals; midday: energy/nervous_system only;
-    evening: energy/nervous_system/day_win - see recovery-pulse-redesign-
-    proposal.md). This function's behaviour deliberately does NOT change in
-    response: it never populated any structured field (energy, nervous_system,
-    body_signals, or the new day_win) from a transcript before, and still
-    doesn't now, for any pulse type. A one-line voice note has no reliable
-    way to answer a specific multi-choice question ("Something did / Nothing
-    much / Rough day" etc.) the way a button tap does, so guessing a
-    structured value from free text would be fabrication, not capture. This
-    was already the right call pre-redesign and stays the right call for
-    all three (now-differing) question sets post-redesign - notes-only,
-    always, regardless of which pulse type or which questions that type asks.
-
-    Idempotent: a target row whose notes already carry this capture's own
-    reference tag is left untouched rather than appended to twice.
+    Unlike the retired model, MY CAPACITY TODAY has no per-slot uniqueness
+    to append into - unlimited check-ins per day, never overwritten (spec:
+    "Do not overwrite previous entries") - so this always inserts a new row
+    rather than merging into an existing one. Idempotency is by searching
+    for this capture's own reference tag in existing notes (a target
+    already carrying the tag is left alone, not re-inserted), rather than
+    by (log_date, pulse_type) slot lookup as before.
     """
     log_date = captured_at.date().isoformat()
-    pulse_type = pulse_type_for_hour(captured_at.hour)
     tag = _pulse_reference_tag(capture_id)
     note_line = f"{tag} {transcript[:500]}"
 
     existing = (
-        supabase.table("recovery_pulses")
-        .select("id,notes")
-        .eq("log_date", log_date)
-        .eq("pulse_type", pulse_type)
+        supabase.table("capacity_checkins")
+        .select("id")
+        .ilike("notes", f"%{tag}%")
         .limit(1)
         .execute()
     )
     rows = existing.data or []
 
     if rows:
-        row = rows[0]
-        current_notes = row.get("notes") or ""
-        if tag in current_notes:
-            pulse_id = row["id"]
-            action = "already_promoted"
-        else:
-            merged = f"{current_notes}\n{note_line}".strip()
-            supabase.table("recovery_pulses").update({"notes": merged}).eq("id", row["id"]).execute()
-            pulse_id = row["id"]
-            action = "merged"
+        checkin_id = rows[0]["id"]
+        action = "already_promoted"
     else:
         insert_row = {
             "log_date": log_date,
-            "pulse_type": pulse_type,
+            "checkin_type": "capacity",
             "captured_at": captured_at.isoformat(),
+            "time_of_day": _voice_time_of_day_label(captured_at),
             "notes": note_line,
-            "source": "telegram",
+            "source": "telegram_voice",
         }
-        result = supabase.table("recovery_pulses").insert(insert_row).execute()
+        result = supabase.table("capacity_checkins").insert(insert_row).execute()
         if not result.data:
-            raise RuntimeError("Supabase insert returned no data for recovery_pulses")
-        pulse_id = result.data[0]["id"]
+            raise RuntimeError("Supabase insert returned no data for capacity_checkins")
+        checkin_id = result.data[0]["id"]
         action = "inserted"
 
     supabase.table("captured_items").update({
         "processing_status": "routed",
         "review_status": "actioned",
-        "routed_to_table": "recovery_pulses",
+        "routed_to_table": "capacity_checkins",
     }).eq("id", capture_id).execute()
 
-    # ADR-024 second-pass audit: 'recovery_pulses' had zero record_heartbeat()
-    # calls across any write path — never_succeeded in verification_state
-    # despite this voice-capture route being a live surface. Non-blocking.
     try:
         import sys
         repo_root = Path(__file__).resolve().parents[2]
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
-        record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=telegram_voice action={action}")
+        record_heartbeat("capacity_checkins", status="ok", detail=f"source=telegram_voice action={action}")
     except Exception:
         pass
 
-    return {"action": action, "recovery_pulse_id": pulse_id, "pulse_type": pulse_type, "log_date": log_date}
+    return {"action": action, "capacity_checkin_id": checkin_id, "log_date": log_date}
 
 
 # ── Full pipeline ─────────────────────────────────────────────────────────────
@@ -328,10 +305,10 @@ def handle_capture_from_voice(
     Orchestrate the full voice-to-capture pipeline.
 
     Returns dict:
-      ok=True:  {ok, capture_id, voice_type, item_type, confidence, status, transcript, duration, recovery_pulse}
+      ok=True:  {ok, capture_id, voice_type, item_type, confidence, status, transcript, duration, capacity_checkin}
       ok=False: {ok, error}
 
-    `recovery_pulse` is None unless this capture was recovery_pulse-shaped
+    `capacity_checkin` is None unless this capture was capacity_signal-shaped
     and promotion succeeded or was already done - additive only, `status`
     keeps its original meaning/values so no existing caller (the Telegram
     reply card, callbacks) needs to change.
@@ -356,15 +333,15 @@ def handle_capture_from_voice(
         chat_id, message_id, duration, audio_path,
     )
 
-    # Step 4: Recovery signals promote automatically - see
-    # promote_recovery_pulse's own docstring for why this is the one
+    # Step 4: Capacity signals promote automatically - see
+    # promote_capacity_checkin's own docstring for why this is the one
     # exception to "no auto-routing".
     promoted = None
-    if voice_type == "recovery_pulse":
+    if voice_type == "capacity_signal":
         try:
-            promoted = promote_recovery_pulse(supabase, saved["id"], transcript, datetime.now(_TZ))
+            promoted = promote_capacity_checkin(supabase, saved["id"], transcript, datetime.now(_TZ))
         except Exception as exc:
-            log.error("[voice] recovery_pulse promotion failed for capture %s: %s", saved["id"], exc)
+            log.error("[voice] capacity_signal promotion failed for capture %s: %s", saved["id"], exc)
             # The capture itself already saved successfully above - a
             # promotion failure degrades to "still sits in captured_items
             # for manual review", it never silently drops the capture.
@@ -378,7 +355,7 @@ def handle_capture_from_voice(
         "status":     "needs_review",
         "transcript": transcript,
         "duration":   duration,
-        "recovery_pulse": promoted,
+        "capacity_checkin": promoted,
     }
 
 

@@ -21,7 +21,8 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import escalation as _escalation
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_escalation = _import_sibling("escalation")
 
 # disposition → channels
 _ROUTING = {

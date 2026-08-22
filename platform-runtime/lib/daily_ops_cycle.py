@@ -162,11 +162,15 @@ class CycleContext:
 # ── Step 1: Human Systems ─────────────────────────────────────────────────────
 
 def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
+    """`entry` is now expected to be today's most recent `capacity_checkins`
+    row (MY CAPACITY TODAY, 2026-08-21) — the old captains_log_entries/
+    Recovery Pulse input this replaced. See capacity_zone_from_checkin()'s
+    docstring for why this is a direct zone mapping, not a weighted score."""
     try:
-        from core.health.capacity_score import compute_capacity_score
+        from core.health.capacity_score import capacity_zone_from_checkin
         from core.health.capacity_gate import CapacityGate
 
-        score, status = compute_capacity_score(entry or {})
+        score, status = capacity_zone_from_checkin(entry or {})
         ctx.capacity_score = score
         ctx.capacity_status = status or "Unknown"
 

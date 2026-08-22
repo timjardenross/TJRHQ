@@ -8,11 +8,10 @@ import { StatusBadge } from '@/components/StatusBadge';
 interface LiveData {
   activeMissionsCount: number | null;
   lastLog: { log_date: string; captain_capacity_rating: number | null; tomorrows_priority: string | null } | null;
-  // energy/nervous_system are the canonical Telegram-bot fields (Captain
-  // directive, 2026-08-10); both are text categories (e.g. 'moderate',
-  // 'calm'), not 0-10 scores — see the render fix below. `mood` kept only
-  // as a legacy fallback for pre-canonical rows.
-  lastPulse: { pulse_type: string | null; pain_score: number | null; energy: string | null; nervous_system: string | null; mood: string | null; captured_at: string | null } | null;
+  // Realigned 2026-08-22: recovery_pulses -> capacity_checkins (MY CAPACITY
+  // TODAY). capacity_state/regulation_state are text categories (e.g.
+  // 'orange', 'settled'), not 0-10 scores.
+  lastCheckin: { checkin_type: string | null; pain_score: number | null; capacity_state: string | null; regulation_state: string | null; captured_at: string | null } | null;
 }
 
 const DOMAINS = [
@@ -50,7 +49,7 @@ function priorityColor(p: string) {
 export default function OperatingModelPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [data, setData] = useState<LiveData>({ activeMissionsCount: null, lastLog: null, lastPulse: null });
+  const [data, setData] = useState<LiveData>({ activeMissionsCount: null, lastLog: null, lastCheckin: null });
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -59,7 +58,7 @@ export default function OperatingModelPage() {
       // unhandled, so setLoading/setData never ran and the tiles rendered '—'
       // forever with no error shown (MSN-0351).
       try {
-        const [missionsRes, logRes, pulseRes] = await Promise.all([
+        const [missionsRes, logRes, checkinRes] = await Promise.all([
           supabase
             .from('missions')
             .select('mission_id', { count: 'exact', head: true })
@@ -71,14 +70,14 @@ export default function OperatingModelPage() {
             .limit(1)
             .maybeSingle(),
           supabase
-            .from('recovery_pulses')
-            .select('pulse_type, pain_score, energy, nervous_system, mood, captured_at')
+            .from('capacity_checkins')
+            .select('checkin_type, pain_score, capacity_state, regulation_state, captured_at')
             .order('captured_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
         ]);
 
-        const queryError = missionsRes.error ?? logRes.error ?? pulseRes.error;
+        const queryError = missionsRes.error ?? logRes.error ?? checkinRes.error;
         if (queryError) {
           setLoadError(queryError.message ?? 'Query failed');
         }
@@ -86,7 +85,7 @@ export default function OperatingModelPage() {
         setData({
           activeMissionsCount: missionsRes.count ?? 0,
           lastLog: logRes.data ?? null,
-          lastPulse: pulseRes.data ?? null,
+          lastCheckin: checkinRes.data ?? null,
         });
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : 'Failed to load live data');
@@ -97,14 +96,14 @@ export default function OperatingModelPage() {
     fetchAll();
   }, []);
 
-  const { activeMissionsCount, lastLog, lastPulse } = data;
+  const { activeMissionsCount, lastLog, lastCheckin } = data;
 
   return (
     <div className="space-y-6 p-6">
       {/* Section 1 — Header + Live Stats */}
       <LCARSPanel title="Operating Model" accent="command" eyebrow="USS-TJR-MSN-3B-002">
         <div className="mb-6">
-          <h1 className="font-lcars text-2xl text-foreground tracking-wide">
+          <h1 className="font-sans text-2xl text-foreground tracking-wide">
             Captain TJR — Personal Operating Model
           </h1>
           <p className="text-lcars-muted text-sm mt-1">
@@ -123,20 +122,20 @@ export default function OperatingModelPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Active Missions</div>
-            <div className="font-lcars text-3xl text-command-on">
+            <div className="font-sans text-3xl text-command-on">
               {loading ? '—' : activeMissionsCount ?? '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
             <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Capacity Rating</div>
-            <div className="font-lcars text-3xl text-science-on">
+            <div className="font-sans text-3xl text-science-on">
               {loading ? '—' : lastLog?.captain_capacity_rating != null ? `${lastLog.captain_capacity_rating}/10` : '—'}
             </div>
           </div>
           <div className="bg-panel border border-edge rounded-lcars p-4">
-            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Last Recovery</div>
-            <div className="font-lcars text-2xl text-medical-on truncate">
-              {loading ? '—' : lastPulse?.pulse_type ?? '—'}
+            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-1">Last Check-in</div>
+            <div className="font-sans text-2xl text-medical-on truncate capitalize">
+              {loading ? '—' : lastCheckin?.capacity_state ?? '—'}
             </div>
           </div>
         </div>
@@ -149,11 +148,11 @@ export default function OperatingModelPage() {
             <div key={d.name} className="bg-panel border border-edge rounded-lcars p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-xl">{d.icon}</span>
-                <span className={`text-xs font-lcars px-2 py-0.5 rounded ${priorityColor(d.priority)}`}>
+                <span className={`text-xs font-sans px-2 py-0.5 rounded ${priorityColor(d.priority)}`}>
                   {d.priority}
                 </span>
               </div>
-              <div className={`font-lcars text-lg ${d.accent}`}>{d.name}</div>
+              <div className={`font-sans text-lg ${d.accent}`}>{d.name}</div>
               <p className="text-lcars-muted text-sm leading-snug">{d.description}</p>
             </div>
           ))}
@@ -165,9 +164,9 @@ export default function OperatingModelPage() {
         <ol className="space-y-3">
           {PRINCIPLES.map((p) => (
             <li key={p.num} className="flex gap-4 items-start bg-panel border border-edge rounded-lcars px-4 py-3">
-              <span className="font-lcars text-medical-on text-xl w-6 shrink-0">{p.num}</span>
+              <span className="font-sans text-medical-on text-xl w-6 shrink-0">{p.num}</span>
               <div>
-                <div className="font-lcars text-foreground text-sm">{p.title}</div>
+                <div className="font-sans text-foreground text-sm">{p.title}</div>
                 <div className="text-lcars-muted text-sm mt-0.5">{p.body}</div>
               </div>
             </li>
@@ -201,7 +200,7 @@ export default function OperatingModelPage() {
             <ul className="space-y-2">
               {SCHEDULE.map((s) => (
                 <li key={s.label} className="flex items-start gap-3 bg-panel border border-edge rounded-lcars px-4 py-2">
-                  <span className={`font-lcars text-sm w-44 shrink-0 ${s.accent}`}>{s.label}</span>
+                  <span className={`font-sans text-sm w-44 shrink-0 ${s.accent}`}>{s.label}</span>
                   <span className="text-lcars-muted text-sm">{s.time}</span>
                 </li>
               ))}
@@ -209,39 +208,38 @@ export default function OperatingModelPage() {
           </div>
 
           <div>
-            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Last Recovery Pulse <span className="text-lcars-muted/60 normal-case tracking-normal">· live</span></div>
+            <div className="text-lcars-muted text-xs uppercase tracking-widest mb-3">Last Capacity Check-in <span className="text-lcars-muted/60 normal-case tracking-normal">· live</span></div>
             {loading ? (
               <div className="text-lcars-muted text-sm">Loading...</div>
-            ) : lastPulse ? (
+            ) : lastCheckin ? (
               <div className="bg-panel border border-edge rounded-lcars p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Type</span>
-                  <span className="text-foreground text-sm font-lcars capitalize">{lastPulse.pulse_type ?? '—'}</span>
+                  <span className="text-foreground text-sm font-sans capitalize">{lastCheckin.checkin_type ?? '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-lcars-muted text-sm">Pain</span>
-                  <span className="text-medical-on text-sm font-lcars">{lastPulse.pain_score != null ? `${lastPulse.pain_score}/10` : '—'}</span>
+                  <span className="text-medical-on text-sm font-sans">{lastCheckin.pain_score != null ? `${lastCheckin.pain_score}/10` : '—'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-lcars-muted text-sm">Energy</span>
-                  <span className="text-engineering-on text-sm font-lcars capitalize">{lastPulse.energy ?? '—'}</span>
+                  <span className="text-lcars-muted text-sm">Capacity</span>
+                  <span className="text-engineering-on text-sm font-sans capitalize">{lastCheckin.capacity_state ?? '—'}</span>
                 </div>
-                {/* Nervous system is the canonical Telegram-bot field
-                    (Captain directive, 2026-08-10), replacing Mood here.
-                    Falls back to the legacy `mood` reading only when a row
-                    predates the canonical field (no nervous_system value). */}
+                {/* MY CAPACITY TODAY (2026-08-21/22) replaced Recovery Pulse —
+                    regulation_state is the direct real-time nervous-system
+                    reading, no legacy fallback needed. */}
                 <div className="flex justify-between">
-                  <span className="text-lcars-muted text-sm">{lastPulse.nervous_system ? 'Nervous system' : 'Mood (legacy)'}</span>
-                  <span className="text-science-on text-sm font-lcars capitalize">{lastPulse.nervous_system ?? lastPulse.mood ?? '—'}</span>
+                  <span className="text-lcars-muted text-sm">Nervous system</span>
+                  <span className="text-science-on text-sm font-sans capitalize">{lastCheckin.regulation_state ?? '—'}</span>
                 </div>
-                {lastPulse.captured_at && (
+                {lastCheckin.captured_at && (
                   <div className="text-lcars-muted text-xs pt-1 border-t border-edge">
-                    Captured: {new Date(lastPulse.captured_at).toLocaleString()}
+                    Captured: {new Date(lastCheckin.captured_at).toLocaleString()}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="text-lcars-muted text-sm">No recovery pulse data available.</div>
+              <div className="text-lcars-muted text-sm">No capacity check-in data available.</div>
             )}
           </div>
         </div>

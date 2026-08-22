@@ -1,3 +1,16 @@
+// POST /api/human-systems/pulse — RETIRED (2026-08-22).
+//
+// The Telegram bot's "MY CAPACITY TODAY" flow (capacity_checkins table,
+// /capacity /deepcheck /evening commands) replaced recovery_pulses as the
+// canonical health-capacity capture path on 2026-08-21 and is now the SOLE
+// capture path for this data — extending the same consolidation principle
+// the Captain applied to Recovery Pulse itself on 2026-08-10 (see this
+// route's prior history below). This endpoint's only caller
+// (medical/pulse/page.tsx) has been retired alongside it; the route is kept
+// (rather than deleted) purely so the URL doesn't 404 unexpectedly for any
+// stale client or bookmark.
+//
+// ---- Prior history (kept for context) ----
 // POST /api/human-systems/pulse — governed write for a recovery pulse
 // (WORKBENCH-REVIEW.md C4, 2026-07-18). Was a direct browser Supabase
 // upsert (medical/pulse/page.tsx). recovery_pulses' own RLS already
@@ -15,39 +28,16 @@
 // this only blocks new writes.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { requireSession } from '@/lib/supabase-server';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  if (typeof payload.log_date !== 'string' || typeof payload.pulse_type !== 'string') {
-    return NextResponse.json({ error: 'log_date and pulse_type are required' }, { status: 400 });
-  }
-
-  // Never write the decommissioned mood/stress fields, regardless of caller.
-  delete payload.mood;
-  delete payload.stress;
-
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { error } = await supabase
-      .from('recovery_pulses')
-      .upsert(payload, { onConflict: 'log_date,pulse_type' });
-
-    if (error) throw error;
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: detail }, { status: 500 });
-  }
+  return NextResponse.json(
+    { error: 'This endpoint is retired. Log capacity check-ins via the XO Telegram bot (/capacity command) instead.' },
+    { status: 410 }
+  );
 }

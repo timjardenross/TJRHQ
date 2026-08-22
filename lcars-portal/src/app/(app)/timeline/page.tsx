@@ -49,31 +49,28 @@ async function fetchMissionTransitions(days: number): Promise<SourceResult> {
   return { ok: !error, events };
 }
 
-async function fetchRecoveryPulses(days: number): Promise<SourceResult> {
+async function fetchCapacityCheckins(days: number): Promise<SourceResult> {
   const supabase = createSupabaseBrowserClient();
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const { data, error } = await supabase
-    .from('recovery_pulses')
-    // energy/nervous_system are the canonical Telegram-bot fields (Captain
-    // directive, 2026-08-10); `mood` is kept selected only so pre-canonical
-    // rows still show a signal in the detail line below — no new writes to
-    // it, historical context only.
-    .select('id, log_date, pulse_type, pain_score, energy, nervous_system, mood, captured_at')
+    .from('capacity_checkins')
+    // Realigned 2026-08-22 (recovery_pulses -> capacity_checkins, MY
+    // CAPACITY TODAY). No pulse_type slot exists in the new model — the
+    // title reads by checkin_type + date instead of a morning/midday/
+    // evening bucket.
+    .select('id, log_date, checkin_type, pain_score, capacity_state, regulation_state, captured_at')
     .gte('captured_at', since)
     .order('captured_at', { ascending: false })
     .limit(30);
   const events = (data ?? []).map(r => {
     const parts: string[] = [];
-    if (r.pain_score != null) parts.push(`pain ${r.pain_score}`);
-    if (r.energy)             parts.push(`energy ${r.energy}`);
-    // Prefer the canonical nervous_system reading; fall back to the legacy
-    // mood field only for older rows that predate it.
-    if (r.nervous_system)      parts.push(`ns ${r.nervous_system}`);
-    else if (r.mood)           parts.push(`mood ${r.mood} (legacy)`);
+    if (r.pain_score != null)    parts.push(`pain ${r.pain_score}`);
+    if (r.capacity_state)        parts.push(`capacity ${r.capacity_state}`);
+    if (r.regulation_state)      parts.push(`regulation ${r.regulation_state}`);
     return {
-      id:        `rp-${r.id ?? r.log_date + r.pulse_type}`,
+      id:        `cc-${r.id ?? r.log_date + r.checkin_type}`,
       source:    'health' as const,
-      title:     `Recovery pulse — ${r.pulse_type} (${r.log_date})`,
+      title:     r.checkin_type === 'evening' ? `Evening reflection (${r.log_date})` : `Capacity check-in (${r.log_date})`,
       detail:    parts.join(' · ') || undefined,
       timestamp: r.captured_at ?? `${r.log_date}T00:00:00Z`,
     };
@@ -142,7 +139,7 @@ async function fetchCaptures(days: number): Promise<SourceResult> {
 // Pair each fetcher with its source key so failures can be labelled.
 const TIMELINE_FETCHERS: { source: EventSource; run: (days: number) => Promise<SourceResult> }[] = [
   { source: 'missions', run: fetchMissionTransitions },
-  { source: 'health',   run: fetchRecoveryPulses },
+  { source: 'health',   run: fetchCapacityCheckins },
   { source: 'log',      run: fetchLogEntries },
   { source: 'events',   run: fetchCommanderEvents },
   { source: 'captures', run: fetchCaptures },

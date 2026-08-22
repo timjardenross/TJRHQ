@@ -89,6 +89,7 @@ async function getThreatAssessment(sb: any, days: number, includeSuppressed: boo
     .limit(20);
 
   if (!includeSuppressed) query = query.eq('suppressed', false);
+  query = query.neq('signal_status', 'DUPLICATE');
 
   const { data: signals, error: signalsErr } = await query;
   if (signalsErr) throw new Error(`Failed to fetch signals: ${signalsErr.message}`);

@@ -139,7 +139,7 @@ function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: (
           Mark Research Complete →
         </Button>
       </div>
-      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -203,7 +203,7 @@ function ResearchStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
           {generating ? 'Generating…' : '✍ Generate Draft →'}
         </Button>
       </div>
-      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -292,7 +292,7 @@ function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; onChange
           ))}
         </div>
       )}
-      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -516,7 +516,7 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         <Button size="sm" onClick={publish} disabled={publishBusy} className="w-full">
           {publishBusy ? 'Publishing…' : 'Publish →'}
         </Button>
-        {publishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>}
+        <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>
       </div>
     );
   }
@@ -526,13 +526,12 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
       <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-wb-sage/50 bg-wb-sage/5 p-2.5">
-        <span aria-hidden className="text-[13px]">🤖</span>
         <p className="text-[12px] text-wb-ink2">AI can take a first pass at the checklist below — you review and confirm.</p>
         <Button size="sm" variant="secondary" onClick={runAiReview} disabled={aiBusy} className="ml-auto">
           {aiBusy ? 'Reviewing…' : 'Run AI Review →'}
         </Button>
       </div>
-      {aiMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>
 
       {!suggestedBody ? (
         <div className="space-y-1.5 rounded-lg border border-dashed border-wb-warn/50 bg-wb-warn/5 p-2.5">
@@ -561,7 +560,7 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
           </div>
         </div>
       )}
-      {polishMsg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>
 
       <div className="space-y-2 rounded-md border border-wb-line bg-wb-surface p-3">
         {QA_CHECKLIST_ITEMS.map((c) => {
@@ -573,7 +572,7 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
                   className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
                 {c.label}
               </label>
-              {note && <p className="ml-6 mt-0.5 text-[11.5px] italic text-wb-ink2">🤖 {note}</p>}
+              {note && <p className="ml-6 mt-0.5 text-[11.5px] italic text-wb-ink2">AI · {note}</p>}
             </div>
           );
         })}
@@ -591,7 +590,7 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
         )}
         {qaStatus === 'qa_failed' && <Badge status="warning">QA incomplete</Badge>}
       </div>
-      {msg && <p className="text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>}
+      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -622,14 +621,14 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
           {PILLAR_LABEL[item.pillar] ?? item.pillar}
         </span>
       )}
-      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">⭐ Priority</span>}
-      {item.sensitive && <Badge status="error">⚠ Sensitive</Badge>}
+      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">★ Priority</span>}
+      {item.sensitive && <Badge status="error">! Sensitive</Badge>}
     </div>
   );
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-wb-line bg-wb-surface shadow-sm transition-all hover:shadow-md">
+      <div className="overflow-hidden rounded-xl border border-wb-line bg-wb-surface shadow-sm transition-shadow hover:shadow-md">
         <div className="flex">
           <span className={`w-[3px] shrink-0 ${accent.bar}`} aria-hidden />
           <button type="button" onClick={() => setOpen(true)}
@@ -638,7 +637,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
               {chipRow}
               <span aria-hidden className="ml-auto text-[13px] text-wb-ink2">⤢</span>
             </div>
-            <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+            <p className="break-words text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
           </button>
         </div>
         <p className="border-t border-wb-line/70 px-3 py-1.5 text-[10px] text-wb-ink2">
@@ -688,18 +687,16 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
   return (
     <div role="region" aria-label={`${STAGE_LABEL[stage]}, ${items.length} item${items.length === 1 ? '' : 's'}`}
       className={`flex min-w-[264px] flex-1 flex-col gap-2 rounded-xl ${accent.header} p-1.5`}>
-      <div className="overflow-hidden rounded-lg border border-wb-line bg-wb-surface">
-        <div className={`h-1 ${accent.bar}`} aria-hidden />
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-          <span aria-hidden className="text-[12px]">{accent.icon}</span>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
-          <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${accent.chip}`}>{items.length}</span>
-        </div>
+      <div className={`h-1 rounded-full ${accent.bar}`} aria-hidden />
+      <div className="flex items-center gap-1.5 px-1 py-1">
+        <span aria-hidden className="text-[12px]">{accent.icon}</span>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
+        <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${accent.chip}`}>{items.length}</span>
       </div>
-      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2/80">{STAGE_HINT[stage]}</p>
+      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
       <div className="flex flex-col gap-2" role="list" aria-label={`Items in ${STAGE_LABEL[stage]}`}>
         {items.map((item) => (<ItemCard key={item.id} item={item} onChanged={onChanged} />))}
-        {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2/60">Empty</p>}
+        {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2">Empty</p>}
       </div>
     </div>
   );

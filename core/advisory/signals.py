@@ -27,7 +27,8 @@ if str(_HEALTH) not in sys.path:
     sys.path.insert(0, str(_HEALTH))
 
 import timeline as _timeline
-import patterns as _patterns
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_patterns = _import_sibling("patterns")
 
 try:
     import trend_utils as _trend

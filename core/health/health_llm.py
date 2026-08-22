@@ -94,7 +94,7 @@ class HealthLLMProvider:
         raw_text is the model's full response string; parsing is the caller's job.
         """
         providers = [
-            ("gemini-2.5-flash", self._gemini),
+            ("gemini-3.5-flash-lite", self._gemini),
             ("mistral-small",    self._mistral),
             (_OLLAMA_MODEL,      self._ollama),
         ]

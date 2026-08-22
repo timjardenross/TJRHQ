@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.request
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
@@ -154,18 +155,6 @@ def _get_infra_verification() -> Optional[dict]:
         return None
 
 
-def _get_content_review_queue(limit: int = 5) -> list[dict]:
-    """Content pipeline items awaiting the Captain's own review/publish
-    decision — the intelligence-to-writing loop, distinct from RESIL-EXT's
-    intelligence signals. 2026-07-18 audit: this pipeline had produced real
-    drafts that were never surfaced anywhere, so nobody knew to look."""
-    return _sb_get(
-        "comms_content",
-        "status=in.(draft,review,ready_to_publish)&order=draft_generated_at.desc.nullslast"
-        f"&limit={limit}&select=title,pillar,status,draft_generated_at",
-    )
-
-
 def _get_todays_morning_brief_text() -> Optional[str]:
     """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
     morning's already-persisted brief text so the EOD summary can detect
@@ -277,25 +266,104 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     the same as a query that succeeded and found zero signals."""
     rows = _sb_request(
         "intelligence_events",
-        f"collected_at=gte.{since_iso}&suppressed=eq.false"
+        f"collected_at=gte.{since_iso}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
+        f"&raw_title=not.ilike.CVE-*"
+        f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
         f"&order=rank_score.desc&limit=10"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
+        f"intelligence_source_registry(source_name)",
     )
     return _with_risk_label(rows)
 
 
-def _get_recent_signals(hours: int = 24) -> list[dict]:
+def _get_recent_signals(hours: int = 24, limit: int = 12) -> list[dict]:
+    """2026-08-13: excludes raw vulnerability-bulletin noise (Captain:
+    "I thought we excluded CVEs") — a live brief had all 4 HIGH slots
+    filled by generic vendor CVSS bulletins (1 literal CVE-titled, 3
+    Fortinet PSIRT advisories with no CVE- prefix but the same templated
+    "CVSSv3 Score: X.X ... [CWE-nnn] ..." shape and zero Captain-specific
+    relevance). event_type/sector don't distinguish these from real cyber
+    incident news (both are 'cyber'/'cyber_security' — a sector-level
+    exclusion would also hide genuine breach/ransomware/outage reporting),
+    so this matches on the two concrete fingerprints instead: a CVE-*
+    title, or a raw_summary in the CVSSv3-bulletin template. The `or=` OR
+    on raw_summary explicitly re-admits NULL — PostgREST's `not.ilike`
+    alone silently drops NULL rows (NULL NOT ILIKE '%x%' is NULL, not
+    true), which would have dropped every event with no raw_summary at
+    all, not just the bulletins."""
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     rows = _sb_get(
         "intelligence_events",
-        f"collected_at=gte.{since}&suppressed=eq.false"
-        f"&order=rank_score.desc&limit=5"
-        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score",
+        f"collected_at=gte.{since}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+        f"&raw_title=not.ilike.CVE-*"
+        f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"
+        f"&order=rank_score.desc&limit={limit}"
+        f"&select=raw_title,event_type,geography,operational_relevance,confidence,rank_score,raw_summary,"
+        f"intelligence_source_registry(source_name)",
     )
     return _with_risk_label(rows)
+
+
+def _format_signal_title(s: dict) -> str:
+    """2026-08-13 (Captain: "titles what's actually impacted") — many raw
+    titles don't name the impacted product/company at all: "Degraded
+    performance for multiple models" turned out to be Anthropic's own
+    status feed (source_name via the intelligence_source_registry FK
+    embed), with the actual impacted models named in raw_summary, not the
+    title. GitHub/Cloudflare-sourced titles already self-identify
+    ("GitHub Status: ...") and are left alone; only titles that don't
+    already mention the source get it prefixed."""
+    title = s.get("raw_title") or "—"
+    source = ((s.get("intelligence_source_registry") or {}).get("source_name") or "").strip()
+    if not source:
+        return title
+    label = source[:-len(" Status")] if source.endswith(" Status") else source
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", label) if len(w) > 2]
+    if any(w.lower() in title.lower() for w in words):
+        return title
+    return f"{label}: {title}"
+
+
+def _format_signal_commentary(s: dict) -> Optional[str]:
+    """One-line real commentary from raw_summary — never fabricated. The
+    enrichment columns meant to hold analysis (analysis_summary,
+    enriched_summary) are unpopulated on live data (checked 2026-08-13:
+    100% NULL across recent events), so raw_summary — the actual scraped
+    description, present on roughly half of events — is the only honest
+    source available. Signals without one just show the title; no filler
+    text stands in for it."""
+    summary = (s.get("raw_summary") or "").strip()
+    if not summary:
+        return None
+    return _truncate_clean(summary, 170)
+
+
+def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4, max_medium: int = 3) -> list[str]:
+    """Shared HIGH/MEDIUM signal renderer for Morning Brief and EOD Summary
+    (2026-08-13, replaces each brief's own flat top-N list). LOW/none-rated
+    signals are never shown here — same "only surface what's worth a
+    look" principle _format_infra_block already uses."""
+    high = [s for s in signals if s.get("risk_rating") == "HIGH"][:max_high]
+    medium = [s for s in signals if s.get("risk_rating") == "MEDIUM"][:max_medium]
+    if not high and not medium:
+        return []
+
+    count_bits = []
+    if high:
+        count_bits.append(f"{len(high)} HIGH")
+    if medium:
+        count_bits.append(f"{len(medium)} MEDIUM")
+    lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
+    for s in high + medium:
+        lines.append(f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}")
+        commentary = _format_signal_commentary(s)
+        if commentary:
+            lines.append(f"     <i>{commentary}</i>")
+    lines.append("")
+    return lines
 
 
 # ── Weekly OSINT roll-up (2026-08-10 weekly report redesign) ──────────────────
@@ -345,10 +413,9 @@ def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
 
 def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
     """Content published or moved to review/approval in the last `days` days —
-    extends _get_content_review_queue's status set with 'published' and
-    'approved' and windows by updated_at (comms_content has no dedicated
-    status-change timestamp) instead of returning the standing pending-queue
-    snapshot the daily briefs use."""
+    windows by updated_at (comms_content has no dedicated status-change
+    timestamp), for the weekly report only (the daily briefs' own pending-queue
+    snapshot was removed 2026-08-13)."""
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     return _sb_get(
         "comms_content",
@@ -464,7 +531,7 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
     if call_gemini is None:
         return None
     providers = [
-        ("gemini-2.5-flash", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(system_prompt, p, api_key=_GEMINI_API_KEY, max_output_tokens=400)),
         ("mistral-small",    lambda p: call_mistral(system_prompt, p, api_key=_MISTRAL_API_KEY, max_tokens=400)),
         (_OLLAMA_WEEKLY_MODEL, lambda p: call_ollama(
             system_prompt, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_WEEKLY_MODEL, num_predict=350,
@@ -625,30 +692,6 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     ]
 
 
-def _format_content_review_block(content_queue: list[dict], morning_text: Optional[str] = None) -> list[str]:
-    """Shared Content Review renderer (Part 1 item 2: de-dupe the block that
-    was copy-pasted verbatim between generate_morning_brief() and
-    generate_eod_summary()). Each item now also shows its age (item 3).
-    `morning_text`, when supplied (EOD only), is this morning's already-
-    persisted brief text — if every title shown here already appeared
-    there, the header is marked "(unchanged since this morning)" instead of
-    silently re-listing an identical queue."""
-    if not content_queue:
-        return []
-    titles = [c.get("title") or "(untitled)" for c in content_queue]
-    unchanged = bool(morning_text) and all(t in morning_text for t in titles)
-    suffix = " <i>(unchanged since this morning)</i>" if unchanged else ""
-    lines = [f"<b>✍️ CONTENT REVIEW ({len(content_queue)})</b>{suffix}"]
-    for c in content_queue:
-        pillar = (c.get("pillar") or "").replace("_", " ") or "—"
-        age = _relative_age(c.get("draft_generated_at"))
-        lines.append(
-            f"  📝 <b>{c.get('title') or '(untitled)'}</b>  [{c.get('status', '?')} · {pillar} · {age}]"
-        )
-    lines.append("")
-    return lines
-
-
 def _format_weekly_osint_block(
     title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
     summary: Optional[str] = None, top_n: int = 3,
@@ -700,9 +743,7 @@ def _format_weekly_osint_block(
 
 
 def _format_weekly_content_block(items: list[dict]) -> list[str]:
-    """Content published or moved to review/approval this week — weekly
-    counterpart to _format_content_review_block's standing pending-queue
-    snapshot."""
+    """Content published or moved to review/approval this week."""
     if not items:
         return ["<b>✍️ CONTENT THIS WEEK</b>", "  Nothing published or moved to review this week.", ""]
     status_counts = Counter(c.get("status", "?") for c in items)
@@ -817,7 +858,6 @@ def generate_morning_brief() -> str:
     recovery = _get_recovery_status()
     signals = _get_recent_signals(hours=24)
     infra = _get_infra_verification()
-    content_queue = _get_content_review_queue()
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
@@ -865,13 +905,9 @@ def generate_morning_brief() -> str:
         ]
 
     # Intelligence signals
-    if signals:
-        lines.append("<b>📡 INTELLIGENCE (24h)</b>")
-        for s in signals[:4]:
-            lines.append(
-                f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}"
-            )
-        lines.append("")
+    signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
+    if signal_block:
+        lines += signal_block
     elif brief:
         snap = brief.get("executive_snapshot") or brief.get("bottom_line") or ""
         if snap:
@@ -889,10 +925,6 @@ def generate_morning_brief() -> str:
     # of the day, so there is no "unchanged since this morning" to check.
     lines += _format_infra_block(infra)
 
-    # Content pipeline — intelligence-to-writing drafts awaiting the
-    # Captain's own review/publish decision. Only shown when non-empty.
-    lines += _format_content_review_block(content_queue)
-
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -907,7 +939,7 @@ def generate_midday_update(signals: list[dict]) -> str:
     ]
     for s in signals[:5]:
         lines.append(
-            f"  {_risk_emoji(s.get('risk_rating'))} {s.get('raw_title', '—')}"
+            f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}"
         )
     lines += ["", "🤖 <i>XO · Starship Endeavour</i>"]
     return "\n".join(lines)
@@ -918,7 +950,13 @@ def generate_eod_summary() -> str:
     health = _get_todays_health()
     recovery = _get_recovery_status()
     infra = _get_infra_verification()
-    content_queue = _get_content_review_queue()
+    # 2026-08-13: EOD previously carried no intelligence section at all —
+    # the day could close showing zero signal activity regardless of what
+    # actually happened. Scoped to "since this morning's 07:00 brief"
+    # rather than a flat 24h window, so it reads as today's activity, not
+    # a re-run of the same lookback the morning brief already showed.
+    hours_since_morning = max(1, min(24, int((now - now.replace(hour=7, minute=0, second=0, microsecond=0)).total_seconds() / 3600)))
+    todays_signals = _get_recent_signals(hours=hours_since_morning)
     # Part 1 item 2: fetch this morning's persisted text so repeated blocks
     # below can be marked "(unchanged since this morning)" instead of
     # silently re-rendering identically.
@@ -964,8 +1002,8 @@ def generate_eod_summary() -> str:
             lines.append(f"  {' · '.join(signals)}")
         lines.append("")
 
+    lines += _format_signals_block(todays_signals, "🌙 TODAY'S INTELLIGENCE")
     lines += _format_infra_block(infra, morning_text)
-    lines += _format_content_review_block(content_queue, morning_text)
 
     lines += [
         "<b>📝 LOG YOUR DAY</b>",

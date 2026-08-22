@@ -88,10 +88,11 @@ function Workbench() {
     router.replace(`/human-systems-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  // Live refresh: Recovery + Medical read the recovery_pulses signal; Recovery
-  // also carries Readiness now, so it additionally watches workout sessions.
+  // Live refresh: Recovery + Medical read the capacity_checkins signal
+  // (recovery_pulses' successor, 2026-08-22); Recovery also carries
+  // Readiness now, so it additionally watches workout sessions.
   useRealtimeRefresh({
-    table: 'recovery_pulses',
+    table: 'capacity_checkins',
     events: ['INSERT', 'UPDATE'],
     enabled: tab === 'recovery' || tab === 'medical',
     onChange: () => load(tab, false),

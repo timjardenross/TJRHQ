@@ -237,7 +237,7 @@ class ResearchTask:
     order_index: int
     description: str
     status: str = "pending"  # pending, delegated, complete, failed
-    provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
+    provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
     findings: Optional[str] = None
     references: list[str] = field(default_factory=list)
     error_message: Optional[str] = None
@@ -270,9 +270,9 @@ class ResearchMissionResult:
     confidence: float = 0.0  # 0.0-1.0
 
     # Metadata
-    primary_provider: Optional[str] = None  # gemini-2.5-flash, gemini-2-flash, gemini-2.5-flash-lite, ollama, none
+    primary_provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
-    provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-2.5-flash → ollama"])
+    provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-3.5-flash-lite → ollama"])
     request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
     captains_brief: Optional[str] = None  # Captain's Brief from Briefing Officer (Path A)
 
@@ -622,11 +622,11 @@ class ResearchOrchestrator:
         if consolidation_fallback_used:
             errors.append("Consolidation used fallback (timeout or error). Summary generated from task findings.")
 
-        # Build provider paths for telemetry (e.g., ["gemini-2.5-flash → ollama", "gemini-2.5-flash"])
+        # Build provider paths for telemetry (e.g., ["gemini-3.5-flash-lite → ollama", "gemini-3.5-flash-lite"])
         provider_paths = []
         for t in tasks:
             if t.provider_chain:
-                # Format: "gemini-2.5-flash → ollama"
+                # Format: "gemini-3.5-flash-lite → ollama"
                 path = " → ".join(t.provider_chain)
                 provider_paths.append(path)
             elif t.provider:
@@ -776,7 +776,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         # Provider chain: Mistral Agents API primary, then Gemini, then Ollama local fallback
         providers = [
             ("mistral-agent", "Mistral Decomposition Agent (primary)", self._decompose_with_mistral),
-            ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
+            ("gemini-3.5-flash-lite", "Gemini 2.5 Flash Lite (secondary)", self._decompose_with_gemini_lite),
             ("ollama", "qwen3:8b via Ollama (local fallback)", self._decompose_with_ollama),
         ]
 
@@ -838,7 +838,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
             log.info("[decompose] Gemini 2.5 Flash Lite: API key present, configuring...")
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash-lite")
+            model = genai.GenerativeModel("gemini-3.5-flash-lite")
             log.info("[decompose] Gemini 2.5 Flash Lite: Sending request...")
             response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.5))
 

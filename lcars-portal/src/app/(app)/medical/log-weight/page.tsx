@@ -62,21 +62,21 @@ export default function LogWeightPage() {
             {avgW !== null && (
               <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Avg</p>
-                <p className="font-lcars text-lg font-bold text-command-on mt-0.5">{avgW.toFixed(1)}</p>
+                <p className="font-sans text-lg font-bold text-command-on mt-0.5">{avgW.toFixed(1)}</p>
                 <p className="text-[10px] text-lcars-muted">kg</p>
               </div>
             )}
             {minW !== null && maxW !== null && (
               <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Range</p>
-                <p className="font-lcars text-sm font-bold text-lcars-text mt-0.5">{minW}–{maxW}</p>
+                <p className="font-sans text-sm font-bold text-lcars-text mt-0.5">{minW}–{maxW}</p>
                 <p className="text-[10px] text-lcars-muted">kg</p>
               </div>
             )}
             {range !== null && (
               <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Change</p>
-                <p className={`font-lcars text-lg font-bold mt-0.5 ${parseFloat(range) < 0 ? 'text-status-on' : parseFloat(range) > 0 ? 'text-operations-on' : 'text-lcars-muted'}`}>
+                <p className={`font-sans text-lg font-bold mt-0.5 ${parseFloat(range) < 0 ? 'text-status-on' : parseFloat(range) > 0 ? 'text-operations-on' : 'text-lcars-muted'}`}>
                   {parseFloat(range) > 0 ? '+' : ''}{range}
                 </p>
                 <p className="text-[10px] text-lcars-muted">kg vs 30d ago</p>

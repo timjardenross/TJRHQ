@@ -240,7 +240,7 @@ describe('redundancyReconciliation', () => {
     const pairKeys = pairs.map((p) => `${p.a}<->${p.b}`);
     // Real, current-repo fact: human-systems-redflag, human-systems-recovery-debt,
     // and medical-emotional-load all independently read human_systems_daily /
-    // recovery_pulses / nervous_system_state and could produce disagreeing
+    // capacity_checkins / regulation_state and could produce disagreeing
     // interrupts about the same underlying daily record.
     expect(pairKeys).toEqual(
       expect.arrayContaining([

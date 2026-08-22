@@ -33,7 +33,7 @@ export function ProactiveBanner() {
 
   return (
     <div className={`flex items-start gap-3 rounded-md border px-3 py-2.5 text-sm ${isUrgent ? 'border-wb-warn/50 bg-wb-warn/10' : 'border-wb-sage-deep/30 bg-wb-sage-deep/5'}`}>
-      <span className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>
+      <span aria-hidden="true" className={`mt-0.5 shrink-0 text-xs font-bold ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="min-w-0 flex-1">

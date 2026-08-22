@@ -68,7 +68,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
         </div>
         <Link
           href="/medical/pulse"
-          className="shrink-0 rounded-lcars bg-medical px-3 py-1.5 font-lcars text-[11px] font-bold uppercase tracking-[0.15em] text-space hover:opacity-80 transition-opacity"
+          className="shrink-0 rounded-lcars bg-medical px-3 py-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-space hover:opacity-80 transition-opacity"
         >
           + Pulse
         </Link>
@@ -140,7 +140,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
 
       <Link
         href="/medical/pulse"
-        className="text-center rounded-lcars bg-medical px-4 py-2 font-lcars text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
+        className="text-center rounded-lcars bg-medical px-4 py-2 font-sans text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
       >
         {confidence.pulses_completed === 0 ? 'Log First Pulse →' : `Log Next Pulse (${confidence.pulses_missing} remaining) →`}
       </Link>

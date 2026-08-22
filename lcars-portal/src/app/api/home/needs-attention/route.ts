@@ -24,11 +24,16 @@ export async function GET(req: NextRequest) {
       .limit(5);
     if (signalsError) throw signalsError;
 
-    // ── Pending QA briefs (IN_REVIEW status) ─────────────────────────────
+    // ── Pending QA briefs (IN_REVIEW or QA_PASSED, i.e. not yet PUBLISHED)
+    // QA_PASSED is the actionable state — nightly QA already promoted it,
+    // it's just waiting on a human executive_approver — so it belongs here
+    // alongside IN_REVIEW, not just the pre-QA state (migration 0084
+    // consolidated the old 7-state ladder to IN_REVIEW -> QA_PASSED ->
+    // PUBLISHED; this used to only check the first of the two).
     const { data: pendingBriefs, error: briefsError } = await sb
       .from('intelligence_briefs')
       .select('brief_id,overall_risk,approval_status,generated_at,executive_snapshot')
-      .eq('approval_status', 'IN_REVIEW')
+      .in('approval_status', ['IN_REVIEW', 'QA_PASSED'])
       .order('generated_at', { ascending: true })
       .limit(3);
     if (briefsError) throw briefsError;

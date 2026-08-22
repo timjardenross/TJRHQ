@@ -1,0 +1,45 @@
+# REVS Content Creation Agents - Python Dependencies
+# Patched for Python 3.12 (VM default) and platform infra reuse:
+#  - ollama/langchain dropped: parser calls the existing Local Model Router
+#    (localhost:8891) over HTTP instead of a local Ollama client/agent framework.
+#  - fastapi/uvicorn dropped: entry points are CLI + Telegram trigger, no API server planned.
+#  - Stable Diffusion/Coqui TTS deps dropped: no GPU on this VM, hero art and podcast
+#    narration route through the Gemini API instead (google-genai).
+#  - markdown/svgwrite/Shapely/imageio/imageio-ffmpeg/moviepy/pydub/ffmpeg-python/click/tqdm
+#    dropped: none are imported anywhere in src/ - video assembly shells out to the
+#    ffmpeg CLI directly (subprocess), images go through PIL, not these.
+#  - numpy/mypy bumped: pinned versions predate Python 3.12 support.
+
+# Core
+python-dotenv==1.0.0
+
+# LLM (Local Model Router client)
+pydantic==2.13.4
+requests==2.31.0
+
+# Image + speech generation (Gemini API - see gemini-imagegen skill)
+google-genai==2.17.0
+tenacity==9.1.4
+
+# Text Processing
+pypandoc==1.10
+Weasyprint==69.0
+PyPDF2==3.0.1
+
+# Image & Graphics
+Pillow==10.0.0
+numpy==2.4.6
+
+# Presentations
+python-pptx==1.0.2
+
+# Development
+pytest==7.4.0
+pytest-cov==4.1.0
+black==24.4.2
+pylint==2.17.0
+mypy==1.10.0
+flake8==6.1.0
+
+# Utilities
+pyyaml==6.0.2

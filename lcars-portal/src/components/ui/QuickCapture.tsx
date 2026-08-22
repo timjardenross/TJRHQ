@@ -75,7 +75,7 @@ export function QuickCapture() {
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
         title="Quick capture"
-        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
         style={{
           bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
           right: 'max(1.25rem, env(safe-area-inset-right))',
@@ -95,7 +95,7 @@ export function QuickCapture() {
             rows={4}
             placeholder="What do you want to capture?"
             aria-label="Capture text"
-            className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-[14px] text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
+            className="w-full resize-none rounded-md border border-wb-line bg-wb-bg px-3 py-3 text-[14px] text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           />
           <div className="flex flex-wrap gap-1.5">
             {CAPTURE_TYPES.map((t) => (
@@ -119,7 +119,7 @@ export function QuickCapture() {
               type="button"
               onClick={submit}
               disabled={saving || !text.trim()}
-              className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+              className="rounded-md bg-wb-sage-deep px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? 'Capturing…' : 'Capture'}
             </button>

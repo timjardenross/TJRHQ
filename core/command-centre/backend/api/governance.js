@@ -128,7 +128,7 @@ function httpsPost(url, headers, body) {
 async function callGemini(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
@@ -229,7 +229,7 @@ async function generateSummary(records) {
     `CAPTAIN'S DIRECTIVES (${directives.length} total):\n${directiveLines || '  (none)'}`;
 
   const providers = [
-    ['gemini-2.5-flash', callGemini],
+    ['gemini-3.5-flash-lite', callGemini],
     ['mistral-small-2503', callMistral],
   ];
 

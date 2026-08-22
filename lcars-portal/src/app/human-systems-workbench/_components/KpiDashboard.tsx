@@ -60,9 +60,9 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
         sub={kpis.sleep_hours == null ? 'not recorded' : undefined}
       />
       <KpiCard
-        label="Pulse Confidence"
-        value={`${kpis.pulse_confidence}%`}
-        sub={`${kpis.pulses_completed} of 3 pulses today`}
+        label="Check-ins Today"
+        value={String(kpis.checkins_today)}
+        sub={kpis.checkins_today === 1 ? '1 check-in logged' : `${kpis.checkins_today} check-ins logged`}
       />
     </div>
   );

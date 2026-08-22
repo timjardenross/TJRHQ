@@ -10,8 +10,8 @@
 
 import { useROSData } from '@/lib/useROSData';
 import { stateToneClasses } from '@/lib/departments';
-import { StatusBadge } from './StatusBadge';
-import { LCARSPanel } from './LCARSPanel';
+import { WorkbenchBadge } from './WorkbenchBadge';
+import { WorkbenchPanel } from './WorkbenchPanel';
 import { DataSourceIndicator } from './DataSourceIndicator';
 import type {
   BodyContext,
@@ -78,26 +78,25 @@ function RecoveryPostureBlock({ posture }: { posture: RecoveryPosture }) {
   const tone = POSTURE_STATE_TONE[posture.posture];
   const c    = stateToneClasses(tone);
   return (
-    <LCARSPanel
+    <WorkbenchPanel
       title="Recovery Posture"
-      accent="medical"
       eyebrow="What does my system need today?"
       actions={<StateBadge label={posture.posture} tone={tone} />}
     >
       <div className="grid gap-3 xl:grid-cols-2">
-        <div className={`rounded-lcars border ${c.border} ${c.bg} p-4`}>
-          <p className={`font-lcars text-2xl font-bold ${c.text}`}>{posture.posture}</p>
-          <p className="mt-2 text-sm text-lcars-text/90 leading-relaxed">{posture.posture_message}</p>
+        <div className={`rounded-lg border ${c.border} ${c.bg} p-4`}>
+          <p className={`text-2xl font-bold ${c.text}`}>{posture.posture}</p>
+          <p className="mt-2 text-sm text-wb-ink/90 leading-relaxed">{posture.posture_message}</p>
         </div>
-        <div className="rounded-lcars border border-edge bg-space/40 p-4 flex flex-col gap-1">
-          <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{posture.capacity_band}</p>
-          <p className="text-sm text-lcars-text/90 leading-relaxed">{posture.capacity_message}</p>
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 p-4 flex flex-col gap-1">
+          <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{posture.capacity_band}</p>
+          <p className="text-sm text-wb-ink/90 leading-relaxed">{posture.capacity_message}</p>
           {posture.best_window && (
-            <p className="text-xs text-lcars-muted mt-1">Best window: <span className="text-lcars-text">{posture.best_window}</span></p>
+            <p className="text-xs text-wb-ink2 mt-1">Best window: <span className="text-wb-ink">{posture.best_window}</span></p>
           )}
         </div>
       </div>
-    </LCARSPanel>
+    </WorkbenchPanel>
   );
 }
 
@@ -118,19 +117,19 @@ function BodyContextBlock({ ctx }: { ctx: BodyContext }) {
   ];
 
   return (
-    <LCARSPanel title="Body Context" accent="medical" eyebrow="What is the body signalling today?">
+    <WorkbenchPanel title="Body Context" eyebrow="What is the body signalling today?">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {signals.map((s) => {
           const c = stateToneClasses(s.tone);
           return (
-            <div key={s.label} className={`rounded-lcars border ${c.border} ${c.bg} p-3`}>
-              <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{s.label}</p>
+            <div key={s.label} className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
               <p className={`mt-1 text-sm font-semibold ${c.text}`}>{s.value}</p>
             </div>
           );
         })}
       </div>
-    </LCARSPanel>
+    </WorkbenchPanel>
   );
 }
 
@@ -138,21 +137,20 @@ function BodyContextBlock({ ctx }: { ctx: BodyContext }) {
 
 function RecoveryGuidanceBlock({ guidance }: { guidance: string[] }) {
   return (
-    <LCARSPanel
+    <WorkbenchPanel
       title="Recovery Guidance"
-      accent="medical"
       eyebrow="Medical Officer — standing orders"
-      actions={<StatusBadge label="Always present" tone="medical" />}
+      actions={<WorkbenchBadge label="Always present" tone="medical" />}
     >
       <ol className="flex flex-col gap-2">
         {guidance.map((item, i) => (
-          <li key={i} className="flex gap-3 rounded-lcars border border-edge bg-space/40 p-3 text-sm text-lcars-text/90 leading-relaxed">
-            <span className="font-lcars text-medical shrink-0">{i + 1}.</span>
+          <li key={i} className="flex gap-3 rounded-lg border border-wb-line bg-wb-bg/60 p-3 text-sm text-wb-ink/90 leading-relaxed">
+            <span className="text-medical shrink-0">{i + 1}.</span>
             {item}
           </li>
         ))}
       </ol>
-    </LCARSPanel>
+    </WorkbenchPanel>
   );
 }
 
@@ -162,34 +160,38 @@ function MissionLoadGuidance({ posture, mlg }: { posture: RecoveryPostureBand; m
   const tone = POSTURE_STATE_TONE[posture];
   const c    = stateToneClasses(tone);
   return (
-    <LCARSPanel title="Today's Sustainable Load" accent="medical" eyebrow="What is safe and sustainable today?">
+    <WorkbenchPanel
+      title="Today's Sustainable Load"
+      eyebrow="What is safe and sustainable today?"
+      actions={<DataSourceIndicator live={false} variant="inline" mockLabel="Mock data — not yet wired" />}
+    >
       <div className="flex flex-col gap-2">
-        <div className={`rounded-lcars border ${c.border} ${c.bg} px-4 py-3`}>
+        <div className={`rounded-lg border ${c.border} ${c.bg} px-4 py-3`}>
           <p className={`text-sm font-semibold ${c.text}`}>Posture: {posture}</p>
         </div>
-        <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3 text-sm text-lcars-text/90">
-          <span className="text-lcars-muted">Active mission · </span>
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+          <span className="text-wb-ink2">Active mission · </span>
           {mlg.active_mission_id} — {mlg.active_mission_safe ? 'safe to continue' : 'review recommended'}
         </div>
-        <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3 text-sm text-lcars-text/90">
-          <span className="text-lcars-muted">New starts · </span>
+        <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+          <span className="text-wb-ink2">New starts · </span>
           {mlg.new_starts_recommended ? 'Appropriate today' : 'Not recommended today — hold for a STRONG day'}
         </div>
         {mlg.decisions_pending > 0 && (
-          <div className="rounded-lcars border border-edge bg-space/40 px-4 py-3 text-sm text-lcars-text/90">
-            <span className="text-lcars-muted">Decisions · </span>
+          <div className="rounded-lg border border-wb-line bg-wb-bg/60 px-4 py-3 text-sm text-wb-ink/90">
+            <span className="text-wb-ink2">Decisions · </span>
             {mlg.decisions_pending} pending — {mlg.defer_decisions ? 'defer to tomorrow if capacity allows' : 'within capacity to address'}
           </div>
         )}
       </div>
-    </LCARSPanel>
+    </WorkbenchPanel>
   );
 }
 
 // ── Exported composite ───────────────────────────────────────────────────────
 
 export function ROSPanels() {
-  const { posture, bodyContext, guidance, isLive, isLoading } = useROSData();
+  const { posture, bodyContext, guidance, isLive, isLoading, postureFetchFailed } = useROSData();
 
   return (
     <div className="flex flex-col gap-4">
@@ -199,7 +201,7 @@ export function ROSPanels() {
           loading={isLoading}
           variant="inline"
           liveLabel="Live · Supabase"
-          mockLabel="Mock data — no check-in today"
+          mockLabel={postureFetchFailed ? 'Data error — showing placeholder' : 'Mock data — no check-in today'}
           loadingLabel="Loading live data…"
         />
       </div>

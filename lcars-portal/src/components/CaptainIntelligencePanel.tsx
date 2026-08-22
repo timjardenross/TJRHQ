@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { LCARSPanel } from '@/components/LCARSPanel';
+import { WorkbenchPanel } from '@/components/WorkbenchPanel';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
 
 // MSN-0329 Phase 5 — first production consumer of the Cognitive Core
@@ -31,6 +31,7 @@ export function CaptainIntelligencePanel() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recordingId, setRecordingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,8 +68,29 @@ export function CaptainIntelligencePanel() {
     }
   }, [load]);
 
+  const recordOutcome = useCallback(async (id: string, outcome: 'useful' | 'not_useful' | 'incorrect') => {
+    setRecordingId(id);
+    try {
+      const res = await fetch(`/api/captain-intelligence/insights/${id}/outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? 'Failed to record outcome');
+        return;
+      }
+      setInsights((prev) => prev.map((i) => (i.id === id ? { ...i, outcome } : i)));
+    } catch {
+      setError('Failed to record outcome');
+    } finally {
+      setRecordingId(null);
+    }
+  }, []);
+
   return (
-    <LCARSPanel
+    <WorkbenchPanel
       title="Captain Intelligence"
       eyebrow={
         loading
@@ -77,14 +99,13 @@ export function CaptainIntelligencePanel() {
             ? 'MSN-0329 — Cognitive Core'
             : `MSN-0329 — Cognitive Core (observation period, ${insights.length}/20 insights)`
       }
-      accent="command"
       actions={
         <div className="flex items-center gap-3">
           <DataSourceIndicator live={insights.length > 0} loading={loading} variant="inline" liveLabel="Real insights" mockLabel="None yet" />
           <button
             onClick={generate}
             disabled={generating}
-            className="rounded-full border border-edge px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-lcars-text hover:bg-panel/80 disabled:opacity-50"
+            className="rounded-full border border-wb-line px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-wb-ink hover:bg-wb-bg disabled:opacity-50"
           >
             {generating ? 'Synthesising… (can take 1-4 min)' : 'Generate New Insights'}
           </button>
@@ -96,7 +117,7 @@ export function CaptainIntelligencePanel() {
       )}
 
       {!loading && insights.length === 0 && !error && (
-        <p className="text-sm text-lcars-muted">
+        <p className="text-sm text-wb-ink2">
           No Captain Intelligence insights generated yet. This is an observation-period feature — real
           insights accumulate here as the pipeline runs against real operational data. Click
           &quot;Generate New Insights&quot; to run it now.
@@ -105,31 +126,47 @@ export function CaptainIntelligencePanel() {
 
       <div className="flex flex-col gap-3">
         {insights.map((insight) => (
-          <div key={insight.id} className="rounded-lcars border border-edge/60 bg-panel/40 p-3">
+          <div key={insight.id} className="rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wider text-lcars-muted">
+              <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
                 {insight.source_domains?.join(', ')} · {new Date(insight.generated_at).toLocaleString()}
               </span>
-              <span className="text-[10px] uppercase tracking-wider text-lcars-muted">
+              <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
                 confidence {insight.insight_confidence ?? '—'} · {insight.outcome}
               </span>
             </div>
-            <p className="text-sm font-semibold text-lcars-text">{insight.observation}</p>
-            <p className="mt-1 text-sm text-lcars-muted">{insight.why_it_matters}</p>
+            <p className="text-sm font-semibold text-wb-ink">{insight.observation}</p>
+            <p className="mt-1 text-sm text-wb-ink2">{insight.why_it_matters}</p>
             {insight.recommended_action && (
-              <div className="mt-2 border-t border-edge/40 pt-2">
-                <p className="text-sm text-lcars-text">
+              <div className="mt-2 border-t border-wb-line/40 pt-2">
+                <p className="text-sm text-wb-ink">
                   <span className="font-semibold">Recommended: </span>
                   {insight.recommended_action}
                 </p>
                 {insight.trade_offs && (
-                  <p className="mt-1 text-xs text-lcars-muted">Trade-off: {insight.trade_offs}</p>
+                  <p className="mt-1 text-xs text-wb-ink2">Trade-off: {insight.trade_offs}</p>
                 )}
+              </div>
+            )}
+            {insight.outcome === 'pending' && (
+              <div className="mt-2 flex items-center gap-2 border-t border-wb-line/40 pt-2">
+                <span className="text-[10px] uppercase tracking-wider text-wb-ink2">Was this useful?</span>
+                {(['useful', 'not_useful', 'incorrect'] as const).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    disabled={recordingId === insight.id}
+                    onClick={() => recordOutcome(insight.id, o)}
+                    className="rounded-full border border-wb-line px-2 py-0.5 text-[10px] font-medium text-wb-ink hover:bg-wb-bg disabled:opacity-50"
+                  >
+                    {o === 'useful' ? '✓ Useful' : o === 'not_useful' ? 'Not useful' : '✗ Incorrect'}
+                  </button>
+                ))}
               </div>
             )}
           </div>
         ))}
       </div>
-    </LCARSPanel>
+    </WorkbenchPanel>
   );
 }

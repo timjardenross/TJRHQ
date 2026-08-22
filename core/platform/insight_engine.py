@@ -222,11 +222,22 @@ def _parse_insight_response(
     )
 
 
+DEFAULT_MAX_CANDIDATES = 3
+# 2026-08-13: each candidate is one sequential, synchronous model-router
+# call (up to 280s). Was unbounded — the whole pipeline sits behind one
+# fixed ~290s client-side timeout (lcars-portal's generate route), so any
+# run with 3+ real candidates structurally exceeded it. Live evidence: one
+# synthesis call timed out outright, followed by two successful calls
+# taking 77s + 185s = 262s against the 290s budget. Capping bounds
+# wall-clock time regardless of how many candidates a given run surfaces,
+# rather than just raising the ceiling and hitting the same wall at a
+# higher candidate count.
+
 def generate_insights(
     graph: OperationalContextGraph,
     *,
     min_strength: float = 0.4,
-    recent_aggregation_keys: frozenset[str] = frozenset(),
+    max_candidates: int = DEFAULT_MAX_CANDIDATES,
 ) -> list[Insight]:
     """Only relationships clearing `min_strength` and all conflicts are
     sent to the LLM — the deterministic layer remains the actual gate;
@@ -235,22 +246,35 @@ def generate_insights(
     is unreachable or every response was malformed — a real, honest
     empty result, not a fabricated fallback insight.
 
-    2026-08-10: `recent_aggregation_keys` skips 'aggregation'-kind
-    relationships whose (domain, event_type) identity already produced an
-    insight recently (see captain_brief_evolution.py, which fetches this
-    set from insight_outcomes before calling here). Aggregation
-    relationships describe a same-batch count, not a novel finding —
-    without this, a structurally bursty domain (e.g. Downdetector
-    collection runs, daily readiness snapshots) re-synthesizes the exact
-    same non-actionable claim on every scheduled run, forever. Filtered
-    here (before the model router call) rather than after, so the LLM
-    call — the expensive, slow step — is skipped entirely, not just its
-    output discarded."""
-    candidates: list[Relationship | Conflict] = [
-        r for r in graph.relationships
-        if r.strength >= min_strength
-        and not (r.kind == "aggregation" and r.aggregation_key in recent_aggregation_keys)
-    ] + list(graph.conflicts)
+    2026-08-19: 'aggregation'-kind relationships are excluded from
+    synthesis entirely. Their evidence (_aggregation_relationships() in
+    understanding_engine.py) is only ever "N events sharing <key> in
+    this batch" — a count, with no title/content field on
+    AttentionDecision to synthesize meaning from — so every
+    first-occurrence synthesis produced the same generic "review and
+    prioritize the N signals" filler regardless of what the batch
+    actually contained. Replaces the 2026-08-10 `recent_aggregation_keys`
+    dedup, which only suppressed *repeat* synthesis for a key already
+    seen recently and never stopped the noisy first occurrence; that
+    parameter and its fetch (insight_outcomes.fetch_recent_aggregation_keys)
+    are removed as of this change, having no remaining purpose.
+
+    2026-08-13: `max_candidates` bounds the sequential model-router calls
+    this makes (see module-level note above). Conflicts are real detected
+    tensions, not scored by strength, so they're always prioritized ahead
+    of relationships; relationships fill any remaining budget strongest
+    first."""
+    relationship_candidates = sorted(
+        (
+            r for r in graph.relationships
+            if r.strength >= min_strength and r.kind != "aggregation"
+        ),
+        key=lambda r: r.strength,
+        reverse=True,
+    )
+    candidates: list[Relationship | Conflict] = (
+        list(graph.conflicts) + relationship_candidates
+    )[:max_candidates]
 
     insights: list[Insight] = []
     for item in candidates:

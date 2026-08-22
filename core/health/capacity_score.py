@@ -148,6 +148,41 @@ def compute_capacity_score(entry: Dict[str, Any]) -> Tuple[Optional[int], str]:
     return score, status
 
 
+def capacity_zone_from_checkin(row: Optional[Dict[str, Any]]) -> Tuple[Optional[int], str]:
+    """
+    Capacity Gate adapter (D-055) — MY CAPACITY TODAY replaced Recovery
+    Pulse/captains_log_entries as the Captain's day-to-day capacity input
+    2026-08-21. This maps a `capacity_checkins` row's `capacity_state`
+    (green/orange/red — the Captain's own report) directly onto the Gate's
+    existing Green/Amber/Red vocabulary, which is the same trichotomy
+    already, just spelled differently.
+
+    Unlike compute_capacity_score(), there's no weighted formula here — the
+    new model doesn't compute a proxy score from component signals, the
+    Captain's own capacity_state IS the signal. The nominal score
+    (green=90, orange=60, red=25) exists only so callers written against
+    compute_capacity_score()'s (score, status) contract keep working
+    unchanged — nothing should treat this score as more precise than the
+    3-way zone it's derived from.
+
+    Args:
+        row: the most recent capacity_checkins row for the day in question
+             (checkin_type='capacity'), or None/{} if no check-in yet.
+
+    Returns:
+        (score, status) — same shape as compute_capacity_score(), so this
+        is a drop-in replacement at every call site.
+    """
+    if not row or not row.get("capacity_state"):
+        return None, "Unknown"
+
+    zone_score = {"green": 90, "orange": 60, "red": 25}
+    zone_status = {"green": "Green", "orange": "Amber", "red": "Red"}
+
+    state = row["capacity_state"]
+    return zone_score.get(state), zone_status.get(state, "Unknown")
+
+
 def capacity_status_only(score: Optional[int]) -> str:
     """Derive status string from a pre-computed score."""
     if score is None:

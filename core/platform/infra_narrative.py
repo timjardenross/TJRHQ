@@ -96,7 +96,7 @@ def _generate(prompt: str) -> Optional[str]:
     """Try the shared provider chain in order. Never raises — returns None on
     total failure, matching every other narrative generator's fail-open contract."""
     providers = [
-        ("gemini-2.5-flash", lambda p: call_gemini(_SYSTEM_PROMPT, p, api_key=_GEMINI_API_KEY, max_output_tokens=512)),
+        ("gemini-3.5-flash-lite", lambda p: call_gemini(_SYSTEM_PROMPT, p, api_key=_GEMINI_API_KEY, max_output_tokens=512)),
         ("mistral-small",    lambda p: call_mistral(_SYSTEM_PROMPT, p, api_key=_MISTRAL_API_KEY, max_tokens=512)),
         (_OLLAMA_MODEL,      lambda p: call_ollama(_SYSTEM_PROMPT, p, base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL, num_predict=400)),
     ]

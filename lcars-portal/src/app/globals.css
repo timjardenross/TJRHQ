@@ -9,13 +9,16 @@
 }
 
 @layer base {
+  /* Neutral, un-branded default — both route groups paint their own full-
+     height background (AppLayout's own wrapper div for (app)/*,
+     WorkbenchShell's bg-wb-bg for *-workbench routes), so body itself
+     never needs to carry either system's chrome. It previously shipped the
+     legacy LCARS bg/text/gradients with background-attachment: fixed,
+     which paints straight onto the document root — visible during mobile
+     overscroll on *-workbench routes despite neither route group actually
+     depending on it (design-audit finding, advisory-workbench). */
   body {
-    @apply bg-space text-lcars-text font-lcars antialiased;
-    background-image:
-      radial-gradient(circle at 15% 0%, rgba(0, 100, 200, 0.08), transparent 45%),
-      radial-gradient(circle at 85% 5%, rgba(0, 60, 140, 0.06), transparent 40%),
-      radial-gradient(circle at 50% 100%, rgba(255, 152, 0, 0.04), transparent 50%);
-    background-attachment: fixed;
+    @apply bg-white text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
   }
 
@@ -42,18 +45,28 @@
   }
 }
 
-/* Custom scrollbar to match the chrome */
+/* Neutral scrollbar — global, so kept unbranded (matches wb.line/ink2/sage-deep
+   token values directly; not LCARS-specific chrome that would show on
+   *-workbench routes). */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #ccd8ec;
+  background: #E3E8E4;
 }
 ::-webkit-scrollbar-thumb {
-  background: #8aadc4;
+  background: #475569;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #FF9966;
+  background: #0F5B5D;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

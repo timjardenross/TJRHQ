@@ -98,9 +98,9 @@ function LifeParticipationHero({ lp }: { lp: LifeParticipationScore }) {
 
       {/* Hero score */}
       <div className={`flex items-center gap-4 rounded-lcars border ${c.border} ${c.bg} px-5 py-4 mb-4`}>
-        <span className={`font-lcars text-5xl font-bold ${c.text}`}>{lp.score}</span>
+        <span className={`font-sans text-5xl font-bold ${c.text}`}>{lp.score}</span>
         <div>
-          <p className={`font-lcars text-sm font-semibold uppercase tracking-wider ${c.text}`}>
+          <p className={`font-sans text-sm font-semibold uppercase tracking-wider ${c.text}`}>
             {BAND_LABEL[lp.band]}
           </p>
           <p className="text-xs text-lcars-muted mt-0.5">out of 100 · today</p>
@@ -140,7 +140,7 @@ function RecoveryIndexes({ indexes }: { indexes: RecoveryIndex[] }) {
           return (
             <div key={idx.key} className={`rounded-lcars border ${c.border} ${c.bg} p-4`}>
               <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{idx.label}</p>
-              <p className={`font-lcars text-lg font-semibold mt-1 ${c.text}`}>
+              <p className={`font-sans text-lg font-semibold mt-1 ${c.text}`}>
                 {BAND_LABEL[idx.band]}
               </p>
               <p className="text-xs text-lcars-text/70 mt-1 leading-relaxed">{idx.detail}</p>
@@ -323,7 +323,7 @@ function WeeklyPatternSummaryPanel({ summary }: { summary: WeeklyPatternSummary 
         <div className="flex flex-col gap-3">
           <div className="rounded-lcars border border-edge bg-space/40 p-4">
             <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Last 30 days</p>
-            <p className="font-lcars text-lg font-semibold text-command-on">
+            <p className="font-sans text-lg font-semibold text-command-on">
               {period_30d.stable_or_strong} / {period_30d.total_recorded}
             </p>
             <p className="text-xs text-lcars-muted">days stable or strong (of recorded)</p>
@@ -380,7 +380,7 @@ function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
       <div className="grid gap-3 sm:grid-cols-3 mb-4">
         <div className="rounded-lcars border border-medical/40 bg-medical/5 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Latest score</p>
-          <p className="font-lcars text-3xl font-bold text-medical-on mt-0.5">
+          <p className="font-sans text-3xl font-bold text-medical-on mt-0.5">
             {latest.readiness_score ?? '—'}
           </p>
           {latest.readiness_status && (
@@ -392,13 +392,13 @@ function CapacityRestorationPanel({ rows }: { rows: ReadinessTrendRow[] }) {
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Avg ({rows.length})</p>
-          <p className="font-lcars text-3xl font-bold text-command-on mt-0.5">
+          <p className="font-sans text-3xl font-bold text-command-on mt-0.5">
             {isNaN(avgScore) ? '—' : Math.round(avgScore)}
           </p>
         </div>
         <div className="rounded-lcars border border-edge bg-space/40 p-3 text-center">
           <p className="text-[10px] uppercase tracking-wider text-lcars-muted">Sleep latest</p>
-          <p className="font-lcars text-3xl font-bold text-science-on mt-0.5">
+          <p className="font-sans text-3xl font-bold text-science-on mt-0.5">
             {latest.sleep_hours != null ? `${latest.sleep_hours}h` : '—'}
           </p>
         </div>
@@ -488,7 +488,7 @@ function MedicalGuidance({ guidance }: { guidance: string[] }) {
       <ol className="flex flex-col gap-2">
         {guidance.map((item, i) => (
           <li key={i} className="flex gap-3 rounded-lcars border border-edge bg-space/40 p-3 text-sm text-lcars-text/90 leading-relaxed">
-            <span className="font-lcars text-medical-on shrink-0">{i + 1}.</span>
+            <span className="font-sans text-medical-on shrink-0">{i + 1}.</span>
             {item}
           </li>
         ))}
@@ -506,7 +506,7 @@ function PostureSummary({ posture }: { posture: import('@/lib/types').RecoveryPo
     <LCARSPanel title="Today's Posture" accent="medical" eyebrow="From Captain's Chair">
       <div className={`flex items-start gap-3 rounded-lcars border ${c.border} ${c.bg} p-4`}>
         <div>
-          <p className={`font-lcars text-sm font-semibold uppercase tracking-wider ${c.text}`}>
+          <p className={`font-sans text-sm font-semibold uppercase tracking-wider ${c.text}`}>
             {posture.posture}
           </p>
           <p className="text-sm text-lcars-text/80 mt-1 leading-relaxed">
@@ -687,14 +687,14 @@ export default function MedicalPage() {
               href="/medical/check-in"
               className="rounded-lcars border border-medical/40 bg-medical/5 px-4 py-3 text-center hover:bg-medical/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-medical-on">Daily Check-In</p>
+              <p className="font-sans text-xs font-bold uppercase tracking-wider text-medical-on">Daily Check-In</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">Sleep · NS · Energy</p>
             </Link>
             <Link
               href="/medical/log-weight"
               className="rounded-lcars border border-command/40 bg-command/5 px-4 py-3 text-center hover:bg-command/10 transition-colors"
             >
-              <p className="font-lcars text-xs font-bold uppercase tracking-wider text-command-on">Weight History</p>
+              <p className="font-sans text-xs font-bold uppercase tracking-wider text-command-on">Weight History</p>
               <p className="text-[10px] text-lcars-muted mt-0.5">30-day trend · manual entry retired</p>
             </Link>
           </div>
@@ -705,9 +705,9 @@ export default function MedicalPage() {
       {activeTab === 'pulse' && (
         <div className="flex flex-col gap-4">
           <div className="rounded-lcars border border-medical/40 bg-medical/5 p-6 text-center">
-            <p className="font-lcars text-2xl font-bold text-medical-on mb-2">Daily Pulse Log</p>
+            <p className="font-sans text-2xl font-bold text-medical-on mb-2">Daily Pulse Log</p>
             <p className="text-sm text-lcars-muted mb-4">Record energy, nervous system, body signals and a daily reflection up to 3 times daily.</p>
-            <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-medical-on hover:bg-medical/30 transition-colors">
+            <Link href="/medical/pulse" className="inline-block rounded-lcars border border-medical bg-medical/20 px-6 py-3 font-sans text-sm font-bold uppercase tracking-wider text-medical-on hover:bg-medical/30 transition-colors">
               Open Pulse Log →
             </Link>
           </div>
@@ -720,9 +720,9 @@ export default function MedicalPage() {
       {/* Check-In tab */}
       {activeTab === 'check-in' && (
         <div className="rounded-lcars border border-command/40 bg-command/5 p-6 text-center">
-          <p className="font-lcars text-2xl font-bold text-command-on mb-2">Daily Check-In</p>
+          <p className="font-sans text-2xl font-bold text-command-on mb-2">Daily Check-In</p>
           <p className="text-sm text-lcars-muted mb-4">Sleep quality, nervous system baseline, energy, pain, and intentions for today.</p>
-          <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-lcars text-sm font-bold uppercase tracking-wider text-command-on hover:bg-command/30 transition-colors">
+          <Link href="/medical/check-in" className="inline-block rounded-lcars border border-command bg-command/20 px-6 py-3 font-sans text-sm font-bold uppercase tracking-wider text-command-on hover:bg-command/30 transition-colors">
             Open Daily Check-In →
           </Link>
         </div>

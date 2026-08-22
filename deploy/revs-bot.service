@@ -1,0 +1,24 @@
+[Unit]
+# REVS Telegram bot (@tjrmindbody_bot) — public-facing REVS coaching
+# check-in bot. See telegram-bots/revs/README.md.
+#
+# Deliberately a SEPARATE service from tg-xo.service — XO is Captain-only
+# (hard chat_id allowlist, full host/shell control); this bot talks to the
+# public and must never share that trust boundary. See README.md's
+# "Why a standalone bot" section.
+Description=REVS Telegram bot (public check-in)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+# Same two-file ordering as tg-xo.service: platform-runtime/.env first for
+# shared SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_JWT_SECRET, then this
+# bot's own .env second for TELEGRAM_BOT_TOKEN. Don't collapse to one file.
+EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
+EnvironmentFile=-/opt/starship-endeavour/telegram-bots/revs/.env
+ExecStart=/opt/starship-endeavour/telegram-bots/revs/.venv/bin/python -m telegram_bots.revs.app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

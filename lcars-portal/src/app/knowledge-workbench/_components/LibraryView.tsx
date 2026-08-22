@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/StatusBadge';
+import { WorkbenchBadge } from '@/components/WorkbenchBadge';
 import { assignCategory } from '@/lib/categoryPropagation';
 import { fetchJson, ApiAuthError } from '@/lib/knowledgeLibraryClient';
 import { DECISION_LABELS, sensitivityTone, formatBytes } from './badges';
@@ -416,8 +416,8 @@ function LibraryViewInner() {
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <StatusBadge label={doc.status} status={doc.status} />
-                          <StatusBadge label={doc.sensitivity} tone={sensitivityTone(doc.sensitivity)} />
+                          <WorkbenchBadge label={doc.status} status={doc.status} />
+                          <WorkbenchBadge label={doc.sensitivity} tone={sensitivityTone(doc.sensitivity)} />
                         </div>
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -425,7 +425,7 @@ function LibraryViewInner() {
                           <span className="rounded-full border border-wb-line px-2 py-0.5 text-[10px] text-wb-ink2">{doc.category}</span>
                         )}
                         {doc.review_decision && (
-                          <StatusBadge
+                          <WorkbenchBadge
                             label={DECISION_LABELS[doc.review_decision]}
                             tone={doc.review_decision === 'rejected' ? 'operations' : doc.review_decision === 'needs_review' ? 'command' : 'status'}
                           />

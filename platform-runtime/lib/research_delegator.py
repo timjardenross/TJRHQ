@@ -12,8 +12,7 @@ Gemini quota exhaustion retries. Once daily quota is exceeded:
 
 Primary flow:
   1. qwen3:8b via Ollama (primary local fallback)
-  2. Gemini 2.5 Flash Lite (secondary fallback)
-  3. Gemini 2.5 Flash (emergency only - premium)
+  2. Gemini 3.5 Flash Lite (secondary fallback)
 
 Non-blocking: If all providers fail, returns error status but does not crash.
 
@@ -64,7 +63,7 @@ class ResearchOutcome:
     """Result of a single research task delegation."""
 
     status: str  # "success", "timeout", "error", "no_providers"
-    provider: str  # "gemini-2.5-flash", "gemini-2-flash", "gemini-2.5-flash-lite", "ollama", "none"
+    provider: str  # "gemini-3.5-flash-lite", "gemini-2-flash", "ollama", "none"
     findings: Optional[str] = None
     references: list[str] = None
     error_message: Optional[str] = None
@@ -174,161 +173,6 @@ def call_mistral_research(
         provider="mistral_agent",
         error_message="empty or failed response",
     )
-
-
-# ============================================================================
-# Provider: Gemini 2.5 Flash
-# ============================================================================
-
-def call_gemini_research(
-    task_description: str,
-    timeout_sec: int = 120
-) -> ResearchOutcome:
-    """Submit research task to Gemini 2.5 Flash via Google AI SDK.
-
-    Args:
-        task_description: What to research
-        timeout_sec: Timeout for API call
-
-    Returns:
-        ResearchOutcome with findings or error status
-    """
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        log.debug("GEMINI_API_KEY not configured, skipping Gemini provider")
-        return ResearchOutcome(
-            status="error",
-            provider="gemini",
-            error_message="GEMINI_API_KEY not configured"
-        )
-
-    try:
-        import google.generativeai as genai
-    except ImportError:
-        log.warning("google-generativeai not installed, skipping Gemini")
-        return ResearchOutcome(
-            status="error",
-            provider="gemini",
-            error_message="google-generativeai package not installed"
-        )
-
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
-        # System prompt for research
-        system_prompt = """You are a research analyst. Your task is to research and provide clear,
-        factual findings on the given topic. Provide structured findings with key points and any
-        relevant citations or sources."""
-
-        user_prompt = f"Research the following topic and provide findings:\n\n{task_description}"
-
-        log.info("Calling Gemini 2.5 Flash for research")
-
-        # Call Gemini API with 429 rate-limit handling (quota-aware)
-        try:
-            response = model.generate_content(
-                user_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=2048,
-                    temperature=0.7,
-                    top_p=0.95,
-                )
-            )
-        except Exception as gemini_error:
-            # Check if this is a 429 rate limit error (quota exhausted)
-            error_str = str(gemini_error)
-            if "429" in error_str or "quota" in error_str or "rate" in error_str.lower():
-                # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota exhausted - NO REPEATED RETRIES
-                # Extract retry delay to understand scope of quota exhaustion
-                retry_delay_sec = 34  # Default based on observed error message
-                if "retry_delay" in error_str:
-                    try:
-                        import re
-                        match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
-                        if match:
-                            retry_delay_sec = int(match.group(1))
-                    except:
-                        pass
-
-                # If daily quota exhausted (large retry_delay), log and fail immediately
-                # Do NOT wait and retry - this prevents repeated 34-second waits
-                if retry_delay_sec >= 30 or "daily" in error_str.lower():
-                    log.error(
-                        f"[QUOTA-AWARE] Gemini DAILY quota exhausted "
-                        f"(retry_delay={retry_delay_sec}s). "
-                        f"Failing immediately - NO retry. "
-                        f"Fallback to Ollama for remaining research tasks."
-                    )
-                    return ResearchOutcome(
-                        status="quota_exhausted",
-                        provider="gemini",
-                        error_message=f"Gemini daily quota exhausted (retry_delay={retry_delay_sec}s). No fallback retry.",
-                        fallback_reason="gemini_quota_exhausted"
-                    )
-                else:
-                    # Smaller retry delay - might be temporary rate limit, retry once
-                    log.warning(
-                        f"[QUOTA-AWARE] Gemini rate limited (retry_delay={retry_delay_sec}s). "
-                        f"Retrying once..."
-                    )
-
-                    time.sleep(min(retry_delay_sec + 2, 5))  # Cap wait at 5s for non-daily quota
-
-                    try:
-                        log.info("Retrying Gemini after rate limit wait")
-                        response = model.generate_content(
-                            user_prompt,
-                            generation_config=genai.types.GenerationConfig(
-                                max_output_tokens=2048,
-                                temperature=0.7,
-                                top_p=0.95,
-                            )
-                        )
-                        log.info("Gemini retry succeeded after rate limit wait")
-                    except Exception as retry_error:
-                        log.warning(f"Gemini retry failed: {retry_error}. Returning rate_limited status.")
-                        return ResearchOutcome(
-                            status="rate_limited",
-                            provider="gemini",
-                            error_message=f"Gemini rate limited (retried, failed): {str(retry_error)[:100]}",
-                            fallback_reason="gemini_rate_limited"
-                        )
-            else:
-                # Not a rate limit error, re-raise
-                raise gemini_error
-
-        findings = response.text if response.text else "No findings returned"
-
-        log.info(f"Gemini research successful: {len(findings)} chars")
-
-        return ResearchOutcome(
-            status="success",
-            provider="gemini",
-            findings=findings,
-            references=[],  # Gemini inline citations, not separate refs
-            tokens_used={
-                "input": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
-                "output": response.usage_metadata.candidates_token_count if response.usage_metadata else 0
-            }
-        )
-
-    except (ImportError, AttributeError) as e:
-        log.warning(f"Gemini API error (skipping): {e}")
-        return ResearchOutcome(
-            status="error",
-            provider="gemini",
-            error_message=f"Gemini API error: {str(e)}"
-        )
-
-    except Exception as e:
-        log.error(f"Gemini research failed: {e}")
-        return ResearchOutcome(
-            status="error",
-            provider="gemini",
-            error_message=f"Gemini error: {str(e)}"
-        )
 
 
 # ============================================================================
@@ -603,7 +447,7 @@ def call_gemini_2_5_flash_lite_research(
         log.debug("GEMINI_API_KEY not configured, skipping Gemini 2.5 Flash Lite provider")
         return ResearchOutcome(
             status="error",
-            provider="gemini-2.5-flash-lite",
+            provider="gemini-3.5-flash-lite",
             error_message="GEMINI_API_KEY not configured"
         )
 
@@ -613,13 +457,13 @@ def call_gemini_2_5_flash_lite_research(
         log.warning("google-generativeai not installed, skipping Gemini 2.5 Flash Lite")
         return ResearchOutcome(
             status="error",
-            provider="gemini-2.5-flash-lite",
+            provider="gemini-3.5-flash-lite",
             error_message="google-generativeai package not installed"
         )
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+        model = genai.GenerativeModel("gemini-3.5-flash-lite")
 
         user_prompt = f"Research the following topic and provide findings:\n\n{task_description}"
 
@@ -659,7 +503,7 @@ def call_gemini_2_5_flash_lite_research(
                     )
                     return ResearchOutcome(
                         status="quota_exhausted",
-                        provider="gemini-2.5-flash-lite",
+                        provider="gemini-3.5-flash-lite",
                         error_message=f"Gemini daily quota exhausted (retry_delay={retry_delay_sec}s). No fallback retry.",
                         fallback_reason="gemini_quota_exhausted"
                     )
@@ -683,7 +527,7 @@ def call_gemini_2_5_flash_lite_research(
                         log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
                         return ResearchOutcome(
                             status="rate_limited",
-                            provider="gemini-2.5-flash-lite",
+                            provider="gemini-3.5-flash-lite",
                             error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}",
                             fallback_reason="gemini_rate_limited"
                         )
@@ -696,7 +540,7 @@ def call_gemini_2_5_flash_lite_research(
 
         return ResearchOutcome(
             status="success",
-            provider="gemini-2.5-flash-lite",
+            provider="gemini-3.5-flash-lite",
             findings=findings,
             references=[],
             tokens_used={
@@ -709,7 +553,7 @@ def call_gemini_2_5_flash_lite_research(
         log.warning(f"Gemini 2.5 Flash Lite API error: {e}")
         return ResearchOutcome(
             status="error",
-            provider="gemini-2.5-flash-lite",
+            provider="gemini-3.5-flash-lite",
             error_message=f"Gemini 2.5 Flash Lite API error: {str(e)}"
         )
 
@@ -717,7 +561,7 @@ def call_gemini_2_5_flash_lite_research(
         log.error(f"Gemini 2.5 Flash Lite research failed: {e}")
         return ResearchOutcome(
             status="error",
-            provider="gemini-2.5-flash-lite",
+            provider="gemini-3.5-flash-lite",
             error_message=f"Gemini 2.5 Flash Lite error: {str(e)}"
         )
 
@@ -740,9 +584,8 @@ def delegate_research_task(
     Gemini quota exhaustion retries and 34-second waits that degrade research.
 
     Provider chain (in order, quota-aware):
-      1. Gemini 2.5 Flash Lite (primary - if quota available AND not exhausted)
+      1. Gemini 3.5 Flash Lite (primary - if quota available AND not exhausted)
       2. qwen3:8b via Ollama (fallback - local, free, no quota limits)
-      3. Gemini 2.5 Flash (emergency only - premium, reserved)
 
     Quota Budgeting (per-mission):
     - Max GEMINI_MAX_CALLS_PER_MISSION (default=1) per mission
@@ -803,8 +646,7 @@ def delegate_research_task(
     providers = [
         ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
-        ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
+        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
     ]
 
     # ========================================================================
@@ -836,8 +678,7 @@ def delegate_research_task(
     providers = [
         ("mistral_agent", "Mistral Research Agent (primary)", lambda td, timeout_sec=60: call_mistral_research(td, timeout_sec=timeout_sec, mission_id=mission_id)),
         ("ollama", f"{LOCAL_FALLBACK_MODEL} via Ollama (local fallback)", call_ollama_research),
-        ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
-        ("gemini-2.5-flash", "Gemini 2.5 Flash (emergency only - premium)", call_gemini_research),
+        ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (secondary fallback - quota-aware)", call_gemini_2_5_flash_lite_research),
     ]
 
     # MSN-0060B: Reorder providers by adaptive routing if available
@@ -936,7 +777,7 @@ def delegate_research_task(
         provider_attempted=providers_attempted,
         provider_skipped=providers_skipped,
         execution_time_ms=execution_time_ms,
-        error_message="All providers exhausted (Gemini 2.5 Flash Lite, Ollama, Gemini 2.5 Flash)",
+        error_message="All providers exhausted (Gemini 3.5 Flash Lite, Ollama)",
         fallback_reason="all_providers_failed"
     )
 

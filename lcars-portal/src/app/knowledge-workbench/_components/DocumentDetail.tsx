@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/Card';
-import { StatusBadge } from '@/components/StatusBadge';
+import { WorkbenchBadge } from '@/components/WorkbenchBadge';
 import { assignCategory } from '@/lib/categoryPropagation';
 import { DECISION_LABELS, REVIEW_STATUS_LABELS, sensitivityTone } from './badges';
 import type { ProcessingDocument, ProcessingChunk, ReviewDecision } from '@/lib/types';
@@ -80,14 +80,14 @@ export function DocumentDetail({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            <StatusBadge label={detail.status} status={detail.status} />
-            <StatusBadge label={detail.sensitivity} tone={sensitivityTone(detail.sensitivity)} />
-            {detail.category && <StatusBadge label={detail.category} tone="science" />}
+            <WorkbenchBadge label={detail.status} status={detail.status} />
+            <WorkbenchBadge label={detail.sensitivity} tone={sensitivityTone(detail.sensitivity)} />
+            {detail.category && <WorkbenchBadge label={detail.category} tone="science" />}
             {detail.memory_document_id && (
-              <StatusBadge label="Committed to Memory" tone="medical" />
+              <WorkbenchBadge label="Committed to Memory" tone="medical" />
             )}
             {detail.review_decision && !detail.memory_document_id && (
-              <StatusBadge
+              <WorkbenchBadge
                 label={DECISION_LABELS[detail.review_decision]}
                 tone={detail.review_decision === 'rejected' ? 'operations' : 'command'}
               />

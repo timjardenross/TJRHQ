@@ -46,18 +46,31 @@ export function CaptainApprovalQueue() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [flash, setFlash] = useState<ApprovalQueueFlash | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('missions')
         .select('mission_id, title, status, priority, created_by, created_at')
         .in('status', AWAITING_STATUSES)
         .order('created_at', { ascending: false })
         .limit(20);
+      // A real query error previously fell through `data ?? []` and rendered
+      // an empty queue indistinguishable from "nothing awaiting approval" —
+      // surface it instead, matching every other fixed panel on this page.
+      if (error) {
+        console.error('[CaptainApprovalQueue] load failed:', error);
+        setLoadError(error.message);
+        return;
+      }
+      setLoadError(null);
       setMissions(data ?? []);
+    } catch (e) {
+      console.error('[CaptainApprovalQueue] load threw:', e);
+      setLoadError(e instanceof Error ? e.message : 'Failed to load approval queue');
     } finally {
       setLoading(false);
     }
@@ -89,15 +102,23 @@ export function CaptainApprovalQueue() {
   }, []);
 
   return (
-    <ApprovalQueue
-      title="Captain's Queue"
-      items={missions.map(toItem)}
-      loading={loading}
-      actingId={acting}
-      flash={flash}
-      onRefresh={load}
-      onApprove={(id) => decide(id, 'approve')}
-      onReject={(id, reason) => decide(id, 'reject', reason)}
-    />
+    <div className="flex flex-col gap-2">
+      {loadError && (
+        <p className="rounded border border-wb-crit/40 bg-wb-crit/10 p-2 text-xs text-wb-crit-on">
+          Failed to load approval queue: {loadError}
+        </p>
+      )}
+      <ApprovalQueue
+        title="Captain's Queue"
+        theme="wb"
+        items={missions.map(toItem)}
+        loading={loading}
+        actingId={acting}
+        flash={flash}
+        onRefresh={load}
+        onApprove={(id) => decide(id, 'approve')}
+        onReject={(id, reason) => decide(id, 'reject', reason)}
+      />
+    </div>
   );
 }

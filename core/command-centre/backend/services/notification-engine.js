@@ -122,26 +122,6 @@ async function checkHealthDecline() {
   } catch { return []; }
 }
 
-async function checkRecoveryGap() {
-  try {
-    const rows = await supabaseGet(
-      'recovery_pulses?select=log_date&order=log_date.desc&limit=1'
-    );
-    if (!rows || !rows.length) return [];
-    const lastDate = new Date(rows[0].log_date);
-    const ageH = (Date.now() - lastDate.getTime()) / 3600000;
-    if (ageH < 48) return [];
-    const key = 'recovery:pulse-gap';
-    const note = _push(
-      key,
-      'Recovery pulse gap',
-      `No recovery pulse logged in ${Math.round(ageH)}h. Last recorded: ${rows[0].log_date}.`,
-      ageH >= 72 ? 'High' : 'Medium'
-    );
-    return note ? [note] : [];
-  } catch { return []; }
-}
-
 async function checkRepeatedEscalations() {
   try {
     const rows = await supabaseGet(
@@ -203,7 +183,6 @@ async function evaluate() {
       checkAwaitingApproval(),
       checkStagnantMissions(),
       checkHealthDecline(),
-      checkRecoveryGap(),
       checkRepeatedEscalations(),
     ]);
 

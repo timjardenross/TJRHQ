@@ -184,22 +184,41 @@ class BriefGenerator:
 
     # ─── Private helpers ──────────────────────────────────────────────────────
 
+    _RISK_ORDER = {"GREEN": 0, "AMBER": 1, "RED": 2}
+
+    def _event_risk_rating(self, event: RankedEvent) -> str:
+        if event.customer_impact == "high" or event.banking_relevance == "high":
+            return "RED"
+        if event.customer_impact == "medium" or event.banking_relevance == "medium":
+            return "AMBER"
+        return "GREEN"
+
     def _compute_risk(self, top: list[RankedEvent]) -> str:
         if not top:
             return "UNKNOWN"
         high_count = sum(1 for e in top if e.customer_impact == "high" or e.banking_relevance == "high")
         if high_count >= 2 or any(e.cps230_relevance and e.customer_impact == "high" for e in top):
-            return "RED"
-        if high_count >= 1 or any(e.customer_impact == "medium" for e in top):
-            return "AMBER"
-        return "GREEN"
+            aggregate = "RED"
+        elif high_count >= 1 or any(e.customer_impact == "medium" for e in top):
+            aggregate = "AMBER"
+        else:
+            aggregate = "GREEN"
+
+        # Floor at the worst individual event rating — the aggregate escalation
+        # rules above require 2+ high-severity events to reach RED, which let a
+        # single genuinely RED-rated event (_event_risk_rating) sit under an
+        # AMBER/GREEN overall_risk. brief_qa_agent's risk_accuracy_score check
+        # (and brief_coherence's overall_risk_justified) both correctly flag
+        # that as a mismatch — a brief must never rate itself below its own
+        # worst included event. Confirmed live: this was the single biggest
+        # driver of "0 passed" every nightly QA run since 2026-06-20.
+        worst_event = max((self._event_risk_rating(e) for e in top), key=self._RISK_ORDER.get)
+        if self._RISK_ORDER[worst_event] > self._RISK_ORDER[aggregate]:
+            return worst_event
+        return aggregate
 
     def _to_brief_event(self, event: RankedEvent) -> BriefEvent:
-        risk = "GREEN"
-        if event.customer_impact == "high" or event.banking_relevance == "high":
-            risk = "RED"
-        elif event.customer_impact == "medium" or event.banking_relevance == "medium":
-            risk = "AMBER"
+        risk = self._event_risk_rating(event)
 
         status = "Ongoing"
         title_lower = event.raw_title.lower()
@@ -350,10 +369,10 @@ TOP EVENTS THIS PERIOD:
 
 Respond with a JSON object containing exactly these keys:
 {{
-  "executive_snapshot": "<2-3 sentence overall summary of the intelligence period>",
+  "executive_snapshot": "<2-3 sentence overall summary of the intelligence period — must explicitly name or closely paraphrase at least one of the TOP EVENTS titles above, not a generic summary>",
   "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],
   "forward_watch": ["<upcoming risk or watch item 1>", "<upcoming risk or watch item 2>"],
-  "cps230_implications": ["<implication 1>", "<implication 2>"],
+  "cps230_implications": ["<implication 1 — use operational resilience terms like resilience, continuity, availability, or recovery where relevant>", "<implication 2>"],
   "bottom_line": "<one paragraph, what Captain TJR should know and do>"
 }}
 

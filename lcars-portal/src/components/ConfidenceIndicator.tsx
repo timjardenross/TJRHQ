@@ -45,7 +45,7 @@ export function ConfidenceIndicator({ score, label, compact = false }: Confidenc
         <div className="h-2 flex-1 rounded-full bg-edge/30 overflow-hidden">
           <div className={`h-full rounded-full ${c.dot} transition-all`} style={{ width: `${pct}%` }} />
         </div>
-        <span className={`font-lcars text-sm font-bold shrink-0 ${c.text}`}>{valueText}</span>
+        <span className={`font-sans text-sm font-bold shrink-0 ${c.text}`}>{valueText}</span>
       </div>
     );
   }

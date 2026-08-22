@@ -228,9 +228,9 @@ describe('assembleInterrupts', () => {
     expect(result.uncheckedDomains).toContain('Recovery posture');
   });
 
-  it('nominates a recovery-escalation interrupt when the latest pulse notes carry a real red flag', async () => {
+  it('nominates a recovery-escalation interrupt when the latest check-in notes carry a real red flag', async () => {
     const supabase = fakeSupabase({
-      recovery_pulses: {
+      capacity_checkins: {
         data: [{ notes: 'chest pain and cannot breathe', captured_at: '2026-07-09T08:00:00Z' }],
       },
     });
@@ -242,7 +242,7 @@ describe('assembleInterrupts', () => {
 
   it('does not nominate a recovery-escalation interrupt when the red-flag phrase is negated', async () => {
     const supabase = fakeSupabase({
-      recovery_pulses: { data: [{ notes: 'no chest pain today', captured_at: '2026-07-09T08:00:00Z' }] },
+      capacity_checkins: { data: [{ notes: 'no chest pain today', captured_at: '2026-07-09T08:00:00Z' }] },
     });
     const result = await assembleInterrupts(supabase);
     expect(result.interrupts.find((i) => i.domain === 'Recovery escalation')).toBeUndefined();
@@ -250,7 +250,7 @@ describe('assembleInterrupts', () => {
 
   it('nominates a pain-trend interrupt above the disclosed critical threshold (8)', async () => {
     const supabase = fakeSupabase({
-      recovery_pulses: {
+      capacity_checkins: {
         data: [
           { pain_score: 9, captured_at: '2026-07-09T08:00:00Z' },
           { pain_score: 9, captured_at: '2026-07-08T08:00:00Z' },
@@ -264,7 +264,7 @@ describe('assembleInterrupts', () => {
 
   it('does not nominate a pain-trend interrupt at or below the elevated threshold (6)', async () => {
     const supabase = fakeSupabase({
-      recovery_pulses: { data: [{ pain_score: 4, captured_at: '2026-07-09T08:00:00Z' }] },
+      capacity_checkins: { data: [{ pain_score: 4, captured_at: '2026-07-09T08:00:00Z' }] },
     });
     const result = await assembleInterrupts(supabase);
     expect(result.interrupts.find((i) => i.domain === 'Recovery pain trend')).toBeUndefined();

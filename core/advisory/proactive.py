@@ -21,7 +21,8 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import triggers as _triggers
-import opportunities as _opportunities
+from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+_opportunities = _import_sibling("opportunities")
 import notifications as _notifications
 import advisory_health as _advisory_health
 import signals as _signals

@@ -107,7 +107,7 @@ export default function AutomationCentrePage() {
             Visibility and configuration for all active automations and alert routing.
           </p>
           {currentTime && (
-            <span className="text-lcars-text font-lcars text-lg tabular-nums">
+            <span className="text-lcars-text font-sans text-lg tabular-nums">
               {currentTime}
             </span>
           )}
@@ -190,7 +190,7 @@ export default function AutomationCentrePage() {
             return (
               <div key={ch.name} className="bg-panel rounded-lcars p-4 border border-edge">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-lcars-text font-lcars font-medium">{ch.name}</span>
+                  <span className="text-lcars-text font-sans font-medium">{ch.name}</span>
                   <span className={`inline-block w-2 h-2 rounded-full ${retired ? 'bg-science' : 'bg-edge'}`} />
                 </div>
                 <p className="text-lcars-muted text-xs mb-2">{ch.description}</p>

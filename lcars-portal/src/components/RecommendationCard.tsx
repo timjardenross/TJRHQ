@@ -45,43 +45,43 @@ export function RecommendationCard({
   compact = false,
 }: RecommendationCardProps) {
   return (
-    <div className="rounded-lcars border border-command/40 bg-command/5 p-3">
+    <div className="rounded-lg border border-wb-sage-deep/40 bg-wb-sage-deep/5 p-3">
       <div className="mb-1.5 flex items-center justify-between">
-        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-lcars-muted">{title}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-wb-ink2">{title}</p>
         {!compact && isLive !== undefined && <DataSourceIndicator live={isLive} variant="inline" />}
       </div>
 
       {recommendation ? (
         <div className="flex flex-col gap-1.5">
-          <p className={`text-sm font-semibold leading-snug ${compact ? 'text-command' : 'text-lcars-text'}`}>
+          <p className={`text-sm font-semibold leading-snug ${compact ? 'text-wb-sage-deep' : 'text-wb-ink'}`}>
             {recommendation.action}
           </p>
-          {!compact && recommendation.why && <p className="text-[11px] text-lcars-text/70">{recommendation.why}</p>}
+          {!compact && recommendation.why && <p className="text-[11px] text-wb-ink/70">{recommendation.why}</p>}
           {compact ? (
-            <p className="text-[11px] text-lcars-muted">
+            <p className="text-[11px] text-wb-ink2">
               {recommendation.sourceOfficer} · {recommendation.confidence}
             </p>
           ) : (
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] uppercase tracking-wide">
-              <span className="text-command">{recommendation.sourceOfficer}</span>
-              <span className="text-lcars-muted">Confidence · {recommendation.confidence}</span>
+              <span className="text-wb-sage-deep">{recommendation.sourceOfficer}</span>
+              <span className="text-wb-ink2">Confidence · {recommendation.confidence}</span>
             </div>
           )}
           {recommendation.evidence && recommendation.evidence.length > 0 && (
             <details className="mt-1 text-[11px]">
-              <summary className="cursor-pointer text-lcars-muted hover:text-lcars-text">
+              <summary className="cursor-pointer text-wb-ink2 hover:text-wb-ink">
                 Evidence ({recommendation.evidence.length})
               </summary>
               <ul className="mt-1 flex flex-col gap-0.5 pl-3">
                 {recommendation.evidence.map((e, i) => (
-                  <li key={i} className="list-disc text-lcars-text/70">{e}</li>
+                  <li key={i} className="list-disc text-wb-ink/70">{e}</li>
                 ))}
               </ul>
             </details>
           )}
         </div>
       ) : (
-        <p className="text-[11px] text-lcars-muted">{isLoading ? loadingMessage : emptyMessage}</p>
+        <p className="text-[11px] text-wb-ink2">{isLoading ? loadingMessage : emptyMessage}</p>
       )}
     </div>
   );

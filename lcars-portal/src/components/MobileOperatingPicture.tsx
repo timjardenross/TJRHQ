@@ -55,35 +55,35 @@ export function MobileOperatingPicture() {
     <div className="flex flex-col gap-3 lg:hidden">
       {/* ── What needs my decision? banner ── */}
       <Link
-        href="/alerts"
+        href="/captains-chair-workbench/alerts"
         className={[
-          'block rounded-lcars border p-4',
+          'block rounded-lg border p-4',
           decisionAlerts.length > 0 || escalations.length > 0
             ? 'border-operations/60 bg-operations/10'
             : 'border-status/40 bg-status/5',
         ].join(' ')}
       >
-        <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">What needs my decision?</p>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-wb-ink2">What needs my decision?</p>
         {decisionAlerts.length > 0 || escalations.length > 0 ? (
           <>
-            <p className="mt-1 font-lcars text-xl font-bold text-operations">
+            <p className="mt-1 text-xl font-bold text-operations">
               {decisionAlerts.length + escalations.length} need{decisionAlerts.length + escalations.length === 1 ? 's' : ''} you
             </p>
-            <p className="mt-0.5 text-sm text-lcars-text/85">
+            <p className="mt-0.5 text-sm text-wb-ink/85">
               {(decisionAlerts[0] ?? escalations[0]).title}
             </p>
             <p className="mt-1 text-[11px] uppercase tracking-[0.15em] text-operations">Open alerts →</p>
           </>
         ) : (
-          <p className="mt-1 font-lcars text-xl font-bold text-status">Nothing right now</p>
+          <p className="mt-1 text-xl font-bold text-status">Nothing right now</p>
         )}
       </Link>
 
       {/* ── Capacity / posture ── */}
-      <div className={`rounded-lcars border ${p.border} ${p.bg} p-4`}>
-        <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">Today’s capacity</p>
+      <div className={`rounded-lg border ${p.border} ${p.bg} p-4`}>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-wb-ink2">Today’s capacity</p>
         <div className="mt-1 flex items-baseline gap-2">
-          <p className={`font-lcars text-2xl font-bold ${p.text}`}>{p.label}</p>
+          <p className={`text-2xl font-bold ${p.text}`}>{p.label}</p>
           <span className={`text-xs font-semibold uppercase tracking-wide ${p.text}`}>{band}</span>
         </div>
         {/* posture.posture_message intentionally not repeated here — the
@@ -91,10 +91,10 @@ export function MobileOperatingPicture() {
             DOM order puts it right before this) already shows it; this
             card's job is just the at-a-glance band + label. */}
         <div className="mt-2 flex gap-2">
-          <Link href="/recovery-brief" className="flex-1 rounded-lcars border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
+          <Link href="/human-systems-workbench/recovery-brief" className="flex-1 rounded-lg border border-medical/40 bg-medical/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-medical">
             Recovery brief
           </Link>
-          <Link href="/capture-workbench" className="flex-1 rounded-lcars border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
+          <Link href="/capture-workbench" className="flex-1 rounded-lg border border-engineering/40 bg-engineering/5 py-2 text-center text-[10px] uppercase tracking-[0.15em] text-engineering">
             Quick capture
           </Link>
         </div>
@@ -111,11 +111,11 @@ export function MobileOperatingPicture() {
 
       {/* ── Escalations ── */}
       {escalations.length > 0 && (
-        <div className="rounded-lcars border border-operations/40 bg-operations/10 p-4">
+        <div className="rounded-lg border border-operations/40 bg-operations/10 p-4">
           <p className="mb-2 text-[10px] uppercase tracking-[0.3em] text-operations">Escalations</p>
           <ul className="flex flex-col gap-1.5">
             {escalations.slice(0, 3).map((e) => (
-              <li key={e.id} className="text-sm text-lcars-text/85">• {e.title}</li>
+              <li key={e.id} className="text-sm text-wb-ink/85">• {e.title}</li>
             ))}
           </ul>
         </div>
@@ -123,10 +123,10 @@ export function MobileOperatingPicture() {
 
       {/* ── Blocked work ── */}
       {blocked.length > 0 && (
-        <Link href="/engineering-queue" className="block rounded-lcars border border-operations/40 bg-operations/5 p-4">
+        <Link href="/captains-chair-workbench/engineering-queue" className="block rounded-lg border border-operations/40 bg-operations/5 p-4">
           <p className="text-[10px] uppercase tracking-[0.3em] text-operations">Blocked / failed</p>
           <p className="mt-1 text-sm font-semibold text-operations">{blocked.length} item{blocked.length === 1 ? '' : 's'} need clearing</p>
-          <p className="text-[11px] uppercase tracking-[0.15em] text-lcars-muted">Open engineering queue →</p>
+          <p className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2">Open engineering queue →</p>
         </Link>
       )}
     </div>

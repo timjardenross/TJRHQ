@@ -36,7 +36,7 @@ export default function HumanSystemsPage() {
         <p className="text-[10px] uppercase tracking-[0.3em] text-lcars-muted">
           HSF-001 · Human Operating System
         </p>
-        <h1 className="font-lcars text-2xl font-bold text-medical">Human Systems</h1>
+        <h1 className="font-sans text-2xl font-bold text-medical">Human Systems</h1>
         <p className="mt-1 max-w-2xl text-sm text-lcars-text/80 leading-relaxed">
           The Captain&apos;s Capacity Advisor. It reads capacity, recovery, and mission load
           together and recommends what to prioritise, what to defer, and the single

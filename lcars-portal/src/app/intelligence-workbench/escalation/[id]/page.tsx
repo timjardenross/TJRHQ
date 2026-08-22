@@ -89,7 +89,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
             <span className="h-3 w-3 animate-pulse rounded-full bg-white" aria-hidden />
             <div>
               <div className="font-serif text-[20px]" role="status" aria-live="assertive">
-                🔴 {brief.overall_risk === 'RED' ? 'CRITICAL INCIDENT' : `Status: ${brief.overall_risk ?? 'UNKNOWN'}`}
+                {brief.overall_risk === 'RED' ? 'CRITICAL INCIDENT' : `Status: ${brief.overall_risk ?? 'UNKNOWN'}`}
               </div>
               <div className="text-[13px] opacity-90">{(brief.executive_snapshot ?? '').slice(0, 100) || 'Operational resilience incident'}</div>
             </div>
@@ -101,10 +101,10 @@ export default function Escalation({ params }: { params: { id: string } }) {
                 {Object.keys(DIM_LABEL).map((k) => (
                   <div key={k} className="flex items-center gap-2 text-[12.5px]">
                     <span className="w-[130px]">{DIM_LABEL[k]}</span>
-                    <span className="h-1.5 flex-1 overflow-hidden rounded bg-wb-line">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded bg-wb-line" aria-hidden="true">
                       <span className="block h-full bg-wb-sage" style={{ width: `${((dims[k] ?? 0) / 5) * 100}%` }} />
                     </span>
-                    <span className="w-6 text-right text-wb-ink2">{dims[k] ?? '—'}</span>
+                    <span className="w-6 text-right tabular-nums text-wb-ink2">{dims[k] ?? '—'}</span>
                   </div>
                 ))}
               </div>
@@ -114,12 +114,12 @@ export default function Escalation({ params }: { params: { id: string } }) {
           <Card title="Immediate actions">
             <div className="flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.notify_telegram', {}, 'Send Telegram alert')}
-                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
-                📱 Send Telegram Alert
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+                Send Telegram Alert
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to Captain')}
-                className="rounded-md border border-wb-warn-on bg-wb-warn-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
-                🚀 Escalate to Captain
+                className="rounded-md border border-wb-warn-on bg-wb-warn-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
+                Escalate to Captain
               </button>
             </div>
             {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
@@ -134,7 +134,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
               className="w-full rounded-md border border-wb-line p-2.5 text-[13px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep" />
             <button disabled={!!busy}
               onClick={() => act('brief.stand_down', lesson ? { lesson_text: lesson, category: 'methodology_change' } : {}, 'Stand-down')}
-              className="mt-3 rounded-md border border-wb-ink bg-wb-ink px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+              className="mt-3 rounded-md border border-wb-ink bg-wb-ink px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
               Record lesson &amp; close
             </button>
           </Card>

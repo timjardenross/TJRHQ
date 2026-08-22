@@ -275,7 +275,7 @@ Return ONLY the JSON, no other text.
 Capture text:
 ${text}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
   const payload = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
@@ -324,7 +324,7 @@ ${text}`;
       suggested_route: json.suggested_route || 'none',
       confidence:      typeof json.confidence === 'number' ? Math.min(1, Math.max(0, json.confidence)) : 0.5,
       reasoning:       (json.reasoning || '').slice(0, 300),
-      model:           'gemini-2.5-flash',
+      model:           'gemini-3.5-flash-lite',
     };
   } catch (err) {
     console.warn('[capture/enrich] Gemini call failed:', err.message);

@@ -1,0 +1,106 @@
+# REVS Content Creation Agents - Configuration Template
+# install.sh copies this to config/config.yml on a fresh setup. Keep this in
+# sync with reality (see README.md's "Deviations from the original spec") -
+# an earlier version of this file described the pre-pivot stack (Ollama/SD/
+# Coqui) and a fresh install would silently regenerate a misleading config.
+
+# System Configuration
+system:
+  name: REVS Content Agents
+  version: 1.0.0
+  environment: development  # development | staging | production
+
+# LLM Configuration - NOT CURRENTLY USED. brief_parser.py is a fully deterministic
+# Markdown-structure parser, no LLM call is made for parsing. Kept here as the
+# documented fallback path (see README.md) for a future unstructured/freeform brief,
+# which would route through the platform's Local Model Router before parsing - not
+# wired up yet, this section has no effect on running code.
+llm:
+  provider: model_router
+  model: qwen3.5:9b  # already loaded locally via the router; swap per engineering-backend-dispatch-table
+  base_url: http://localhost:8891
+  temperature: 0.7
+  max_tokens: 4000
+  timeout: 300
+
+# Image Generation
+# No GPU required: Gemini image-gen (Nano Banana Pro) generates hero/key art via API.
+# Informational only - the actual model name is hardcoded in gemini_client.py, not
+# read from here.
+images:
+  provider: gemini  # gemini | stable_diffusion (requires GPU) | replicate_api
+  model: gemini-3-pro-image-preview  # see compound-engineering:gemini-imagegen skill
+  use_gpu: false  # only relevant if provider is switched to stable_diffusion
+
+# Text-to-Speech - Gemini, not Coqui (no local GPU assumed). Informational only -
+# the actual model name/sample rate are hardcoded in gemini_client.py, not read
+# from here.
+tts:
+  provider: gemini
+  model: gemini-2.5-flash-preview-tts
+  language: en
+  voice_type: professional  # maps to voice_name="Kore" in gemini_client.py
+  sample_rate: 24000
+
+# Video Generation
+video:
+  fps: 30
+  resolution: 1080p  # 720p | 1080p | 4k
+  codec: libx264
+
+# Output Configuration
+output:
+  base_dir: ./outputs
+  formats:
+    - poster
+    - article
+    - video
+    - worksheet
+    - presentation
+    - podcast
+    - social
+  preserve_intermediate: false
+
+# Processing Configuration
+processing:
+  max_workers: 6
+  batch_size: 1
+  timeout_per_agent: 600
+  retry_attempts: 3
+  retry_delay: 5
+
+# Logging
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+  file: ./logs/app.log
+  console: true
+  format: json  # json | text
+
+# Storage
+storage:
+  type: local  # local | s3 | gcs
+  cache_enabled: true
+  cache_ttl: 3600  # seconds; <=0 means never expire. Wired up in gemini_client.py.
+
+# Brand Configuration
+branding:
+  primary_color: "#0052CC"
+  secondary_color: "#FF9800"
+  accent_color: "#4CAF50"
+  background_color: "#FAFBFC"
+  font_family: sans-serif
+  logo_path: ./assets/logo.png
+
+# API Configuration (optional) - not built, no API server exists. Entry points
+# are the CLI (src/main.py) and the XO Telegram bot's /revs_generate command.
+api:
+  enabled: false
+  host: 0.0.0.0
+  port: 8000
+  debug: false
+
+# Development
+development:
+  debug: false
+  skip_cache: false
+  dry_run: false
