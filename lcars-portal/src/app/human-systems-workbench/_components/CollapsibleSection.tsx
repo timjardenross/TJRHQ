@@ -12,7 +12,7 @@ import { useEffect, useState, type ReactNode } from 'react';
  *  breakpoint. */
 const MOBILE_BREAKPOINT = '(max-width: 639px)';
 
-export function CollapsibleSection({ title, children }: { title: string; children: ReactNode }) {
+export function CollapsibleSection({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function CollapsibleSection({ title, children }: { title: string; childre
     <details
       open={open}
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
-      className="rounded-lg border border-wb-line bg-wb-surface"
+      className={`rounded-lg border border-wb-line bg-wb-surface ${className}`}
     >
       <summary className="cursor-pointer list-none rounded-lg p-6 pb-3 font-serif text-lg text-wb-ink marker:content-none [&::-webkit-details-marker]:hidden">
         <span className="flex items-center justify-between">

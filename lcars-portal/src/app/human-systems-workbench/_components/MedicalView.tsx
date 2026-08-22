@@ -57,8 +57,8 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
   const unqualified = data.intervention_effectiveness.filter((r) => !r.meets_sample_threshold);
 
   return (
-    <div className="flex flex-col gap-4">
-      <CollapsibleSection title="Capacity Domains">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <CollapsibleSection title="Capacity Domains" className="md:col-span-2">
         <p className="mb-3 text-[13px] text-wb-ink2">Five perspectives on available capacity — not independent batteries.</p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {data.capacity_domains.map((d) => (
@@ -70,7 +70,7 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Patterns & Recovery">
+      <CollapsibleSection title="Patterns & Recovery" className="md:col-span-2">
         <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Recovery Conditions</div>
         <p className="mb-3 mt-1 text-[13px] text-wb-ink2">Inputs that influence replenishment — not Capacity itself, which is the outcome these produce.</p>
         <div className="grid gap-2 sm:grid-cols-2">

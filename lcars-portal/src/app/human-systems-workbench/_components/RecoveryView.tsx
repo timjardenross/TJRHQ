@@ -42,16 +42,16 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
   const testingSuggestion = worthTesting(data);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {!data.data_available && (
-        <div className="rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3 text-[13px] text-wb-warn-on">
+        <div className="rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3 text-[13px] text-wb-warn-on md:col-span-2">
           No capacity check-in recorded for today yet. Log one with the Capacity Bot&rsquo;s /capacity command to
           refresh this view.
         </div>
       )}
 
       {/* ── MY SYSTEM NOW (spec §5) ──────────────────────────────────────── */}
-      <Card>
+      <Card className="md:col-span-2">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
@@ -161,7 +161,7 @@ export function RecoveryView({ data }: { data: RecoveryPayload }) {
       </Card>
 
       {/* ── SYSTEM LEARNING (spec §17, renamed from Wellness Intelligence) ── */}
-      <CollapsibleSection title="System Learning">
+      <CollapsibleSection title="System Learning" className="md:col-span-2">
         <div className="flex flex-col gap-3">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
