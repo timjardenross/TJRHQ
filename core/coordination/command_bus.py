@@ -228,6 +228,23 @@ def _slack(message: str) -> bool:
         return False
 
 
+def _esc_md(value: object) -> str:
+    """Escape a DYNAMIC value (not a whole composed message — this file's
+    tg/msg strings mix intentional *bold*/`code` Markdown with interpolated
+    runtime values, so escaping has to happen per-value before interpolation,
+    not on the final string) for legacy Telegram Markdown. 2026-08-22,
+    confirmed live: an unescaped _, *, `, or [ anywhere in the message
+    (including inside a dynamic value like a request ID or raw error text)
+    makes Telegram reject the WHOLE message with HTTP 400 — nothing sent,
+    no exception raised here to notice by. Real risk in this file
+    specifically: req_id, svc, and _restart_executor()'s raw error detail
+    can all plausibly contain underscores."""
+    text = str(value)
+    for ch in ("\\", "_", "*", "`", "["):
+        text = text.replace(ch, "\\" + ch)
+    return text
+
+
 def _telegram(message: str) -> bool:
     if not _TG_TOKEN or not _TG_CHAT_ID:
         log.debug("[bus:telegram] No Telegram token/chat_id configured — skipping")
@@ -340,14 +357,14 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
         if _should_notify(ev, _NOTIFY_COOLDOWN_H):
             msg = (
                 f":warning: *Build Executor Stuck* [{age_min}m]\n"
-                f"Request `{req_id}` has been at `engineering_running` for {age_min} minutes.\n"
+                f"Request `{_esc_md(req_id)}` has been at `engineering_running` for {age_min} minutes.\n"
                 "The executor may have died mid-run. Manual intervention required:\n"
                 "• Reset the row status to `approved` to re-queue, OR\n"
                 "• Archive the request if it should not be retried."
             )
             tg = (
                 f"⚠️ *Build Executor Stuck* [{age_min}m]\n"
-                f"`{req_id}` stuck at `engineering_running` for {age_min}m.\n"
+                f"`{_esc_md(req_id)}` stuck at `engineering_running` for {age_min}m.\n"
                 "Reset to `approved` to re-queue or archive if stale."
             )
             if _route("ALERT", msg, tg):
@@ -442,10 +459,10 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
         sev_emoji = {"CRITICAL": ":sos:", "HIGH": ":rotating_light:", "MEDIUM": ":warning:"}.get(crit, ":bell:")
         msg = (
             f"{sev_emoji} *Service Health Alert* [{crit}]\n"
-            f"`{svc}` is *{state}*.\n"
+            f"`{_esc_md(svc)}` is *{_esc_md(state)}*.\n"
             "Check: `systemctl status <service>` | `journalctl -u <service> -n 50`"
         )
-        tg = f"🆘 *Service Down* [{crit}]\n`{svc}` is *{state}*."
+        tg = f"🆘 *Service Down* [{crit}]\n`{_esc_md(svc)}` is *{_esc_md(state)}*."
         if _route(crit, msg, tg if crit in ("CRITICAL", "HIGH") else None):
             _mark_notified(conn, key)
             log.info("[bus:health] Alerted: %s is %s [%s]", svc, state, crit)
@@ -489,7 +506,7 @@ def _rule_executor_needs_restart(conn: sqlite3.Connection, client) -> None:
     if _should_act(ev, _RESTART_COOLDOWN):
         ok, detail = _restart_executor()
         _mark_acted(conn, key)
-        action_note = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {detail}'}"
+        action_note = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {_esc_md(detail)}'}"
         log.info("[bus:restart] Executor restart %s: %s", "ok" if ok else "FAILED", detail)
     else:
         action_note = "\n• Restart already attempted recently — manual check may be needed."
@@ -498,9 +515,9 @@ def _rule_executor_needs_restart(conn: sqlite3.Connection, client) -> None:
         count = len(approved_pending)
         msg = (
             f":construction: *Build Executor Down — Work Queued*\n"
-            f"`telegram-build-executor.service` is {executor_state} with "
+            f"`telegram-build-executor.service` is {_esc_md(executor_state)} with "
             f"*{count} approved request(s)* waiting to be processed.{action_note}\n"
-            f"Requests: {', '.join(approved_pending[:5])}"
+            f"Requests: {_esc_md(', '.join(approved_pending[:5]))}"
             + (f" (+{count - 5} more)" if count > 5 else "")
         )
         tg = (

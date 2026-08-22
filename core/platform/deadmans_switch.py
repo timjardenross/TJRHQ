@@ -73,6 +73,17 @@ def _supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
     return parsed if isinstance(parsed, list) else [parsed]
 
 
+def _escape_telegram_markdown(text: str) -> str:
+    """Copy of the same fix in core/platform/notification_service.py
+    (2026-08-22, confirmed live) - legacy Telegram Markdown hard-rejects
+    the WHOLE message on an unescaped _, *, `, or [ in dynamic content.
+    Duplicated rather than imported, same reasoning as this file's other
+    duplicated senders - see module docstring."""
+    for ch in ("\\", "_", "*", "`", "["):
+        text = text.replace(ch, "\\" + ch)
+    return text
+
+
 def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
     """Copy of core/platform/notification_service.py's _send_telegram(),
     deliberately duplicated rather than imported - see module docstring."""
@@ -150,7 +161,7 @@ def check() -> Dict[str, Any]:
         if cooldown_elapsed:
             ok, err = _send_telegram(
                 "I can't verify anything right now. "
-                f"{reason}. Treat silence as unknown, not as calm."
+                f"{_escape_telegram_markdown(reason)}. Treat silence as unknown, not as calm."
             )
             alerted = ok
             if ok:

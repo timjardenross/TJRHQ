@@ -201,8 +201,10 @@ def _start_scheduler() -> None:
 
     # ── HEALTH_OSINT_IMPLEMENTATION.md Phase 4: weekly auto-fetch ───────────────
     # Sunday 02:00 — pulls FDA/CDC/ClinicalTrials.gov/bioRxiv/WHO/NIH into
-    # health_signals (suppressed, awaiting curation at /health-osint-curation
-    # before the Sunday-night review window). Separate table/pipeline from
+    # health_signals (suppressed), then immediately auto-curates (2026-08-22
+    # — see health_signal_curation.py): the clear publish/reject calls are
+    # made automatically, only genuinely ambiguous signals still wait at
+    # /health-osint-curation for a human. Separate table/pipeline from
     # intelligence_events — see health_signal_ingestion.py's own docstring.
     scheduler.add_job(
         _health_osint_weekly_fetch_job,
@@ -274,6 +276,27 @@ def _start_scheduler() -> None:
         id="evolved_captain_insight_generation",
         replace_existing=True,
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
+    # ── 2026-08-22: Attention Engine weekly drill (health-check, NOT a real
+    # intelligence job) ────────────────────────────────────────────────────
+    # interrupt_now (core/platform/attention_engine.py) has never fired on
+    # real data — a correct, deliberately conservative threshold design, but
+    # one the real event stream (continuous_attention_evaluation above) has
+    # simply never crossed. That leaves the interrupt_now -> WP2's
+    # interrupt_dispatcher -> Telegram pipeline completely unexercised, so a
+    # silent break in it would go unnoticed indefinitely. This fires one
+    # synthetic, unmistakably [DRILL]-labelled event through the REAL
+    # pipeline weekly (core/platform/attention_drill.py) — a real Telegram
+    # send to the Captain's configured chat is the intended effect, not a
+    # bug. It never touches core_events (no publish_event() call) and is
+    # fully separate from continuous_attention_evaluation's real-data poll,
+    # so it cannot pollute the real event stream.
+    scheduler.add_job(
+        _attention_drill_job,
+        CronTrigger(day_of_week="mon", hour=8, minute=0, timezone=tz),
+        id="attention_engine_weekly_drill",
+        replace_existing=True,
     )
 
     # ── USS-TJR-MSN-0339 WP5: Operational Intelligence Validation Suite ───────
@@ -590,24 +613,44 @@ def _health_osint_weekly_fetch_job() -> None:
     exactly this invocation shape.
 
     Every signal this inserts lands suppressed + auto_ingest_reviewed=false
-    (migrations 0141, 0143) — nothing here reaches the main /health-osint
-    dashboard until reviewed at /health-osint-curation.
+    (migrations 0141, 0143). 2026-08-22: the documented "Sunday 8-10pm human
+    review window" never actually happened in practice — confirmed live,
+    141 signals sat pending with 1 published and 3 rejected since this
+    launched. Auto-curation now runs immediately after a successful fetch
+    (same job, sequential — not a separate fixed-offset cron trigger, which
+    could race if ingestion ran long) so the queue doesn't silently
+    accumulate again. See health_signal_curation.py's own docstring: it
+    only auto-decides the clear PUBLISH/REJECT cases and leaves genuinely
+    ambiguous signals for a human at /health-osint-curation, never guesses.
     """
     log.info("Health OSINT weekly fetch triggered")
     try:
         import subprocess
 
-        script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "health-osint", "health_signal_ingestion.py")
+        health_osint_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools", "health-osint")
+        ingest_script = os.path.join(health_osint_dir, "health_signal_ingestion.py")
         result = subprocess.run(
-            [sys.executable, script],
+            [sys.executable, ingest_script],
             capture_output=True, text=True, timeout=600,
         )
         if result.returncode != 0:
             log.error("Health OSINT weekly fetch failed (exit %d): %s", result.returncode, result.stderr[-2000:])
             _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=result.stderr[-500:])
+            return  # don't curate off a fetch that failed
+        log.info("Health OSINT weekly fetch: %s", result.stdout[-2000:])
+        _record_heartbeat("health_osint_weekly_fetch", "ok", detail=result.stdout[-500:])
+
+        curation_script = os.path.join(health_osint_dir, "health_signal_curation.py")
+        curation_result = subprocess.run(
+            [sys.executable, curation_script],
+            capture_output=True, text=True, timeout=900,
+        )
+        if curation_result.returncode != 0:
+            log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
+            _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
         else:
-            log.info("Health OSINT weekly fetch: %s", result.stdout[-2000:])
-            _record_heartbeat("health_osint_weekly_fetch", "ok", detail=result.stdout[-500:])
+            log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
+            _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
     except Exception as exc:
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
@@ -1058,6 +1101,37 @@ def _attention_evaluation_job() -> None:
         )
     except Exception as exc:
         log.error("Attention evaluation job failed: %s", exc)
+
+
+def _attention_drill_job() -> None:
+    """2026-08-22: weekly Attention Engine drill — a health-check, NOT a real
+    intelligence job. See core/platform/attention_drill.py's module docstring
+    for the full diagnosis: `interrupt_now`'s thresholds are correct and have
+    simply never been crossed by real data, which means the
+    interrupt_dispatcher -> Telegram pipeline built for it (WP2, above) has
+    never once been exercised end to end. Runs `attention_drill.run_drill()`
+    with real dispatch — this sends one real, clearly [DRILL]-labelled
+    Telegram message to the Captain each week; that is the intended
+    behaviour, confirming the pipe is still alive, not a bug to suppress.
+    """
+    log.info("Attention Engine weekly drill triggered (pipeline health-check, not real intelligence)")
+    try:
+        from core.platform.attention_drill import run_drill
+
+        result = run_drill(dispatch=True)
+        dispatched_ok = any(r.ok for r in result["dispatch_results"])
+        log.info(
+            "Attention drill: category=%s dispatched_ok=%s",
+            result["category"], dispatched_ok,
+        )
+        _record_heartbeat(
+            "attention_engine_drill",
+            "ok" if dispatched_ok else "failed",
+            detail=f"category={result['category']}",
+        )
+    except Exception as exc:
+        log.error("Attention drill job failed: %s", exc)
+        _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
 
 
 def _validation_suite_job() -> None:

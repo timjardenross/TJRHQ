@@ -78,9 +78,32 @@ class NotificationLogEntry:
 _CALL_LOG: list[NotificationLogEntry] = []
 
 
+# 2026-08-22: confirmed live — legacy Telegram Markdown hard-rejects the
+# WHOLE message (HTTP 400, nothing delivered) on an unescaped _, *, `, or [
+# anywhere in the text, including inside dynamic content that was never
+# meant as formatting. Every real domain name on this platform contains
+# underscores (personal_health_intelligence, operational_resilience_
+# intelligence, etc.) — core/platform/interrupt_dispatcher.py's title is
+# literally f"{domain} · {event_type}", so any real interrupt_now alert
+# was silently failing to reach the Captain's Telegram. Escaping the
+# dynamic title/body before they're interpolated into the template (not
+# the whole rendered string) keeps the template's own intentional *bold*
+# wrapper characters untouched.
+_TELEGRAM_MD_SPECIAL = ("\\", "_", "*", "`", "[")
+
+
+def _escape_telegram_markdown(text: str) -> str:
+    for ch in _TELEGRAM_MD_SPECIAL:
+        text = text.replace(ch, "\\" + ch)
+    return text
+
+
 def _render(template: str, title: Optional[str], body: str) -> str:
     tpl = TEMPLATES.get(template, TEMPLATES["plain"])
-    text = tpl.format(title=title or "", body=body)
+    text = tpl.format(
+        title=_escape_telegram_markdown(title or ""),
+        body=_escape_telegram_markdown(body),
+    )
     return text[:_TELEGRAM_MAX_LEN]
 
 
