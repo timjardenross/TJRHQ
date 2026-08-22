@@ -74,6 +74,7 @@ from telegram.ext import (
 )
 
 from telegram_bots.capacitybot import capacity_today as ct
+from telegram_bots.capacitybot import distract
 from telegram_bots.capacitybot import guide
 from telegram_bots.capacitybot import helpme
 from telegram_bots.capacitybot import intervention_engine as ie
@@ -987,11 +988,94 @@ async def handle_guide_offer_callback(update: Update, context: ContextTypes.DEFA
         context.user_data.pop("guide_current", None)
 
 
+# ── /distract + /protocols (V02 WP09) ────────────────────────────────────────
+
+async def cmd_distract(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop("distract_shown", None)
+    await update.message.reply_text(distract.q_distract_capacity(), reply_markup=distract.kb_distract_capacity())
+
+
+async def handle_distract_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cd|"):
+        return
+    f = distract.parse_cb(data)
+    tier = f.get("cap")
+    if not tier:
+        return
+    activity = distract.pick_activity(tier)
+    if not activity:
+        await query.edit_message_text("Nothing configured for that tier yet.")
+        return
+    context.user_data["distract_shown"] = [activity]
+    await query.edit_message_text(distract.render_activity(tier, activity), reply_markup=distract.kb_activity(tier))
+
+
+async def handle_distract_offer_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cdi|"):
+        return
+    f = distract.parse_cb(data)
+    tier = f.get("cap")
+    action = f.get("act")
+    if not tier or not action:
+        return
+
+    if action == "done":
+        await query.edit_message_text(distract.render_done())
+        context.user_data.pop("distract_shown", None)
+        return
+
+    if action == "another":
+        shown = context.user_data.get("distract_shown", [])
+        activity = distract.pick_activity(tier, exclude=shown)
+        if not activity:
+            await query.edit_message_text("That's everything for this tier.")
+            return
+        shown.append(activity)
+        context.user_data["distract_shown"] = shown
+        await query.edit_message_text(distract.render_activity(tier, activity), reply_markup=distract.kb_activity(tier))
+
+
+async def cmd_protocols(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    db = _get_supabase()
+    protocols = await distract.fetch_protocols(db)
+    if not protocols:
+        await update.message.reply_text("No rescue protocols configured.")
+        return
+    await update.message.reply_text(distract.q_protocol_list(), reply_markup=distract.kb_protocol_list(protocols))
+
+
+async def handle_protocol_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cp|"):
+        return
+    f = distract.parse_cb(data)
+    protocol_id = f.get("id")
+    if not protocol_id:
+        return
+    db = _get_supabase()
+    protocol = await distract.fetch_protocol(db, protocol_id)
+    if not protocol:
+        await query.edit_message_text("⚠️ Could not load that protocol.")
+        return
+    steps = await distract.fetch_protocol_steps(db, protocol_id)
+    await query.edit_message_text(distract.render_protocol(protocol, steps))
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 _BOT_COMMANDS = [
     ("helpme",            "Something's hard right now — get one thing to try"),
     ("guide",             "Not sure what to do next — get a sensible suggestion"),
+    ("distract",          "One bounded activity, matched to your capacity"),
+    ("protocols",         "Step-by-step rescue protocols (office overload, etc.)"),
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
     ("evening",           "Evening capacity reflection (3 questions)"),
@@ -1042,6 +1126,8 @@ def main() -> None:
     app.add_handler(CommandHandler("help",               cmd_help))
     app.add_handler(CommandHandler("helpme",             cmd_helpme))
     app.add_handler(CommandHandler("guide",              cmd_guide))
+    app.add_handler(CommandHandler("distract",           cmd_distract))
+    app.add_handler(CommandHandler("protocols",          cmd_protocols))
     app.add_handler(CommandHandler("capacity",           cmd_capacity))
     app.add_handler(CommandHandler("deepcheck",          cmd_deepcheck))
     app.add_handler(CommandHandler("evening",            cmd_evening))
@@ -1062,6 +1148,9 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_helpme_reassessment_callback, pattern=r"^chr\|"))
     app.add_handler(CallbackQueryHandler(handle_guide_callback,               pattern=r"^cg\|"))
     app.add_handler(CallbackQueryHandler(handle_guide_offer_callback,         pattern=r"^cgi\|"))
+    app.add_handler(CallbackQueryHandler(handle_distract_callback,            pattern=r"^cd\|"))
+    app.add_handler(CallbackQueryHandler(handle_distract_offer_callback,      pattern=r"^cdi\|"))
+    app.add_handler(CallbackQueryHandler(handle_protocol_callback,            pattern=r"^cp\|"))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 
