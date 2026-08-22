@@ -757,6 +757,86 @@ _PHASE_A_FIELDS = (
 )
 
 
+# 2026-08-22 fix (Attention Engine real-input wiring): the `importance` this
+# module has been publishing to core_events since MSN-0210K was
+# `round(event.rank_score)` — but rank_score (intelligence/ranking/ranker.py)
+# is a *composite* score deliberately deflated by recency_decay and Source
+# Reliability Score multipliers, both < 1.0 for almost every real row (it
+# exists to rank items within a brief, not to answer "how severe is this").
+# Live check against 1000 real non-suppressed events (2026-08-09 to
+# 2026-08-22): rank_score's max in the sample was 70.80 — it has NEVER once
+# crossed attention_engine.py's interrupt_importance_floor of 75. That is
+# the reason core/platform/attention_engine.py's INTERRUPT_NOW category has
+# never fired on real data — not a threshold problem (those are correct,
+# per that module's own docstring), an input problem: importance was never
+# actually carrying a severity signal.
+#
+# Replaces rank_score with a severity classification derived directly from
+# the fields the classifier (intelligence/classification/classifier.py)
+# already computes — the same RED/AMBER/GREEN vocabulary
+# intelligence/brief/brief_generator.py's `_event_risk_rating` already uses
+# for this exact purpose (customer_impact=='high' or banking_relevance
+# =='high' => RED), reimplemented locally rather than imported to keep this
+# module free of a dependency on intelligence/brief/ (mirrors this file's
+# own _has_outage_language precedent for the same reasoning).
+#
+# Four tiers, calibrated against the same 1000-event live sample so the
+# INTERRUPT_NOW floor (>=75) is reserved for genuine compound severity, not
+# "RED = always fires" (the alert-fatigue failure mode named in this
+# mission's brief — see also this file's own outage-alert guards 1-6 above,
+# which exist for exactly the same reason on a different push path):
+#
+#   CRITICAL (importance=90): RED AND cps230_relevance=True. cps230_relevance
+#     itself is already a confidence-gated flag (classifier.py requires
+#     explicit "CPS 230"/"operational resilience"/"critical operations"
+#     language, or 2+ operational-risk-keyword hits) — pairing it with RED
+#     severity is a compound "this is both customer/bank-impactful AND
+#     genuinely operational-resilience-relevant" signal, not a single
+#     keyword hit. Live sample: 3/1000 events (0.30%) — about 1 every ~4.3
+#     days at this collection rate. All 3 real examples also carried
+#     classifier confidence 0.74-0.92, i.e. all 3 would have crossed BOTH
+#     attention_engine floors and fired a real INTERRUPT_NOW. A cadence of
+#     roughly 1 every 4-5 days is in the same order of magnitude as this
+#     file's own outage-alert path (documented above as "~1 push every 2.7
+#     days -- a sustainable cadence"), not a flood.
+#   RED (importance=55): customer_impact=='high' or banking_relevance
+#     =='high', without cps230 confirmation. Lands in attention_engine's
+#     CAN_BE_DELAYED band (40-74) — worth surfacing, not worth a page. Live
+#     sample: 96/1000 (9.6%) — deliberately NOT promoted to the interrupt
+#     floor, since customer_impact=='high' alone is a keyword match
+#     ("critical"/"severe"/"major" etc., classifier.py's
+#     _HIGH_IMPACT_KEYWORDS) that fires constantly on routine CVE/threat-
+#     intel advisories using standard CVSS-critical language — promoting
+#     this tier alone to interrupt_now was tried against the same sample
+#     (a first-draft formula) and produced 50/1000 (5.0%) events crossing
+#     both floors, ~1 every 2.5 HOURS at this collection rate — exactly the
+#     over-firing this task was warned against, so rejected.
+#   AMBER (importance=42): customer_impact=='medium' or banking_relevance
+#     =='medium', otherwise. Still in the delayed band's low end. Live
+#     sample: 402/1000 (40.2%).
+#   GREEN (importance=15): everything else — at/under the
+#     never_interrupt_importance_ceiling (20), so routed to NEVER_INTERRUPT
+#     rather than cluttering the delayed band. Live sample: 499/1000
+#     (49.9%) — correctly the majority; most collected items are routine.
+#
+# `confidence` is deliberately left untouched below — event.confidence
+# (intelligence/classification/classifier.py's own per-event classification
+# confidence: source_confidence_weight weighted with keyword-match count,
+# 0.0-1.0) was already being passed through correctly; it does not need to
+# be invented or copied from importance.
+def _derive_attention_importance(event: RankedEvent) -> int:
+    is_red = event.customer_impact == "high" or event.banking_relevance == "high"
+    is_amber = event.customer_impact == "medium" or event.banking_relevance == "medium"
+
+    if is_red and event.cps230_relevance:
+        return 90
+    if is_red:
+        return 55
+    if is_amber:
+        return 42
+    return 15
+
+
 def save_event(event: RankedEvent, ori: Optional[dict] = None,
                phase_a: Optional[dict] = None) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure.
@@ -810,7 +890,13 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
         event_id = result.get("event_id")
         _publish_core_event(
             "intelligence.signal.ranked",
-            importance=round(row["rank_score"]),
+            # 2026-08-22: was round(row["rank_score"]) — see the dated
+            # comment above _derive_attention_importance for why rank_score
+            # (deflated by recency_decay/SRS, never observed >75 in a live
+            # 1000-event sample) never let the Attention Engine's
+            # INTERRUPT_NOW floor fire on real data, and why this
+            # classification-derived severity score replaces it here.
+            importance=_derive_attention_importance(event),
             confidence=round(row["confidence"] * 100),
             relevance=round(row["operational_relevance"] * 100),
             linked_entities=[event_id] if event_id else [],
