@@ -92,6 +92,27 @@ function energyFromCapacityState(state: string | null | undefined): string | nul
   return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[state ?? ''] ?? null;
 }
 
+/**
+ * health_insights.llm_narrative (migration 0008) is JSONB — legacy rows
+ * store a plain string, the documented/current shape is a structured object
+ * {situation, patterns_noticed, what_it_means, recommended_focus,
+ * watch_items}. RecoveryView.tsx renders `wellness.narrative` directly as
+ * JSX text (typed `string | null`) — an object row hits React error #31.
+ * Normalize at the API boundary so the client stays safe either way.
+ */
+function narrativeText(raw: unknown): string | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const parts = [o.situation, o.what_it_means, o.recommended_focus].filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0,
+    );
+    return parts.length ? parts.join(' ') : null;
+  }
+  return null;
+}
+
 interface RawPostureRow {
   posture: string;
   posture_message: string;
@@ -294,7 +315,7 @@ async function buildRecovery(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
     latest_regulation_state: c?.latest_regulation_state ?? null,
     confidence_label: c?.checkin_label ?? 'No telemetry today',
     wellness: {
-      narrative: ins?.llm_narrative ?? null,
+      narrative: narrativeText(ins?.llm_narrative),
       // Guard: these columns are arrays in the live schema, but coerce
       // defensively so a null / unexpected shape can never crash the view's map.
       risk_flags: Array.isArray(ins?.risk_flags) ? ins!.risk_flags : [],

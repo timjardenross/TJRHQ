@@ -33,6 +33,29 @@ function capacityEnergy(checkin: { capacity_state?: string | null }): string | n
   return ({ green: 'high', orange: 'moderate', red: 'low' } as Record<string, string>)[state] ?? null;
 }
 
+/**
+ * health_insights.llm_narrative (migration 0008) is JSONB — legacy rows
+ * store a plain string, but the documented shape (and what newer synthesis
+ * writes) is a structured object: {situation, patterns_noticed,
+ * what_it_means, recommended_focus, watch_items}. Every consumer of this
+ * route types llm_narrative as `string | null` and renders it directly as
+ * JSX text — an object row hits React error #31 ("objects are not valid
+ * as a React child"). Normalize to a plain string at the API boundary so
+ * every client stays safe regardless of which shape a given row has.
+ */
+function narrativeText(raw: unknown): string | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const parts = [o.situation, o.what_it_means, o.recommended_focus].filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0,
+    );
+    return parts.length ? parts.join(' ') : null;
+  }
+  return null;
+}
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,7 +103,8 @@ export async function GET() {
         .limit(1),
     ]);
 
-    const insights      = insightsRes.data?.[0] ?? null;
+    const rawInsights   = insightsRes.data?.[0] ?? null;
+    const insights      = rawInsights ? { ...rawInsights, llm_narrative: narrativeText(rawInsights.llm_narrative) } : null;
     const dailyLog      = dailyRes.data?.[0] ?? null;
     const latestCheckin = checkinRes.data?.[0] ?? null;
 

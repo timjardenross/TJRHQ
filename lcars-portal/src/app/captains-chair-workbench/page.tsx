@@ -5,12 +5,11 @@ import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { CaptainApprovalQueue } from '@/components/CaptainApprovalQueue';
 import { PendingBriefsPanel } from '@/components/PendingBriefsPanel';
-import { DEPARTMENTS, stateToneClasses } from '@/lib/departments';
+import { stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { fetchCaptureAnalytics } from '@/lib/capture';
-import { departments } from '@/lib/mockData';
 import type { AlertSeverity } from '@/lib/alerts';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
@@ -156,7 +155,6 @@ function useTodaysBriefing(): {
 // ── Needs Your Attention: live counts from across the platform ──────────────
 
 interface AttentionCounts {
-  knowledgeReview: number | null;
   contentAwaitingPublish: number | null;
   contentPriorityFlagged: number | null;
   capturePending: number | null;
@@ -165,7 +163,6 @@ interface AttentionCounts {
 
 function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors: string[] } {
   const [data, setData] = useState<AttentionCounts>({
-    knowledgeReview: null,
     contentAwaitingPublish: null,
     contentPriorityFlagged: null,
     capturePending: null,
@@ -178,10 +175,6 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
     let cancelled = false;
     async function load() {
       const errs: string[] = [];
-
-      const knowledge = await fetch('/api/knowledge-library/stats')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] knowledge review count failed:', e); errs.push('Knowledge review'); return null; });
 
       const content = await fetch('/api/content-workbench')
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
@@ -199,7 +192,6 @@ function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors
       const items: { status: string; captain_focus?: boolean }[] = Array.isArray(content?.items) ? content.items : [];
 
       setData({
-        knowledgeReview: knowledge ? (knowledge.needs_your_review ?? 0) + (knowledge.needs_followup ?? 0) : null,
         contentAwaitingPublish: content ? items.filter((i) => i.status === 'ready_to_publish').length : null,
         contentPriorityFlagged: content ? items.filter((i) => i.captain_focus).length : null,
         capturePending: capture ? capture.pending : null,
@@ -405,8 +397,7 @@ export default function CaptainsChairWorkbench() {
         <div className="rounded-lg border border-wb-line bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
 
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <CountTile label="Knowledge Review" value={attention.knowledgeReview} href="/knowledge-workbench" loading={attentionLoading} />
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} />
             <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} />
             <CountTile label="Wellness Risk Flags" value={attention.wellnessRiskFlags} href="/human-systems-workbench" loading={attentionLoading} />
@@ -491,28 +482,12 @@ export default function CaptainsChairWorkbench() {
           <NotebookCard />
         </div>
 
-        {/* Departments — real nav links (route to real live pages); no
-            per-dept metric values, out of scope for an exec-summary pass. */}
-        <div className="rounded-lg border border-wb-line bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Departments</h3>
-          <div className="overflow-x-auto">
-            <div className="flex gap-3" style={{ minWidth: `${departments.filter((d) => d.key !== 'status').length * 140}px` }}>
-              {departments.filter((d) => d.key !== 'status').map((dept) => {
-                const theme = DEPARTMENTS[dept.key];
-                return (
-                  <Link key={dept.key} href={`/${dept.key}`} className="block min-w-[140px] flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                    <div className="flex items-center gap-2 rounded-md border border-wb-line bg-wb-bg p-2.5 transition-colors hover:border-wb-sage-deep/60">
-                      <span className={`h-4 w-4 shrink-0 rounded ${theme.bg} ring-1 ring-inset ring-black/25`} />
-                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.text}`}>{dept.name}</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Links */}
+        {/* Quick Links — sole nav strip on this page. Previously duplicated
+            by a separate "Departments" row whose links (/command, /science)
+            didn't even resolve to real routes and whose others pointed at
+            legacy (app)/* pages instead of the live *-workbench routes —
+            removed rather than fixed, since every real destination it could
+            point to already belongs here. */}
         <div className="rounded-lg border border-wb-line bg-white p-3">
           <h3 className="mb-3 text-sm font-semibold text-wb-ink">Quick Links</h3>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -527,6 +502,9 @@ export default function CaptainsChairWorkbench() {
             </Link>
             <Link href="/intelligence-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → OSINT Workbench
+            </Link>
+            <Link href="/knowledge-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              → Knowledge Workbench
             </Link>
             <Link href="/captains-brief-workbench" className="text-xs text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               → Full Brief
