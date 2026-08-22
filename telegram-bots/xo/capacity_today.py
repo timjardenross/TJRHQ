@@ -306,20 +306,39 @@ def kb_actions(base: str, codes: list[str]) -> InlineKeyboardMarkup:
 
 
 def kb_go_deeper(row_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔎 Go deeper", callback_data=f"ctd|id={row_id}")],
+        [InlineKeyboardButton("⏰ Remind me", callback_data=f"ctr|id={row_id}")],
+        [InlineKeyboardButton("Done", callback_data="ct|noop=1")],
+    ])
+
+
+# ── Remind me later (spec §2, "optionally allow") ────────────────────────────
+# No existing generic reminder mechanism in this bot to integrate with (the
+# only reminder-shaped code in the repo is platform-runtime/recovery_scheduler
+# .py, a Slack-side L2/L3 escalation DM unrelated to a per-check-in nudge) —
+# built as a one-off python-telegram-bot JobQueue.run_once, in-memory only:
+# if the bot restarts before it fires, the reminder is lost. Acceptable for a
+# same-day nudge; not durable enough for anything longer.
+
+REMIND_OPTIONS = [("15", "15 min"), ("45", "45 min"), ("120", "2 hours")]
+
+
+def kb_remind_duration(row_id: str) -> InlineKeyboardMarkup:
+    base = f"ctr|id={row_id}"
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("🔎 Go deeper", callback_data=f"ctd|id={row_id}"),
-        InlineKeyboardButton("Done", callback_data="ct|noop=1"),
+        InlineKeyboardButton(label, callback_data=f"{base}|m={mins}") for mins, label in REMIND_OPTIONS
     ]])
 
 
 # ── Deep check-in (spec §4) ───────────────────────────────────────────────────
-# Buttons-only subset of the spec's 8 questions: load_category, unexpected
-# change, masking present, recovery duration. Free-text questions (trigger,
-# what helped/made worse, notes) are deferred — this bot has no established
-# lightweight free-text-capture convention yet (every existing flow is
-# button-only); adding one means hooking the plain-message handler, which is
-# out of scope for this pass. `notes`/`trigger_note` columns exist and are
-# ready for that when it's built.
+# All 8 questions: load_category, unexpected change, masking present, what
+# was skipped (recovery_factors), recovery duration, what helped, what made
+# things worse (buttons — index-coded multi-select, same convention as the
+# quick check-in's active_loads/identified_needs), and a final free-text
+# note covering both "what happened before" (trigger) and anything else
+# (notes) — one text reply rather than two, to keep this bounded (spec §11.8:
+# "no long forms"). Written via cmd_message's pending-state hook in app.py.
 
 RECOVERY_DURATION_OPTIONS = [
     ("n",  "No recovery needed"),
@@ -330,6 +349,27 @@ RECOVERY_DURATION_OPTIONS = [
     ("md", "Multiple days"),
 ]
 _RD_CODE_TO_LABEL = dict(RECOVERY_DURATION_OPTIONS)
+
+# index-coded multi-select, same convention as ACTIVE_LOADS/IDENTIFIED_NEEDS —
+# spec §4 Q5 ("did you skip food, movement, rest, medication, sleep, or
+# recovery?"), stored as recovery_factors (what got skipped, not what helped).
+RECOVERY_FACTORS = [
+    "Food", "Movement", "Rest", "Medication", "Sleep", "Recovery time", "Nothing skipped",
+]
+
+# spec §4 Q6 "what helped?" — same set as the evening reflection's
+# DAY_WIN_HELPED_OPTIONS list minus its "nothing helped" catch-all, which
+# reads oddly for a mid-episode question.
+HELPFUL_ACTIONS_OPTIONS = [o for o in DAY_WIN_HELPED_OPTIONS if o != "Nothing clearly helped"]
+
+# spec §4 Q7 "what made things worse?" — deliberately its own list rather
+# than reusing HELPFUL_ACTIONS_OPTIONS; "what helped" and "what hurt" are not
+# symmetric (e.g. "time pressure" has no helpful-list counterpart).
+UNHELPFUL_ACTIONS_OPTIONS = [
+    "Noise / sensory input", "Being interrupted", "Time pressure", "Uncertainty / change",
+    "Social demands", "Physical exertion", "Skipping rest or food", "Pushing through pain",
+    "Nothing made it worse",
+]
 
 
 def kb_deep_load_category(row_id: str) -> InlineKeyboardMarkup:
@@ -350,6 +390,37 @@ def kb_deep_recovery_duration(base: str) -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(label, callback_data=f"{base}|rd={code}")]
             for code, label in RECOVERY_DURATION_OPTIONS]
     return InlineKeyboardMarkup(rows)
+
+
+def kb_deep_multiselect(row_id: str, key: str, options: list[str], selected: str) -> InlineKeyboardMarkup:
+    """Same toggle-list shape as kb_multiselect, but for the deep-check
+    steps that come after lc/uc/mp/rd are already saved to the row — base is
+    always just the row id (write-through per tap), never an accumulating
+    field string, so these stay well under the callback_data byte limit no
+    matter how many of the (up to 9) options are selected."""
+    base = f"ctd|id={row_id}"
+    sel_set = set((selected or "").split(",")) if selected else set()
+    buttons = []
+    for i, label in enumerate(options):
+        mark = "✅ " if str(i) in sel_set else ""
+        sel = [x for x in (selected.split(",") if selected else []) if x]
+        s = str(i)
+        if s in sel:
+            sel.remove(s)
+        else:
+            sel.append(s)
+        new_val = ",".join(sel)
+        buttons.append(InlineKeyboardButton(f"{mark}{label}", callback_data=f"{base}|{key}={new_val}"))
+    rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    rows.append([InlineKeyboardButton("➡️ Continue", callback_data=f"{base}|{key}={selected}|next=1")])
+    rows.append([InlineKeyboardButton("✅ Done for now", callback_data=f"{base}|{key}={selected}|done=1")])
+    return InlineKeyboardMarkup(rows)
+
+
+def kb_deep_note_prompt(row_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("⏭ Skip / save now", callback_data=f"ctd|id={row_id}|final=1"),
+    ]])
 
 
 # ── Evening reflection (spec §5) ─────────────────────────────────────────────
@@ -517,8 +588,16 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         payload["masking_present"] = f["mp"] == "y"
     if f.get("rd"):
         payload["recovery_duration"] = _RD_CODE_TO_LABEL.get(f["rd"], f["rd"])
+    if f.get("rf") is not None:
+        payload["recovery_factors"] = _idx_list(f["rf"], RECOVERY_FACTORS)
+    if f.get("ha") is not None:
+        payload["helpful_actions"] = _idx_list(f["ha"], HELPFUL_ACTIONS_OPTIONS)
+    if f.get("ua") is not None:
+        payload["unhelpful_actions"] = _idx_list(f["ua"], UNHELPFUL_ACTIONS_OPTIONS)
     if f.get("tn"):
         payload["trigger_note"] = f["tn"]
+    if f.get("nt"):
+        payload["notes"] = f["nt"]
     try:
         db.table(TABLE).update(payload).eq("id", row_id).execute()
         return True, None

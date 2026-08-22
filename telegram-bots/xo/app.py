@@ -1655,6 +1655,20 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     text = (update.message.text or "").strip()
     if not text:
         return
+
+    # MY CAPACITY TODAY deep check-in's closing free-text note (trigger +
+    # notes, spec §4 Q1/Q6-Q7's free-text half) — checked first and returns
+    # early so it never falls through to the LLM reply path below.
+    row_id = context.user_data.pop("capacity_deep_note_id", None) if context.user_data else None
+    if row_id:
+        from telegram_bots.xo import capacity_today as ct
+        db = _get_supabase()
+        saved, err = await ct.write_deep_checkin(db, row_id, {"tn": text, "nt": text})
+        await update.message.reply_text(
+            "🔎 Deep check-in saved." if saved else f"⚠️ Could not save note: {err}"
+        )
+        return
+
     # Unlike every other handler in this file, this path had no try/except —
     # any exception here (debrief routing, recovery/wellness/mission lookups)
     # crashed silently: the Captain saw the message marked delivered and
@@ -1925,6 +1939,15 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
 
 
 async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Deep check-in, spec §4 questions 2-8 (Q1 "what happened before" and
+    the free-text half of Q6/Q7 are folded into the single closing note —
+    see the `final`/no-op-field branch at the bottom).
+
+    Two phases like the main quick check-in: lc/uc/mp/rd accumulate in the
+    callback string itself (all short coded fields, cheap); once `rd` is
+    answered the draft is written to the row and every step after that
+    (rf/ha/ua) is write-through, id-only in the callback, because those are
+    multi-select lists that can carry several selections at once."""
     from telegram_bots.xo import capacity_today as ct
 
     query = update.callback_query
@@ -1939,16 +1962,90 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
     db = _get_supabase()
     base = f"ctd|id={row_id}"
 
+    # ── Phase 2: rf/ha/ua/final — write-through, id-only callback base ──────
+    if f.get("final") == "1":
+        row = await ct.fetch_checkin(db, row_id)
+        context.user_data.pop("capacity_deep_note_id", None)
+        await query.edit_message_text(
+            "🔎 Deep check-in saved." if row else "🔎 Deep check-in saved (summary unavailable)."
+        )
+        return
+
+    if f.get("ua") is not None:
+        saved, err = await ct.write_deep_checkin(db, row_id, {"ua": f["ua"]})
+        if f.get("next") == "1" or f.get("done") == "1":
+            context.user_data["capacity_deep_note_id"] = row_id
+            await query.edit_message_text(
+                "One more (optional): what happened before this, or anything else worth noting?\n\n"
+                "Reply with text, or tap Skip.",
+                reply_markup=ct.kb_deep_note_prompt(row_id),
+            )
+        else:
+            await query.edit_message_text(
+                "What made things worse? (tap all that apply)",
+                reply_markup=ct.kb_deep_multiselect(row_id, "ua", ct.UNHELPFUL_ACTIONS_OPTIONS, f["ua"]),
+            )
+        return
+
+    if f.get("ha") is not None:
+        saved, err = await ct.write_deep_checkin(db, row_id, {"ha": f["ha"]})
+        if f.get("next") == "1":
+            await query.edit_message_text(
+                "What made things worse? (tap all that apply)",
+                reply_markup=ct.kb_deep_multiselect(row_id, "ua", ct.UNHELPFUL_ACTIONS_OPTIONS, ""),
+            )
+        elif f.get("done") == "1":
+            context.user_data["capacity_deep_note_id"] = row_id
+            await query.edit_message_text(
+                "One more (optional): what happened before this, or anything else worth noting?\n\n"
+                "Reply with text, or tap Skip.",
+                reply_markup=ct.kb_deep_note_prompt(row_id),
+            )
+        else:
+            await query.edit_message_text(
+                "What helped? (tap all that apply)",
+                reply_markup=ct.kb_deep_multiselect(row_id, "ha", ct.HELPFUL_ACTIONS_OPTIONS, f["ha"]),
+            )
+        return
+
+    if f.get("rf") is not None:
+        saved, err = await ct.write_deep_checkin(db, row_id, {"rf": f["rf"]})
+        if f.get("next") == "1":
+            await query.edit_message_text(
+                "What helped? (tap all that apply)",
+                reply_markup=ct.kb_deep_multiselect(row_id, "ha", ct.HELPFUL_ACTIONS_OPTIONS, ""),
+            )
+        elif f.get("done") == "1":
+            context.user_data["capacity_deep_note_id"] = row_id
+            await query.edit_message_text(
+                "One more (optional): what happened before this, or anything else worth noting?\n\n"
+                "Reply with text, or tap Skip.",
+                reply_markup=ct.kb_deep_note_prompt(row_id),
+            )
+        else:
+            await query.edit_message_text(
+                "Did you skip food, movement, rest, medication, sleep, or recovery? (tap all that apply)",
+                reply_markup=ct.kb_deep_multiselect(row_id, "rf", ct.RECOVERY_FACTORS, f["rf"]),
+            )
+        return
+
+    # ── Phase 1: lc/uc/mp/rd — accumulate in the callback string ────────────
+
     if f.get("rd") is not None:
         saved, err = await ct.write_deep_checkin(db, row_id, f)
-        text = "🔎 Deep check-in saved." if saved else f"⚠️ Could not save: {err}"
-        await query.edit_message_text(text)
+        if not saved:
+            await query.edit_message_text(f"⚠️ Could not save: {err}")
+            return
+        await query.edit_message_text(
+            "Did you skip food, movement, rest, medication, sleep, or recovery? (tap all that apply)",
+            reply_markup=ct.kb_deep_multiselect(row_id, "rf", ct.RECOVERY_FACTORS, ""),
+        )
         return
 
     if f.get("mp") is not None:
         base2 = f"{base}|lc={f.get('lc')}|uc={f.get('uc')}|mp={f['mp']}"
         await query.edit_message_text(
-            "Did you skip food, movement, rest, medication, sleep, or recovery — and if so, how long did recovery take?",
+            "How long did recovery take?",
             reply_markup=ct.kb_deep_recovery_duration(base2),
         )
         return
@@ -1968,6 +2065,43 @@ async def handle_capacity_deep_callback(update: Update, context: ContextTypes.DE
             reply_markup=ct.kb_deep_yesno(base2, "uc"),
         )
         return
+
+
+async def handle_capacity_reminder_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """'Remind me later' (spec §2, optional) — schedules a one-off JobQueue
+    nudge. In-memory only: lost on bot restart, acceptable for a same-day
+    nudge (see capacity_today.py's REMIND_OPTIONS comment)."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("ctr|"):
+        return
+    from telegram_bots.xo import capacity_today as ct
+    f = ct.parse_cb(data)
+    row_id = f.get("id")
+    minutes = f.get("m")
+    if not row_id:
+        return
+
+    if minutes is None:
+        await query.edit_message_text(
+            "Remind you in how long?",
+            reply_markup=ct.kb_remind_duration(row_id),
+        )
+        return
+
+    chat_id = update.effective_chat.id
+    mins = int(minutes)
+
+    async def _fire(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await ctx.bot.send_message(
+            chat_id=chat_id,
+            text="⏰ Capacity check-in reminder — how are you doing now?",
+            reply_markup=ct.kb_capacity(),
+        )
+
+    context.job_queue.run_once(_fire, when=mins * 60, name=f"capacity-remind-{row_id}")
+    await query.edit_message_text(f"⏰ Reminder set for {mins} minutes.")
 
 
 async def handle_capacity_evening_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2727,6 +2861,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_capacity_deep_callback,    pattern=r"^ctd\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_evening_callback, pattern=r"^cte\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_therapy_callback, pattern=r"^cty\|"))
+    app.add_handler(CallbackQueryHandler(handle_capacity_reminder_callback, pattern=r"^ctr\|"))
     app.add_handler(CallbackQueryHandler(handle_outcome_callback,       pattern=r"^oc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
