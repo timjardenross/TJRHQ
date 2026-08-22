@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 
 type ApprovalStatus = 'IN_REVIEW' | 'QA_PASSED' | 'PUBLISHED';
-type Filter = 'all' | ApprovalStatus;
+type Filter = 'today' | 'all' | ApprovalStatus;
 
 interface Brief {
   brief_id: string;
@@ -32,24 +32,38 @@ const STATUS_LABEL: Record<ApprovalStatus, string> = {
   PUBLISHED: 'Published',
 };
 
-// 2026-08-22: single-user platform, briefs now auto-publish at generation
-// time (intelligence/persistence/intelligence_store.py:save_brief()) — the
-// IN_REVIEW/QA_PASSED states are pre-2026-08-22 history, not an active queue
-// anyone works through. Default view is Published; the others stay
-// selectable for that history, not because anything new lands there.
+// 2026-08-22: single-user platform, briefs now auto-publish daily at
+// generation time (intelligence/persistence/intelligence_store.py:
+// save_brief()) — the IN_REVIEW/QA_PASSED states are pre-2026-08-22
+// history, not an active queue anyone works through, and since the brief
+// is now a genuine daily digest, everything before today is stale/legacy
+// by definition. Default view is Today; everything else stays selectable
+// for the archive, not because it's the primary thing to look at.
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'PUBLISHED', label: 'Published' },
+  { key: 'today', label: 'Today' },
+  { key: 'PUBLISHED', label: 'All Published' },
   { key: 'all', label: 'All' },
   { key: 'IN_REVIEW', label: 'In Review (legacy)' },
   { key: 'QA_PASSED', label: 'Awaiting Publish (legacy)' },
 ];
+
+function isToday(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
 
 export default function BriefsPage() {
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('PUBLISHED');
+  const [filter, setFilter] = useState<Filter>('today');
 
   useEffect(() => {
     fetch('/api/briefs')
@@ -64,10 +78,16 @@ export default function BriefsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const visible = useMemo(
-    () => (filter === 'all' ? briefs : briefs.filter((b) => b.approval_status === filter)),
-    [briefs, filter],
+  const todayCount = useMemo(
+    () => briefs.filter((b) => isToday(b.published_at ?? b.generated_at)).length,
+    [briefs],
   );
+
+  const visible = useMemo(() => {
+    if (filter === 'all') return briefs;
+    if (filter === 'today') return briefs.filter((b) => isToday(b.published_at ?? b.generated_at));
+    return briefs.filter((b) => b.approval_status === filter);
+  }, [briefs, filter]);
 
   return (
     <WorkbenchShell
@@ -93,7 +113,7 @@ export default function BriefsPage() {
             }`}
           >
             {f.label}
-            {f.key !== 'all' && counts[f.key] != null ? ` (${counts[f.key]})` : ''}
+            {f.key === 'today' ? ` (${todayCount})` : f.key !== 'all' && counts[f.key] != null ? ` (${counts[f.key]})` : ''}
           </button>
         ))}
       </div>
@@ -102,7 +122,11 @@ export default function BriefsPage() {
         {loading ? (
           <p className="text-sm text-wb-ink2 animate-pulse">Loading…</p>
         ) : visible.length === 0 ? (
-          <p className="text-sm text-wb-ink2">No briefs in this state.</p>
+          <p className="text-sm text-wb-ink2">
+            {filter === 'today'
+              ? "No brief generated yet today — the daily job runs at 06:30 AEST, or trigger one on demand via the XO bot's /brief command."
+              : 'No briefs in this state.'}
+          </p>
         ) : (
           <div className="space-y-3">
             {visible.map((b) => (
