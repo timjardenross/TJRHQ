@@ -74,11 +74,11 @@ export function TodaysBriefPanel() {
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Loading…</p>
       ) : error ? (
-        <p className="text-sm text-wb-crit-on">Failed to load today's brief: {error}</p>
+        <p className="text-sm text-wb-crit-on">Failed to load today&apos;s brief: {error}</p>
       ) : !brief ? (
         <p className="text-sm text-wb-ink2">
           No brief generated yet today — the daily job runs at 06:30 AEST, or trigger one on
-          demand via the XO bot's /brief command.
+          demand via the XO bot&apos;s /brief command.
         </p>
       ) : (
         <Link
