@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Gap → OSS Solutions — 2026-08-23</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --accent: #3b82f6;
+    --p1: #ef4444;
+    --p1-bg: rgba(239,68,68,0.12);
+    --p2: #f59e0b;
+    --p2-bg: rgba(245,158,11,0.12);
+    --p3: #22c55e;
+    --p3-bg: rgba(34,197,94,0.12);
+    --code-bg: #0d1117;
+    --rec: #6366f1;
+    --rec-bg: rgba(99,102,241,0.1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  header .meta { font-size: 12px; color: var(--muted); }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Summary table */
+  .summary { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 40px; }
+  .summary-title { padding: 14px 20px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--surface2); }
+  td { padding: 10px 16px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  code.install { background: var(--code-bg); color: #93c5fd; padding: 3px 8px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; }
+
+  /* Priority badges */
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
+  .p1 { background: var(--p1-bg); color: var(--p1); border: 1px solid rgba(239,68,68,0.3); }
+  .p2 { background: var(--p2-bg); color: var(--p2); border: 1px solid rgba(245,158,11,0.3); }
+  .p3 { background: var(--p3-bg); color: var(--p3); border: 1px solid rgba(34,197,94,0.3); }
+  .done { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+
+  /* Gap cards */
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; margin-top: 40px; }
+  .gap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+  .gap-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; cursor: pointer; user-select: none; }
+  .gap-header:hover { background: rgba(255,255,255,0.02); }
+  .gap-num { font-size: 11px; color: var(--muted); font-weight: 600; min-width: 36px; }
+  .gap-title { font-weight: 600; font-size: 14px; flex: 1; }
+  .gap-subtitle { font-size: 12px; color: var(--muted); }
+  .chevron { color: var(--muted); transition: transform 0.2s; font-size: 12px; }
+  .gap-card.open .chevron { transform: rotate(90deg); }
+  .gap-body { display: none; padding: 0 20px 20px; border-top: 1px solid var(--border); }
+  .gap-card.open .gap-body { display: block; }
+  .gap-desc { color: var(--muted); font-size: 13px; padding: 14px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .gap-desc code { background: var(--code-bg); color: #fbbf24; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: monospace; }
+
+  /* Options */
+  .option { margin-bottom: 16px; }
+  .option-label { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .option-label .stars { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .option-attrs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .attr { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; color: var(--muted); }
+  .attr span { color: var(--text); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5; color: #a5d6ff; margin-top: 8px; }
+  .rec-box { background: var(--rec-bg); border: 1px solid rgba(99,102,241,0.25); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #a5b4fc; margin-top: 12px; }
+  .rec-box strong { color: #c7d2fe; }
+
+  /* Internal wiring section */
+  .internal-table { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 12px; }
+  .internal-table td:first-child code { background: var(--code-bg); color: #fbbf24; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: monospace; }
+  .internal-table td:last-child { color: var(--muted); font-size: 12px; }
+
+  /* Phoenix status */
+  .status-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--p3); }
+  .status-live::before { content: ''; width: 7px; height: 7px; background: var(--p3); border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 32px; border-top: 1px solid var(--border); margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Platform Gap → OSS Solutions</h1>
+    <div class="meta">40 gaps audited · CPU VM, no GPU, free &amp; open source only · 2026-08-23</div>
+  </div>
+  <span class="status-live">Phoenix live :6006</span>
+</header>
+
+<div class="container">
+
+  <!-- Summary table -->
+  <div class="summary">
+    <div class="summary-title">Action Summary — install order</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Gap</th>
+          <th>Tool</th>
+          <th>Install</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge p1">P1</span></td>
+          <td>Quality scoring dead</td>
+          <td>garak + deepeval</td>
+          <td><code class="install">pip install garak deepeval</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge done">DONE</span></td>
+          <td>Observability silent</td>
+          <td>Arize Phoenix</td>
+          <td><code class="install">systemctl start starship-phoenix</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p1">P1</span></td>
+          <td>Voice output missing</td>
+          <td>edge-tts</td>
+          <td><code class="install">pip install edge-tts</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p2">P2</span></td>
+          <td>Memory dormant</td>
+          <td>mem0</td>
+          <td><code class="install">pip install mem0ai</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p2">P2</span></td>
+          <td>Knowledge pipeline manual</td>
+          <td>Docling</td>
+          <td><code class="install">pip install docling</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p2">P2</span></td>
+          <td>Search fragmented (6 impls)</td>
+          <td>Meilisearch</td>
+          <td><code class="install">curl -L https://install.meilisearch.com | sh</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p2">P2</span></td>
+          <td>Scheduling fragmented</td>
+          <td>Consolidate APScheduler</td>
+          <td><code class="install">Internal mission — no new OSS</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p3">P3</span></td>
+          <td>Research dormant</td>
+          <td>SearXNG</td>
+          <td><code class="install">docker compose up searxng</code></td>
+        </tr>
+        <tr>
+          <td><span class="badge p3">P3</span></td>
+          <td>Voice offline fallback</td>
+          <td>Piper</td>
+          <td><code class="install">pip install piper-tts</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Gap cards -->
+  <div class="section-label">Gap Analysis — click to expand</div>
+
+  <!-- GAP 1 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 1</span>
+      <div>
+        <div class="gap-title">Quality Scoring dead <span class="badge p1" style="margin-left:8px">P1</span></div>
+        <div class="gap-subtitle">0 rows in quality_scores since cleanup</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc"><code>quality_scoring_service.py</code> built, never fires. <code>outcome_capture_service.py</code> passes <code>quality_scoring_service=None</code> by default. No LLM output quality is measured in production.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: garak — LLM vulnerability scanner <span class="stars">⭐ 8.9k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install garak</span></div>
+          <div class="attr">Infra: <span>none</span></div>
+          <div class="attr">Use: <span>one-off sweep or scheduled</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Probes hallucination, prompt injection, data leakage against any REST endpoint. Run against :8891 local model router.</p>
+        <pre>garak --model rest --model_name http://localhost:8891 \
+      --probes hallucination,promptinject \
+      --report_prefix /opt/starship-endeavour/reports/garak</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: deepeval — LLM unit testing <span class="stars">⭐ 8.2k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install deepeval</span></div>
+          <div class="attr">Infra: <span>none</span></div>
+          <div class="attr">Use: <span>per-output scoring in test suite</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Assert LLM output correctness. Metrics: faithfulness, answer relevancy, hallucination, contextual recall. Wire into quality_scoring_service.py.</p>
+        <pre>from deepeval.metrics import HallucinationMetric
+from deepeval.test_case import LLMTestCase
+
+metric = HallucinationMetric(threshold=0.5)
+test_case = LLMTestCase(input=prompt, actual_output=response, context=[context])
+metric.measure(test_case)
+score = metric.score  # 0.0–1.0, write to quality_scores table</pre>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> garak for system-level baseline sweep (run once), deepeval to wire into quality_scoring_service.py for per-output scoring.</div>
+    </div>
+  </div>
+
+  <!-- GAP 2 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 2</span>
+      <div>
+        <div class="gap-title">LLM Observability silent <span class="badge done" style="margin-left:8px">DONE</span></div>
+        <div class="gap-subtitle">Arize Phoenix instrumented but spans dropped — now fixed</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc"><code>arize-phoenix 20.3.0</code> already installed. <code>configure_tracing()</code> in 3 modules. No systemd unit — spans silently dropped. <strong style="color:var(--p3)">Fixed this session</strong>: systemd service created, XO bot + intelligence scheduler + daily-operations-cycle wired.</div>
+
+      <div class="option">
+        <div class="option-label">Arize Phoenix — now running <span class="stars">⭐ 4.1k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Port: <span>:6006</span></div>
+          <div class="attr">Service: <span>starship-phoenix.service</span></div>
+          <div class="attr">Wired to: <span>xo-bot, intelligence-scheduler, daily-operations-cycle, model-router, provider-chain</span></div>
+        </div>
+        <pre>systemctl status starship-phoenix
+# → http://localhost:6006 for trace UI</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B (future): Langfuse <span class="stars">⭐ 8.7k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install langfuse + docker compose</span></div>
+          <div class="attr">Use: <span>if Phoenix UI insufficient after 30 days</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> Phoenix is live. Evaluate Langfuse in 30 days if UI proves insufficient for prompt management.</div>
+    </div>
+  </div>
+
+  <!-- GAP 3 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 3</span>
+      <div>
+        <div class="gap-title">Unified Memory dormant <span class="badge p2" style="margin-left:8px">P2</span></div>
+        <div class="gap-subtitle">8 of 9 memory paths have zero callers</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc"><code>unified_memory.py</code> maps 9 memory types. Only <code>OFFICER_CONTEXT</code> has a caller. Episodic memory (pgvector) newly wired. Semantic/procedural/factual memory never activates.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: mem0 — open source memory layer <span class="stars">⭐ 27k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install mem0ai</span></div>
+          <div class="attr">Infra: <span>uses existing Supabase pgvector</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Add/search/update memories tied to user/agent ID. Dedup, versioning, retrieval automatic. pgvector backend support.</p>
+        <pre>from mem0 import Memory
+
+config = {"vector_store": {"provider": "pgvector", "config": {"url": SUPABASE_URL}}}
+m = Memory.from_config(config)
+m.add("Captain prefers concise briefs under 200 words", user_id="captain")
+results = m.search("brief length preferences", user_id="captain")</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Graphiti — temporal knowledge graph (already in repo) <span class="stars">⭐ 6.1k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>already built at core/platform/memory_graph.py</span></div>
+          <div class="attr">Gap: <span>zero callers, not zero code</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted)">Wire retrieve_knowledge.py → memory_graph.py. Right tool for ghost temporal tables (temporal_entities/facts/episodes).</p>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> Wire Graphiti first (code exists, zero install). Add mem0 as semantic memory layer for the 8 dormant paths.</div>
+    </div>
+  </div>
+
+  <!-- GAP 4 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 4</span>
+      <div>
+        <div class="gap-title">Search fragmented <span class="badge p2" style="margin-left:8px">P2</span></div>
+        <div class="gap-subtitle">6 incompatible implementations, retrieve_knowledge.py never called</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc">6 separate search implementations. <code>retrieve_knowledge.py</code> never called. Wave 4 consolidation mission not assigned.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: Meilisearch — full-text + vector search <span class="stars">⭐ 48k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>single binary, no Docker</span></div>
+          <div class="attr">Memory: <span>~50MB idle</span></div>
+          <div class="attr">CPU: <span>yes</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Full-text + semantic hybrid search. REST API. Replace all 6 implementations with one client.</p>
+        <pre>curl -L https://install.meilisearch.com | sh
+meilisearch --master-key YOUR_KEY &amp;
+# REST: GET /indexes/knowledge/search?q=query</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Qdrant — vector search <span class="stars">⭐ 22k · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install qdrant-client + binary</span></div>
+          <div class="attr">Use when: <span>pgvector performance degrades</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> Meilisearch — single binary, hybrid search, replaces all 6 implementations. Assign Wave 4 mission to wire retrieve_knowledge.py → Meilisearch.</div>
+    </div>
+  </div>
+
+  <!-- GAP 5 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 5</span>
+      <div>
+        <div class="gap-title">Knowledge pipeline manual <span class="badge p2" style="margin-left:8px">P2</span></div>
+        <div class="gap-subtitle">814-document backlog, disk-scan only, no DB integration</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc"><code>knowledge_utilisation.py</code> scans disk files. No DB integration. 814-document review backlog. Graph sync manual, not event-driven.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: Docling — IBM document processor <span class="stars">⭐ 20k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install docling</span></div>
+          <div class="attr">Infra: <span>none, CPU</span></div>
+          <div class="attr">Formats: <span>PDF, Word, HTML, Markdown</span></div>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:6px">Extracts text, tables, images. Outputs structured JSON ready for vector store ingestion.</p>
+        <pre>from docling.document_converter import DocumentConverter
+converter = DocumentConverter()
+result = converter.convert("/path/to/doc.pdf")
+text = result.document.export_to_markdown()
+# → write to knowledge DB / vector store</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Apache Tika <span class="stars">Mature · Apache 2.0</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install tika</span></div>
+          <div class="attr">Caveat: <span>requires JVM</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> Docling — no JVM, better structured output, IBM-backed active maintenance.</div>
+    </div>
+  </div>
+
+  <!-- GAP 6 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 6</span>
+      <div>
+        <div class="gap-title">Voice output missing <span class="badge p1" style="margin-left:8px">P1</span></div>
+        <div class="gap-subtitle">XO debrief text-only, debrief never committed</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc">XO Voice Daily Debrief built 2026-07-07, never committed. Debrief tables exist. No voice response capability anywhere in the platform.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: edge-tts — Microsoft Edge neural TTS <span class="stars">⭐ 5.7k · GPL</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install edge-tts</span></div>
+          <div class="attr">API key: <span>none</span></div>
+          <div class="attr">Cost: <span>free, unlimited</span></div>
+          <div class="attr">Voices: <span>en-AU-WilliamNeural, en-AU-NatashaNeural, en-GB-RyanNeural</span></div>
+        </div>
+        <pre># core/voice/tts_edge.py
+import asyncio, edge_tts
+
+XO_VOICE = "en-AU-WilliamNeural"
+
+async def speak(text: str, output_path: str) -> str:
+    communicate = edge_tts.Communicate(text, XO_VOICE)
+    await communicate.save(output_path)
+    return output_path
+
+# In XO debrief handler:
+audio_path = asyncio.run(speak(brief_text, "/tmp/xo-debrief.mp3"))
+await bot.send_audio(chat_id=CAPTAIN_ID, audio=open(audio_path, "rb"))</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Piper — offline self-hosted TTS <span class="stars">⭐ 5.3k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install piper-tts + ~50MB model</span></div>
+          <div class="attr">Latency: <span>&lt;50ms on CPU</span></div>
+          <div class="attr">Use when: <span>offline or edge-tts rate-limited</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> edge-tts now. Piper as drop-in swap when offline operation needed.</div>
+    </div>
+  </div>
+
+  <!-- GAP 7 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 7</span>
+      <div>
+        <div class="gap-title">Scheduling fragmented <span class="badge p2" style="margin-left:8px">P2</span></div>
+        <div class="gap-subtitle">5 separate APScheduler instances, double-fire risk</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc">5 separate <code>apscheduler</code> instances across the platform. Overlapping jobs have double-fire risk.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: Consolidate (no new OSS)</div>
+        <p style="font-size:12px;color:var(--muted)">This is an internal architecture issue, not an OSS gap. Assign a mission to designate intelligence/scheduler.py as canonical and decommission the other 4. Cost: zero.</p>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Rocketry — modern Python scheduler <span class="stars">⭐ 3.4k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>pip install rocketry</span></div>
+          <div class="attr">Only if: <span>APScheduler consolidation proves hard</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> Consolidate APScheduler first. Do not add a 6th scheduler.</div>
+    </div>
+  </div>
+
+  <!-- GAP 8 -->
+  <div class="gap-card" onclick="toggle(this)">
+    <div class="gap-header">
+      <span class="gap-num">GAP 8</span>
+      <div>
+        <div class="gap-title">Research Orchestration dormant <span class="badge p3" style="margin-left:8px">P3</span></div>
+        <div class="gap-subtitle">Slack bot research pipeline fully built, zero callers</div>
+      </div>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="gap-body">
+      <div class="gap-desc"><code>slack-bot/lib/research/</code> — fully built research pipeline. Zero live callers. <code>ResearchTask</code> not migrated to Task Engine.</div>
+
+      <div class="option">
+        <div class="option-label">Option A: SearXNG — open source metasearch <span class="stars">⭐ 13k · AGPL</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>docker compose (5 min)</span></div>
+          <div class="attr">Sources: <span>70+ (Google, Bing, DDG, Reddit...)</span></div>
+          <div class="attr">API keys: <span>none</span></div>
+        </div>
+        <pre>GET http://localhost:8080/search?q=query&amp;format=json</pre>
+      </div>
+
+      <div class="option">
+        <div class="option-label">Option B: Perplexica — open source Perplexity <span class="stars">⭐ 18k · MIT</span></div>
+        <div class="option-attrs">
+          <div class="attr">Install: <span>docker compose</span></div>
+          <div class="attr">Models: <span>supports local Ollama</span></div>
+          <div class="attr">Use when: <span>want pre-synthesized results, not raw</span></div>
+        </div>
+      </div>
+
+      <div class="rec-box"><strong>Recommendation:</strong> SearXNG — simpler, composable, wires directly into existing research pipeline as data source.</div>
+    </div>
+  </div>
+
+  <!-- Internal wiring -->
+  <div class="section-label" style="margin-top:48px">Not an OSS gap — internal wiring issues</div>
+  <div class="internal-table">
+    <table>
+      <thead>
+        <tr><th>Gap</th><th>Fix</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>interrupt_now</code> never fires (Attention Engine)</td><td>Fix threshold logic in intelligence_store.py:770</td></tr>
+        <tr><td><code>Priority Engine</code> hardcoded zeros</td><td>Wire Learning &amp; Adaptation outputs to weighting</td></tr>
+        <tr><td>46 pre-existing test failures</td><td>Run full suite, fix failures</td></tr>
+        <tr><td><code>Knowledge PATCH</code> auth gap</td><td>Add auth check to /memory/[id]/route.ts</td></tr>
+        <tr><td>Event Bus dead domains</td><td>Add publish_event() callers in research-learning modules</td></tr>
+        <tr><td>Pattern Library zero consumers</td><td>Wire downstream calls from Captain Intelligence</td></tr>
+        <tr><td>Mobile nav (23/25 workbenches)</td><td>CSS/responsive layout work</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>Generated 2026-08-23 · 40 gaps audited · CPU VM · no GPU · free + open source only</footer>
+
+<script>
+function toggle(card) {
+  card.classList.toggle('open');
+}
+// Auto-open P1 cards
+document.querySelectorAll('.gap-card').forEach(card => {
+  if (card.querySelector('.p1')) card.classList.add('open');
+});
+</script>
+</body>
+</html>

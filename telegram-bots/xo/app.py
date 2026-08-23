@@ -86,6 +86,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 sys.path.insert(0, str(_REPO_ROOT))
 
+# ── Telemetry ─────────────────────────────────────────────────────────────────
+try:
+    from platform_runtime.lib.telemetry import configure_tracing
+    configure_tracing("xo-bot")
+except Exception:
+    pass
+
 from telegram_bots.recovery_officer.engagement_dispatcher import (
     RecoveryStatus,
     get_recovery_status,

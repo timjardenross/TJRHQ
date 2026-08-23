@@ -30,6 +30,14 @@ log = logging.getLogger("or-intelligence-scheduler")
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# ── Telemetry ─────────────────────────────────────────────────────────────────
+try:
+    sys.path.insert(0, _REPO_ROOT)
+    from platform_runtime.lib.telemetry import configure_tracing
+    configure_tracing("intelligence-scheduler")
+except Exception:
+    pass
+
 
 def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""

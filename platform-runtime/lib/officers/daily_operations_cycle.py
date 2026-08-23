@@ -41,6 +41,13 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+# ── Telemetry ─────────────────────────────────────────────────────────────────
+try:
+    from platform_runtime.lib.telemetry import configure_tracing
+    configure_tracing("daily-operations-cycle")
+except Exception:
+    pass
+
 
 # ── Output data class ─────────────────────────────────────────────────────────
 
