@@ -633,6 +633,19 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
         log.info("[brief] OR brief %s delivered (risk=%s)", bid, risk)
 
+        # Voice reply — additive only; text reply already sent above.
+        # Compose a clean plain-text summary for TTS (no HTML tags).
+        brief_voice_text = f"OR Intelligence Brief. Risk level: {risk}. "
+        if bottom:
+            brief_voice_text += f"Bottom line: {bottom[:400]}. "
+        elif snap:
+            brief_voice_text += f"Snapshot: {snap[:400]}."
+        try:
+            from core.voice.tts_edge import send_voice_reply
+            await send_voice_reply(context.bot, update.effective_chat.id, brief_voice_text)
+        except Exception:
+            pass  # voice is optional — text reply already delivered
+
     except Exception as exc:
         log.error("[brief] OR brief fetch failed: %s", exc)
         await update.message.reply_text(f"⚠️ Brief fetch failed: {str(exc)[:120]}")
@@ -926,6 +939,14 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
                 if debrief_result["handled"]:
                     await update.message.reply_text(debrief_result["reply"])
+                    # Voice reply — additive only; text reply already sent above.
+                    try:
+                        from core.voice.tts_edge import send_voice_reply
+                        await send_voice_reply(
+                            context.bot, update.effective_chat.id, debrief_result["reply"]
+                        )
+                    except Exception:
+                        pass  # voice is optional — text reply already delivered
                     return
 
         status   = get_recovery_status(db)
