@@ -27,6 +27,18 @@ from typing import Optional, List
 
 log = logging.getLogger(__name__)
 
+# Lazy import so the bridge remains usable even if the quality scoring module
+# is absent in non-standard deployments.
+try:
+    from lib.quality_scoring_service import QualityScoring as _QualityScoring
+    _QUALITY_SCORING_AVAILABLE = True
+except ImportError:
+    _QUALITY_SCORING_AVAILABLE = False
+    log.warning(
+        "[learning-loop-bridge] quality_scoring_service unavailable; "
+        "quality scoring will be skipped in record_decision_outcome()"
+    )
+
 
 # =====================================================================
 # Data Structures
@@ -86,6 +98,7 @@ class LearningLoopBridge:
         self,
         outcome_capture_service: object,  # OutcomeCaptureService
         research_memory_service: object,  # ResearchMemoryService
+        supabase_client=None,
     ):
         """
         Initialize Learning Loop Bridge.
@@ -93,9 +106,20 @@ class LearningLoopBridge:
         Args:
             outcome_capture_service: MSN-0060B outcome capture
             research_memory_service: Research evidence storage
+            supabase_client: Optional Supabase client forwarded to
+                QualityScoring so outcome scoring is persisted.  When
+                omitted, a scoring instance is still created but scores
+                are not written to the database.
         """
         self.outcome_capture = outcome_capture_service
         self.research_memory = research_memory_service
+
+        # Wire the real QualityScoring service so record_decision_outcome()
+        # can pass it through to record_outcome(), closing the B1C loop.
+        if _QUALITY_SCORING_AVAILABLE:
+            self._quality_scoring = _QualityScoring(supabase_client)
+        else:
+            self._quality_scoring = None
 
         log.info("[learning-loop-bridge] Initialized")
 
@@ -208,6 +232,9 @@ class LearningLoopBridge:
                 provider_name=getattr(decision, "provider_used", None),
                 model_name=None,
                 provider_route=None,
+                # Pass the real scoring service so the B1C quality scoring
+                # chain fires automatically inside OutcomeCapture.
+                quality_scoring_service=self._quality_scoring,
             )
 
             if outcome:

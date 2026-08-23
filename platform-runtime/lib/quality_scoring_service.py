@@ -30,10 +30,24 @@ import os
 import logging
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional, Any, List
 from enum import Enum
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Optional deepeval import — graceful fallback if unavailable at runtime
+# ---------------------------------------------------------------------------
+try:
+    from deepeval.metrics import HallucinationMetric
+    from deepeval.test_case import LLMTestCase
+    _DEEPEVAL_AVAILABLE = True
+except ImportError:
+    _DEEPEVAL_AVAILABLE = False
+    log.warning(
+        "[quality-scoring] deepeval not available; "
+        "score_output() will return None until it is installed"
+    )
 
 
 # ============================================================================
@@ -150,6 +164,72 @@ class QualityScoring:
         """
         self.supabase_client = supabase_client
         log.info("[quality-scoring] QualityScoring service initialized")
+
+    def score_output(
+        self,
+        prompt: str,
+        response: str,
+        context: Optional[List[str]] = None,
+    ) -> Optional[float]:
+        """
+        Score an LLM output for hallucination using deepeval's HallucinationMetric.
+
+        Evaluates whether the response introduces claims not grounded in the
+        provided context.  Returns a float in [0.0, 1.0] where higher means
+        less hallucination (i.e. better quality), or None when evaluation is
+        not possible.
+
+        The score is derived from deepeval's metric score, which already
+        expresses hallucination rate in [0.0, 1.0].  We invert it so the
+        returned value reads as a *quality* score consistent with the rest
+        of the service (higher = better).
+
+        Args:
+            prompt: The original prompt / question sent to the LLM.
+            response: The LLM's actual output to evaluate.
+            context: Optional list of reference strings the response should
+                     be grounded in.  Defaults to an empty list when omitted,
+                     which tells deepeval to evaluate self-consistency only.
+
+        Returns:
+            Float 0.0–1.0 (quality score), or None on import failure / LLM
+            error.  Callers must treat None as "evaluation unavailable" rather
+            than a score of zero.
+        """
+        if not _DEEPEVAL_AVAILABLE:
+            log.warning(
+                "[quality-scoring] score_output() skipped: deepeval not installed"
+            )
+            return None
+
+        grounding_context: List[str] = context if context is not None else []
+
+        try:
+            test_case = LLMTestCase(
+                input=prompt,
+                actual_output=response,
+                context=grounding_context if grounding_context else None,
+            )
+            metric = HallucinationMetric(threshold=0.5, async_mode=False)
+            metric.measure(test_case)
+
+            # deepeval returns hallucination *rate* in [0.0, 1.0].
+            # Invert to a quality score: 0 hallucination → 1.0 quality.
+            hallucination_rate: float = metric.score
+            quality_score = round(1.0 - hallucination_rate, 4)
+
+            log.info(
+                f"[quality-scoring] score_output: hallucination_rate={hallucination_rate:.4f}, "
+                f"quality_score={quality_score:.4f}"
+            )
+            return quality_score
+
+        except Exception as exc:
+            log.warning(
+                f"[quality-scoring] score_output() failed, returning None: "
+                f"{type(exc).__name__}: {str(exc)[:120]}"
+            )
+            return None
 
     def score_outcome(
         self,
