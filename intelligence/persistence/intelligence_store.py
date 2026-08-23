@@ -17,6 +17,14 @@ from intelligence.models import (
     ClassifiedEvent, RankedEvent, ResilienceBrief,
     SourceRecord, SourceHealth
 )
+from core.platform.priority_engine import PriorityInputs, PriorityScore, score_event
+
+# Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
+# below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry
+# no actionable priority signal — scoring them with placeholder weights would
+# only produce misleading near-zero totals. CAN_BE_DELAYED and above are the
+# tiers that matter for ranking (MSN-0306 wiring contract).
+_PRIORITY_SCORING_IMPORTANCE_FLOOR = 40
 
 log = logging.getLogger(__name__)
 
@@ -837,6 +845,41 @@ def _derive_attention_importance(event: RankedEvent) -> int:
     return 15
 
 
+def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> Optional[PriorityScore]:
+    """Score one ranked event through the Priority Engine if it clears the
+    CAN_BE_DELAYED attention floor.
+
+    Returns None for NEVER_INTERRUPT / SHOULD_SIMPLY_BE_REMEMBERED events
+    (attention_importance below _PRIORITY_SCORING_IMPORTANCE_FLOOR) — scoring
+    near-zero-importance events with placeholder weights produces misleading
+    output with no operational value.
+
+    Fields with no real source yet (value_dimensions, opportunity_value,
+    time_sensitivity) are passed as None/empty — score_event() handles absent
+    inputs gracefully (Blueprint §14 Wave 3 will supply these once the
+    Relationship Model and domain opportunity scorers are live).
+
+    Never raises — callers log a warning and continue on any failure.
+    """
+    if attention_importance < _PRIORITY_SCORING_IMPORTANCE_FLOOR:
+        return None
+    inputs = PriorityInputs(
+        event_id=getattr(event, "event_id", None),
+        domain="operational-resilience-intelligence",
+        event_type=event.event_type,
+        importance=attention_importance,
+        confidence=round(event.confidence * 100),
+        relevance=round(event.operational_relevance * 100),
+        # time_sensitivity: not a RankedEvent field today — Wave 3 supply path
+        time_sensitivity=None,
+        # value_dimensions: requires Relationship Model edges — Wave 3
+        value_dimensions={},
+        # opportunity_value: requires comms/opportunities.py integration — Wave 3
+        opportunity_value=None,
+    )
+    return score_event(inputs)
+
+
 def save_event(event: RankedEvent, ori: Optional[dict] = None,
                phase_a: Optional[dict] = None) -> Optional[str]:
     """Persist a ranked event. Returns event_id or None on failure.
@@ -888,6 +931,48 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         event_id = result.get("event_id")
+        attention_importance = _derive_attention_importance(event)
+
+        # Priority Engine wiring (MSN-0306 → activated here). Score every event
+        # that clears the CAN_BE_DELAYED floor — NEVER_INTERRUPT and
+        # SHOULD_SIMPLY_BE_REMEMBERED events are excluded (see
+        # _priority_score_for_event). The score travels with the event via the
+        # `metrics` field on core_events so any downstream consumer (brief
+        # orchestrator, LCARS, Telegram dispatch) can read it without a
+        # separate query. Non-blocking: a scoring failure never affects
+        # intelligence_events persistence.
+        priority_score: Optional[PriorityScore] = None
+        try:
+            priority_score = _priority_score_for_event(event, attention_importance)
+            if priority_score is not None:
+                log.debug(
+                    "[priority-engine] event_id=%s event_type=%s score=%.2f %s",
+                    event_id,
+                    event.event_type,
+                    priority_score.total_score,
+                    priority_score.explanation,
+                )
+        except Exception as exc:
+            log.warning(
+                "[priority-engine] scoring failed for event_type=%s (non-blocking): %s",
+                event.event_type,
+                exc,
+            )
+
+        metrics: dict = {}
+        if priority_score is not None:
+            metrics["priority_score"] = {
+                "total_score": priority_score.total_score,
+                "urgency_score": priority_score.urgency_score,
+                "importance_score": priority_score.importance_score,
+                "time_sensitivity_score": priority_score.time_sensitivity_score,
+                "value_score": priority_score.value_score,
+                "risk_score": priority_score.risk_score,
+                "opportunity_score": priority_score.opportunity_score,
+                "dominant_value_dimension": priority_score.dominant_value_dimension,
+                "explanation": priority_score.explanation,
+            }
+
         _publish_core_event(
             "intelligence.signal.ranked",
             # 2026-08-22: was round(row["rank_score"]) — see the dated
@@ -896,7 +981,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
             # 1000-event sample) never let the Attention Engine's
             # INTERRUPT_NOW floor fire on real data, and why this
             # classification-derived severity score replaces it here.
-            importance=_derive_attention_importance(event),
+            importance=attention_importance,
             confidence=round(row["confidence"] * 100),
             relevance=round(row["operational_relevance"] * 100),
             linked_entities=[event_id] if event_id else [],
@@ -907,6 +992,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
             # same real title WP1 already validated as genuine content, not
             # new judgment about the signal's meaning.
             recommended_action=row["raw_title"],
+            metrics=metrics or None,
         )
         _maybe_push_outage_alert(event, event_id)
         return event_id
