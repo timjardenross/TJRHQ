@@ -21,6 +21,16 @@ import os
 import time
 from typing import Optional
 
+try:
+    import sys as _sys
+    _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
+    from opentelemetry import trace as _trace
+    _configure_tracing("mistral-agent-client")
+    _TRACING_AVAILABLE = True
+except Exception:
+    _TRACING_AVAILABLE = False
+
 log = logging.getLogger(__name__)
 
 # Canonical agent names used throughout the pipeline
@@ -149,33 +159,54 @@ def call_agent(
     start = time.monotonic()
 
     for attempt in range(1, 3):
+        span_name = f"mistral.agent.{agent_name}"
+        span_ctx = (
+            _trace.get_tracer("mistral_agent_client").start_as_current_span(
+                span_name,
+                attributes={
+                    "mistral.agent_name": agent_name,
+                    "mistral.agent_id": agent_id[:12],
+                    "mistral.input_length": len(prompt),
+                },
+            )
+            if _TRACING_AVAILABLE
+            else __import__("contextlib").nullcontext()
+        )
         try:
-            from mistralai import Mistral
-            client = Mistral(api_key=api_key)
-            response = client.beta.conversations.start(
-                agent_id=agent_id,
-                agent_version=agent_version,
-                inputs=[{"role": "user", "content": prompt}],
-            )
-            text = _extract_text(response)
-            elapsed = int((time.monotonic() - start) * 1000)
-
-            if text:
-                log.info(
-                    "[research] stage=%s provider=mistral_agent status=success "
-                    "agent_id=%s... elapsed_ms=%d chars=%d mission=%s",
-                    stage, agent_id[:12], elapsed, len(text), mission_id,
+            with span_ctx as span:
+                from mistralai import Mistral
+                client = Mistral(api_key=api_key)
+                response = client.beta.conversations.start(
+                    agent_id=agent_id,
+                    agent_version=agent_version,
+                    inputs=[{"role": "user", "content": prompt}],
                 )
-                return text
+                text = _extract_text(response)
+                elapsed = int((time.monotonic() - start) * 1000)
 
-            # Log raw response structure to diagnose empty extraction
-            log.warning(
-                "[research] stage=%s provider=mistral_agent status=empty_response "
-                "agent_id=%s... attempt=%d mission=%s raw_outputs=%s",
-                stage, agent_id[:12], attempt, mission_id,
-                _debug_outputs(response),
-            )
-            return None
+                if _TRACING_AVAILABLE and span is not None:
+                    try:
+                        span.set_attribute("mistral.duration_ms", elapsed)
+                        span.set_attribute("mistral.success", bool(text))
+                    except Exception:
+                        pass
+
+                if text:
+                    log.info(
+                        "[research] stage=%s provider=mistral_agent status=success "
+                        "agent_id=%s... elapsed_ms=%d chars=%d mission=%s",
+                        stage, agent_id[:12], elapsed, len(text), mission_id,
+                    )
+                    return text
+
+                # Log raw response structure to diagnose empty extraction
+                log.warning(
+                    "[research] stage=%s provider=mistral_agent status=empty_response "
+                    "agent_id=%s... attempt=%d mission=%s raw_outputs=%s",
+                    stage, agent_id[:12], attempt, mission_id,
+                    _debug_outputs(response),
+                )
+                return None
 
         except Exception as exc:
             elapsed = int((time.monotonic() - start) * 1000)

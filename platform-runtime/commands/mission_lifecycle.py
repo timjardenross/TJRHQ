@@ -214,8 +214,8 @@ def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
         return None
 
 
-def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: Optional[str] = None) -> bool:
-    """Update mission status in Supabase. Returns True on success.
+def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: Optional[str] = None):
+    """Update mission status in Supabase. Returns (True, event_id) on success, (False, None) on failure.
 
     `due_date`: the mission's own `due_date` column, if the caller already
     has it in scope (e.g. from a prior `_supabase_missions()` read) — used
@@ -228,7 +228,7 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
         from tools.supabase.client import CommanderSupabaseClient
         client = CommanderSupabaseClient()
         if not client.is_enabled():
-            return False
+            return False, None
         # Try both bare and prefixed IDs
         mission_id_full = mission_id if mission_id.startswith("USS-TJR-") else f"USS-TJR-{mission_id}"
         # updated_at is timestamp without time zone — omit timezone suffix
@@ -242,11 +242,12 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                 # MSN-0328 Wave 2: canonical Captain Brief pipeline event.
                 # Non-blocking, matches publish_event()'s own contract —
                 # never affects this function's own success/failure.
+                _event_id = None
                 try:
                     if str(_REPO_ROOT) not in sys.path:
                         sys.path.insert(0, str(_REPO_ROOT))
                     from core.platform.event_bus import publish_event
-                    publish_event(
+                    _event_id = publish_event(
                         "mission.status_changed", domain="mission-lifecycle",
                         source="slack-bot:mission_lifecycle",
                         time_sensitivity=_time_sensitivity_from_due_date(due_date),
@@ -267,11 +268,11 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                     record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
                 except Exception:
                     pass
-                return True
-        return False
+                return True, _event_id
+        return False, None
     except Exception as exc:
         log.debug("[mission_lifecycle] Supabase status update failed: %s", exc)
-        return False
+        return False, None
 
 
 def _write_transition_audit(mission_id: str, from_status: str, to_status: str, user_id: str, note: str) -> None:
@@ -525,13 +526,26 @@ def _handle_status_transition(
             break
 
     # Apply the transition
-    updated = _supabase_update_mission_status(mission_id, new_status, due_date=due_date)
+    updated, _evt_id = _supabase_update_mission_status(mission_id, new_status, due_date=due_date)
     if not updated:
         # Try prefixed form
-        updated = _supabase_update_mission_status(mission_id_full, new_status, due_date=due_date)
+        updated, _evt_id = _supabase_update_mission_status(mission_id_full, new_status, due_date=due_date)
 
     # Write audit record regardless of Supabase outcome
     _write_transition_audit(mission_id, from_status, new_status, user_id or "Captain", note)
+
+    # Tiered approval PoC — route status changes through Attention Engine
+    try:
+        from core.platform.approval_router import evaluate_and_route_mission_status_change
+        evaluate_and_route_mission_status_change(
+            mission_id=mission_id_full,
+            mission_name=mission_title,
+            old_status=from_status,
+            new_status=new_status,
+            event_id=_evt_id,
+        )
+    except Exception as _e:
+        log.debug("Approval routing skipped: %s", _e, exc_info=True)
 
     if updated:
         lines = [

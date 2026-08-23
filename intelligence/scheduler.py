@@ -412,6 +412,19 @@ def _start_scheduler() -> None:
     # still works via engagement_dispatcher.py directly — only this
     # automatic timer is removed.
 
+    # ── Episodic Memory Decay (migration 0162) ────────────────────────────────
+    # Prune zero-reuse research memories older than 90 days. Runs weekly on
+    # Sunday at 03:00 AEST — low-traffic window, after any Saturday briefs.
+    # Only rows with execution_status='success' and reuse_count=0 are removed;
+    # any memory that has been recalled at least once is preserved regardless
+    # of age. See core/platform/episodic_memory.py for the write path.
+    scheduler.add_job(
+        _episodic_memory_decay_job,
+        CronTrigger(day_of_week="sun", hour=3, minute=0, timezone=tz),
+        id="episodic_memory_decay",
+        replace_existing=True,
+    )
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
@@ -419,9 +432,10 @@ def _start_scheduler() -> None:
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
         "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
-        "Downdetector threshold recompute: 05:00 (%s)",
+        "Downdetector threshold recompute: 05:00 (%s) | "
+        "Episodic memory decay: Sunday 03:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
-        _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ,
+        _PRIORITY_TIERED_INTERVAL_MINUTES, SCHEDULE_TZ, SCHEDULE_TZ,
     )
 
     try:
@@ -1289,6 +1303,57 @@ def _source_fidelity_audit_job() -> None:
     except Exception as exc:
         log.error("Source fidelity audit job failed: %s", exc)
         _record_heartbeat("source_fidelity_audit", "failed", error_message=str(exc))
+
+
+def _episodic_memory_decay_job() -> None:
+    """Weekly decay pass for episodic memory (research_memory table).
+
+    Deletes research_memory rows that:
+    - were created more than 90 days ago
+    - have never been reused (reuse_count = 0)
+    - completed successfully (execution_status = 'success')
+
+    Any memory that has been recalled at least once is preserved regardless of
+    age. The intent is to shed low-signal research noise while retaining any
+    insight that proved useful enough to recall.
+
+    Runs Sunday 03:00 AEST — registered in _start_scheduler() via CronTrigger.
+    Logs the count of deleted rows for observability.
+    """
+    log.info("Episodic memory decay job triggered")
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+
+        client = CommanderSupabaseClient()
+        raw = client.raw_client
+        if raw is None:
+            log.info("Episodic memory decay: Supabase unavailable, skipping")
+            _record_heartbeat("episodic_memory_decay", "skipped", detail="Supabase unavailable")
+            return
+
+        # PostgREST filter: created_at < now() - interval '90 days', reuse_count = 0,
+        # execution_status = 'success'. lt() with an ISO timestamp achieves the
+        # interval comparison; PostgreSQL coerces the string to timestamptz.
+        from datetime import datetime, timedelta, timezone as _tz
+
+        cutoff = (datetime.now(_tz.utc) - timedelta(days=90)).isoformat()
+        delete_result = (
+            raw.table("research_memory")
+            .delete()
+            .lt("created_at", cutoff)
+            .eq("reuse_count", 0)
+            .eq("execution_status", "success")
+            .execute()
+        )
+        deleted_count = len(delete_result.data or [])
+        log.info("Episodic memory decay: deleted %d zero-reuse rows older than 90 days", deleted_count)
+        _record_heartbeat(
+            "episodic_memory_decay", "ok",
+            detail=f"deleted={deleted_count} cutoff={cutoff[:10]}",
+        )
+    except Exception as exc:
+        log.error("Episodic memory decay job failed: %s", exc)
+        _record_heartbeat("episodic_memory_decay", "failed", error_message=str(exc))
 
 
 if __name__ == "__main__":

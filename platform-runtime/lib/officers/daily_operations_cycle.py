@@ -82,26 +82,64 @@ class OfficerCycleResult:
 # ── Step 1: Research Scan ─────────────────────────────────────────────────────
 
 def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
-    """Research Officer: process intelligence signals from ORI and investigations."""
+    """Research Officer: process intelligence signals from ORI and investigations.
+
+    Episodic memory is checked first: prior completed research matching the
+    current resilience state is prepended as episodic_memories on the signal,
+    giving the Captain's Brief pipeline relevant historical context alongside
+    live findings. The episodic recall is additive — unified_memory.recall()
+    still runs unconditionally after it.
+    """
     try:
+        # ── Episodic memory: semantic recall of prior research ────────────────
+        # Query the hot layer for research records matching the current operating
+        # state. Wrapped in its own try/except so a Model Router outage or
+        # Supabase hiccup never silences the main officer scan below.
+        episodic_memories: list[dict] = []
+        try:
+            from core.platform.episodic_memory import recall_similar
+            ori_risk = getattr(ctx, "resilience_risk", "Unknown")
+            # Construct a query that reflects what the Research Officer is
+            # scanning for: current risk state and any live finding topics.
+            findings_ctx = getattr(ctx, "high_confidence_findings", [])
+            finding_topics = " ".join(
+                str(f.get("topic", "") or f.get("title", "")) for f in findings_ctx[:3]
+            ).strip()
+            episodic_query = f"resilience risk {ori_risk} {finding_topics}".strip()
+            episodic_memories = recall_similar(episodic_query, threshold=0.72, limit=5)
+            if episodic_memories:
+                log.info(
+                    "[officer_cycle] Episodic recall: %d prior research memories (ORI=%s)",
+                    len(episodic_memories),
+                    ori_risk,
+                )
+        except Exception as ep_exc:
+            log.debug("[officer_cycle] Episodic memory recall failed (non-blocking): %s", ep_exc)
+
         from core.platform.unified_memory import MemoryType, recall
         results = recall(MemoryType.OFFICER_CONTEXT, officer="research")
         oc = results[0] if results else {"has_context": False, "relevant_memories": []}
-        if not oc["has_context"] and not getattr(ctx, "high_confidence_findings", []):
+        if not oc["has_context"] and not getattr(ctx, "high_confidence_findings", []) and not episodic_memories:
             return
 
         findings = getattr(ctx, "high_confidence_findings", [])
         ori_risk = getattr(ctx, "resilience_risk", "Unknown")
-        if findings or ori_risk in ("RED", "AMBER"):
+        if findings or ori_risk in ("RED", "AMBER") or episodic_memories:
             signal = {
                 "officer": "research",
                 "type": "intelligence_scan",
                 "findings": len(findings),
                 "ori_risk": ori_risk,
                 "context_memories": len(oc["relevant_memories"]),
+                "episodic_memories": episodic_memories,
             }
             result.officer_signals.append(signal)
-            log.info("[officer_cycle] Research scan: %d finding(s), ORI=%s", len(findings), ori_risk)
+            log.info(
+                "[officer_cycle] Research scan: %d finding(s), ORI=%s, %d episodic memories",
+                len(findings),
+                ori_risk,
+                len(episodic_memories),
+            )
     except Exception as exc:
         log.debug("[officer_cycle] Research scan failed: %s", exc)
 

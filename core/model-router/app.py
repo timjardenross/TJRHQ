@@ -48,6 +48,49 @@ logging.basicConfig(
 )
 log = logging.getLogger("model-router")
 
+# Optional OTel tracing — stdlib-only fallback when platform-runtime venv is
+# not available (model-router runs under system Python with no external deps).
+try:
+    sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
+    from opentelemetry import trace as _otel_trace
+    _configure_tracing("model-router")
+    _ROUTER_TRACING_AVAILABLE = True
+except Exception:
+    _ROUTER_TRACING_AVAILABLE = False
+
+
+def _emit_router_span(task_type: str, model: str, duration_ms: int, success: bool) -> None:
+    """
+    Fire a completed OTel span recording one model-router dispatch outcome.
+
+    Called immediately after _log_call() in _run_task() so every routed
+    request appears in the trace backend alongside the structured log entry.
+    No-ops silently when tracing is unavailable.
+
+    Args:
+        task_type:   Router task key (e.g. "classify-capture")
+        model:       Model name that served the request
+        duration_ms: Wall-clock duration of the full dispatch
+        success:     Whether the dispatch returned a non-error result
+    """
+    if not _ROUTER_TRACING_AVAILABLE:
+        return
+    try:
+        tracer = _otel_trace.get_tracer("model_router")
+        with tracer.start_as_current_span(
+            f"router.{task_type}",
+            attributes={
+                "router.task_type": task_type,
+                "router.model": model,
+                "router.duration_ms": duration_ms,
+                "router.success": success,
+            },
+        ):
+            pass  # span closes immediately; timing is recorded in attributes
+    except Exception:
+        pass
+
 _PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))
 _HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
@@ -378,6 +421,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             "success": True,
         }
         _log_call(entry)
+        _emit_router_span(task_type, model, duration_ms, True)
         log.info("task=%s model=%s duration_ms=%d escalated=%s", task_type, model, duration_ms, escalated)
 
         result = {

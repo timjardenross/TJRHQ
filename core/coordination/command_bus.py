@@ -86,8 +86,10 @@ _BACKEND_HEALTH_URL = _env("BACKEND_HEALTH_URL", "http://localhost:5000/health")
 # The build executor is intentionally excluded here — it's managed by
 # _rule_executor_needs_restart which only alerts when there is pending work.
 _SERVICES = {
-    "starfleet-slack-bot.service":      "CRITICAL",
-    "starfleet-backend.service":        "CRITICAL",
+    # starfleet-slack-bot.service and starfleet-backend.service retired 2026-08-23.
+    # Both are disabled/inactive — backend's working-dir.conf points to a
+    # non-existent archive path; slack-bot superseded by XO bot (tg-xo.service).
+    # Removed from monitoring to stop phantom CRITICAL alerts.
     "tg-xo.service":                    "HIGH",
     # tg-engineer / tg-engineering-dept retired 2026-07-05 (XO is the only
     # Telegram bot). Removed from monitoring so their permanent-down state

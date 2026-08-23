@@ -48,4 +48,9 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Briefs',
     description: 'The intelligence brief archive - every synthesized brief across every domain, filterable by review/publish status.',
   },
+  {
+    href: '/agent-status-workbench',
+    title: 'Agent & Job Status',
+    description: 'Scheduler job health, agent run history, and failure triage across all automated platform tasks.',
+  },
 ];

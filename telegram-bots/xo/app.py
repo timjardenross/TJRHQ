@@ -1516,6 +1516,38 @@ async def cmd_revs_generate(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
+async def handle_mission_approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle mission status-change approval/dismiss buttons sent by the Attention Engine."""
+    query = update.callback_query
+    await query.answer()
+
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+
+    parts = query.data.split("|")  # ms|action|mission_id[|event_id]
+    if len(parts) < 3:
+        return
+    _, action, mission_id = parts[0], parts[1], parts[2]
+    event_id = parts[3] if len(parts) >= 4 else None
+
+    if action == "ack":
+        await query.edit_message_text(f"✅ Mission {mission_id} acknowledged.")
+        try:
+            from core.platform.event_bus import mark_event_status
+            if event_id:
+                mark_event_status(event_id, "acknowledged")
+        except Exception:
+            pass
+    elif action == "dismiss":
+        await query.edit_message_text("🔕 Dismissed.")
+        try:
+            from core.platform.event_bus import mark_event_status
+            if event_id:
+                mark_event_status(event_id, "dismissed")
+        except Exception:
+            pass
+
+
 async def handle_revs_generate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle Confirm/Cancel on a pending /revs_generate request."""
     query = update.callback_query
@@ -1619,10 +1651,11 @@ def main() -> None:
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
-    app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,    pattern=r"^mc\|"))
-    app.add_handler(CallbackQueryHandler(handle_voice_capture_callback, pattern=r"^vc\|"))
+    app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
+    app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
-    app.add_handler(CallbackQueryHandler(handle_revs_generate_callback, pattern=r"^rg\|"))
+    app.add_handler(CallbackQueryHandler(handle_revs_generate_callback,      pattern=r"^rg\|"))
+    app.add_handler(CallbackQueryHandler(handle_mission_approval_callback,   pattern=r"^ms\|"))
     app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 

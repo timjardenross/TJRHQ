@@ -480,6 +480,7 @@ def _execute_research_mission(
     if result.status != "error":
         _queue_mission_logging(result, user_id)
         _persist_research_memory(result, user_id)
+        _attach_episodic_embedding(result)
         _record_research_learning_loop(result, user_id)
         log_memory_metric(
             source="research",
@@ -913,6 +914,59 @@ def _persist_research_memory(result, user_id: str | None) -> None:
             pass
     except Exception as exc:
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
+
+
+def _attach_episodic_embedding(result) -> None:
+    """Add a pgvector embedding to the most recent research_memory row for this result.
+
+    Called immediately after _persist_research_memory writes the row. Looks up
+    the row by query_hash (the dedup key), then generates and attaches a 768-dim
+    nomic-embed-text embedding via the Model Router.
+
+    Additive only — never modifies the existing row payload written by
+    _persist_research_memory. Failure is non-blocking: a missing embedding
+    means semantic recall is unavailable for this record, but keyword recall
+    and all other memory paths still work.
+    """
+    try:
+        from core.platform.episodic_memory import embed_text
+
+        query_text = result.research_topic or ""
+        if not query_text.strip():
+            return
+
+        query_hash = _compute_research_query_hash(query_text)
+        client = _build_research_supabase_client()
+        if client is None:
+            return
+
+        # Find the row _persist_research_memory just wrote, identified by
+        # query_hash and the most recent stored_at timestamp.
+        fetch = (
+            client.table("research_memory")
+            .select("id")
+            .eq("query_hash", query_hash)
+            .order("stored_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = fetch.data or []
+        if not rows:
+            log.debug("[research] _attach_episodic_embedding: no row found for hash %s", query_hash[:8])
+            return
+
+        row_id = rows[0]["id"]
+        findings = result.consolidated_findings or ""
+        embed_input = f"{query_text} {findings[:500]}"
+        vector = embed_text(embed_input)
+        if vector is None:
+            log.debug("[research] _attach_episodic_embedding: embed unavailable for row %s", row_id)
+            return
+
+        client.table("research_memory").update({"embedding": vector}).eq("id", row_id).execute()
+        log.info("[research] Episodic embedding attached to memory row %s", row_id)
+    except Exception as exc:
+        log.warning("[research] _attach_episodic_embedding failed (non-blocking): %s", exc)
 
 
 # ============================================================================
