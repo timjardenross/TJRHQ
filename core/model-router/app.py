@@ -496,6 +496,19 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
 # ── HTTP handler ──────────────────────────────────────────────────────────────
 
 class RouterHandler(BaseHTTPRequestHandler):
+    # BaseHTTPRequestHandler defaults to HTTP/1.0 (connection closed after
+    # every response) unless told otherwise. Node's fetch (undici) pools
+    # connections assuming HTTP/1.1 keep-alive by default — a long-lived
+    # caller (lcars-portal's Next.js server, running for hours) could reuse
+    # a pooled socket this server had already closed, surfacing as an
+    # intermittent "TypeError: fetch failed" on requests after the first
+    # (confirmed live 2026-08-23: direct curl, always a fresh connection,
+    # never reproduced it; the recurring failures were all through the
+    # portal's persistent Next.js process). Declaring HTTP/1.1 here lets
+    # the client's keep-alive assumption match reality instead of racing a
+    # connection the server already tore down.
+    protocol_version = "HTTP/1.1"
+
     def log_message(self, fmt: str, *args: object) -> None:
         log.debug(fmt, *args)
 
