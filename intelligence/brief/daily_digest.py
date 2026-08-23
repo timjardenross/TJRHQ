@@ -31,7 +31,9 @@ per-domain formatting still works.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -50,6 +52,47 @@ _DOMAIN_SECTIONS = (
     ("Opportunities", "opportunities"),
     ("Operational Intelligence (platform)", "operational_intelligence"),
 )
+
+
+_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _unwrap_if_json(text: str) -> str:
+    """Defense-in-depth: this narrative is requested as plain paragraphs
+    (see the prompt built below), but the shared LLMProvider pipeline
+    (intelligence/brief/llm_provider.py) is also used by brief_generator.py,
+    which DOES want JSON — confirmed live 2026-08-23 that a Model Router
+    outage made this exact path return raw ResilienceBrief JSON
+    (executive_snapshot/bottom_line/etc) instead of prose, because this
+    caller had no unwrap step. The root cause is fixed in llm_provider.py's
+    Stage 4 prompt, but an LLM can still ignore instructions — this is the
+    backstop so a recurrence degrades to readable text instead of a raw
+    JSON dump reaching Captain TJR's Telegram."""
+    stripped = text.strip()
+    if not (stripped.startswith("{") or stripped.startswith("```")):
+        return text
+    match = _JSON_BLOCK_RE.search(stripped)
+    if not match:
+        return text
+    try:
+        data = json.loads(match.group())
+    except (json.JSONDecodeError, TypeError):
+        return text
+    if not isinstance(data, dict):
+        return text
+    parts = []
+    for key in ("executive_snapshot", "bottom_line"):
+        val = data.get(key)
+        if val:
+            parts.append(str(val))
+    themes = data.get("emerging_themes")
+    if themes:
+        parts.append("Themes: " + ", ".join(str(t) for t in themes[:5]))
+    if not parts:
+        # Unrecognised JSON shape — better to say nothing than show raw JSON.
+        log.warning("[daily_digest] LLM returned unrecognised JSON shape, discarding")
+        return ""
+    return " ".join(parts)
 
 
 def _format_domain_events(doc) -> str:
@@ -118,6 +161,10 @@ def build_daily_digest(osint_brief: Optional[dict], hours: int = 24) -> Optional
         log.warning("[daily_digest] LLM synthesis failed: %s", exc)
         return None
 
+    if not text:
+        return None
+
+    text = _unwrap_if_json(text)
     if text:
         log.info("[daily_digest] narrative generated via %s", provider)
-    return text
+    return text or None

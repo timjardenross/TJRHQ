@@ -315,25 +315,42 @@ class LLMProvider:
         # it was before this session — TAO already fills that role.
         briefing_input = tao_output if tao_output else research_package
 
+        # 2026-08-23: this pipeline is shared by 6 different callers
+        # (brief_generator.py, daily_digest.py, correlation_synthesis.py,
+        # intelligence_analyst.py, core/health/weekly_synthesis.py,
+        # core/health/narrative_intelligence.py — grep
+        # `LLMProvider(` to confirm the current list), each of which builds
+        # its OWN complete `prompt` already containing its own output-format
+        # instructions (brief_generator.py asks for its ResilienceBrief JSON
+        # schema; daily_digest.py asks for plain narrative paragraphs — see
+        # each module's own prompt construction). Stage 4 used to hardcode
+        # brief_generator's exact JSON schema unconditionally, a leftover
+        # from before this module was "generalized from a banking/CPS230-
+        # only frame" (see module docstring) to serve every other caller too
+        # — so whenever Model Router failed and a non-brief_generator caller
+        # fell through to this pipeline, Stage 4 forced the wrong output
+        # shape onto it. Confirmed live 2026-08-23: a Model Router outage
+        # made daily_digest.py's "TODAY, EXPLAINED" section render raw
+        # ResilienceBrief JSON instead of a narrative, because
+        # build_daily_digest() has no JSON-unwrap step (unlike
+        # brief_generator.py, which does parse JSON out of its own result).
+        # Fix: tell Stage 4 to match whatever format the ORIGINAL request
+        # specifies, using the compressed package as source material, rather
+        # than overriding with a hardcoded schema of its own. Still correct
+        # for brief_generator.py (its own prompt already asks for that same
+        # JSON) and now correct for every plain-text caller too.
         stage4_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
-            "STAGE 3 — EXECUTIVE BRIEF GENERATION\n"
-            "You have received a compressed intelligence package. "
-            "Generate the final executive brief for Captain TJR.\n\n"
-            f"INTELLIGENCE PACKAGE:\n{briefing_input}\n\n"
-            "Respond with a JSON object containing exactly these keys:\n"
-            "{\n"
-            '  "executive_snapshot": "<2-3 sentence overall summary of the period — cover every domain '
-            'actually present (world/OSINT news, health, engineering, operational resilience, learning, '
-            'opportunities), don\'t let one domain crowd out the others>",\n'
-            '  "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],\n'
-            '  "forward_watch": ["<upcoming item to watch 1>", "<upcoming item to watch 2>"],\n'
-            '  "cps230_implications": ["<operational-resilience/regulatory implication, ONLY if the input '
-            'actually contains banking/CPS230-relevant events — empty list otherwise, do not force one>"],\n'
-            '  "bottom_line": "<one paragraph, what Captain TJR should know and do today, across all his '
-            'domains, in plain educational language>"\n'
-            "}\n\n"
-            "Only use information from the intelligence package provided. Do not invent incidents."
+            "STAGE 3 — FINAL OUTPUT GENERATION\n"
+            "You have received a compressed intelligence package, researched and analysed from the "
+            "original request below. Using the compressed package as your factual source, produce the "
+            "final output in EXACTLY the format the original request specifies — if it asks for JSON "
+            "with specific keys, return that JSON with those exact keys and nothing else; if it asks "
+            "for a plain narrative, return that plain narrative with no JSON wrapper. Do not default "
+            "to a different format than what was actually requested.\n\n"
+            f"ORIGINAL REQUEST:\n{prompt}\n\n"
+            f"COMPRESSED INTELLIGENCE PACKAGE:\n{briefing_input}\n\n"
+            "Only use information from the intelligence package and original request. Do not invent incidents."
         )
         briefing_output = self._call_agent(
             stage="stage4-briefing",
