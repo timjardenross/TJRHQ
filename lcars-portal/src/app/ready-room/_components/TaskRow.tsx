@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Badge, Button, Textarea } from '@/components/ui';
 import {
   categoryMeta,
+  followThroughModeMeta,
   updateTaskState,
+  toggleFollowThroughPause,
   type PersonalTask,
   type WorkState,
 } from '@/lib/personalTasks';
@@ -23,6 +25,7 @@ function dueLabel(due: string | null): string | null {
  * cue, so resuming after an interruption never starts from a blank page. */
 export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: () => void }) {
   const meta = categoryMeta(task.category);
+  const ftMeta = followThroughModeMeta(task.follow_through_mode);
   const due = dueLabel(task.due_date);
   const [waitingDraft, setWaitingDraft] = useState(task.waiting_on ?? '');
   const [showWaitingForm, setShowWaitingForm] = useState(false);
@@ -31,6 +34,13 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
   async function setState(work_state: WorkState, extra?: Parameters<typeof updateTaskState>[2]) {
     setBusy(true);
     await updateTaskState(task.id, work_state, extra);
+    setBusy(false);
+    onChanged();
+  }
+
+  async function togglePause() {
+    setBusy(true);
+    await toggleFollowThroughPause(task.id, !task.follow_through_paused);
     setBusy(false);
     onChanged();
   }
@@ -47,6 +57,9 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{meta.label}</Badge>
+            <span title={ftMeta.hint}>
+              <Badge status="neutral">{ftMeta.label}</Badge>
+            </span>
             {due && <span className="text-[11px] text-wb-ink2">{due}</span>}
           </div>
           {task.work_state === 'blocked' && (
@@ -80,6 +93,15 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
               No longer waiting
             </Button>
           )}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={togglePause}
+            title={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
+            className="text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30"
+          >
+            {task.follow_through_paused ? '🔕' : '🔔'}
+          </button>
         </div>
       </div>
 
@@ -97,7 +119,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
           <Button
             size="sm"
             disabled={busy || !waitingDraft.trim()}
-            onClick={() => { setState('blocked', { waiting_on: waitingDraft.trim() }); setShowWaitingForm(false); }}
+            onClick={() => { setState('blocked', { waiting_on: waitingDraft.trim(), follow_through_mode: 'waiting' }); setShowWaitingForm(false); }}
           >
             Mark waiting
           </Button>

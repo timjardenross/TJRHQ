@@ -1092,12 +1092,16 @@ def _health_mission_correlation_job() -> None:
 
 
 def _adhd_nudge_job() -> None:
-    """Issue 26: Check for stalled high-priority personal_tasks, nudge via
-    Telegram. Rate-limited (8h/task) via NudgeRateLimiter's SQLite cache."""
+    """Adaptive Follow-Through Engine: mode-aware (gentle/normal/persistent/
+    deadline/waiting) resurfacing of personal_tasks via Telegram, gated by
+    capacity state, quiet hours, and a daily send cap. Replaces
+    task_nudge_scheduler.py's SQLite-rate-limited fixed rule (Issue 26) —
+    that module is left in place, unused, for rollback; see
+    intelligence/adhd/follow_through_engine.py's module docstring."""
     log.info("ADHD task nudge job triggered")
     try:
-        from intelligence.adhd.task_nudge_scheduler import nudge_scheduler_entry_point
-        result = nudge_scheduler_entry_point()
+        from intelligence.adhd.follow_through_engine import run_follow_through_pass
+        result = run_follow_through_pass()
         log.info("ADHD task nudge complete: checked=%d nudged=%d errors=%d",
                  result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
         _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")

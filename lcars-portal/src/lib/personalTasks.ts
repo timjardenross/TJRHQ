@@ -48,6 +48,26 @@ export function categoryMeta(key: TaskCategory | null | undefined): CategoryMeta
   return CATEGORIES.find((c) => c.key === key) ?? CATEGORIES[0];
 }
 
+export type FollowThroughMode = 'gentle' | 'normal' | 'persistent' | 'deadline' | 'waiting';
+
+export interface FollowThroughModeMeta {
+  key: FollowThroughMode;
+  label: string;
+  hint: string;
+}
+
+export const FOLLOW_THROUGH_MODES: FollowThroughModeMeta[] = [
+  { key: 'gentle', label: 'Gentle', hint: 'one nudge, then quiet' },
+  { key: 'normal', label: 'Normal', hint: 'a reminder and one follow-up' },
+  { key: 'persistent', label: 'Persistent', hint: 'keeps coming back until resolved' },
+  { key: 'deadline', label: 'Deadline', hint: 'gets louder as the date approaches' },
+  { key: 'waiting', label: 'Waiting', hint: "checks in, doesn't nag" },
+];
+
+export function followThroughModeMeta(key: FollowThroughMode | null | undefined): FollowThroughModeMeta {
+  return FOLLOW_THROUGH_MODES.find((m) => m.key === key) ?? FOLLOW_THROUGH_MODES[1];
+}
+
 export interface PersonalTask {
   id: string;
   title: string;
@@ -68,12 +88,21 @@ export interface PersonalTask {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+  follow_through_mode: FollowThroughMode;
+  next_review_at: string | null;
+  snoozed_until: string | null;
+  nudge_count: number;
+  deferral_count: number;
+  blocker_category: string | null;
+  follow_through_paused: boolean;
 }
 
 const TASK_SELECT = [
   'id', 'title', 'context', 'category', 'urgency', 'importance', 'effort_minutes',
   'work_state', 'due_date', 'waiting_on', 'micro_action', 'mvp_note', 'stop_point',
   'restart_cue', 'source_capture_id', 'created_at', 'started_at', 'completed_at', 'updated_at',
+  'follow_through_mode', 'next_review_at', 'snoozed_until', 'nudge_count', 'deferral_count',
+  'blocker_category', 'follow_through_paused',
 ].join(', ');
 
 // ── Read ──────────────────────────────────────────────────────────────────────
@@ -145,6 +174,7 @@ export interface NewTaskInput {
   micro_action?: string | null;
   mvp_note?: string | null;
   source_capture_id?: string | null;
+  follow_through_mode?: FollowThroughMode;
 }
 
 export async function createTask(input: NewTaskInput): Promise<TaskResult> {
@@ -163,6 +193,7 @@ export async function createTask(input: NewTaskInput): Promise<TaskResult> {
     micro_action: input.micro_action ?? null,
     mvp_note: input.mvp_note ?? null,
     source_capture_id: input.source_capture_id ?? null,
+    follow_through_mode: input.follow_through_mode ?? 'normal',
   };
 
   try {
@@ -189,7 +220,12 @@ export async function promoteCaptureToTask(captureId: string, title: string): Pr
 export async function updateTaskState(
   id: string,
   work_state: WorkState,
-  extra?: { waiting_on?: string | null; stop_point?: string | null; restart_cue?: string | null },
+  extra?: {
+    waiting_on?: string | null;
+    stop_point?: string | null;
+    restart_cue?: string | null;
+    follow_through_mode?: FollowThroughMode;
+  },
 ): Promise<TaskResult> {
   const patch: Record<string, unknown> = { work_state, updated_at: new Date().toISOString() };
   if (work_state === 'in_progress') patch.started_at = new Date().toISOString();
@@ -197,10 +233,27 @@ export async function updateTaskState(
   if (extra?.waiting_on !== undefined) patch.waiting_on = extra.waiting_on;
   if (extra?.stop_point !== undefined) patch.stop_point = extra.stop_point;
   if (extra?.restart_cue !== undefined) patch.restart_cue = extra.restart_cue;
+  if (extra?.follow_through_mode !== undefined) patch.follow_through_mode = extra.follow_through_mode;
 
   try {
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from('personal_tasks').update(patch).eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+  }
+}
+
+/** Mutes/unmutes the Telegram follow-through bot for one task without
+ * changing its mode — a quick escape hatch distinct from picking 'gentle'. */
+export async function toggleFollowThroughPause(id: string, paused: boolean): Promise<TaskResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('personal_tasks')
+      .update({ follow_through_paused: paused, updated_at: new Date().toISOString() })
+      .eq('id', id);
     if (error) return { ok: false, error: error.message };
     return { ok: true, id };
   } catch (err) {
