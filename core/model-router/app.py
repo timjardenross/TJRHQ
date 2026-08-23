@@ -10,7 +10,7 @@ Endpoints:
     POST /api/model/summarise-note      gemma3:4b      keep_alive 2m
     POST /api/model/classify-document   gemma3:4b      keep_alive 5m   (MSN-0205C)
     POST /api/model/summarise-document  gemma3:4b      keep_alive 5m   (MSN-0205C)
-    POST /api/model/intelligence-brief  mistral-small  keep_alive 10m
+    POST /api/model/intelligence-brief  gemini-flash-latest  (cloud, GEMINI_API_KEY — moved 2026-08-23, local mistral-small3.2:24b too slow on this CPU-only box)
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
     POST /api/model/escalate            mistral-small  keep_alive 15m
@@ -87,7 +87,23 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # symptom if a doc still overruns this.
     "summarise-document":    {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 700},
     "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
-    "intelligence-brief":    {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # 2026-08-23: moved from local MODEL_LARGE (mistral-small3.2:24b) to
+    # Gemini — same reasoning as captain-insight-synthesis/
+    # captain-reasoning-synthesis below, which were fixed for this exact
+    # problem on 2026-08-22 but this sibling task (identical tier: "large
+    # model", CPU-only local Ollama, quality-sensitive not latency-
+    # sensitive) was missed in that pass. Confirmed live 2026-08-23: a real
+    # call took 238870ms — squarely in the 168-238s range that already
+    # triggered the other two tasks' migration, and every caller
+    # (intelligence/brief/llm_provider.py's _model_router(), used by both
+    # captains_brief.py's daily digest and brief_generator.py's ORI brief)
+    # only waits 60s before giving up, so this task had NEVER once
+    # successfully served a caller in production — every real request fell
+    # through to the caller's own cloud fallback chain instead. See
+    # `esc_policy` in _run_task() below for classify-capture's escalation
+    # path, deliberately decoupled from this entry rather than reused now
+    # that the two have different provider shapes.
+    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
@@ -321,18 +337,25 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 "eval_count": raw.get("eval_count"),
             }
 
-            # Escalation: classify-capture escalates to large model if triggers detected
+            # Escalation: classify-capture escalates to the large local model
+            # if triggers detected. 2026-08-23: used to read
+            # TASK_POLICY["intelligence-brief"] for this — that entry moved
+            # to Gemini (see its own comment above) and no longer has a
+            # keep_alive value or an Ollama-installed model name, so reusing
+            # it here would KeyError and then try to run "gemini-flash-latest"
+            # against local Ollama. This escalation genuinely wants the local
+            # large model (classify-capture needs an Ollama round-trip, not a
+            # cloud one, to stay in the same fast local tier it started in),
+            # so it's now its own explicit policy rather than borrowed from a
+            # task whose requirements have diverged.
             if task_type == "classify-capture" and not extra.get("skip_escalation"):
                 needs_esc, reason = _check_escalation_needed(prompt, response_text)
                 if needs_esc:
-                    esc_policy = TASK_POLICY["intelligence-brief"]  # use large model
-                    esc_raw = _ollama_generate(
-                        esc_policy["model"], prompt,
-                        esc_policy["keep_alive"], esc_policy["timeout"]
-                    )
+                    esc_model, esc_keep_alive, esc_timeout = MODEL_LARGE, "15m", 300
+                    esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
                     response_text = esc_raw.get("response", "").strip()
-                    model = esc_policy["model"]
-                    keep_alive = esc_policy["keep_alive"]
+                    model = esc_model
+                    keep_alive = esc_keep_alive
                     escalated = True
                     escalation_reason = reason
                     token_info = {
