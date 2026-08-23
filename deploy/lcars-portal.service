@@ -1,0 +1,39 @@
+[Unit]
+Description=LCARS Portal — Next.js Command Centre
+# Caddy (127.0.0.1:3200, see /etc/caddy/Caddyfile) is the real front door —
+# start after it so the very first requests after a reboot don't 502.
+After=network.target caddy.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour/lcars-portal
+# 2026-08-23: port fixed from 3100 to 3200. Caddy was repointed to 3200 on
+# 2026-08-11 (see /etc/caddy/Caddyfile's own comment) after this unit —
+# still targeting 3100 — had been dead since 2026-07-06, so a manually
+# launched `npm exec next start -p 3200` quietly took over serving
+# instead, unmanaged and not surviving a reboot. This unit was enabled
+# the whole time but pointed at a port nothing routed to.
+ExecStart=/opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
+# Restart=always (not on-failure) matches this repo's other persistent
+# daemons (see deploy/model-router.service) — a clean-exit hang is just as
+# much an outage as a crash for a request-serving process.
+Restart=always
+RestartSec=5
+# 2026-08-23: also found the running instance's .next build was silently
+# corrupted (missing Server Actions manifest — "Failed to find Server
+# Action... older or newer deployment" on every single request, confirmed
+# live) predating any of today's changes. A crash-looping bad build should
+# surface loudly, not retry forever in silence — caps restarts at 6 within
+# 2 minutes, after which systemd stops trying and the unit shows 'failed'
+# in `systemctl status`, a clear signal something needs a real rebuild
+# rather than a silent infinite crash-loop.
+StartLimitIntervalSec=120
+StartLimitBurst=6
+EnvironmentFile=/opt/starship-endeavour/lcars-portal/.env.local
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lcars-portal
+
+[Install]
+WantedBy=multi-user.target
