@@ -20,6 +20,7 @@ import {
   type CaptureClassification,
   type CaptureImportance,
 } from '@/lib/capture';
+import { promoteCaptureToTask } from '@/lib/personalTasks';
 import { SourceBadge, ClassBadge, AiBadge, VoiceMeta, AiSuggestion, parseSummary, fmtDate } from './badges';
 
 const ROUTE_DEST: Record<string, { label: string; href: string }> = {
@@ -190,6 +191,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
             <ActionBtn disabled={busy} tone="neutral" label="Route as Note" onClick={() => { setRoutedDest(ROUTE_DEST.reference); act(() => routeCapture(item.id, 'reference'), 'Routed → Note'); }} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Decision" onClick={() => { setRoutedDest(ROUTE_DEST.decision); act(() => routeCapture(item.id, 'decision'), 'Routed → Decision queue'); }} />
             <ActionBtn disabled={busy} tone="sage" label="→ Promote to Mission" onClick={() => act(() => promoteCaptureToMission(item.id), 'Mission candidate created')} />
+            <ActionBtn disabled={busy} tone="sage" label="→ Send to Ready Room" onClick={() => act(() => promoteCaptureToTask(item.id, item.title ?? fullContent.slice(0, 120) ?? 'Untitled task'), 'Sent to Ready Room')} />
             <ActionBtn disabled={busy} tone="neutral" label="Archive" onClick={() => act(() => archiveCapture(item.id), 'Archived')} />
             <ActionBtn disabled={busy} tone="neutral" label="Dismiss" onClick={() => act(() => dismissCapture(item.id), 'Dismissed')} />
           </div>

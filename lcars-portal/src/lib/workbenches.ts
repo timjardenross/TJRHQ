@@ -14,6 +14,16 @@ export interface WorkbenchEntry {
 
 export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   {
+    href: '/weekly-review',
+    title: 'Weekly Review',
+    description: 'One calm weekly pass across every workbench — what happened, what slipped, what needs attention, what is safe to ignore.',
+  },
+  {
+    href: '/ready-room',
+    title: 'Ready Room',
+    description: 'Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming.',
+  },
+  {
     href: '/captains-chair-workbench',
     title: "Captain's Chair",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',

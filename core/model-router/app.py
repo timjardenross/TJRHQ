@@ -18,6 +18,7 @@ Endpoints:
     POST /api/model/self-improvement-analyse   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-critique  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
 
@@ -197,7 +198,30 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
+    # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
+    # Small/fast model: this is a one-line "tiny first step" suggestion, not
+    # a synthesis task. Do NOT have this route call decompose_task() itself —
+    # that function tries this exact endpoint first, which would recurse.
+    "adhd-decompose":        {"model": MODEL_MID,   "keep_alive": "2m",  "timeout": 60},
 }
+
+# System prompt for adhd-decompose — intentionally duplicated from (not
+# imported from) intelligence/adhd/task_decomposition.py's _SYSTEM_PROMPT:
+# that module is the CALLER of this endpoint (its tier-0 provider), so
+# importing it here would risk a circular call path. Keep the two in sync
+# by hand if the decomposition prompt changes.
+_ADHD_DECOMPOSE_SYSTEM_PROMPT = (
+    "You are a task decomposition specialist helping someone with ADHD break "
+    "down overwhelming tasks into tiny, startable first steps.\n\n"
+    "Your job: given a task description, propose ONE concrete, small, specific "
+    "action that could be taken RIGHT NOW to make progress. This action should:\n"
+    "- Be completable in 5-15 minutes\n"
+    "- Require no setup, research, or decision-making\n"
+    "- Be concrete and specific, not abstract\n"
+    "- Not repeat the original task description\n\n"
+    "Respond with ONLY the micro-action, nothing else. No preamble, no explanation."
+)
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
@@ -510,6 +534,11 @@ class RouterHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = self.path.rstrip("/")
+
+        if path == "/api/model/adhd-decompose":
+            self._handle_adhd_decompose()
+            return
+
         route_map = {
             "/api/model/classify-capture":     "classify-capture",
             "/api/model/summarise-note":       "summarise-note",
@@ -541,6 +570,26 @@ class RouterHandler(BaseHTTPRequestHandler):
         result = _run_task(task_type, prompt, body)
         code = 200 if result.get("success") else 500
         self._send_json(code, result)
+
+    def _handle_adhd_decompose(self) -> None:
+        """POST /api/model/adhd-decompose — {"task": str} -> {"action": str|null}.
+
+        Distinct body/response shape from the generic prompt routes because
+        this mirrors TaskDecomposer._model_router's existing contract
+        (task_decomposition.py) rather than the {"prompt"}/{"response"}
+        convention used everywhere else in this router.
+        """
+        body = self._read_body()
+        task_text = (body.get("task") or "").strip()[:2000]
+        if not task_text:
+            self._send_json(400, {"error": "task is required"})
+            return
+        prompt = f"{_ADHD_DECOMPOSE_SYSTEM_PROMPT}\n\nTask: {task_text}"
+        result = _run_task("adhd-decompose", prompt, body)
+        if not result.get("success"):
+            self._send_json(502, {"action": None, "error": result.get("error")})
+            return
+        self._send_json(200, {"action": result.get("response") or None})
 
     def _handle_status(self) -> None:
         ps = _ollama_status()
