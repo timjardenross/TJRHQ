@@ -22,6 +22,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { fetchInvestigation, type InvestigationRunResult } from '@/lib/investigate';
 
 function InvestigatePageInner() {
@@ -142,8 +143,11 @@ function InvestigatePageInner() {
 
 export default function InvestigatePage() {
   return (
-    <Suspense fallback={null}>
-      <InvestigatePageInner />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <InvestigatePageInner />
+      </Suspense>
+      <MobileCommandBar />
+    </>
   );
 }

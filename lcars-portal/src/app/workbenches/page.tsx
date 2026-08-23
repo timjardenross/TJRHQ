@@ -15,6 +15,7 @@
 
 import Link from 'next/link';
 import { Card, QuickCapture } from '@/components/ui';
+import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 
 export default function Workbenches() {
@@ -41,6 +42,7 @@ export default function Workbenches() {
         </div>
       </main>
       <QuickCapture />
+      <MobileCommandBar />
     </div>
   );
 }

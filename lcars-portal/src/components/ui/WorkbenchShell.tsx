@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
+import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { QuickCapture } from './QuickCapture';
 
 const GLOBAL_HOME = '/workbenches';
@@ -128,6 +129,7 @@ export function WorkbenchShell({
         </p>
       </main>
       <QuickCapture />
+      <MobileCommandBar />
     </div>
   );
 }
