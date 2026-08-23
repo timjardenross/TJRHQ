@@ -4,7 +4,6 @@
 import { NextResponse } from 'next/server';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { requireSession } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,9 +22,7 @@ interface AdvisoryRecord {
 }
 
 export async function GET() {
-  const session = await requireSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+  // Middleware enforces authentication for all non-public routes.
   try {
     let files: string[];
     try {
@@ -48,6 +45,7 @@ export async function GET() {
     );
 
     records.sort((a, b) => b.recorded_at.localeCompare(a.recorded_at));
+    console.log('[loops] returning', records.length, 'open records from', LOG_DIR);
     return NextResponse.json({ loops: records });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);

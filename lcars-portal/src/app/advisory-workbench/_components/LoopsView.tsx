@@ -32,6 +32,7 @@ function fmt(iso: string) {
 
 export function LoopsView() {
   const [loops, setLoops] = useState<Loop[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [closing, setClosing] = useState<Record<string, boolean>>({});
@@ -41,8 +42,12 @@ export function LoopsView() {
   useEffect(() => {
     fetch('/api/advisory/loops')
       .then((r) => r.json())
-      .then((d: { loops?: Loop[] }) => { setLoops(d.loops ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((d: { loops?: Loop[]; error?: string }) => {
+        if (d.error) setApiError(d.error);
+        setLoops(d.loops ?? []);
+        setLoading(false);
+      })
+      .catch((e: Error) => { setApiError(e.message); setLoading(false); });
   }, []);
 
   const close = useCallback(async (id: string, outcome: OutcomeValue) => {
@@ -87,6 +92,12 @@ export function LoopsView() {
             <p className="text-xs text-wb-sage-deep">
               {closedCount} loop{closedCount !== 1 ? 's' : ''} closed this session.
             </p>
+          </div>
+        )}
+
+        {apiError && (
+          <div className="rounded-md border border-wb-crit/40 bg-wb-crit/5 px-4 py-3">
+            <p className="text-xs text-wb-crit-on">API error: {apiError}</p>
           </div>
         )}
 
