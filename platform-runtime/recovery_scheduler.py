@@ -5,6 +5,15 @@ escalations — Telegram handles L0/L1 friendly reminders.
 
 Env vars:
     CAPTAIN_SLACK_USER_ID — Slack user ID to DM (U0123ABCDE)
+
+# LOCAL SCHEDULER: tightly coupled to Slack bot process — cannot migrate to
+# canonical scheduler (intelligence/scheduler.py). start_recovery_scheduler()
+# receives a live Slack WebClient; _dispatch_check() delivers via
+# slack_client.chat_postMessage(). Additionally, this scheduler is RETIRED
+# (D-3C-04, 2026-06-27) — recovery gap notifications are owned by the
+# Command Centre notification engine. The BackgroundScheduler is still
+# started by platform-runtime/app.py for backward compatibility but the
+# jobs log RETIRED and are otherwise inert.
 """
 
 from __future__ import annotations

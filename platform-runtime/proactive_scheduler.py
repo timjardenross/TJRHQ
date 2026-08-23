@@ -27,6 +27,14 @@ Configuration (.env):
 Usage:
   from proactive_scheduler import start_scheduler
   start_scheduler(slack_client)   # call after bot is initialised
+
+# LOCAL SCHEDULER: tightly coupled to Slack bot process — cannot migrate to
+# canonical scheduler (intelligence/scheduler.py). start_scheduler() accepts
+# a live Slack WebClient; every job function takes that client as its first
+# argument and delivers via Slack chat_postMessage / _post(). The canonical
+# scheduler is a BlockingScheduler with no Slack client. This scheduler runs
+# inside platform-runtime/app.py (the Slack bot) and is dormant when that
+# process is down.
 """
 
 from __future__ import annotations

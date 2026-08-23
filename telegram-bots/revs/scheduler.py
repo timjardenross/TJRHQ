@@ -11,6 +11,13 @@ this bot DOES self-schedule — there is no separate always-on
 intelligence-scheduler.service equivalent for REVS, and a per-user cron
 of "send at each user's own chosen time" doesn't fit that shared-daemon
 model anyway.
+
+# LOCAL SCHEDULER: tightly coupled to REVS bot async loop — cannot migrate
+# to canonical scheduler (intelligence/scheduler.py). Uses AsyncIOScheduler
+# driven by python-telegram-bot's event loop; jobs receive bot and client
+# as arguments injected at start() call time inside the running Application.
+# Per-user delivery timing (am_time, pm_time, weekly_time per user row) has
+# no meaningful equivalent in the BlockingScheduler daemon model.
 """
 
 from __future__ import annotations

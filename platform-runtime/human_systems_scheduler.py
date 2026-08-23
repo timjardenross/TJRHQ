@@ -17,6 +17,16 @@ Two ways to run, both reusing the above:
   2. CLI job-runner: `python human_systems_scheduler.py --job morning`
      for cron/CI/manual invocation, mirroring `python -m intelligence.scheduler`.
 
+# LOCAL SCHEDULER: tightly coupled to Slack bot process — cannot migrate to
+# canonical scheduler (intelligence/scheduler.py). start_in_process() uses a
+# BackgroundScheduler that receives the live Slack WebClient at startup; every
+# job delivers via lib/human_systems/delivery.py which requires that client.
+# The canonical scheduler is a BlockingScheduler with no Slack client and no
+# access to the delivery layer. run_job() is also importable for one-shot CLI
+# or command-handler use (app.py, commands/human_systems.py, commands/comms.py)
+# without starting any scheduler at all.
+"""
+
 Jobs:
   morning      Morning Readiness Pulse        (default HS_MORNING_CRON   "0 7 * * *")
   evening      Evening Recovery Reflection     (default HS_EVENING_CRON   "0 20 * * *")
