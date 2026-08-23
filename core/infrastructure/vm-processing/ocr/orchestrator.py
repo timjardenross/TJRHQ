@@ -57,4 +57,14 @@ def run_ocr(pdf_path, workdir, low_text_chars_per_page: int = 50, language: str 
     else:
         errors.append("tesseract: not available")
 
+    # Docling fallback — handles scanned PDFs that ocrmypdf/tesseract can't.
+    try:
+        from parsers import docling_parser
+        result = docling_parser.extract(pdf_path)
+        if result.text.strip():
+            return OCRResult(text=result.text, engine="docling", success=True, language=language)
+        errors.append("docling: produced no extractable text")
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"docling: {exc}")
+
     return OCRResult(text="", engine=None, success=False, error="; ".join(errors))

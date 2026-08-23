@@ -14,16 +14,35 @@ __all__ = ["ExtractionResult", "ExtractionError", "UnsupportedFileTypeError",
 
 def extract(path, low_text_chars_per_page: int = 50) -> ExtractionResult:
     ext = Path(path).suffix.lower()
+    primary_error: ExtractionError | None = None
+
     if ext == ".pdf":
         from . import pdf_parser
         return pdf_parser.extract(path, low_text_chars_per_page)
     if ext == ".docx":
         from . import docx_parser
-        return docx_parser.extract(path)
-    if ext in (".txt", ".md"):
+        try:
+            return docx_parser.extract(path)
+        except ExtractionError as exc:
+            primary_error = exc
+    elif ext in (".txt", ".md"):
         from . import text_parser
         return text_parser.extract(path)
-    if ext in (".csv", ".xlsx", ".xls"):
+    elif ext in (".csv", ".xlsx", ".xls"):
         from . import tabular_parser
-        return tabular_parser.extract(path)
-    raise UnsupportedFileTypeError(f"unsupported file extension: {ext}")
+        try:
+            return tabular_parser.extract(path)
+        except ExtractionError as exc:
+            primary_error = exc
+    else:
+        raise UnsupportedFileTypeError(f"unsupported file extension: {ext}")
+
+    # Primary extractor failed — try Docling as fallback (handles .xls natively,
+    # can recover corrupted/unusual DOCX/XLSX that pandas/python-docx reject).
+    try:
+        from . import docling_parser
+        return docling_parser.extract(path)
+    except ExtractionError as docling_exc:
+        raise ExtractionError(
+            f"primary failed ({primary_error}); docling fallback also failed ({docling_exc})"
+        ) from primary_error
