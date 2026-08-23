@@ -140,7 +140,7 @@ export function AttendView({ refreshSignal, onLoaded }: { refreshSignal: number;
   return (
     <div className="flex flex-col gap-6">
       <QuickAdd onAdded={load} />
-      <div className="flex flex-col gap-6 md:flex-row">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Column title="Now" hint="Urgent, or due within 2 days" tasks={now} onChanged={load} emptyLabel="Nothing urgent." />
         <Column title="Upcoming" hint="On the radar, not yet pressing" tasks={upcoming} onChanged={load} emptyLabel="Nothing upcoming." />
         <Column title="Waiting" hint="Blocked on someone or something else" tasks={waiting} onChanged={load} emptyLabel="Nothing waiting." />

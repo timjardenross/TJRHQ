@@ -49,11 +49,11 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
 
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-3">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="text-wb-ink2">{meta.glyph}</span>
-            <span className="truncate text-[14px] font-medium text-wb-ink">{task.title}</span>
+          <div className="flex items-start gap-2">
+            <span aria-hidden className="shrink-0 text-wb-ink2">{meta.glyph}</span>
+            <span className="break-words text-[14px] font-medium text-wb-ink">{task.title}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{meta.label}</Badge>
@@ -62,6 +62,9 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
             </span>
             {due && <span className="text-[11px] text-wb-ink2">{due}</span>}
           </div>
+          {task.context && (
+            <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{task.context}</p>
+          )}
           {task.work_state === 'blocked' && (
             <p className="mt-1.5 text-[12px] text-wb-warn-on">
               Waiting on: {task.waiting_on || 'not noted yet'}
@@ -77,7 +80,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {task.work_state !== 'completed' && (
             <Button size="sm" variant="primary" disabled={busy} onClick={() => setState('completed')}>
               Done
@@ -98,7 +101,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
             disabled={busy}
             onClick={togglePause}
             title={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
-            className="text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30"
+            className="ml-auto text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30"
           >
             {task.follow_through_paused ? '🔕' : '🔔'}
           </button>

@@ -24,7 +24,7 @@ export function WorkbenchCard({ section }: { section: WorkbenchSection }) {
         <p className="py-2 text-[12px] text-wb-ink2">Nothing to review here this week.</p>
       ) : (
         <div className="flex flex-col divide-y divide-wb-line/60">
-          {section.signals.map((s) => <SignalRow key={s.key} signal={s} />)}
+          {section.signals.map((s) => <SignalRow key={s.key} signal={s} sourceLabel={section.title} />)}
         </div>
       )}
       {anyUnavailable && (

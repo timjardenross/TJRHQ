@@ -58,6 +58,7 @@ function Workbench() {
       tagline="USS TJR · Ready Room · Nothing falls through. Nothing has to be figured out alone."
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      wide
     >
       {domain === 'attend' && (
         <>
