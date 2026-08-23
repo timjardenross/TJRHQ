@@ -228,14 +228,21 @@ def _step_readiness_assessment(ctx: Any, result: OfficerCycleResult) -> None:
 # ── Step 5: Engineering Assessment ───────────────────────────────────────────
 
 def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
-    """Chief Engineer: assess delivery status, tech debt, and capability gaps."""
+    """Chief Engineer: assess delivery status, tech debt, and capability gaps.
+
+    Relevant operational patterns (category='validation') are fetched from the
+    Pattern Library and included in the officer signal so downstream synthesis
+    (XO, Captain brief) can surface applicable process knowledge alongside the
+    raw delivery metrics. Non-blocking: a pattern library outage leaves the
+    signal intact, just without the 'relevant_patterns' key.
+    """
     try:
         blocked = getattr(ctx, "engineering_blocked", 0)
         in_progress = getattr(ctx, "engineering_in_progress", 0)
         tech_debt = getattr(ctx, "tech_debt_critical_count", 0)
         cap_gaps = getattr(ctx, "capability_gap_count", 0)
 
-        signal = {
+        signal: dict[str, Any] = {
             "officer": "engineering",
             "type": "engineering_assessment",
             "blocked": blocked,
@@ -243,6 +250,21 @@ def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
             "critical_tech_debt": tech_debt,
             "capability_gaps": cap_gaps,
         }
+
+        # Surface validation patterns as context for the Chief Engineer's
+        # reasoning. Additive only — omitted if the library returns empty.
+        try:
+            from core.platform.operational_pattern_library import get_patterns
+            patterns = get_patterns(category="validation")
+            if patterns:
+                signal["relevant_patterns"] = patterns
+                log.info(
+                    "[officer_cycle] Engineering assessment: %d validation pattern(s) surfaced",
+                    len(patterns),
+                )
+        except Exception as pat_exc:
+            log.debug("[officer_cycle] Pattern library fetch failed (non-blocking): %s", pat_exc)
+
         result.officer_signals.append(signal)
         log.info("[officer_cycle] Engineering: blocked=%d, in_progress=%d, debt=%d, gaps=%d",
                  blocked, in_progress, tech_debt, cap_gaps)

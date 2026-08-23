@@ -102,7 +102,25 @@ def run_github_sync() -> dict:
     return stats
 
 
+def _seed_operational_patterns() -> None:
+    """Seed the Operational Pattern Library on scheduler startup.
+
+    Idempotent (upsert on pattern_name) — safe to call every startup.
+    Non-blocking: a Supabase outage or missing table does not prevent the
+    scheduler from starting or running its scheduled jobs.
+    """
+    try:
+        sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
+        from operational_pattern_library import seed_initial_patterns
+        count = seed_initial_patterns()
+        log.info("[pattern-library] Startup seed complete: %d pattern(s) written", count)
+    except Exception as exc:
+        log.warning("[pattern-library] Startup seed failed (non-blocking): %s", exc)
+
+
 def _start_scheduler() -> None:
+    _seed_operational_patterns()
+
     try:
         from apscheduler.schedulers.blocking import BlockingScheduler
         from apscheduler.triggers.cron import CronTrigger
