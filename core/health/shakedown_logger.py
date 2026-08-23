@@ -150,6 +150,6 @@ def format_day_summary_for_slack(summary: dict) -> str:
     if fail == 0 and total > 0:
         lines.append("_No failures. All scheduled jobs completed successfully._")
     elif total == 0:
-        lines.append("_No scheduler events recorded today — bot may not be running._")
+        lines.append("_No proactive cadence jobs fired today (or all skipped with no events to surface)._")
 
     return "\n".join(lines)
