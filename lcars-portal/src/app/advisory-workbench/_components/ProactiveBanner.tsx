@@ -29,7 +29,11 @@ export function ProactiveBanner() {
   if (!signals || dismissed) return null;
 
   const isUrgent = signals.attention_required;
-  const triggerList = (signals.triggers ?? []) as string[];
+  // triggers are Trigger dataclass dicts {trigger_type, level, message, source}
+  const rawTriggers = (signals.triggers ?? []) as Array<string | { message?: string; trigger_type?: string }>;
+  const triggerList = rawTriggers.map((t) =>
+    typeof t === 'string' ? t : (t.message ?? t.trigger_type ?? String(t))
+  );
 
   return (
     <div className={`flex items-start gap-3 rounded-md border px-3 py-2.5 text-sm ${isUrgent ? 'border-wb-warn/50 bg-wb-warn/10' : 'border-wb-sage-deep/30 bg-wb-sage-deep/5'}`}>
