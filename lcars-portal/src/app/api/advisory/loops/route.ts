@@ -9,7 +9,8 @@ import { requireSession } from '@/lib/supabase-server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const LOG_DIR = path.join(process.cwd(), '..', 'logs', 'advisory');
+const REPO_ROOT = process.env.REPO_ROOT ?? '/opt/starship-endeavour';
+const LOG_DIR = path.join(REPO_ROOT, 'logs', 'advisory');
 
 interface AdvisoryRecord {
   advisory_id: string;
