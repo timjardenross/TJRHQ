@@ -23,12 +23,20 @@ trail on this discovery.
 from __future__ import annotations
 
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from tools.supabase.client import CommanderSupabaseClient
 from lib.feedback_loops_service import FeedbackLoops
 from lib.quality_scoring_service import QualityScoring
+
+# Ensure repo root is importable so core.platform.event_bus resolves from any
+# working directory this module is invoked from (e.g. slack-bot/, platform-runtime/).
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +160,28 @@ def record_research_lifecycle_event(
         except Exception:
             pass
 
+        # Emit research-learning after all three DB writes succeed (commander_decisions,
+        # decision_outcomes, decision_records). This is the authoritative moment a
+        # research session is recorded into the learning loop. Fires even when quality
+        # scoring is skipped (e.g. no raw client). Non-blocking per publish_event contract.
+        try:
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "research.session.completed",
+                domain="research-learning",
+                source="research-learning-loop",
+                confidence=round(confidence * 100),
+                linked_missions=[mission_id],
+                metrics={
+                    "status": status,
+                    "outcome_status": outcome_status,
+                    "provider_name": provider_name,
+                    "research_topic_length": len(research_topic),
+                },
+            )
+        except Exception:
+            pass
+
         # 4. quality_scores — ties decision_outcomes + decision_records together.
         # QualityScoring/FeedbackLoops need the raw supabase-py client (they call
         # .table() directly), not the CommanderSupabaseClient wrapper.
@@ -178,6 +208,28 @@ def record_research_lifecycle_event(
             )
         except Exception as exc:
             log.warning("[research-learning-loop] scoring/feedback skipped: %s", exc)
+
+        # Emit research-learning-intelligence after quality scoring — this is when
+        # the platform has a scored, consolidated learning record, not just a raw
+        # session write. Scoped inside the raw-client guard so it only fires when
+        # quality scoring was at least attempted. Non-blocking per publish_event contract.
+        try:
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "research.learning.consolidated",
+                domain="research-learning-intelligence",
+                source="research-learning-loop",
+                confidence=round(confidence * 100),
+                linked_missions=[mission_id],
+                metrics={
+                    "outcome_id": outcome_bigint_id,
+                    "decision_id": decision_id,
+                    "outcome_status": outcome_status,
+                    "provider_name": provider_name,
+                },
+            )
+        except Exception:
+            pass
 
     except Exception as exc:
         log.warning("[research-learning-loop] decision/outcome chain write failed: %s", exc)

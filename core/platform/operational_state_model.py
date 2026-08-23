@@ -65,6 +65,11 @@ _REAL_DOMAINS: dict[str, str] = {
     "knowledge": "Knowledge",
     "research": "Research",
     "platform-operations": "Platform Operations",
+    # Wired in platform-runtime/lib/research_learning_loop.py
+    # (record_research_lifecycle_event) after the full decision/outcome chain
+    # is written and after quality scoring completes respectively.
+    "research-learning": "Research",
+    "research-learning-intelligence": "Research",
 }
 
 # Recognised by captain_brief_orchestrator.py's _DOMAIN_SECTION_MAP but
@@ -72,8 +77,6 @@ _REAL_DOMAINS: dict[str, str] = {
 # caller — a mapped domain with structurally no data, not the same as
 # "no mapping at all" below.
 _MAPPED_BUT_DEAD_DOMAINS: dict[str, str] = {
-    "research-learning": "Research",
-    "research-learning-intelligence": "Research",
     "engineering": "Engineering (legacy mapping, superseded by engineering-delivery)",
     "engineering-intelligence": "Engineering (legacy mapping, superseded by engineering-delivery)",
 }
