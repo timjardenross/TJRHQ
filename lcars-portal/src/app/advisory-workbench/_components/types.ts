@@ -10,11 +10,11 @@
 
 import type { ActionResult } from '@/lib/ai-actions';
 
-/** The three advisory domains — one per legacy Advisory Council tab. */
-export type Domain = 'consult' | 'board' | 'perspectives';
+/** The advisory domains. */
+export type Domain = 'consult' | 'board' | 'perspectives' | 'loops';
 
 export function isDomain(v: string | null): v is Domain {
-  return v === 'consult' || v === 'board' || v === 'perspectives';
+  return v === 'consult' || v === 'board' || v === 'perspectives' || v === 'loops';
 }
 
 /** Per-domain eyebrow copy shown in the Shell header. */
@@ -22,6 +22,7 @@ export const EYEBROW: Record<Domain, string> = {
   board: 'Ask',
   consult: 'Officer Advisors',
   perspectives: 'Distinguished Voices',
+  loops: 'Close Out',
 };
 
 // ── Advisory (Board) ────────────────────────────────────────────────────────

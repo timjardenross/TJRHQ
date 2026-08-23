@@ -26,6 +26,7 @@ import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { ConsultView } from './_components/ConsultView';
 import { AskView } from './_components/AskView';
 import { PerspectivesView } from './_components/PerspectivesView';
+import { LoopsView } from './_components/LoopsView';
 import { ProactiveBanner } from './_components/ProactiveBanner';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
 
@@ -37,6 +38,7 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'board', label: 'Ask' },
   { key: 'consult', label: 'Talk to Someone' },
   { key: 'perspectives', label: 'Panel of Voices' },
+  { key: 'loops', label: 'Close Out' },
 ];
 
 function Workbench() {
@@ -76,6 +78,7 @@ function Workbench() {
       )}
       {domain === 'consult' && <ConsultView />}
       {domain === 'perspectives' && <PerspectivesView />}
+      {domain === 'loops' && <LoopsView />}
     </WorkbenchShell>
   );
 }
