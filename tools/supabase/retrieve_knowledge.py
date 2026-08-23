@@ -1,18 +1,33 @@
 #!/usr/bin/env python3
-"""Keyword and semantic retrieval for the USS TJR Supabase knowledge prototype."""
+"""Keyword and semantic retrieval for the USS TJR Supabase knowledge prototype.
+
+Keyword search now routes through Meilisearch (http://localhost:7700) as the
+primary path.  If Meilisearch is unavailable or returns no hits, the call
+falls back automatically to the Supabase keyword_search_documents RPC and
+then to the ilike fallback_search — preserving full backward compatibility.
+"""
 
 from __future__ import annotations
 
 import argparse
+import logging
 import sys as _sys
 import time
 from pathlib import Path
 from typing import Any
 
+# Allow imports of sibling tools and the Meilisearch client from the repo root.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_REPO_ROOT))
 if str(Path(__file__).resolve().parent) not in _sys.path:
     _sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from _local_import_supabase import import_sibling
 from knowledge_sensitivity import is_visible_for_general_access
+from core.search.meilisearch_client import search as meilisearch_search
+
+logger = logging.getLogger(__name__)
 
 EmbeddingClient = import_sibling("embedding_client").EmbeddingClient
 vector_literal = import_sibling("embedding_client").vector_literal
@@ -79,7 +94,54 @@ def fallback_search(client: SupabaseClient, query: str, document_type: str | Non
     return results
 
 
+def _meilisearch_keyword_results(
+    query: str, document_type: str | None, limit: int
+) -> list[dict[str, Any]]:
+    """Return keyword hits from Meilisearch, normalised to the shared result shape.
+
+    Returns an empty list when Meilisearch is unavailable or holds no matching
+    documents, which tells ``keyword_results`` to fall through to the Supabase
+    path.  Documents that fail the general-access visibility check are silently
+    dropped so the Meilisearch path honours the same sensitivity rules as the
+    Supabase paths.
+    """
+    raw_hits = meilisearch_search(query, index="knowledge", limit=limit)
+    results: list[dict[str, Any]] = []
+    for hit in raw_hits:
+        # Visibility check mirrors the rule applied in fallback_search and the
+        # match_document_chunks RPC (migration 0063 / MSN-0333).
+        if not is_visible_for_general_access(hit.get("metadata")):
+            continue
+        if document_type and hit.get("document_type") != document_type:
+            continue
+        results.append(
+            {
+                "document_id": hit.get("document_id") or hit.get("id"),
+                "source_path": hit.get("source_path"),
+                "title": hit.get("title"),
+                "document_type": hit.get("document_type"),
+                "chunk_index": hit.get("chunk_index"),
+                "snippet": (hit.get("content") or hit.get("snippet") or "")[:500],
+                "rank": 0,
+            }
+        )
+    return results
+
+
 def keyword_results(client: SupabaseClient, query: str, document_type: str | None, limit: int) -> list[dict[str, Any]]:
+    """Return keyword search results, preferring Meilisearch over Supabase.
+
+    Search order:
+    1. Meilisearch full-text search (fast, unified backend).
+    2. Supabase ``keyword_search_documents`` RPC (if Meilisearch returns empty).
+    3. Supabase ilike ``fallback_search`` (if the RPC itself fails).
+    """
+    meili_hits = _meilisearch_keyword_results(query, document_type, limit)
+    if meili_hits:
+        return meili_hits
+
+    # Meilisearch unavailable or index empty — fall through to Supabase.
+    logger.debug("Meilisearch returned no hits for '%s'; falling back to Supabase.", query)
     payload = {
         "search_query": query,
         "requested_document_type": document_type,
