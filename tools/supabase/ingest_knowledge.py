@@ -19,6 +19,16 @@ SupabaseClient = import_sibling("supabase_client").SupabaseClient
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXT_SUFFIXES = {".md", ".txt"}
+
+# Docling is the preferred extraction path for structured content (tables, etc.).
+# If docling is not installed or extraction fails, we fall back to raw read_text.
+try:
+    import sys as _sys
+    if str(ROOT) not in _sys.path:
+        _sys.path.insert(0, str(ROOT))
+    from core.knowledge.docling_processor import extract_document as _docling_extract
+except Exception:
+    _docling_extract = None  # type: ignore[assignment]
 DEFAULT_PATHS = [
     "core/governance/architecture-decision-records",
     "knowledge/Architectural-Decisions.md",
@@ -143,7 +153,13 @@ def ingest(paths: list[str], dry_run: bool) -> None:
     client = SupabaseClient()
     load_specialists(client)
     for path in files:
-        content = path.read_text(encoding="utf-8", errors="replace")
+        # Try Docling first for structured extraction (tables, rich layout).
+        # Fall back to raw read_text if docling is unavailable or extraction fails.
+        _extracted = _docling_extract(path) if _docling_extract is not None else None
+        if _extracted is not None:
+            content = _extracted["text"]
+        else:
+            content = path.read_text(encoding="utf-8", errors="replace")
         relative = path.relative_to(ROOT).as_posix()
         doc_type = document_type(path)
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()

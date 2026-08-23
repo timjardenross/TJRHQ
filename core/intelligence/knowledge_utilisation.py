@@ -34,6 +34,14 @@ from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# Docling is the preferred extraction path; graceful fallback to read_text if unavailable.
+try:
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    from core.knowledge.docling_processor import extract_document as _docling_extract
+except Exception:
+    _docling_extract = None  # type: ignore[assignment]
+
 # Source directories
 _DECISIONS_DIR   = _REPO_ROOT / "logs" / "decisions"
 _LESSONS_MD      = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
@@ -175,7 +183,12 @@ def _scan_knowledge_documents() -> dict[str, Any]:
 
     for f in _KNOWLEDGE_DIR.rglob("*.md"):
         try:
-            text = f.read_text(encoding="utf-8", errors="replace")
+            # Prefer Docling for structured extraction; fall back to raw read.
+            _extracted = _docling_extract(f) if _docling_extract is not None else None
+            if _extracted is not None:
+                text = _extracted["text"]
+            else:
+                text = f.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
         for m in _LL_PATTERN.findall(text):
