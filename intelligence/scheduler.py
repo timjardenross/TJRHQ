@@ -451,6 +451,14 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Proactive cadence jobs (migrated from platform-runtime/proactive_scheduler.py
+    # 2026-08-23: Slack bot decommissioned, all cadences moved to Telegram delivery) ──
+    try:
+        from intelligence.proactive_cadences import register_jobs as _register_proactive
+        _register_proactive(scheduler, tz)
+    except Exception as exc:
+        log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
+
     log.info(
         "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
