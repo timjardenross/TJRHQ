@@ -201,10 +201,20 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
-    # Small/fast model: this is a one-line "tiny first step" suggestion, not
-    # a synthesis task. Do NOT have this route call decompose_task() itself —
-    # that function tries this exact endpoint first, which would recurse.
-    "adhd-decompose":        {"model": MODEL_MID,   "keep_alive": "2m",  "timeout": 60},
+    # Do NOT have this route call decompose_task() itself — that function
+    # tries this exact endpoint first, which would recurse.
+    # 2026-08-23: moved from local gemma3:4b to Gemini — same reasoning as
+    # intelligence-brief/captain-insight-synthesis/self-improvement-* above:
+    # this CPU-only box's single Ollama inference slot (llama-server -np 1)
+    # serializes with every other scheduler job hitting model-router, so a
+    # decompose call could sit behind a 50-90s classify-document/summarise-
+    # document job and blow its own budget. Confirmed live 2026-08-23: a
+    # real call timed out at 60s while a concurrent job was running. This
+    # is a one-line "tiny first step" suggestion — latency-sensitive (it's
+    # an interactive UI/Telegram call, not a background synthesis job) —
+    # so it belongs on the fast, uncontended cloud tier instead of fighting
+    # local jobs for the one CPU inference slot.
+    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30},
 }
 
 # System prompt for adhd-decompose — intentionally duplicated from (not
