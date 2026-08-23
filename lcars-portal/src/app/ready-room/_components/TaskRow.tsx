@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Badge, Button, Textarea } from '@/components/ui';
 import {
   categoryMeta,
@@ -10,6 +11,27 @@ import {
   type PersonalTask,
   type WorkState,
 } from '@/lib/personalTasks';
+
+const URL_RE = /(https?:\/\/\S+)/;
+
+/** context often ends with "...From <workbench> · <signal>. <link>" (see
+ * Weekly Review's "Send to Ready Room"). Split out a trailing URL and
+ * render it as a real link instead of dead text, so the source is one tap
+ * away — not just recorded and forgotten. */
+function renderContext(context: string) {
+  const match = context.match(URL_RE);
+  if (!match) return context;
+  const url = match[1];
+  const before = context.slice(0, match.index).trim();
+  return (
+    <>
+      {before && `${before} `}
+      <Link href={url} target="_blank" rel="noopener noreferrer" className="text-wb-sage-deep hover:underline">
+        {url}
+      </Link>
+    </>
+  );
+}
 
 function dueLabel(due: string | null): string | null {
   if (!due) return null;
@@ -63,7 +85,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
             {due && <span className="text-[11px] text-wb-ink2">{due}</span>}
           </div>
           {task.context && (
-            <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{task.context}</p>
+            <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{renderContext(task.context)}</p>
           )}
           {task.work_state === 'blocked' && (
             <p className="mt-1.5 text-[12px] text-wb-warn-on">
