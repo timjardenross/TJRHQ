@@ -90,7 +90,7 @@ _EVENT_TYPE_RULES: list[tuple[str, list[str]]] = [
     # near-guaranteed false positive on any text discussing reasons/effects.
     # Tightened to require the acronym in an unambiguous SES context.
     ("severe_weather",       ["storm", "cyclone", "flood", "bushfire", "fire warning", "wildfire",
-                              "grassfire", "heatwave",
+                              "grassfire", "heatwave", "fire danger", "bush fire", "grass fire",
                               "bom", "bureau of meteorology", "emergency warning", "evacuation",
                               "cfa", "nsw ses", "state emergency service", "rfs",
                               "severe weather", "rainfall", "wind warning"]),

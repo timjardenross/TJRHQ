@@ -128,17 +128,26 @@ def format_day_summary_for_slack(summary: dict) -> str:
     jobs   = summary["jobs_fired"]
     failures = summary.get("failures", [])
 
-    status_emoji = ":large_green_circle:" if fail == 0 else ":large_yellow_circle:" if fail <= 2 else ":red_circle:"
+    if total == 0:
+        status_emoji = ":white_circle:"
+    elif fail == 0:
+        status_emoji = ":large_green_circle:"
+    elif fail <= 2:
+        status_emoji = ":large_yellow_circle:"
+    else:
+        status_emoji = ":red_circle:"
+
     lines = [
         f"{status_emoji} *Shakedown Day {day_n} — {summary['date']}*",
-        f"Jobs fired: {len(jobs)}  |  Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}",
+        f"Events logged: {total}  ({len(jobs)} distinct job{'s' if len(jobs) != 1 else ''})  |  "
+        f"Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}",
         "",
     ]
     if jobs:
-        lines.append("*Jobs executed today:*")
+        lines.append("*Jobs with events today:*")
         for j in jobs:
             count = summary["by_job"].get(j, 0)
-            lines.append(f"  • `{j}` × {count}")
+            lines.append(f"  • `{j}` — {count} event{'s' if count != 1 else ''}")
         lines.append("")
 
     if failures:
@@ -147,9 +156,14 @@ def format_day_summary_for_slack(summary: dict) -> str:
             lines.append(f"  • `{f['job_id']}`: {f['detail'][:80]}")
         lines.append("")
 
-    if fail == 0 and total > 0:
-        lines.append("_No failures. All scheduled jobs completed successfully._")
-    elif total == 0:
-        lines.append("_No proactive cadence jobs fired today (or all skipped with no events to surface)._")
+    if total == 0:
+        lines.append(
+            "_No events logged today — no cadence job reported in, whether by "
+            "running, succeeding, or skipping. This is a silent day, not a clean "
+            "one: worth confirming the scheduler itself is running before trusting "
+            "the all-clear color above._"
+        )
+    elif fail == 0:
+        lines.append("_No failures. All logged jobs completed successfully or skipped as expected._")
 
     return "\n".join(lines)

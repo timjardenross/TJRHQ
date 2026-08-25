@@ -1105,9 +1105,11 @@ def _adhd_nudge_job() -> None:
         log.info("ADHD task nudge complete: checked=%d nudged=%d errors=%d",
                  result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
         _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")
+        _record_heartbeat("follow_through_engine", "ok", detail=f"nudged={result.get('nudged', 0)}")
     except Exception as exc:
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
+        _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:

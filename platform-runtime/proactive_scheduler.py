@@ -1410,16 +1410,9 @@ def start_scheduler(client) -> None:
         replace_existing=True,
     )
 
-    # Fortnightly Idea Review — every Monday 08:45, fires only on odd ISO weeks
-    # [M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE WP4]
-    scheduler.add_job(
-        _job_fortnightly_idea_review,
-        CronTrigger(day_of_week="mon", hour=8, minute=45),
-        args=[client],
-        id="fortnightly_idea_review",
-        name="Number One Fortnightly Idea Review",
-        replace_existing=True,
-    )
+    # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
+    # Idea-status missions verbatim every cycle with no resolution path.
+    # (was [M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE WP4])
 
     # Lifecycle pending-actions digest — daily 08:15 (between morning brief and
     # mission escalation). [MSN-0066] Self-gated by LIFECYCLE_RECS_ENABLED, so

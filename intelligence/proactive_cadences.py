@@ -638,13 +638,8 @@ def register_jobs(scheduler, tz) -> None:
         name="Lifecycle Pending Actions (MSN-0066)",
         replace_existing=True,
     )
-    scheduler.add_job(
-        job_fortnightly_idea_review,
-        CronTrigger(day_of_week="mon", hour=8, minute=45, timezone=tz),
-        id="fortnightly_idea_review",
-        name="Number One Fortnightly Idea Review",
-        replace_existing=True,
-    )
+    # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
+    # Idea-status missions verbatim every cycle with no resolution path.
     scheduler.add_job(
         job_knowledge_freshness,
         CronTrigger(day_of_week="wed", hour=9, minute=0, timezone=tz),
