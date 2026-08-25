@@ -77,6 +77,13 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
     except Exception as exc:
         log.debug("[shakedown] log_event failed (non-critical): %s", exc)
     try:
+        # Relied on intelligence/scheduler.py having already inserted this
+        # path as a side effect of its own heartbeat calls (true in the live
+        # daemon, since scheduler.py is always the entrypoint) — but that
+        # made this module's heartbeat writes silently ImportError whenever
+        # proactive_cadences is imported/run standalone (found 2026-08-25
+        # ad-hoc testing several jobs this way). Self-contained now.
+        sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         hb = {"success": "ok", "failure": "failed", "skipped": "skipped"}.get(status, "failed")
         if not record_heartbeat(job_id, status=hb, detail=detail or None,
@@ -394,21 +401,29 @@ def job_decision_outcome_reminder() -> None:
 
 
 def job_monthly_lessons_digest() -> None:
-    """1st of month 08:00 — monthly lessons digest."""
+    """1st of month 08:00 — monthly lessons digest. Never had a heartbeat
+    wired in (found 2026-08-25 ad-hoc testing) — added below."""
     digest = _generate_lessons_digest()
     if not digest:
         log.info("[proactive] Monthly lessons digest: no lessons to surface")
+        _shakedown_log("monthly_lessons_digest", "skipped", "No lessons to surface")
         return
-    _tg_notify(digest)
+    ok = _tg_notify(digest)
     log.info("[proactive] Monthly lessons digest sent")
+    _shakedown_log("monthly_lessons_digest", "success" if ok else "failure", "")
 
 
 def job_ko_monthly_brief() -> None:
-    """1st of month 08:30 — Knowledge Officer monthly brief."""
+    """1st of month 08:30 — Knowledge Officer monthly brief. Never had a
+    heartbeat wired in (found 2026-08-25 ad-hoc testing) — added below."""
     brief = _generate_ko_monthly_brief()
-    if brief:
-        _tg_notify(brief)
+    if not brief:
+        log.info("[proactive] KO monthly brief: nothing to surface")
+        _shakedown_log("ko_monthly_brief", "skipped", "No brief content")
+        return
+    ok = _tg_notify(brief)
     log.info("[proactive] KO monthly brief sent")
+    _shakedown_log("ko_monthly_brief", "success" if ok else "failure", "")
 
 
 def job_forgotten_decisions() -> None:
@@ -431,6 +446,7 @@ def job_forgotten_decisions() -> None:
         items = get_forgotten_decisions()
         if not items:
             log.info("[proactive] No forgotten decisions found")
+            _shakedown_log("forgotten_decisions", "skipped", "No forgotten decisions found")
             return
         msg = format_forgotten_decisions(items)
         ok = _tg_notify(msg)
@@ -556,11 +572,14 @@ def job_content_pipeline() -> None:
 
 
 def job_pending_research_sweep() -> None:
-    """Every 5 min — recover stuck captured_items (no delivery)."""
+    """Every 5 min — recover stuck captured_items (no delivery). Never had a
+    heartbeat wired in (found 2026-08-25: runs successfully every 5 min per
+    journalctl, zero heartbeats ever) — added below."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
         from core.inbox.orchestrator import _run_research, _db, process_captured_item
         if not _db.enabled():
+            _shakedown_log("pending_research_sweep", "skipped", "inbox DB disabled")
             return
         unprocessed = (
             _db._client.table("captured_items")
@@ -593,8 +612,13 @@ def job_pending_research_sweep() -> None:
                 _run_research(item["id"], item)
             except Exception as exc:
                 log.error("[proactive] Research failed for %s: %s", item["id"], exc)
+        _shakedown_log(
+            "pending_research_sweep", "success",
+            f"processed={len(pass1_ids)} researched={len(research_items)}",
+        )
     except Exception as exc:
         log.error("[proactive] Pending research sweep failed: %s", exc)
+        _shakedown_log("pending_research_sweep", "failure", str(exc))
 
 
 # ── Registration ──────────────────────────────────────────────────────────────
