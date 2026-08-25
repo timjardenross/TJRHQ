@@ -53,6 +53,14 @@ _SYSTEM_PROMPT = (
     "not claim 'no data has ever been recorded' or similar from never_succeeded "
     "alone — say precisely what you know: the monitor has never heard from this "
     "domain, real status unconfirmed either way. "
+    "Each domain includes its own registry `notes` plus expected_cadence_minutes/"
+    "grace_period_minutes — read them. A domain whose notes describe it as "
+    "event-driven, Captain-paced, or usage-driven (e.g. 'fires when the Captain "
+    "captures something') being stale for a few days is normal idle behaviour, "
+    "not degradation — say so plainly instead of using alarmed language, and "
+    "do not recommend a fix for a domain that isn't actually broken. Reserve "
+    "urgent language for domains whose notes describe a fixed automated "
+    "schedule (a daily/hourly job) that has gone quiet past its own cadence. "
     "Be direct, specific, and brief (2-4 sentences). "
     "Plain English, no caveats about your own uncertainty. "
     "Always end with one explicit line stating either a concrete next step the "
@@ -82,12 +90,21 @@ def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
         return []
     in_list = ",".join(keys)
     try:
-        return supabase_get(
+        rows = supabase_get(
             "domain_heartbeat_latest"
             f"?domain_key=in.({in_list})"
             "&select=domain_key,display_name,category,last_status,last_error_message,"
-            "last_success_at,never_succeeded,is_stale"
+            "last_success_at,never_succeeded,is_stale,expected_cadence_minutes,grace_period_minutes"
         )
+        notes_by_key = {}
+        try:
+            registry_rows = supabase_get(f"domain_registry?domain_key=in.({in_list})&select=domain_key,notes")
+            notes_by_key = {r["domain_key"]: r.get("notes") for r in registry_rows}
+        except Exception as exc:
+            log.warning("[infra-narrative] failed to read domain_registry notes: %s", exc)
+        for row in rows:
+            row["notes"] = notes_by_key.get(row["domain_key"])
+        return rows
     except Exception as exc:
         log.warning("[infra-narrative] failed to read domain_heartbeat_latest detail: %s", exc)
         return []
@@ -154,7 +171,10 @@ def generate_infra_narrative() -> Optional[dict]:
             f"- {d.get('display_name', d.get('domain_key', '?'))} "
             f"(category={d.get('category', '?')}, last_status={d.get('last_status', '?')}, "
             f"error={d.get('last_error_message') or 'none reported'}, "
-            f"never_succeeded={d.get('never_succeeded', '?')}, {age_desc})"
+            f"never_succeeded={d.get('never_succeeded', '?')}, {age_desc}, "
+            f"expected_cadence_minutes={d.get('expected_cadence_minutes', '?')}, "
+            f"grace_period_minutes={d.get('grace_period_minutes', '?')}, "
+            f"registry_notes={d.get('notes') or 'none'})"
         )
     prompt = (
         "The following platform domains are currently degraded (stale or never succeeded):\n"

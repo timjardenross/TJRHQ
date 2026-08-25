@@ -79,10 +79,11 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
     try:
         from heartbeat import record_heartbeat
         hb = {"success": "ok", "failure": "failed", "skipped": "skipped"}.get(status, "failed")
-        record_heartbeat(job_id, status=hb, detail=detail or None,
-                         error_message=detail if hb == "failed" else None)
+        if not record_heartbeat(job_id, status=hb, detail=detail or None,
+                                error_message=detail if hb == "failed" else None):
+            log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", job_id)
     except Exception as exc:
-        log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
+        log.warning("[heartbeat] record_heartbeat(%s) raised: %s", job_id, exc)
 
 
 def _get_stale_missions() -> list[dict]:

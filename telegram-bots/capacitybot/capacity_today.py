@@ -917,6 +917,64 @@ def kb_evening_debt(dt: str, hf: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
+# ── Midday micro check-in (checkin_type='midday') ───────────────────────────
+# Deliberately 2 taps, not the 9-question quick flow: a lunchtime pulse, not
+# a full reassessment. capacity_state (same options as the morning/anytime
+# quick check-in) plus unexpected_change (the deep-check column already on
+# the table, reused here rather than adding a new one) is the whole flow.
+
+YESNO_OPTIONS = [("1", "Yes"), ("0", "No")]
+YESNO_SHORT = {"1": "Yes", "0": "No"}
+
+
+def q_midday() -> str:
+    return render_question("Midday check-in\n\nHow is your capacity right now?",
+                            [label for _, label in CAPACITY_OPTIONS])
+
+
+def kb_midday() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(_select_rows("cm", "c", CAPACITY_OPTIONS, CAPACITY_SHORT, per_row=3))
+
+
+def q_midday_change() -> str:
+    return "Anything changed since this morning?"
+
+
+def kb_midday_change(capacity_code: str) -> InlineKeyboardMarkup:
+    base = f"cm|c={capacity_code}"
+    rows = _select_rows(base, "uc", YESNO_OPTIONS, YESNO_SHORT, per_row=2)
+    return InlineKeyboardMarkup(rows)
+
+
+async def write_midday_checkin(db, f: dict) -> tuple[bool, str | None]:
+    """Insert a lightweight midday row. Never updates an existing row (spec:
+    multiple check-ins/day expected, never overwritten) — unlike
+    write_quick_checkin, there's no "Go deeper" follow-on to a midday row,
+    so no `id`-present update path is needed."""
+    if not db:
+        return False, "Supabase unavailable (check SUPABASE_KEY)"
+    payload: dict = {
+        "checkin_type": "midday",
+        "source": "telegram",
+        "time_of_day": _time_of_day_label(),
+    }
+    if f.get("c"):
+        payload["capacity_state"] = CAPACITY_CODE_TO_STATE.get(f["c"])
+    if f.get("uc") is not None:
+        payload["unexpected_change"] = f["uc"] == "1"
+    try:
+        db.table(TABLE).insert(payload).execute()
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat(TABLE, status="ok", detail="checkin_type=midday source=telegram")
+        except Exception:
+            pass
+        return True, None
+    except Exception as exc:
+        log.error("capacity_checkins midday write failed: %s | payload=%s", exc, payload)
+        return False, str(exc)
+
+
 # ── Therapy summary window selector ─────────────────────────────────────────
 
 THERAPY_WINDOW_OPTIONS = [("1", "1 week"), ("2", "2 weeks"), ("4", "4 weeks")]

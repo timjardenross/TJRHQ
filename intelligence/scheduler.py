@@ -40,13 +40,19 @@ except Exception:
 
 
 def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
-    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
+    a heartbeat write must never break the job it's attached to — but a
+    silent failure here is exactly how a job can run correctly for weeks
+    while Platform Health reports it as dead (found 2026-08-25: this
+    except-pass was swallowing failures with zero log trace). Warn, don't
+    raise."""
     try:
         sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
         from heartbeat import record_heartbeat
-        record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message)
-    except Exception:
-        pass
+        if not record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message):
+            log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
+    except Exception as exc:
+        log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
 
 
 def _brief_to_stdout(brief: ResilienceBrief) -> None:

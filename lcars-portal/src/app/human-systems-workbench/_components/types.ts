@@ -108,6 +108,13 @@ export interface Kpis {
   sleep_hours: number | null;
   checkins_today: number; // raw count of today's capacity_checkins rows (capacity_checkins_today view, replaces the retired 3x/day pulse model, 2026-08-21) — unlimited per day, not a percentage
   latest_capacity_state: string | null; // 'green' | 'orange' | 'red' | null, from capacity_checkins_today
+  /** Midday micro check-in (checkin_type='midday', migration 0169,
+   *  2026-08-25) — a separate 2-tap pulse from the bot's new 08:00/13:00/
+   *  20:00 proactive cadence. Distinct from checkins_today/
+   *  latest_capacity_state above (still scoped to checkin_type='capacity'
+   *  only) — this is informational, not a substitute for a real check-in. */
+  has_midday_checkin: boolean;
+  latest_midday_capacity_state: string | null;
   /** VNext consolidation (spec §6) — replaces `posture` as the primary
    *  hero indicator across all three domain views. Computed once in
    *  buildKpis() from the same latest capacity_checkins row every domain

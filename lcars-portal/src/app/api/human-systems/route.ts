@@ -335,6 +335,13 @@ interface CheckinsTodayRow {
   latest_regulation_state: string | null;
   latest_pain_score: number | null;
   latest_executive_function: string | null;
+  // Midday micro check-in (checkin_type='midday', migration 0169) — a
+  // separate 2-tap pulse from the 08:00/13:00/20:00 proactive cadence,
+  // deliberately not folded into checkins_today/latest_capacity_state
+  // above (those stay scoped to checkin_type='capacity').
+  has_midday_checkin: boolean;
+  last_midday_checkin_at: string | null;
+  latest_midday_capacity_state: string | null;
 }
 
 // ── Life Participation (mirror of compute_life_participation / fetchLifeParticipation) ──
@@ -712,6 +719,8 @@ function buildKpis(ctx: Ctx, lp: { score: number | null; band: Band }): Kpis {
     sleep_hours: ctx.daily?.sleep_hours ?? null,
     checkins_today: ctx.checkinsToday?.checkins_today ?? 0,
     latest_capacity_state: ctx.checkinsToday?.latest_capacity_state ?? null,
+    has_midday_checkin: ctx.checkinsToday?.has_midday_checkin ?? false,
+    latest_midday_capacity_state: ctx.checkinsToday?.latest_midday_capacity_state ?? null,
     system_posture: deriveSystemPosture(ctx.latestCheckin).posture,
   };
 }
