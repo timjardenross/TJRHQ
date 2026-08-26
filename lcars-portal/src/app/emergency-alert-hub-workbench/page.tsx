@@ -71,8 +71,8 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
       <td className="py-3 pr-4">
         <Badge status={SEVERITY_BADGE[alert.severity] ?? 'neutral'}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
       </td>
-      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink max-w-[420px] truncate">{alert.headline}</td>
-      <td className="py-3 pr-4 text-[12px] text-wb-ink2 max-w-[220px] truncate">{alert.location ?? <span className="italic">—</span>}</td>
+      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">{alert.headline}</td>
+      <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
       <td className="py-3 text-[12px] tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
     </tr>
   );
@@ -215,6 +215,7 @@ export default function EmergencyAlertHubWorkbench() {
       title="Emergency Alert Hub"
       eyebrow="Public Safety"
       tagline="Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds · auto-refreshes every 60s"
+      wide
     >
       <div className="flex flex-col gap-4">
         <Card>
