@@ -56,6 +56,16 @@ def fetch() -> list[CanonicalAlert]:
         if fields.get("TYPE") == "Hazard Reduction":
             continue
 
+        # Found 2026-08-26 investigating why so many NSW rows sat at
+        # severity=unknown: NSW RFS has a real 4th tier below its own
+        # Advice/Watch and Act/Emergency Warning vocabulary —
+        # category="Not Applicable" (confirmed live) — same "FYI, not a
+        # real warning" class as QLD's WarningLevel="Information", already
+        # excluded above. Drop it here too rather than let it sit as an
+        # unclassifiable "unknown"-severity row.
+        if category == "not applicable":
+            continue
+
         lat = lon = None
         geom = feature.get("geometry") or {}
         if geom.get("type") == "GeometryCollection":
