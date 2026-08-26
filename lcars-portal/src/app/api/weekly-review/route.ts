@@ -73,7 +73,7 @@ async function reviewChair(sb: SB, since: string): Promise<WorkbenchSection> {
 // Sources: intelligence_events, signal_corroboration, signal_escalation_history.
 async function reviewOsint(sb: SB, since: string): Promise<WorkbenchSection> {
   const [highConf, escalations, thisWeekEvents] = await Promise.all([
-    safe(() => sb.from('intelligence_events').select('event_id, raw_title, confidence, collected_at').eq('suppressed', false).gte('collected_at', since).gte('confidence', 0.7).order('confidence', { ascending: false }).limit(20)),
+    safe(() => sb.from('intelligence_events').select('event_id, raw_title, canonical_url, confidence, collected_at').eq('suppressed', false).gte('collected_at', since).gte('confidence', 0.7).order('confidence', { ascending: false }).limit(20)),
     safe(() => sb.from('signal_escalation_history').select('signal_id, reason, escalated_at').gte('escalated_at', since).limit(20)),
     safe(() => sb.from('intelligence_events').select('event_id').eq('suppressed', false).gte('collected_at', since).limit(500)),
   ]);
@@ -89,7 +89,7 @@ async function reviewOsint(sb: SB, since: string): Promise<WorkbenchSection> {
   return {
     key: 'osint', title: 'Technical OSINT', href: '/intelligence-workbench',
     signals: [
-      signal('high-confidence', 'New high-confidence findings', highConf.rows.map((r) => ({ id: r.event_id, title: r.raw_title, meta: `${Math.round((r.confidence ?? 0) * 100)}%` })), 'ok', highConf.unavailable),
+      signal('high-confidence', 'New high-confidence findings', highConf.rows.map((r) => ({ id: r.event_id, title: r.raw_title, href: r.canonical_url ?? undefined, meta: `${Math.round((r.confidence ?? 0) * 100)}%` })), 'ok', highConf.unavailable),
       signal('escalated', 'Crossed an escalation threshold', escalations.rows.map((r) => ({ id: r.signal_id, title: r.reason ?? '(no reason recorded)' })), 'crit', escalations.unavailable),
       { key: 'uncorroborated', label: 'Needs corroboration', count: uncorroboratedCount, tone: 'warn', items: [], unavailable: thisWeekEvents.unavailable || corroboration.unavailable },
     ],
@@ -100,18 +100,18 @@ async function reviewOsint(sb: SB, since: string): Promise<WorkbenchSection> {
 // Sources: health_signals (published/curation-pending), health_adverse_events.
 async function reviewHealthOsint(sb: SB, since: string): Promise<WorkbenchSection> {
   const [published, pending, strong, adverse] = await Promise.all([
-    safe(() => sb.from('health_signals').select('signal_id, title, confidence_level, collected_at').eq('suppressed', false).gte('collected_at', since).limit(30)),
-    safe(() => sb.from('health_signals').select('signal_id, title, collected_at').eq('auto_ingested', true).eq('auto_ingest_reviewed', false).gte('collected_at', since).limit(20)),
-    safe(() => sb.from('health_signals').select('signal_id, title, confidence_level').eq('suppressed', false).gte('collected_at', since).eq('confidence_level', 'HIGH').limit(20)),
+    safe(() => sb.from('health_signals').select('signal_id, title, canonical_url, confidence_level, collected_at').eq('suppressed', false).gte('collected_at', since).limit(30)),
+    safe(() => sb.from('health_signals').select('signal_id, title, canonical_url, collected_at').eq('auto_ingested', true).eq('auto_ingest_reviewed', false).gte('collected_at', since).limit(20)),
+    safe(() => sb.from('health_signals').select('signal_id, title, canonical_url, confidence_level').eq('suppressed', false).gte('collected_at', since).eq('confidence_level', 'HIGH').limit(20)),
     safe(() => sb.from('health_adverse_events').select('id, description, fda_flagged, created_at').eq('fda_flagged', true).gte('created_at', since).limit(20)),
   ]);
 
   return {
     key: 'health-osint', title: 'Health OSINT', href: '/health-osint',
     signals: [
-      signal('published', 'New / updated evidence', published.rows.map((r) => ({ id: r.signal_id, title: r.title, meta: r.confidence_level ?? undefined })), 'neutral', published.unavailable),
-      signal('appraisal', 'Needs critical appraisal', pending.rows.map((r) => ({ id: r.signal_id, title: r.title })), 'warn', pending.unavailable),
-      signal('strong', 'High-confidence signals', strong.rows.map((r) => ({ id: r.signal_id, title: r.title })), 'ok', strong.unavailable),
+      signal('published', 'New / updated evidence', published.rows.map((r) => ({ id: r.signal_id, title: r.title, href: r.canonical_url ?? undefined, meta: r.confidence_level ?? undefined })), 'neutral', published.unavailable),
+      signal('appraisal', 'Needs critical appraisal', pending.rows.map((r) => ({ id: r.signal_id, title: r.title, href: r.canonical_url ?? undefined })), 'warn', pending.unavailable),
+      signal('strong', 'High-confidence signals', strong.rows.map((r) => ({ id: r.signal_id, title: r.title, href: r.canonical_url ?? undefined })), 'ok', strong.unavailable),
       signal('flagged', 'FDA-flagged adverse events', adverse.rows.map((r) => ({ id: String(r.id), title: r.description ?? '(no description)' })), 'crit', adverse.unavailable),
     ],
   };
@@ -202,8 +202,8 @@ async function reviewBriefs(sb: SB, since: string): Promise<WorkbenchSection> {
   return {
     key: 'briefs', title: 'Briefs', href: '/briefs',
     signals: [
-      signal('generated', 'Briefs this week', generated.rows.map((r) => ({ id: r.brief_id, title: new Date(r.generated_at).toLocaleDateString('en-AU'), meta: r.overall_risk ?? undefined })), 'neutral', generated.unavailable),
-      signal('risk', 'Amber / Red risk', risky.rows.map((r) => ({ id: r.brief_id, title: new Date(r.generated_at).toLocaleDateString('en-AU'), meta: r.overall_risk ?? undefined })), 'crit', risky.unavailable),
+      signal('generated', 'Briefs this week', generated.rows.map((r) => ({ id: r.brief_id, title: new Date(r.generated_at).toLocaleDateString('en-AU'), href: `/intelligence-workbench/brief/${r.brief_id}`, meta: r.overall_risk ?? undefined })), 'neutral', generated.unavailable),
+      signal('risk', 'Amber / Red risk', risky.rows.map((r) => ({ id: r.brief_id, title: new Date(r.generated_at).toLocaleDateString('en-AU'), href: `/intelligence-workbench/brief/${r.brief_id}`, meta: r.overall_risk ?? undefined })), 'crit', risky.unavailable),
       signal('triggered', 'Triggered a decision / action', triggered.rows.filter((r) => r.decision_or_action_taken).map((r) => ({ id: r.source_id, title: r.decision_or_action_taken ?? '' })), 'ok', triggered.unavailable),
     ],
   };

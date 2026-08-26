@@ -48,6 +48,8 @@ function basePayload(overrides: Partial<RecoveryPayload> = {}): RecoveryPayload 
       sleep_hours: null,
       checkins_today: 1,
       latest_capacity_state: 'green',
+      has_midday_checkin: false,
+      latest_midday_capacity_state: null,
       system_posture: 'STEADY',
     },
     posture: 'STABLE',

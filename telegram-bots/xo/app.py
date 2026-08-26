@@ -19,8 +19,10 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -926,6 +928,92 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         db = _get_supabase()
 
+        # Adaptive Follow-Through — NL updates against a tracked reminder.
+        # Checked BEFORE capture-intent and only when this message is a
+        # reply to a message XO itself sent as a follow-through reminder (a
+        # matching follow_through_sends row exists). This must run first:
+        # a reply like "remind me tomorrow" (deferring THIS reminder) also
+        # matches the capture trigger vocabulary ("remind me"), so checking
+        # capture-intent first would misfile it as a brand-new task instead
+        # of deferring the original — order matters here.
+        from telegram_bots.xo.follow_through_nl import parse_capture_intent, parse_update_intent
+
+        reply_to = update.message.reply_to_message
+        if db and reply_to is not None:
+            sent_row = (
+                db.table("follow_through_sends")
+                .select("task_id")
+                .eq("chat_id", update.effective_chat.id)
+                .eq("message_id", reply_to.message_id)
+                .limit(1)
+                .execute()
+            )
+            if sent_row.data:
+                task_id = sent_row.data[0]["task_id"]
+                intent = parse_update_intent(text)
+                if intent:
+                    action = intent["action"]
+                    try:
+                        if action in ("done",):
+                            reply = await _ft_mark_done(db, task_id)
+                        elif action in ("tomorrow", "defer"):
+                            reply = await _ft_defer_tomorrow(db, task_id)
+                        elif action == "waiting":
+                            reply = await _ft_block(db, task_id, "waiting")
+                        elif action == "drop":
+                            reply = await _ft_drop(db, task_id)
+                        elif action == "decompose":
+                            reply, _kb = await _ft_decompose_and_start(db, task_id)
+                        elif action == "snooze_weekday":
+                            reply = await _ft_snooze_weekday(db, task_id, intent["weekday"])
+                        else:
+                            reply = None
+                    except Exception as exc:
+                        log.error("[follow-through-nl] update %s failed: %s", action, exc)
+                        await update.message.reply_text("Something went wrong — try again.")
+                        return
+                    if reply:
+                        _ft_insert_event(db, task_id, "nl_update", {"action": action})
+                        await update.message.reply_text(reply)
+                        return
+                await update.message.reply_text(
+                    "Not sure what you mean — here are your options:",
+                    reply_markup=_ft_kb_task(task_id),
+                )
+                return
+
+        # Adaptive Follow-Through — deterministic NL capture. Only reached
+        # when the message was NOT a reply to a tracked reminder (handled
+        # above). A hit here short-circuits the rest of cmd_message entirely.
+        capture = parse_capture_intent(text)
+        if capture and db:
+            row = {
+                "id": str(uuid.uuid4()),
+                "title": capture["title"][:200],
+                "category": "task",
+                "urgency": 3,
+                "importance": 3,
+                "effort_minutes": 30,
+                "work_state": "captured",
+                "follow_through_mode": "normal",
+                "due_date": capture["due_date"],
+            }
+            try:
+                inserted = db.table("personal_tasks").insert(row).execute()
+                task_id = inserted.data[0]["id"] if inserted.data else None
+                if task_id:
+                    _ft_insert_event(db, task_id, "nl_capture")
+                due_line = f"\nDue {_escape(capture['due_date'])}\\." if capture["due_date"] else ""
+                await update.message.reply_text(
+                    f"Added to Life Admin\\.\n\n*{_escape(capture['title'])}*{due_line}\n\n"
+                    f"I'll bring it back when it needs attention\\.",
+                    parse_mode="MarkdownV2",
+                )
+            except Exception as exc:
+                log.error("[follow-through-nl] capture insert failed: %s", exc)
+                await update.message.reply_text("⚠️ Couldn't save that — try again.")
+            return
+
         if db:
             try:
                 from telegram_bots.xo import debrief_engine as de
@@ -1351,6 +1439,245 @@ async def handle_voice_debrief_decision_callback(update: Update, context: Contex
         await query.edit_message_text(f"⚠️ Action failed: {exc}")
 
 
+# ── Adaptive Follow-Through ───────────────────────────────────────────────────
+# Inline-button task actions + deterministic NL capture/update against
+# personal_tasks / follow_through_events / follow_through_sends. The scheduler
+# engine that WRITES follow_through_sends rows and sends the original
+# reminders is owned by a parallel agent — this file only reacts to button
+# taps on those reminders and to text replies sent to them. Mutation helpers
+# below (_ft_*) are the single source of truth for each action, shared by
+# both handle_task_followthrough_callback (buttons) and cmd_message's NL-reply
+# path (typed replies) so the two surfaces can never drift apart.
+
+_FT_MODEL_ROUTER_URL   = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891").rstrip("/")
+_FT_DECOMPOSE_TIMEOUT  = 65  # server-side cold model load can take ~50s
+
+_FT_BLOCK_REASONS = [
+    ("I don't know what to do",   "no_idea"),
+    ("I need information",        "need_info"),
+    ("I'm waiting on someone",    "waiting"),
+    ("It's too big",              "too_big"),
+    ("I don't have what I need",  "missing"),
+    ("Not right now",             "not_now"),
+    ("Something else",            "other"),
+]
+
+_FT_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def _ft_kb_task(task_id: str) -> InlineKeyboardMarkup:
+    """Standard action row for a task — same callback_data prefixes reused
+    after a 'start' decomposition and after resolving a 'blocked' reason."""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Done",     callback_data=f"tk|done|{task_id}"),
+            InlineKeyboardButton("⏰ Snooze",   callback_data=f"tk|snooze|{task_id}"),
+            InlineKeyboardButton("📅 Tomorrow", callback_data=f"tk|tomorrow|{task_id}"),
+        ],
+        [
+            InlineKeyboardButton("🚧 Blocked", callback_data=f"tk|blocked|{task_id}"),
+            InlineKeyboardButton("🗑 Drop",    callback_data=f"tk|drop|{task_id}"),
+        ],
+    ])
+
+
+def _ft_kb_blocked_reasons(task_id: str) -> InlineKeyboardMarkup:
+    """Second-step keyboard for the Blocked flow — callback_data is
+    tk|blockreason|<task_id>|<code>; codes are short by design so a UUID
+    task_id still stays well under Telegram's 64-byte callback_data cap."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(label, callback_data=f"tk|blockreason|{task_id}|{code}")]
+        for label, code in _FT_BLOCK_REASONS
+    ])
+
+
+def _ft_insert_event(db, task_id: str, event_type: str, detail: dict | None = None) -> None:
+    db.table("follow_through_events").insert({
+        "task_id": task_id,
+        "event_type": event_type,
+        "detail": detail or {},
+    }).execute()
+
+
+def _ft_call_decompose(title: str) -> str | None:
+    """POST {"task": title} to the Model Router's adhd-decompose endpoint.
+    Returns the micro-action text, or None on any failure (never raises) —
+    matches the urllib.request convention already used by telegram_bots/llm.py
+    rather than introducing a new HTTP client into this bot."""
+    payload = json.dumps({"task": title}).encode()
+    req = urllib.request.Request(
+        f"{_FT_MODEL_ROUTER_URL}/api/model/adhd-decompose",
+        data=payload, method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_FT_DECOMPOSE_TIMEOUT) as resp:
+            body = json.loads(resp.read())
+        action = (body.get("action") or "").strip()
+        return action or None
+    except Exception as exc:
+        log.warning("[follow-through] decompose call failed: %s", exc)
+        return None
+
+
+async def _ft_mark_done(db, task_id: str) -> str:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.table("personal_tasks").update({
+        "work_state": "completed", "completed_at": now_iso, "deferral_count": 0,
+    }).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "done")
+    return "Done ✓"
+
+
+async def _ft_snooze(db, task_id: str) -> str:
+    row = db.table("personal_tasks").select("deferral_count").eq("id", task_id).execute()
+    current = (row.data[0].get("deferral_count") or 0) if row.data else 0
+    snoozed_until = (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()
+    db.table("personal_tasks").update({
+        "snoozed_until": snoozed_until, "deferral_count": current + 1,
+    }).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "snoozed")
+    return "Snoozed 4 hours."
+
+
+async def _ft_defer_tomorrow(db, task_id: str) -> str:
+    row = db.table("personal_tasks").select("deferral_count").eq("id", task_id).execute()
+    current = (row.data[0].get("deferral_count") or 0) if row.data else 0
+    tomorrow_9am = (datetime.now(_TZ) + timedelta(days=1)).replace(
+        hour=9, minute=0, second=0, microsecond=0)
+    db.table("personal_tasks").update({
+        "next_review_at": tomorrow_9am.astimezone(timezone.utc).isoformat(),
+        "snoozed_until": None,
+        "deferral_count": current + 1,
+    }).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "deferred")
+    return "Pushed to tomorrow, 9am."
+
+
+async def _ft_snooze_weekday(db, task_id: str, weekday: str) -> str:
+    """NL-only action ('actually make it monday') — no button equivalent."""
+    today = datetime.now(_TZ).date()
+    target_idx = _FT_WEEKDAYS.index(weekday.lower())
+    delta = (target_idx - today.weekday()) % 7
+    if delta == 0:
+        delta = 7
+    target_date = today + timedelta(days=delta)
+    next_review = datetime(target_date.year, target_date.month, target_date.day, 9, 0, tzinfo=_TZ)
+    db.table("personal_tasks").update({
+        "next_review_at": next_review.astimezone(timezone.utc).isoformat(),
+        "snoozed_until": None,
+    }).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "deferred", {"weekday": weekday})
+    return f"Moved to {weekday.capitalize()}."
+
+
+async def _ft_decompose_and_start(db, task_id: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Shared by the 'start' button action, the 'too_big' blocked-reason, and
+    the NL 'break this down' intent. If the task already has a stop-point
+    (restart_cue) or a prior micro_action, resume with that instead of
+    calling the decomposer again — never re-decompose work already begun."""
+    row = db.table("personal_tasks").select("title,micro_action,restart_cue").eq("id", task_id).execute()
+    if not row.data:
+        return "That task no longer exists.", _ft_kb_task(task_id)
+    task = row.data[0]
+    title = task.get("title") or "this task"
+
+    existing_action = task.get("restart_cue") or task.get("micro_action")
+    if existing_action:
+        db.table("personal_tasks").update({"deferral_count": 0}).eq("id", task_id).execute()
+        step = existing_action
+        label = "Continue"
+    else:
+        step = _ft_call_decompose(title) or f"Spend 2 minutes just opening/looking at: {title}"
+        db.table("personal_tasks").update({
+            "micro_action": step, "deferral_count": 0,
+        }).eq("id", task_id).execute()
+        _ft_insert_event(db, task_id, "decomposed")
+        label = "First step"
+
+    return f"{label}: {step}", _ft_kb_task(task_id)
+
+
+async def _ft_block(db, task_id: str, code: str) -> str:
+    now = datetime.now(timezone.utc)
+    if code == "waiting":
+        db.table("personal_tasks").update({
+            "work_state": "blocked", "follow_through_mode": "waiting",
+            "blocker_category": "waiting", "deferral_count": 0,
+        }).eq("id", task_id).execute()
+    else:
+        next_review = now + (timedelta(days=1) if code == "not_now" else timedelta(days=3))
+        db.table("personal_tasks").update({
+            "work_state": "blocked", "blocker_category": code,
+            "deferral_count": 0, "next_review_at": next_review.isoformat(),
+        }).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "blocked", {"code": code})
+    return "Noted — I'll check back."
+
+
+async def _ft_drop(db, task_id: str) -> str:
+    db.table("personal_tasks").update({"work_state": "abandoned"}).eq("id", task_id).execute()
+    _ft_insert_event(db, task_id, "dropped")
+    return "Dropped."
+
+
+async def handle_task_followthrough_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle inline button presses on Adaptive Follow-Through reminders.
+    callback_data: tk|<action>|<task_id>[|<code>]  (or tk|review with no task id)."""
+    query = update.callback_query
+    await query.answer()
+
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+
+    parts = query.data.split("|")
+    if len(parts) < 2:
+        return
+    action = parts[1]
+
+    if action == "review":
+        base = LCARS_PORTAL_URL or "the LCARS Portal"
+        await query.message.reply_text(f"Open Ready Room to triage: {base}/ready-room?domain=attend")
+        return
+
+    if len(parts) < 3:
+        return
+    task_id = parts[2]
+
+    db = _get_supabase()
+    if not db:
+        await query.edit_message_text("⚠️ Supabase unavailable.")
+        return
+
+    try:
+        if action == "done":
+            await query.edit_message_text(await _ft_mark_done(db, task_id))
+        elif action == "snooze":
+            await query.edit_message_text(await _ft_snooze(db, task_id))
+        elif action == "tomorrow":
+            await query.edit_message_text(await _ft_defer_tomorrow(db, task_id))
+        elif action == "start":
+            text, kb = await _ft_decompose_and_start(db, task_id)
+            await query.edit_message_text(text, reply_markup=kb)
+        elif action == "blocked":
+            await query.edit_message_text(
+                "What's blocking this?", reply_markup=_ft_kb_blocked_reasons(task_id))
+        elif action == "blockreason":
+            if len(parts) < 4:
+                return
+            code = parts[3]
+            if code == "too_big":
+                text, kb = await _ft_decompose_and_start(db, task_id)
+                await query.edit_message_text(text, reply_markup=kb)
+            else:
+                await query.edit_message_text(await _ft_block(db, task_id, code))
+        elif action == "drop":
+            await query.edit_message_text(await _ft_drop(db, task_id))
+    except Exception as exc:
+        log.error("[follow-through-cb] %s failed: %s", action, exc)
+        await query.edit_message_text("Something went wrong — try again.")
+
+
 async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Quick capture: /note <content>  — writes to captured_items as a reference."""
     content = " ".join(context.args or []).strip()
@@ -1684,6 +2011,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
     app.add_handler(CallbackQueryHandler(handle_revs_generate_callback,      pattern=r"^rg\|"))
     app.add_handler(CallbackQueryHandler(handle_mission_approval_callback,   pattern=r"^ms\|"))
+    app.add_handler(CallbackQueryHandler(handle_task_followthrough_callback, pattern=r"^tk\|"))
     app.add_handler(MessageHandler(filters.VOICE,                   cmd_voice_note))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_message))
 

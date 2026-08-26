@@ -108,13 +108,34 @@ def _query_events(raw_title_ilike: str, limit: int = 10) -> list[dict]:
         return []
     res = (
         raw.table("intelligence_events")
-        .select("event_id,raw_title,event_type,sector,rank_score,confidence,operational_relevance,published_at,collected_at")
+        .select(
+            "event_id,raw_title,event_type,sector,rank_score,confidence,operational_relevance,"
+            "published_at,collected_at,customer_impact,banking_relevance,cps230_relevance"
+        )
         .ilike("raw_title", raw_title_ilike)
         .order("rank_score", desc=True)
         .limit(limit)
         .execute()
     )
     return res.data or []
+
+
+def _row_importance(row: dict) -> int:
+    """Same tiering as intelligence_store._derive_attention_importance, run
+    against a queried DB row instead of a RankedEvent. rank_score itself is
+    NOT a severity signal (2026-08-22/23 fix, intelligence_store.py:768) —
+    it's deliberately deflated by recency_decay/SRS and was documented to
+    never cross 71 on 1000 live real events, so validation cases assert on
+    this derived tier instead of the raw column."""
+    is_red = row.get("customer_impact") == "high" or row.get("banking_relevance") == "high"
+    is_amber = row.get("customer_impact") == "medium" or row.get("banking_relevance") == "medium"
+    if is_red and row.get("cps230_relevance"):
+        return 90
+    if is_red:
+        return 55
+    if is_amber:
+        return 42
+    return 15
 
 
 def _replay_through_attention_engine(row: dict) -> "AttentionDecision":  # noqa: F821 — type import below
@@ -124,7 +145,7 @@ def _replay_through_attention_engine(row: dict) -> "AttentionDecision":  # noqa:
         "event_id": row["event_id"],
         "event_type": "intelligence.signal.ranked",
         "domain": "operational-resilience-intelligence",
-        "importance": round(row["rank_score"] or 0),
+        "importance": _row_importance(row),
         "confidence": round((row["confidence"] or 0) * 100),
         "relevance": round((row["operational_relevance"] or 0) * 100),
     })
@@ -143,8 +164,9 @@ def _case_slack_outage() -> CaseResult:
         return _fail(name, kind, "content_plausible", "published_at is null on a supposedly real row", {"row": row})
     if row["event_type"] in ("cross_sector", "other"):
         return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}", {"row": row})
-    if not (row["rank_score"] and row["rank_score"] >= 75):
-        return _fail(name, kind, "scored_plausibly", f"rank_score={row['rank_score']}, expected >=75", {"row": row})
+    importance = _row_importance(row)
+    if importance < 55:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=55 (RED)", {"row": row})
     decision = _replay_through_attention_engine(row)
     from core.platform.attention_engine import AttentionCategory
 
@@ -167,7 +189,7 @@ def _case_slack_outage() -> CaseResult:
     # urgent enough to autonomously interrupt, which is honest, not broken.
     return _pass(
         name, kind,
-        f"real row found, rank_score={row['rank_score']}, replay classifies {decision.category.value} "
+        f"real row found, importance={importance}, replay classifies {decision.category.value} "
         "(not silently dropped; below INTERRUPT_NOW's confidence floor on its real confidence value, "
         "which is correct behaviour, not a miss)",
         {"row": row, "decision_category": decision.category.value},
@@ -185,8 +207,9 @@ def _case_fortinet_alert() -> CaseResult:
         return _fail(name, kind, "content_plausible", "published_at is null", {"row": row})
     if row["event_type"] != "cyber":
         return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}, expected cyber", {"row": row})
-    if not (row["rank_score"] and row["rank_score"] >= 75):
-        return _fail(name, kind, "scored_plausibly", f"rank_score={row['rank_score']}, expected >=75", {"row": row})
+    importance = _row_importance(row)
+    if importance < 55:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=55 (RED)", {"row": row})
     decision = _replay_through_attention_engine(row)
     from core.platform.attention_engine import AttentionCategory
 
@@ -196,7 +219,7 @@ def _case_fortinet_alert() -> CaseResult:
             f"expected INTERRUPT_NOW, replay gave {decision.category.value}",
             {"row": row, "decision_category": decision.category.value},
         )
-    return _pass(name, kind, f"real row, rank_score={row['rank_score']}, replay correctly classifies INTERRUPT_NOW", {"row": row})
+    return _pass(name, kind, f"real row, importance={importance}, replay correctly classifies INTERRUPT_NOW", {"row": row})
 
 
 def _case_cve_dual() -> CaseResult:
@@ -254,9 +277,10 @@ def _case_copilot_incident() -> CaseResult:
     row = rows[0]
     if row["event_type"] != "technology_outage":
         return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}, expected technology_outage", {"row": row})
-    if not (row["rank_score"] and row["rank_score"] >= 50):
-        return _fail(name, kind, "scored_plausibly", f"rank_score={row['rank_score']}, expected >=50", {"row": row})
-    return _pass(name, kind, f"real row, rank_score={row['rank_score']}, classified technology_outage", {"row": row})
+    importance = _row_importance(row)
+    if importance < 42:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"row": row})
+    return _pass(name, kind, f"real row, importance={importance}, classified technology_outage", {"row": row})
 
 
 def _case_nbn_junk_negative_control() -> CaseResult:
@@ -332,12 +356,15 @@ def _case_bushfire_synthetic_replay() -> CaseResult:
             f"event_type={event.event_type}, expected severe_weather or bushfire",
             {"event_type": event.event_type},
         )
-    if ranked.rank_score < 40:
-        return _fail(name, kind, "scored_plausibly", f"rank_score={ranked.rank_score}, expected a meaningfully non-trivial score", {"rank_score": ranked.rank_score})
+    from intelligence.persistence.intelligence_store import _derive_attention_importance
+
+    importance = _derive_attention_importance(ranked)
+    if importance < 42:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"rank_score": ranked.rank_score, "importance": importance})
     return _pass(
         name, kind,
-        f"real BOM sample warning text classifies {event.event_type}, rank_score={ranked.rank_score}",
-        {"event_type": event.event_type, "rank_score": ranked.rank_score},
+        f"real BOM sample warning text classifies {event.event_type}, importance={importance}",
+        {"event_type": event.event_type, "rank_score": ranked.rank_score, "importance": importance},
     )
 
 
@@ -384,12 +411,15 @@ def _case_aws_sydney_synthetic_replay() -> CaseResult:
             f"event_type={event.event_type}, expected technology_outage or cloud_outage",
             {"event_type": event.event_type},
         )
-    if ranked.rank_score < 40:
-        return _fail(name, kind, "scored_plausibly", f"rank_score={ranked.rank_score}, expected a meaningfully non-trivial score", {"rank_score": ranked.rank_score})
+    from intelligence.persistence.intelligence_store import _derive_attention_importance
+
+    importance = _derive_attention_importance(ranked)
+    if importance < 42:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"rank_score": ranked.rank_score, "importance": importance})
     return _pass(
         name, kind,
-        f"real AWS post-event summary text classifies {event.event_type}, rank_score={ranked.rank_score}",
-        {"event_type": event.event_type, "rank_score": ranked.rank_score},
+        f"real AWS post-event summary text classifies {event.event_type}, importance={importance}",
+        {"event_type": event.event_type, "rank_score": ranked.rank_score, "importance": importance},
     )
 
 

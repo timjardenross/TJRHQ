@@ -15,12 +15,15 @@ has no special case for "internal" vs "external", it is the one mechanism.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+log = logging.getLogger("heartbeat")
 
 
 def _load_dotenv() -> None:
@@ -73,6 +76,10 @@ def record_heartbeat(
         status = "failed"
 
     if not _URL or not _KEY:
+        log.warning(
+            "record_heartbeat(%s): SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set "
+            "in this process's environment — heartbeat silently dropped", domain_key,
+        )
         return False
 
     payload = {
@@ -98,7 +105,8 @@ def record_heartbeat(
     try:
         with urllib.request.urlopen(req, timeout=timeout):
             return True
-    except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        log.warning("record_heartbeat(%s) write failed: %s", domain_key, exc)
         return False
 
 

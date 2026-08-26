@@ -1,13 +1,37 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Badge, Button, Textarea } from '@/components/ui';
 import {
   categoryMeta,
+  followThroughModeMeta,
   updateTaskState,
+  toggleFollowThroughPause,
   type PersonalTask,
   type WorkState,
 } from '@/lib/personalTasks';
+
+const URL_RE = /(https?:\/\/\S+)/;
+
+/** context often ends with "...From <workbench> · <signal>. <link>" (see
+ * Weekly Review's "Send to Ready Room"). Split out a trailing URL and
+ * render it as a real link instead of dead text, so the source is one tap
+ * away — not just recorded and forgotten. */
+function renderContext(context: string) {
+  const match = context.match(URL_RE);
+  if (!match) return context;
+  const url = match[1];
+  const before = context.slice(0, match.index).trim();
+  return (
+    <>
+      {before && `${before} `}
+      <Link href={url} target="_blank" rel="noopener noreferrer" className="text-wb-sage-deep hover:underline">
+        {url}
+      </Link>
+    </>
+  );
+}
 
 function dueLabel(due: string | null): string | null {
   if (!due) return null;
@@ -23,6 +47,7 @@ function dueLabel(due: string | null): string | null {
  * cue, so resuming after an interruption never starts from a blank page. */
 export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: () => void }) {
   const meta = categoryMeta(task.category);
+  const ftMeta = followThroughModeMeta(task.follow_through_mode);
   const due = dueLabel(task.due_date);
   const [waitingDraft, setWaitingDraft] = useState(task.waiting_on ?? '');
   const [showWaitingForm, setShowWaitingForm] = useState(false);
@@ -35,20 +60,33 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
     onChanged();
   }
 
+  async function togglePause() {
+    setBusy(true);
+    await toggleFollowThroughPause(task.id, !task.follow_through_paused);
+    setBusy(false);
+    onChanged();
+  }
+
   const showRestartCue = (task.work_state === 'blocked' || task.work_state === 'paused') && task.restart_cue;
 
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-3">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="text-wb-ink2">{meta.glyph}</span>
-            <span className="truncate text-[14px] font-medium text-wb-ink">{task.title}</span>
+          <div className="flex items-start gap-2">
+            <span aria-hidden className="shrink-0 text-wb-ink2">{meta.glyph}</span>
+            <span className="break-words text-[14px] font-medium text-wb-ink">{task.title}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{meta.label}</Badge>
+            <span title={ftMeta.hint}>
+              <Badge status="neutral">{ftMeta.label}</Badge>
+            </span>
             {due && <span className="text-[11px] text-wb-ink2">{due}</span>}
           </div>
+          {task.context && (
+            <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{renderContext(task.context)}</p>
+          )}
           {task.work_state === 'blocked' && (
             <p className="mt-1.5 text-[12px] text-wb-warn-on">
               Waiting on: {task.waiting_on || 'not noted yet'}
@@ -64,7 +102,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {task.work_state !== 'completed' && (
             <Button size="sm" variant="primary" disabled={busy} onClick={() => setState('completed')}>
               Done
@@ -80,6 +118,15 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
               No longer waiting
             </Button>
           )}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={togglePause}
+            title={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
+            className="ml-auto text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30"
+          >
+            {task.follow_through_paused ? '🔕' : '🔔'}
+          </button>
         </div>
       </div>
 
@@ -97,7 +144,7 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
           <Button
             size="sm"
             disabled={busy || !waitingDraft.trim()}
-            onClick={() => { setState('blocked', { waiting_on: waitingDraft.trim() }); setShowWaitingForm(false); }}
+            onClick={() => { setState('blocked', { waiting_on: waitingDraft.trim(), follow_through_mode: 'waiting' }); setShowWaitingForm(false); }}
           >
             Mark waiting
           </Button>

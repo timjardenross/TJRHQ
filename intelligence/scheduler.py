@@ -40,13 +40,19 @@ except Exception:
 
 
 def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
-    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
+    """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
+    a heartbeat write must never break the job it's attached to — but a
+    silent failure here is exactly how a job can run correctly for weeks
+    while Platform Health reports it as dead (found 2026-08-25: this
+    except-pass was swallowing failures with zero log trace). Warn, don't
+    raise."""
     try:
         sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
         from heartbeat import record_heartbeat
-        record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message)
-    except Exception:
-        pass
+        if not record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message):
+            log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
+    except Exception as exc:
+        log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
 
 
 def _brief_to_stdout(brief: ResilienceBrief) -> None:
@@ -1092,18 +1098,24 @@ def _health_mission_correlation_job() -> None:
 
 
 def _adhd_nudge_job() -> None:
-    """Issue 26: Check for stalled high-priority personal_tasks, nudge via
-    Telegram. Rate-limited (8h/task) via NudgeRateLimiter's SQLite cache."""
+    """Adaptive Follow-Through Engine: mode-aware (gentle/normal/persistent/
+    deadline/waiting) resurfacing of personal_tasks via Telegram, gated by
+    capacity state, quiet hours, and a daily send cap. Replaces
+    task_nudge_scheduler.py's SQLite-rate-limited fixed rule (Issue 26) —
+    that module is left in place, unused, for rollback; see
+    intelligence/adhd/follow_through_engine.py's module docstring."""
     log.info("ADHD task nudge job triggered")
     try:
-        from intelligence.adhd.task_nudge_scheduler import nudge_scheduler_entry_point
-        result = nudge_scheduler_entry_point()
+        from intelligence.adhd.follow_through_engine import run_follow_through_pass
+        result = run_follow_through_pass()
         log.info("ADHD task nudge complete: checked=%d nudged=%d errors=%d",
                  result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
         _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")
+        _record_heartbeat("follow_through_engine", "ok", detail=f"nudged={result.get('nudged', 0)}")
     except Exception as exc:
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
+        _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:

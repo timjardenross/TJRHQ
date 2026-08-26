@@ -48,7 +48,16 @@ export function KpiDashboard({ kpis }: { kpis: Kpis }) {
       <KpiCard
         label="Check-ins Today"
         value={String(kpis.checkins_today)}
-        sub={kpis.checkins_today === 1 ? '1 check-in logged' : `${kpis.checkins_today} check-ins logged`}
+        sub={
+          (kpis.checkins_today === 1 ? '1 check-in logged' : `${kpis.checkins_today} check-ins logged`) +
+          (kpis.has_midday_checkin
+            ? ` · midday: ${
+                kpis.latest_midday_capacity_state
+                  ? CAPACITY_STATE_LABEL[kpis.latest_midday_capacity_state] ?? kpis.latest_midday_capacity_state
+                  : 'logged'
+              }`
+            : ' · no midday check-in yet')
+        }
       />
     </div>
   );

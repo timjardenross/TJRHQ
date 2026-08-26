@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Textarea, Input } from '@/components/ui';
-import { createTask, decomposeTask, updateTaskState } from '@/lib/personalTasks';
+import { Button, Textarea, Input, Select } from '@/components/ui';
+import { createTask, decomposeTask, updateTaskState, type FollowThroughMode } from '@/lib/personalTasks';
+import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 
 type Stage = 'input' | 'thinking' | 'result' | 'started';
 
@@ -19,9 +20,21 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
   const [mvpNote, setMvpNote] = useState('');
   const [restartCue, setRestartCue] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [followThroughMode, setFollowThroughMode] = useState<FollowThroughMode>('normal');
+  const [modeTouched, setModeTouched] = useState(false);
   const [decomposeError, setDecomposeError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function handleDueDateChange(value: string) {
+    setDueDate(value);
+    setFollowThroughMode((prev) => autoSwitchModeOnDueDate(value, prev, modeTouched));
+  }
+
+  function handleModeChange(value: FollowThroughMode) {
+    setModeTouched(true);
+    setFollowThroughMode(value);
+  }
 
   async function breakItDown() {
     if (!goal.trim() || busy) return;
@@ -47,6 +60,7 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
       due_date: dueDate || null,
       micro_action: microAction.trim() || null,
       mvp_note: mvpNote.trim() || null,
+      follow_through_mode: followThroughMode,
     });
     if (result.ok && result.id) {
       await updateTaskState(result.id, 'in_progress', { restart_cue: restartCue.trim() || null });
@@ -64,6 +78,8 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
     setMvpNote('');
     setRestartCue('');
     setDueDate('');
+    setFollowThroughMode('normal');
+    setModeTouched(false);
     setDecomposeError(null);
     setTaskId(null);
   }
@@ -128,7 +144,14 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
             value={restartCue}
             onChange={(e) => setRestartCue(e.target.value)}
           />
-          <Input type="date" label="Due date (optional)" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <Input type="date" label="Due date (optional)" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} />
+          <Select
+            label="Follow-through"
+            value={followThroughMode}
+            onChange={(e) => handleModeChange(e.target.value as FollowThroughMode)}
+          >
+            {FOLLOW_THROUGH_MODES.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+          </Select>
           <div className="flex gap-2">
             <Button disabled={!microAction.trim() || busy} onClick={saveAndStart}>Start</Button>
             <Button variant="secondary" onClick={reset}>Discard</Button>

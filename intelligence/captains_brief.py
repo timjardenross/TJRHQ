@@ -107,7 +107,10 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
 
 # ── Telegram delivery ─────────────────────────────────────────────────────────
 
-def _send_telegram(text: str) -> bool:
+_TELEGRAM_MSG_LIMIT = 4096
+
+
+def _send_telegram_chunk(text: str) -> bool:
     if not _TELEGRAM_TOKEN or not _TELEGRAM_CHAT:
         log.warning("Telegram not configured — printing to stdout")
         print(text)
@@ -115,7 +118,7 @@ def _send_telegram(text: str) -> bool:
     url = f"https://api.telegram.org/bot{_TELEGRAM_TOKEN}/sendMessage"
     payload = json.dumps({
         "chat_id": _TELEGRAM_CHAT,
-        "text": text[:4096],
+        "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }).encode()
@@ -129,6 +132,21 @@ def _send_telegram(text: str) -> bool:
     except Exception as exc:
         log.error("Telegram send failed: %s", exc)
         return False
+
+
+def _send_telegram(text: str) -> bool:
+    """Splits on word boundaries at _TELEGRAM_MSG_LIMIT instead of a raw
+    slice, so a brief longer than one Telegram message arrives in full
+    across multiple messages rather than getting cut off mid-sentence."""
+    chunks = [
+        _truncate_clean(text[i:i + _TELEGRAM_MSG_LIMIT + 200], _TELEGRAM_MSG_LIMIT)
+        if len(text) - i > _TELEGRAM_MSG_LIMIT else text[i:]
+        for i in range(0, len(text), _TELEGRAM_MSG_LIMIT)
+    ]
+    ok = True
+    for chunk in chunks:
+        ok = _send_telegram_chunk(chunk) and ok
+    return ok
 
 
 # ── Data fetchers ─────────────────────────────────────────────────────────────

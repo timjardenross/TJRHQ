@@ -53,6 +53,14 @@ _SYSTEM_PROMPT = (
     "not claim 'no data has ever been recorded' or similar from never_succeeded "
     "alone — say precisely what you know: the monitor has never heard from this "
     "domain, real status unconfirmed either way. "
+    "Each domain includes its own registry `notes` plus expected_cadence_minutes/"
+    "grace_period_minutes — read them. A domain whose notes describe it as "
+    "event-driven, Captain-paced, or usage-driven (e.g. 'fires when the Captain "
+    "captures something') being stale for a few days is normal idle behaviour, "
+    "not degradation — say so plainly instead of using alarmed language, and "
+    "do not recommend a fix for a domain that isn't actually broken. Reserve "
+    "urgent language for domains whose notes describe a fixed automated "
+    "schedule (a daily/hourly job) that has gone quiet past its own cadence. "
     "Be direct, specific, and brief (2-4 sentences). "
     "Plain English, no caveats about your own uncertainty. "
     "Always end with one explicit line stating either a concrete next step the "
@@ -76,18 +84,33 @@ def _latest_verification_state() -> Optional[dict]:
 def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
     """Enrich the compact {domain_key, display_name} pairs on verification_state
     with last_status/last_error_message/is_stale from domain_heartbeat_latest,
-    so the narrative has something to actually explain."""
+    so the narrative has something to actually explain. Filtered to
+    domain_registry.critical=true (migration 0173) — the morning brief's
+    Platform Health card is P1-only; the Agent/Job dashboard still shows
+    every domain regardless of this flag, so non-critical degradation isn't
+    lost, just not repeated here."""
     keys = [d["domain_key"] for d in degraded_domains if d.get("domain_key")]
     if not keys:
         return []
     in_list = ",".join(keys)
     try:
-        return supabase_get(
-            "domain_heartbeat_latest"
-            f"?domain_key=in.({in_list})"
-            "&select=domain_key,display_name,category,last_status,last_error_message,"
-            "last_success_at,never_succeeded,is_stale"
+        registry_rows = supabase_get(
+            f"domain_registry?domain_key=in.({in_list})&critical=eq.true&select=domain_key,notes"
         )
+        critical_keys = [r["domain_key"] for r in registry_rows]
+        notes_by_key = {r["domain_key"]: r.get("notes") for r in registry_rows}
+        if not critical_keys:
+            return []
+        critical_in_list = ",".join(critical_keys)
+        rows = supabase_get(
+            "domain_heartbeat_latest"
+            f"?domain_key=in.({critical_in_list})"
+            "&select=domain_key,display_name,category,last_status,last_error_message,"
+            "last_success_at,never_succeeded,is_stale,expected_cadence_minutes,grace_period_minutes"
+        )
+        for row in rows:
+            row["notes"] = notes_by_key.get(row["domain_key"])
+        return rows
     except Exception as exc:
         log.warning("[infra-narrative] failed to read domain_heartbeat_latest detail: %s", exc)
         return []
@@ -136,9 +159,16 @@ def generate_infra_narrative() -> Optional[dict]:
     if state == "sure" or not degraded:
         return {"state": "sure", "narrative": _NOMINAL_NARRATIVE, "degraded_count": 0}
 
+    # P1-only (migration 0173): _degraded_domain_detail already filters to
+    # domain_registry.critical=true. A degraded set with nothing critical in
+    # it is exactly the noise this is for (e.g. an internal scheduler job
+    # running late) — narrate as nominal rather than alarming the Captain
+    # over something the Agent/Job dashboard already covers.
     detail = _degraded_domain_detail(degraded)
+    if not detail:
+        return {"state": "sure", "narrative": _NOMINAL_NARRATIVE, "degraded_count": 0}
     lines = []
-    for d in detail or degraded:
+    for d in detail:
         last_success = d.get("last_success_at")
         if last_success:
             try:
@@ -154,7 +184,10 @@ def generate_infra_narrative() -> Optional[dict]:
             f"- {d.get('display_name', d.get('domain_key', '?'))} "
             f"(category={d.get('category', '?')}, last_status={d.get('last_status', '?')}, "
             f"error={d.get('last_error_message') or 'none reported'}, "
-            f"never_succeeded={d.get('never_succeeded', '?')}, {age_desc})"
+            f"never_succeeded={d.get('never_succeeded', '?')}, {age_desc}, "
+            f"expected_cadence_minutes={d.get('expected_cadence_minutes', '?')}, "
+            f"grace_period_minutes={d.get('grace_period_minutes', '?')}, "
+            f"registry_notes={d.get('notes') or 'none'})"
         )
     prompt = (
         "The following platform domains are currently degraded (stale or never succeeded):\n"
@@ -163,9 +196,9 @@ def generate_infra_narrative() -> Optional[dict]:
     )
 
     narrative = _generate(prompt) or (
-        f"{len(degraded)} domain(s) degraded: "
-        + ", ".join(d.get("display_name", d.get("domain_key", "?")) for d in degraded)
+        f"{len(detail)} domain(s) degraded: "
+        + ", ".join(d.get("display_name", d.get("domain_key", "?")) for d in detail)
         + ". (Narrative generation unavailable — see raw domain list.)"
     )
 
-    return {"state": "unsure", "narrative": narrative, "degraded_count": len(degraded)}
+    return {"state": "unsure", "narrative": narrative, "degraded_count": len(detail)}

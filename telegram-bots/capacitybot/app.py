@@ -22,6 +22,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from datetime import time as _dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -118,6 +119,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Track what your system needs today — not what diagnosis explains it.\n\n"
         "/capacity — quick check-in (30-60s)\n"
         "/deepcheck — deeper reflection\n"
+        "/midcheck — midday micro check-in (2 taps)\n"
         "/evening — evening reflection\n"
         "/today — today's check-ins\n"
         "/week, /month — trend reviews\n"
@@ -166,6 +168,12 @@ async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"Evening reflection\n\n{ct.q_evening_trajectory()}",
         reply_markup=ct.kb_evening_trajectory(),
     )
+
+
+async def cmd_midcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Manual trigger for the midday micro check-in (2 taps, checkin_type=
+    'midday') — the same flow the 13:00 proactive push sends."""
+    await update.message.reply_text(ct.q_midday(), reply_markup=ct.kb_midday())
 
 
 async def cmd_capacity_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -802,6 +810,29 @@ async def handle_capacity_evening_callback(update: Update, context: ContextTypes
         await query.edit_message_text(
             ct.q_evening_helpful(),
             reply_markup=ct.kb_evening_helpful(f["dt"]),
+        )
+        return
+
+
+async def handle_midday_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    if not data.startswith("cm|"):
+        return
+    f = ct.parse_cb(data)
+    db = _get_supabase()
+
+    if f.get("uc") is not None:
+        saved, err = await ct.write_midday_checkin(db, f)
+        text = "🕐 Midday check-in saved." if saved else f"⚠️ Could not save: {err}"
+        await query.edit_message_text(text)
+        return
+
+    if f.get("c") is not None:
+        await query.edit_message_text(
+            ct.q_midday_change(),
+            reply_markup=ct.kb_midday_change(f["c"]),
         )
         return
 
@@ -1531,6 +1562,7 @@ _BOT_COMMANDS = [
     ("protocols",         "Step-by-step rescue protocols (office overload, etc.)"),
     ("capacity",          "Quick capacity check-in (30-60s, tap buttons)"),
     ("deepcheck",         "Deeper reflection — what happened, what helped"),
+    ("midcheck",          "Midday micro check-in (2 taps)"),
     ("evening",           "Evening capacity reflection (3 questions)"),
     ("today",             "Show today's capacity check-ins"),
     ("week",              "Weekly capacity review"),
@@ -1544,11 +1576,54 @@ _BOT_COMMANDS = [
 ]
 
 
+# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Brisbane ────────────
+# Prior to this, capacitybot was 100% command-driven (no scheduled push at
+# all) — the Captain had to remember to message it. These three jobs push
+# the same flows /capacity, /midcheck, and /evening already serve on
+# request, so no new write path or question set is introduced here.
+
+async def _job_morning_push(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """08:00 push. Mirrors cmd_capacity's own sleep-gate: sleep is asked
+    once per day, before capacity_state, only on the first capacity
+    check-in — if the Captain already logged one before 08:00 fires (e.g.
+    manually), this correctly skips straight to the capacity question."""
+    db = _get_supabase()
+    today = datetime.now(_TZ).date().isoformat()
+    rows = await ct.fetch_recent(db, days=0)
+    already_checked_in = any(r.get("log_date") == today and r.get("checkin_type") == "capacity" for r in rows)
+    if already_checked_in:
+        await context.bot.send_message(TELEGRAM_CHAT_ID, ct.q_capacity(), reply_markup=ct.kb_capacity())
+    else:
+        await context.bot.send_message(
+            TELEGRAM_CHAT_ID, f"☀️ Morning check-in\n\n{ct.q_sleep()}", reply_markup=ct.kb_sleep()
+        )
+
+
+async def _job_midday_push(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """13:00 push — 2-tap midday micro check-in, see capacity_today.py's
+    q_midday()/kb_midday()."""
+    await context.bot.send_message(TELEGRAM_CHAT_ID, ct.q_midday(), reply_markup=ct.kb_midday())
+
+
+async def _job_evening_push(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """20:00 push — same 3-question evening reflection as /evening."""
+    await context.bot.send_message(
+        TELEGRAM_CHAT_ID, f"🌙 Evening reflection\n\n{ct.q_evening_trajectory()}",
+        reply_markup=ct.kb_evening_trajectory(),
+    )
+
+
 async def _post_init(app) -> None:
     from telegram import BotCommand
     await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
+
+    app.job_queue.run_daily(_job_morning_push, time=_dtime(8, 0, tzinfo=_TZ), name="capacity-morning-push")
+    app.job_queue.run_daily(_job_midday_push, time=_dtime(13, 0, tzinfo=_TZ), name="capacity-midday-push")
+    app.job_queue.run_daily(_job_evening_push, time=_dtime(20, 0, tzinfo=_TZ), name="capacity-evening-push")
+
     log.info(
-        "CapacityBot started version=V02 telegram=connected supabase=%s commands=%d",
+        "CapacityBot started version=V02 telegram=connected supabase=%s commands=%d "
+        "proactive_cadence=08:00/13:00/20:00 Australia/Brisbane",
         "connected" if _get_supabase() else "unavailable", len(_BOT_COMMANDS),
     )
 
@@ -1584,6 +1659,7 @@ def main() -> None:
     app.add_handler(CommandHandler("protocols",          cmd_protocols))
     app.add_handler(CommandHandler("capacity",           cmd_capacity))
     app.add_handler(CommandHandler("deepcheck",          cmd_deepcheck))
+    app.add_handler(CommandHandler("midcheck",           cmd_midcheck))
     app.add_handler(CommandHandler("evening",            cmd_evening))
     app.add_handler(CommandHandler("today",              cmd_capacity_today))
     app.add_handler(CommandHandler("week",               cmd_capacity_week))
@@ -1596,6 +1672,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(handle_capacity_callback,         pattern=r"^ct\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_deep_callback,    pattern=r"^ctd\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_evening_callback, pattern=r"^cte\|"))
+    app.add_handler(CallbackQueryHandler(handle_midday_callback,          pattern=r"^cm\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_therapy_callback, pattern=r"^cty\|"))
     app.add_handler(CallbackQueryHandler(handle_capacity_reminder_callback, pattern=r"^ctr\|"))
     app.add_handler(CallbackQueryHandler(handle_helpme_callback,              pattern=r"^ch\|"))

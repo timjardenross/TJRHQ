@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
-import { attendBucket, createTask, fetchTasks, CATEGORIES, type PersonalTask, type TaskCategory } from '@/lib/personalTasks';
+import {
+  attendBucket, createTask, fetchTasks, CATEGORIES,
+  type PersonalTask, type TaskCategory, type FollowThroughMode,
+} from '@/lib/personalTasks';
+import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { TaskRow } from './TaskRow';
 
 /** Seconds-not-minutes capture for a life-admin obligation: title, category,
@@ -13,14 +17,31 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<TaskCategory>('bill');
   const [dueDate, setDueDate] = useState('');
+  const [followThroughMode, setFollowThroughMode] = useState<FollowThroughMode>('normal');
+  const [modeTouched, setModeTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  function handleDueDateChange(value: string) {
+    setDueDate(value);
+    setFollowThroughMode((prev) => autoSwitchModeOnDueDate(value, prev, modeTouched));
+  }
+
+  function handleModeChange(value: FollowThroughMode) {
+    setModeTouched(true);
+    setFollowThroughMode(value);
+  }
 
   async function submit() {
     if (!title.trim() || busy) return;
     setBusy(true);
-    await createTask({ title, category, due_date: dueDate || null, urgency: dueDate ? 4 : 3 });
+    await createTask({
+      title, category, due_date: dueDate || null, urgency: dueDate ? 4 : 3,
+      follow_through_mode: followThroughMode,
+    });
     setTitle('');
     setDueDate('');
+    setFollowThroughMode('normal');
+    setModeTouched(false);
     setBusy(false);
     onAdded();
   }
@@ -44,7 +65,16 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
         </Select>
       </div>
       <div className="w-full sm:w-40">
-        <Input type="date" label="Due (optional)" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <Input type="date" label="Due (optional)" value={dueDate} onChange={(e) => handleDueDateChange(e.target.value)} />
+      </div>
+      <div className="w-full sm:w-40">
+        <Select
+          label="Follow-through"
+          value={followThroughMode}
+          onChange={(e) => handleModeChange(e.target.value as FollowThroughMode)}
+        >
+          {FOLLOW_THROUGH_MODES.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </Select>
       </div>
       <Button type="submit" disabled={!title.trim() || busy}>Add</Button>
     </form>
@@ -110,7 +140,7 @@ export function AttendView({ refreshSignal, onLoaded }: { refreshSignal: number;
   return (
     <div className="flex flex-col gap-6">
       <QuickAdd onAdded={load} />
-      <div className="flex flex-col gap-6 md:flex-row">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Column title="Now" hint="Urgent, or due within 2 days" tasks={now} onChanged={load} emptyLabel="Nothing urgent." />
         <Column title="Upcoming" hint="On the radar, not yet pressing" tasks={upcoming} onChanged={load} emptyLabel="Nothing upcoming." />
         <Column title="Waiting" hint="Blocked on someone or something else" tasks={waiting} onChanged={load} emptyLabel="Nothing waiting." />

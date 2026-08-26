@@ -105,7 +105,8 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
         <Badge status={statusToBadge(job.status)}>{statusLabel(job.status)}</Badge>
       </td>
       <td className="py-3 pr-4 text-[12px] tabular-nums text-wb-ink2">
-        {relativeTime(job.lastRun)}
+        <div>{relativeTime(job.lastRun)}</div>
+        <div className="text-[10px] normal-case tracking-normal text-wb-ink2/70">{job.cadenceLabel}</div>
       </td>
       <td className="py-3 text-[12px] text-wb-ink2 max-w-[260px] truncate">
         {job.lastAction ?? <span className="italic">—</span>}

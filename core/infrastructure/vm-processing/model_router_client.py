@@ -11,6 +11,7 @@ types added to the router for this mission.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 
@@ -80,12 +81,21 @@ class ModelRouterError(RuntimeError):
 
 
 def _strip_fences(content: str) -> str:
+    """Extract a JSON object from LLM output, tolerating markdown fences and prose."""
     content = content.strip()
+    # Prefer: find the outermost {...} block directly (handles fences, leading/trailing prose)
+    match = re.search(r'\{.*\}', content, re.DOTALL)
+    if match:
+        return match.group(0).strip()
+    # Fallback: strip markdown fences and try again
     if content.startswith("```"):
-        content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
-    return content.strip()
+        parts = content.split("```")
+        if len(parts) >= 2:
+            inner = parts[1]
+            if inner.startswith("json"):
+                inner = inner[4:]
+            return inner.strip()
+    return content
 
 
 def _parse_json_response(response_text: str) -> dict:

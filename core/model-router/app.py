@@ -35,11 +35,12 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -200,10 +201,20 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
-    # Small/fast model: this is a one-line "tiny first step" suggestion, not
-    # a synthesis task. Do NOT have this route call decompose_task() itself —
-    # that function tries this exact endpoint first, which would recurse.
-    "adhd-decompose":        {"model": MODEL_MID,   "keep_alive": "2m",  "timeout": 60},
+    # Do NOT have this route call decompose_task() itself — that function
+    # tries this exact endpoint first, which would recurse.
+    # 2026-08-23: moved from local gemma3:4b to Gemini — same reasoning as
+    # intelligence-brief/captain-insight-synthesis/self-improvement-* above:
+    # this CPU-only box's single Ollama inference slot (llama-server -np 1)
+    # serializes with every other scheduler job hitting model-router, so a
+    # decompose call could sit behind a 50-90s classify-document/summarise-
+    # document job and blow its own budget. Confirmed live 2026-08-23: a
+    # real call timed out at 60s while a concurrent job was running. This
+    # is a one-line "tiny first step" suggestion — latency-sensitive (it's
+    # an interactive UI/Telegram call, not a background synthesis job) —
+    # so it belongs on the fast, uncontended cloud tier instead of fighting
+    # local jobs for the one CPU inference slot.
+    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30},
 }
 
 # System prompt for adhd-decompose — intentionally duplicated from (not
@@ -311,10 +322,15 @@ def _ollama_tags() -> dict[str, Any]:
 
 
 # ── Call log ──────────────────────────────────────────────────────────────────
+# Lock guards the shared log file now that ThreadingHTTPServer can run
+# multiple requests' _log_call() concurrently — without it, interleaved
+# writes from different threads could corrupt a JSON line.
+_LOG_LOCK = threading.Lock()
+
 
 def _log_call(entry: dict[str, Any]) -> None:
     try:
-        with _LOG_FILE.open("a", encoding="utf-8") as f:
+        with _LOG_LOCK, _LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception as exc:
         log.warning("call log write failed: %s", exc)
@@ -480,6 +496,19 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
 # ── HTTP handler ──────────────────────────────────────────────────────────────
 
 class RouterHandler(BaseHTTPRequestHandler):
+    # BaseHTTPRequestHandler defaults to HTTP/1.0 (connection closed after
+    # every response) unless told otherwise. Node's fetch (undici) pools
+    # connections assuming HTTP/1.1 keep-alive by default — a long-lived
+    # caller (lcars-portal's Next.js server, running for hours) could reuse
+    # a pooled socket this server had already closed, surfacing as an
+    # intermittent "TypeError: fetch failed" on requests after the first
+    # (confirmed live 2026-08-23: direct curl, always a fresh connection,
+    # never reproduced it; the recurring failures were all through the
+    # portal's persistent Next.js process). Declaring HTTP/1.1 here lets
+    # the client's keep-alive assumption match reality instead of racing a
+    # connection the server already tore down.
+    protocol_version = "HTTP/1.1"
+
     def log_message(self, fmt: str, *args: object) -> None:
         log.debug(fmt, *args)
 
@@ -647,7 +676,19 @@ def main() -> int:
     log.info("Model Router starting on %s:%d", _HOST, _PORT)
     log.info("Ollama base: %s", _OLLAMA_BASE)
     log.info("Call log: %s", _LOG_FILE)
-    server = HTTPServer((_HOST, _PORT), RouterHandler)
+    # ThreadingHTTPServer (not plain HTTPServer): the plain server processes
+    # one connection at a time with a small OS backlog — a single slow job
+    # (classify-document/summarise-document routinely take 50-90s per the
+    # call log) blocked every other caller behind it, and once the backlog
+    # filled, new connections were refused outright rather than queued
+    # (confirmed live: Ready Room's adhd-decompose calls threw "TypeError:
+    # fetch failed" from Node's fetch — undici's wording for a refused/reset
+    # connection, not a timeout — while the scheduler's periodic jobs were
+    # mid-request). Threaded so concurrent callers get their own thread;
+    # Ollama itself still serializes generate() calls internally, so this
+    # doesn't overload the model, it just stops the HTTP layer from
+    # rejecting connections while one caller waits.
+    server = ThreadingHTTPServer((_HOST, _PORT), RouterHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
