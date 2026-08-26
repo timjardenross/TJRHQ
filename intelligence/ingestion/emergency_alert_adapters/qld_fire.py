@@ -32,6 +32,15 @@ def fetch() -> list[CanonicalAlert]:
     for feature in data.get("features", []):
         p = feature.get("properties", {}) or {}
         level = (p.get("WarningLevel") or "").strip().lower()
+
+        # Captain-directed exclusion 2026-08-26: QLD's own WarningLevel has a
+        # 4th real tier below the 3-tier Advice/Watch and Act/Emergency
+        # Warning vocabulary — "Information" (FYI-only, no action expected).
+        # Drop at the source using that real field, not a "Information -"
+        # title-text guess.
+        if level == "information":
+            continue
+
         out.append(CanonicalAlert(
             source_key="qld_fire",
             jurisdiction="QLD",

@@ -69,6 +69,15 @@ def fetch() -> list[CanonicalAlert]:
         headline = _cap_text(alert_el, "headline") or _cap_text(alert_el, "event") or "—"
         warning_level = (_cap_parameter(alert_el, "WarningLevel") or "").strip().lower()
 
+        # Captain-directed exclusion 2026-08-26: this feed carries non-fire
+        # CAP categories too (confirmed live: <category>CBRNE</category>
+        # <event>Hazardous Materials</event>) — drop using the real CAP
+        # category/event fields, not a headline-text guess.
+        cap_category = (_cap_text(alert_el, "category") or "").strip().lower()
+        cap_event = (_cap_text(alert_el, "event") or "").strip().lower()
+        if cap_category == "cbrne" or "hazardous materials" in cap_event:
+            continue
+
         area_el = alert_el.find(f"{_CAP_NS}info/{_CAP_NS}area/{_CAP_NS}areaDesc")
         location = area_el.text.strip() if area_el is not None and area_el.text else _cap_parameter(alert_el, "Location")
 

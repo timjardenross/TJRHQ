@@ -49,6 +49,13 @@ def fetch() -> list[CanonicalAlert]:
         category = (props.get("category") or "").strip().lower()
         fields = _parse_description_fields(props.get("description") or "")
 
+        # Captain-directed exclusion 2026-08-26: Hazard Reduction / prescribed
+        # burns are planned, not emergencies — drop at the source rather than
+        # filtering downstream, using NSW RFS's own TYPE field (confirmed
+        # live: "Hazard Reduction" vs "Bush Fire"), not a title-text guess.
+        if fields.get("TYPE") == "Hazard Reduction":
+            continue
+
         lat = lon = None
         geom = feature.get("geometry") or {}
         if geom.get("type") == "GeometryCollection":

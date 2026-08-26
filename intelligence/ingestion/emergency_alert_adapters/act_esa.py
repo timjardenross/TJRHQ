@@ -49,6 +49,14 @@ def fetch() -> list[CanonicalAlert]:
         title = title_el.text.strip() if title_el is not None and title_el.text else "—"
         guid = guid_el.text.strip() if guid_el is not None and guid_el.text else title
         incident_type = type_el.text.strip() if type_el is not None and type_el.text else ""
+        incident_type_upper = incident_type.upper()
+
+        # Captain-directed exclusion 2026-08-26: Ambulance Response, Motor
+        # Vehicle Accident, and Hazard Reduction Burn are not the emergency
+        # types this hub wants — dropped using the feed's own <type> field
+        # (structured, not a headline-text guess).
+        if incident_type_upper in ("AMBULANCE RESPONSE", "MOTOR VEHICLE ACCIDENT") or "HAZARD REDUCTION" in incident_type_upper:
+            continue
 
         updated_match = location_match = None
         if desc_el is not None and desc_el.text:
@@ -69,9 +77,7 @@ def fetch() -> list[CanonicalAlert]:
             jurisdiction="ACT",
             headline=title,
             event_key=guid,
-            alert_type="bushfire" if "BUSHFIRE" in incident_type.upper() else (
-                "hazard_reduction" if "HAZARD REDUCTION" in incident_type.upper() else "other"
-            ),
+            alert_type="bushfire" if "BUSHFIRE" in incident_type_upper else "other",
             severity="unknown",
             description=desc_el.text.strip() if desc_el is not None and desc_el.text else None,
             location=location_match.group(1).strip() if location_match else title,

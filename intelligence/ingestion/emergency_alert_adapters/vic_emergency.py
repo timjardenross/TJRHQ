@@ -42,6 +42,15 @@ def fetch() -> list[CanonicalAlert]:
     data = http_get_json(_FEED_URL)
     out: list[CanonicalAlert] = []
     for row in data.get("results", []):
+        alert_type = _alert_type(row)
+
+        # Captain-directed exclusion 2026-08-26: "Other/Non-Structure" is
+        # not a category this hub wants — drop using the same structured
+        # incidentType/category1 classification _alert_type already derives,
+        # not a separate heuristic.
+        if alert_type == "other":
+            continue
+
         incident_no = row.get("incidentNo")
         headline = row.get("name") or row.get("incidentLocation") or f"Incident {incident_no}"
         location = ", ".join(p for p in (row.get("incidentLocation"), row.get("municipality")) if p)
@@ -50,7 +59,7 @@ def fetch() -> list[CanonicalAlert]:
             jurisdiction="VIC",
             headline=headline,
             event_key=str(incident_no) if incident_no is not None else headline,
-            alert_type=_alert_type(row),
+            alert_type=alert_type,
             severity="unknown",
             description=f"{row.get('incidentStatus', '?')} · {row.get('agency', '?')} · size {row.get('incidentSizeFmt', '?')}",
             location=location or None,
