@@ -263,6 +263,22 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # ── Emergency Alert Hub (migration 0174) ─────────────────────────────────
+    # 15 minutes: the tightest realistic cadence across the 5 live-feed
+    # sources (ACT's own feed updates every 60s, but a shared interval this
+    # low is plenty for a public-safety poll — see alert_sources.notes for
+    # per-source detail). Each adapter records its own heartbeat regardless
+    # of this shared trigger interval, so per-source staleness is still
+    # accurate on the Agent/Job dashboard.
+    emergency_alert_interval = int(os.environ.get("EMERGENCY_ALERT_INTERVAL_MINUTES", "15"))
+    scheduler.add_job(
+        _emergency_alert_hub_job,
+        _IntervalTrigger(minutes=emergency_alert_interval),
+        id="emergency_alert_hub",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── MSN-0202: Content Intelligence scoring (opt-in) ──────────────────────
     # Runs at 06:15 AEST (15 min after daily collection) to score new events.
     # Gated by CONTENT_INTEL_PUSH_ENABLED=1 env var.
@@ -980,6 +996,22 @@ def _downdetector_threshold_recompute_job() -> None:
     except Exception as exc:
         log.error("Downdetector threshold recompute job failed: %s", exc)
         _record_heartbeat("downdetector_threshold_recompute", "failed", error_message=str(exc))
+
+
+def _emergency_alert_hub_job() -> None:
+    """Emergency Alert Hub (migration 0174, intelligence/emergency_alerts.py)
+    — polls the Tier 1 AU state/territory/national alert sources registered
+    in alert_sources. Own module, own dedupe/lifecycle, own per-source
+    heartbeats (not routed through collect_all/classify/rank — that pipeline
+    is shaped for the ORI resilience-brief product, see the scope doc's §3
+    for why this is a dedicated table+pipeline rather than reusing it)."""
+    log.info("Emergency Alert Hub collection triggered")
+    try:
+        from intelligence.emergency_alerts import run_all
+        results = run_all()
+        log.info("Emergency Alert Hub collection complete: %s", results)
+    except Exception as exc:
+        log.error("Emergency Alert Hub collection failed: %s", exc, exc_info=True)
 
 
 def _intraday_status_collection_job() -> None:

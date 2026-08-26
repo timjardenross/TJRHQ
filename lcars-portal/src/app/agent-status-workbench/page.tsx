@@ -84,6 +84,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   health:         'Health',
   'human-systems': 'Human Systems',
   platform:       'Platform',
+  'emergency-alerts': 'Emergency Alert Hub',
 };
 
 function JobRow({ job }: { job: AgentStatusEntry }) {

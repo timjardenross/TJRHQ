@@ -60,6 +60,15 @@ const SCHEDULER_JOBS: ReadonlyArray<{ domainKey: string; label: string; domain: 
   { domainKey: 'mission_registry_sync',                   label: 'Mission Registry Sync',              domain: 'platform',      cadenceLabel: 'Daily · 06:45' },
   { domainKey: 'content_pipeline',                        label: 'Content Pipeline',                   domain: 'intelligence',  cadenceLabel: 'Daily · 06:15' },
   { domainKey: 'pending_research_sweep',                  label: 'Pending Research Sweep',             domain: 'intelligence',  cadenceLabel: 'Every 5min' },
+  // Emergency Alert Hub (migration 0174, intelligence/emergency_alerts.py) ──
+  { domainKey: 'emergency_alert_nsw_rfs',                 label: 'Emergency Alert Hub — NSW RFS',       domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_vic',                     label: 'Emergency Alert Hub — VicEmergency',  domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_qld',                     label: 'Emergency Alert Hub — QLD Fire',      domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_sa',                      label: 'Emergency Alert Hub — SA CFS',        domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_act',                     label: 'Emergency Alert Hub — ACT ESA',       domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_wa',                      label: 'Emergency Alert Hub — WA DFES (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_tas',                     label: 'Emergency Alert Hub — TAS Fire (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_nt',                      label: 'Emergency Alert Hub — NT SecureNT (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   // human_systems_scheduler.py ─────────────────────────────────────────────
   // Confirmed 2026-08-25: NOT actually live — its only invoker,
   // start_in_process(), is called solely from platform-runtime/app.py,

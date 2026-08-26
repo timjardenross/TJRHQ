@@ -63,4 +63,9 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Agent & Job Status',
     description: 'Scheduler job health, agent run history, and failure triage across all automated platform tasks.',
   },
+  {
+    href: '/emergency-alert-hub-workbench',
+    title: 'Emergency Alert Hub',
+    description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
+  },
 ];
