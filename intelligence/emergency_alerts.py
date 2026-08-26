@@ -149,9 +149,17 @@ def run_source(source_key: str) -> dict:
 
     expired = _expire_stale(source_key, run_started_at)
 
+    # Surfaced in the heartbeat detail (visible on the workbench's Source
+    # Health panel and the Agent/Job dashboard) so a source starting to leak
+    # unclassified alerts — like SA CFS's HAYBOROUGH, caught 2026-08-26 by
+    # spotting it in the UI — shows up on every run instead of needing a
+    # manual audit each time.
+    unknown_count = sum(1 for a in alerts if a.severity == "unknown")
+    detail = f"{len(rows)} alert(s), {unknown_count} unknown severity, {expired} expired"
+
     latency_ms = int((time.monotonic() - t0) * 1000)
-    record_heartbeat(domain_key, status="ok", detail=f"{len(rows)} alert(s), {expired} expired", latency_ms=latency_ms)
-    return {"source_key": source_key, "count": len(rows), "expired": expired}
+    record_heartbeat(domain_key, status="ok", detail=detail, latency_ms=latency_ms)
+    return {"source_key": source_key, "count": len(rows), "unknown_severity": unknown_count, "expired": expired}
 
 
 def run_all() -> dict:

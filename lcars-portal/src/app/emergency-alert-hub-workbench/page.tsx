@@ -11,8 +11,13 @@
  * dashboard uses, joined here directly rather than linked out to, so this
  * workbench's own Source Health panel is genuinely live).
  *
- * Auto-refreshes every 60 seconds. Matches WorkbenchShell/Card/Badge
- * patterns established by agent-status-workbench.
+ * Auto-refresh cadence (Captain-directed 2026-08-26 — 60s was overkill
+ * against a backend that only ingests every 15min): hourly between 07:00
+ * and 19:00 local time, and paused entirely 19:00-07:00 — self-schedules
+ * its next wake with a recursive setTimeout rather than a fixed
+ * setInterval, so it also wakes exactly at 07:00 to refresh after a quiet
+ * night instead of waiting for the next hourly tick. Matches
+ * WorkbenchShell/Card/Badge patterns established by agent-status-workbench.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -20,7 +25,22 @@ import { Badge, Card, WorkbenchShell } from '@/components/ui';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 
-const REFRESH_INTERVAL_MS = 60_000;
+const ACTIVE_HOURS_START = 7;  // 07:00 local
+const ACTIVE_HOURS_END = 19;   // 19:00 local
+const ACTIVE_REFRESH_MS = 60 * 60 * 1000; // hourly during active hours
+
+/** Ms until the next scheduled refresh: hourly while within the active
+ * window, or until the window next opens (07:00) while outside it. */
+function msUntilNextRefresh(now: Date): number {
+  const hour = now.getHours();
+  if (hour >= ACTIVE_HOURS_START && hour < ACTIVE_HOURS_END) {
+    return ACTIVE_REFRESH_MS;
+  }
+  const next7am = new Date(now);
+  next7am.setHours(ACTIVE_HOURS_START, 0, 0, 0);
+  if (next7am <= now) next7am.setDate(next7am.getDate() + 1);
+  return next7am.getTime() - now.getTime();
+}
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
 
@@ -144,8 +164,8 @@ function SourceHealthPanel({ sources }: { sources: EmergencyAlertSourceEntry[] }
                 </td>
                 <td className="py-2.5 pr-4 text-[12px] tabular-nums text-wb-ink2">
                   {relativeTime(s.lastRun)}
-                  {s.lastAction && s.status !== 'ok' && (
-                    <div className="max-w-[240px] truncate text-[10px] italic text-wb-ink2/80">{s.lastAction}</div>
+                  {s.lastAction && (
+                    <div className="max-w-[280px] truncate text-[10px] italic text-wb-ink2/80">{s.lastAction}</div>
                   )}
                 </td>
                 <td className="py-2.5 text-[12px] tabular-nums text-wb-ink">{s.alertCount}</td>
@@ -167,7 +187,7 @@ export default function EmergencyAlertHubWorkbench() {
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
@@ -198,10 +218,24 @@ export default function EmergencyAlertHubWorkbench() {
   }
 
   useEffect(() => {
-    fetchData(true);
-    intervalRef.current = setInterval(() => fetchData(false), REFRESH_INTERVAL_MS);
+    let cancelled = false;
+
+    function scheduleNext() {
+      const delay = msUntilNextRefresh(new Date());
+      timeoutRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        await fetchData(false);
+        if (!cancelled) scheduleNext();
+      }, delay);
+    }
+
+    fetchData(true).then(() => {
+      if (!cancelled) scheduleNext();
+    });
+
     return () => {
-      if (intervalRef.current !== null) clearInterval(intervalRef.current);
+      cancelled = true;
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jurisdictionFilter, severityFilter, showInactive]);
@@ -214,7 +248,7 @@ export default function EmergencyAlertHubWorkbench() {
     <WorkbenchShell
       title="Emergency Alert Hub"
       eyebrow="Public Safety"
-      tagline="Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds · auto-refreshes every 60s"
+      tagline="Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds · auto-refreshes hourly, 07:00-19:00"
       wide
     >
       <div className="flex flex-col gap-4">
