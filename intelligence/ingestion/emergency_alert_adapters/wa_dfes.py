@@ -152,13 +152,11 @@ def _fetch_incidents() -> list[CanonicalAlert]:
         # which is real structured text either way.
         location = re.sub(r",?\s*CAD-ID:\s*\d+\s*$", "", m.group("rest")).strip() if m else None
 
-        if "STRUCTURE FIRE" in incident_type:
-            alert_type = "structure_fire"
-        elif "BUSHFIRE" in incident_type:
+        # Captain-directed exclusion, widened 2026-08-26 to also drop
+        # Structure Fire — kept: bushfire only.
+        if "BUSHFIRE" in incident_type:
             alert_type = "bushfire"
         else:
-            # Anything not bushfire/structure fire (Vehicle Fire, Rescue,
-            # etc.) matches the platform-wide "Other" exclusion.
             continue
 
         guid_el = item.find("guid")

@@ -44,11 +44,11 @@ def fetch() -> list[CanonicalAlert]:
     for row in data.get("results", []):
         alert_type = _alert_type(row)
 
-        # Captain-directed exclusion 2026-08-26: "Other/Non-Structure" is
-        # not a category this hub wants — drop using the same structured
+        # Captain-directed exclusion 2026-08-26 (Other/Non-Structure), widened
+        # 2026-08-26 (Structure Fire too) — drop using the same structured
         # incidentType/category1 classification _alert_type already derives,
-        # not a separate heuristic.
-        if alert_type == "other":
+        # not a separate heuristic. Kept: bushfire only.
+        if alert_type in ("other", "structure_fire"):
             continue
 
         incident_no = row.get("incidentNo")
