@@ -41,6 +41,14 @@ def fetch() -> list[CanonicalAlert]:
         if level == "information":
             continue
 
+        # Captain-directed exclusion 2026-08-26, widened: Hazard Reduction
+        # Burn is planned, not an emergency — same category already dropped
+        # for NSW/ACT/WA. QLD's own CallToAction field (confirmed live:
+        # "Avoid Smoke (Hazard Reduction Burn)") flags these Advice-level
+        # smoke warnings distinctly from a real bushfire Advice.
+        if "hazard reduction" in (p.get("CallToAction") or "").lower():
+            continue
+
         out.append(CanonicalAlert(
             source_key="qld_fire",
             jurisdiction="QLD",
