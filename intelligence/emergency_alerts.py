@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 import urllib.error
@@ -32,6 +33,14 @@ from heartbeat import _URL, _KEY, record_heartbeat, supabase_get  # noqa: E402
 from intelligence.ingestion.emergency_alert_adapters import (
     act_esa, nsw_rfs, nt_securent, qld_fire, sa_cfs, tas_fire, vic_emergency, wa_dfes,
 )
+from core.notifications.resend_email import send_email
+
+# Captain-directed 2026-08-27, temporary until tjrmindbody.com's Resend
+# domain verification is fixed (broken as of this session): Resend's
+# sandbox mode only delivers to the account's own signup email, not
+# timjardenross@outlook.com — confirmed live. Override via env once the
+# domain is verified; no code change needed.
+_EMERGENCY_EMAIL_TO = os.environ.get("EMERGENCY_ALERT_EMAIL_TO", "timjardenross1986@gmail.com")
 
 log = logging.getLogger("emergency-alerts")
 
@@ -105,6 +114,45 @@ def _expire_stale(source_key: str, run_started_at: str) -> int:
     return len(existing)
 
 
+def _send_emergency_warning_emails(source_key: str) -> int:
+    """Email (Resend, core/notifications/resend_email.py) for every
+    currently-active severity='emergency_warning' alert on this source that
+    hasn't been emailed yet (alerts.emergency_email_sent_at is null —
+    persistent dedupe, migration 0175). Runs after the upsert so it only
+    sees this run's real, current state. Never raises — a notification
+    failure must never break the ingestion job it's attached to."""
+    try:
+        rows = supabase_get(
+            f"alerts?source_key=eq.{source_key}&severity=eq.emergency_warning"
+            "&is_active=eq.true&emergency_email_sent_at=is.null"
+            "&select=id,headline,jurisdiction,location,description,canonical_url,issued_at"
+        )
+    except Exception as exc:
+        log.warning("[emergency-alerts] %s: failed to read unnotified emergency warnings: %s", source_key, exc)
+        return 0
+
+    sent = 0
+    for row in rows:
+        subject = f"🚨 EMERGENCY WARNING — {row['jurisdiction']} — {row['headline']}"
+        html = (
+            f"<p><strong>{row['headline']}</strong></p>"
+            f"<p>Jurisdiction: {row['jurisdiction']}<br>"
+            f"Location: {row.get('location') or '—'}<br>"
+            f"Issued: {row.get('issued_at') or '—'}</p>"
+            f"<p>{row.get('description') or ''}</p>"
+            + (f"<p><a href=\"{row['canonical_url']}\">Official source</a></p>" if row.get("canonical_url") else "")
+        )
+        if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html):
+            log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            continue
+        try:
+            _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
+            sent += 1
+        except Exception as exc:
+            log.warning("[emergency-alerts] %s: sent email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
+    return sent
+
+
 def run_source(source_key: str) -> dict:
     """Run one source's adapter end to end. Never raises — failure is
     captured in the returned dict and recorded as a failed heartbeat, same
@@ -148,6 +196,7 @@ def run_source(source_key: str) -> dict:
         return {"source_key": source_key, "error": str(exc), "count": len(rows)}
 
     expired = _expire_stale(source_key, run_started_at)
+    emails_sent = _send_emergency_warning_emails(source_key)
 
     # Surfaced in the heartbeat detail (visible on the workbench's Source
     # Health panel and the Agent/Job dashboard) so a source starting to leak
@@ -156,10 +205,12 @@ def run_source(source_key: str) -> dict:
     # manual audit each time.
     unknown_count = sum(1 for a in alerts if a.severity == "unknown")
     detail = f"{len(rows)} alert(s), {unknown_count} unknown severity, {expired} expired"
+    if emails_sent:
+        detail += f", {emails_sent} emergency email(s) sent"
 
     latency_ms = int((time.monotonic() - t0) * 1000)
     record_heartbeat(domain_key, status="ok", detail=detail, latency_ms=latency_ms)
-    return {"source_key": source_key, "count": len(rows), "unknown_severity": unknown_count, "expired": expired}
+    return {"source_key": source_key, "count": len(rows), "unknown_severity": unknown_count, "expired": expired, "emails_sent": emails_sent}
 
 
 def run_all() -> dict:
