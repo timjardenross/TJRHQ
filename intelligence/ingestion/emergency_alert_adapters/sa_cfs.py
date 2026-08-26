@@ -75,7 +75,12 @@ def fetch() -> list[CanonicalAlert]:
         # category/event fields, not a headline-text guess.
         cap_category = (_cap_text(alert_el, "category") or "").strip().lower()
         cap_event = (_cap_text(alert_el, "event") or "").strip().lower()
-        if cap_category == "cbrne" or "hazardous materials" in cap_event:
+        # Widened 2026-08-26: HAYBOROUGH slipped through — its CAP
+        # category/event were "Transport"/"Oil Spill" (not CBRNE), but SA's
+        # own CAP <headline> field (the same one used for `headline` above)
+        # already reads "HAYBOROUGH : Hazardous Materials" — SA's own
+        # display categorisation, not a title guess we invented.
+        if cap_category == "cbrne" or "hazardous materials" in cap_event or "hazardous materials" in headline.lower():
             continue
 
         # Captain-flagged 2026-08-26: this feed keeps closed incidents in

@@ -73,8 +73,16 @@ def _geo(item: ET.Element) -> tuple[float | None, float | None]:
     return lat, lon
 
 
-def _fetch_warnings() -> list[CanonicalAlert]:
+def _fetch_warnings() -> tuple[list[CanonicalAlert], dict[str, str]]:
+    """Returns (alerts, incident_number_to_severity) — the second is used
+    by _fetch_incidents to enrich CAD incidents whose dfes:incidentNumber
+    matches a warning already issued for the same real event (confirmed
+    live 2026-08-26: WA's incidents feed has no severity field of its own,
+    but some CAD-IDs do appear in the warnings feed's own
+    dfes:incidentNumber, e.g. 812369/812893) — real cross-reference via a
+    shared ID both feeds already carry, not an inferred value."""
     out: list[CanonicalAlert] = []
+    incident_severity: dict[str, str] = {}
     for item in _rss_items(http_get(_WARNINGS_URL)):
         title_el = item.find("title")
         title = title_el.text.strip() if title_el is not None and title_el.text else "—"
@@ -106,10 +114,14 @@ def _fetch_warnings() -> list[CanonicalAlert]:
         link_el = item.find("link")
         pubdate_el = item.find("pubDate")
         region_el = item.find(f"{_DFES_NS}region")
+        incident_no_el = item.find(f"{_DFES_NS}incidentNumber")
         desc_el = item.find("description")
         lat, lon = _geo(item)
 
         location = region_el.text.strip() if region_el is not None and region_el.text else None
+
+        if incident_no_el is not None and incident_no_el.text:
+            incident_severity[incident_no_el.text.strip()] = severity
 
         out.append(CanonicalAlert(
             source_key="wa_dfes",
@@ -126,13 +138,13 @@ def _fetch_warnings() -> list[CanonicalAlert]:
             latitude=lat,
             longitude=lon,
         ))
-    return out
+    return out, incident_severity
 
 
 _INCIDENT_TITLE_RE = re.compile(r"^(?P<type>[^(]+?)\s*\((?P<rest>.*)\)$")
 
 
-def _fetch_incidents() -> list[CanonicalAlert]:
+def _fetch_incidents(incident_severity: dict[str, str]) -> list[CanonicalAlert]:
     out: list[CanonicalAlert] = []
     for item in _rss_items(http_get(_INCIDENTS_URL)):
         title_el = item.find("title")
@@ -151,6 +163,8 @@ def _fetch_incidents() -> list[CanonicalAlert]:
         # from the title's own "(LOCATION, ..., CAD-ID: n)" tail instead,
         # which is real structured text either way.
         location = re.sub(r",?\s*CAD-ID:\s*\d+\s*$", "", m.group("rest")).strip() if m else None
+        cad_id_match = re.search(r"CAD-ID:\s*(\d+)", title)
+        cad_id = cad_id_match.group(1) if cad_id_match else None
 
         # Captain-directed exclusion, widened 2026-08-26 to also drop
         # Structure Fire — kept: bushfire only.
@@ -170,7 +184,11 @@ def _fetch_incidents() -> list[CanonicalAlert]:
             headline=title,
             event_key=(guid_el.text.strip() if guid_el is not None and guid_el.text else title),
             alert_type=alert_type,
-            severity="unknown",  # incidents feed is CAD data, no warning-level field — same caveat as vic_emergency.py/act_esa.py
+            # incidents feed has no warning-level field of its own (same
+            # caveat as vic_emergency.py/act_esa.py) — enriched from the
+            # matching warning's real severity when this CAD-ID also has an
+            # active warning (see _fetch_warnings' incident_severity map).
+            severity=incident_severity.get(cad_id, "unknown") if cad_id else "unknown",
             description=None,
             location=location,
             updated_at_src=parse_rfc822_datetime(pubdate_el.text.strip() if pubdate_el is not None and pubdate_el.text else None),
@@ -183,4 +201,5 @@ def _fetch_incidents() -> list[CanonicalAlert]:
 
 
 def fetch() -> list[CanonicalAlert]:
-    return _fetch_warnings() + _fetch_incidents()
+    warnings, incident_severity = _fetch_warnings()
+    return warnings + _fetch_incidents(incident_severity)
