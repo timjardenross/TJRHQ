@@ -78,6 +78,15 @@ def fetch() -> list[CanonicalAlert]:
         if cap_category == "cbrne" or "hazardous materials" in cap_event:
             continue
 
+        # Captain-flagged 2026-08-26: this feed keeps closed incidents in
+        # place with <parameter valueName="Status"> flipped to COMPLETE
+        # rather than dropping them — the orchestrator's default
+        # absence-based expiry never sees that, so it's read here from the
+        # feed's own structured Status parameter (not the free-text
+        # description) and passed through as `closed`.
+        incident_status = (_cap_parameter(alert_el, "Status") or "").strip().upper()
+        closed = incident_status == "COMPLETE" if incident_status else None
+
         area_el = alert_el.find(f"{_CAP_NS}info/{_CAP_NS}area/{_CAP_NS}areaDesc")
         location = area_el.text.strip() if area_el is not None and area_el.text else _cap_parameter(alert_el, "Location")
 
@@ -109,6 +118,7 @@ def fetch() -> list[CanonicalAlert]:
             # relies on (source_key, event_key) via the CAP identifier.
             canonical_url=None,
             raw_text=_cap_text(alert_el, "description"),
+            closed=closed,
             latitude=lat,
             longitude=lon,
         ))

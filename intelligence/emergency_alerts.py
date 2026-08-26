@@ -133,8 +133,9 @@ def run_source(source_key: str) -> dict:
     rows = []
     for a in alerts:
         row = asdict(a)
-        row["status"] = "active"
-        row["is_active"] = True
+        closed = row.pop("closed")  # not a DB column — CanonicalAlert-only signal, see base.py
+        row["status"] = "expired" if closed else "active"
+        row["is_active"] = not closed
         row["last_seen_at"] = run_started_at
         rows.append(row)
 

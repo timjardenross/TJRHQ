@@ -38,6 +38,14 @@ class CanonicalAlert:
     raw_text: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    closed: Optional[bool] = None
+    """True when the source itself says this incident is closed/complete
+    (e.g. SA CFS's embedded Status: COMPLETE — confirmed live 2026-08-26
+    that SA keeps closed incidents in the feed rather than dropping them,
+    so the orchestrator's default "gone from the next fetch = expired"
+    lifecycle never catches it). None (default) means "no closure signal
+    in this source" — the default absence-based lifecycle still applies.
+    Never invent this for a source that doesn't actually expose it."""
 
 
 def stable_event_key(*parts: str) -> str:
