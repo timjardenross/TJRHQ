@@ -110,10 +110,30 @@ def _format_domain_events(doc) -> str:
     return "\n\n".join(blocks)
 
 
-def build_daily_digest(osint_brief: Optional[dict], hours: int = 24) -> Optional[str]:
+def _format_signal_events(signals: list[dict]) -> str:
+    """Plain-text rollup of individual HIGH/MEDIUM intelligence_events
+    (captains_brief.py's _get_recent_signals) for the LLM prompt. These used
+    to render as their own raw 📡 headline-dump block in the morning brief,
+    separate from this narrative — Captain feedback 2026-08-26: fold them
+    in as one synthesized daily summary instead of two competing sections."""
+    picked = [s for s in signals if s.get("risk_rating") in ("HIGH", "MEDIUM")][:8]
+    if not picked:
+        return ""
+    lines = []
+    for s in picked:
+        title = s.get("raw_title") or "—"
+        summary = (s.get("raw_summary") or "").strip()
+        lines.append(f"- [{s.get('risk_rating')}] {title}" + (f" — {summary}" if summary else ""))
+    return "Individual news signals (highest-ranked first):\n" + "\n".join(lines)
+
+
+def build_daily_digest(osint_brief: Optional[dict], hours: int = 24, signals: Optional[list[dict]] = None) -> Optional[str]:
     """
     osint_brief: the latest row from intelligence_briefs (dict with
     executive_snapshot/bottom_line/emerging_themes), or None if unavailable.
+    signals: optional raw HIGH/MEDIUM intelligence_events (same shape as
+    captains_brief.py's _get_recent_signals) to fold into the narrative
+    instead of rendering as a separate raw headline-dump block.
     Returns one educational narrative covering every domain actually
     represented, or None if there's nothing to synthesise or the LLM chain
     is unavailable. Never raises.
@@ -144,15 +164,19 @@ def build_daily_digest(osint_brief: Optional[dict], hours: int = 24) -> Optional
             if themes:
                 osint_text += f"\nThemes: {', '.join(str(t) for t in themes[:5])}"
 
-    if not domain_text and not osint_text:
+    signal_text = _format_signal_events(signals or [])
+
+    if not domain_text and not osint_text and not signal_text:
         return None
 
     prompt = (
         "Write today's educational daily digest for Captain TJR, combining the inputs "
         "below into one cohesive narrative — a few short paragraphs, plain language, "
         "explain why things matter, not just what happened. Cover every domain actually "
-        "present below; don't force a section for a domain with no input.\n\n"
-        f"{osint_text}\n\n{domain_text}".strip()
+        "present below; don't force a section for a domain with no input. If individual "
+        "news signals are included, weave the notable ones into the narrative by what "
+        "they mean for the Captain rather than listing them as a separate section.\n\n"
+        f"{osint_text}\n\n{signal_text}\n\n{domain_text}".strip()
     )
 
     try:

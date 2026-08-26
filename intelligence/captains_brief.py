@@ -934,37 +934,41 @@ def generate_morning_brief() -> str:
 
     lines += _format_capacity_block(capacity)
 
-    # Intelligence signals
-    signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
-    if signal_block:
-        lines += signal_block
-    elif brief:
-        snap = brief.get("executive_snapshot") or brief.get("bottom_line") or ""
-        if snap:
-            lines += [
-                "<b>📡 INTELLIGENCE</b>",
-                f"  {_truncate_clean(snap, 350)}",
-                f"  <i>Risk: {brief.get('overall_risk', '?')}"
-                f" · ORI brief {brief.get('period_end', '')}</i>",
-                "",
-            ]
-
-    # Daily digest — engineering/learning/opportunities (health is already
-    # covered above) plus the widened world/OSINT brief, synthesised into
-    # one educational paragraph. Best-effort: LLM/event-bus unavailability
-    # just means this section doesn't appear, never a failed brief.
+    # Daily digest — individual HIGH/MEDIUM news signals, platform events
+    # (engineering/learning/opportunities; health is already covered above),
+    # and the widened world/OSINT brief, synthesised into one educational
+    # narrative (Captain feedback 2026-08-26: one summary, not a raw
+    # headline-dump section plus a separate narrative section). Best-effort:
+    # LLM/event-bus unavailability falls back to the raw signal list (and
+    # then the bare ORI snapshot) rather than a silently empty brief.
+    digest_text = None
     if build_daily_digest is not None:
         try:
-            digest_text = build_daily_digest(brief)
+            digest_text = build_daily_digest(brief, signals=signals)
         except Exception as exc:
             log.warning("Daily digest synthesis failed: %s", exc)
             digest_text = None
-        if digest_text:
-            lines += [
-                "<b>🌐 TODAY, EXPLAINED</b>",
-                f"  {_truncate_clean(digest_text, 900)}",
-                "",
-            ]
+
+    if digest_text:
+        lines += [
+            "<b>🌐 TODAY, EXPLAINED</b>",
+            f"  {_truncate_clean(digest_text, 900)}",
+            "",
+        ]
+    else:
+        signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
+        if signal_block:
+            lines += signal_block
+        elif brief:
+            snap = brief.get("executive_snapshot") or brief.get("bottom_line") or ""
+            if snap:
+                lines += [
+                    "<b>📡 INTELLIGENCE</b>",
+                    f"  {_truncate_clean(snap, 350)}",
+                    f"  <i>Risk: {brief.get('overall_risk', '?')}"
+                    f" · ORI brief {brief.get('period_end', '')}</i>",
+                    "",
+                ]
 
     # Platform self-health — only surfaced when something is actually
     # degraded; silence is a valid, positive state (per verification engine
