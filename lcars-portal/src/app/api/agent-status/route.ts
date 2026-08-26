@@ -66,7 +66,7 @@ const SCHEDULER_JOBS: ReadonlyArray<{ domainKey: string; label: string; domain: 
   { domainKey: 'emergency_alert_qld',                     label: 'Emergency Alert Hub — QLD Fire',      domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   { domainKey: 'emergency_alert_sa',                      label: 'Emergency Alert Hub — SA CFS',        domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   { domainKey: 'emergency_alert_act',                     label: 'Emergency Alert Hub — ACT ESA',       domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
-  { domainKey: 'emergency_alert_wa',                      label: 'Emergency Alert Hub — WA DFES (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
+  { domainKey: 'emergency_alert_wa',                      label: 'Emergency Alert Hub — WA DFES',       domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   { domainKey: 'emergency_alert_tas',                     label: 'Emergency Alert Hub — TAS Fire (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   { domainKey: 'emergency_alert_nt',                      label: 'Emergency Alert Hub — NT SecureNT (scrape-tier, not yet implemented)', domain: 'emergency-alerts', cadenceLabel: 'Every 15min' },
   // human_systems_scheduler.py ─────────────────────────────────────────────
