@@ -63,6 +63,19 @@ def http_get_json(url: str, timeout: int = 20) -> dict:
     return json.loads(http_get(url, timeout=timeout))
 
 
+def parse_rfc822_datetime(value: Optional[str]) -> Optional[str]:
+    """RSS pubDate is RFC 822/2822 ("Wed, 26 Aug 2026 17:23:55 +0800") —
+    not reliably parsed by a bare Postgres timestamptz cast, so convert to
+    ISO 8601 here rather than pass the raw string through."""
+    if not value:
+        return None
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(value).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_dmy_datetime(value: Optional[str]) -> Optional[str]:
     """Several sources (NSW RFS) emit "DD/MM/YYYY H:MM:SS AM/PM" —
     ambiguous to Postgres's timestamptz parser (could read as MM/DD).
