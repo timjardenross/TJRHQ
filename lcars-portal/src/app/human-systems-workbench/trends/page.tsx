@@ -123,6 +123,22 @@ function latestLabel(trends: TrendDayRow[], field: TrendField): string {
   return 'Not recorded';
 }
 
+/** The number actually driving the sparkline for this field's latest
+ *  recorded day — shown alongside the label since a category name alone
+ *  ("Strained") doesn't show where it sits on the scale the way "70/100"
+ *  does. null for pain_score (already numeric, shown as the label itself)
+ *  and when nothing's recorded. */
+function latestScore(trends: TrendDayRow[], field: TrendField): number | null {
+  if (field.map === null) return null;
+  for (let i = trends.length - 1; i >= 0; i--) {
+    const raw = trends[i][field.key];
+    if (raw == null) continue;
+    const key = typeof raw === 'string' ? raw.toLowerCase() : String(raw);
+    return field.map[key] ?? null;
+  }
+  return null;
+}
+
 export default function TrendsPage() {
   const [trends, setTrends] = useState<TrendDayRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -193,16 +209,22 @@ export default function TrendsPage() {
         {trends && !loadError && (
           <Card>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FIELDS.map((field) => (
-                <div key={field.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
-                  <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
-                  <div className="mt-1 text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</div>
-                  <div className="mt-2">
-                    <Sparkline values={fieldValues(windowed, field)} />
+              {FIELDS.map((field) => {
+                const score = latestScore(windowed, field);
+                return (
+                  <div key={field.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
+                    <div className="mt-1 flex items-baseline gap-2">
+                      <span className="text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
+                      {score != null && <span className="text-[12px] tabular-nums text-wb-ink2">{score}/100</span>}
+                    </div>
+                    <div className="mt-2">
+                      <Sparkline values={fieldValues(windowed, field)} />
+                    </div>
+                    {field.caption && <p className="mt-1 text-[10px] italic text-wb-ink2">{field.caption}</p>}
                   </div>
-                  {field.caption && <p className="mt-1 text-[10px] italic text-wb-ink2">{field.caption}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}

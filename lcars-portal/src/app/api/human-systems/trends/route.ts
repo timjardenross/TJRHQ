@@ -46,7 +46,10 @@ const SUMMARY_SYSTEM_PROMPT =
 
 async function callGemini(prompt: string): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
+  if (!key) {
+    console.warn('[human-systems/trends] GEMINI_API_KEY not set in this process env');
+    return null;
+  }
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${key}`,
     {
@@ -59,14 +62,20 @@ async function callGemini(prompt: string): Promise<string | null> {
       }),
     }
   );
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn('[human-systems/trends] Gemini call failed:', res.status, await res.text().catch(() => ''));
+    return null;
+  }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
 }
 
 async function callMistral(prompt: string): Promise<string | null> {
   const key = process.env.MISTRAL_API_KEY;
-  if (!key) return null;
+  if (!key) {
+    console.warn('[human-systems/trends] MISTRAL_API_KEY not set in this process env');
+    return null;
+  }
   const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
