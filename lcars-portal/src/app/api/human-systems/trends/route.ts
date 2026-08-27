@@ -134,6 +134,10 @@ function daysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export interface TrendDayRow {
   log_date: string;
   energy: string | null;
@@ -158,16 +162,27 @@ export async function GET(request: NextRequest) {
   try {
     const sb = await createSupabaseServerClient();
     const since = daysAgo(MAX_WINDOW_DAYS - 1);
+    const until = today();
 
+    // Captain-flagged 2026-08-27: a garbage row (log_date='2099-01-01',
+    // energy='Moderate') in analytics_health_daily was sorting as the
+    // "latest" day — since only a lower bound was applied here, the fake
+    // future date passed straight through and got picked as the tile's
+    // displayed value while the real most-recent reading (2026-08-21) sat
+    // buried. The main /api/human-systems route has always applied this
+    // same .lte('log_date', today()) upper bound (see its buildMedical());
+    // this route just never had it. Added to both queries.
     const [{ data: dailyRows, error: dailyErr }, { data: checkinRows, error: checkinErr }] = await Promise.all([
       sb.from('analytics_health_daily')
         .select('log_date,energy,nervous_system_state')
         .gte('log_date', since)
+        .lte('log_date', until)
         .order('log_date', { ascending: true }),
       sb.from('capacity_checkins')
         .select('log_date,captured_at,capacity_state,stimulation_state,pain_state,pain_score,regulation_state,executive_function,compensation_load,emotional_state,social_state')
         .eq('checkin_type', 'capacity')
         .gte('log_date', since)
+        .lte('log_date', until)
         .order('captured_at', { ascending: true }),
     ]);
     if (dailyErr) throw dailyErr;
