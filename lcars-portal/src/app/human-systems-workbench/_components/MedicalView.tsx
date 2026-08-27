@@ -23,6 +23,18 @@ const STIMULATION_STATE_LABEL: Record<string, string> = {
 };
 
 const TREND_ENERGY: Record<string, number> = { High: 3, Moderate: 2, Low: 1 };
+// Ordinal mapping for nervous_system_state, the other 30-day trend field
+// the route already fetches but wasn't rendering. sleep_quality (also
+// fetched) is NOT added here — checked live 2026-08-27: 0 of 7 recent
+// analytics_health_daily rows have it populated. Its only two writers
+// (health_daily_logs, captains_log_entries) are already retired and the
+// capacity_checkins backfill above never covered it either — a
+// structurally dead field, not just sparse, so a sparkline for it would
+// permanently read "Not enough data" rather than fill in over time.
+// Values are case-inconsistent across writers (migrations 0134/0016 use
+// lowercase 'calm'/'activated'/'dysregulated'), looked up lowercase.
+// Higher = calmer.
+const TREND_NS: Record<string, number> = { dysregulated: 1, activated: 2, calm: 3 };
 
 /** Tiny inline sparkline for a 30-day categorical/numeric trend. Accessible
  *  alternative (the underlying rows) is summarised in text beneath. */
@@ -70,6 +82,7 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
   const windowedTrends = trendWindow === '7d' ? data.trends.slice(-7) : data.trends;
   const energyTrend = windowedTrends.map((t) => (t.energy ? TREND_ENERGY[t.energy] ?? null : null));
   const painTrend = windowedTrends.map((t) => t.pain_score);
+  const nsTrend = windowedTrends.map((t) => (t.nervous_system_state ? TREND_NS[t.nervous_system_state.toLowerCase()] ?? null : null));
 
   const debtPct = data.capacity_debt.days_total > 0
     ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
@@ -142,6 +155,10 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
           <div>
             <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Pain</div>
             <Sparkline values={painTrend} />
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Nervous System</div>
+            <Sparkline values={nsTrend} />
           </div>
         </div>
         <p className="mt-3 text-[12px] text-wb-ink2">
