@@ -39,7 +39,14 @@ import type { TrendDayRow } from '@/app/api/human-systems/trends/route';
 // nervous_system_state uses (settled/manageable -> calm, activated ->
 // activated, overloaded -> dysregulated) exactly as that SQL function
 // does, so the two fields' numbers stay directly comparable.
-const TREND_ENERGY: Record<string, number> = { High: 90, Moderate: 60, Low: 25 };
+// Lowercase keys, matching fieldValues()/latestLabel()/latestScore()'s own
+// raw.toLowerCase() lookup — energy's actual values (High/Moderate/Low,
+// from analytics_health_daily and the energyFromCapacityState() backfill)
+// arrive Title Case. This was the real cause of Energy showing "Not
+// enough data" despite real backfilled rows existing: every other field's
+// map already used lowercase keys, so only this one silently missed on
+// every lookup. Found and fixed 2026-08-27.
+const TREND_ENERGY: Record<string, number> = { high: 90, moderate: 60, low: 25 };
 const TREND_NS: Record<string, number> = { calm: 90, activated: 55, dysregulated: 20 };
 const TREND_CAPACITY: Record<string, number> = { green: 85, orange: 55, red: 20 };
 const TREND_REGULATION: Record<string, number> = { settled: 90, manageable: 90, activated: 55, overloaded: 20 };
@@ -177,8 +184,20 @@ export default function TrendsPage() {
       tagline="USS TJR · How things have been moving over time, not just today"
       back={{ href: '/human-systems-workbench', label: 'Human Systems Workbench' }}
     >
-      <div className="flex flex-col gap-4">
-        <Card>
+      {/* Single-page print target (Captain-directed 2026-08-27): tight
+       *  @page margins, compact padding, and page-break-inside: avoid on
+       *  every tile so a tile never splits across a page boundary — with
+       *  11 fields the natural flow already fits one page once the
+       *  screen-sized padding/gaps are trimmed for print. */}
+      <style>{`
+        @media print {
+          @page { size: auto; margin: 8mm; }
+          .print-compact { padding: 0.5rem !important; }
+          .print-tile { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
+      <div className="flex flex-col gap-4 print:gap-2">
+        <Card className="print-compact">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Summary (last 30 days)</div>
           <p className="mt-1 text-[13px] text-wb-ink">
             {summaryLoading
@@ -229,12 +248,12 @@ export default function TrendsPage() {
         )}
 
         {trends && !loadError && (
-          <Card>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="print-compact">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 print:gap-2">
               {FIELDS.map((field) => {
                 const score = latestScore(windowed, field);
                 return (
-                  <div key={field.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
+                  <div key={field.key} className="print-tile rounded-md border border-wb-line bg-wb-bg p-3 print:p-1.5">
                     <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
                     <div className="mt-1 flex items-baseline gap-2">
                       <span className="text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
