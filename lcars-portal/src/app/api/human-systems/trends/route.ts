@@ -138,6 +138,17 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// analytics_health_daily.energy is COALESCE(captains_log_entries.energy,
+// health_daily_logs.energy) (migration 0017) — both writers are already
+// retired (Captain's Log 2026-08-10; health_daily_logs replaced by
+// capacity_checkins the same day). Captain confirmed 2026-08-27: nothing
+// captures fresh data for that field anymore, so backfill from
+// capacity_checkins.capacity_state — the live signal, same mapping the
+// main /api/human-systems route's energyFromCapacityState() already uses.
+function energyFromCapacityState(state: string | null): string | null {
+  return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[state ?? ''] ?? null;
+}
+
 export interface TrendDayRow {
   log_date: string;
   energy: string | null;
@@ -210,6 +221,7 @@ export async function GET(request: NextRequest) {
       };
       byDate.set(r.log_date, {
         ...existing,
+        energy: existing.energy ?? energyFromCapacityState(r.capacity_state),
         capacity_state: r.capacity_state ?? existing.capacity_state,
         stimulation_state: r.stimulation_state ?? existing.stimulation_state,
         pain_state: r.pain_state ?? existing.pain_state,
