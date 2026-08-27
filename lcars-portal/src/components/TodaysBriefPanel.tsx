@@ -104,7 +104,7 @@ export function TodaysBriefPanel() {
               {new Date(brief.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <p className="text-wb-ink">{stripHtml(brief.brief_text).slice(0, 280)}</p>
+          <p className="text-wb-ink whitespace-pre-wrap">{stripHtml(brief.brief_text)}</p>
         </div>
       )}
     </WorkbenchPanel>
