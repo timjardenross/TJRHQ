@@ -25,7 +25,18 @@ from core.notifications.resend_email import send_email
 log = logging.getLogger("brief-published-notifier")
 
 _BRIEF_EMAIL_TO = os.environ.get("BRIEF_PUBLISHED_EMAIL_TO", "timjardenross@outlook.com")
-_BRIEFS_PAGE_URL = os.environ.get("BRIEFS_PAGE_URL", "https://www.tjrmindbody.com/briefs")
+# Own sender display name (Captain: "use a different Send Name for that
+# email") — distinct from resend_email.py's "Emergency Alert Hub" default,
+# same verified tjrmindbody.com address underneath.
+_BRIEF_EMAIL_FROM = os.environ.get("BRIEF_PUBLISHED_EMAIL_FROM", "Captain's Brief <alerts@tjrmindbody.com>")
+# Captain-flagged 2026-08-27: tjrmindbody.com is a completely separate
+# public marketing site (Vercel-hosted coaching business page, confirmed
+# live — 404s under /briefs, different <title>), NOT the LCARS Portal.
+# The real LCARS Portal (private ops tool, MSN-0182) is served by Caddy at
+# this host's own address — see /etc/caddy/Caddyfile: reverse_proxy to
+# 127.0.0.1:3200, self-signed "tls internal" cert (expect a browser
+# warning; that's expected for this address, not a misconfiguration).
+_BRIEFS_PAGE_URL = os.environ.get("BRIEFS_PAGE_URL", "https://109.123.227.196:8444/briefs")
 
 
 def notify_published(brief: dict) -> bool:
@@ -45,7 +56,7 @@ def notify_published(brief: dict) -> bool:
             + (f"<p>{snapshot}</p>" if snapshot else "")
             + f'<p><a href="{_BRIEFS_PAGE_URL}">Read it on the Briefs page →</a></p>'
         )
-        return send_email(to=_BRIEF_EMAIL_TO, subject=subject, html=html)
+        return send_email(to=_BRIEF_EMAIL_TO, subject=subject, html=html, from_addr=_BRIEF_EMAIL_FROM)
     except Exception as exc:
         log.warning("[brief-published-notifier] failed to send: %s", exc)
         return False
