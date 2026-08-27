@@ -29,14 +29,13 @@ _BRIEF_EMAIL_TO = os.environ.get("BRIEF_PUBLISHED_EMAIL_TO", "timjardenross@outl
 # email") — distinct from resend_email.py's "Emergency Alert Hub" default,
 # same verified tjrmindbody.com address underneath.
 _BRIEF_EMAIL_FROM = os.environ.get("BRIEF_PUBLISHED_EMAIL_FROM", "Captain's Brief <alerts@tjrmindbody.com>")
-# Captain-flagged 2026-08-27: tjrmindbody.com is a completely separate
-# public marketing site (Vercel-hosted coaching business page, confirmed
-# live — 404s under /briefs, different <title>), NOT the LCARS Portal.
-# The real LCARS Portal (private ops tool, MSN-0182) is served by Caddy at
-# this host's own address — see /etc/caddy/Caddyfile: reverse_proxy to
-# 127.0.0.1:3200, self-signed "tls internal" cert (expect a browser
-# warning; that's expected for this address, not a misconfiguration).
-_BRIEFS_PAGE_URL = os.environ.get("BRIEFS_PAGE_URL", "https://109.123.227.196:8444/briefs")
+# Captain-corrected 2026-08-27, second pass: the LCARS Portal the Captain
+# actually reads day-to-day is the Vercel deployment
+# (usstjros.vercel.app), not the VM's own Caddy-fronted address
+# (109.123.227.196:8444) — both are real/reachable, this is the one to
+# link from email. tjrmindbody.com (a separate public marketing site) was
+# the first wrong guess; the VM address was the second.
+_BRIEFS_PAGE_URL = os.environ.get("BRIEFS_PAGE_URL", "https://usstjros.vercel.app/briefs")
 
 
 def notify_published(brief: dict) -> bool:
