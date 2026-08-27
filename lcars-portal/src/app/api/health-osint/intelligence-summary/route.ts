@@ -5,6 +5,21 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 
 const DAYS_365 = 365 * 86_400_000;
 
+// Captain-directed 2026-08-27 — mirrors
+// tools/health-osint/priority_domains.py (no shared config crosses the
+// Python/TypeScript boundary anywhere else in this platform; kept in sync
+// by comment cross-reference, same convention as MedicalView.tsx's
+// STIMULATION_STATE_LABEL). Chronic Pain has zero coverage — no source
+// classifies for it yet — so it's not in this set either; flagged as a
+// real gap, not fixed here.
+const PRIORITY_DOMAINS = new Set([
+  'mental_health', 'supplement', 'performance',
+  'neuro_adhd', 'neuro_autism', 'neuro_audhd',
+  'neuro_sensory', 'neuro_regulation', 'neuro_executive_function',
+  'neuro_burnout', 'neuro_masking', 'neuro_sleep', 'neuro_treatment',
+  'neuro_work', 'neuro_lived_experience', 'neuro_australia_policy',
+]);
+
 // Structural coverage gaps for health OSINT — HEALTH_OSINT_WORKBENCH.md section 7.
 // Static because these are domain-level blind spots, not derived from current signals.
 const KNOWN_UNKNOWNS = [
@@ -52,11 +67,22 @@ async function getIntelligenceSummary(sb: any) {
     actionable_recommendation: s.actionable_recommendation,
   }));
 
+  // Priority domains sort first within each confidence bucket (stable sort
+  // — ties keep their existing rank_score DESC order from the query), so a
+  // priority-area signal isn't crowded out of the top-N slice below by an
+  // equally-ranked non-priority one. Confidence level itself is untouched;
+  // this only reorders within a bucket, never moves a signal between them.
+  const byPriorityThenRank = (a: any, b: any) => {
+    const aPriority = PRIORITY_DOMAINS.has(a.health_domain) ? 1 : 0;
+    const bPriority = PRIORITY_DOMAINS.has(b.health_domain) ? 1 : 0;
+    return bPriority - aPriority;
+  };
+
   return {
     domain: 'intelligence-summary',
-    high: signalList.filter((s: any) => s.confidence_level === 'high').slice(0, 15),
-    medium: signalList.filter((s: any) => s.confidence_level === 'medium').slice(0, 15),
-    low: signalList.filter((s: any) => s.confidence_level === 'low').slice(0, 8),
+    high: signalList.filter((s: any) => s.confidence_level === 'high').sort(byPriorityThenRank).slice(0, 15),
+    medium: signalList.filter((s: any) => s.confidence_level === 'medium').sort(byPriorityThenRank).slice(0, 15),
+    low: signalList.filter((s: any) => s.confidence_level === 'low').sort(byPriorityThenRank).slice(0, 8),
     unknowns: KNOWN_UNKNOWNS,
   };
 }

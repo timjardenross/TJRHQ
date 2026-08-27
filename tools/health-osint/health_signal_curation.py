@@ -50,6 +50,11 @@ from typing import Any, Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+# tools/health-osint's own hyphenated dirname makes `from tools.health-osint.X
+# import Y` a syntax error (see health_signal_ingestion.py's own note on this) —
+# add this directory directly so sibling modules (priority_domains.py) import
+# as plain top-level names instead.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("health_signal_curation")
@@ -79,6 +84,18 @@ Default to ESCALATE over guessing. A wrong PUBLISH or REJECT is worse than askin
 this is health data. Only choose PUBLISH or REJECT when the call is actually clear, matching
 how a human reviewer described this exact task: "most are obvious signal or noise."
 
+Each signal below is marked PRIORITY AREA or not — Captain TJR named 7 areas of personal
+importance (Mental Health, ADHD, Autism, AUDHD, Chronic Pain, Supplement, Performance), and
+the health_domain tags covering those areas are flagged as such. This changes the evidence
+bar, not the honesty of your judgment — never invent substance a PRIORITY AREA signal doesn't
+have:
+- PRIORITY AREA: if it's a genuine, parseable signal, lean PUBLISH over ESCALATE on borderline
+  calls — Captain TJR would rather see a moderately-clear priority-area signal than miss it.
+- Not a priority area: lean the other way on borderline calls — ESCALATE or REJECT rather than
+  PUBLISH — this is general biomedical/outbreak noise he asked to see less of by default.
+A signal that is clearly noise (manufacturer claim, mangled parse, obvious duplicate) is still
+REJECT regardless of priority — the priority flag only moves genuinely borderline calls.
+
 Respond with ONLY a JSON object: {"decision": "PUBLISH"|"REJECT"|"ESCALATE", "reason": "<one short sentence>"}
 """
 
@@ -96,12 +113,15 @@ def _classify(signal: dict[str, Any]) -> tuple[str, str]:
     response degrades to ESCALATE, the same safe default as low confidence,
     not a crash and not a silent guess."""
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+    from priority_domains import is_priority_domain
+
+    priority_tag = "PRIORITY AREA" if is_priority_domain(signal.get("health_domain")) else "not a priority area"
 
     prompt = (
         f"Title: {signal.get('title')}\n"
         f"Description: {signal.get('description') or '(none)'}\n"
         f"Signal type: {signal.get('signal_type')}\n"
-        f"Health domain: {signal.get('health_domain')}\n"
+        f"Health domain: {signal.get('health_domain')} ({priority_tag})\n"
         f"Contributing factor type: {signal.get('contributing_factor_type') or '(none)'}\n"
         f"Source: {signal.get('source_name')}\n"
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
