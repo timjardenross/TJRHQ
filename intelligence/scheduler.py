@@ -279,6 +279,19 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # ── Emergency Alert Hub hourly summary email (migration 0177) ───────────
+    # Captain-directed 2026-08-27. Separate cadence from the 15min ingestion
+    # job above — checks hourly, only calls the LLM/sends when the active
+    # alert set actually changed since the last send (cheap DB diff covers
+    # the common no-change hour, see intelligence/emergency_alert_summary.py).
+    scheduler.add_job(
+        _emergency_alert_summary_job,
+        _IntervalTrigger(minutes=60),
+        id="emergency_alert_hourly_summary",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── MSN-0202: Content Intelligence scoring (opt-in) ──────────────────────
     # Runs at 06:15 AEST (15 min after daily collection) to score new events.
     # Gated by CONTENT_INTEL_PUSH_ENABLED=1 env var.
@@ -1012,6 +1025,21 @@ def _emergency_alert_hub_job() -> None:
         log.info("Emergency Alert Hub collection complete: %s", results)
     except Exception as exc:
         log.error("Emergency Alert Hub collection failed: %s", exc, exc_info=True)
+
+
+def _emergency_alert_summary_job() -> None:
+    """Emergency Alert Hub hourly summary email (migration 0177,
+    intelligence/emergency_alert_summary.py) — LLM-synthesized summary of
+    all currently active alerts, emailed via Resend. Only actually
+    generates/sends when the active-alert set changed since the last run;
+    see that module's docstring for the dedupe mechanism."""
+    log.info("Emergency Alert Hub summary check triggered")
+    try:
+        from intelligence.emergency_alert_summary import run
+        result = run()
+        log.info("Emergency Alert Hub summary check complete: %s", result)
+    except Exception as exc:
+        log.error("Emergency Alert Hub summary job failed: %s", exc, exc_info=True)
 
 
 def _intraday_status_collection_job() -> None:
