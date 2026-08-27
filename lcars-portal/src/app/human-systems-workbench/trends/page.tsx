@@ -27,24 +27,38 @@ import {
 } from '../_components/types';
 import type { TrendDayRow } from '@/app/api/human-systems/trends/route';
 
-const TREND_ENERGY: Record<string, number> = { High: 3, Moderate: 2, Low: 1 };
 // Ordinal maps — higher = better/more-resourced in every field below,
-// consistent direction so the sparklines read the same way at a glance.
-// Sourced from capacity_checkins' own CHECK constraints (migrations
-// 0148/0152), not invented.
-const TREND_NS: Record<string, number> = { dysregulated: 1, activated: 2, calm: 3 };
-const TREND_CAPACITY: Record<string, number> = { red: 1, orange: 2, green: 3 };
-const TREND_PAIN_STATE: Record<string, number> = { high: 1, elevated: 2, baseline: 3, low: 4 };
-const TREND_REGULATION: Record<string, number> = { overloaded: 1, activated: 2, manageable: 3, settled: 4 };
-const TREND_EXEC_FN: Record<string, number> = { very_difficult: 1, difficult: 2, strained: 3, good: 4 };
-const TREND_COMPENSATION: Record<string, number> = { extreme: 1, high: 2, moderate: 3, low: 4 };
-const TREND_EMOTIONAL: Record<string, number> = { overwhelming: 1, heavy: 2, moderate: 3, light: 4 };
-const TREND_SOCIAL: Record<string, number> = { none: 1, limited: 2, some: 3, plenty: 4 };
+// consistent 0-100 range so every sparkline reads on the same axis.
+//
+// Four fields (energy, capacity, nervous_system, regulation) use the
+// platform's own REAL canonical scoring, not an invented scale — pulled
+// directly from compute_recovery_score() (migration
+// 0150_capacity_checkins_recovery_integration.sql), the same weighted
+// formula that already powers the Recovery Score elsewhere in this app.
+// regulation_state is collapsed to the same 3-bucket scale
+// nervous_system_state uses (settled/manageable -> calm, activated ->
+// activated, overloaded -> dysregulated) exactly as that SQL function
+// does, so the two fields' numbers stay directly comparable.
+const TREND_ENERGY: Record<string, number> = { High: 90, Moderate: 60, Low: 25 };
+const TREND_NS: Record<string, number> = { calm: 90, activated: 55, dysregulated: 20 };
+const TREND_CAPACITY: Record<string, number> = { green: 85, orange: 55, red: 20 };
+const TREND_REGULATION: Record<string, number> = { settled: 90, manageable: 90, activated: 55, overloaded: 20 };
+
+// The remaining fields have no canonical platform score (compute_recovery_
+// score() doesn't weight them) — evenly spaced across the same 0-100 range
+// for visual consistency with the four above, not claiming the same
+// precision. Sourced from capacity_checkins' own CHECK constraints
+// (migrations 0148/0152), not invented.
+const TREND_PAIN_STATE: Record<string, number> = { high: 15, elevated: 45, baseline: 70, low: 95 };
+const TREND_EXEC_FN: Record<string, number> = { very_difficult: 15, difficult: 45, strained: 70, good: 95 };
+const TREND_COMPENSATION: Record<string, number> = { extreme: 15, high: 45, moderate: 70, low: 95 };
+const TREND_EMOTIONAL: Record<string, number> = { overwhelming: 15, heavy: 45, moderate: 70, light: 95 };
+const TREND_SOCIAL: Record<string, number> = { none: 15, limited: 45, some: 70, plenty: 95 };
 // stimulation_state is NOT "higher = better" (both extremes are the
 // problem, balanced is the goal) — positional only, not a goodness scale.
 // Called out in its own tile's caption rather than mixed silently in with
 // the others.
-const TREND_STIMULATION_POSITION: Record<string, number> = { low: 1, balanced: 2, high: 3 };
+const TREND_STIMULATION_POSITION: Record<string, number> = { low: 25, balanced: 75, high: 25 };
 
 interface TrendField {
   key: keyof TrendDayRow;
@@ -113,6 +127,8 @@ export default function TrendsPage() {
   const [trends, setTrends] = useState<TrendDayRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [windowKey, setWindowKey] = useState<(typeof WINDOWS)[number]['key']>('30d');
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/human-systems/trends', { cache: 'no-store' })
@@ -120,8 +136,10 @@ export default function TrendsPage() {
       .then((data) => {
         if (data?.error) throw new Error(data.error);
         setTrends(data.trends ?? []);
+        setSummary(data.summary ?? null);
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load trends'));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load trends'))
+      .finally(() => setSummaryLoading(false));
   }, []);
 
   const activeWindow = WINDOWS.find((w) => w.key === windowKey)!;
@@ -138,6 +156,15 @@ export default function TrendsPage() {
       back={{ href: '/human-systems-workbench', label: 'Human Systems Workbench' }}
     >
       <div className="flex flex-col gap-4">
+        <Card>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Summary (last 30 days)</div>
+          <p className="mt-1 text-[13px] text-wb-ink">
+            {summaryLoading
+              ? 'Generating summary…'
+              : summary ?? 'Not enough recorded days yet for a summary.'}
+          </p>
+        </Card>
+
         <Card>
           <div className="flex items-center justify-between">
             <p className="text-[13px] text-wb-ink2">

@@ -29,6 +29,96 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 
 const MAX_WINDOW_DAYS = 90;
 
+// LLM summary (2026-08-27, Captain direction) — same Gemini->Mistral chain
+// core/llm/provider_chain.py uses server-side, called directly here (plain
+// REST, no SDK) since this route runs in the Next.js server process, not
+// Python. Summarizes the last 30 days regardless of the page's own window
+// toggle — a stable "how have things been trending" read, not something
+// that changes every time the Captain clicks 7d/30d/90d.
+const SUMMARY_SYSTEM_PROMPT =
+  'You are summarizing 30 days of Captain TJR\'s own capacity/regulation/recovery ' +
+  'check-in data for the Captain to read at the top of the Trends page. Plain ' +
+  'language, 2-3 short sentences, no medical claims or diagnosis — describe the ' +
+  'pattern in the data (improving, worsening, stable, volatile) and name which ' +
+  'field(s) are driving it. Never invent a value not present in the data. If ' +
+  'there is too little data to say anything meaningful, say so plainly instead ' +
+  'of guessing.';
+
+async function callGemini(prompt: string): Promise<string | null> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SUMMARY_SYSTEM_PROMPT }] },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 512, temperature: 0.3 },
+      }),
+    }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+}
+
+async function callMistral(prompt: string): Promise<string | null> {
+  const key = process.env.MISTRAL_API_KEY;
+  if (!key) return null;
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'mistral-small-latest',
+      messages: [
+        { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 512,
+      temperature: 0.3,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content?.trim() || null;
+}
+
+function buildSummaryPrompt(trends: TrendDayRow[]): string {
+  const recorded = trends.filter((t) => Object.values(t).some((v, i) => i > 0 && v != null));
+  const lines = recorded.map((t) => {
+    const fields = [
+      t.capacity_state && `capacity=${t.capacity_state}`,
+      t.stimulation_state && `stimulation=${t.stimulation_state}`,
+      t.pain_state && `pain=${t.pain_state}`,
+      t.pain_score != null && `pain_score=${t.pain_score}`,
+      t.regulation_state && `regulation=${t.regulation_state}`,
+      t.executive_function && `executive_function=${t.executive_function}`,
+      t.compensation_load && `compensation_load=${t.compensation_load}`,
+      t.emotional_state && `emotional=${t.emotional_state}`,
+      t.social_state && `social=${t.social_state}`,
+      t.energy && `energy=${t.energy}`,
+      t.nervous_system_state && `nervous_system=${t.nervous_system_state}`,
+    ].filter(Boolean);
+    return `${t.log_date}: ${fields.join(', ')}`;
+  });
+  return `Last ${recorded.length} recorded day(s):\n${lines.join('\n')}`;
+}
+
+async function generateSummary(trends: TrendDayRow[]): Promise<string | null> {
+  const windowed = trends.slice(-30);
+  const recordedCount = windowed.filter((t) => Object.values(t).some((v, i) => i > 0 && v != null)).length;
+  if (recordedCount < 2) return null;
+  const prompt = buildSummaryPrompt(windowed);
+  try {
+    return (await callGemini(prompt)) ?? (await callMistral(prompt));
+  } catch (err) {
+    console.error('[human-systems/trends] summary generation failed:', err);
+    return null;
+  }
+}
+
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -109,7 +199,8 @@ export async function GET(request: NextRequest) {
     }
 
     const trends = Array.from(byDate.values()).sort((a, b) => a.log_date.localeCompare(b.log_date));
-    return NextResponse.json({ trends, window_days: MAX_WINDOW_DAYS });
+    const summary = await generateSummary(trends);
+    return NextResponse.json({ trends, window_days: MAX_WINDOW_DAYS, summary });
   } catch (err) {
     console.error('[human-systems/trends] read failed:', err);
     return NextResponse.json({ error: 'trends_read_failed' }, { status: 500 });
