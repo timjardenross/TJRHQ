@@ -9,15 +9,19 @@ const DAYS_365 = 365 * 86_400_000;
 // tools/health-osint/priority_domains.py (no shared config crosses the
 // Python/TypeScript boundary anywhere else in this platform; kept in sync
 // by comment cross-reference, same convention as MedicalView.tsx's
-// STIMULATION_STATE_LABEL). Chronic Pain has zero coverage — no source
-// classifies for it yet — so it's not in this set either; flagged as a
-// real gap, not fixed here.
+// STIMULATION_STATE_LABEL). Chronic Pain coverage added same day
+// (migration 0178, parse_europepmc_chronic_pain.py) — 8 chronic_pain_*
+// sub-tags now included below.
 const PRIORITY_DOMAINS = new Set([
   'mental_health', 'supplement', 'performance',
   'neuro_adhd', 'neuro_autism', 'neuro_audhd',
   'neuro_sensory', 'neuro_regulation', 'neuro_executive_function',
   'neuro_burnout', 'neuro_masking', 'neuro_sleep', 'neuro_treatment',
   'neuro_work', 'neuro_lived_experience', 'neuro_australia_policy',
+  'chronic_pain', 'chronic_pain_lived_experience',
+  'chronic_pain_central_sensitization', 'chronic_pain_fibromyalgia',
+  'chronic_pain_neuropathic', 'chronic_pain_medication',
+  'chronic_pain_treatment', 'chronic_pain_flare',
 ]);
 
 // Structural coverage gaps for health OSINT — HEALTH_OSINT_WORKBENCH.md section 7.
