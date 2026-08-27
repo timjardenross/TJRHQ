@@ -219,6 +219,18 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     log_mutation("intelligence_briefs", brief_id, "UPDATE", actor_role,
                  before_state={"approval_status": current},
                  after_state=fields)
+
+    # Captain-directed 2026-08-27: email once a brief is finalised/ready to
+    # read. This transition (QA_PASSED -> PUBLISHED) is the single choke
+    # point every publish path goes through and the state machine above
+    # already guarantees it fires exactly once per brief — no separate
+    # dedupe needed. Never let a notification failure break a real publish.
+    try:
+        from intelligence.brief_published_notifier import notify_published
+        notify_published(brief)
+    except Exception:
+        pass
+
     return updated
 
 
