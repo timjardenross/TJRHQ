@@ -95,10 +95,16 @@ const LABEL_MAPS: Partial<Record<keyof TrendDayRow, Record<string, string>>> = {
   social_state: SOCIAL_STATE_LABEL,
 };
 
+// Aligned to therapy session frequency (Captain-directed 2026-08-27) —
+// weekly multiples rather than calendar-month buckets, so a window
+// boundary lines up with "since my last session" / "since 3 sessions ago"
+// instead of an arbitrary 30/90-day cut.
 const WINDOWS = [
   { key: '7d', label: '7 days', days: 7 },
-  { key: '30d', label: '30 days', days: 30 },
-  { key: '90d', label: '90 days', days: 90 },
+  { key: '14d', label: '14 days', days: 14 },
+  { key: '21d', label: '21 days', days: 21 },
+  { key: '35d', label: '35 days', days: 35 },
+  { key: '49d', label: '49 days', days: 49 },
 ] as const;
 
 function fieldValues(trends: TrendDayRow[], field: TrendField): (number | null)[] {
@@ -142,7 +148,7 @@ function latestScore(trends: TrendDayRow[], field: TrendField): number | null {
 export default function TrendsPage() {
   const [trends, setTrends] = useState<TrendDayRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [windowKey, setWindowKey] = useState<(typeof WINDOWS)[number]['key']>('30d');
+  const [windowKey, setWindowKey] = useState<(typeof WINDOWS)[number]['key']>('21d');
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
 
@@ -181,24 +187,40 @@ export default function TrendsPage() {
           </p>
         </Card>
 
-        <Card>
-          <div className="flex items-center justify-between">
+        <Card className="print:hidden">
+          <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] text-wb-ink2">
               {trends === null && !loadError ? 'Loading…' : `${recordedDays} of ${windowed.length} day(s) in this window have at least one recorded field.`}
             </p>
-            <div className="flex overflow-hidden rounded-md border border-wb-line text-[11px]">
-              {WINDOWS.map((w) => (
-                <button
-                  key={w.key}
-                  onClick={() => setWindowKey(w.key)}
-                  className={`px-2.5 py-1 ${windowKey === w.key ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
-                >
-                  {w.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex overflow-hidden rounded-md border border-wb-line text-[11px]">
+                {WINDOWS.map((w) => (
+                  <button
+                    key={w.key}
+                    onClick={() => setWindowKey(w.key)}
+                    className={`px-2.5 py-1 ${windowKey === w.key ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
+                  >
+                    {w.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => window.print()}
+                className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep"
+              >
+                Download PDF
+              </button>
             </div>
           </div>
         </Card>
+
+        {/* Print-only header — the WorkbenchShell chrome and window-toggle
+         *  controls above are hidden via print:hidden; this line gives the
+         *  PDF its own context (which window, when generated) since the
+         *  interactive toggle buttons obviously don't survive onto paper. */}
+        <p className="hidden text-[11px] text-wb-ink2 print:block">
+          Human Systems — Trends · {activeWindow.label} window · generated {new Date().toLocaleString('en-AU')}
+        </p>
 
         {loadError && (
           <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
