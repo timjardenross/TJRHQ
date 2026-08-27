@@ -54,7 +54,7 @@ const SCHEDULER_JOBS: ReadonlyArray<{ domainKey: string; label: string; domain: 
   { domainKey: 'knowledge_freshness',                     label: 'Knowledge Freshness (Wed)',           domain: 'intelligence',  cadenceLabel: 'Weekly · Wed 09:00' },
   { domainKey: 'decision_outcome_reminder',               label: 'Decision Outcome Reminder (Wed)',     domain: 'intelligence',  cadenceLabel: 'Weekly · Wed 09:15' },
   { domainKey: 'forgotten_decisions',                     label: 'Forgotten Decisions (Mon+Thu)',       domain: 'intelligence',  cadenceLabel: '2x/week · Mon+Thu 09:30' },
-  { domainKey: 'shakedown_digest',                        label: 'Shakedown Digest (Daily)',            domain: 'platform',      cadenceLabel: 'Daily · 20:00' },
+  { domainKey: 'shakedown_digest',                        label: 'Shakedown Digest (RETIRED 2026-08-27)', domain: 'platform',      cadenceLabel: 'Retired — was Daily · 20:00' },
   { domainKey: 'monthly_lessons_digest',                  label: 'Monthly Lessons Digest',             domain: 'intelligence',  cadenceLabel: 'Monthly · 1st 08:00' },
   { domainKey: 'ko_monthly_brief',                        label: 'KO Monthly Brief',                   domain: 'intelligence',  cadenceLabel: 'Monthly · 1st 08:30' },
   { domainKey: 'mission_registry_sync',                   label: 'Mission Registry Sync',              domain: 'platform',      cadenceLabel: 'Daily · 06:45' },

@@ -15,7 +15,8 @@ Jobs registered here:
   forgotten_decisions      Mon+Thu 09:30 — unresolved governance decisions/ADRs
   fortnightly_idea_review  Mon 08:45 (odd ISO weeks) — triage Idea-status missions
   lifecycle_recommendations daily 08:15 — pending approvals (gated by LIFECYCLE_RECS_ENABLED)
-  shakedown_digest         daily 20:00 — operational shakedown day summary
+  shakedown_digest         RETIRED 2026-08-27 — was daily 20:00, see the
+                           retirement comment at its scheduler.add_job() site
   mission_registry_sync    daily 06:45 — sync Supabase missions → registry (background)
   content_pipeline         daily 06:15 — content signal promotion + draft worker (background)
   pending_research_sweep   every 5 min — recover stuck captured_items (background)
@@ -700,13 +701,15 @@ def register_jobs(scheduler, tz) -> None:
         name="Friday Weekly Review",
         replace_existing=True,
     )
-    scheduler.add_job(
-        job_shakedown_digest,
-        CronTrigger(hour=20, minute=0, timezone=tz),
-        id="shakedown_digest",
-        name="Operational Shakedown Daily Digest",
-        replace_existing=True,
-    )
+    # shakedown_digest retired 2026-08-27 (Captain-directed): the shakedown
+    # concept (core/health/shakedown_logger.py) was a 7-day operational
+    # burn-in tracker starting 2026-06-15 (mission M-20260615), never
+    # unregistered after that window closed — the daily digest was still
+    # reporting "Shakedown Day 74" on nothing more than pending_research_sweep's
+    # routine 5-minute heartbeat. job_shakedown_digest() and the underlying
+    # shakedown_logger.log_event() calls scattered through this module are
+    # left in place (harmless JSONL writes, other jobs' own logging), just
+    # unregistered — re-add this scheduler.add_job() to revive it.
     scheduler.add_job(
         job_monthly_lessons_digest,
         CronTrigger(day=1, hour=8, minute=0, timezone=tz),
@@ -723,11 +726,12 @@ def register_jobs(scheduler, tz) -> None:
     )
 
     log.info(
-        "[proactive] 13 cadence jobs registered: "
+        "[proactive] 12 cadence jobs registered: "
         "content_pipeline 06:15, mission_registry_sync 06:45, lifecycle_recs 08:15, "
         "fortnightly_idea_review Mon 08:45, knowledge_freshness Wed 09:00, "
         "decision_outcome_reminder Wed 09:15, forgotten_decisions Mon+Thu 09:30, "
         "decision_review Fri 16:00, weekly_review Fri 16:30, "
-        "shakedown_digest 20:00, monthly_digest+ko_brief 1st-of-month, "
-        "pending_research_sweep every 5min"
+        "monthly_digest+ko_brief 1st-of-month, "
+        "pending_research_sweep every 5min "
+        "(shakedown_digest retired 2026-08-27)"
     )
