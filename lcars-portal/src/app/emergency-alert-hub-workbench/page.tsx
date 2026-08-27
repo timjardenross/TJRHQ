@@ -248,7 +248,7 @@ export default function EmergencyAlertHubWorkbench() {
     <WorkbenchShell
       title="Emergency Alert Hub"
       eyebrow="Public Safety"
-      tagline="Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds · auto-refreshes hourly, 07:00-19:00"
+      tagline="Tier 1 official AU emergency alerts only — state fire agencies + BOM warnings, all 8 states/territories · auto-refreshes hourly, 07:00-19:00"
       wide
     >
       <div className="flex flex-col gap-4">

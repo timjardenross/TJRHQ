@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platfo
 from heartbeat import _URL, _KEY, record_heartbeat, supabase_get  # noqa: E402
 
 from intelligence.ingestion.emergency_alert_adapters import (
-    act_esa, nsw_rfs, nt_securent, qld_fire, sa_cfs, tas_fire, vic_emergency, wa_dfes,
+    act_esa, bom_warnings, nsw_rfs, nt_securent, qld_fire, sa_cfs, tas_fire, vic_emergency, wa_dfes,
 )
 from core.notifications.resend_email import send_email
 
@@ -54,6 +54,16 @@ _ADAPTERS = {
     "wa_dfes":       (wa_dfes,       "emergency_alert_wa"),
     "tas_fire":      (tas_fire,      "emergency_alert_tas"),
     "nt_securent":   (nt_securent,   "emergency_alert_nt"),
+    # BOM state/territory warnings (migration 0176) — flood/severe-weather/
+    # cyclone national coverage, complements the fire-agency feeds above.
+    "bom_nsw":       (bom_warnings.nsw, "emergency_alert_bom_nsw"),
+    "bom_nt":        (bom_warnings.nt,  "emergency_alert_bom_nt"),
+    "bom_qld":       (bom_warnings.qld, "emergency_alert_bom_qld"),
+    "bom_sa":        (bom_warnings.sa,  "emergency_alert_bom_sa"),
+    "bom_tas":       (bom_warnings.tas, "emergency_alert_bom_tas"),
+    "bom_vic":       (bom_warnings.vic, "emergency_alert_bom_vic"),
+    "bom_wa":        (bom_warnings.wa,  "emergency_alert_bom_wa"),
+    "bom_act":       (bom_warnings.act, "emergency_alert_bom_act"),
 }
 
 

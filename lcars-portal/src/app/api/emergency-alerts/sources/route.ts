@@ -21,6 +21,14 @@ const SOURCE_DOMAIN_KEYS: Record<string, string> = {
   wa_dfes: 'emergency_alert_wa',
   tas_fire: 'emergency_alert_tas',
   nt_securent: 'emergency_alert_nt',
+  bom_nsw: 'emergency_alert_bom_nsw',
+  bom_nt: 'emergency_alert_bom_nt',
+  bom_qld: 'emergency_alert_bom_qld',
+  bom_sa: 'emergency_alert_bom_sa',
+  bom_tas: 'emergency_alert_bom_tas',
+  bom_vic: 'emergency_alert_bom_vic',
+  bom_wa: 'emergency_alert_bom_wa',
+  bom_act: 'emergency_alert_bom_act',
 };
 
 export interface EmergencyAlertSourceEntry {
