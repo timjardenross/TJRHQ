@@ -53,7 +53,7 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 _API_KEY = os.environ.get("RESEND_API_KEY", "")
-_DEFAULT_FROM = os.environ.get("RESEND_FROM", "USS Starship Endeavour <onboarding@resend.dev>")
+_DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@resend.dev>")
 
 
 def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
