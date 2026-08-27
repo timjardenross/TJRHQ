@@ -54,7 +54,24 @@ _SYSTEM_PROMPT = (
 
 
 def _fingerprint(alerts: list[dict]) -> str:
-    parts = sorted(f"{a['id']}:{a['severity']}:{a['status']}" for a in alerts)
+    """Captain-flagged 2026-08-27: hourly emails were "primarily the same
+    update" — reviewed the logs (every hour fired 'changed: True') against
+    live data and found why: severity='unknown' alerts (WA/SA CAD-tier
+    feeds with no warning-level data — see wa_dfes.py/sa_cfs.py) are ~65%
+    of the active set and churn constantly (one flips active/inactive most
+    hours) even when nothing genuinely newsworthy happened. Any single
+    change anywhere in the full set was enough to trigger a full re-send.
+
+    Fingerprint now excludes severity='unknown' alerts — real
+    Advice/Watch and Act/Emergency Warning tier changes still trigger a
+    fresh summary immediately; unknown-tier churn no longer does. Trade-
+    off, deliberate: a brand-new unknown-severity incident (e.g. a fresh
+    WA bushfire with no matching warning yet) won't trigger its own email
+    on that basis alone — it's still visible on the live workbench, and
+    still included in the email body whenever an advice+ change does fire
+    one (see _build_prompt, which uses the unfiltered alert list)."""
+    material = [a for a in alerts if a["severity"] != "unknown"]
+    parts = sorted(f"{a['id']}:{a['severity']}:{a['status']}" for a in material)
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
