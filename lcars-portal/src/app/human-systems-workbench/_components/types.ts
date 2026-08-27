@@ -587,6 +587,32 @@ export const CAPACITY_STATE_LABEL: Record<string, string> = {
   green: '🟢 Sustainable', orange: '🟠 Stretched', red: '🔴 Depleted',
 };
 
+// Trends page label constants (2026-08-27) — real vocabularies from
+// capacity_checkins' own CHECK constraints (migrations 0148/0152), not
+// invented. Used by /human-systems-workbench/trends alongside each
+// field's ordinal map for its sparkline.
+export const STIMULATION_STATE_TREND_LABEL: Record<string, string> = {
+  low: 'Not enough', balanced: 'Balanced', high: 'Too much',
+};
+export const PAIN_STATE_LABEL: Record<string, string> = {
+  low: 'Low', baseline: 'Baseline', elevated: 'Elevated', high: 'High',
+};
+export const REGULATION_STATE_LABEL: Record<string, string> = {
+  settled: 'Settled', manageable: 'Manageable', activated: 'Activated', overloaded: 'Overloaded',
+};
+export const EXECUTIVE_FUNCTION_LABEL: Record<string, string> = {
+  good: 'Good', strained: 'Strained', difficult: 'Difficult', very_difficult: 'Very difficult',
+};
+export const COMPENSATION_LOAD_LABEL: Record<string, string> = {
+  low: 'Low', moderate: 'Moderate', high: 'High', extreme: 'Extreme',
+};
+export const EMOTIONAL_STATE_LABEL: Record<string, string> = {
+  light: 'Light', moderate: 'Moderate', heavy: 'Heavy', overwhelming: 'Overwhelming',
+};
+export const SOCIAL_STATE_LABEL: Record<string, string> = {
+  plenty: 'Plenty', some: 'Some', limited: 'Limited', none: 'None',
+};
+
 /** good/moderate/limited/rest band → Badge status. */
 export function bandStatus(b: Band): BadgeStatus {
   switch (b) {

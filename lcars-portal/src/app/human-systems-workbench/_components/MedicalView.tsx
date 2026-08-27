@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
 import {
@@ -22,44 +22,11 @@ const STIMULATION_STATE_LABEL: Record<string, string> = {
   low: 'Not enough', balanced: 'Balanced', high: 'Too much',
 };
 
-const TREND_ENERGY: Record<string, number> = { High: 3, Moderate: 2, Low: 1 };
-// Ordinal mapping for nervous_system_state, the other 30-day trend field
-// the route already fetches but wasn't rendering. sleep_quality (also
-// fetched) is NOT added here — checked live 2026-08-27: 0 of 7 recent
-// analytics_health_daily rows have it populated. Its only two writers
-// (health_daily_logs, captains_log_entries) are already retired and the
-// capacity_checkins backfill above never covered it either — a
-// structurally dead field, not just sparse, so a sparkline for it would
-// permanently read "Not enough data" rather than fill in over time.
-// Values are case-inconsistent across writers (migrations 0134/0016 use
-// lowercase 'calm'/'activated'/'dysregulated'), looked up lowercase.
-// Higher = calmer.
-const TREND_NS: Record<string, number> = { dysregulated: 1, activated: 2, calm: 3 };
-
-/** Tiny inline sparkline for a 30-day categorical/numeric trend. Accessible
- *  alternative (the underlying rows) is summarised in text beneath. */
-function Sparkline({ values }: { values: (number | null)[] }) {
-  const pts = values.map((v, i) => ({ v, i })).filter((p) => p.v != null) as { v: number; i: number }[];
-  if (pts.length < 2) return <span className="text-[12px] text-wb-ink2">Not enough data</span>;
-  const max = Math.max(...pts.map((p) => p.v));
-  const min = Math.min(...pts.map((p) => p.v));
-  const span = max - min || 1;
-  const w = 160;
-  const h = 28;
-  const n = values.length - 1 || 1;
-  const path = pts
-    .map((p, k) => {
-      const x = (p.i / n) * w;
-      const y = h - ((p.v - min) / span) * h;
-      return `${k === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-hidden="true">
-      <path d={path} fill="none" strokeWidth="1.5" className="stroke-wb-sage-deep" />
-    </svg>
-  );
-}
+// The Energy/Pain/Nervous System sparklines that used to live here moved
+// to /human-systems-workbench/trends (2026-08-27, Captain direction: this
+// page is the "right now" view, trend/history belongs on its own page —
+// same split Readiness already has via readiness/history/page.tsx). See
+// Sparkline.tsx and app/api/human-systems/trends/route.ts.
 
 /** Medical tab content. VNext consolidation, updated after finding real
  *  duplication between the two source signal sets: "Sensory" (a Capacity
@@ -77,13 +44,6 @@ function Sparkline({ values }: { values: (number | null)[] }) {
  *  RecoveryView (next to My REVS Position); this file no longer renders
  *  it. */
 export function MedicalView({ data }: { data: MedicalPayload }) {
-  const [trendWindow, setTrendWindow] = useState<'7d' | '30d'>('7d');
-
-  const windowedTrends = trendWindow === '7d' ? data.trends.slice(-7) : data.trends;
-  const energyTrend = windowedTrends.map((t) => (t.energy ? TREND_ENERGY[t.energy] ?? null : null));
-  const painTrend = windowedTrends.map((t) => t.pain_score);
-  const nsTrend = windowedTrends.map((t) => (t.nervous_system_state ? TREND_NS[t.nervous_system_state.toLowerCase()] ?? null : null));
-
   const debtPct = data.capacity_debt.days_total > 0
     ? Math.round((data.capacity_debt.days_with_debt / data.capacity_debt.days_total) * 100)
     : null;
@@ -134,36 +94,15 @@ export function MedicalView({ data }: { data: MedicalPayload }) {
           </p>
         </div>
 
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Trends</div>
-          <div className="flex overflow-hidden rounded-md border border-wb-line text-[11px]">
-            <button
-              onClick={() => setTrendWindow('7d')}
-              className={`px-2.5 py-1 ${trendWindow === '7d' ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
-            >7 days</button>
-            <button
-              onClick={() => setTrendWindow('30d')}
-              className={`px-2.5 py-1 ${trendWindow === '30d' ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
-            >30 days</button>
+        <div className="mt-4 flex items-center justify-between rounded-md border border-wb-line bg-wb-bg p-3">
+          <div>
+            <div className="text-[13px] font-medium text-wb-ink">Trends</div>
+            <p className="text-[12px] text-wb-ink2">Energy, Pain, Nervous System, and more — day-by-day, up to 90 days back.</p>
           </div>
+          <Link href="/human-systems-workbench/trends" className="shrink-0 rounded-md border border-wb-line px-4 py-2 text-center text-[13px] font-medium text-wb-ink transition hover:border-wb-sage-deep">
+            View Trends →
+          </Link>
         </div>
-        <div className="mt-2 grid gap-4 sm:grid-cols-2">
-          <div>
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Energy</div>
-            <Sparkline values={energyTrend} />
-          </div>
-          <div>
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Pain</div>
-            <Sparkline values={painTrend} />
-          </div>
-          <div>
-            <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Nervous System</div>
-            <Sparkline values={nsTrend} />
-          </div>
-        </div>
-        <p className="mt-3 text-[12px] text-wb-ink2">
-          {windowedTrends.length} day{windowedTrends.length === 1 ? '' : 's'} of recorded data in the window.
-        </p>
       </CollapsibleSection>
 
       <CollapsibleSection title="Sensory & Regulation" className="md:col-span-2">
