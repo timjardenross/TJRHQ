@@ -9,10 +9,14 @@ import os
 import sys
 import logging
 
-from dotenv import dotenv_values, load_dotenv
+from dotenv import dotenv_values
 
 _BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(os.path.dirname(_BOT_DIR))
+
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from core.platform.configuration_service import load_dotenv_files
 
 # Same ordering as tg-xo.service's two EnvironmentFile directives (see
 # telegram-bots/xo/DEPLOYMENT.md): shared project config (SUPABASE_URL,
@@ -20,9 +24,14 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_BOT_DIR))
 # first, then this bot's own .env (TELEGRAM_BOT_TOKEN) loads second and
 # wins on any overlapping key. Mirrored here so `python -m
 # telegram_bots.revs.app` works standalone, not only under the systemd
-# unit's own EnvironmentFile ordering.
-load_dotenv(os.path.join(_REPO_ROOT, "platform-runtime", ".env"))
-load_dotenv(os.path.join(_BOT_DIR, ".env"), override=True)
+# unit's own EnvironmentFile ordering. 2026-08-29: migrated onto
+# core/platform/configuration_service.py's load_dotenv_files() — two calls
+# (not one list) to preserve "own .env wins over shared" ordering, since
+# that module's override flag applies uniformly to a whole call.
+from pathlib import Path as _Path
+
+load_dotenv_files([_Path(_REPO_ROOT) / "platform-runtime" / ".env"])
+load_dotenv_files([_Path(_BOT_DIR) / ".env"], override=True)
 
 log = logging.getLogger("revs-bot.config")
 

@@ -4,6 +4,7 @@ All settings are environment-driven with safe defaults.
 """
 
 import os
+import sys
 from pathlib import Path
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
@@ -11,12 +12,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 ENV_FILE = REPO_ROOT / ".env"
 
-# Load .env if present
-try:
-    from dotenv import load_dotenv
-    load_dotenv(ENV_FILE)
-except ImportError:
-    pass
+# Load .env if present. 2026-08-29: migrated off python-dotenv onto
+# core/platform/configuration_service.py's load_dotenv_files() — same
+# non-override semantics (existing os.environ values win), but drops the
+# hard dependency on the dotenv package being installed (previously
+# silently no-op'd via ImportError if it wasn't) and reuses the one
+# canonical env-loading primitive instead of this module's own copy.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from core.platform.configuration_service import load_dotenv_files
+load_dotenv_files([ENV_FILE])
 
 # ─── Supabase ─────────────────────────────────────────────────────────────────
 

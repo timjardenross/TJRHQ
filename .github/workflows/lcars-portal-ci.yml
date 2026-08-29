@@ -50,3 +50,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tools/check_notification_senders.py
+
+  config-loader-gate:
+    # Same council verdict, second mechanism (config.py, per "repeat per
+    # mechanism" in the verdict's recommendation). Blocks a NEW hand-rolled
+    # .env-parsing loop from landing outside
+    # core/platform/configuration_service.py's load_dotenv_files(). Passes
+    # informationally on the pending-review instances found in the
+    # 2026-08-29 sweep — see tools/check_config_loaders.py.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_config_loaders.py
