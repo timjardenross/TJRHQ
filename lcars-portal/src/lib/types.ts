@@ -28,8 +28,13 @@ export type StatusTone =
  * (MSN-0315 Phase 1A). Use this for anything communicating live/health/
  * confidence/escalation state; use `StatusTone` only for department
  * identity. See `stateToneClasses` in `./departments`.
+ *
+ * `info` added 2026-08-29 (docs/Severity-Vocab-Canonicalization-Plan-
+ * 2026-08-29.md) — a genuine "benign/FYI" state distinct from `unknown`
+ * ("we don't know"). Merged in from Badge's independent status vocabulary
+ * as part of collapsing every severity vocabulary onto this one enum.
  */
-export type StateTone = 'ok' | 'warn' | 'crit' | 'unknown';
+export type StateTone = 'ok' | 'warn' | 'crit' | 'unknown' | 'info';
 
 /** Mirrors mission-registry-reader.js mission rows and Supabase missions table. */
 export interface Mission {

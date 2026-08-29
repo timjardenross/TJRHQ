@@ -21,7 +21,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Badge, Card, WorkbenchShell } from '@/components/ui';
+import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
+import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 
@@ -49,13 +50,6 @@ const SEVERITY_LABELS: Record<string, string> = {
   watch_and_act: 'Watch and Act',
   advice: 'Advice',
   unknown: 'Unknown',
-};
-
-const SEVERITY_BADGE: Record<string, 'error' | 'warning' | 'neutral'> = {
-  emergency_warning: 'error',
-  watch_and_act: 'warning',
-  advice: 'neutral',
-  unknown: 'neutral',
 };
 
 const SOURCE_STATUS_BADGE: Record<string, 'success' | 'error' | 'warning' | 'neutral'> = {
@@ -89,7 +83,7 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4">
-        <Badge status={SEVERITY_BADGE[alert.severity] ?? 'neutral'}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
+        <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
       </td>
       <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">{alert.headline}</td>
       <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
@@ -105,7 +99,7 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
         <div>
           <div className="mb-1 flex items-center gap-2">
             <Badge status="neutral">{alert.jurisdiction}</Badge>
-            <Badge status={SEVERITY_BADGE[alert.severity] ?? 'neutral'}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
+            <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
           <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>

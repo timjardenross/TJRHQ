@@ -91,3 +91,25 @@ This actually *simplifies* the migration: `stateToneClasses` already emits `stat
 11. Separately: rename `capture.ts`'s `ProcessingStatus`/`ReviewStatus` (not part of this migration's PR).
 
 **5. CI gate: partial automation.** A script can flag a `type`/`interface` field or type alias whose string-literal union contains 2+ words from a severity dictionary (`critical|crit|high|medium|warn|low|ok|error|info`), defined outside `departments.ts`/`types.ts`/`Badge.tsx` — same style as `tools/check_config_loaders.py`. Would have caught #1, #4, #6, #8 and #2's Badge-status union. **Can't catch** domain-worded vocabularies with no dictionary overlap (`emergency_warning|watch_and_act|advice`, `success|partial|failure`) — those need a code-review checklist item, not automation. Recommend: ship the dictionary gate as a warning (not hard-fail, avoid false positives on unrelated enums) plus the checklist item for the semantic cases.
+
+---
+
+## Execution log — 2026-08-29, same day, migration complete
+
+All 11 steps executed. Typecheck, lint, and the full test suite (435 tests, 44 files) all green after every step.
+
+- **Step 1** — added `state.info: { DEFAULT: '#2E8B8B', soft: '#d6ebeb', on: '#0F5B5D' }` (reusing the exact hex already shipped as `wb-sage`/`wb-sage-deep`, so nothing already-rendering changed visually). `StateTone` now `ok|warn|crit|unknown|info`.
+- **Step 2** — `Badge.tsx` now builds `STATUS_CLASSES` from `stateToneClasses` internally (`BadgeStatus` prop contract unchanged — 10+ existing call sites needed zero changes). Added `toneToStatus()` as the reverse adapter. `RiskPill.tsx`'s duplicate color table removed, reuses `Badge`'s.
+- **Steps 3-9** — all 8 open vocabularies (#1, #2, #4, #6, #8, #9, #10, #1a) migrated onto new adapters added to `departments.ts`: `severityToTone`, `decisionToTone`, `alertSeverityToTone`, `riskLevelToTone` (added but unused — see below), `deliverySeverityToTone`, `emergencyAlertTierToTone`, `capacityStateToTone`, `healthSeverityToTone`. Real conflation bugs fixed along the way: `MobileAlertDrawer.tsx` was coloring alert severity with department identity classes (`bg-operations`/`bg-command`); `DeliveryPanel.tsx` was doing the same via `StatusBadge`'s `tone` prop. Both now use `Badge`+the canonical adapter.
+  - **Step 6 (`intelligenceRisk.ts`) was a confirmed no-op**: every real consumer either does exact-string business-logic matching (`signalMatchesRisk`, `captainReview.ts`'s `riskSeverity` on the *different* `overall_risk` RED/AMBER/GREEN field) or renders via raw emoji dots, not a CSS-class vocab. `riskLevelToTone` exists in `departments.ts` for whenever this page gets a real color-coded badge instead of emoji.
+  - **Step 9 (`health-osint` threat-assessment)** was also a no-op — the frontend renders the escalation tier as plain text, no color mapping exists to fix.
+- **Step 10** — deleted `ProactiveSignals.tsx`, `hygieneRules.ts` (+ its test), `api/proactive-signals/route.ts` outright (confirmed zero real callers beyond each other).
+- **Step 11** — `capture.ts`'s `ProcessingStatus`/`ReviewStatus` renamed to `CaptureProcessingStatus`/`CaptureReviewStatus` (zero external importers, safe rename).
+- **CI gate built**: `tools/check_severity_vocab_sprawl.py`, advisory (never fails the build, per the recommendation above) — not yet wired into `.github/workflows/lcars-portal-ci.yml` as a job, since it's a warning not a gate; run manually or add a non-blocking CI step if wanted.
+
+**Gate run against the post-migration codebase found more sprawl than this plan's original 10 items** — expected, since this is exactly the ongoing-drift detection it exists for. Not chased in this session (would be unbounded scope beyond what was locked in); logged here for the next pass:
+- `captains-brief-workbench/_components/types.ts:124` — a `Tone = 'ok'|'warn'|'crit'|'unknown'` type that's a **near-exact duplicate of `StateTone` itself**, in a legacy-but-still-reachable workbench. Worth checking whether it can just re-export `StateTone`.
+- `weekly-review/_components/SummaryCards.tsx` — the duplicate tone-map already flagged in the earlier design-audit sweep (2026-08-29, "clean, 1 minor"), still unaddressed.
+- `emergency-alert-hub-workbench/page.tsx`'s `SOURCE_STATUS_BADGE`, `agent-status-workbench/page.tsx`'s `statusToBadge`, `mission-workbench/_components/MissionCard.tsx`'s `PRIORITY_BADGE`, `capture-workbench/_components/KpiDashboard.tsx`'s `tone` prop — all local `Badge`-status maps that could reuse `toneToStatus` instead of independently deriving a `BadgeStatus`.
+- `lib/recommendations.ts`'s `deadline_urgency`, `lib/delivery.ts`'s `level` field (`Bottleneck`-adjacent, separate from the already-migrated `severity` field) — worth a look, not yet triaged for whether they're genuine severity or a different concept (e.g. urgency vs. severity).
+- `api/agent-status/route.ts` and `api/emergency-alerts/sources/route.ts`'s `ok|failed|skipped|unknown` — crawl/source-health status, a different concept from severity (matches the already-tracked `capacityStateStatus`-style pattern) but worth confirming it isn't drifting into its own vocabulary too.

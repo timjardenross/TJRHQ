@@ -7,19 +7,13 @@
 // be the first workbench built. Every other workbench importing it had to
 // reach into intelligence-workbench's own folder to get it.
 
-import { Badge, riskToStatus } from './Badge';
+import { Badge, riskToStatus, STATUS_CLASSES } from './Badge';
 
-const STATUS_TINT_CLASSES: Record<ReturnType<typeof riskToStatus>, string> = {
-  error: 'bg-wb-crit/15 text-wb-crit-on',
-  warning: 'bg-wb-warn/15 text-wb-warn-on',
-  success: 'bg-wb-ok/15 text-wb-ok-on',
-  info: 'bg-wb-sage/15 text-wb-sage-deep',
-  neutral: 'bg-wb-line text-wb-ink2',
-};
-
-/** RED/AMBER/GREEN/HIGH/MEDIUM/LOW -> tint className. Kept for callers composing custom elements. */
+/** RED/AMBER/GREEN/HIGH/MEDIUM/LOW -> tint className. Kept for callers
+ *  composing custom elements. 2026-08-29: no longer its own duplicate of
+ *  Badge's color table — reuses STATUS_CLASSES directly. */
 export function riskClass(r: string | null | undefined) {
-  return STATUS_TINT_CLASSES[riskToStatus(r)];
+  return STATUS_CLASSES[riskToStatus(r)];
 }
 
 export function RiskPill({ value }: { value: string | null | undefined }) {

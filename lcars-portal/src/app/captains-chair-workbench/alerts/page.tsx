@@ -5,9 +5,10 @@
  * `(app)/alerts` page — same data hooks (`useAlerts`, `@/lib/notifications`),
  * wb-* markup instead of LCARS chrome. The legacy route now redirects here.
  *
- * Severity → state-tone mapping matches captains-chair-workbench/page.tsx's
- * own `ALERT_SEVERITY_BORDER` map: critical and high both read as `crit`
- * (both genuinely need the Captain's decision now), warning reads as `warn`.
+ * Severity → state-tone mapping now shared via departments.ts's
+ * alertSeverityToTone (2026-08-29, Severity-Vocab-Canonicalization-Plan) —
+ * this page previously kept its own copy of the same map that
+ * captains-chair-workbench/page.tsx also duplicated.
  */
 
 import { useEffect, useState } from 'react';
@@ -21,14 +22,7 @@ import {
   notifyEnabled,
   setNotifyEnabled,
 } from '@/lib/notifications';
-import { stateToneClasses } from '@/lib/departments';
-import type { StateTone } from '@/lib/types';
-
-const SEVERITY_TONE: Record<AlertSeverity, StateTone> = {
-  critical: 'crit',
-  high: 'crit',
-  warning: 'warn',
-};
+import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
 
 const SEVERITY_LABEL: Record<AlertSeverity, string> = {
   critical: 'Critical',
@@ -37,7 +31,7 @@ const SEVERITY_LABEL: Record<AlertSeverity, string> = {
 };
 
 function AlertCard({ alert }: { alert: MobileAlert }) {
-  const c = stateToneClasses(SEVERITY_TONE[alert.severity]);
+  const c = stateToneClasses(alertSeverityToTone(alert.severity));
   return (
     <Link
       href={alert.href}

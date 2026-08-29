@@ -8,10 +8,10 @@
 import { useEffect, useState } from 'react';
 import { LCARSPanel } from '@/components/LCARSPanel';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Badge, toneToStatus } from '@/components/ui';
 import { DataSourceIndicator } from '@/components/DataSourceIndicator';
+import { deliverySeverityToTone } from '@/lib/departments';
 import { loadDelivery, OPEN_STATES, STATE_TONE, type DeliveryData } from '@/lib/delivery';
-
-const SEV_TONE = { critical: 'operations', high: 'operations', medium: 'command', low: 'neutral' } as const;
 
 export function DeliveryPanel() {
   const [data, setData] = useState<DeliveryData | null>(null);
@@ -78,7 +78,7 @@ export function DeliveryPanel() {
           <ul className="mt-1 flex flex-col gap-1">
             {bottlenecks.slice(0, 6).map((b, i) => (
               <li key={i} className="flex items-center gap-2 text-xs text-lcars-text/85">
-                <StatusBadge label={b.severity} tone={SEV_TONE[b.severity]} />
+                <Badge status={toneToStatus(deliverySeverityToTone(b.severity))}>{b.severity}</Badge>
                 <span className="font-semibold">{b.title}</span>
                 <span className="text-lcars-text/60">— {b.detail}</span>
               </li>

@@ -3,19 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useAlerts } from '@/lib/useAlerts';
 import { fetchDecisionsInbox, type DecisionItem } from '@/lib/decisions';
+import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
 import type { AlertSeverity } from '@/lib/alerts';
 
-const SEV_DOT: Record<AlertSeverity, string> = {
-  critical: 'bg-operations',
-  high:     'bg-operations',
-  warning:  'bg-command',
-};
+// 2026-08-29 (Severity-Vocab-Canonicalization-Plan): previously used
+// department-identity colors (bg-operations/bg-command) to signal alert
+// severity — the exact conflation stateToneClasses exists to prevent.
+// Migrated onto the canonical alertSeverityToTone adapter.
+function sevDot(severity: AlertSeverity): string {
+  return stateToneClasses(alertSeverityToTone(severity)).dot;
+}
 
-const SEV_TEXT: Record<AlertSeverity, string> = {
-  critical: 'text-operations',
-  high:     'text-operations',
-  warning:  'text-command',
-};
+function sevText(severity: AlertSeverity): string {
+  return stateToneClasses(alertSeverityToTone(severity)).text;
+}
 
 export function MobileAlertDrawer() {
   const [open, setOpen] = useState(false);
@@ -125,11 +126,11 @@ export function MobileAlertDrawer() {
                     className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-3"
                   >
                     <span
-                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${SEV_DOT[a.severity] ?? 'bg-lcars-muted'}`}
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${sevDot(a.severity) || 'bg-lcars-muted'}`}
                       aria-hidden="true"
                     />
                     <div className="min-w-0">
-                      <p className={`text-[11px] font-bold uppercase ${SEV_TEXT[a.severity] ?? 'text-lcars-text'}`}>
+                      <p className={`text-[11px] font-bold uppercase ${sevText(a.severity) || 'text-lcars-text'}`}>
                         {a.title}
                       </p>
                       <p className="text-[10px] text-lcars-muted">{a.detail}</p>

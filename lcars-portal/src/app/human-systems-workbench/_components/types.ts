@@ -479,7 +479,8 @@ export type Payload = RecoveryPayload | MedicalPayload | ReadinessPayload;
 
 // ── Presentation helpers (shared by the domain views) ────────────────────────
 
-import type { BadgeStatus } from '@/components/ui';
+import { toneToStatus, type BadgeStatus } from '@/components/ui';
+import { capacityStateToTone } from '@/lib/departments';
 
 /** Posture band → Badge status. STABLE reads as info (settled), STRONG success. */
 export function postureStatus(p: PostureBand): BadgeStatus {
@@ -573,14 +574,12 @@ export const CAPACITY_BALANCE_LABEL: Record<CapacityBalance, string> = {
  *  Badge status. THE primary capacity indicator (spec §5 — "Capacity is
  *  the primary state") — every place that shows Capacity Today should
  *  read from the same latest_capacity_state field and use this mapping,
- *  not the older RPC-derived capacity_band. */
+ *  not the older RPC-derived capacity_band. 2026-08-29: delegates to the
+ *  shared capacityStateToTone adapter (departments.ts) instead of its own
+ *  copy of the same mapping — this function's external contract (still
+ *  the canonical call site for this) is unchanged. */
 export function capacityStateStatus(state: string | null): BadgeStatus {
-  switch (state) {
-    case 'green': return 'success';
-    case 'orange': return 'warning';
-    case 'red': return 'error';
-    default: return 'neutral';
-  }
+  return toneToStatus(capacityStateToTone(state));
 }
 
 export const CAPACITY_STATE_LABEL: Record<string, string> = {

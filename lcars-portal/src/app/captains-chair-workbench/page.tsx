@@ -4,19 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
-import { stateToneClasses } from '@/lib/departments';
+import { stateToneClasses, alertSeverityToTone, capacityStateToTone, healthSeverityToTone } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
-import type { AlertSeverity } from '@/lib/alerts';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
-
-const ALERT_SEVERITY_BORDER: Record<AlertSeverity, string> = {
-  critical: 'border-state-crit',
-  high: 'border-state-crit',
-  warning: 'border-state-warn',
-};
 
 // Executive-summary redesign (2026-08-22): Captain's Chair no longer runs a
 // Mission Overview/Board — the Captain doesn't operate on missions as the
@@ -60,29 +53,18 @@ const RISK_STATE_TONE: Record<string, StateTone> = {
   RED: 'crit',
 };
 
-// Signal Snapshot's own small local maps (2026-08-22) — matching
-// capacity_checkins.capacity_state's green/orange/red vocabulary and
-// health_signals' severity vocabulary (see human-systems-workbench/
-// _components/types.ts's CAPACITY_STATE_LABEL/capacityStateStatus and
-// health-osint's threat-assessment/route.ts's SEVERITY_IMPACT for the
-// canonical versions) — defined locally rather than imported, matching
-// how this file already keeps its own POSTURE_STATE_TONE/RISK_STATE_TONE
-// rather than reaching into another workbench's _components.
+// Signal Snapshot's own label map (2026-08-22) — capacity_state's
+// green/orange/red is a display-text choice specific to this card
+// ("Sustainable"/"Stretched"/"Depleted"), kept local. The *color* for both
+// this and the health-severity badge below now comes from the shared
+// capacityStateToTone/healthSeverityToTone adapters (departments.ts,
+// 2026-08-29 Severity-Vocab-Canonicalization-Plan) instead of local copies
+// of the same tone map found duplicated in human-systems-workbench and
+// health-osint during that investigation.
 const CAPACITY_STATE_LABEL: Record<string, string> = {
   green: 'Sustainable',
   orange: 'Stretched',
   red: 'Depleted',
-};
-
-const CAPACITY_STATE_TONE: Record<string, StateTone> = {
-  green: 'ok',
-  orange: 'warn',
-  red: 'crit',
-};
-
-const HEALTH_SEVERITY_TONE: Record<string, StateTone> = {
-  critical: 'crit',
-  severe: 'warn',
 };
 
 function SituationBadge({ label, value, tone, sublabel, href }: { label: string; value: string; tone: StateTone; sublabel?: string; href?: string }) {
@@ -665,7 +647,7 @@ export default function CaptainsChairWorkbench() {
             ) : (
               <ul className="space-y-2">
                 {liveAlerts.slice(0, 5).map((alert) => (
-                  <li key={alert.id} className={`border-l-2 ${ALERT_SEVERITY_BORDER[alert.severity]} pl-2 text-xs`}>
+                  <li key={alert.id} className={`border-l-2 ${stateToneClasses(alertSeverityToTone(alert.severity)).border} pl-2 text-xs`}>
                     <p className="font-semibold text-wb-ink">{alert.title}</p>
                     <p className="text-wb-ink2">{alert.detail}</p>
                   </li>
@@ -693,9 +675,9 @@ export default function CaptainsChairWorkbench() {
         <div className="rounded-lg border border-wb-line bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-wb-ink">Signal Snapshot</h2>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className={`rounded-lg border ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').border} ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').bg} p-3`}>
+            <div className={`rounded-lg border ${stateToneClasses(capacityStateToTone(snapshot.capacityState ?? null)).border} ${stateToneClasses(capacityStateToTone(snapshot.capacityState ?? null)).bg} p-3`}>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Capacity Today</p>
-              <p className={`mt-0.5 text-lg font-bold ${stateToneClasses(CAPACITY_STATE_TONE[snapshot.capacityState ?? ''] ?? 'unknown').text}`}>
+              <p className={`mt-0.5 text-lg font-bold ${stateToneClasses(capacityStateToTone(snapshot.capacityState ?? null)).text}`}>
                 {attentionLoading ? '…' : snapshot.capacityState ? CAPACITY_STATE_LABEL[snapshot.capacityState] ?? snapshot.capacityState : 'No data'}
               </p>
               {snapshot.postureMessage && (
@@ -723,7 +705,7 @@ export default function CaptainsChairWorkbench() {
               </Link>
             </div>
 
-            <div className={`rounded-lg border ${stateToneClasses(snapshot.topHealthSignal ? HEALTH_SEVERITY_TONE[snapshot.topHealthSignal.severity] ?? 'unknown' : 'ok').border} ${stateToneClasses(snapshot.topHealthSignal ? HEALTH_SEVERITY_TONE[snapshot.topHealthSignal.severity] ?? 'unknown' : 'ok').bg} p-3`}>
+            <div className={`rounded-lg border ${stateToneClasses(snapshot.topHealthSignal ? healthSeverityToTone(snapshot.topHealthSignal.severity) : 'ok').border} ${stateToneClasses(snapshot.topHealthSignal ? healthSeverityToTone(snapshot.topHealthSignal.severity) : 'ok').bg} p-3`}>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Top Health Signal</p>
               {attentionLoading ? (
                 <p className="mt-0.5 text-sm text-wb-ink2">…</p>

@@ -11,7 +11,9 @@ Before writing this brief, every finding below was re-checked against the curren
 
 ---
 
-## Finding 1: Severity/status vocabulary sprawl — **still real, confirmed**
+## Finding 1: Severity/status vocabulary sprawl — **resolved 2026-08-29**
+
+Migrated per `docs/Severity-Vocab-Canonicalization-Plan-2026-08-29.md`'s locked 11-step plan, same day. All 10 inventoried vocabularies handled (8 migrated onto new `departments.ts` adapters, 2 confirmed dead and deleted), `StateTone` extended with a 5th `info` tone, 2 real department-color-conflation bugs fixed along the way (`MobileAlertDrawer.tsx`, `DeliveryPanel.tsx`), and an advisory CI gate (`tools/check_severity_vocab_sprawl.py`) built to catch new drift. Typecheck/lint/full test suite (435 tests) all green. The gate immediately found more sprawl than this plan's 10 items — logged in the plan doc's execution log as fresh backlog, not chased in this pass. Original finding kept below for history.
 
 `stateToneClasses` (`src/lib/departments.ts:118`) is the canonical `ok/warn/crit/unknown` token set and is genuinely adopted — 15 files use it, real progress since it was introduced. But at least **6 more independent vocabularies** coexist untouched, doing the same job differently:
 

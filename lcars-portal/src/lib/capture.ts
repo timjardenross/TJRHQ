@@ -31,9 +31,14 @@ export type CaptureClassification =
 
 export type CaptureImportance = 'low' | 'medium' | 'high';
 
-export type ProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'routed' | 'dismissed';
+// Named Capture*/* (2026-08-29, Severity-Vocab-Canonicalization-Plan
+// step 11) to disambiguate from types.ts's unrelated ProcessingStatus/
+// ReviewStatus — same names, different domain (VM document-processing
+// pipeline vs this file's captured-items pipeline), different value sets.
+// Naming collision only, never actually the same concept.
+export type CaptureProcessingStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'routed' | 'dismissed';
 
-export type ReviewStatus = 'unreviewed' | 'reviewed' | 'actioned';
+export type CaptureReviewStatus = 'unreviewed' | 'reviewed' | 'actioned';
 
 export type AiEnrichmentStatus = 'not_enriched' | 'queued' | 'enriched' | 'failed';
 
@@ -230,8 +235,8 @@ export interface InboxCapture {
   item_type: string | null;
   classification: CaptureClassification | null;
   importance: CaptureImportance | null;
-  processing_status: ProcessingStatus | null;
-  review_status: ReviewStatus | null;
+  processing_status: CaptureProcessingStatus | null;
+  review_status: CaptureReviewStatus | null;
   requires_review: boolean | null;
   ai_enrichment_status: AiEnrichmentStatus | null;
   source_channel_id: string | null;

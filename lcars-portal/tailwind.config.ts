@@ -36,6 +36,7 @@ const config: Config = {
     'bg-state-warn', 'bg-state-warn/15', 'text-state-warn', 'border-state-warn', 'text-state-warn-on',
     'bg-state-crit', 'bg-state-crit/15', 'text-state-crit', 'border-state-crit', 'text-state-crit-on',
     'bg-state-unknown', 'bg-state-unknown/15', 'text-state-unknown', 'border-state-unknown', 'text-state-unknown-on',
+    'bg-state-info', 'bg-state-info/15', 'text-state-info', 'border-state-info', 'text-state-info-on',
   ],
   theme: {
     extend: {
@@ -106,6 +107,18 @@ const config: Config = {
           warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required
           crit:    { DEFAULT: '#C43030', soft: '#f8dcdc', on: '#7A1616' }, // Critical / Action Required
           unknown: { DEFAULT: '#5A6690', soft: '#dfe2ee', on: '#33395C' }, // Unknown / No Data
+          // Added 2026-08-29 (docs/Severity-Vocab-Canonicalization-Plan-
+          // 2026-08-29.md), merging in Badge's independent 'info' status.
+          // Reuses the exact hex values already shipped as wb-sage/
+          // wb-sage-deep (Badge's current info tone) rather than inventing
+          // a new hue, so this doesn't visually change anything already
+          // rendering — just gives the value a canonical home. DEFAULT
+          // computes to ~4.05:1 against white (passes the >=3:1 bar); on
+          // computes to ~7.85:1 against white (passes the >=4.5:1 bar) —
+          // computed here, not re-run through
+          // docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md's actual
+          // measurement method; re-verify there before treating as final.
+          info:    { DEFAULT: '#2E8B8B', soft: '#d6ebeb', on: '#0F5B5D' }, // Informational / Benign
         },
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────

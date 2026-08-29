@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { WorkbenchShell, Card, Badge, STATUS_CLASSES, type BadgeStatus } from '@/components/ui';
+import { WorkbenchShell, Card, Badge, STATUS_CLASSES, toneToStatus } from '@/components/ui';
+import { severityToTone, decisionToTone } from '@/lib/departments';
 
 interface Finding {
   finding_id: string;
@@ -23,26 +24,13 @@ interface Decision {
   timestamp: string;
 }
 
-// This page's severity/decision vocabularies are its own (part of the
-// tracked severity-vocab sprawl, docs/UI-Layer-Debt-Handoff-2026-08-29
-// Finding 1) — riskClass/RiskPill only recognize RED/AMBER/GREEN/HIGH/
-// MEDIUM/LOW and silently rendered everything else as neutral grey,
-// flattening the one signal (severity/decision) this triage UI exists to
-// show. Mapped onto Badge's own status vocabulary directly here rather
-// than reusing riskClass/RiskPill, until the full taxonomy migration lands.
-const SEVERITY_STATUS: Record<Finding['severity'], BadgeStatus> = {
-  info: 'neutral',
-  low: 'success',
-  medium: 'warning',
-  high: 'warning',
-  critical: 'error',
-};
-
-const DECISION_STATUS: Record<Decision['decision'], BadgeStatus> = {
-  approved: 'success',
-  rejected: 'error',
-  more_evidence: 'warning',
-};
+// This page's severity/decision vocabularies were the original trigger for
+// the tracked severity-vocab sprawl finding (docs/UI-Layer-Debt-Handoff-
+// 2026-08-29 Finding 1) — riskClass/RiskPill only recognized RED/AMBER/
+// GREEN/HIGH/MEDIUM/LOW and silently rendered everything else as neutral
+// grey. 2026-08-29 (docs/Severity-Vocab-Canonicalization-Plan-2026-08-29.md):
+// migrated onto the canonical severityToTone/decisionToTone adapters
+// instead of a local BadgeStatus map.
 
 export default function SelfImprovementFindings() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -183,9 +171,9 @@ export default function SelfImprovementFindings() {
                   <div className="font-semibold text-sm text-wb-ink">{f.title}</div>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <span className="text-xs bg-wb-line text-wb-ink2 px-2 py-1 rounded">{f.category}</span>
-                    <Badge status={SEVERITY_STATUS[f.severity]}>{f.severity}</Badge>
+                    <Badge status={toneToStatus(severityToTone(f.severity))}>{f.severity}</Badge>
                     {f.decision && (
-                      <Badge status={DECISION_STATUS[f.decision]}>{f.decision.replace('_', ' ')}</Badge>
+                      <Badge status={toneToStatus(decisionToTone(f.decision))}>{f.decision.replace('_', ' ')}</Badge>
                     )}
                   </div>
                 </button>
@@ -276,7 +264,7 @@ export default function SelfImprovementFindings() {
               )}
 
               {selectedFinding.decision && (
-                <div className={`p-3 rounded ${STATUS_CLASSES[DECISION_STATUS[selectedFinding.decision]]} text-sm font-semibold`}>
+                <div className={`p-3 rounded ${STATUS_CLASSES[toneToStatus(decisionToTone(selectedFinding.decision))]} text-sm font-semibold`}>
                   Decision: {selectedFinding.decision.replace('_', ' ').toUpperCase()}
                 </div>
               )}
