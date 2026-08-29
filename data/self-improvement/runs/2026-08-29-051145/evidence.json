@@ -1,0 +1,303 @@
+{
+  "collection_timestamp": "2026-08-29T05:11:45.164449+00:00",
+  "repository_state": {
+    "branch": "main",
+    "commit": "e8a1e750f8cd0bbea15d122e69f010c27efd8d90",
+    "commit_message": "self-improvement-findings: heartbeat, fix /tmp data-loss risk, fix stale-sort bug\n\nCouncil follow-up (self-improvement-findings, 2026-08-29). Correction first:\ntold the council orchestrator.py had no scheduling and ran manually once -\nwrong, caused by a grep miss (self.improvement vs the real unit name\nself-improving-system). It's been running daily via\nself-improving-system.timer since 2026-08-23. Adjusted scope accordingly -\nno re-scheduling needed, just the 3 things below.\n\n- orchestrator.py: record_heartbeat() on every run (ok/failed), matching\n  the platform's standard job-health convention. This timer had zero\n  observability - if it silently stopped or errored, nothing would notice.\n\n- orchestrator.py --data-root default: /tmp/usstjros-findings ->\n  /opt/starship-endeavour/data/self-improvement. The timer had been\n  writing 6+ days of run history to a path with no persistence guarantee\n  across reboot, undetected. Migrated the existing /tmp history over\n  (data/self-improvement/runs/2026-08-23 through 2026-08-28) rather than\n  losing it.\n\n- dashboard.py DATA_ROOT: was \"prefer /tmp if it exists, else persistent\n  path\" - the /tmp-preference was its own separate bug (permanent silent\n  disagreement with a fixed orchestrator.py) independent of the read-only-\n  root rationale, which no longer holds on this host anyway (verified\n  writable). Now unconditionally the persistent path.\n\n- dashboard.py get_latest_run(): found while verifying the migration above.\n  Lexicographic sort on directory name broke the moment old\n  r_20260712_NNN-style dirs mixed with new date-prefixed ones ('r' > '2'\n  in ASCII), so a July run always outranked an August one as \"latest\" -\n  the dashboard would have shown 0 findings, worse than before this fix.\n  Switched to mtime-based sort.\n\nVerified: py_compile clean, dashboard.py restarted and /api/status\nconfirms latest_run=2026-08-28-210431, findings_count=2 (matches live API\nbefore any change). Nav link still open (separate commit).\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01F1KgvHcPTh7uQNNPDtxRuj",
+    "dirty": true,
+    "uncommitted_files": [
+      "data/self-improvement/review/cycle_summary.json",
+      "data/self-improvement/review/decision_report.json",
+      "core/infrastructure/supabase/migrations/0180_self_improvement_cycle_domain.sql",
+      "data/self-improvement/runs/2026-08-29-050948/"
+    ],
+    "repo_root": "/opt/starship-endeavour"
+  },
+  "filesystem_audit": {
+    "python_files": 66431,
+    "test_files": [
+      "test_daily_brief_interrupt_now.py",
+      "test_lifecycle_advancer.py",
+      "test_priority_4_b1f_planning.py",
+      "test_kimi_qwen_providers.py",
+      "test_b1d_feedback_loops.py",
+      "test_commander_bridge.py",
+      "test_downdetector_priority_cadence.py",
+      "test_pending_actions.py",
+      "test_intelligence_deduplicator.py",
+      "test_signal_opportunity_converter.py",
+      "test_downdetector_thresholds.py",
+      "test_end_to_end_learning_loop.py",
+      "test_phase_a_enrichment.py",
+      "test_advisory_learning.py",
+      "test_intelligence_classifier.py",
+      "test_llm_provider_alignment.py",
+      "test_intelligence_ranker.py",
+      "test_priority_2a_b1c_b1d_integration.py",
+      "test_mistral_research_workflow.py",
+      "test_content_intelligence.py",
+      "test_msp_0057_wp1_integration.py",
+      "test_ori_enrichment.py",
+      "test_learning_narrative.py",
+      "test_learning_loop_b1a.py",
+      "test_priority_engine_wiring.py",
+      "test_gemini_quota_aware.py",
+      "test_lifecycle_reconciler.py",
+      "test_intelligence_source_tier.py",
+      "test_interrupt_dispatcher.py",
+      "test_intelligence_phase2.py",
+      "test_validation_suite.py",
+      "test_advisory_runtime.py",
+      "test_b1c_quality_scoring.py",
+      "test_intelligence_fuzzy_dedup.py",
+      "test_priority_engine.py",
+      "test_outcome_capture.py",
+      "test_self_improvement_system.py",
+      "test_phase_b_governance.py",
+      "test_message_chunking.py",
+      "test_intelligence_analyst.py",
+      "test_triage_package.py",
+      "test_cognitive_core_regression.py",
+      "test_lifecycle_status_map.py",
+      "test_advisory_products.py",
+      "test_attention_evaluation_job.py",
+      "test_episodic_memory.py",
+      "test_cps230_final_validation.py",
+      "test_approval_router.py",
+      "test_advisory_temporal.py",
+      "test_engineering_prep.py",
+      "test_telstra_poc.py",
+      "test_research_output_quality_validation.py",
+      "test_repository_awareness_source_truth.py",
+      "test_oai_continuation.py",
+      "test_supabase_client.py",
+      "test_attention_engine.py",
+      "test_intelligence_workflow.py",
+      "test_intelligence_api_escalation.py",
+      "test_validation_suite_job.py",
+      "test_brief_qa_agent.py",
+      "test_priority_3_b1e_forecasting.py",
+      "test_priority_2b_b1d_b1a_integration.py",
+      "test_intelligence_brief_generator.py",
+      "test_capture_contract.py",
+      "test_paperclip_bridge.py",
+      "test_captain_brief_orchestrator.py",
+      "test_intelligence_filter.py",
+      "test_b1b_outcome_capture.py",
+      "test_intelligence_governance.py",
+      "test_review_package.py",
+      "test_captain_brief_contract.py",
+      "test_advisory_personal.py",
+      "test_lifecycle_coverage.py",
+      "test_ori_brief_parser.py"
+    ],
+    "doc_files": {
+      "count": 1891,
+      "most_recent": [
+        "docs/UI-Layer-Debt-Handoff-2026-08-29.md",
+        "docs/Severity-Vocab-Canonicalization-Plan-2026-08-29.md",
+        "docs/LIVE-WORKBENCHES.md",
+        "platform-runtime/.venv/lib/python3.12/site-packages/mistralai/extra/README.md",
+        "Emergency_Alert_Hub_Workbench_Mission_and_Scope.md",
+        "knowledge/OSS-Gap-Solutions-2026-08-23.md",
+        "knowledge/NVIDIA-OSS-Assessment-2026-08-23.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling_parse/pdf_resources/cmap-resources/LICENSE.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling_parse/pdf_resources/cmap-resources/README.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/service-client.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/slim-packaging.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/extraction.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/rag.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/python-sdk.md",
+        "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/docling/.agents/skills/docling/references/cli.md"
+      ]
+    },
+    "config_files": [
+      "core/infrastructure/vm-processing/config.example.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/tags.yaml",
+      "config/self_improvement_policy.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/markdown_it/port.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/default_models.yaml",
+      "core/infrastructure/vm-transfer/config.example.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/inference_engine/pytorch/networks/arch_config.yaml",
+      "audit_results.json",
+      "core/infrastructure/vm-processing/config.yaml",
+      "config/self_improvement_policy.yaml",
+      "core/infrastructure/mac-collector/config.example.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torch/_export/serde/schema.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/derivatives.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/rapidocr/config.yaml",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/autograd/deprecated.yaml",
+      "week2_full_audit.json",
+      "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/torchgen/packaged/ATen/native/native_functions.yaml"
+    ],
+    "schema_files": [
+      "self_improvement_run.schema.json",
+      "self_improvement_finding.schema.json",
+      "self_improvement_decision.schema.json"
+    ],
+    "missing_directories": []
+  },
+  "model_router_audit": {
+    "configured_routes": {
+      "task_types": [
+        "classify-capture",
+        "summarise-note",
+        "classify-document",
+        "summarise-document",
+        "xo-response",
+        "intelligence-brief",
+        "intelligence-signals",
+        "captain-insight-synthesis",
+        "captain-reasoning-synthesis",
+        "embed",
+        "escalate",
+        "fallback-complex",
+        "engineering-review",
+        "billing-report",
+        "self-improvement-analyse",
+        "self-improvement-critique",
+        "self-improvement-mission",
+        "adhd-decompose"
+      ],
+      "count": 18
+    },
+    "router_reachable": true,
+    "router_status": {
+      "ollama_url": "http://localhost:11434",
+      "ollama_reachable": true,
+      "loaded_models": [],
+      "available_models": [
+        "qwen3.5:9b",
+        "qwen3.5:4b",
+        "qwen3.5:2b",
+        "qwen2.5-coder:7b",
+        "gemma3:4b",
+        "gemma4:12b",
+        "nomic-embed-text:latest",
+        "mistral-small3.2:24b",
+        "glm-5.2:cloud"
+      ],
+      "router_port": 8891,
+      "log_file": "/opt/starship-endeavour/core/model-router/call_log.jsonl",
+      "recent_avg_ms": 7193,
+      "recent_failed": 0,
+      "routing_policy": [
+        {
+          "task_type": "classify-capture",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "summarise-note",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "classify-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "summarise-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "xo-response",
+          "model": "gemma3:4b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "intelligence-brief",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "intelligence-signals",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "captain-insight-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "captain-reasoning-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "embed",
+          "model": "nomic-embed-text",
+          "keep_alive": "1m"
+        },
+        {
+          "task_type": "escalate",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "fallback-complex",
+          "model": "glm-5.2:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "engineering-review",
+          "model": "qwen2.5-coder:7b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "billing-report",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-analyse",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-critique",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-mission",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "adhd-decompose",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        }
+      ]
+    },
+    "call_log_exists": true,
+    "call_log_size_mb": 0.04935646057128906
+  },
+  "code_analysis": {
+    "todos_and_fixmes": {},
+    "dead_imports": [
+      "/opt/starship-endeavour/telegram-bots/xo/.venv/lib/python3.12/site-packages/google/protobuf/text_format.py:import encodings.raw_unicode_escape  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/telegram-bots/xo/.venv/lib/python3.12/site-packages/google/protobuf/text_format.py:import encodings.unicode_escape  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/telegram-bots/xo/.venv/lib/python3.12/site-packages/grpc/beta/implementations.py:import threading  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/telegram-bots/xo/.venv/lib/python3.12/site-packages/grpc/framework/interfaces/base/base.py:import threading  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages/google/protobuf/text_format.py:import encodings.raw_unicode_escape  # pylint: disable=unused-import"
+    ],
+    "hardcoded_values": [
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/config.py:            url=router_raw.get(\"url\", \"http://127.0.0.1:8891\").rstrip(\"/\"),",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/httpcore/_models.py:    url = httpcore.URL(\"https://www.example.com/\")",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/huggingface_hub/inference/_mcp/cli.py:                raw_api_key = config.get(\"apiKey\")",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/huggingface_hub/inference/_mcp/cli.py:        raw_api_key = config.get(\"apiKey\")",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/httpcore/_sync/http_proxy.py:            password = enforce_bytes(proxy_auth[1], name=\"proxy_auth\")",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/httpcore/_sync/socks_proxy.py:            password_bytes = enforce_bytes(password, name=\"proxy_auth\")"
+    ]
+  },
+  "evidence_window": {
+    "since_commit": null,
+    "collection_timestamp": "2026-08-29T05:11:45.164449+00:00"
+  },
+  "collection_duration_ms": 27640
+}

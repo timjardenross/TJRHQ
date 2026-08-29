@@ -1,0 +1,50 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Duplicate Policy Configuration Formats (JSON and YAML)",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Both config/self_improvement_policy.json and config/self_improvement_policy.yaml exist simultaneously in repository",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML policy file coexists alongside JSON policy file, risking configuration divergence",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single canonical configuration format for self-improvement policy and remove duplicate specification"
+      },
+      "expected_benefit": "Eliminates potential configuration drift and ambiguity across services consuming policy definitions"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Embedding Model Tag Specification Discrepancy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Router policy configures 'embed' route with model name 'nomic-embed-text'",
+          "location": "core/model-router/routing_policy"
+        },
+        {
+          "type": "service_status",
+          "observation": "Ollama available models lists embedding model with explicit tag 'nomic-embed-text:latest'",
+          "location": "model_router_audit.router_status.available_models"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Explicitly align model tag identifiers in model-router policy with available Ollama model tags"
+      },
+      "expected_benefit": "Ensures deterministic model resolution and prevents route failures due to tag mismatch"
+    }
+  ]
+}
