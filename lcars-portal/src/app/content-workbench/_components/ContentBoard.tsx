@@ -597,20 +597,43 @@ function ProofingStageBody({ item, onChanged }: { item: ContentItem; onChanged: 
 
 // ── Card shell — collapsed preview + Modal detail view ───────────────────────
 
+const DISCARD_GRACE_MS = 5000;
+
 function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  // 2026-08-29 (design-audit): discard -> 'archived' is genuinely
+  // reversible (comms_content stays, just off the active board — see
+  // api/comms/[id]/advance TRANSITIONS comment), so a blocking confirm
+  // dialog was the wrong pattern for it. No un-archive trigger exists on
+  // that route yet, so real post-commit undo isn't available - this
+  // instead delays the actual API call for a grace window and lets Undo
+  // cancel it before it ever fires, which is the confirm-free pattern that
+  // doesn't require a new backend capability.
+  const [pendingDiscard, setPendingDiscard] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const discardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accent = STAGE_ACCENT[item.stage];
 
-  async function doDiscard() {
-    setDiscarding(true);
-    try {
-      const res = await discard(item.id);
-      if (res.ok) { setOpen(false); onChanged(); }
-    } finally {
-      setDiscarding(false);
-    }
+  useEffect(() => () => { if (discardTimer.current) clearTimeout(discardTimer.current); }, []);
+
+  function startDiscard() {
+    setPendingDiscard(true);
+    discardTimer.current = setTimeout(async () => {
+      setDiscarding(true);
+      try {
+        const res = await discard(item.id);
+        if (res.ok) { setOpen(false); onChanged(); }
+      } finally {
+        setDiscarding(false);
+        setPendingDiscard(false);
+      }
+    }, DISCARD_GRACE_MS);
+  }
+
+  function cancelDiscard() {
+    if (discardTimer.current) clearTimeout(discardTimer.current);
+    discardTimer.current = null;
+    setPendingDiscard(false);
   }
 
   const chipRow = (
@@ -646,7 +669,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
         </p>
       </div>
 
-      <Modal open={open} onClose={() => { setOpen(false); setConfirmingDiscard(false); }} title={item.title} variant="preview">
+      <Modal open={open} onClose={() => { setOpen(false); cancelDiscard(); }} title={item.title} variant="preview">
         <div className="mb-4 space-y-2">
           {chipRow}
           <p className="text-[11px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
@@ -658,19 +681,18 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
         {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
 
         <div className="mt-4 border-t border-wb-line pt-3">
-          {!confirmingDiscard ? (
-            <button type="button" onClick={() => setConfirmingDiscard(true)}
+          {!pendingDiscard ? (
+            <button type="button" onClick={startDiscard}
               className="text-[12px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
               Discard this item
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
-              <p className="flex-1 text-[12px] text-wb-crit-on">Discard? It&rsquo;s removed from the board, not deleted.</p>
-              <Button size="sm" variant="danger" onClick={doDiscard} disabled={discarding}>
-                {discarding ? 'Discarding…' : 'Confirm'}
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmingDiscard(false)} disabled={discarding}>
-                Cancel
+              <p className="flex-1 text-[12px] text-wb-crit-on">
+                {discarding ? 'Discarding…' : 'Discarded — removed from the board, not deleted.'}
+              </p>
+              <Button size="sm" variant="secondary" onClick={cancelDiscard} disabled={discarding}>
+                Undo
               </Button>
             </div>
           )}

@@ -257,19 +257,19 @@ export default function SelfImprovementFindings() {
                       onClick={() => makeDecision('approved')}
                       className="flex-1 px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90"
                     >
-                      ✓ Approve
+                      Approve
                     </button>
                     <button
                       onClick={() => makeDecision('more_evidence')}
                       className="flex-1 px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90"
                     >
-                      ? More Evidence
+                      More Evidence
                     </button>
                     <button
                       onClick={() => makeDecision('rejected')}
                       className="flex-1 px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90"
                     >
-                      ✗ Reject
+                      Reject
                     </button>
                   </div>
                 </section>

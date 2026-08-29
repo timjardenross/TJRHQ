@@ -256,8 +256,8 @@ export default function EmergencyAlertHubWorkbench() {
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading Emergency Alert Hub…</p>
           ) : loadError ? (
-            <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-wb-crit-on">Failed to load Emergency Alert Hub</p>
+            <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
+              <p className="text-[13px] font-semibold text-state-crit-on">Failed to load Emergency Alert Hub</p>
               <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
             </div>
           ) : (

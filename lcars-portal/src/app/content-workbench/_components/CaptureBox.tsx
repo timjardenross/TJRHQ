@@ -60,7 +60,6 @@ export function CaptureBox({ onCaptured }: { onCaptured: () => void }) {
         focused ? 'border-wb-sage-deep' : 'border-wb-line'
       }`}
     >
-      <div className="h-1 bg-gradient-to-r from-wb-sage via-wb-warn to-wb-ok" aria-hidden />
       <div className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-wb-sage-deep text-[12px] text-white" aria-hidden>+</span>

@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Panel } from './shared';
+import { stateToneClasses } from '@/lib/departments';
 
 interface Loop {
   advisory_id: string;
@@ -19,11 +20,26 @@ interface Loop {
 
 type OutcomeValue = 'success' | 'partial' | 'failure';
 
-const OUTCOME_OPTS: { value: OutcomeValue; label: string; style: string }[] = [
-  { value: 'success',  label: '✓ Success',  style: 'border-wb-sage-deep text-wb-sage-deep hover:bg-wb-sage-deep/10' },
-  { value: 'partial',  label: '~ Partial',   style: 'border-wb-warn/60 text-wb-warn-on hover:bg-wb-warn/10'         },
-  { value: 'failure',  label: '✗ Failure',   style: 'border-wb-crit/60 text-wb-crit-on hover:bg-wb-crit/10'         },
+// Migrated onto the canonical stateToneClasses tone system (2026-08-29 —
+// this was the "7th vocabulary" logged in the UI-Layer-Debt handoff's
+// severity-vocab-sprawl finding) instead of its own hand-rolled style
+// strings: success/partial/failure map onto ok/warn/crit exactly.
+const OUTCOME_OPTS: { value: OutcomeValue; label: string; tone: 'ok' | 'warn' | 'crit' }[] = [
+  { value: 'success',  label: '✓ Success',  tone: 'ok' },
+  { value: 'partial',  label: '~ Partial',   tone: 'warn' },
+  { value: 'failure',  label: '✗ Failure',   tone: 'crit' },
 ];
+
+// Written as literal strings (not composed from stateToneClasses' return
+// value with a template-literal `hover:` prefix) so Tailwind's content
+// scanner — which matches literal text, not runtime string concatenation —
+// actually generates these hover variants. See departments.ts's own
+// safelist comment for the same constraint on the base classes.
+const OUTCOME_HOVER_BG: Record<'ok' | 'warn' | 'crit', string> = {
+  ok: 'hover:bg-state-ok/15',
+  warn: 'hover:bg-state-warn/15',
+  crit: 'hover:bg-state-crit/15',
+};
 
 function fmt(iso: string) {
   try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }
@@ -145,16 +161,19 @@ export function LoopsView() {
                   <p className="text-xs text-wb-crit-on">{errors[loop.advisory_id]}</p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {OUTCOME_OPTS.map(({ value, label, style }) => (
-                    <button
-                      key={value}
-                      onClick={() => close(loop.advisory_id, value)}
-                      disabled={isClosing}
-                      className={`rounded-md border px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-40 ${style}`}
-                    >
-                      {isClosing ? '…' : label}
-                    </button>
-                  ))}
+                  {OUTCOME_OPTS.map(({ value, label, tone }) => {
+                    const t = stateToneClasses(tone);
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => close(loop.advisory_id, value)}
+                        disabled={isClosing}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-40 ${t.border} ${t.on} ${OUTCOME_HOVER_BG[tone]}`}
+                      >
+                        {isClosing ? '…' : label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -117,3 +117,18 @@ Ran the project's `design-audit` skill (`.claude/skills/design-audit/`) across e
 - Minor taste calls not acted on: `content-workbench/_components/CaptureBox.tsx:63`'s unexplained 3-stop gradient bar; a handful of bare-Unicode-glyph buttons (`✓`/`✗`/`?` on self-improvement-findings' decision buttons) that already pair the glyph with a text label, so not urgent.
 
 No critical/major findings at all in: `weekly-review`, `agent-status-workbench` (0/0), `content-workbench` (0 crit), `advisory-workbench` (0 crit after the one major fixed). Cleanest workbenches in the sweep.
+
+---
+
+## 2026-08-29, same-session follow-up: backlog items 1-2, 5-6 resolved; 3 given a bounded fix; 4 deliberately declined
+
+- **1. Emergency Alert Hub token split** — resolved. The file already used `state-*` for its stat tiles; migrated the loading-error banner's `wb-crit`/`wb-crit-on` to `state-crit`/`state-crit-on` to match (identical usage shape — tinted `/10` bg + `-on` text — so a safe drop-in, not a cross-family redesign). One file now internally consistent; the two-family question app-wide is still open.
+- **2. 7th severity vocabulary (`OUTCOME_OPTS`)** — resolved. Migrated `advisory-workbench/_components/LoopsView.tsx` off its own hardcoded style strings onto `stateToneClasses` (success→ok, partial→warn, failure→crit). Note for next migration: `stateToneClasses`'s return value can't be interpolated into a `hover:` prefix at runtime — Tailwind's content scanner needs the literal class string in source, so the hover backgrounds are a small static lookup (`OUTCOME_HOVER_BG`) instead. Same constraint will bite any future migration that tries to compose `hover:${tone.bg}`.
+- **3. Confirm-dialog-for-reversible-action (`ContentBoard.tsx`)** — given a bounded fix, not the full optimistic-refetch pattern the audit suggested. No un-archive trigger exists on `/api/comms/[id]/advance` (its `TRANSITIONS` table has no reverse edge out of `archived`), so true post-commit undo isn't available without a backend change. Implemented instead: clicking "Discard" starts a 5s grace-window timer before the API call actually fires; "Undo" cancels the pending timer. Functionally equivalent to undo (nothing is committed until the window elapses) without adding a new state-machine capability.
+- **4. Undefined type scale — declined, not attempted.** Checked before touching anything: 101 files use Tailwind's *default* `text-xs`/`sm`/`base`/`lg`/`xl`. Any `fontSize` scale added under `theme.extend` using those same key names would silently override every one of those 101 files' rendered size — a large, untested blast radius from what was meant to be an additive change. Only sampled ~2 workbenches' worth of arbitrary bracket values during the audit, nowhere near a real inventory. Needs a full-codebase font-size audit before any scale is defined, named with non-colliding keys — not attempted this session.
+- **5. Content Workbench gradient bar** — fixed, dropped (`CaptureBox.tsx`'s unexplained 3-stop gradient removed rather than wired to a real signal, per the audit's own suggested fix).
+- **6. Bare-glyph decision buttons (`self-improvement-findings/page.tsx`)** — fixed, dropped the `✓`/`?`/`✗` glyphs, kept the text labels (already color-coded via `bg-wb-ok`/`warn`/`crit`).
+
+Items 7 (Health OSINT / Human Systems domain split) and 8 (Command Centre revive-vs-retire) intentionally left for later — Captain wants to look at those separately.
+
+Typecheck + lint clean after all of the above.
