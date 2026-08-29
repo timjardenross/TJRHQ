@@ -952,7 +952,7 @@ def generate_morning_brief() -> str:
     if digest_text:
         lines += [
             "<b>🌐 TODAY, EXPLAINED</b>",
-            f"  {_truncate_clean(digest_text, 900)}",
+            f"  {digest_text}",
             "",
         ]
     else:
