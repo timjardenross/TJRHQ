@@ -85,15 +85,24 @@ const HEALTH_SEVERITY_TONE: Record<string, StateTone> = {
   severe: 'warn',
 };
 
-function SituationBadge({ label, value, tone, sublabel }: { label: string; value: string; tone: StateTone; sublabel?: string }) {
+function SituationBadge({ label, value, tone, sublabel, href }: { label: string; value: string; tone: StateTone; sublabel?: string; href?: string }) {
   const c = stateToneClasses(tone);
-  return (
-    <div className={`flex-1 rounded-lg border ${c.border} ${c.bg} px-4 py-3`}>
+  const content = (
+    <>
       <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${c.text}`}>{value}</p>
       {sublabel && <p className="mt-0.5 text-xs text-wb-ink/80">{sublabel}</p>}
-    </div>
+    </>
   );
+  const className = `flex-1 rounded-lg border ${c.border} ${c.bg} px-4 py-3`;
+  if (href) {
+    return (
+      <Link href={href} className={`${className} block transition-colors hover:border-wb-sage-deep/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep`}>
+        {content}
+      </Link>
+    );
+  }
+  return <div className={className}>{content}</div>;
 }
 
 interface OperationalRiskData {
@@ -128,6 +137,107 @@ function useOperationalRisk(): { data: OperationalRiskData | null; loading: bool
       } catch (e) {
         console.error('[CaptainsChair] useOperationalRisk failed:', e);
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load operational risk');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, loading, error };
+}
+
+// 2026-08-29 council follow-up ("fresh look, further holes"): Emergency
+// Alert Hub had zero presence on this page despite being Australia-wide
+// bushfire/flood/storm data with its own hourly digest — every advisor
+// independently flagged this as the single highest-value gap, since
+// "nothing to show" and "you didn't check" look identical here and the
+// cost of missing it is physical, unlike every other card on this page.
+// Same curated worst-item pattern as Signal Snapshot: worst active alert
+// tier + one headline, "Clear" otherwise.
+interface EmergencyAlertsSummary {
+  worstTier: 'emergency_warning' | 'watch_and_act' | null;
+  count: number;
+  worstHeadline: string | null;
+}
+
+function useEmergencyAlerts(): { data: EmergencyAlertsSummary | null; loading: boolean; error: string | null } {
+  const [data, setData] = useState<EmergencyAlertsSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/emergency-alerts?activeOnly=true');
+        if (!res.ok) throw new Error(`Emergency alerts unavailable (${res.status})`);
+        const body = await res.json();
+        if (cancelled) return;
+        const alerts: { severity: string; headline: string }[] = Array.isArray(body?.alerts) ? body.alerts : [];
+        // Only the two genuinely urgent tiers count here (matches
+        // intelligence/emergency_alert_summary.py's own urgent-tier
+        // definition) — Advice/unclassified churn is deliberately not
+        // surfaced on an exec-altitude page, same reasoning that page
+        // already applies to its own hourly-digest suppression.
+        const urgent = alerts.filter((a) => a.severity === 'emergency_warning' || a.severity === 'watch_and_act');
+        const worst = urgent.find((a) => a.severity === 'emergency_warning') ?? urgent[0] ?? null;
+        setData({
+          worstTier: (worst?.severity as EmergencyAlertsSummary['worstTier']) ?? null,
+          count: urgent.length,
+          worstHeadline: worst?.headline ?? null,
+        });
+        setError(null);
+      } catch (e) {
+        console.error('[CaptainsChair] useEmergencyAlerts failed:', e);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load emergency alerts');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, loading, error };
+}
+
+// Same council follow-up: Agent & Job Status deserves a slot on different
+// grounds than a content signal — it's infrastructure trust, a
+// meta-warning that answers "can I trust the rest of this page" before
+// reading the rest of it. Directly ties to this platform's own history
+// (draft_worker dead 10 days, XO Voice Debrief silently dead, both
+// discovered only after the fact). Counts only 'failed' heartbeats as
+// worth surfacing here — 'unknown'/'skipped' are routinely correct
+// (see agent-status route's own cadence-label history: reading every
+// stale job as "dead" was already a confirmed false-positive mistake
+// once, don't repeat it on this page).
+interface AgentHealthSummary {
+  failedCount: number;
+  worstLabel: string | null;
+}
+
+function useAgentHealth(): { data: AgentHealthSummary | null; loading: boolean; error: string | null } {
+  const [data, setData] = useState<AgentHealthSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/agent-status');
+        if (!res.ok) throw new Error(`Agent status unavailable (${res.status})`);
+        const body = await res.json();
+        if (cancelled) return;
+        const jobs: { status: string; label: string }[] = Array.isArray(body?.jobs) ? body.jobs : [];
+        const failed = jobs.filter((j) => j.status === 'failed');
+        setData({ failedCount: failed.length, worstLabel: failed[0]?.label ?? null });
+        setError(null);
+      } catch (e) {
+        console.error('[CaptainsChair] useAgentHealth failed:', e);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load agent status');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -426,11 +536,15 @@ export default function CaptainsChairWorkbench() {
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
   const { data: attention, snapshot, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
+  const { data: emergency, loading: emergencyLoading, error: emergencyError } = useEmergencyAlerts();
+  const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
 
   const postureBand = currentPosture.posture;
   const postureTone = POSTURE_STATE_TONE[postureBand];
   const riskTone = opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown';
   const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
+  const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
+  const agentHealthTone: StateTone = (agentHealth?.failedCount ?? 0) > 0 ? 'crit' : 'ok';
 
   return (
     <WorkbenchShell
@@ -441,7 +555,10 @@ export default function CaptainsChairWorkbench() {
     >
       <div className="space-y-4">
         {/* ── Situation strip ── */}
-        <div className="flex flex-col gap-3 sm:flex-row">
+        {/* 2026-08-29: flex-wrap added when this grew from 3 to 5 badges
+            (Emergency Alerts, Background Systems) — sm:flex-row alone
+            would cram 5 flex-1 items into one row on tablet widths. */}
+        <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
           <SituationBadge
             label="Recovery Posture"
             value={postureFetchFailed ? 'Data error' : postureBand}
@@ -459,6 +576,20 @@ export default function CaptainsChairWorkbench() {
             value={briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`}
             tone={briefingError ? 'unknown' : interruptTone}
             sublabel={(briefingStats?.interruptNow ?? 0) > 0 ? 'Needs you right now' : undefined}
+          />
+          <SituationBadge
+            label="Emergency Alerts"
+            value={emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear'}
+            tone={emergencyError ? 'unknown' : emergencyTone}
+            sublabel={emergency?.worstHeadline ?? undefined}
+            href="/emergency-alert-hub-workbench"
+          />
+          <SituationBadge
+            label="Background Systems"
+            value={agentHealthLoading ? '…' : agentHealthError ? 'Unknown' : agentHealth?.failedCount ? `${agentHealth.failedCount} Failing` : 'Nominal'}
+            tone={agentHealthError ? 'unknown' : agentHealthTone}
+            sublabel={agentHealth?.worstLabel ?? undefined}
+            href="/agent-status-workbench"
           />
         </div>
 
