@@ -23,16 +23,19 @@
 // ?domain=recovery|medical|readiness) — this page just stops choosing
 // between them.
 //
-// Readiness (2026-08-22): no longer fetched or rendered here — Captain
-// directive to declutter, along with Life Participation and Sleep. The
-// ?domain=readiness API branch, ReadinessView component, and the
-// readiness/* sub-routes are all still intact if this needs to come back;
-// this page just stopped calling any of them.
+// Readiness: declutter directive 2026-08-22 unmounted it from this page;
+// 3-workbench council item 2/5 (2026-08-29) then deleted it outright —
+// ReadinessView.tsx, the readiness/* sub-routes, and the ?domain=readiness
+// API branch are all gone, not just unlinked. It was a never-linked reskin
+// attempt; the live, mobile-primary readiness experience is
+// (app)/physical-readiness/* (linked from MobileCommandBar's TABS),
+// unaffected by this removal. If personal readiness tracking needs a
+// presence on this page again, build it fresh rather than reviving this.
 //
-// The 8 internal sub-route back-links across log/, medical/*, and
-// readiness/* still append `?domain=medical|recovery|readiness` to their
-// return link — harmless (this route ignores the param and always renders
-// everything it fetches), so none of them needed touching.
+// The remaining internal sub-route back-links across log/ and medical/*
+// still append `?domain=medical|recovery` to their return link — harmless
+// (this route ignores the param and always renders everything it
+// fetches), so none of them needed touching.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';

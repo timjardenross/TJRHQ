@@ -963,33 +963,25 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
   };
 }
 
-async function buildReadiness(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
-  const [{ data: last }, { data: checkin }] = await Promise.all([
-    sb.from('physical_workout_sessions')
-      .select('id,session_type,status,started_at,duration_minutes')
-      .order('started_at', { ascending: false }).limit(1).maybeSingle(),
-    sb.from('physical_readiness_checkins')
-      .select('created_at')
-      .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-  ]);
-
-  return {
-    domain: 'readiness',
-    kpis,
-    last_session: last
-      ? { id: last.id, type: last.session_type, status: last.status, date: last.started_at, duration: last.duration_minutes }
-      : null,
-    weekly_count: ctx.sessions7d,
-    last_checkin_at: checkin?.created_at ?? null,
-  };
-}
+// 2026-08-29: buildReadiness() and the ?domain=readiness branch removed
+// (3-workbench council item 2/5) — human-systems-workbench/readiness/*,
+// the only caller of this branch, was deleted in the same pass. It was a
+// never-linked, unfinished reskin: the live, mobile-primary readiness
+// experience is (app)/physical-readiness/* (linked from MobileCommandBar's
+// TABS, its own separate API at /api/physical-readiness/complete),
+// unaffected by this removal.
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const domain = (req.nextUrl.searchParams.get('domain') ?? 'recovery') as 'recovery' | 'medical' | 'readiness';
+  // 'readiness' removed from this union (see buildReadiness's removal note
+  // above) — an old cached client requesting ?domain=readiness now falls
+  // through to the default recovery branch below rather than erroring,
+  // same graceful-degradation behaviour any unrecognised domain value
+  // already had.
+  const domain = (req.nextUrl.searchParams.get('domain') ?? 'recovery') as 'recovery' | 'medical';
   try {
     const sb = await createSupabaseServerClient();
     const ctx = await loadCtx(sb);
@@ -997,7 +989,6 @@ export async function GET(req: NextRequest) {
     const kpis = buildKpis(ctx, lp);
 
     if (domain === 'medical') return NextResponse.json(await buildMedical(sb, ctx, kpis));
-    if (domain === 'readiness') return NextResponse.json(await buildReadiness(sb, ctx, kpis));
     return NextResponse.json(await buildRecovery(sb, ctx, kpis));
   } catch (err) {
     console.error('[human-systems] read failed:', err);
