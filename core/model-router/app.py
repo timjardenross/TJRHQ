@@ -103,7 +103,16 @@ _LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
 
 MODEL_MID   = "gemma3:4b"          # fast classifier / XO chat / summariser
 MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
-MODEL_EMBED = "nomic-embed-text"      # embeddings
+MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own canonical tag
+                                          # (self-improvement audit FND-002, 2026-08-29:
+                                          # bare "nomic-embed-text" never actually broke
+                                          # embed calls — Ollama resolves it via its own
+                                          # implicit :latest default — but it string-
+                                          # mismatched the exact name in `ollama list`,
+                                          # so the model-catalogue-drift check flagged
+                                          # it every cycle. Cosmetic fix, verified via
+                                          # call_log.jsonl: embed calls were 0-failure
+                                          # before this change too.
 MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
