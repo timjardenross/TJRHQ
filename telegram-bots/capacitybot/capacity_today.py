@@ -1167,6 +1167,11 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         payload["notes"] = f["nt"]
     try:
         db.table(TABLE).update(payload).eq("id", row_id).execute()
+        try:
+            from core.platform.heartbeat import record_heartbeat
+            record_heartbeat(TABLE, status="ok", detail="checkin_type=deep source=telegram")
+        except Exception:
+            pass
         return True, None
     except Exception as exc:
         log.error("capacity_checkins deep-check update failed: %s", exc)
