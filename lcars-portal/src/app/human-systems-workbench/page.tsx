@@ -38,6 +38,7 @@
 // fetches), so none of them needed touching.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { RecoveryView } from './_components/RecoveryView';
@@ -98,6 +99,18 @@ function Workbench() {
       tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}>
+      {/* 2026-08-29 (3-workbench council item 3/5): recovery-brief/page.tsx
+          was live and real (a genuine wb-native replacement for the retired
+          (app)/recovery-brief page) but had zero inbound link from this
+          workbench's own main page — only reachable via a legacy redirect.
+          One line back in, as recommended, not a redesign. */}
+      <Link
+        href="/human-systems-workbench/recovery-brief"
+        className="mb-1 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      >
+        Recovery Brief →
+      </Link>
+
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
       {data?.recovery && (
