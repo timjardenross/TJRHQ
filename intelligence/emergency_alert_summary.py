@@ -7,6 +7,13 @@ active-alert set actually changed since the last send — a cheap DB diff
 (hash of id+severity+status per active alert) covers the common "nothing
 changed" hour without spending an LLM call or an email.
 
+Captain-directed 2026-08-29: still repeated hourly even after the 08-27
+unknown-severity fix, because Advice-tier alerts (routine bushfire/flood
+churn) flip status hourly too, so the fingerprint kept changing. Now: any
+alert at watch_and_act/emergency_warning tier still emails immediately on
+change (real urgency); if the whole active set is Advice/unknown only, hold
+and send at most once per day (~8am AEST, _DIGEST_HOUR_UTC) instead.
+
 Reuses two already-live primitives rather than building new ones:
   - core/llm/provider_chain.py (Gemini -> Mistral fallback), the same
     provider chain intelligence/brief/daily_digest.py and
@@ -39,6 +46,8 @@ log = logging.getLogger("emergency-alert-summary")
 
 _DOMAIN_KEY = "emergency_alert_hourly_summary"
 _EMAIL_TO = os.environ.get("EMERGENCY_ALERT_EMAIL_TO", "timjardenross1986@gmail.com")
+_URGENT_TIERS = {"emergency_warning", "watch_and_act"}
+_DIGEST_HOUR_UTC = 22  # ~8am AEST
 
 _SYSTEM_PROMPT = (
     "You are the Emergency Alert Hub's hourly summarizer for Captain TJR, a "
@@ -146,6 +155,22 @@ def run() -> dict:
     if fingerprint == state.get("last_fingerprint"):
         record_heartbeat(_DOMAIN_KEY, status="ok", detail=f"unchanged, {len(alerts)} active alert(s), no email sent", latency_ms=int((time.monotonic() - t0) * 1000))
         return {"changed": False, "count": len(alerts), "emailed": False}
+
+    urgent = any(a["severity"] in _URGENT_TIERS for a in alerts)
+    if not urgent:
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        last_sent_at = state.get("last_sent_at")
+        already_sent_today = bool(last_sent_at) and last_sent_at[:10] == now.date().isoformat()
+        if now.hour < _DIGEST_HOUR_UTC or already_sent_today:
+            record_heartbeat(
+                _DOMAIN_KEY,
+                status="ok",
+                detail=f"Advice/unclassified only ({len(alerts)} active) — holding for daily digest, no email sent",
+                latency_ms=int((time.monotonic() - t0) * 1000),
+            )
+            return {"changed": True, "count": len(alerts), "emailed": False, "held_for_digest": True}
 
     result = _generate_summary(alerts)
     if result is None:
