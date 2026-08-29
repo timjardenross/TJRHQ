@@ -8,7 +8,7 @@ import { stateToneClasses } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { fetchCaptureAnalytics } from '@/lib/capture';
+import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
 import type { AlertSeverity } from '@/lib/alerts';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
@@ -303,6 +303,14 @@ interface AttentionCounts {
   contentPriorityFlagged: number | null;
   capturePending: number | null;
   wellnessRiskFlags: number | null;
+  /** 2026-08-29: oldest item in each queue, not just its count — same
+   * curated-not-raw philosophy already applied to Signal Snapshot,
+   * finishing the demotion the council flagged as still leftover on these
+   * two tiles. Oldest (longest-waiting), not highest-priority: this is a
+   * "what's been sitting here the longest" signal, matching the Contrarian
+   * council advisor's framing. */
+  oldestContentAwaitingPublish: string | null;
+  oldestCapturePending: string | null;
 }
 
 interface TopOsintSignal {
@@ -329,6 +337,8 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
     contentPriorityFlagged: null,
     capturePending: null,
     wellnessRiskFlags: null,
+    oldestContentAwaitingPublish: null,
+    oldestCapturePending: null,
   });
   const [snapshot, setSnapshot] = useState<SignalSnapshot>({
     capacityState: null,
@@ -351,6 +361,16 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
       const capture = await fetchCaptureAnalytics();
       if (capture === null) { console.error('[CaptainsChair] capture pending count failed'); errs.push('Capture pending'); }
 
+      // Oldest pending capture, for the same curated-worst-item demotion
+      // as content below. fetchInboxCaptures orders newest-first, so the
+      // last element (not [0]) within the fetched page is the oldest —
+      // exact within the first `limit` pending items, which is the same
+      // "good enough, not exhaustive" tradeoff Signal Snapshot's other
+      // curated cards already make.
+      const oldestCapture = await fetchInboxCaptures({ statusFilter: 'pending', limit: 50 })
+        .then((rows) => rows.length > 0 ? rows[rows.length - 1] : null)
+        .catch((e) => { console.error('[CaptainsChair] oldest pending capture failed:', e); return null; });
+
       const wellness = await fetch('/api/human-systems?domain=recovery')
         .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .catch((e) => { console.error('[CaptainsChair] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
@@ -370,13 +390,22 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
 
       if (cancelled) return;
 
-      const items: { status: string; captain_focus?: boolean }[] = Array.isArray(content?.items) ? content.items : [];
+      const items: { status: string; captain_focus?: boolean; title?: string; created_at?: string }[] =
+        Array.isArray(content?.items) ? content.items : [];
+      const readyToPublish = items.filter((i) => i.status === 'ready_to_publish');
+      // Oldest by created_at ascending — "what's been sitting here the
+      // longest," same reasoning as the capture queue above.
+      const oldestContentItem = readyToPublish.length > 0
+        ? [...readyToPublish].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0]
+        : null;
 
       setData({
-        contentAwaitingPublish: content ? items.filter((i) => i.status === 'ready_to_publish').length : null,
+        contentAwaitingPublish: content ? readyToPublish.length : null,
         contentPriorityFlagged: content ? items.filter((i) => i.captain_focus).length : null,
         capturePending: capture ? capture.pending : null,
         wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
+        oldestContentAwaitingPublish: oldestContentItem?.title ?? null,
+        oldestCapturePending: oldestCapture ? (oldestCapture.title || oldestCapture.raw_text?.slice(0, 60) || null) : null,
       });
       setSnapshot({
         capacityState: wellness ? (wellness.latest_capacity_state ?? null) : null,
@@ -394,7 +423,7 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
   return { data, snapshot, loading, errors };
 }
 
-function CountTile({ label, value, href, loading }: { label: string; value: number | null; href: string; loading: boolean }) {
+function CountTile({ label, value, href, loading, topItem }: { label: string; value: number | null; href: string; loading: boolean; topItem?: string | null }) {
   const hasAction = (value ?? 0) > 0;
   return (
     <Link
@@ -405,6 +434,12 @@ function CountTile({ label, value, href, loading }: { label: string; value: numb
       <p className={`mt-1 text-xl font-bold ${hasAction ? 'text-wb-sage-deep' : 'text-wb-ink'}`}>
         {loading ? '…' : value === null ? '—' : value}
       </p>
+      {/* 2026-08-29: oldest item, not just the count — same curated-not-
+          raw demotion Signal Snapshot already applies. Only shown once
+          loaded and there's an actual item, never a placeholder. */}
+      {!loading && hasAction && topItem && (
+        <p className="mt-1 truncate text-[11px] text-wb-ink/70">{topItem}</p>
+      )}
     </Link>
   );
 }
@@ -606,8 +641,8 @@ export default function CaptainsChairWorkbench() {
           <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
 
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} />
-            <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} />
+            <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} topItem={attention.oldestContentAwaitingPublish} />
+            <CountTile label="Capture Pending Triage" value={attention.capturePending} href="/capture-workbench" loading={attentionLoading} topItem={attention.oldestCapturePending} />
             <CountTile label="Wellness Risk Flags" value={attention.wellnessRiskFlags} href="/human-systems-workbench" loading={attentionLoading} />
           </div>
           {attentionErrors.length > 0 && (

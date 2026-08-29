@@ -23,11 +23,14 @@ vi.mock('@/lib/useAlerts', async (importOriginal) => {
     useAlertCount: () => 0,
   };
 });
+const mockInboxCaptures = vi.fn(async () => [] as { title: string | null; raw_text: string | null }[]);
+const mockCaptureAnalytics = vi.fn(async () => ({ today: 0, this_week: 0, pending: 0, by_source: {}, by_classification: {} }));
 vi.mock('@/lib/capture', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/capture')>();
   return {
     ...actual,
-    fetchCaptureAnalytics: async () => ({ today: 0, this_week: 0, pending: 0, by_source: {}, by_classification: {} }),
+    fetchCaptureAnalytics: () => mockCaptureAnalytics(),
+    fetchInboxCaptures: (...args: unknown[]) => mockInboxCaptures(...(args as [])),
   };
 });
 vi.mock('@/lib/supabase-browser', () => ({
@@ -124,5 +127,32 @@ describe('Captain\'s Chair — Situation Strip', () => {
 
     expect(await screen.findByText('1 Failing')).toBeInTheDocument();
     expect(await screen.findByText('Downdetector Priority Polling')).toBeInTheDocument();
+  });
+
+  it('demotes Content Awaiting Publish and Capture Pending Triage to curated oldest-item cards, not just raw counts', async () => {
+    mockFetchByUrl({
+      '/api/emergency-alerts': { alerts: [] },
+      '/api/agent-status': { jobs: [] },
+      '/api/content-workbench': {
+        items: [
+          { status: 'ready_to_publish', title: 'Newer draft — AI regulation roundup', created_at: '2026-08-20T00:00:00Z' },
+          { status: 'ready_to_publish', title: 'Older draft — Quarterly platform update', created_at: '2026-08-10T00:00:00Z' },
+          { status: 'draft', title: 'Not awaiting publish', created_at: '2026-08-01T00:00:00Z' },
+        ],
+      },
+    });
+    mockInboxCaptures.mockResolvedValueOnce([
+      { title: null, raw_text: 'A voice memo with no title, captured a while ago' },
+    ]);
+    mockCaptureAnalytics.mockResolvedValueOnce({ today: 0, this_week: 1, pending: 1, by_source: {}, by_classification: {} });
+
+    render(<CaptainsChairWorkbench />);
+
+    // Oldest ready_to_publish item (by created_at), not the newest.
+    expect(await screen.findByText('Older draft — Quarterly platform update')).toBeInTheDocument();
+    expect(screen.queryByText('Newer draft — AI regulation roundup')).not.toBeInTheDocument();
+
+    // Falls back to a raw_text excerpt when a capture has no title.
+    expect(await screen.findByText('A voice memo with no title, captured a while ago')).toBeInTheDocument();
   });
 });
