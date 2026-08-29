@@ -77,6 +77,18 @@ _RAW_TEMPLATES = {"raw"}
 
 @dataclass
 class NotificationResult:
+    """Verification convention (council follow-up 2026-08-29 — "verified
+    live" claims need repeatable evidence, not just prose): when a session
+    claims a Telegram send was "verified live," the evidence is this
+    result's own `ok` and `message_id` — cite the actual message_id in the
+    claim (e.g. commit message, conversation), not just the word
+    "verified." A `message_id` is only present on a real, accepted
+    Telegram API response; it cannot be fabricated by a log line printing
+    "sent" without the send actually happening. `ok=True` with no
+    message_id (e.g. Slack) needs a different, transport-specific artifact
+    — for Slack that would be the `ts` this module doesn't currently
+    capture (see _send_slack's docstring); don't claim "verified live" for
+    Slack without adding that first."""
     ok: bool
     transport: Transport
     attempts: int
