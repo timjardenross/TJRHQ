@@ -72,7 +72,7 @@ This was the biggest surprise. Re-checked properly (traced actual `Link`/`href` 
 
 1. ~~**Nav orphans (Finding 4)**~~ — done 2026-08-29.
 2. ~~**Command Centre decision (Finding 2)**~~ — done 2026-08-29, retired.
-3. **Severity vocabulary consolidation (Finding 1)** — biggest real chunk of work remaining, same shape as today's backend consolidation (canonical exists, migrate + gate). **Investigation done and locked in: `docs/Severity-Vocab-Canonicalization-Plan-2026-08-29.md`** — full inventory (8 vocabularies, 2 of them dead code to delete rather than migrate, 1 already migrated), the proposed canonical system (extend `stateToneClasses` with a 5th `info` tone, `wb-*` becomes the canonical token family over `state-*`), and a 9-step file-by-file migration order. A fresh session can execute directly from that doc without re-investigating. **Only open item left.**
+3. **Severity vocabulary consolidation (Finding 1)** — biggest real chunk of work remaining, same shape as today's backend consolidation (canonical exists, migrate + gate). **Investigation done and locked in: `docs/Severity-Vocab-Canonicalization-Plan-2026-08-29.md`** — full inventory (now 10 vocabularies, 2 of them dead code to delete rather than migrate, 1 already migrated), the proposed canonical system (extend `stateToneClasses` with a 5th `info` tone; `state-*` is canonical — it's a *ratified* design standard per `tailwind.config.ts`'s own comment, not just the smaller-adoption family as first assumed), and an 11-step file-by-file migration order. A fresh session can execute directly from that doc without re-investigating. **Only open item left.**
 4. ~~**Health OSINT / Human Systems (Finding 3)**~~ — done 2026-08-29, kept split.
 
 ## Files to start from
