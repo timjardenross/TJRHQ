@@ -688,6 +688,16 @@ def main() -> int:
     # Ollama itself still serializes generate() calls internally, so this
     # doesn't overload the model, it just stops the HTTP layer from
     # rejecting connections while one caller waits.
+    #
+    # Threading alone doesn't fix bursts, though: ThreadingHTTPServer still
+    # inherits socketserver's default listen() backlog of 5. A burst of
+    # concurrent callers (morning brief's multiple pipeline stages, daily
+    # digest, XO, etc. all landing in the same window) filled that backlog
+    # and the kernel reset the excess connections outright — seen live as
+    # "Model Router unavailable: Connection reset by peer" even though the
+    # router process was healthy and just busy. Raised to give bursts room
+    # to queue instead of being dropped.
+    ThreadingHTTPServer.request_queue_size = 128
     server = ThreadingHTTPServer((_HOST, _PORT), RouterHandler)
     try:
         server.serve_forever()

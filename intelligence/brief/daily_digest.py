@@ -138,7 +138,7 @@ def build_daily_digest(osint_brief: Optional[dict], hours: int = 24, signals: Op
     represented, or None if there's nothing to synthesise or the LLM chain
     is unavailable. Never raises.
     """
-    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     try:
         events = poll_events(since=since, limit=200)
