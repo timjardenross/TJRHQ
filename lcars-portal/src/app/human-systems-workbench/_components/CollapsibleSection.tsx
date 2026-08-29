@@ -26,7 +26,7 @@ export function CollapsibleSection({ title, children, className = '' }: { title:
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
       className={`rounded-lg border border-wb-line bg-wb-surface ${className}`}
     >
-      <summary className="cursor-pointer list-none rounded-lg p-6 pb-3 font-serif text-lg text-wb-ink marker:content-none [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none rounded-lg p-6 pb-3 font-serif text-lg text-wb-ink marker:content-none [&::-webkit-details-marker]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         <span className="flex items-center justify-between">
           {title}
           <span className="text-[11px] font-sans font-normal uppercase tracking-wide text-wb-ink2">{open ? 'Hide' : 'Show'}</span>

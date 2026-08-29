@@ -109,7 +109,7 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
         <div>{relativeTime(job.lastRun)}</div>
         <div className="text-[10px] normal-case tracking-normal text-wb-ink2/70">{job.cadenceLabel}</div>
       </td>
-      <td className="py-3 text-[12px] text-wb-ink2 max-w-[260px] truncate">
+      <td className="py-3 text-[12px] text-wb-ink2 max-w-[260px] truncate" title={job.lastAction ?? undefined}>
         {job.lastAction ?? <span className="italic">—</span>}
       </td>
     </tr>

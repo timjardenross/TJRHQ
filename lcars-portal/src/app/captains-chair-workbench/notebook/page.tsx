@@ -160,6 +160,7 @@ function NoteCard({
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={expanded}
         className="w-full flex items-start gap-3 p-3 text-left hover:bg-wb-border/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
       >
         <div className="flex flex-col items-start gap-1.5 flex-1 min-w-0">
@@ -474,7 +475,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                   }
                 }}
               />
-              {captureError && <p className="text-xs text-wb-crit-on">{captureError}</p>}
+              <p className="min-h-[1lh] text-xs text-wb-crit-on">{captureError}</p>
               <button
                 type="button"
                 onClick={handleCapture}
@@ -518,7 +519,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                   className="w-full rounded-lg border border-wb-line bg-white px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                 />
               </div>
-              {captureError && <p className="text-xs text-wb-crit-on">{captureError}</p>}
+              <p className="min-h-[1lh] text-xs text-wb-crit-on">{captureError}</p>
               <button
                 type="button"
                 onClick={handleCapture}

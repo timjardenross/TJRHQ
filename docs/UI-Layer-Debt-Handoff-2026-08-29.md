@@ -75,3 +75,45 @@ This was the biggest surprise. Re-checked properly (traced actual `Link`/`href` 
 ## Files to start from
 
 `src/lib/nav.ts`, `src/lib/workbenches.ts`, `src/components/ui/WorkbenchShell.tsx`, `src/lib/departments.ts` (canonical `stateToneClasses`), `src/lib/alerts.ts`, `src/lib/hygieneRules.ts`, `src/lib/intelligenceRisk.ts`, `src/app/self-improvement-findings/page.tsx`, `src/app/emergency-alert-hub-workbench/page.tsx`, `src/lib/command-centre.ts`, `src/lib/capture.ts` + `src/lib/types.ts` (duplicate `ProcessingStatus`/`ReviewStatus`).
+
+---
+
+## 2026-08-29 session update: Finding 4 done, full 12-workbench design audit run
+
+### Finding 4 (nav orphans) — done, and corrected further
+
+Before fixing, re-verified once more and found the doc's own "3 orphans" was still one correction too shallow:
+
+- **`comms-workbench`** was NOT an accidental orphan — its replacement, `content-workbench/page.tsx`, has its own header comment stating it was deliberately delisted 2026-08 in favor of Content Workbench (a confirmed superset). Deleted the page/`_components`/`QUICK-START.md` outright (zero real importers of its components; its shared API routes stay, used directly by Content Workbench) rather than re-adding it to nav.
+- **`investigate`** was NOT an accidental orphan either — its own header comment cites MSN-0353 and documents it as deliberately zero-nav, contextual-entry-only (same pattern as `/decide`, `/ask`, `/recommended`). Left alone.
+- **`self-improvement-findings`** was the one real bug — added to `LIVE_WORKBENCHES`.
+
+Also made `workbenches.ts`'s `LIVE_WORKBENCHES` array an enforced canonical master list: strengthened its header comment, added `docs/LIVE-WORKBENCHES.md` as a synced human-readable mirror, and wired `tools/check_workbench_registry.py` into CI (`workbench-registry-gate`) so a new route landing without a decision on it fails the build instead of waiting for the next audit to rediscover it.
+
+### Full design-audit sweep, all 12 live workbenches
+
+Ran the project's `design-audit` skill (`.claude/skills/design-audit/`) across every workbench in `LIVE_WORKBENCHES`, then fixed the bounded, unambiguous findings directly. Typecheck + lint clean after all fixes.
+
+**Fixed this session:**
+- `self-improvement-findings/page.tsx` — **real functional bug**: `riskClass`/`RiskPill` only recognize the RED/AMBER/GREEN/HIGH/MEDIUM/LOW vocabulary; this page passed its own independent severity (`info/low/medium/high/critical`) and decision (`approved/rejected/more_evidence`) unions into them, so severity and decision badges silently rendered as the same neutral grey — the one signal a findings-triage UI exists to show was flattened to nothing. Remapped onto `Badge`'s status vocabulary directly (`SEVERITY_STATUS`/`DECISION_STATUS` maps); exported `STATUS_CLASSES` from `Badge.tsx` for the one block-level (non-pill) usage. Also fixed non-responsive `grid-cols-4`/`grid-cols-3` (no breakpoint) and one `transition-all`.
+- `health-osint/page.tsx:172` — contrast failure: `text-wb-ink2/80` computed to ~4.13:1 on body text (below 4.5:1 AA); full-strength `text-wb-ink2` passes at ~7.5:1 per the token's own contrast-matrix comment. Dropped the opacity modifier.
+- `human-systems-workbench/_components/CollapsibleSection.tsx` — the `<summary>` toggle (keyboard-focusable, controls every section) had zero `:focus-visible` styling, unlike every other interactive element in the app. Added the standard focus-ring classes. Also fixed `RecoveryView.tsx`'s Capacity Balance bar: `transition-all` → explicit `transition-[margin,width,background-color]` (it genuinely animates all three, so `transition-all` wasn't wrong, just imprecise per the gate).
+- `ready-room/_components/TaskRow.tsx:128` — the follow-through mute/unmute toggle's entire visible content was a bare emoji (🔔/🔕) with only a `title` attribute, no accessible name for screen readers. Added `aria-label` + focus-ring.
+- `advisory-workbench/_components/ProactiveBanner.tsx` — Dismiss button missing `:focus-visible`, inconsistent with every other button in the same workbench. Added the standard focus-ring.
+- `captains-chair-workbench/notebook/page.tsx` — capture-error text (×2 locations) had no reserved space, so the Capture button shifted position when an error appeared/disappeared; wrapped in a fixed `min-h-[1lh]` slot. Also added `aria-expanded` to the note-card collapse toggle (no ARIA equivalent for the ▲/▼ visual state).
+- `intelligence-workbench/brief/[id]/page.tsx` — signal-card button combined two simultaneous hover effects (`hover:-translate-y-px` + `hover:border-wb-sage-deep`); dropped the translate, kept the color change (`transition-colors`).
+- `briefs/page.tsx` — filter buttons had no `whitespace-nowrap` (would wrap to two lines with a count suffix at narrow widths) and no `:focus-visible`/`aria-pressed`; brief-card `Link`s also had no `:focus-visible`. Fixed all three.
+- `agent-status-workbench/page.tsx` — truncated `lastAction` cell had no way to read the full value; added `title` attribute.
+- `emergency-alert-hub-workbench/page.tsx` — Close button had no `:focus-visible` and used a bare `✕` glyph redundant with its own "Close" text; added focus-ring, dropped the glyph.
+
+**Investigated, NOT fixed — false positive, corrected during this pass:**
+- `intelligence-workbench`'s `bg-wb-crit-on`/`bg-wb-warn-on` usage as button fills was flagged by the audit as a possible "`-on` token misused as fill" bug. Checked `tailwind.config.ts`'s own comment (line ~74-83): the `wb-*-on` variants are **explicitly documented as the AA-safe white-on-fill button variant** — plain `wb-crit`/`wb-warn` are the ones that fail AA as a solid button background. This is the opposite of `departments.ts`'s `state-*` family, where `-on` is a darkened *text* color for tinted backgrounds, not a fill. Initially "fixed" this the wrong way (swapped to plain `wb-crit`), caught it against the actual token source before committing, and reverted. **Two token families, two different and mutually incompatible `-on` conventions — this is real, deeper severity-vocab sprawl than Finding 1 originally scoped** (the sprawl isn't only in TS type unions, it's baked into the Tailwind token layer itself). Left both usages as-is; don't "fix" one against the other's convention without designing the unification first.
+
+**Not fixed — logged as backlog, needs a decision or a dedicated pass, not a quick patch:**
+- **`emergency-alert-hub-workbench/page.tsx`** mixes both token families in one file (`wb-crit`/`wb-crit-on` for the loading-error banner, `state-crit`/`state-warn-on` for the stat tiles) — both render, to two different reds. Concrete proof-point for Finding 1's scope, not a new finding.
+- **7th severity vocabulary found**: `advisory-workbench/_components/LoopsView.tsx`'s `OUTCOME_OPTS` (`success | partial | failure`) — add to Finding 1's migration list (now 7 vocabularies + the `ProcessingStatus`/`ReviewStatus` duplication, not 6).
+- **`content-workbench/_components/ContentBoard.tsx:660-677`** — "Discard this item" opens a confirmation dialog, but the item's own copy says it's reversible ("removed from the board, not deleted"). Named anti-pattern: confirm dialogs belong on irreversible actions; this should be optimistic-with-Undo instead. Real UX redesign, not a one-line fix.
+- **No defined type scale** — `text-[11px]`/`[12.5px]`/`[13.5px]`/etc. arbitrary bracket sizes are pervasive and consistent across the whole app (reads as a real, undocumented scale, not one-off improvisation), but nothing stops silent drift. Worth promoting to named `text-*` tokens if/when the token layer gets touched for the severity-vocab work.
+- Minor taste calls not acted on: `content-workbench/_components/CaptureBox.tsx:63`'s unexplained 3-stop gradient bar; a handful of bare-Unicode-glyph buttons (`✓`/`✗`/`?` on self-improvement-findings' decision buttons) that already pair the glyph with a text label, so not urgent.
+
+No critical/major findings at all in: `weekly-review`, `agent-status-workbench` (0/0), `content-workbench` (0 crit), `advisory-workbench` (0 crit after the one major fixed). Cleanest workbenches in the sweep.

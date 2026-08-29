@@ -118,7 +118,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
               {signals.map((s) => (
                 <button key={s.event_id} type="button" onClick={() => setOpenSignal(s)}
-                  className="rounded-lg border border-wb-line p-3.5 text-left transition hover:-translate-y-px hover:border-wb-sage-deep
+                  className="rounded-lg border border-wb-line p-3.5 text-left transition-colors hover:border-wb-sage-deep
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   <h4 className="mb-2 text-[13.5px] font-semibold leading-snug">{s.raw_title}</h4>
                   <p className="mb-2 text-[11.5px] text-wb-ink2">

@@ -49,7 +49,7 @@ export function ProactiveBanner() {
         )}
       </div>
       <button onClick={() => setDismissed(true)}
-        className="shrink-0 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink">
+        className="shrink-0 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Dismiss
       </button>
     </div>

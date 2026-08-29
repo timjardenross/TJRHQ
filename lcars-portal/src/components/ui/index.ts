@@ -4,7 +4,7 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { Card } from './Card';
 export type { CardProps, CardVariant } from './Card';
 
-export { Badge, riskToStatus } from './Badge';
+export { Badge, riskToStatus, STATUS_CLASSES } from './Badge';
 export type { BadgeProps, BadgeStatus } from './Badge';
 
 export { Modal } from './Modal';

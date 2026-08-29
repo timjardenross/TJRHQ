@@ -169,7 +169,7 @@ function Workbench() {
             <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[10px] font-medium text-wb-warn-on">{discoveredNote}</span>
           )}
         </div>
-        {s.summary && <div className="mt-1 max-w-[70ch] text-wb-ink2/80">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
+        {s.summary && <div className="mt-1 max-w-[70ch] text-wb-ink2">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
         {s.actionable_recommendation && <div className="mt-1 max-w-[70ch] italic">→ {s.actionable_recommendation}</div>}
       </div>
     );

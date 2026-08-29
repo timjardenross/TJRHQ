@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 
 export type BadgeStatus = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
-const STATUS_CLASSES: Record<BadgeStatus, string> = {
+export const STATUS_CLASSES: Record<BadgeStatus, string> = {
   success: 'bg-wb-ok/15 text-wb-ok-on',
   warning: 'bg-wb-warn/15 text-wb-warn-on',
   error: 'bg-wb-crit/15 text-wb-crit-on',

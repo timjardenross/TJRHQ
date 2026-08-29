@@ -111,7 +111,7 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
           <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
         </div>
-        <button onClick={onClose} className="text-[12px] text-wb-ink2 hover:text-wb-ink">Close ✕</button>
+        <button onClick={onClose} className="text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
       <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
         <div><span className="uppercase tracking-wide text-[10px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>

@@ -214,7 +214,7 @@ export function RecoveryView({ data, interventionEffectiveness }: { data: Recove
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-wb-line">
           <div
-            className={`h-full transition-all ${
+            className={`h-full transition-[margin,width,background-color] ${
               data.capacity_balance === 'too_much' ? 'ml-0 w-1/3 bg-wb-crit' :
               data.capacity_balance === 'sustainable' ? 'ml-[33%] w-1/3 bg-wb-ok' :
               data.capacity_balance === 'not_enough' ? 'ml-[66%] w-1/3 bg-wb-warn' : 'w-0'

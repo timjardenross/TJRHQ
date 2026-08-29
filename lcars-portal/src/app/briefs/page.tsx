@@ -106,7 +106,8 @@ export default function BriefsPage() {
             key={f.key}
             type="button"
             onClick={() => setFilter(f.key)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+            aria-pressed={filter === f.key}
+            className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
               filter === f.key
                 ? 'border-wb-sage-deep bg-wb-sage-deep text-white'
                 : 'border-wb-line text-wb-ink2 hover:bg-wb-bg'
@@ -133,7 +134,7 @@ export default function BriefsPage() {
               <Link
                 key={b.brief_id}
                 href={`/intelligence-workbench/brief/${encodeURIComponent(b.brief_id)}`}
-                className="block rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3 text-sm hover:bg-wb-bg"
+                className="block rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3 text-sm hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">

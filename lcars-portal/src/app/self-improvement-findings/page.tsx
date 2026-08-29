@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { WorkbenchShell, Card, riskClass, RiskPill } from '@/components/ui';
+import { WorkbenchShell, Card, Badge, STATUS_CLASSES, type BadgeStatus } from '@/components/ui';
 
 interface Finding {
   finding_id: string;
@@ -13,7 +13,7 @@ interface Finding {
   confidence: number;
   evidence: Array<{ type: string; observation: string; location?: string }>;
   proposed_action: { type: string; description: string };
-  decision?: string;
+  decision?: 'approved' | 'rejected' | 'more_evidence';
 }
 
 interface Decision {
@@ -22,6 +22,27 @@ interface Decision {
   reasoning: string;
   timestamp: string;
 }
+
+// This page's severity/decision vocabularies are its own (part of the
+// tracked severity-vocab sprawl, docs/UI-Layer-Debt-Handoff-2026-08-29
+// Finding 1) — riskClass/RiskPill only recognize RED/AMBER/GREEN/HIGH/
+// MEDIUM/LOW and silently rendered everything else as neutral grey,
+// flattening the one signal (severity/decision) this triage UI exists to
+// show. Mapped onto Badge's own status vocabulary directly here rather
+// than reusing riskClass/RiskPill, until the full taxonomy migration lands.
+const SEVERITY_STATUS: Record<Finding['severity'], BadgeStatus> = {
+  info: 'neutral',
+  low: 'success',
+  medium: 'warning',
+  high: 'warning',
+  critical: 'error',
+};
+
+const DECISION_STATUS: Record<Decision['decision'], BadgeStatus> = {
+  approved: 'success',
+  rejected: 'error',
+  more_evidence: 'warning',
+};
 
 export default function SelfImprovementFindings() {
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -125,7 +146,7 @@ export default function SelfImprovementFindings() {
           {error}. Showing last known data, not current.
         </p>
       )}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-4 mb-8 sm:grid-cols-4">
         <Card>
           <div className="text-3xl font-semibold text-wb-ink">{findings.length}</div>
           <div className="text-sm text-wb-ink2 mt-1">Total Findings</div>
@@ -144,7 +165,7 @@ export default function SelfImprovementFindings() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* Findings List */}
         <div className="col-span-1">
           <Card title="Findings">
@@ -153,7 +174,7 @@ export default function SelfImprovementFindings() {
                 <button
                   key={f.finding_id}
                   onClick={() => setSelectedId(f.finding_id)}
-                  className={`w-full text-left p-3 rounded border transition-all ${
+                  className={`w-full text-left p-3 rounded border transition-colors ${
                     selectedId === f.finding_id
                       ? 'bg-wb-surface border-wb-sage-deep'
                       : 'bg-wb-bg border-wb-line hover:border-wb-sage-deep'
@@ -162,11 +183,9 @@ export default function SelfImprovementFindings() {
                   <div className="font-semibold text-sm text-wb-ink">{f.title}</div>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <span className="text-xs bg-wb-line text-wb-ink2 px-2 py-1 rounded">{f.category}</span>
-                    <RiskPill value={f.severity} />
+                    <Badge status={SEVERITY_STATUS[f.severity]}>{f.severity}</Badge>
                     {f.decision && (
-                      <span className={`text-xs px-2 py-1 rounded font-semibold ${riskClass(f.decision)}`}>
-                        {f.decision.replace('_', ' ')}
-                      </span>
+                      <Badge status={DECISION_STATUS[f.decision]}>{f.decision.replace('_', ' ')}</Badge>
                     )}
                   </div>
                 </button>
@@ -257,7 +276,7 @@ export default function SelfImprovementFindings() {
               )}
 
               {selectedFinding.decision && (
-                <div className={`p-3 rounded ${riskClass(selectedFinding.decision)} text-sm font-semibold`}>
+                <div className={`p-3 rounded ${STATUS_CLASSES[DECISION_STATUS[selectedFinding.decision]]} text-sm font-semibold`}>
                   Decision: {selectedFinding.decision.replace('_', ' ').toUpperCase()}
                 </div>
               )}

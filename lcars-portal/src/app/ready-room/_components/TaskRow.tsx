@@ -123,7 +123,8 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
             disabled={busy}
             onClick={togglePause}
             title={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
-            className="ml-auto text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30"
+            aria-label={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
+            className="ml-auto text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             {task.follow_through_paused ? '🔕' : '🔔'}
           </button>
