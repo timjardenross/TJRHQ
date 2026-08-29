@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAlerts } from '@/lib/useAlerts';
-import { decisionsAwaitingApproval } from '@/lib/mockData';
+import { fetchDecisionsInbox, type DecisionItem } from '@/lib/decisions';
 import type { AlertSeverity } from '@/lib/alerts';
 
 const SEV_DOT: Record<AlertSeverity, string> = {
@@ -20,7 +20,32 @@ const SEV_TEXT: Record<AlertSeverity, string> = {
 export function MobileAlertDrawer() {
   const [open, setOpen] = useState(false);
   const { alerts, isLoading } = useAlerts();
-  const totalCount = alerts.length + decisionsAwaitingApproval.length;
+  // 2026-08-29: was mockData's decisionsAwaitingApproval (static fake data
+  // mixed into a real alert badge count with no visual distinction — the
+  // trust bug a council review flagged). lib/decisions.ts's
+  // fetchDecisionsInbox() is the real, already-governed decisions data
+  // layer (Supabase-backed mission/engineering approvals) that the
+  // /decisions page already uses; this was the only consumer of the mock
+  // decisions array, so wiring in the real source removes the bug rather
+  // than just labeling it.
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [decisionsLoading, setDecisionsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDecisionsInbox()
+      .then((data) => {
+        if (!cancelled) setDecisions(data.actionable);
+      })
+      .finally(() => {
+        if (!cancelled) setDecisionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalCount = alerts.length + decisions.length;
 
   return (
     <>
@@ -115,25 +140,27 @@ export function MobileAlertDrawer() {
             )}
           </section>
 
-          {/* Decisions awaiting approval */}
+          {/* Decisions awaiting approval — real data, see fetchDecisionsInbox() call above */}
           <section>
             <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-command">
               Decisions Awaiting Approval
-              {decisionsAwaitingApproval.length > 0 && (
-                <span className="ml-1 text-lcars-muted">({decisionsAwaitingApproval.length})</span>
+              {!decisionsLoading && decisions.length > 0 && (
+                <span className="ml-1 text-lcars-muted">({decisions.length})</span>
               )}
             </p>
-            {decisionsAwaitingApproval.length === 0 ? (
+            {decisionsLoading ? (
+              <p className="text-sm text-lcars-muted">Loading…</p>
+            ) : decisions.length === 0 ? (
               <p className="text-sm text-lcars-muted">No pending decisions.</p>
             ) : (
               <ol className="flex flex-col gap-2">
-                {decisionsAwaitingApproval.map((d) => (
+                {decisions.map((d) => (
                   <li
                     key={d.id}
                     className="flex gap-2 rounded-md border border-edge bg-panel-2/60 p-3"
                   >
                     <span className="shrink-0 font-mono text-xs font-bold text-command">
-                      {d.id}
+                      {d.code ?? d.source}
                     </span>
                     <div className="min-w-0">
                       <p className="text-[11px] font-semibold text-lcars-text">{d.title}</p>
