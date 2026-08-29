@@ -9,12 +9,18 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
   1. executor_stuck       — build_request_inbox row stuck at engineering_running
                             > EXECUTOR_STUCK_MIN minutes → ALERT
   2. service_health       — critical services down or HTTP backend unhealthy → ALERT
-  3. executor_needs_restart — executor inactive + approved rows in queue → restart + ALERT
-  4. new_missions         — newly created Idea-status missions → one-time triage nudge
+  3. new_missions         — newly created Idea-status missions → one-time triage nudge
 
-Self-healing:
-  Executor restart: at most once per EXECUTOR_RESTART_COOLDOWN_MIN (default 30)
-  Restart log: outputs/command_bus_restarts.log
+# 2026-08-29 (decommissioning-discipline drift check): removed the
+# "executor_needs_restart" rule and its telegram-build-executor.service
+# restart/alert path. That service was retired in d98a4207 (this session,
+# dead Telegram approval pipeline removal) but this watchdog kept trying
+# to restart it and alerting on every cycle — the watcher wasn't
+# decommissioned alongside the thing it watched. The legacy telegram-
+# sourced approved rows it was guarding (action_type IS NULL, no
+# execution-attempt record) are handled honestly by
+# build_request_verifier.py instead; see its docstring for why "not found
+# downstream" is reported rather than a fabricated "failed".
 
 Outputs:
   Slack    — all alerts (CAPTAINS_INBOX_CHANNEL_ID or BRIEF_CHANNEL from platform-runtime/.env)
@@ -71,7 +77,6 @@ def _env(key: str, default: str = "") -> str:
 
 _INTERVAL           = int(_env("COMMAND_BUS_INTERVAL", "300"))       # seconds between cycles
 _STUCK_MIN          = int(_env("EXECUTOR_STUCK_MIN", "60"))           # minutes before stuck alert
-_RESTART_COOLDOWN   = int(_env("EXECUTOR_RESTART_COOLDOWN_MIN", "30"))# minutes between restarts
 _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours between repeat alerts
 
 _SLACK_TOKEN        = _env("SLACK_BOT_TOKEN")
@@ -82,8 +87,6 @@ _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].st
 _BACKEND_HEALTH_URL = _env("BACKEND_HEALTH_URL", "http://localhost:5000/health")
 
 # Services and their criticality (only services we care about monitoring).
-# The build executor is intentionally excluded here — it's managed by
-# _rule_executor_needs_restart which only alerts when there is pending work.
 _SERVICES = {
     # starfleet-slack-bot.service and starfleet-backend.service retired 2026-08-23.
     # Both are disabled/inactive — backend's working-dir.conf points to a
@@ -104,7 +107,6 @@ _SERVICES = {
 # ---------------------------------------------------------------------------
 
 _DB_PATH = OUTPUTS_DIR / "command_bus.db"
-_RESTART_LOG = OUTPUTS_DIR / "command_bus_restarts.log"
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
@@ -164,21 +166,6 @@ def _should_notify(row: sqlite3.Row, cooldown_hours: int) -> bool:
 def _mark_notified(conn: sqlite3.Connection, key: str) -> None:
     conn.execute(
         "UPDATE bus_events SET last_notified=?, notif_count=notif_count+1 WHERE event_key=?",
-        (_now_iso(), key),
-    )
-    conn.commit()
-
-
-def _should_act(row: sqlite3.Row, cooldown_min: int) -> bool:
-    if not row["last_action"]:
-        return True
-    last = datetime.fromisoformat(row["last_action"])
-    return (datetime.now(timezone.utc) - last) >= timedelta(minutes=cooldown_min)
-
-
-def _mark_acted(conn: sqlite3.Connection, key: str) -> None:
-    conn.execute(
-        "UPDATE bus_events SET last_action=?, action_count=action_count+1 WHERE event_key=?",
         (_now_iso(), key),
     )
     conn.commit()
@@ -296,22 +283,6 @@ def _route(severity: str, slack_msg: str, tg_msg: str | None = None) -> bool:
         _notify(tg_msg or slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
                 template="raw", transport=Transport.TELEGRAM)
     return ok
-
-
-def _restart_executor() -> tuple[bool, str]:
-    try:
-        result = subprocess.run(
-            ["systemctl", "restart", "telegram-build-executor.service"],
-            capture_output=True, text=True, timeout=15,
-        )
-        success = result.returncode == 0
-        detail = (result.stderr or result.stdout or "").strip() or "ok"
-        entry = f"{_now_iso()} restart={'ok' if success else 'FAILED'} rc={result.returncode} {detail}\n"
-        with open(_RESTART_LOG, "a") as f:
-            f.write(entry)
-        return success, detail
-    except Exception as exc:
-        return False, str(exc)
 
 
 # ---------------------------------------------------------------------------
@@ -491,69 +462,6 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Rule 3: Executor needs restart (approved rows queued, executor not running)
-# ---------------------------------------------------------------------------
-
-def _rule_executor_needs_restart(conn: sqlite3.Connection, client) -> None:
-    if client is None:
-        return
-
-    executor_state = _systemd_state("telegram-build-executor.service")
-    if executor_state == "active":
-        _resolve_if_gone(conn, "executor_needs_restart")
-        return
-
-    try:
-        rows = client.select(
-            "build_request_inbox",
-            columns="request_id,status",
-            limit=100,
-        ) or []
-    except Exception as exc:
-        log.error("[bus:restart] Supabase query failed: %s", exc)
-        return
-
-    approved_pending = [r["request_id"] for r in rows if r.get("status") == "approved"]
-    if not approved_pending:
-        _resolve_if_gone(conn, "executor_needs_restart")
-        return
-
-    key = "executor_needs_restart"
-    ev = _upsert_event(conn, key)
-    if ev["resolved_at"]:
-        _reopen_event(conn, key)
-        ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
-
-    action_note = ""
-    action_note_html = ""
-    if _should_act(ev, _RESTART_COOLDOWN):
-        ok, detail = _restart_executor()
-        _mark_acted(conn, key)
-        action_note = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {detail}'}"
-        action_note_html = f"\n• Auto-restart attempted: {'succeeded' if ok else f'FAILED — {_esc_html(detail)}'}"
-        log.info("[bus:restart] Executor restart %s: %s", "ok" if ok else "FAILED", detail)
-    else:
-        action_note = "\n• Restart already attempted recently — manual check may be needed."
-        action_note_html = action_note
-
-    if _should_notify(ev, _NOTIFY_COOLDOWN_H):
-        count = len(approved_pending)
-        msg = (
-            f":construction: *Build Executor Down — Work Queued*\n"
-            f"`telegram-build-executor.service` is {executor_state} with "
-            f"*{count} approved request(s)* waiting to be processed.{action_note}\n"
-            f"Requests: {', '.join(approved_pending[:5])}"
-            + (f" (+{count - 5} more)" if count > 5 else "")
-        )
-        tg = (
-            f"🚧 <b>Executor Down — {count} request(s) queued</b>{action_note_html}"
-        )
-        if _route("ALERT", msg, tg):
-            _mark_notified(conn, key)
-            log.info("[bus:restart] Alerted on executor down with %d approved requests", count)
-
-
-# ---------------------------------------------------------------------------
 # Rule 4: New Idea-status missions
 # ---------------------------------------------------------------------------
 
@@ -606,7 +514,6 @@ def run_once() -> None:
     with _db() as conn:
         _rule_executor_stuck(conn, client)
         _rule_service_health(conn)
-        _rule_executor_needs_restart(conn, client)
         _rule_new_missions(conn, client)
 
     log.info("[bus] Cycle complete")
