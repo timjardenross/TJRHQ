@@ -64,3 +64,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 tools/check_config_loaders.py
+
+  workbench-registry-gate:
+    # 2026-08-29 UI-Layer-Debt handoff, Finding 4 follow-up: a new
+    # */page.tsx route landing without anyone deciding whether it belongs
+    # in LIVE_WORKBENCHES is exactly how comms-workbench and
+    # self-improvement-findings went unreachable and were later
+    # "rediscovered" by audit instead of decided on at PR time. See
+    # tools/check_workbench_registry.py.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_workbench_registry.py

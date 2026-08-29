@@ -1,10 +1,22 @@
-// Canonical list of the live, hub-listed workbenches — single source of
-// truth for both the hub tile grid (workbenches/page.tsx) and
-// WorkbenchShell's persistent switcher (UX review, 2026-08), so the two
-// can't drift the way two independently-maintained arrays eventually do
-// (exactly what happened to the Content Workbench tile description, which
-// kept describing a "Captain approval ... in Decide" step after that step
-// was removed — fixed here, not just relocated).
+// THE MASTER LIST. This array is the single source of truth for what
+// counts as a "live workbench" in this platform — both the hub tile grid
+// (workbenches/page.tsx) and WorkbenchShell's persistent switcher (UX
+// review, 2026-08) render directly from it, so the two can't drift the way
+// two independently-maintained arrays eventually do (exactly what happened
+// to the Content Workbench tile description, which kept describing a
+// "Captain approval ... in Decide" step after that step was removed —
+// fixed here, not just relocated). Mirrored in docs/LIVE-WORKBENCHES.md
+// for humans who won't open this file; that doc is generated from here,
+// never hand-edited.
+//
+// If a route isn't in this list, it is legacy, deprecated, experimental,
+// or intentionally zero-nav (contextual-entry pages like /investigate,
+// /decide, /ask — see each page's own header comment for why) — not an
+// accidental gap to silently patch. A page's absence here should always be
+// a deliberate, commented decision on the page itself (see
+// comms-workbench's deletion, 2026-08-29, for the pattern of removing a
+// page outright once it's confirmed superseded rather than leaving it to
+// rot half-reachable).
 
 export interface WorkbenchEntry {
   href: string;
