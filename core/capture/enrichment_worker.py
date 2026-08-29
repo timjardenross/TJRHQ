@@ -220,27 +220,17 @@ def _call_llm(text: str) -> dict:
 # ── Auto-route helpers (MSN-0200-P2B) ────────────────────────────────────────
 
 def _send_telegram_confirmation(text: str) -> None:
-    """Fire-and-forget Telegram message. Logs on failure; never raises."""
+    """Fire-and-forget Telegram message via the canonical notification
+    service (core/platform/notification_service.py) — never raises."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         log.info("[auto-route] Telegram not configured — skipping confirmation")
         return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = json.dumps({
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text[:4096],
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }).encode()
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=8):
-            pass
+    from core.platform.notification_service import notify, Transport
+    result = notify(text, template="raw", transport=Transport.TELEGRAM)
+    if result.ok:
         log.info("[auto-route] Telegram confirmation sent")
-    except Exception as exc:
-        log.warning("[auto-route] Telegram confirmation failed: %s", exc)
+    else:
+        log.warning("[auto-route] Telegram confirmation failed: %s", result.error)
 
 
 def _sb_get_one(path: str) -> dict | None:

@@ -39,3 +39,14 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+
+  notification-sender-gate:
+    # Council verdict 2026-08-29 ("make duplication impossible, not just
+    # detectable"): blocks a new hand-rolled Telegram sendMessage call from
+    # landing outside core/platform/notification_service.py. See
+    # tools/check_notification_senders.py for the allowlist of known,
+    # not-yet-migrated instances.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_notification_senders.py
