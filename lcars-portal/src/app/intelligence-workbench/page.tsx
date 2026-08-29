@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
 import { stateToneClasses } from '@/lib/departments';
@@ -233,6 +234,22 @@ function Workbench() {
                 <div>Overall risk: <span className="font-semibold text-wb-ink">{data.brief.overall_risk ?? 'unknown'}</span></div>
                 <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
                 {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
+                {/* 2026-08-29 (3-workbench council item 5/5): brief/[id] and
+                    escalation/[id] were live-fetched, real pages with zero
+                    inbound link from this workbench's own main page — only
+                    reachable via the separate Briefs surface. Both key off
+                    the same brief_id (escalation/[id] hits the identical
+                    /api/intelligence-workbench/brief?id= endpoint, just
+                    renders the RED-escalation workflow instead of a
+                    read-only view), so one id covers both links. */}
+                <div className="mt-2 flex gap-3">
+                  <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                    View full brief →
+                  </Link>
+                  <Link href={`/intelligence-workbench/escalation/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                    Escalation workflow →
+                  </Link>
+                </div>
               </div>
             ) : (
               <p className="text-[12px] text-wb-ink2">No published brief in this window.</p>
