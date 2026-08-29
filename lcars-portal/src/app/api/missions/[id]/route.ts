@@ -8,10 +8,14 @@ import { recordHeartbeatServerSide } from '@/lib/heartbeat';
 // page's prior direct browser-side Supabase write. Preserves the existing
 // free-form status editor UX exactly as-is (all STATUS_OPTIONS remain
 // selectable); the fix is moving the write server-side with an audit
-// record, not narrowing which transitions are allowed. The 3 narrow
-// governed routes (approve/reject/submit) remain the canonical path for
-// their specific eligibility-gated transitions; this route is the general
-// audited path for everything else the status editor already permits.
+// record, not narrowing which transitions are allowed.
+//
+// 2026-08-29: this is now the ONLY mission status-mutation route — the
+// narrow eligibility-gated approve/reject/submit/handoff routes were
+// removed (confirmed via live DB query: zero missions in an
+// approval-eligible status for ~2 months, no meaningful activity since;
+// missions are no longer the day-to-day unit of work). This route's own
+// audited free-form editor still works for any transition, unaffected.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } },
@@ -21,7 +25,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Mission ID required' }, { status: 400 });
   }
 
-  // See api/missions/[id]/approve/route.ts's own comment (WORKBENCH-REVIEW.md
+  // Actor must come from the real session, not a client-supplied
   // H2) - actor must come from the real session, not a client-supplied
   // body field.
   const session = await requireSession();

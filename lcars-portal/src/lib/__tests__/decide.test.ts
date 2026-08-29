@@ -35,10 +35,6 @@ vi.mock('@/lib/supabase-browser', () => ({
   createSupabaseBrowserClient: () => ({ from: fromMock }),
 }));
 
-vi.mock('@/lib/decisions', () => ({
-  fetchMissionDecisions: vi.fn(),
-}));
-
 vi.mock('@/lib/engineering-queue', async () => {
   const actual = await vi.importActual<typeof import('@/lib/engineering-queue')>('@/lib/engineering-queue');
   return {
@@ -48,7 +44,6 @@ vi.mock('@/lib/engineering-queue', async () => {
   };
 });
 
-import { fetchMissionDecisions } from '@/lib/decisions';
 import { fetchEngineeringQueue, setQueueItemStatus, type QueueItem } from '@/lib/engineering-queue';
 import {
   fetchDecideQueue,
@@ -58,23 +53,11 @@ import {
   undoDecideItem,
   updateDecideOutcome,
   fetchDecideHistory,
-  missionReasoning,
   engineeringReasoning,
   DECIDE_EMPTY_TITLE,
   DECIDE_EMPTY_DETAIL,
   type DecideItem,
 } from '@/lib/decide';
-
-const missionItem: DecideItem = {
-  id: 'mission:MSN-0123',
-  source: 'mission',
-  rawId: 'MSN-0123',
-  question: 'Approve mission "Test Mission"?',
-  reasoning: 'This mission is awaiting your decision. Awaiting Captain Approval',
-  domainTag: 'Mission',
-  undoAvailable: false,
-  _sortRank: 80,
-};
 
 const engineeringItem: DecideItem = {
   id: 'eng:abc-123',
@@ -116,7 +99,6 @@ describe('Decide never claims Priority Engine ranking or a fake recommendation',
   // still tested above and below) is what actually needs this coverage.
 
   it('reasoning text is fact-only - never contains a recommendation verb', () => {
-    expect(missionReasoning('Awaiting Captain Approval · P1')).not.toMatch(/recommend/i);
     const engItem = { rawStatus: 'awaiting_review', blocked: false, priority: 'P1', ageDays: 3 } as QueueItem;
     expect(engineeringReasoning(engItem)).not.toMatch(/recommend/i);
   });
@@ -124,13 +106,12 @@ describe('Decide never claims Priority Engine ranking or a fake recommendation',
 
 // ── 2. Empty state is honest ────────────────────────────────────────────
 describe('Decide empty state', () => {
-  it('states plainly that both queues are clear, not a fabricated summary', () => {
+  it('states plainly that the queue is clear, not a fabricated summary', () => {
     expect(DECIDE_EMPTY_TITLE).toBe('Nothing needs your judgement right now.');
     expect(DECIDE_EMPTY_DETAIL).toMatch(/clear/i);
   });
 
-  it('fetchDecideQueue returns an empty array when both real sources are empty', async () => {
-    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
+  it('fetchDecideQueue returns an empty array when the real source is empty', async () => {
     vi.mocked(fetchEngineeringQueue).mockResolvedValue({
       items: [], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 0, completed: 0, rejected: 0 },
       blockers: [], nextAction: null, isLive: true,
@@ -143,22 +124,18 @@ describe('Decide empty state', () => {
 
 // ── 3. No fake Operational Intelligence decisions ───────────────────────
 describe('No fake Operational Intelligence decisions', () => {
-  it('DecideSource type only ever produces mission/engineering items - no intelligence source exists in decide.ts', () => {
+  it('DecideSource type only ever produces engineering items - no intelligence source exists in decide.ts', () => {
     const stripped = readFileSync(join(__dirname, '../decide.ts'), 'utf-8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
-    // The type union and every literal 'source' value used to construct a
-    // DecideItem must be drawn only from mission/engineering - there is no
-    // fetchIntelligenceDecisions()-style third source in this file at all.
+    // There is no fetchIntelligenceDecisions()-style third source in this
+    // file at all.
     expect(stripped).not.toMatch(/fetchIntelligenceDecisions/);
     expect(stripped).not.toMatch(/'intelligence'/);
     expect(stripped).not.toMatch(/"intelligence"/);
   });
 
-  it('a mixed real fetch never produces a third source in the merged queue', async () => {
-    vi.mocked(fetchMissionDecisions).mockResolvedValue([
-      { id: 'mission:MSN-1', source: 'mission', title: 'T', detail: 'Awaiting Captain Approval', priorityRank: 80 },
-    ]);
+  it('a real fetch never produces a non-engineering source in the queue', async () => {
     vi.mocked(fetchEngineeringQueue).mockResolvedValue({
       items: [
         {
@@ -171,26 +148,13 @@ describe('No fake Operational Intelligence decisions', () => {
       blockers: [], nextAction: null, isLive: true,
     });
     const queue = await fetchDecideQueue();
-    expect(queue.every((i) => i.source === 'mission' || i.source === 'engineering')).toBe(true);
-    expect(queue).toHaveLength(2);
+    expect(queue.every((i) => i.source === 'engineering')).toBe(true);
+    expect(queue).toHaveLength(1);
   });
 });
 
 // ── 4. Actions use the existing governed routes, not a new write path ──────
 describe('Decide actions route to the existing governed sources', () => {
-  it('approving a mission item calls the same /api/missions/:id/approve route the legacy UI uses', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: async () => ({ mission_id: 'MSN-0123' }),
-    });
-    const res = await approveDecideItem(missionItem);
-    expect(res.ok).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/missions/MSN-0123/approve',
-      expect.objectContaining({ method: 'POST' }),
-    );
-  });
-
   it('approving an engineering item calls setQueueItemStatus (same mechanism as the legacy Engineering Queue)', async () => {
     vi.mocked(setQueueItemStatus).mockResolvedValue({ ok: true });
     const res = await approveDecideItem(engineeringItem);
@@ -202,18 +166,18 @@ describe('Decide actions route to the existing governed sources', () => {
   });
 
   it('every approve/hold/undo writes one row to decide_ledger', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, json: async () => ({}) });
-    await approveDecideItem(missionItem);
+    vi.mocked(setQueueItemStatus).mockResolvedValue({ ok: true });
+    await approveDecideItem(engineeringItem);
     expect(fromMock).toHaveBeenCalledWith('decide_ledger');
-    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'approve', source: 'mission' }));
+    expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'approve', source: 'engineering' }));
 
     vi.clearAllMocks();
-    await holdDecideItem(missionItem);
+    await holdDecideItem(engineeringItem);
     expect(insertMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'hold' }));
   });
 
   it('hold never calls any source mutation route - it only defers', async () => {
-    await holdDecideItem(missionItem);
+    await holdDecideItem(engineeringItem);
     expect(global.fetch).not.toHaveBeenCalled();
     expect(setQueueItemStatus).not.toHaveBeenCalled();
   });
@@ -221,21 +185,18 @@ describe('Decide actions route to the existing governed sources', () => {
 
 // ── Undo honesty ─────────────────────────────────────────────────────────
 describe('Undo is honest about what the source actually supports', () => {
-  it('mission decisions never claim undo is available', () => {
-    expect(missionItem.undoAvailable).toBe(false);
-  });
-
-  it('undo on a mission item fails with an honest explanation, no silent no-op success', async () => {
-    const res = await undoDecideItem(missionItem);
-    expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/not supported/i);
-  });
-
   it('undo on an engineering item restores the captured prior status via the real table', async () => {
     const res = await undoDecideItem(engineeringItem);
     expect(res.ok).toBe(true);
     expect(fromMock).toHaveBeenCalledWith('build_request_inbox');
     expect(updateEqSelectMock).toHaveBeenCalledWith('build_request_inbox', { status: 'awaiting_review' });
+  });
+
+  it('undo is refused when priorStatus is missing, no silent no-op success', async () => {
+    const itemWithoutPriorStatus: DecideItem = { ...engineeringItem, priorStatus: undefined };
+    const res = await undoDecideItem(itemWithoutPriorStatus);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/not supported/i);
   });
 });
 
@@ -264,6 +225,9 @@ describe('updateDecideOutcome writes to the existing decide_ledger row by id', (
 // ── Past decisions list ──────────────────────────────────────────────────
 describe('fetchDecideHistory reads decide_ledger, most recent first', () => {
   it('returns the rows from decide_ledger', async () => {
+    // 'mission' rows can still exist historically in decide_ledger (a plain
+    // DB text column, not tied to the current DecideSource union type) -
+    // this checks the reader handles whatever's actually in the table.
     historyLimitMock.mockResolvedValueOnce({
       data: [{ id: 'l-2', question: 'Q2', source: 'mission', action: 'approve', decided_at: '2026-07-10T00:00:00Z', outcome: null }],
       error: null,
@@ -293,7 +257,7 @@ describe('fetchDecideHistory reads decide_ledger, most recent first', () => {
 // dedicated approve-action route (a deterministic server handler) rather
 // than the plain status-flip setQueueItemStatus, and it must never be
 // undo-eligible (the mutation it performs is real and not cleanly
-// reversible, same principle already applied to mission approvals).
+// reversible).
 describe('MSN-0352: proposed conversational actions', () => {
   const proposedMissionQueueItem: QueueItem = {
     id: 'prop-1', title: 'AI-proposed mission', summary: 'Proposed mission: AI-proposed mission', rawStatus: 'awaiting_review',
@@ -312,7 +276,6 @@ describe('MSN-0352: proposed conversational actions', () => {
   };
 
   it('a proposed create_mission item gets a distinct question and reasoning, and is never undo-eligible', async () => {
-    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
     vi.mocked(fetchEngineeringQueue).mockResolvedValue({
       items: [proposedMissionQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
       blockers: [], nextAction: null, isLive: true,
@@ -326,7 +289,6 @@ describe('MSN-0352: proposed conversational actions', () => {
   });
 
   it('a proposed log_decision item gets a distinct question and is never undo-eligible', async () => {
-    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
     vi.mocked(fetchEngineeringQueue).mockResolvedValue({
       items: [proposedDecisionQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
       blockers: [], nextAction: null, isLive: true,
@@ -338,7 +300,6 @@ describe('MSN-0352: proposed conversational actions', () => {
   });
 
   it('a proposed create_handoff item behaves exactly like an ordinary build request (unchanged undo semantics)', async () => {
-    vi.mocked(fetchMissionDecisions).mockResolvedValue([]);
     vi.mocked(fetchEngineeringQueue).mockResolvedValue({
       items: [proposedHandoffQueueItem], counts: { pending_triage: 0, assigned: 0, in_progress: 0, awaiting_review: 1, completed: 0, rejected: 0 },
       blockers: [], nextAction: null, isLive: true,

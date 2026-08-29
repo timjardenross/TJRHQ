@@ -4,8 +4,7 @@
 // question, plain reasoning, domain tag, evidence if available. No table,
 // no ranked list, no Priority Engine claim, no fake recommendation.
 //
-// Sources are exactly the two governed, already-real approve/reject routes:
-// mission approvals (reused from lib/decisions.ts, unchanged) and
+// Source is the one governed, already-real approve/reject route:
 // engineering approvals (build_request_inbox via lib/engineering-queue.ts,
 // unchanged). Knowledge Library approval items were evaluated and
 // deliberately excluded this pass: its real action set is five outcomes
@@ -20,6 +19,14 @@
 // lib/decisions.ts's own header already documents for the legacy /decisions
 // page.
 //
+// 2026-08-29: mission approvals removed. Confirmed via live DB query that
+// missions have had zero rows in an approval-eligible status for ~2 months
+// and no meaningful activity since - the operator confirmed missions are
+// no longer the day-to-day unit of work. The approve/reject/submit/handoff
+// API routes, CaptainApprovalQueue.tsx, and this file's mission branch are
+// all removed together (permissions-scoping follow-up, same session as the
+// dead telegram_build_executor.py removal).
+//
 // MSN-0352: engineering items now include AI-proposed operational actions
 // (create_mission / log_decision, queued by lib/ai-actions.ts's
 // parseAndProposeActions instead of executed directly) alongside ordinary
@@ -31,10 +38,9 @@
 // it always has.
 
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { fetchMissionDecisions } from '@/lib/decisions';
 import { fetchEngineeringQueue, setQueueItemStatus, type QueueItem } from '@/lib/engineering-queue';
 
-export type DecideSource = 'mission' | 'engineering';
+export type DecideSource = 'engineering';
 export type DecideAction = 'approve' | 'hold' | 'undo';
 
 export interface DecideItem {
@@ -60,9 +66,9 @@ export interface DecideItem {
    * create_handoff | log_decision) awaiting approval. Drives both the
    * question/reasoning text and which route approveDecideItem calls. */
   actionType?: string | null;
-  /** Internal ordering only (reused from lib/decisions.ts's real, existing
-   * mission-priority + engineering-blocked/priority/age heuristic) - never
-   * displayed, never labeled "Priority Engine". That heuristic is a
+  /** Internal ordering only (the engineering-blocked/priority/age
+   * heuristic) - never displayed, never labeled "Priority Engine". That
+   * heuristic is a
    * disclosed placeholder (see docs/INVENTORY.md, MSN-0346 finding #2);
    * presenting it as ranking logic to the Captain would be exactly the
    * trust hazard this rewrite exists to remove. It only decides which one
@@ -71,14 +77,7 @@ export interface DecideItem {
 }
 
 export const DECIDE_EMPTY_TITLE = 'Nothing needs your judgement right now.';
-export const DECIDE_EMPTY_DETAIL = 'Mission and engineering approval queues are both clear.';
-
-/** Plain, fact-only reasoning - no recommendation, no confidence score, no
- * ranking claim. Every clause is a real field value already fetched from
- * the governed source, never an inference about what the Captain should do. */
-export function missionReasoning(detail: string | undefined): string {
-  return `This mission is awaiting your decision. ${detail ?? 'No further detail recorded.'}`;
-}
+export const DECIDE_EMPTY_DETAIL = 'The engineering approval queue is clear.';
 
 export function engineeringReasoning(item: QueueItem): string {
   const bits: string[] = [`Status: ${item.rawStatus}.`];
@@ -105,21 +104,6 @@ function questionFor(item: QueueItem): string {
   if (item.actionType === 'create_mission') return `Approve mission creation: "${item.title}"?`;
   if (item.actionType === 'log_decision') return `Approve decision log: "${item.title}"?`;
   return `Approve build request "${item.title}"?`;
-}
-
-async function fetchDecideMissionItems(): Promise<DecideItem[]> {
-  const missions = await fetchMissionDecisions();
-  return missions.map((m) => ({
-    id: m.id,
-    source: 'mission' as const,
-    rawId: m.id.split(/:(.+)/)[1] ?? m.id,
-    question: `Approve mission "${m.title}"?`,
-    reasoning: missionReasoning(m.detail),
-    domainTag: 'Mission',
-    evidenceHref: m.href,
-    undoAvailable: false,
-    _sortRank: m.priorityRank,
-  }));
 }
 
 async function fetchDecideEngineeringItems(): Promise<DecideItem[]> {
@@ -158,11 +142,8 @@ async function fetchDecideEngineeringItems(): Promise<DecideItem[]> {
 }
 
 export async function fetchDecideQueue(): Promise<DecideItem[]> {
-  const [missions, engineering] = await Promise.all([
-    fetchDecideMissionItems(),
-    fetchDecideEngineeringItems(),
-  ]);
-  return [...missions, ...engineering].sort((a, b) => b._sortRank - a._sortRank);
+  const engineering = await fetchDecideEngineeringItems();
+  return engineering.sort((a, b) => b._sortRank - a._sortRank);
 }
 
 /** Count only - for Home's "Needs you" line. Same real sources, no fetch of
@@ -198,19 +179,7 @@ async function writeLedger(entry: {
 
 export async function approveDecideItem(item: DecideItem): Promise<{ ok: boolean; error?: string; ledgerId?: string | null }> {
   let result: { ok: boolean; error?: string };
-  if (item.source === 'mission') {
-    try {
-      const resp = await fetch(`/api/missions/${encodeURIComponent(item.rawId)}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'Decide', owner: 'Captain' }),
-      });
-      const data = await resp.json();
-      result = resp.ok ? { ok: true } : { ok: false, error: data.error ?? 'Failed' };
-    } catch (e) {
-      result = { ok: false, error: String(e) };
-    }
-  } else if (item.actionType === 'create_mission' || item.actionType === 'log_decision' || item.actionType === 'publish_content') {
+  if (item.actionType === 'create_mission' || item.actionType === 'log_decision' || item.actionType === 'publish_content') {
     // MSN-0352: the real mutation only happens here, on explicit Captain
     // approval of this exact item - never before, never automatically.
     try {

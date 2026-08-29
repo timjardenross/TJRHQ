@@ -3,11 +3,13 @@
 // intelligence-workbench: standalone Shell (no LCARS app chrome), TJR
 // Design System components (@/components/ui), wb-* tokens.
 //
-// All mutation logic (routes, eligibility lists, status vocabulary) is
-// copied VERBATIM from the LCARS originals — this file changes nothing
-// about what's allowed, only how it's rendered. See:
+// Status vocabulary is copied VERBATIM from the LCARS originals — this
+// file changes nothing about what's allowed, only how it's rendered. See:
 //   - lcars-portal/src/lib/missionStatus.ts (still imported directly, unchanged)
-//   - lcars-portal/src/app/(app)/missions/[id]/page.tsx (APPROVAL_ELIGIBLE / REJECTION_ELIGIBLE / STATUS_OPTIONS)
+//
+// 2026-08-29: APPROVAL_ELIGIBLE/REJECTION_ELIGIBLE removed along with the
+// governed approve/reject routes they mirrored — see
+// mission-workbench/[id]/page.tsx's header comment.
 
 import type { BadgeStatus } from '@/components/ui';
 
@@ -18,15 +20,6 @@ export const STATUS_OPTIONS = [
   'Awaiting Captain Approval', 'Approved',
   'Blocked', 'Requires Rework', 'Closed', 'Archived',
 ];
-
-// MSN-0328 (WP-C/D): mirrors the eligibility lists the governed /approve and
-// /reject routes themselves enforce (api/missions/[id]/{approve,reject}/route.ts)
-// — kept in sync manually since these routes have no shared client-exported
-// constant; a mismatch here only affects which buttons render, since the
-// routes remain the actual source of truth (a 409 is still possible if this
-// list ever drifts).
-export const APPROVAL_ELIGIBLE = ['Awaiting Captain Approval', 'Awaiting XO Approval', 'Validated', 'Tested'];
-export const REJECTION_ELIGIBLE = ['Awaiting Captain Approval', 'Awaiting XO Approval', 'Validated', 'Tested', 'Implemented', 'Designed'];
 
 export function statusToBadge(status: string): BadgeStatus {
   if (status === 'Blocked' || status === 'Requires Rework') return 'error';
