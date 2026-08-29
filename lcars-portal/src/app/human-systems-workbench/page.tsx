@@ -6,6 +6,15 @@
 // other workbenches. Reachable from /workbenches; not promoted into the
 // LCARS navigation model.
 //
+// Domain boundary (2026-08-29, docs/UI-Layer-Debt-Handoff-2026-08-29.md
+// Finding 3, resolved): this is first-party personal recovery/readiness
+// telemetry (capacity_checkins, capacity_experiments,
+// physical_workout_sessions, health_insights et al. — the Captain's own
+// data). It has zero overlap with Health OSINT Workbench (/health-osint),
+// which is external, population-level research intelligence — disjoint
+// tables, disjoint user tasks. Kept as separate workbenches by design, not
+// by drift; no merge needed.
+//
 // VNext consolidation (Human_Systems_Workbench_VNext_Consolidation_Mission_
 // Scope.md, WP01): the former Recovery/Medical tab split is removed. Both
 // domain payloads are fetched together and rendered as one continuous page

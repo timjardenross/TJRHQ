@@ -40,13 +40,16 @@ This is worse than the original finding implied, but differently shaped: it's no
 
 **Suggested first step:** don't start migrating routes. First decide: is `command-centre.ts` worth reviving as the real abstraction layer, or is "routes talk to Supabase directly" simply what this platform's API layer actually is now and `command-centre.ts` should be deleted as dead code? That's a 30-minute architectural call, not a coding task, and it determines whether the other 89 routes are a problem at all.
 
-## Finding 3: Health OSINT / Human Systems domain split — **unresolved, unchanged**
+## Finding 3: Health OSINT / Human Systems domain split — **resolved 2026-08-29, keep split**
 
-Both remain fully separate top-level workbenches with separate routes, APIs, and data domains:
-- **Health OSINT** (`/health-osint`) — external clinical-trial/performance-research intelligence.
-- **Human Systems** (`/human-systems-workbench`) — personal recovery/medical/readiness tracking. Recently had an internal VNext consolidation (its own tab split was removed per the page's own comment), but that was internal tidying, not a cross-workbench boundary decision.
+Investigated properly rather than left as an open question: read both workbenches' full page/component code and every API route each one calls.
 
-No comments, ADRs, or code found addressing whether these two should have a clearer boundary or whether the split is intentional and just needs documenting as such. This is a genuine open question, not obviously a bug — worth a short "is this actually two domains" decision before any restructuring.
+- **Health OSINT** (`/health-osint`) reads exclusively from `health_signals`/`health_signal_corroboration` — external, population-level research intelligence (clinical trials, source reliability, safety escalation). Zero personal data anywhere in it.
+- **Human Systems** (`/human-systems-workbench`) reads exclusively from `capacity_checkins`, `capacity_experiments`, `physical_workout_sessions`, `health_insights`, etc. — first-party personal recovery/readiness telemetry (the Captain's own data). Zero external-research data.
+- **Zero table overlap.** `health_signals` and `health_insights` share the word "health" and nothing else.
+- No user-confusion risk found either — the two workbenches answer different questions ("what does research say about X" vs "how am I doing") that never collide in practice.
+
+**Verdict: genuinely two disjoint domains, not drift — kept split, no merge needed.** The only real gap was that this was never written down; both pages now carry a header comment recording the boundary decision (`health-osint/page.tsx`, `human-systems-workbench/page.tsx`), so a future audit doesn't re-flag this as unresolved.
 
 ## Finding 4: Nav unreachability — **mostly stale, the 59% figure does not hold**
 

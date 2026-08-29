@@ -1,5 +1,13 @@
 'use client';
 
+// Domain boundary (2026-08-29, docs/UI-Layer-Debt-Handoff-2026-08-29.md
+// Finding 3, resolved): Health OSINT is external, population-level research
+// intelligence (health_signals/health_signal_corroboration — clinical
+// trials, studies, source reliability, safety escalation). It has zero
+// overlap with Human Systems Workbench (/human-systems-workbench), which
+// is first-party personal recovery/readiness telemetry
+// (capacity_checkins et al.) — disjoint tables, disjoint user tasks.
+// Kept as separate workbenches by design, not by drift; no merge needed.
 import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
