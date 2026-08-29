@@ -179,12 +179,16 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     from pathlib import Path
-    DATA_ROOT = Path("/tmp/usstjros-findings")
+    DATA_ROOT = Path("/opt/starship-endeavour/data/self-improvement")
 
     processor = DecisionProcessor(DATA_ROOT)
 
-    # Load sample findings
-    run_dir = sorted([d for d in (DATA_ROOT / "runs").iterdir() if d.is_dir()], reverse=True)[0]
+    # Load sample findings (mtime sort, not name — see auto_remediation.py's
+    # load_latest_findings() for why lexicographic sort is wrong here)
+    run_dir = sorted(
+        (d for d in (DATA_ROOT / "runs").iterdir() if d.is_dir()),
+        key=lambda d: d.stat().st_mtime, reverse=True,
+    )[0]
     findings_file = run_dir / "findings_classified.json"
     with open(findings_file) as f:
         data = json.load(f)

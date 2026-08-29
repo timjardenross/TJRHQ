@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted core engineering and self-improvement changes in working tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository status is dirty with uncommitted modifications in core/engineering/batch_coding.py, scripts/self_improvement/, and generated data/self-improvement/ artifacts.",
+          "location": "core/engineering/batch_coding.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Commit or cleanly ignore self-improvement run artifacts and commit changes to batch_coding and self-improvement scripts."
+      },
+      "expected_benefit": "Maintains repository hygiene, prevents dirty-state conflicts during automated tasks, and tracks engineering script changes in version control.",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "config_drift",
+      "title": "Hardcoded default model router URL in vm-processing config",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Default fallback URL for the model router is hardcoded to http://127.0.0.1:8891.",
+          "location": "core/infrastructure/vm-processing/config.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Source default router endpoints from shared environment variables or centralized runtime configuration."
+      },
+      "expected_benefit": "Ensures seamless port and host reconfigurability across runtime environments without code changes.",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.85; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

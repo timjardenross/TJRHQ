@@ -1,0 +1,5 @@
+{"timestamp": "2026-08-29T09:01:18.747427+00:00", "finding_id": "FND-001", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-08-29T09:01:18.760464+00:00", "finding_id": "FND-002", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-08-29T09:01:18.760659+00:00", "finding_id": "FND-003", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-08-29T09:01:51.246385+00:00", "finding_id": "FND-001", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-08-29T09:01:51.246591+00:00", "finding_id": "FND-002", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}

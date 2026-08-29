@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Dual format policy configuration files present",
+      "evidence": [
+        {
+          "type": "duplicate_file",
+          "observation": "Both config/self_improvement_policy.json and config/self_improvement_policy.yaml exist simultaneously in repository configuration",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML policy file co-exists with JSON policy file",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize self-improvement policy configuration on a single format (JSON or YAML) and remove the redundant duplicate file"
+      },
+      "expected_benefit": "Prevents configuration drift and confusion regarding the authoritative source of self-improvement policy settings",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted core engineering scripts and self-improvement runtime artifacts",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository working tree is dirty with uncommitted code changes in core/engineering/batch_coding.py, scripts/self_improvement, and runtime data artifacts in data/self-improvement/",
+          "location": "core/engineering/batch_coding.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Commit or stash code changes in batch_coding.py and self-improvement scripts, and ensure runtime data directories are properly covered by .gitignore"
+      },
+      "expected_benefit": "Ensures reproducible deployments and prevents runtime evaluation artifacts from dirtying the source repository",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Available local Ollama models unreferenced in routing policy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Models gemma4:12b, qwen3.5:9b, qwen3.5:4b, and qwen3.5:2b are available in Ollama runtime but have zero routes mapped in the active routing policy",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Evaluate unassigned models for potential routing allocation or purge unused model weights to recover disk storage"
+      },
+      "expected_benefit": "Optimizes local disk footprint and aligns model router policy with available model infrastructure",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: model_catalogue_drift; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

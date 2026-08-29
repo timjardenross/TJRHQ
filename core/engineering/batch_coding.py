@@ -244,6 +244,25 @@ def _env_value(key: str) -> str:
     return os.getenv(key, "")
 
 
+# 2026-08-29: no-touch zones for any LLM-generated file, confirmed with the
+# Captain when scoping autonomous low-risk remediation. Checked against the
+# relative path as computed by open_files_pr (repo-root-relative, forward
+# slashes) — deliberately path-prefix/substring based, not an exhaustive
+# enumeration, since a new CI file or secret-shaped name should be fenced by
+# pattern, not require someone to remember to add it to a list.
+_FENCED_PATH_PATTERNS = (
+    ".github/",
+    ".env",
+    "secret",
+    "credential",
+)
+
+
+def _is_fenced_path(rel_path: str) -> bool:
+    lowered = rel_path.lower()
+    return any(pattern in lowered for pattern in _FENCED_PATH_PATTERNS)
+
+
 def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]) -> dict[str, Any]:
     """Best-effort: open a draft PR from whole-file contents (FULL_FILE mode).
 
@@ -261,6 +280,19 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
         "true", "1", "yes", "on",
     }
     deferred = sorted(rel for rel in files if (_REPO_ROOT / rel).exists()) if not allow_existing else []
+
+    # 2026-08-29 (self-improvement autonomous-remediation council): hard fence,
+    # not just a risk-level heuristic — an LLM-generated file targeting CI/CD
+    # config or anything credential-shaped never reaches even a draft PR,
+    # regardless of what open_files_pr's own new-files-only guard would allow.
+    # Applies to every caller of this function (self-improvement's low-risk
+    # auto-remediation included), not just the handoff queue.
+    fenced = sorted(rel for rel in files if _is_fenced_path(rel))
+    if fenced:
+        files = {rel: content for rel, content in files.items() if rel not in fenced}
+        deferred = sorted(set(deferred) | set(fenced))
+        if not files:
+            return {"opened": False, "reason": "all_files_fenced", "skipped": fenced}
 
     title = (fields.get("__mission_title__") or custom_id).strip()
     body = (
@@ -580,6 +612,15 @@ def _main(argv: Optional[list[str]] = None) -> int:
     p_sync.add_argument("--dir", default=None)
     p_sync.add_argument("--dry-run", action="store_true")
 
+    # 2026-08-29: exposes run_sync_one() (previously only called
+    # programmatically, e.g. from the Slack approval handler) as a CLI
+    # entrypoint — self-improvement's auto_remediation.py runs in a
+    # different venv (no mistralai) and shells out to this one, same
+    # cross-venv pattern intelligence/scheduler.py already uses elsewhere.
+    p_one = sub.add_parser("sync-one", help="synchronously code a single PENDING handoff")
+    p_one.add_argument("--handoff", required=True, help="path to the ENG-HANDOFF-*.md file")
+    p_one.add_argument("--model", default=batch_api.DEFAULT_MODEL)
+
     args = parser.parse_args(argv)
 
     if args.cmd == "submit":
@@ -589,6 +630,8 @@ def _main(argv: Optional[list[str]] = None) -> int:
         out = batch_api.status(args.job)
     elif args.cmd == "sync":
         out = run_sync(base=args.dir, model=args.model, limit=args.limit, dry_run=args.dry_run)
+    elif args.cmd == "sync-one":
+        out = run_sync_one(args.handoff, model=args.model)
     else:
         out = collect(args.job, base=args.dir)
 

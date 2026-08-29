@@ -1,48 +1,56 @@
 {
-  "timestamp": "2026-08-29T05:12:16.013988+00:00",
-  "run_id": "2026-08-29-051145",
+  "timestamp": "2026-08-29T09:01:51.246866+00:00",
+  "run_id": "2026-08-29-090126",
   "success": true,
   "evidence_collected": 7,
-  "findings_analyzed": 3,
-  "findings_classified": 3,
+  "findings_analyzed": 2,
+  "findings_classified": 2,
   "findings_errors": 0,
-  "decisions_processed": 0,
-  "model_confidence": 0.5,
-  "auto_remediation_eligible": 0,
+  "decisions_processed": 3,
+  "model_confidence": 1.0,
+  "auto_remediation_eligible": 3,
   "auto_remediation": {
-    "skipped": true
+    "timestamp": "2026-08-29T09:01:51.246223+00:00",
+    "run_id": "2026-08-29-090126",
+    "model_confidence": 1.0,
+    "dry_run": true,
+    "total_findings": 2,
+    "approved_count": 2,
+    "remediated_count": 0,
+    "skipped_count": 2,
+    "failed_count": 0,
+    "remediation_results": []
   },
   "decision_report": {
-    "timestamp": "2026-08-29T05:12:16.012894+00:00",
-    "model_confidence": 0.5,
-    "model_confidence_rating": "low",
-    "total_decisions": 0,
-    "approved_count": 0,
+    "timestamp": "2026-08-29T09:01:51.242611+00:00",
+    "model_confidence": 1.0,
+    "model_confidence_rating": "high",
+    "total_decisions": 3,
+    "approved_count": 3,
     "rejected_count": 0,
     "pending_evidence_count": 0,
-    "approval_rate": 0,
-    "auto_remediation_eligible": [],
-    "auto_remediation_eligible_count": 0,
-    "manual_review_needed": [
+    "approval_rate": 1.0,
+    "auto_remediation_eligible": [
       "FND-001",
       "FND-002",
       "FND-003"
     ],
-    "manual_review_count": 3,
+    "auto_remediation_eligible_count": 3,
+    "manual_review_needed": [],
+    "manual_review_count": 0,
     "finding_scores": {
-      "FND-001": 0.5,
-      "FND-002": 0.5,
-      "FND-003": 0.5
+      "FND-001": 0.95,
+      "FND-002": 0.95
     },
     "recommendations": [
-      "Model confidence is 50% \u2014 recommend manual review before auto-fix",
-      "0 findings approved, 0 rejected, 0 pending evidence",
-      "0 findings eligible for auto-remediation"
+      "Model confidence is 100% \u2014 safe for auto-remediation",
+      "3 findings approved, 0 rejected, 0 pending evidence",
+      "3 findings eligible for auto-remediation"
     ]
   },
   "recommendations": [
-    "Model confidence is 50% \u2014 recommend manual review before auto-fix",
-    "0 findings approved, 0 rejected, 0 pending evidence",
-    "0 findings eligible for auto-remediation"
+    "Model confidence is 100% \u2014 safe for auto-remediation",
+    "3 findings approved, 0 rejected, 0 pending evidence",
+    "3 findings eligible for auto-remediation"
   ]
 }
