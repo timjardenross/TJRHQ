@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-08-28T21:05:49.884363+00:00",
+  "model_confidence": 0.5,
+  "model_confidence_rating": "low",
+  "total_decisions": 0,
+  "approved_count": 0,
+  "rejected_count": 0,
+  "pending_evidence_count": 0,
+  "approval_rate": 0,
+  "auto_remediation_eligible": [],
+  "auto_remediation_eligible_count": 0,
+  "manual_review_needed": [
+    "FND-001",
+    "FND-002"
+  ],
+  "manual_review_count": 2,
+  "finding_scores": {
+    "FND-001": 0.5,
+    "FND-002": 0.5
+  },
+  "recommendations": [
+    "Model confidence is 50% \u2014 recommend manual review before auto-fix",
+    "0 findings approved, 0 rejected, 0 pending evidence",
+    "0 findings eligible for auto-remediation"
+  ]
+}

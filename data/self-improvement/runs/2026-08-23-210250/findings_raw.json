@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted Changes in Working Tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Working directory is dirty with uncommitted file 'platform_runtime' on branch 'main'.",
+          "location": "platform_runtime"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Review and commit or add 'platform_runtime' to .gitignore to ensure a clean repository state."
+      },
+      "expected_benefit": "Maintains repository integrity and ensures reproducible deployments."
+    },
+    {
+      "category": "config_drift",
+      "title": "Duplicate Self-Improvement Policy Formats",
+      "evidence": [
+        {
+          "type": "duplicate_file",
+          "observation": "Both YAML and JSON policy definitions exist concurrently.",
+          "location": "config/self_improvement_policy.yaml"
+        },
+        {
+          "type": "duplicate_file",
+          "observation": "Duplicate policy definition file present alongside YAML counterpart.",
+          "location": "config/self_improvement_policy.json"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single policy format (YAML or JSON) and remove the duplicate file to avoid drift."
+      },
+      "expected_benefit": "Prevents ambiguity in policy loading and configuration drift."
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Unrouted Available Models in Local Registry",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Ollama models 'qwen3.5:9b', 'qwen3.5:4b', 'qwen3.5:2b', and 'gemma4:12b' are available locally but have no assigned task types in the routing policy.",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "info",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Evaluate and route eligible tasks to newly available models or prune unused model weights."
+      },
+      "expected_benefit": "Maximizes utilization of available local models and clarifies routing policy intent."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Virtual Environment Files Included in Audit Scanner Scope",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Audit scan indexed virtual environment files under .venv as repository doc/config files.",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add .venv and site-packages exclusion rules to the audit collector filesystem scanner."
+      },
+      "expected_benefit": "Improves audit accuracy and removes external package noise from repository telemetry."
+    }
+  ]
+}

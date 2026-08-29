@@ -18,10 +18,19 @@ log = logging.getLogger("dashboard")
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
-# Paths - prefer /tmp on VM (where /root is read-only), fall back to REPO_ROOT
+# 2026-08-29: was "prefer /tmp on VM (where /root is read-only), fall back
+# to REPO_ROOT" - that read-only constraint no longer holds on this host
+# (confirmed: /opt/starship-endeavour/data/self-improvement is writable,
+# root fs mounted rw). Preferring /tmp whenever it happens to exist was
+# also its own bug independent of that: it meant this dashboard silently
+# kept reading /tmp's history forever, even after a fix to make
+# orchestrator.py write to the persistent path - the two would permanently
+# disagree unless someone remembered to manually delete /tmp. Unconditional
+# persistent path now, matching orchestrator.py's new --data-root default
+# in the same commit. The pre-existing /tmp history was migrated over
+# rather than orphaned.
 REPO_ROOT = Path(__file__).parent.parent.parent
-_tmp_data_root = Path("/tmp/usstjros-findings")
-DATA_ROOT = _tmp_data_root if _tmp_data_root.exists() else REPO_ROOT / "data" / "self-improvement"
+DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
 
@@ -32,10 +41,24 @@ if RUNS_DIR.exists():
 
 
 def get_latest_run():
-    """Get the most recent run directory."""
+    """Get the most recent run directory.
+
+    2026-08-29: was a lexicographic sort on directory name (reverse=True),
+    which silently broke the moment the persistent data root's older
+    'r_20260712_NNN'-style run directories got mixed in with the newer
+    date-prefixed ones ('r' > '2' in ASCII, so a July run always sorted as
+    "latest" over an August one) - found live while migrating orchestrator.py
+    off its old /tmp data root onto this persistent path in the same
+    commit. Sorting by actual mtime instead is correct regardless of
+    whatever naming convention a run directory happens to use.
+    """
     if not RUNS_DIR.exists():
         return None
-    runs = sorted([d for d in RUNS_DIR.iterdir() if d.is_dir()], reverse=True)
+    runs = sorted(
+        (d for d in RUNS_DIR.iterdir() if d.is_dir()),
+        key=lambda d: d.stat().st_mtime,
+        reverse=True,
+    )
     return runs[0] if runs else None
 
 

@@ -1,0 +1,59 @@
+{
+  "findings": [
+    {
+      "category": "operational_failure",
+      "title": "Uncommitted changes in repository working tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository status is marked dirty with uncommitted file 'platform_runtime'",
+          "location": "/opt/starship-endeavour"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Inspect and commit or stash changes to platform_runtime to ensure repository working state is clean and reproducible"
+      },
+      "expected_benefit": "Ensures deployment predictability and avoids configuration divergence across runs"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Filesystem audit scanner failed to index core Python source files",
+      "evidence": [
+        {
+          "type": "manual_inspection",
+          "observation": "filesystem_audit reports python_files as 0 despite 74 test files and active Python runtime modules referenced in commit history",
+          "location": "filesystem_audit.python_files"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Update filesystem audit file discovery paths to correctly include Python source modules in intelligence and core directories"
+      },
+      "expected_benefit": "Accurate codebase metrics and static analysis coverage across all source trees"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Model name mismatch in router policy for embedding task",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Router policy specifies 'nomic-embed-text' for embed task while Ollama available model is listed as 'nomic-embed-text:latest'",
+          "location": "core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Align embedding task model configuration with exact Ollama model identifier tag",
+        "location": "model_router_audit.router_status.routing_policy"
+      },
+      "expected_benefit": "Prevents potential routing ambiguity or fallback overhead during embedding operations"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ Self-Improvement Orchestrator: Coordinates the full improvement workflow.
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -22,7 +23,19 @@ from policy import PolicyEngine
 from decision_processor import DecisionProcessor
 from auto_remediation import AutoRemediationExecutor
 
+# 3-workbench council follow-up 2026-08-29 (self-improvement-findings):
+# this daily systemd timer (self-improving-system.timer, running since
+# 2026-08-23) had no heartbeat anywhere — if it silently stopped firing or
+# started erroring, nothing would notice, the exact failure mode this
+# platform's own memory log already has several entries for (draft_worker
+# dead 10 days, XO Voice Debrief silently dead). record_heartbeat() is
+# self-contained (loads its own .env, no dependency on this script's own
+# config), matching every other scheduled job's heartbeat convention.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
+from heartbeat import record_heartbeat  # noqa: E402
+
 log = logging.getLogger("orchestrator")
+_HEARTBEAT_DOMAIN = "self_improvement_cycle"
 
 
 class SelfImprovementOrchestrator:
@@ -162,7 +175,15 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run self-improvement cycle")
     parser.add_argument("--repo-root", type=Path, default=Path("/opt/starship-endeavour"), help="Repository root")
-    parser.add_argument("--data-root", type=Path, default=Path("/tmp/usstjros-findings"), help="Data directory")
+    # 2026-08-29: was /tmp/usstjros-findings - a tmpfs/tmp path with no
+    # persistence guarantee across a reboot. This timer has been running
+    # daily since 2026-08-23 writing there, undetected, because /tmp simply
+    # hadn't been cleared yet; the next reboot would have silently dropped
+    # 6+ days of run history with no error, no heartbeat, nothing. Moved to
+    # the persistent path dashboard.py already had as its own fallback (see
+    # that file's DATA_ROOT fix in the same commit) and migrated the
+    # existing /tmp history over rather than losing it.
+    parser.add_argument("--data-root", type=Path, default=Path("/opt/starship-endeavour/data/self-improvement"), help="Data directory")
     parser.add_argument("--router-url", default="http://127.0.0.1:8891", help="Model Router URL")
     parser.add_argument("--dry-run", action="store_true", help="Don't apply changes")
     parser.add_argument("--no-remediate", action="store_true", help="Skip auto-remediation")
@@ -180,10 +201,29 @@ def main():
         router_url=args.router_url,
     )
 
-    result = orchestrator.run_full_cycle(
-        dry_run=args.dry_run,
-        remediate=not args.no_remediate,
-    )
+    t0 = time.monotonic()
+    try:
+        result = orchestrator.run_full_cycle(
+            dry_run=args.dry_run,
+            remediate=not args.no_remediate,
+        )
+    except Exception as exc:
+        # A heartbeat write must never mask the real failure - record it,
+        # then still raise so systemd sees the non-zero exit its own
+        # Restart=on-failure already depends on.
+        record_heartbeat(_HEARTBEAT_DOMAIN, status="failed", error_message=str(exc)[:500])
+        raise
+
+    latency_ms = int((time.monotonic() - t0) * 1000)
+    if result.get("success"):
+        record_heartbeat(
+            _HEARTBEAT_DOMAIN, status="ok",
+            detail=f"{result.get('findings_classified', 0)} findings classified, "
+                    f"{result.get('auto_remediation_eligible', 0)} auto-remediation eligible",
+            latency_ms=latency_ms,
+        )
+    else:
+        record_heartbeat(_HEARTBEAT_DOMAIN, status="failed", error_message=str(result.get("error"))[:500], latency_ms=latency_ms)
 
     # Print summary
     print("\n" + "=" * 80)

@@ -1,0 +1,54 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Dual format self-improvement policy configuration files",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Both config/self_improvement_policy.json and config/self_improvement_policy.yaml exist simultaneously in repository.",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML policy counterpart exists alongside JSON specification.",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single configuration format for self_improvement_policy and remove the redundant configuration file."
+      },
+      "expected_benefit": "Prevents configuration drift and establishes an unambiguous single source of truth for self-improvement rules.",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted working tree modifications in intelligence and runtime paths",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository state is dirty with uncommitted changes in intelligence/proactive_cadences.py and platform_runtime.",
+          "location": "intelligence/proactive_cadences.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Review, validate, and commit or stash uncommitted changes in intelligence/proactive_cadences.py and platform_runtime."
+      },
+      "expected_benefit": "Ensures reproducible deployment state and clean version control tracking.",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

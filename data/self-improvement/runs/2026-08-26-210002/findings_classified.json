@@ -1,0 +1,49 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Dirty Repository State with Uncommitted Platform Runtime",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Working directory is marked dirty with uncommitted file 'platform_runtime'",
+          "location": "/opt/starship-endeavour"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Commit or add platform_runtime artifacts to .gitignore to maintain a clean repository state."
+      },
+      "expected_benefit": "Prevents accidental drift and untracked state modifications across deployments.",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Virtual Environment Site-Packages Included in Repository Scans",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Filesystem audit includes files from core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages in doc and config file counts",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Configure filesystem audit filters to exclude .venv and virtual environment dependency paths."
+      },
+      "expected_benefit": "Improves audit accuracy and prevents third-party package noise from skewing documentation and config metrics.",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

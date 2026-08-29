@@ -1,0 +1,40 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted platform runtime artifacts in working tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository working tree is dirty with uncommitted file 'platform_runtime'",
+          "location": "/opt/starship-endeavour"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add platform_runtime to .gitignore or commit designated runtime metadata to maintain a clean git state"
+      },
+      "expected_benefit": "Ensures clean working directory and prevents untracked environment state divergence across deployments"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Virtual environment paths included in audit scanning scopes",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Filesystem audit includes site-packages files from core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages, artificially inflating doc count (1890) and configuration file listings",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update audit collector ignore patterns to exclude .venv, venv, and site-packages directories from filesystem traversal"
+      },
+      "expected_benefit": "Provides accurate repository inventory statistics and eliminates third-party dependency noise in audit reports"
+    }
+  ]
+}

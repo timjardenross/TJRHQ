@@ -1,0 +1,279 @@
+{
+  "collection_timestamp": "2026-08-23T02:30:41.509485+00:00",
+  "repository_state": {
+    "branch": "main",
+    "commit": "434cbfedcecc4d551cc7109c1f51167933bb83c5",
+    "commit_message": "Add lcars-portal.service to deploy/ \u2014 was the one service missing from version control\n\nInvestigating \"0 Briefs\"/model-router slowness led to a broader reboot-\nsurvival audit (user request: \"fix those things that need to be set up\ncorrectly to survive a restart of the VM\"). Every other production\nservice already has a tracked copy in deploy/ (model-router,\nintelligence-scheduler, tg-xo, etc.) \u2014 lcars-portal.service was the one\ngap, consistent with it having been unmanaged in practice.\n\nFound live on the VM: the unit existed and was systemd-enabled, but its\nExecStart still targeted port 3100. Caddy was repointed from 3100 to 3200\non 2026-08-11 (per /etc/caddy/Caddyfile's own comment, after this same\nunit \"had been dead since 2026-07-06\") \u2014 the unit was never updated to\nmatch, so a manually launched `npm exec next start -p 3200` had been\nquietly serving instead ever since, invisible to systemd and not\nsurviving a reboot.\n\nWhile fixing the port, also found the actual running .next build was\ncorrupted \u2014 every single request threw \"Failed to find Server Action...\nCannot read properties of undefined (reading 'workers')\", predating\ntoday's changes (found in a pre-existing log file). This is why the site\nlooked \"up\" (process running, port bound) while every real page 500'd.\nDid a clean `npm run build` to fix it \u2014 confirmed /login and other routes\nnow return real content, verified both directly (127.0.0.1:3200) and\nthrough Caddy's HTTPS front door.\n\nUnit hardened to match this repo's other persistent daemons: Restart=always\n(not on-failure \u2014 a hung-but-alive process is as much an outage as a\ncrash), StartLimitIntervalSec/Burst added so a future bad build fails\nloudly (unit shows 'failed') instead of crash-looping silently forever.\nAlso killed an unrelated ~24h-old stray `next dev -p 3100` process that\nhad no purpose now that nothing routes to that port.\n\nThis commit captures the fix in version control; the live unit file was\nalready edited directly on the VM and verified (systemctl is-enabled/\nis-active both confirm \u2014 the standard way to verify reboot-survival\nwithout an actual reboot).\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01YT48f9xXb9Wo51Yc3jjhop",
+    "dirty": false,
+    "uncommitted_files": [],
+    "repo_root": "/opt/starship-endeavour"
+  },
+  "filesystem_audit": {
+    "python_files": 0,
+    "test_files": [
+      "test_daily_brief_interrupt_now.py",
+      "test_lifecycle_advancer.py",
+      "test_priority_4_b1f_planning.py",
+      "test_kimi_qwen_providers.py",
+      "test_b1d_feedback_loops.py",
+      "test_commander_bridge.py",
+      "test_downdetector_priority_cadence.py",
+      "test_pending_actions.py",
+      "test_intelligence_deduplicator.py",
+      "test_signal_opportunity_converter.py",
+      "test_downdetector_thresholds.py",
+      "test_end_to_end_learning_loop.py",
+      "test_phase_a_enrichment.py",
+      "test_advisory_learning.py",
+      "test_intelligence_classifier.py",
+      "test_llm_provider_alignment.py",
+      "test_intelligence_ranker.py",
+      "test_priority_2a_b1c_b1d_integration.py",
+      "test_mistral_research_workflow.py",
+      "test_content_intelligence.py",
+      "test_msp_0057_wp1_integration.py",
+      "test_ori_enrichment.py",
+      "test_learning_narrative.py",
+      "test_learning_loop_b1a.py",
+      "test_gemini_quota_aware.py",
+      "test_lifecycle_reconciler.py",
+      "test_intelligence_source_tier.py",
+      "test_interrupt_dispatcher.py",
+      "test_intelligence_phase2.py",
+      "test_validation_suite.py",
+      "test_advisory_runtime.py",
+      "test_b1c_quality_scoring.py",
+      "test_intelligence_fuzzy_dedup.py",
+      "test_priority_engine.py",
+      "test_outcome_capture.py",
+      "test_self_improvement_system.py",
+      "test_phase_b_governance.py",
+      "test_message_chunking.py",
+      "test_intelligence_analyst.py",
+      "test_triage_package.py",
+      "test_cognitive_core_regression.py",
+      "test_lifecycle_status_map.py",
+      "test_advisory_products.py",
+      "test_attention_evaluation_job.py",
+      "test_cps230_final_validation.py",
+      "test_advisory_temporal.py",
+      "test_engineering_prep.py",
+      "test_telstra_poc.py",
+      "test_research_output_quality_validation.py",
+      "test_repository_awareness_source_truth.py",
+      "test_oai_continuation.py",
+      "test_supabase_client.py",
+      "test_attention_engine.py",
+      "test_intelligence_workflow.py",
+      "test_intelligence_api_escalation.py",
+      "test_validation_suite_job.py",
+      "test_brief_qa_agent.py",
+      "test_priority_3_b1e_forecasting.py",
+      "test_priority_2b_b1d_b1a_integration.py",
+      "test_intelligence_brief_generator.py",
+      "test_capture_contract.py",
+      "test_paperclip_bridge.py",
+      "test_captain_brief_orchestrator.py",
+      "test_intelligence_filter.py",
+      "test_b1b_outcome_capture.py",
+      "test_intelligence_governance.py",
+      "test_review_package.py",
+      "test_captain_brief_contract.py",
+      "test_advisory_personal.py",
+      "test_lifecycle_coverage.py",
+      "test_ori_brief_parser.py"
+    ],
+    "doc_files": {
+      "count": 1592,
+      "most_recent": [
+        "Health_OSINT_Neurodivergence_Source_Tagging_Uplift.md",
+        "HEALTH_OSINT_IMPLEMENTATION.md",
+        "telegram-bots/capacitybot/.pytest_cache/README.md",
+        "TJR_Human_Systems_Workbench_V3_Mission_and_Change_Proposal.md",
+        "telegram-bots/revs/README.md",
+        "services/revs-content-agents/examples/sample_brief.md",
+        "docs/capacity-today-spec.md",
+        "REVS_Telegram_Worksheet_Mapping.md",
+        "REVS_Telegram_Prompt_Library.md",
+        "MY_CAPACITY_TODAY_V02_Mission_and_Scope.md",
+        "Human_Systems_Workbench_VNext_Consolidation_Mission_Scope.md",
+        ".claude/skills/design-audit/references/slop-test.md",
+        ".claude/skills/design-audit/references/anti-patterns.md",
+        ".claude/skills/design-audit/SKILL.md",
+        "telegram-bots/capacitybot/.venv/lib/python3.12/site-packages/httpx-0.25.2.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    "config_files": [
+      "core/infrastructure/vm-processing/config.yaml",
+      "core/infrastructure/vm-processing/config.example.yaml",
+      "core/infrastructure/vm-transfer/config.example.yaml",
+      "config/self_improvement_policy.yaml",
+      "config/self_improvement_policy.json",
+      "core/infrastructure/mac-collector/config.example.yaml",
+      "week2_full_audit.json",
+      "audit_results.json"
+    ],
+    "schema_files": [
+      "self_improvement_run.schema.json",
+      "self_improvement_finding.schema.json",
+      "self_improvement_decision.schema.json"
+    ],
+    "missing_directories": []
+  },
+  "model_router_audit": {
+    "configured_routes": {
+      "task_types": [
+        "classify-capture",
+        "summarise-note",
+        "classify-document",
+        "summarise-document",
+        "xo-response",
+        "intelligence-brief",
+        "intelligence-signals",
+        "captain-insight-synthesis",
+        "captain-reasoning-synthesis",
+        "embed",
+        "escalate",
+        "fallback-complex",
+        "engineering-review",
+        "billing-report",
+        "self-improvement-analyse",
+        "self-improvement-critique",
+        "self-improvement-mission"
+      ],
+      "count": 17
+    },
+    "router_reachable": true,
+    "router_status": {
+      "ollama_url": "http://localhost:11434",
+      "ollama_reachable": true,
+      "loaded_models": [],
+      "available_models": [
+        "qwen3.5:9b",
+        "qwen3.5:4b",
+        "qwen3.5:2b",
+        "qwen2.5-coder:7b",
+        "gemma3:4b",
+        "gemma4:12b",
+        "nomic-embed-text:latest",
+        "mistral-small3.2:24b",
+        "glm-5.2:cloud"
+      ],
+      "router_port": 8891,
+      "log_file": "/opt/starship-endeavour/core/model-router/call_log.jsonl",
+      "recent_avg_ms": 138732,
+      "recent_failed": 0,
+      "routing_policy": [
+        {
+          "task_type": "classify-capture",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "summarise-note",
+          "model": "gemma3:4b",
+          "keep_alive": "5m"
+        },
+        {
+          "task_type": "classify-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "summarise-document",
+          "model": "gemma3:4b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "xo-response",
+          "model": "gemma3:4b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "intelligence-brief",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "intelligence-signals",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "captain-insight-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "captain-reasoning-synthesis",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "embed",
+          "model": "nomic-embed-text",
+          "keep_alive": "1m"
+        },
+        {
+          "task_type": "escalate",
+          "model": "mistral-small3.2:24b",
+          "keep_alive": "15m"
+        },
+        {
+          "task_type": "fallback-complex",
+          "model": "glm-5.2:cloud",
+          "keep_alive": "0"
+        },
+        {
+          "task_type": "engineering-review",
+          "model": "qwen2.5-coder:7b",
+          "keep_alive": "10m"
+        },
+        {
+          "task_type": "billing-report",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-analyse",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-critique",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        },
+        {
+          "task_type": "self-improvement-mission",
+          "model": "gemini-flash-latest",
+          "keep_alive": "n/a"
+        }
+      ]
+    },
+    "call_log_exists": true,
+    "call_log_size_mb": 0.04116058349609375
+  },
+  "code_analysis": {
+    "todos_and_fixmes": {},
+    "dead_imports": [
+      "/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages/google/protobuf/text_format.py:import encodings.raw_unicode_escape  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages/google/protobuf/text_format.py:import encodings.unicode_escape  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages/grpc/beta/implementations.py:import threading  # pylint: disable=unused-import",
+      "/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages/grpc/framework/interfaces/base/base.py:import threading  # pylint: disable=unused-import"
+    ],
+    "hardcoded_values": [
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/config.py:            url=router_raw.get(\"url\", \"http://127.0.0.1:8891\").rstrip(\"/\"),",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/pygments/lexers/jsx.py:    url = \"https://facebook.github.io/jsx/\"",
+      "/opt/starship-endeavour/tests/test_kimi_qwen_providers.py:        assert kimi._api_key() == \"dedicated\"",
+      "/opt/starship-endeavour/platform-runtime/lib/research/test_gemini_xo_decomposer.py:    decomposer = GeminiXODecomposer(api_key=\"invalid\")",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/pygments/lexers/verifpal.py:            (words(('password',), suffix=r'\\b'), Keyword.Constant),",
+      "/opt/starship-endeavour/core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages/openpyxl/worksheet/_reader.py:        password = element.get(\"password\")"
+    ]
+  },
+  "evidence_window": {
+    "since_commit": null,
+    "collection_timestamp": "2026-08-23T02:30:41.509485+00:00"
+  },
+  "collection_duration_ms": 28872
+}

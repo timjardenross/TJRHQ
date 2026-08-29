@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Dual Policy Configuration Formats Detected",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "YAML format exists for self improvement policy configuration",
+          "location": "config/self_improvement_policy.yaml"
+        },
+        {
+          "type": "file_exists",
+          "observation": "JSON version of self improvement policy coexists with YAML version",
+          "location": "config/self_improvement_policy.json"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single policy format (YAML or JSON) and remove the redundant configuration file."
+      },
+      "expected_benefit": "Prevents inconsistent policy definitions and configuration drift.",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "route_policy_drift",
+      "title": "Model Router Tag Alignment for Embed Task",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Routing policy specifies 'nomic-embed-text' without tag suffix",
+          "location": "model_router_audit.router_status.routing_policy[task_type=embed]"
+        },
+        {
+          "type": "service_status",
+          "observation": "Ollama available models list specifies 'nomic-embed-text:latest'",
+          "location": "model_router_audit.router_status.available_models"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Explicitly align the task embedding model identifier to nomic-embed-text:latest in the routing policy."
+      },
+      "expected_benefit": "Ensures deterministic model routing resolution and prevents mismatch during model invocation.",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: route_policy_drift; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted Artifact in Working Tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository state is dirty with uncommitted file 'platform_runtime'",
+          "location": "repository_state.uncommitted_files"
+        }
+      ],
+      "confidence": 0.98,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Commit necessary platform runtime files or add platform_runtime to .gitignore if it represents an ephemeral execution state."
+      },
+      "expected_benefit": "Restores clean repository state and ensures consistent deployment state.",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.98; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

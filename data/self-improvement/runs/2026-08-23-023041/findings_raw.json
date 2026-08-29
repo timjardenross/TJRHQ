@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "category": "performance_gap",
+      "title": "Elevated Model Router Response Latency",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Model router telemetry reports recent_avg_ms of 138732 ms (~138.7 seconds per request)",
+          "location": "core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Tune Ollama model keep-alive configurations and investigate local compute constraints or queueing bottlenecks causing 138s average latency"
+      },
+      "expected_benefit": "Substantially reduces system response latency across core automated workflows and prevents downstream timeout failures"
+    }
+  ]
+}
