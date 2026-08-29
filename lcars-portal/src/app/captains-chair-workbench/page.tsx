@@ -22,17 +22,27 @@ const ALERT_SEVERITY_BORDER: Record<AlertSeverity, string> = {
 // Mission Overview/Board — the Captain doesn't operate on missions as the
 // unit of work day-to-day any more. That removal is UI-only on THIS page;
 // the `missions` table itself is still live and read by ~20 other files
-// (command-centre, decisions, human-systems, engineering-queue's
-// mission_delivery view, the operating-model doctrine page) — nothing there
-// was touched. This page is now: a situation strip (is today okay?), one
-// unified "Needs Your Attention" queue pulling live counts from across the
-// platform, and the two narrative cards worth keeping at exec altitude.
-// Captain's Timeline, Since Last Session, Engineering Queue, Mobile
-// Operating Picture, the ROS Body Context/Recovery Guidance/"Sustainable
-// Load" sub-panels (the latter two were confirmed mock/fake data), and the
-// insight_outcomes-backed Captain Intelligence panel are all cut from this
-// page — not deleted from the app, still reachable via Quick Links or their
-// own workbenches.
+// (decisions, human-systems, engineering-queue's mission_delivery view, the
+// operating-model doctrine page) — nothing there was touched. This page is
+// now: a situation strip (is today okay?), one unified "Needs Your
+// Attention" queue pulling live counts from across the platform, and the
+// two narrative cards worth keeping at exec altitude. Captain's Timeline,
+// Since Last Session, Engineering Queue, the ROS Body Context/Recovery
+// Guidance/"Sustainable Load" sub-panels (the latter two were confirmed
+// mock/fake data), and the insight_outcomes-backed Captain Intelligence
+// panel are all cut from this page — not deleted from the app, still
+// reachable via their own workbenches.
+//
+// Mobile Operating Picture (the command-centre-backed Recommended
+// Action/Ship Status/What Changed/Officer Activity panels) is the
+// exception to that: it was cut here with no real alternate path back
+// (docs/UI-Layer-Debt-Handoff-2026-08-29.md Finding 2) — this comment
+// previously claimed it was "still reachable via Quick Links," which was
+// never true in the actual code. Retired outright 2026-08-29 rather than
+// leaving it half-wired: command-centre.ts, useCommandCentre.ts, and the
+// MobileOperatingPicture/CommandStrip/ExecutiveSummary components are
+// deleted. If this feature is wanted back, it needs re-wiring into a live
+// page from scratch, not un-deleting orphaned code.
 
 // ── Situation strip ──────────────────────────────────────────────────────────
 

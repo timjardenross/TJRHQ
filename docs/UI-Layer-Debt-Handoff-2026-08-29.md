@@ -28,17 +28,17 @@ Also worth checking while in this area: `src/lib/capture.ts` and `src/lib/types.
 
 **Suggested first step:** pick the target taxonomy (`stateToneClasses`'s 4-tier `ok/warn/crit/unknown` is the existing canonical one — extend it rather than inventing a 5th), then migrate the 6 vocabularies above one at a time. This is the same "canonical exists, unenforced" shape as today's backend work — the pattern that worked today (migrate + CI gate) likely transfers, though a severity *taxonomy* gate would need to check for new bespoke type unions, not a grep signature like today's — worth designing that check before or alongside the migration, not after.
 
-## Finding 2: API layer has no backend abstraction at all — **original framing was wrong, reframe entirely**
+## Finding 2: API layer has no backend abstraction at all — **resolved 2026-08-29, retired**
 
-The old finding was "25/29 routes bypass the Command Centre backend." That's stale in a specific way: **there is no Command Centre backend to bypass.**
+The old finding was "25/29 routes bypass the Command Centre backend." That's stale in a specific way: **there is no Command Centre backend to bypass**, and the "abstraction layer" framing turned out wrong twice over.
 
-- Total API routes today: **90** (`route.ts` files under `src/app/api`) — the surface has roughly tripled since the old 29-route baseline.
-- `src/lib/command-centre.ts` exists (273 lines, looks like exactly the central layer the old finding assumed) but **has zero importers anywhere in the codebase, including its own API routes.** It's dead code that was never wired in.
-- **89 of 90 routes talk directly to Supabase.** The one exception (`api/advisory/loops/route.ts`) reads local files — not a bypass case, just a different kind of route.
+- Total API routes today: **90** (`route.ts` files under `src/app/api`) — the surface has roughly tripled since the old 29-route baseline. **89 of 90 talk directly to Supabase**; that's simply this platform's actual API pattern, confirmed, not a gap.
+- `src/lib/command-centre.ts` was never a general-purpose abstraction layer at all — reading it in full, it's one self-contained feature: 4 Captain's-Chair live-data panels (Recommended Action, per-domain Ship Status, What Changed Since Last Visit, Officer Activity Feed), consumed by `useCommandCentre.ts` → `ExecutiveSummary`/`CommandStrip`/`MobileOperatingPicture` components.
+- That whole chain had zero live callers — but not because it was "never wired in" (the original, and even this doc's first-pass, framing). `captains-chair-workbench/page.tsx`'s own 2026-08-22 executive-summary-redesign comment said these panels were *deliberately cut* from the page, with a promise they were "still reachable via Quick Links or their own workbenches." That promise was checked against current code and found **false** — no Quick Links section exists anywhere. So it wasn't "built once, never adopted" — it was "built, live-adjacent, deliberately unhooked, and the comment's alternate path never materialized."
 
-This is worse than the original finding implied, but differently shaped: it's not "most routes skip the good layer," it's "the good layer was built once, never adopted, and everything grew up around it instead." Given 90 routes now exist directly coupled to Supabase, a lift-and-shift onto `command-centre.ts` is a much bigger job than it would have been at 29 routes — this needs a real scoping decision (retrofit vs. accept direct-Supabase as the actual pattern and formally retire `command-centre.ts`) before any migration work starts, not a mechanical "migrate them all."
+**Resolution: retired outright**, not revived. Deleted `command-centre.ts`, `useCommandCentre.ts`, and the three orphaned components (`ExecutiveSummary.tsx`, `CommandStrip.tsx`, `MobileOperatingPicture.tsx`). `RecommendationCard.tsx` (referenced by `ExecutiveSummary` in a comment) stays — it's a real shared component also used live by `captains-brief-workbench`. Fixed `captains-chair-workbench/page.tsx`'s comment to stop claiming false reachability. If this feature is wanted back, it needs re-wiring into a live page from scratch — not un-deleting orphaned code, since the code itself wasn't the missing piece, a decision to actually show it was.
 
-**Suggested first step:** don't start migrating routes. First decide: is `command-centre.ts` worth reviving as the real abstraction layer, or is "routes talk to Supabase directly" simply what this platform's API layer actually is now and `command-centre.ts` should be deleted as dead code? That's a 30-minute architectural call, not a coding task, and it determines whether the other 89 routes are a problem at all.
+The 89-routes-talk-directly-to-Supabase question is now simply the confirmed, accepted architecture — no further action needed there.
 
 ## Finding 3: Health OSINT / Human Systems domain split — **resolved 2026-08-29, keep split**
 
@@ -70,14 +70,14 @@ This was the biggest surprise. Re-checked properly (traced actual `Link`/`href` 
 
 ## Suggested order for the next session
 
-1. **Nav orphans (Finding 4)** — smallest, cleanest win. Add `comms-workbench` and `self-improvement-findings` to `LIVE_WORKBENCHES` (or wherever makes sense), fix `investigate`'s reachability. Bounded, single-session.
-2. **Command Centre decision (Finding 2)** — not code, a scoping call. Decide revive-vs-retire before anything else touches the API layer. Do this early since it affects whether Finding 2 is even a real task.
-3. **Severity vocabulary consolidation (Finding 1)** — biggest real chunk of work, same shape as today's backend consolidation (canonical exists, migrate + gate). Good candidate for its own multi-commit session once the target taxonomy is picked.
-4. **Health OSINT / Human Systems (Finding 3)** — a decision, not urgent. Fold into whichever session touches either workbench next, doesn't need to be dedicated time on its own.
+1. ~~**Nav orphans (Finding 4)**~~ — done 2026-08-29.
+2. ~~**Command Centre decision (Finding 2)**~~ — done 2026-08-29, retired.
+3. **Severity vocabulary consolidation (Finding 1)** — biggest real chunk of work remaining, same shape as today's backend consolidation (canonical exists, migrate + gate). Now 7 vocabularies + a token-family split (`wb-*` vs `state-*`) + `ProcessingStatus`/`ReviewStatus` duplication. Good candidate for its own multi-commit session once the target taxonomy is picked. **Only open item left.**
+4. ~~**Health OSINT / Human Systems (Finding 3)**~~ — done 2026-08-29, kept split.
 
 ## Files to start from
 
-`src/lib/nav.ts`, `src/lib/workbenches.ts`, `src/components/ui/WorkbenchShell.tsx`, `src/lib/departments.ts` (canonical `stateToneClasses`), `src/lib/alerts.ts`, `src/lib/hygieneRules.ts`, `src/lib/intelligenceRisk.ts`, `src/app/self-improvement-findings/page.tsx`, `src/app/emergency-alert-hub-workbench/page.tsx`, `src/lib/command-centre.ts`, `src/lib/capture.ts` + `src/lib/types.ts` (duplicate `ProcessingStatus`/`ReviewStatus`).
+`src/lib/departments.ts` (canonical `stateToneClasses`), `src/lib/alerts.ts`, `src/lib/hygieneRules.ts`, `src/lib/intelligenceRisk.ts`, `src/app/self-improvement-findings/page.tsx`, `src/app/emergency-alert-hub-workbench/page.tsx`, `src/lib/capture.ts` + `src/lib/types.ts` (duplicate `ProcessingStatus`/`ReviewStatus`), `src/app/advisory-workbench/_components/LoopsView.tsx` (7th vocab, already migrated — reference implementation for the pattern). `src/lib/nav.ts`, `src/lib/workbenches.ts`, `src/components/ui/WorkbenchShell.tsx`, `src/lib/command-centre.ts` no longer relevant — those findings are closed.
 
 ---
 
