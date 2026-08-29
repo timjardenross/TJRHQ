@@ -82,6 +82,7 @@ class NotificationResult:
     attempts: int
     error: Optional[str] = None
     sent_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: Optional[int] = None  # Telegram message_id, when the transport returns one; None for Slack
 
 
 @dataclass
@@ -124,21 +125,28 @@ def _escape_telegram_html(text: str) -> str:
     return text
 
 
-def _render(template: str, title: Optional[str], body: str) -> str:
+def _render_full(template: str, title: Optional[str], body: str) -> str:
+    """Renders without the _TELEGRAM_MAX_LEN truncation _render() applies —
+    used by notify(chunk=True) to measure/split the real length before
+    deciding whether truncation would even happen."""
     tpl = TEMPLATES.get(template, TEMPLATES["plain"])
     if template in _RAW_TEMPLATES:
         # Caller already escaped dynamic content and composed the final
         # HTML itself — pass through untouched (see _RAW_TEMPLATES doc).
-        text = tpl.format(title=title or "", body=body)
-    else:
-        text = tpl.format(
-            title=_escape_telegram_html(title or ""),
-            body=_escape_telegram_html(body),
-        )
-    return text[:_TELEGRAM_MAX_LEN]
+        return tpl.format(title=title or "", body=body)
+    return tpl.format(
+        title=_escape_telegram_html(title or ""),
+        body=_escape_telegram_html(body),
+    )
 
 
-def _send_telegram(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, Optional[str]]:
+def _render(template: str, title: Optional[str], body: str) -> str:
+    return _render_full(template, title, body)[:_TELEGRAM_MAX_LEN]
+
+
+def _send_telegram(
+    text: str, reply_markup: Optional[dict] = None, chat_id: Optional[str] = None
+) -> tuple[bool, Optional[str], Optional[int]]:
     """Sends via Telegram's HTML parse_mode (2026-08-22, switched from
     Markdown — see _escape_telegram_html's docstring for why). NOTE: `text`
     is shared with _send_slack() below via the same _render() output —
@@ -150,28 +158,45 @@ def _send_telegram(text: str, reply_markup: Optional[dict] = None) -> tuple[bool
     coincidence, HTML tags don't have an equivalent coincidence.
 
     reply_markup (optional) attaches an inline keyboard — used by Phase B to add
-    the RED-alert [VERIFY NOW] deep-link button."""
+    the RED-alert [VERIFY NOW] deep-link button.
+
+    chat_id (optional) overrides the env-resolved default — 2026-08-29,
+    added so per-recipient callers (e.g. a build-approval confirmation
+    going back to whichever chat requested it, or an escalation channel
+    that's deliberately not the default captain chat) can still use this
+    canonical sender instead of hand-rolling their own."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    raw_ids = os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
-    chat_id = raw_ids.split(",")[0].strip() if raw_ids else os.environ.get("TELEGRAM_CHAT_ID", "")
+    if chat_id is None:
+        raw_ids = os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
+        chat_id = raw_ids.split(",")[0].strip() if raw_ids else os.environ.get("TELEGRAM_CHAT_ID", "")
     if not token or not chat_id:
-        return False, "missing TELEGRAM_BOT_TOKEN or chat id"
+        return False, "missing TELEGRAM_BOT_TOKEN or chat id", None
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    body_obj = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    body_obj = {
+        "chat_id": chat_id, "text": text, "parse_mode": "HTML",
+        "disable_web_page_preview": True,  # matches every caller migrated onto this sender so far
+    }
     if reply_markup:
         body_obj["reply_markup"] = reply_markup
     payload = json.dumps(body_obj).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10):
-            return True, None
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            parsed = json.loads(resp.read())
+            message_id = (parsed.get("result") or {}).get("message_id")
+            return True, None, message_id
     except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}"
+        return False, f"{type(exc).__name__}: {exc}", None
 
 
-def _send_slack(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, Optional[str]]:
+def _send_slack(
+    text: str, reply_markup: Optional[dict] = None, chat_id: Optional[str] = None
+) -> tuple[bool, Optional[str], Optional[int]]:
     """Reuses command_bus.py's _slack() HTTP body (chat.postMessage).
-    reply_markup is Telegram-specific and ignored here (signature parity)."""
+    reply_markup and chat_id are Telegram-specific and ignored here
+    (signature parity with _send_telegram). message_id is always None —
+    Slack's ts (message timestamp) plays that role but nothing here needs
+    it yet; add if a Slack caller needs edit-in-place later."""
     token = os.environ.get("SLACK_BOT_TOKEN", "")
     channel = (
         os.environ.get("BRIEF_CHANNEL")
@@ -180,7 +205,7 @@ def _send_slack(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, O
         or ""
     )
     if not token or not channel:
-        return False, "missing SLACK_BOT_TOKEN or channel"
+        return False, "missing SLACK_BOT_TOKEN or channel", None
     url = "https://slack.com/api/chat.postMessage"
     payload = json.dumps({"channel": channel, "text": text}).encode()
     req = urllib.request.Request(
@@ -192,10 +217,10 @@ def _send_slack(text: str, reply_markup: Optional[dict] = None) -> tuple[bool, O
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read().decode("utf-8"))
             if not body.get("ok"):
-                return False, f"slack_api_error:{body.get('error')}"
-            return True, None
+                return False, f"slack_api_error:{body.get('error')}", None
+            return True, None, None
     except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}"
+        return False, f"{type(exc).__name__}: {exc}", None
 
 
 _SENDERS = {
@@ -214,11 +239,31 @@ def notify(
     max_retries: int = 1,
     retry_backoff_seconds: float = 2.0,
     reply_markup: Optional[dict] = None,
+    chat_id: Optional[str] = None,
+    chunk: bool = False,
 ) -> NotificationResult:
     """Send a notification through the given transport.
 
-    Standalone call — not yet invoked by any production code path. Retries
-    up to max_retries times (command_bus.py's senders never retried at all).
+    Used by command_bus.py's ALERT/CRITICAL path and, as of 2026-08-29, the
+    consolidated notification-sender migration (see
+    tools/check_notification_senders.py) — no longer a standalone call.
+    Retries up to max_retries times per chunk (command_bus.py's senders
+    never retried at all).
+
+    chat_id: override the env-resolved default recipient (Telegram only;
+    ignored by Slack — see _send_slack). For a caller that targets a
+    different chat per call (e.g. per-requester build confirmations, a
+    fixed escalation channel), not the single default chat this module
+    otherwise assumes.
+
+    chunk: split `body` across multiple messages at Telegram's 4096-char
+    limit (word-boundary cuts, never mid-word) instead of the default
+    hard truncation — for callers whose content can legitimately run long
+    (e.g. a multi-paragraph daily brief) where truncating would cut real
+    content rather than an edge case. Only affects Telegram; Slack has no
+    equivalent hard limit in this module's usage so chunk is a no-op there.
+    Returns the result of the LAST chunk sent (an early chunk failing does
+    not raise — see the note below).
     """
     sender = _SENDERS.get(transport)
     if sender is None:
@@ -227,21 +272,57 @@ def notify(
         return result
 
     text = _render(template, title, body)
+
+    if chunk and transport == Transport.TELEGRAM and len(_render_full(template, title, body)) > _TELEGRAM_MAX_LEN:
+        # _render already truncated to _TELEGRAM_MAX_LEN — chunk the raw
+        # body instead, then render each piece (template wrapping is
+        # cheap/idempotent per chunk).
+        chunks = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
+        result = None
+        for i, piece in enumerate(chunks):
+            piece_title = title if i == 0 else None
+            piece_text = _render(template, piece_title, piece)
+            result = _send_one(sender, piece_text, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport)
+            _CALL_LOG.append(NotificationLogEntry(transport, severity, piece_title, piece, result))
+            if not result.ok:
+                log.warning("[notification-service] chunk %d/%d failed via %s: %s", i + 1, len(chunks), transport.value, result.error)
+        return result
+
+    result = _send_one(sender, text, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport)
+    _CALL_LOG.append(NotificationLogEntry(transport, severity, title, body, result))
+    if not result.ok:
+        log.warning("[notification-service] send failed after %d attempt(s) via %s: %s", result.attempts, transport.value, result.error)
+    return result
+
+
+def _split_at_word_boundary(text: str, limit: int) -> list[str]:
+    """Splits text into <=limit-char pieces, cutting at the last space
+    before the limit rather than mid-word. Mirrors the fix applied to
+    intelligence/captains_brief.py's _truncate_clean/_send_telegram
+    (2026-08-29) — a bare text[:limit] slice cuts mid-sentence/mid-word."""
+    pieces = []
+    remaining = text
+    while len(remaining) > limit:
+        cut = remaining[:limit].rsplit(" ", 1)[0] or remaining[:limit]
+        pieces.append(cut)
+        remaining = remaining[len(cut):].lstrip()
+    if remaining:
+        pieces.append(remaining)
+    return pieces
+
+
+def _send_one(sender, text: str, reply_markup, chat_id, max_retries, retry_backoff_seconds, transport: Transport) -> NotificationResult:
     ok = False
     error: Optional[str] = None
+    message_id: Optional[int] = None
     attempts = 0
     for attempt in range(max_retries + 1):
         attempts += 1
-        ok, error = sender(text, reply_markup)
+        ok, error, message_id = sender(text, reply_markup, chat_id)
         if ok or attempt >= max_retries:
             break
         time.sleep(retry_backoff_seconds)
-
-    result = NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error)
-    _CALL_LOG.append(NotificationLogEntry(transport, severity, title, body, result))
-    if not ok:
-        log.warning("[notification-service] send failed after %d attempt(s) via %s: %s", attempts, transport.value, error)
-    return result
+    return NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error, message_id=message_id)
 
 
 def get_call_log(limit: int = 50) -> list[NotificationLogEntry]:

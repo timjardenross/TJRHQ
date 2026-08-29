@@ -106,47 +106,27 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
 
 
 # ── Telegram delivery ─────────────────────────────────────────────────────────
+# Migrated 2026-08-29 onto core/platform/notification_service.py's notify()
+# (see tools/check_notification_senders.py) — its chunk=True mode now does
+# the same word-boundary splitting this module implemented locally after
+# the 2026-08-29 mid-sentence-truncation fix (see git history), so a brief
+# longer than one Telegram message still arrives in full across multiple
+# messages rather than getting cut off.
 
 _TELEGRAM_MSG_LIMIT = 4096
 
 
-def _send_telegram_chunk(text: str) -> bool:
+def _send_telegram(text: str) -> bool:
     if not _TELEGRAM_TOKEN or not _TELEGRAM_CHAT:
         log.warning("Telegram not configured — printing to stdout")
         print(text)
         return False
-    url = f"https://api.telegram.org/bot{_TELEGRAM_TOKEN}/sendMessage"
-    payload = json.dumps({
-        "chat_id": _TELEGRAM_CHAT,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": True,
-    }).encode()
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read()).get("ok", False)
-    except Exception as exc:
-        log.error("Telegram send failed: %s", exc)
-        return False
+    from core.platform.notification_service import notify, Transport
 
-
-def _send_telegram(text: str) -> bool:
-    """Splits on word boundaries at _TELEGRAM_MSG_LIMIT instead of a raw
-    slice, so a brief longer than one Telegram message arrives in full
-    across multiple messages rather than getting cut off mid-sentence."""
-    chunks = [
-        _truncate_clean(text[i:i + _TELEGRAM_MSG_LIMIT + 200], _TELEGRAM_MSG_LIMIT)
-        if len(text) - i > _TELEGRAM_MSG_LIMIT else text[i:]
-        for i in range(0, len(text), _TELEGRAM_MSG_LIMIT)
-    ]
-    ok = True
-    for chunk in chunks:
-        ok = _send_telegram_chunk(chunk) and ok
-    return ok
+    result = notify(text, template="raw", transport=Transport.TELEGRAM, chunk=True)
+    if not result.ok:
+        log.error("Telegram send failed: %s", result.error)
+    return result.ok
 
 
 # ── Data fetchers ─────────────────────────────────────────────────────────────

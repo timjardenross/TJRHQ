@@ -293,24 +293,20 @@ def _parse_chat_id(marker: dict[str, Any]) -> Optional[str]:
 
 
 def _telegram_notify(chat_id: Optional[str], text: str) -> None:
-    """Best-effort Telegram message. The worker runs on-host as a service, so
-    sendMessage egress works (unlike ad-hoc tooling)."""
+    """Best-effort Telegram message via the canonical notification service
+    (core/platform/notification_service.py, migrated 2026-08-29 — see
+    tools/check_notification_senders.py). chat_id is per-request (whoever
+    triggered the build), which is why this needs notify()'s chat_id
+    override rather than the module's env-resolved default."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token or not chat_id:
         log.info("Skip Telegram notify (token/chat_id absent); message was: %s", text[:120])
         return
-    payload = json.dumps({"chat_id": chat_id, "text": text[:4000]}).encode("utf-8")
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=payload,
-        method="POST",
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            resp.read()
-    except urllib.error.URLError as exc:
-        log.warning("Telegram notify failed: %s", exc)
+    from core.platform.notification_service import notify, Transport
+
+    result = notify(text, transport=Transport.TELEGRAM, chat_id=chat_id)
+    if not result.ok:
+        log.warning("Telegram notify failed: %s", result.error)
 
 
 # ─── orchestration ───────────────────────────────────────────────────────────

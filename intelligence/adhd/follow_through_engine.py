@@ -558,8 +558,11 @@ def compose_bundle_message(tasks: list[dict]) -> tuple[str, dict]:
     return text, _kb(buttons)
 
 
-# ── Telegram send (direct — need message_id back for follow_through_sends,
-# which notify()'s NotificationResult does not carry) ───────────────────────
+# ── Telegram send ─────────────────────────────────────────────────────────
+# Migrated 2026-08-29 to core/platform/notification_service.py's notify()
+# (see tools/check_notification_senders.py) — NotificationResult now
+# carries message_id, closing the gap that used to justify a private
+# sender here.
 
 def _resolve_chat_id() -> str:
     raw_ids = os.environ.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
@@ -569,31 +572,16 @@ def _resolve_chat_id() -> str:
 
 
 def _send_telegram(text: str, reply_markup: dict) -> tuple[bool, Optional[str], Optional[int]]:
-    """Sends via Telegram HTML parse_mode (matches
-    core/platform/notification_service.py's _send_telegram convention).
-    Returns (ok, error, message_id)."""
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    chat_id = _resolve_chat_id()
-    if not token or not chat_id:
-        return False, "missing TELEGRAM_BOT_TOKEN or chat id", None
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    body_obj = {
-        "chat_id": chat_id,
-        "text": text[:4096],
-        "parse_mode": "HTML",
-        "reply_markup": reply_markup,
-    }
-    payload = json.dumps(body_obj).encode()
-    req = urllib.request.Request(
-        url, data=payload, headers={"Content-Type": "application/json"}, method="POST",
+    """Returns (ok, error, message_id) — text is caller-composed HTML
+    (intentional <b>/<code> markup with already-escaped dynamic values),
+    hence template="raw" (see notification_service._RAW_TEMPLATES)."""
+    from core.platform.notification_service import notify, Transport
+
+    result = notify(
+        text, template="raw", transport=Transport.TELEGRAM,
+        reply_markup=reply_markup, chat_id=_resolve_chat_id(),
     )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            parsed = json.loads(resp.read())
-            message_id = (parsed.get("result") or {}).get("message_id")
-            return True, None, message_id
-    except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}", None
+    return result.ok, result.error, result.message_id
 
 
 # ── Recording ────────────────────────────────────────────────────────────────

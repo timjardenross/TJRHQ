@@ -105,10 +105,21 @@ class ExecutorTests(unittest.TestCase):
         self.handoff_dir.mkdir(exist_ok=True)
         self._orig_handoff_dir = ex._HANDOFF_DIR
         ex._HANDOFF_DIR = self.handoff_dir
+        # 2026-08-29: individual tests below reassign ex._telegram_notify /
+        # ex._run_sync_one directly (not via mock.patch), which used to
+        # leak across tests since nothing restored them — a later test
+        # (e.g. test_telegram_notify_uses_notification_service_...) would
+        # silently call whatever the last test's stub left behind instead
+        # of the real function. Saved here and restored in tearDown so
+        # each test starts from the real implementations.
+        self._orig_telegram_notify = ex._telegram_notify
+        self._orig_run_sync_one = ex._run_sync_one
         self.notified = []
 
     def tearDown(self):
         ex._HANDOFF_DIR = self._orig_handoff_dir
+        ex._telegram_notify = self._orig_telegram_notify
+        ex._run_sync_one = self._orig_run_sync_one
         for p in sorted(self.tmp.rglob("*"), reverse=True):
             p.unlink() if p.is_file() else p.rmdir()
         self.tmp.rmdir()
@@ -173,6 +184,47 @@ class ExecutorTests(unittest.TestCase):
     def test_parse_chat_id(self):
         self.assertEqual(ex._parse_chat_id({"requested_by": "tg:643108092"}), "643108092")
         self.assertIsNone(ex._parse_chat_id({"requested_by": "@someone"}))
+
+    def test_telegram_notify_uses_notification_service_with_request_chat_id(self):
+        """2026-08-29: migrated off a private sendMessage call onto
+        core/platform/notification_service.py's notify(). This build
+        executor's chat_id is per-request (whoever triggered the build),
+        not the module's env-resolved default — confirms notify()'s
+        chat_id override actually reaches the sender, not the default."""
+        import os
+        from unittest.mock import patch
+        import core.platform.notification_service as ns
+
+        calls = []
+
+        def fake_telegram(text, reply_markup=None, chat_id=None):
+            calls.append({"text": text, "chat_id": chat_id})
+            return True, None, 42
+
+        real_sender = ns._SENDERS[ns.Transport.TELEGRAM]
+        ns._SENDERS[ns.Transport.TELEGRAM] = fake_telegram
+        try:
+            with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "fake-token"}):
+                ex._telegram_notify("999888777", "build finished")
+        finally:
+            ns._SENDERS[ns.Transport.TELEGRAM] = real_sender
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["chat_id"], "999888777")
+        self.assertIn("build finished", calls[0]["text"])
+
+    def test_telegram_notify_skips_when_chat_id_absent(self):
+        import core.platform.notification_service as ns
+
+        calls = []
+        real_sender = ns._SENDERS[ns.Transport.TELEGRAM]
+        ns._SENDERS[ns.Transport.TELEGRAM] = lambda *a, **k: calls.append(1) or (True, None, None)
+        try:
+            ex._telegram_notify(None, "should not send")
+        finally:
+            ns._SENDERS[ns.Transport.TELEGRAM] = real_sender
+
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

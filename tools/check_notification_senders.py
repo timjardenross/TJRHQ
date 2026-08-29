@@ -37,25 +37,31 @@ _PATTERN = re.compile(r"api\.telegram\.org/bot.*sendMessage|api\.telegram\.org/b
 _ALLOWLIST = {
     "core/platform/notification_service.py":
         "the canonical implementation itself",
-    "core/coordination/telegram_build_executor.py":
-        "sends to a dynamic per-request chat_id (whoever triggered the "
-        "build) — notify() only targets the env-configured captain chat; "
-        "needs an explicit chat_id param added to notify() before migrating",
     "core/platform/deadmans_switch.py":
-        "safety watchdog alert path — deliberately deferred pending "
-        "dedicated testing, not migrated casually",
-    "intelligence/adhd/follow_through_engine.py":
-        "not yet reviewed for migration",
-    "intelligence/captains_brief.py":
-        "needs multi-message chunking for briefs over 4096 chars — "
-        "notify() currently hard-truncates; needs chunking support added "
-        "before migrating (see 2026-08-29 brief-truncation fix)",
+        "PERMANENT exception, by design — this is the watcher's watcher "
+        "(alerts if verification_engine itself goes silent). It must share "
+        "the fewest possible failure modes with whatever it's alerting "
+        "about, including notification_service.py itself. Do not migrate.",
     "platform-runtime/lib/human_systems/delivery.py":
-        "not yet reviewed for migration",
+        "PERMANENT exception — fans out to Slack AND Telegram with "
+        "independent per-transport recipient resolution and graceful "
+        "single-transport degrade (dry-run/test paths too); a materially "
+        "different shape from notify()'s single-transport-per-call "
+        "contract, not just a duplicate of it. Revisit only if notify() "
+        "grows real multi-transport fan-out.",
     "telegram-bots/recovery_officer/engagement_dispatcher.py":
-        "not yet reviewed for migration",
+        "PERMANENT exception — _StandaloneTelegramBot is a duck-typed "
+        "adapter satisfying the same bot.send_message(chat_id, text, "
+        "parse_mode) contract telegram-bots/xo/app.py's live bot exposes, "
+        "so callers work identically against either. It's an interface "
+        "implementation, not a notification call site.",
     "telegram-bots/revs/escalate.py":
-        "not yet reviewed for migration",
+        "PERMANENT exception — uses a separate bot identity "
+        "(XO_ESCALATION_BOT_TOKEN/CHAT_ID, not the default captain bot) "
+        "and is async/httpx-based while notify() is synchronous urllib; "
+        "this is the crisis-escalation path and its own docstring requires "
+        "it never block/delay the user's crisis-response send, which a "
+        "blocking sync call here would risk.",
 }
 
 
@@ -64,7 +70,10 @@ def main() -> int:
         ["git", "grep", "-lE", _PATTERN.pattern, "--", "*.py"],
         cwd=_REPO_ROOT, capture_output=True, text=True,
     )
-    files = [f for f in out.stdout.splitlines() if f.strip()]
+    # Exclude this script itself — it matches its own pattern string as a
+    # literal, not an actual raw sender.
+    _self = str(Path(__file__).relative_to(_REPO_ROOT))
+    files = [f for f in out.stdout.splitlines() if f.strip() and f != _self]
 
     new_offenders = [f for f in files if f not in _ALLOWLIST]
     if new_offenders:
