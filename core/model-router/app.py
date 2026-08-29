@@ -707,20 +707,15 @@ def main() -> int:
 
 
 def _load_dotenv() -> None:
+    """2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — was a
+    hand-rolled copy of the same loop."""
     repo_root = Path(__file__).resolve().parent.parent.parent
-    for candidate in [repo_root / ".env", repo_root / "platform-runtime" / ".env"]:
-        if candidate.exists():
-            try:
-                for line in candidate.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, _, v = line.partition("=")
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        if k and k not in os.environ:
-                            os.environ[k] = v
-            except Exception:
-                pass
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([repo_root / ".env", repo_root / "platform-runtime" / ".env"])
 
 
 if __name__ == "__main__":

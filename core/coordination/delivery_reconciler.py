@@ -49,19 +49,19 @@ NEXT_ACTOR = {
 }
 
 
+# 2026-08-29: migrated onto core/platform/configuration_service.py's
+# load_dotenv_files() (see tools/check_config_loaders.py) — this file's own
+# hand-rolled loop was the one build_request_verifier.py's docstring says
+# it mirrored.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from core.platform.configuration_service import load_dotenv_files
+
+load_dotenv_files([REPO_ROOT / ".env", REPO_ROOT / "platform-runtime" / ".env"])
+
+
 def _env(key: str, default: str = "") -> str:
-    """Env var, falling back to the repo-root and platform-runtime .env files."""
-    v = os.environ.get(key)
-    if v:
-        return v
-    for envf in (REPO_ROOT / ".env", REPO_ROOT / "platform-runtime" / ".env"):
-        try:
-            for line in envf.read_text(encoding="utf-8").splitlines():
-                if line.startswith(key + "="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except OSError:
-            continue
-    return default
+    return os.environ.get(key, default)
 
 
 # --- sources --------------------------------------------------------------

@@ -58,20 +58,16 @@ _MAX_CONTEXT_CHARS = 6000  # clamp handoff body fed into the prompt
 # ─── env ──────────────────────────────────────────────────────────────────────
 
 def _ensure_env() -> None:
-    """Best-effort load of the Mistral key from repo-root .env (no dependency)."""
+    """2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — was a
+    hand-rolled loop scoped to just the Mistral keys; bulk-loading the
+    whole file is harmless (non-override, first-wins) and reuses the
+    canonical primitive instead."""
     if os.getenv("MISTRAL_BATCH_API_KEY") or os.getenv("MISTRAL_API_KEY"):
         return
-    env = _REPO_ROOT / ".env"
-    if not env.exists():
-        return
-    for line in env.read_text(encoding="utf-8").splitlines():
-        s = line.strip()
-        if s.startswith("#") or "=" not in s:
-            continue
-        k, _, v = s.partition("=")
-        k = k.strip()
-        if k in ("MISTRAL_BATCH_API_KEY", "MISTRAL_API_KEY") and k not in os.environ:
-            os.environ[k] = v.strip()
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env"])
 
 
 def _now() -> str:
@@ -236,22 +232,16 @@ def _env_value(key: str) -> str:
 
     GITHUB_REPO/GITHUB_TOKEN live in platform-runtime/.env (alongside the other GitHub
     config), so both files are searched; the live environment wins, then root,
-    then platform-runtime. No dependency on python-dotenv.
+    then platform-runtime.
+
+    2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — was a second,
+    independent hand-rolled loop in this same file (see _ensure_env above).
     """
-    val = os.getenv(key)
-    if val:
-        return val
-    for env in (_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"):
-        if not env.exists():
-            continue
-        for line in env.read_text(encoding="utf-8").splitlines():
-            s = line.strip()
-            if s.startswith("#") or "=" not in s:
-                continue
-            k, _, v = s.partition("=")
-            if k.strip() == key:
-                return v.strip().strip('"').strip("'")
-    return ""
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"])
+    return os.getenv(key, "")
 
 
 def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]) -> dict[str, Any]:

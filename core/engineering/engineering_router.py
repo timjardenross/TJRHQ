@@ -368,20 +368,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _load_dotenv() -> None:
-    """Minimal .env loader — no external deps required."""
-    for candidate in [_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"]:
-        if candidate.exists():
-            try:
-                for line in candidate.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        key, _, val = line.partition("=")
-                        key = key.strip()
-                        val = val.strip().strip('"').strip("'")
-                        if key and key not in os.environ:
-                            os.environ[key] = val
-            except Exception:
-                pass
+    """2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — was a
+    hand-rolled copy of the same loop."""
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"])
 
 
 if __name__ == "__main__":

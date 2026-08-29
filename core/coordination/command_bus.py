@@ -53,21 +53,20 @@ OUTPUTS_DIR = REPO_ROOT / "outputs"
 # Config (env vars, with .env fallback)
 # ---------------------------------------------------------------------------
 
+# 2026-08-29: migrated onto core/platform/configuration_service.py's
+# load_dotenv_files() (see tools/check_config_loaders.py) — bulk-loads once
+# at import instead of re-reading the .env files from disk on every _env()
+# call. Also drops two stale fallback paths (telegram-bot/.env, xo-bot/.env)
+# that no longer exist — the actual directories are telegram-bots/xo/.env
+# etc., neither of which this file ever needed (TELEGRAM_BOT_TOKEN already
+# lives in platform-runtime/.env).
+from core.platform.configuration_service import load_dotenv_files
+
+load_dotenv_files([REPO_ROOT / ".env", REPO_ROOT / "platform-runtime" / ".env"])
+
+
 def _env(key: str, default: str = "") -> str:
-    v = os.environ.get(key)
-    if v:
-        return v
-    for envf in (REPO_ROOT / ".env",
-                 REPO_ROOT / "platform-runtime" / ".env",
-                 REPO_ROOT / "telegram-bot" / ".env",
-                 REPO_ROOT / "xo-bot" / ".env"):
-        try:
-            for line in envf.read_text(encoding="utf-8").splitlines():
-                if line.startswith(key + "="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except OSError:
-            continue
-    return default
+    return os.environ.get(key, default)
 
 
 _INTERVAL           = int(_env("COMMAND_BUS_INTERVAL", "300"))       # seconds between cycles

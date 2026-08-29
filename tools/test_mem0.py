@@ -22,20 +22,12 @@ log = logging.getLogger("test_mem0")
 
 
 def _load_dotenv() -> None:
-    """Load key=value pairs from .env into os.environ (no third-party dependency)."""
-    import os
-    env_path = _REPO_ROOT / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if key and key not in os.environ:
-            os.environ[key] = value
+    """2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — was a
+    hand-rolled copy of the same loop."""
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env"])
 
 
 def main() -> int:

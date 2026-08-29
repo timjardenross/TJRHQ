@@ -81,6 +81,7 @@ import calendar
 import json
 import logging
 import os
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -90,28 +91,21 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-# ─── Env loading (mirrors core/platform/heartbeat.py's minimal .env reader —
-# this module has no dependency on intelligence.config so it stays usable
-# from anywhere, including tools/external_fetch_usage_check.py) ────────────
+# ─── Env loading (this module has no dependency on intelligence.config so
+# it stays usable from anywhere, including tools/external_fetch_usage_check.py.
+# 2026-08-29: migrated onto core/platform/configuration_service.py's
+# load_dotenv_files() — see tools/check_config_loaders.py; that module has
+# no heavy deps either, so this doesn't reintroduce the coupling being
+# avoided.) ──────────────────────────────────────────────────────────────
 
 
 def _load_dotenv() -> None:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    if not env_path.exists():
-        return
-    try:
-        content = env_path.read_text(encoding="utf-8")
-    except OSError:
-        return
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = val
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([repo_root / ".env"])
 
 
 _load_dotenv()

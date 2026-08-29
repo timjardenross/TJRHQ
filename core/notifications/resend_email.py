@@ -21,36 +21,25 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 log = logging.getLogger("resend-email")
 
+# 2026-08-29: migrated onto core/platform/configuration_service.py's
+# load_dotenv_files() (see tools/check_config_loaders.py) — this module is
+# imported standalone (e.g. by intelligence/emergency_alerts.py run as a
+# script), so it can't rely on another module having already populated
+# os.environ first; was previously "the same self-contained .env loader as
+# core/platform/heartbeat.py" per its own docstring, i.e. a known copy.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from core.platform.configuration_service import load_dotenv_files
 
-def _load_dotenv() -> None:
-    """Same self-contained .env loader as core/platform/heartbeat.py — this
-    module is imported standalone (e.g. by intelligence/emergency_alerts.py
-    run as a script), so it can't rely on another module having already
-    populated os.environ first."""
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    try:
-        if not env_path.exists():
-            return
-        content = env_path.read_text(encoding="utf-8")
-    except OSError:
-        return
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        if key and key not in os.environ:
-            os.environ[key] = value.strip().strip('"').strip("'")
-
-
-_load_dotenv()
+load_dotenv_files([_REPO_ROOT / ".env"])
 
 _API_KEY = os.environ.get("RESEND_API_KEY", "")
 _DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@resend.dev>")

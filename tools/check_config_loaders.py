@@ -25,16 +25,26 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Heuristic, not a parser: a file counts as a hand-rolled env-parsing loop
-# if it both iterates line-by-line over file content AND writes into
-# os.environ directly. False positives are possible (rare) — that's why
-# this reports for human triage rather than hard-failing on any hit; see
-# main()'s two-tier behaviour below.
+# if it iterates line-by-line over file content, splits each line on "="
+# via .partition("="), AND writes into os.environ directly. All three
+# together is the actual duplicated signature (every real instance found
+# 2026-08-29 used exactly this); os.environ[...] alone false-positived on
+# unrelated code in the same file (id_registry.py's test-mode counter
+# override, delivery_reconciler.py's _parse_md() markdown parser sharing a
+# module with its unrelated .env loader) — see git history if this needs
+# loosening again, but prefer tightening over re-adding allowlist noise.
 _SPLITLINES_PATTERN = r"for line in.*splitlines\(\)"
+_PARTITION_PATTERN = r'\.partition\(["\']=["\']\)'
 _ENVIRON_WRITE_PATTERN = r"os\.environ\["
 
 # Reviewed and confirmed PERMANENT exceptions — do not blindly migrate
 # these, see each file's own reasoning (mirrors the deadmans_switch.py /
-# revs/escalate.py exceptions in check_notification_senders.py):
+# revs/escalate.py exceptions in check_notification_senders.py). All 15
+# "pending review" instances from the initial 2026-08-29 sweep were
+# triaged same-day: 10 migrated, 4 confirmed as permanent exceptions below,
+# 1 (id_registry.py) was a false positive on this gate's os.environ[...]
+# heuristic (a read, `os.environ["_MINT_TEST_COUNTER"]`, not a write) and
+# was never a real duplicate.
 _PERMANENT_EXCEPTIONS = {
     "core/platform/configuration_service.py":
         "the canonical implementation itself",
@@ -42,31 +52,24 @@ _PERMANENT_EXCEPTIONS = {
         "the watcher's watcher — must not share code/failure-modes with "
         "the platform it alerts about, same reasoning as its notification "
         "sender exception in check_notification_senders.py",
+    "core/platform/heartbeat.py":
+        "PERMANENT exception, by design — its own docstring states it is "
+        "'deliberately self-contained (no import of another core.* "
+        "module's Supabase client) so any scheduler/job in the repo can "
+        "add a single record_heartbeat(...) call without taking on a new "
+        "cross-module dependency.' Every domain heartbeat in the platform "
+        "depends on this staying dependency-free; do not migrate.",
+    "telegram-bots/xo/app.py":
+        "PERMANENT exception — _ensure_mistral_env() deliberately loads "
+        "only MISTRAL_API_KEY from platform-runtime/.env, not the whole "
+        "file, with an explicit 'no other secrets are imported' design "
+        "constraint (XO's process env is inherited by every subprocess it "
+        "spawns, so minimal env surface is a deliberate security choice). "
+        "load_dotenv_files() bulk-loads the entire file, which would "
+        "violate that constraint. Do not migrate.",
 }
 
-# Not yet reviewed for migration — found in the 2026-08-29 sweep but out
-# of scope for that session (see conversation/commit history). Triage
-# each: migrate to load_dotenv_files(), or move to _PERMANENT_EXCEPTIONS
-# with a real reason.
-_PENDING_REVIEW = {
-    "core/coordination/telegram_build_executor.py",
-    "core/coordination/command_bus.py",
-    "core/coordination/build_request_verifier.py",
-    "core/coordination/delivery_reconciler.py",
-    "core/engineering/engineering_router.py",
-    "core/engineering/batch_coding.py",
-    "core/health/supabase_client.py",
-    "core/model-router/app.py",
-    "core/notifications/resend_email.py",
-    "core/platform/attention_drill.py",
-    "core/platform/heartbeat.py",
-    "id_registry.py",
-    "intelligence/ingestion/external_fetch_budget.py",
-    "telegram-bots/xo/app.py",
-    "tools/test_mem0.py",
-}
-
-_ALLOWLIST = {**_PERMANENT_EXCEPTIONS, **{f: "pending review (2026-08-29 sweep)" for f in _PENDING_REVIEW}}
+_ALLOWLIST = dict(_PERMANENT_EXCEPTIONS)
 
 
 def main() -> int:
@@ -82,8 +85,14 @@ def main() -> int:
     )
     environ_writers = {f for f in out2.stdout.splitlines() if f.strip()}
 
+    out3 = subprocess.run(
+        ["git", "grep", "-lE", _PARTITION_PATTERN, "--", "*.py"],
+        cwd=_REPO_ROOT, capture_output=True, text=True,
+    )
+    partitioners = {f for f in out3.stdout.splitlines() if f.strip()}
+
     _self = str(Path(__file__).relative_to(_REPO_ROOT))
-    hits = [f for f in candidates if f in environ_writers and f != _self]
+    hits = [f for f in candidates if f in environ_writers and f in partitioners and f != _self]
 
     new_offenders = [f for f in hits if f not in _ALLOWLIST]
     if new_offenders:
@@ -97,13 +106,7 @@ def main() -> int:
         )
         return 1
 
-    pending = [f for f in hits if f in _PENDING_REVIEW]
-    if pending:
-        print(f"OK — {len(pending)} pending-review instance(s) (not a build failure, informational):")
-        for f in pending:
-            print(f"  {f}")
-
-    print(f"OK — {len(hits)} known hand-rolled parser(s), no new instances.")
+    print(f"OK — {len(hits)} known hand-rolled parser(s) (all permanent exceptions), no new instances.")
     return 0
 
 

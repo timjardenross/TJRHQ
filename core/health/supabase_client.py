@@ -10,35 +10,25 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.request
 import urllib.parse
 import urllib.error
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # ---------------------------------------------------------------------------
-# .env loader (no third-party deps)
+# .env loader — 2026-08-29: migrated onto
+# core/platform/configuration_service.py's load_dotenv_files() (see
+# tools/check_config_loaders.py), was a hand-rolled copy of the same loop.
 # ---------------------------------------------------------------------------
 
-def _load_dotenv() -> None:
-    """Load key=value pairs from repo-root .env into os.environ (no-op if already set)."""
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = val
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from core.platform.configuration_service import load_dotenv_files
 
-
-_load_dotenv()
+load_dotenv_files([_REPO_ROOT / ".env"])
 
 _URL = os.environ.get("SUPABASE_URL", "")
 _KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")

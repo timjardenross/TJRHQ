@@ -66,22 +66,17 @@ _INBOX_DIR = _REPO_ROOT / "Missions" / "Telegram-Inbox"
 def _load_env() -> None:
     """Best-effort load of repo-root .env then platform-runtime/.env (local wins is not
     needed here — we only fill what is absent). Mirrors the platform-runtime precedence
-    so the worker sees SERVICE_ROLE / MISTRAL / GITHUB / TELEGRAM tokens."""
-    for env_path in (
-        _REPO_ROOT / ".env",
-        _REPO_ROOT / "platform-runtime" / ".env",       # SERVICE_ROLE / MISTRAL / GITHUB
-        _REPO_ROOT / "telegram-bot" / ".env",    # TELEGRAM_BOT_TOKEN (notify)
-    ):
-        if not env_path.exists():
-            continue
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            s = line.strip()
-            if not s or s.startswith("#") or "=" not in s:
-                continue
-            k, _, v = s.partition("=")
-            k = k.strip()
-            if k and k not in os.environ:
-                os.environ[k] = v.strip()
+    so the worker sees SERVICE_ROLE / MISTRAL / GITHUB / TELEGRAM tokens.
+
+    2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py). Also drops the
+    telegram-bot/.env fallback — that directory was renamed to
+    telegram-bots/ long ago, this path was always a silent no-op (checked:
+    it never existed), and TELEGRAM_BOT_TOKEN already lives in
+    platform-runtime/.env."""
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"])
 
 
 # ─── supabase (service_role) ──────────────────────────────────────────────────

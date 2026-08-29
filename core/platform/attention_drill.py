@@ -64,39 +64,28 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 DRILL_MARKER = "[DRILL] Attention Engine test-fire — not a real alert."
 
 
-def _load_dotenv_file(env_path: Path) -> None:
-    if not env_path.exists():
-        return
-    try:
-        content = env_path.read_text(encoding="utf-8")
-    except OSError:
-        return
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = val
-
-
 def _load_dotenv() -> None:
-    """Same minimal, no-dependency .env loader used by this package's other
-    standalone-invokable modules (core/platform/heartbeat.py,
-    core/platform/deadmans_switch.py) — this module must be runnable directly
-    via `python -m core.platform.attention_drill` without relying on the
-    invoking shell having already sourced .env, and without relying on
-    systemd's EnvironmentFile= (which is how this same code path gets its
-    env when run for real inside intelligence-scheduler.service — see
+    """This module must be runnable directly via `python -m
+    core.platform.attention_drill` without relying on the invoking shell
+    having already sourced .env, and without relying on systemd's
+    EnvironmentFile= (which is how this same code path gets its env when
+    run for real inside intelligence-scheduler.service — see
     /etc/systemd/system/intelligence-scheduler.service, EnvironmentFile=
     platform-runtime/.env only). TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID live in
     platform-runtime/.env, not the repo-root .env, so both are loaded here
     (repo-root first, so its values win on any overlapping key, matching the
-    order every multi-file systemd unit in this repo uses)."""
-    _load_dotenv_file(_REPO_ROOT / ".env")
-    _load_dotenv_file(_REPO_ROOT / "platform-runtime" / ".env")
+    order every multi-file systemd unit in this repo uses).
+
+    2026-08-29: migrated onto core/platform/configuration_service.py's
+    load_dotenv_files() (see tools/check_config_loaders.py) — this file
+    previously hand-rolled its own copy (unlike heartbeat.py/
+    deadmans_switch.py, this drill script has no stated reason to avoid a
+    core.* dependency, it's a manually-invoked test tool)."""
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
+    from core.platform.configuration_service import load_dotenv_files
+
+    load_dotenv_files([_REPO_ROOT / ".env", _REPO_ROOT / "platform-runtime" / ".env"])
 
 
 _load_dotenv()
