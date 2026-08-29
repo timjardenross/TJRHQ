@@ -8,6 +8,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
+import { fetchGovernedRow } from '@/lib/governedFetch';
+
+interface HealthSignalRow {
+  signal_id: string;
+  auto_ingested: boolean;
+}
 
 function serviceClient() {
   return createClient(
@@ -24,14 +30,20 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   try {
     const sb = serviceClient();
-    const { data: row, error: fetchErr } = await sb
-      .from('health_signals')
-      .select('signal_id, auto_ingested')
-      .eq('signal_id', params.id)
-      .single();
-    if (fetchErr || !row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (!row.auto_ingested) {
-      return NextResponse.json({ error: 'Not an auto-ingested signal — nothing to reject' }, { status: 400 });
+    const fetched = await fetchGovernedRow<HealthSignalRow>(
+      sb,
+      'health_signals',
+      'signal_id',
+      params.id,
+      'signal_id, auto_ingested',
+      {
+        predicate: (r) => r.auto_ingested,
+        ineligibleStatus: 400,
+        ineligibleMessage: () => 'Not an auto-ingested signal — nothing to reject',
+      },
+    );
+    if (!fetched.ok) {
+      return NextResponse.json({ error: fetched.error }, { status: fetched.status });
     }
 
     const { error: updateErr } = await sb

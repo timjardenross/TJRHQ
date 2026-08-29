@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { createMission, createHandoff, logDecision, publishContent, supabaseAdmin, validateActionPayload, type ActionResult } from '@/lib/ai-actions';
+import { fetchGovernedRow } from '@/lib/governedFetch';
+
+interface BuildRequestRow {
+  id: string;
+  status: string;
+  action_type: string | null;
+  action_payload: unknown;
+}
 
 // MSN-0352: Conversational Governance Enforcement.
 //
@@ -28,24 +36,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const admin = supabaseAdmin();
 
-  const { data: row, error: fetchErr } = await admin
-    .from('build_request_inbox')
-    .select('id, status, action_type, action_payload')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (fetchErr) {
-    return NextResponse.json({ error: 'Lookup failed', detail: fetchErr.message }, { status: 500 });
+  const fetched = await fetchGovernedRow<BuildRequestRow>(
+    admin,
+    'build_request_inbox',
+    'id',
+    id,
+    'id, status, action_type, action_payload',
+    {
+      predicate: (r) => r.status === 'awaiting_review',
+      ineligibleStatus: 409,
+      ineligibleMessage: (r) => `Not eligible for approval (current status: ${r.status})`,
+    },
+  );
+  if (!fetched.ok) {
+    return NextResponse.json({ error: fetched.error }, { status: fetched.status });
   }
-  if (!row) {
-    return NextResponse.json({ error: 'Not found', id }, { status: 404 });
-  }
-  if (row.status !== 'awaiting_review') {
-    return NextResponse.json(
-      { error: 'Not eligible for approval', current_status: row.status },
-      { status: 409 },
-    );
-  }
+  const row = fetched.row;
   if (!row.action_type) {
     return NextResponse.json(
       { error: 'This item is a traditional build request, not a proposed action - approve it via the engineering queue, not this route.' },
