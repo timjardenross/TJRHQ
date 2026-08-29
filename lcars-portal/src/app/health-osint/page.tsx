@@ -97,12 +97,25 @@ function Workbench() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  // 2026-08-29 (3-workbench council item 4/5): was a bare "(N)" raw-count
+  // badge, the exact pattern Captain's Chair's Signal Snapshot spent a
+  // whole session eliminating elsewhere — every advisor flagged the
+  // inconsistency. Same curated-not-raw fix: show the oldest pending
+  // signal's title alongside the count, not just a number.
+  const [oldestPendingTitle, setOldestPendingTitle] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/health-osint-curation/pending')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setPendingCount(d?.signals?.length ?? null))
-      .catch(() => setPendingCount(null));
+      .then((d) => {
+        const signals: { title?: string }[] = Array.isArray(d?.signals) ? d.signals : [];
+        setPendingCount(signals.length || null);
+        // API orders collected_at descending (newest first) — the last
+        // element within the fetched page is the oldest, same "what's
+        // been sitting here longest" convention Captain's Chair uses.
+        setOldestPendingTitle(signals.length > 0 ? (signals[signals.length - 1].title ?? null) : null);
+      })
+      .catch(() => { setPendingCount(null); setOldestPendingTitle(null); });
   }, []);
 
   const load = useCallback((withSpinner: boolean) => {
@@ -191,8 +204,11 @@ function Workbench() {
       tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={
-        <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">
-          Curation Queue{pendingCount != null && pendingCount > 0 ? ` (${pendingCount})` : ''} →
+        <Link href="/health-osint-curation" className="block text-right text-wb-sage-deep hover:underline">
+          <span>Curation Queue{pendingCount != null && pendingCount > 0 ? ` (${pendingCount})` : ''} →</span>
+          {oldestPendingTitle && (
+            <span className="mt-0.5 block max-w-[220px] truncate text-[11px] text-wb-ink2">{oldestPendingTitle}</span>
+          )}
         </Link>
       }
     >
