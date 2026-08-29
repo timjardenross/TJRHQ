@@ -38,14 +38,6 @@ log = logging.getLogger("revs-bot.config")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
 
-# Comma-separated Telegram user ids allowed to run /admin_* commands
-# (currently just diagnostics — this bot has no equivalent of XO's
-# mission-governance or host-shell surface). Empty = no admin commands
-# reachable, not "everyone allowed" — REVS has no single-owner allowlist
-# gate like XO's _global_auth_gate, by design (it's a public bot).
-_admin_raw = os.environ.get("REVS_ADMIN_USER_IDS", "").strip()
-ADMIN_USER_IDS = {int(x) for x in _admin_raw.split(",") if x.strip().isdigit()}
-
 # §5.4 escalation: crisis triggers alert the Captain via XO's own bot
 # identity/chat, not this bot's. Read directly from telegram-bots/xo/.env
 # with dotenv_values() (doesn't touch os.environ) rather than load_dotenv()
