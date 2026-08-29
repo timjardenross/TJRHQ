@@ -7,7 +7,7 @@ delivery via core/platform/notification_service.py.
 
 Jobs registered here:
   decision_review          Fri 16:00  — pending decisions needing review
-  weekly_review            Fri 16:30  — weekly summary (stale missions, decisions, health)
+  weekly_review            Fri 16:30  — weekly summary (health check-in status)
   knowledge_freshness      Wed 09:00  — knowledge files not updated in 90+ days
   decision_outcome_reminder Wed 09:15 — decisions overdue for outcome review
   monthly_lessons_digest   1st 08:00  — lessons digest from Lessons-Learned.md
@@ -37,7 +37,6 @@ log = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
-_STALE_DAYS              = int(os.environ.get("STALE_MISSION_DAYS", "7"))
 _KNOWLEDGE_STALENESS_DAYS = 90
 _DECISION_OUTCOME_DAYS   = 14
 _PAIN_THRESHOLD          = int(os.environ.get("PAIN_ALERT_THRESHOLD", "7"))
@@ -92,27 +91,6 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", job_id)
     except Exception as exc:
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", job_id, exc)
-
-
-def _get_stale_missions() -> list[dict]:
-    try:
-        sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
-        from client import CommanderSupabaseClient
-        c = CommanderSupabaseClient()
-        if not c.is_enabled():
-            return []
-        cutoff = (date.today() - timedelta(days=_STALE_DAYS)).isoformat()
-        rows = c.get(
-            f"missions?select=id,title,status,updated_at"
-            f"&status=in.(Active,IN_PROGRESS,Blocked,BLOCKED,Planned,TRIAGED)"
-            f"&updated_at=lte.{cutoff}T00:00:00Z"
-            f"&order=updated_at.asc&limit=10"
-        )
-        return [{"id": r.get("id", ""), "title": r.get("title", ""), "status": r.get("status", "")}
-                for r in (rows or [])]
-    except Exception as exc:
-        log.warning("[proactive] Stale mission check failed: %s", exc)
-        return []
 
 
 def _get_pending_decisions() -> list[dict]:
@@ -312,17 +290,16 @@ def _is_fortnightly_monday() -> bool:
 
 def _check_health_logged_today() -> bool:
     try:
-        sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-        from supabase_client import supabase_get, is_configured
-        if not is_configured():
+        sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
+        c = CommanderSupabaseClient()
+        if not c.is_enabled():
             return False
         today = _today_iso()
-        rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
-        if rows:
-            return True
-        pulses = supabase_get("recovery_confidence_today?select=pulses_completed&limit=1")
-        return bool(pulses and pulses[0].get("pulses_completed", 0) > 0)
-    except Exception:
+        rows = c.get(f"capacity_checkins?select=id&log_date=eq.{today}&limit=1")
+        return bool(rows)
+    except Exception as exc:
+        log.warning("[proactive] Health check-in check failed: %s", exc)
         return False
 
 
@@ -346,15 +323,11 @@ def job_decision_review() -> None:
 
 def job_weekly_review() -> None:
     """Fri 16:30 — weekly review summary."""
-    stale = _get_stale_missions()
-    pending = _get_pending_decisions()
     health_logged = _check_health_logged_today()
     lines = [
         f"Weekly Review — Starship Endeavour",
         f"Week ending {_today().strftime('%Y-%m-%d')}",
         "",
-        f"Stale missions: {len(stale)} missions with no update in {_STALE_DAYS}+ days",
-        f"Pending decisions: {len(pending)} awaiting review",
         f"Health check-in today: {'logged' if health_logged else 'not logged'}",
         "",
         "Number One asks: What did you learn this week that should enter permanent knowledge?",
