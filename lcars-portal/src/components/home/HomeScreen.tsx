@@ -49,7 +49,7 @@ function changeEyebrow(session: SessionBoundary): string {
  * ?type=&reason= a specific journey already knows (its own page says so:
  * "reach this from a link on Home or Recommended") - a blind link here
  * would just be a dead end, not a genuine entry point. */
-const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },  { href: '/human-systems', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
+const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [  { href: '/advisory-workbench', label: 'Advisory Council', description: "Consult the ship's officers, evidence-backed" },  { href: '/human-systems-workbench', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },
   { href: '/captains-brief-workbench', label: "Captain's Brief", description: 'The composed intelligence document' },
   { href: '/content-workbench', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
