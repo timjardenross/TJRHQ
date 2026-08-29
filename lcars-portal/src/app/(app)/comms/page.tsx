@@ -9,11 +9,14 @@ import Link from 'next/link';
 //
 // Kept as an honest "this page moved" notice rather than deleted outright,
 // matching the /home and /captains-brief retirement precedent, so an old
-// bookmark doesn't 404. Note: /comms-workbench (a different, still-live page)
-// is NOT what this redirects to — that page was itself superseded by
-// content-workbench and is kept alive only because its API routes are
-// load-bearing for Content Workbench's approved->published step, not as a
-// UI destination.
+// bookmark doesn't 404.
+//
+// 2026-08-29: /comms-workbench itself (also superseded by content-workbench)
+// has now been deleted outright — it had zero real callers of its own UI
+// (nav-orphaned since the same 2026-08 delisting this page describes) and
+// nothing imported its components. The API routes it used to call
+// (api/comms/[id]/advance, api/content/signals-to-opportunities) are still
+// load-bearing for Content Workbench directly, independent of that page.
 export default function CommsPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">

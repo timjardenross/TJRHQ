@@ -68,4 +68,9 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Emergency Alert Hub',
     description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
   },
+  {
+    href: '/self-improvement-findings',
+    title: 'Self-Improvement Findings',
+    description: 'Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence.',
+  },
 ];
