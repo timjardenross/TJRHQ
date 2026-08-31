@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted changes in repository working tree",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository working tree is dirty with uncommitted file lcars-portal/src/app/(auth)/login/page.tsx",
+          "location": "lcars-portal/src/app/(auth)/login/page.tsx"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Review and commit or stash changes in lcars-portal/src/app/(auth)/login/page.tsx to maintain clean repository state"
+      },
+      "expected_benefit": "Ensures reproducible deployment state and prevents uncommitted work from drifting."
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Available local Ollama models unassigned in routing policy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Models qwen3.5:9b, qwen3.5:4b, qwen3.5:2b, and gemma4:12b are installed in Ollama but not referenced in any active routing policies",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Evaluate and assign qwen3.5 and gemma4 models to appropriate routing tasks or prune unneeded models from Ollama storage"
+      },
+      "expected_benefit": "Improves model routing efficiency and avoids orphaned model weights consuming disk space."
+    },
+    {
+      "category": "performance_gap",
+      "title": "Elevated average latency in model router invocations",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Model router recent average latency is 6060ms across routed requests",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Profile model router latency by model and task type to isolate cold-start overheads and long-running synthesis calls"
+      },
+      "expected_benefit": "Enables latency reduction and better keep-alive configuration for synchronous pipeline tasks."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Virtual environment site-packages indexed in repository audit scans",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Audit scans include .venv packages from core/infrastructure/vm-processing and platform-runtime in documentation and configuration inventories",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update audit scanner exclusion patterns to filter out .venv and site-packages paths"
+      },
+      "expected_benefit": "Removes inventory noise and improves accuracy of codebase documentation and config tracking."
+    }
+  ]
+}

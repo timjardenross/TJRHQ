@@ -53,32 +53,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-space px-4">
+    <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-sm">
 
-        {/* LCARS header bar */}
+        {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-8 w-2 rounded-sm bg-medical" aria-hidden="true" />
+          <div className="h-8 w-2 rounded-sm bg-wb-sage-deep" aria-hidden="true" />
           <div>
-            <p className="font-sans text-xs uppercase tracking-[0.3em] text-lcars-muted">
+            <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
               USS TJR · NCC-170239
             </p>
-            <h1 className="font-sans text-xl font-bold text-lcars-text">
+            <h1 className="font-serif text-xl text-wb-ink">
               LCARS Portal
             </h1>
           </div>
         </div>
 
-        <div className="rounded-lcars border border-edge bg-panel/80 p-6">
+        <div className="rounded-lg border border-wb-line bg-wb-surface p-6 shadow-sm">
 
           {/* Mode toggle */}
-          <div className="mb-5 flex rounded-lcars border border-edge overflow-hidden">
+          <div className="mb-5 flex rounded-lg border border-wb-line overflow-hidden">
             <button
               onClick={() => switchMode('password')}
               className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'password'
-                  ? 'bg-command text-white'
-                  : 'text-lcars-muted hover:text-lcars-text'
+                  ? 'bg-wb-sage-deep text-white'
+                  : 'text-wb-ink2 hover:text-wb-ink'
               }`}
             >
               Password
@@ -87,8 +87,8 @@ export default function LoginPage() {
               onClick={() => switchMode('magic')}
               className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'magic'
-                  ? 'bg-command text-white'
-                  : 'text-lcars-muted hover:text-lcars-text'
+                  ? 'bg-wb-sage-deep text-white'
+                  : 'text-wb-ink2 hover:text-wb-ink'
               }`}
             >
               Magic Link
@@ -98,10 +98,10 @@ export default function LoginPage() {
           {/* Password form */}
           {mode === 'password' && (
             <form onSubmit={handlePassword} aria-label="Password authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
+              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-sans text-lg font-bold text-command">
+              <h2 className="mb-4 font-serif text-lg text-wb-ink">
                 Captain Access
               </h2>
               <div className="flex flex-col gap-3">
@@ -109,7 +109,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
+                  className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
                   placeholder="captain@example.com"
                   autoComplete="email"
                   required
@@ -119,7 +119,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
+                  className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
                   placeholder="Password"
                   autoComplete="current-password"
                   required
@@ -128,13 +128,13 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim() || !password}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-sans text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-operations">{error}</p>
+                  <p role="alert" className="text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -143,13 +143,13 @@ export default function LoginPage() {
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
             <form onSubmit={handleMagicLink} aria-label="Magic link authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-lcars-muted">
+              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
-              <h2 className="mb-4 font-sans text-lg font-bold text-command">
+              <h2 className="mb-4 font-serif text-lg text-wb-ink">
                 Captain Access
               </h2>
-              <p className="mb-4 text-sm text-lcars-text/80">
+              <p className="mb-4 text-sm text-wb-ink2">
                 Enter your email to receive a one-time access link.
               </p>
 
@@ -161,7 +161,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-lcars border border-edge bg-space px-3 py-2 text-sm text-lcars-text placeholder:text-lcars-muted focus:border-command focus:outline-none"
+                    className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus:outline-none"
                     placeholder="captain@example.com"
                     autoComplete="email"
                     required
@@ -173,13 +173,13 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-lcars bg-command px-4 py-2 font-sans text-sm font-bold uppercase tracking-[0.2em] text-space transition-opacity hover:opacity-80 disabled:opacity-40"
+                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Sending…' : 'Send Access Link'}
                 </button>
                 {error && (
-                  <p id="login-error" role="alert" className="text-xs text-operations">{error}</p>
+                  <p id="login-error" role="alert" className="text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -188,21 +188,21 @@ export default function LoginPage() {
           {/* Magic link sent */}
           {mode === 'magic' && sent && (
             <div className="text-center" role="status" aria-live="polite">
-              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-status bg-status/10" aria-hidden="true">
-                <span className="font-sans text-xl text-status">✓</span>
+              <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-state-ok bg-state-ok/10" aria-hidden="true">
+                <span className="text-xl text-state-ok-on">✓</span>
               </div>
-              <h2 className="mb-2 font-sans text-lg font-bold text-status">Link sent</h2>
-              <p className="text-sm text-lcars-text/80">
-                Check <span className="text-command">{email}</span> for your access link. It expires in 1 hour.
+              <h2 className="mb-2 font-serif text-lg text-state-ok-on">Link sent</h2>
+              <p className="text-sm text-wb-ink2">
+                Check <span className="text-wb-sage-deep">{email}</span> for your access link. It expires in 1 hour.
               </p>
-              <p className="mt-3 text-xs text-lcars-muted">
+              <p className="mt-3 text-xs text-wb-ink2">
                 You may close this tab and click the link in your email.
               </p>
             </div>
           )}
         </div>
 
-        <p className="mt-4 text-center text-[10px] uppercase tracking-[0.2em] text-lcars-muted">
+        <p className="mt-4 text-center text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
           Starfleet Command · Secure Access · ROS-001 v1.1
         </p>
       </div>
