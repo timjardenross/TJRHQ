@@ -225,6 +225,21 @@ _CPS230_MEDIUM = [
     "business continuity", "disaster recovery", "incident management",
     "service disruption", "technology risk", "concentration risk",
     "outsourced", "managed service", "cloud provider",
+    # Added 2026-08-31 (validation suite regression, fortinet_credential_
+    # exposure case): the medium tier was written from a third-party/
+    # outsourcing/business-continuity lens, so a real cyber incident about
+    # "credential exposure"/"malicious campaign" against firewalls/VPN
+    # gateways matched zero keywords despite event_type=="cyber" already
+    # putting it on the medium-hits-required path (line ~360). Checked
+    # live: 1758 of 1760 event_type="cyber" rows have cps230_relevance=
+    # false — this was a systemic gap in cyber-incident-severity language,
+    # not an isolated miss. These terms are scoped to fire only after
+    # event_type is already one of the cyber/outage/disruption tuple
+    # below, so they can't inflate cps230_confidence for an unrelated
+    # (e.g. regulatory) event_type on their own.
+    "credential exposure", "malicious campaign", "compromised", "compromise",
+    "exploited", "exploitation", "unauthorized access", "unauthorised access",
+    "zero-day", "ransomware", "data breach", "security breach",
 ]
 # Legacy combined list for backward compat in other modules
 _CPS230_KEYWORDS = _CPS230_HIGH + _CPS230_MEDIUM
