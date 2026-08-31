@@ -931,6 +931,27 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
     result = _post("intelligence_events", row, on_conflict="dedup_hash")
     if result:
         event_id = result.get("event_id")
+
+        # 2026-08-31 (Miro Status false-alarm investigation): a suppressed
+        # event ("GitHub Status" low-impact rule, "status_page_low_impact_
+        # minor" etc — see filter.py's should_suppress()) still reached this
+        # point and fired a real INTERRUPT_NOW-class Telegram alert, because
+        # neither the core_events publish below nor _maybe_push_outage_alert
+        # ever checked event.suppressed — suppression only ever controlled
+        # what a brief/exec-summary READ later, not whether a live alert
+        # fired at persist time. Concrete case: a resolved, 10-month-old,
+        # [Impact: minor]-tagged Miro Status incident, correctly suppressed
+        # in the DB, still triggered a real-time alert because its keyword-
+        # derived customer_impact=high/cps230_relevance=true reached
+        # attention_engine's INTERRUPT_NOW floor regardless. Suppression is
+        # this platform's own judgment that an event isn't worth acting on;
+        # publishing it as a live ranked signal or outage alert directly
+        # contradicted that judgment. Skip both post-persist alert paths for
+        # a suppressed event - it's still fully persisted/queryable, just
+        # silent, matching every other suppressed row.
+        if event.suppressed:
+            return event_id
+
         attention_importance = _derive_attention_importance(event)
 
         # Priority Engine wiring (MSN-0306 → activated here). Score every event
