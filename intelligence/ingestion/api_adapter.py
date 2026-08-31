@@ -344,7 +344,25 @@ class APIAdapter(BaseSourceAdapter):
             })
             comp_note = f" Affected: {', '.join(components)}." if components else ""
             summary = f"[Impact: {impact}]{comp_note} {body or ''}".strip()
-            url = inc.get("shortlink") or self.source.url
+            # 2026-08-31 (GitHub Status noise investigation): was
+            # inc.get("shortlink") — confirmed live against GitHub's real
+            # incidents.json that `shortlink` is NOT a stable per-incident
+            # identifier (a fresh stspg.io redirect, different value seen
+            # across separate polls of the *same* incident). scheduler.py's
+            # ingestion loop dedups on canonical_url before insert, so an
+            # unstable URL here silently defeated that dedup: the same
+            # incident's investigating -> monitoring -> resolved lifecycle
+            # updates each landed as a brand-new, fully-scored row instead
+            # of one row updating in place. `id` (e.g. "5bn0vk444m1w") is
+            # the feed's genuine stable identifier - building the URL from
+            # it (matching the format githubstatus.com's own permalinks
+            # already use) makes canonical_url stable across polls, so
+            # scheduler.py's existing dedup actually catches repeat status
+            # updates of the same incident.
+            url = (
+                f"{self.source.url.rstrip('/')}/incidents/{inc['id']}"
+                if inc.get("id") else (inc.get("shortlink") or self.source.url)
+            )
             published = self._parse_iso(inc.get("created_at"))
             items.append(self._make_item(title, summary, url, published))
         return items

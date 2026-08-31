@@ -159,18 +159,27 @@ SOURCES = [
     {
         "source_name":        "GitHub Status",
         "category":           "cloud_technology",
-        "priority_rank":      1,
+        "priority_rank":      2,
         "url":                "https://www.githubstatus.com/",
         "rss_url":            "https://www.githubstatus.com/history.atom",
         "api_endpoint":       "https://www.githubstatus.com/api/v2/incidents.json",
         "source_type":        "api",
         "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.92,
+        "confidence_weight":  0.88,
         "active":             True,
         "notes":              "Atlassian Statuspage. 2026-08-10: migrated from history.atom (RSS) to the statuspage.io JSON "
                               "incidents API (confirmed live, 50 incidents, real impact field present — 27 minor, 10 critical, "
                               "10 major, 3 none in the sampled window) so filter.py's status-page low-impact suppression rule "
-                              "applies, same pattern as Cloudflare Status.",
+                              "applies, same pattern as Cloudflare Status. "
+                              "2026-08-31: demoted priority_rank 1->2, confidence_weight 0.92->0.88 (Captain-requested "
+                              "relevance reduction). Was sitting above every other status-page peer (Cloudflare/Atlassian/"
+                              "Zoom/OpenAI/Akamai all 2/0.88) despite being the same class of source — a dev-tooling/SaaS "
+                              "status page, not core cloud infra like AWS/GCP/Azure (which correctly stay at 1). Now "
+                              "matches its real peer tier exactly rather than an arbitrary number. Also: canonical_url for "
+                              "this source's items now built from the feed's stable `id` field (api_adapter.py's "
+                              "_parse_statuspage_incidents), not the ephemeral `shortlink` - the same incident's "
+                              "investigating/monitoring/resolved lifecycle updates were previously landing as separate, "
+                              "fully-scored rows because shortlink isn't stable across polls.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
