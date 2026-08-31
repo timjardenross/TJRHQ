@@ -52,6 +52,16 @@ const SEVERITY_LABELS: Record<string, string> = {
   unknown: 'Unknown',
 };
 
+// BOM's RSS feeds carry no AWS-tier (Advice/Watch and Act/Emergency
+// Warning) data at all - severity is stored as 'unknown' rather than
+// guessed (see intelligence/ingestion/emergency_alert_adapters/
+// bom_warnings.py's module docstring). That's honest, not a bug, but on
+// screen "Unknown" alone reads as a data gap rather than a real source
+// limitation - tag it with the source instead of inventing a tier.
+function isBomSource(sourceKey: string): boolean {
+  return sourceKey.startsWith('bom_');
+}
+
 const SOURCE_STATUS_BADGE: Record<string, 'success' | 'error' | 'warning' | 'neutral'> = {
   ok: 'success',
   failed: 'error',
@@ -83,7 +93,12 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4">
-        <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
+        <span className="inline-flex items-center gap-1">
+          <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
+          {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
+            <span className="text-[10px] uppercase tracking-wide text-wb-ink2" title="BOM's warning feed carries no severity tier">BOM</span>
+          )}
+        </span>
       </td>
       <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">{alert.headline}</td>
       <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
@@ -100,6 +115,9 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
           <div className="mb-1 flex items-center gap-2">
             <Badge status="neutral">{alert.jurisdiction}</Badge>
             <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{SEVERITY_LABELS[alert.severity] ?? alert.severity}</Badge>
+            {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
+              <span className="text-[10px] uppercase tracking-wide text-wb-ink2" title="BOM's warning feed carries no severity tier">BOM</span>
+            )}
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
           <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
