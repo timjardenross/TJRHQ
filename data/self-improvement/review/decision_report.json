@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-29T09:01:51.242611+00:00",
+  "timestamp": "2026-08-30T21:05:25.538777+00:00",
   "model_confidence": 1.0,
   "model_confidence_rating": "high",
   "total_decisions": 3,
@@ -16,8 +16,7 @@
   "manual_review_needed": [],
   "manual_review_count": 0,
   "finding_scores": {
-    "FND-001": 0.95,
-    "FND-002": 0.95
+    "FND-001": 0.95
   },
   "recommendations": [
     "Model confidence is 100% \u2014 safe for auto-remediation",

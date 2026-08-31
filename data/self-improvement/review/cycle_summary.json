@@ -1,28 +1,28 @@
 {
-  "timestamp": "2026-08-29T09:01:51.246866+00:00",
-  "run_id": "2026-08-29-090126",
+  "timestamp": "2026-08-30T21:05:25.545429+00:00",
+  "run_id": "2026-08-30-210401",
   "success": true,
   "evidence_collected": 7,
-  "findings_analyzed": 2,
-  "findings_classified": 2,
+  "findings_analyzed": 1,
+  "findings_classified": 1,
   "findings_errors": 0,
   "decisions_processed": 3,
   "model_confidence": 1.0,
   "auto_remediation_eligible": 3,
   "auto_remediation": {
-    "timestamp": "2026-08-29T09:01:51.246223+00:00",
-    "run_id": "2026-08-29-090126",
+    "timestamp": "2026-08-30T21:05:25.541472+00:00",
+    "run_id": "2026-08-30-210401",
     "model_confidence": 1.0,
-    "dry_run": true,
-    "total_findings": 2,
-    "approved_count": 2,
+    "dry_run": false,
+    "total_findings": 1,
+    "approved_count": 1,
     "remediated_count": 0,
-    "skipped_count": 2,
+    "skipped_count": 1,
     "failed_count": 0,
     "remediation_results": []
   },
   "decision_report": {
-    "timestamp": "2026-08-29T09:01:51.242611+00:00",
+    "timestamp": "2026-08-30T21:05:25.538777+00:00",
     "model_confidence": 1.0,
     "model_confidence_rating": "high",
     "total_decisions": 3,
@@ -39,8 +39,7 @@
     "manual_review_needed": [],
     "manual_review_count": 0,
     "finding_scores": {
-      "FND-001": 0.95,
-      "FND-002": 0.95
+      "FND-001": 0.95
     },
     "recommendations": [
       "Model confidence is 100% \u2014 safe for auto-remediation",

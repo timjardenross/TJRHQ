@@ -166,6 +166,19 @@ class SelfImprovementOrchestrator:
             json.dump(summary, f, indent=2)
 
         log.info(f"\nSummary saved: {summary_file}")
+
+        # Commit this cycle's run/review artifacts - previously nothing in
+        # this path ever committed them (only AutoRemediationExecutor's own
+        # code-fix commits used git_commit), so every cycle left the tree
+        # dirty and FND-001 ("Uncommitted Self-Improvement Cycle Artifacts")
+        # kept re-firing and getting skipped rather than actually fixed.
+        commit_sha = self.executor.git_commit(
+            f"self-improvement: cycle {run_id} artifacts"
+        )
+        summary["artifacts_commit_sha"] = commit_sha
+        if commit_sha is None:
+            log.warning("Cycle artifacts commit failed or had nothing to commit")
+
         return summary
 
 

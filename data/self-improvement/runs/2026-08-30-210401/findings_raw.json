@@ -1,0 +1,27 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted Self-Improvement Cycle Artifacts in Working Directory",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Working tree is dirty due to uncommitted review summaries and run artifacts from self-improvement cycles",
+          "location": "data/self-improvement/review/cycle_summary.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "Run execution directory remains untracked in working copy",
+          "location": "data/self-improvement/runs/2026-08-29-210323/"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update .gitignore to ignore runtime review output and run artifact directories or implement automated post-cycle cleanup."
+      },
+      "expected_benefit": "Ensures clean working directory state and prevents automated drift flags across evaluation cycles."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Dual self-improvement policy configuration files present",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "JSON version of self-improvement policy exists in config directory",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML version of self-improvement policy exists in config directory alongside JSON version",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single configuration format for self_improvement_policy and remove the duplicate definition."
+      },
+      "expected_benefit": "Eliminates ambiguity regarding policy authority and prevents divergent runtime configurations."
+    }
+  ]
+}
