@@ -23,7 +23,7 @@ from tests.fixtures.synthetic_core_events import INTERRUPT_NOW_EVENT, NEVER_INTE
 
 
 def test_evaluates_and_dispatches_real_interrupt_now_event(monkeypatch):
-    monkeypatch.setattr(event_bus, "poll_events", lambda limit=200: [dict(INTERRUPT_NOW_EVENT)])
+    monkeypatch.setattr(event_bus, "poll_events", lambda limit=200, **kwargs: [dict(INTERRUPT_NOW_EVENT)])
 
     dispatched = []
 
@@ -40,7 +40,7 @@ def test_evaluates_and_dispatches_real_interrupt_now_event(monkeypatch):
 
 
 def test_no_dispatch_call_when_nothing_qualifies(monkeypatch):
-    monkeypatch.setattr(event_bus, "poll_events", lambda limit=200: [dict(NEVER_INTERRUPT_EVENT)])
+    monkeypatch.setattr(event_bus, "poll_events", lambda limit=200, **kwargs: [dict(NEVER_INTERRUPT_EVENT)])
 
     calls = []
     monkeypatch.setattr(
@@ -54,7 +54,7 @@ def test_no_dispatch_call_when_nothing_qualifies(monkeypatch):
 
 
 def test_job_never_raises_on_poll_failure(monkeypatch):
-    def boom(limit=200):
+    def boom(limit=200, **kwargs):
         raise RuntimeError("Supabase unavailable")
 
     monkeypatch.setattr(event_bus, "poll_events", boom)

@@ -1274,7 +1274,17 @@ def _attention_evaluation_job() -> None:
         from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
         from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 
-        events = poll_events(limit=200)
+        # Runs every ATTENTION_EVAL_INTERVAL_MINUTES (default 10 = 144x/day).
+        # assemble_captain_brief_document()/attention_engine/interrupt_dispatcher
+        # only ever read these columns from each event — never the
+        # linked_entities/linked_missions/linked_documents jsonb arrays
+        # (those only matter to the evolved-brief path below, which reuses
+        # understanding_engine). At this cadence, select("*") re-transfers
+        # those arrays on every one of 144 runs/day for zero benefit.
+        events = poll_events(
+            limit=200,
+            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status",
+        )
         doc = assemble_captain_brief_document(events)
         if not doc.interrupt_now:
             log.info("Attention evaluation: %d event(s) evaluated, 0 interrupt_now", len(events))
