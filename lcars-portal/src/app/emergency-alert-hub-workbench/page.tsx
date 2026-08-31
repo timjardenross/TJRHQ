@@ -182,6 +182,7 @@ export default function EmergencyAlertHubWorkbench() {
   const [showInactive, setShowInactive] = useState(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
@@ -237,6 +238,15 @@ export default function EmergencyAlertHubWorkbench() {
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) ?? null;
   const emergencyCount = alerts.filter((a) => a.severity === 'emergency_warning').length;
   const watchCount = alerts.filter((a) => a.severity === 'watch_and_act').length;
+
+  // Detail panel renders above the alert table it's opened from - clicking
+  // a row further down a long list otherwise pops the panel open off the
+  // top of the viewport with no visual cue, forcing a scroll-up hunt.
+  useEffect(() => {
+    if (selectedAlertId) {
+      detailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [selectedAlertId]);
 
   return (
     <WorkbenchShell
@@ -311,7 +321,11 @@ export default function EmergencyAlertHubWorkbench() {
           </div>
         </Card>
 
-        {selectedAlert && <AlertDetailPanel alert={selectedAlert} onClose={() => setSelectedAlertId(null)} />}
+        {selectedAlert && (
+          <div ref={detailPanelRef} className="scroll-mt-24">
+            <AlertDetailPanel alert={selectedAlert} onClose={() => setSelectedAlertId(null)} />
+          </div>
+        )}
 
         {!isLoading && !loadError && (
           <Card>
