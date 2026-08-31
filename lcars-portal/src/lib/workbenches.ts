@@ -24,7 +24,16 @@ export interface WorkbenchEntry {
   description: string;
 }
 
+// Order below is deliberate, not alphabetical: command/triage surfaces
+// first (what a Captain opens most), then domain intelligence, then work
+// pipelines, then the archive, then platform-ops/meta last (2026-08-31 —
+// switcher/hub order previously had no discernible grouping).
 export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
+  {
+    href: '/captains-chair-workbench',
+    title: "Captain's Chair",
+    description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
+  },
   {
     href: '/weekly-review',
     title: 'Weekly Review',
@@ -34,11 +43,6 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     href: '/ready-room',
     title: 'Ready Room',
     description: 'Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming.',
-  },
-  {
-    href: '/captains-chair-workbench',
-    title: "Captain's Chair",
-    description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
   },
   {
     href: '/intelligence-workbench',
@@ -51,14 +55,19 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
   },
   {
-    href: '/content-workbench',
-    title: 'Content Workbench',
-    description: 'Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline.',
+    href: '/emergency-alert-hub-workbench',
+    title: 'Emergency Alert Hub',
+    description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
   },
   {
     href: '/human-systems-workbench',
     title: 'Human Systems Workbench',
     description: 'Recovery posture, medical tracking, and physical readiness in one collection - live from the recovery-pulse signal.',
+  },
+  {
+    href: '/content-workbench',
+    title: 'Content Workbench',
+    description: 'Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline.',
   },
   {
     href: '/advisory-workbench',
@@ -74,11 +83,6 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     href: '/agent-status-workbench',
     title: 'Agent & Job Status',
     description: 'Scheduler job health, agent run history, and failure triage across all automated platform tasks.',
-  },
-  {
-    href: '/emergency-alert-hub-workbench',
-    title: 'Emergency Alert Hub',
-    description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
   },
   {
     href: '/self-improvement-findings',

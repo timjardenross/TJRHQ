@@ -15,19 +15,22 @@ allowlist — so a route can't silently go unreachable the way
 
 ## The 12 live workbenches
 
+Order is deliberate, not alphabetical: command/triage first, then domain
+intelligence, then work pipelines, then the archive, then platform-ops last.
+
 | Route | Title | Description |
 |---|---|---|
+| `/captains-chair-workbench` | Captain's Chair | Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance. |
 | `/weekly-review` | Weekly Review | One calm weekly pass across every workbench — what happened, what slipped, what needs attention, what is safe to ignore. |
 | `/ready-room` | Ready Room | Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming. |
-| `/captains-chair-workbench` | Captain's Chair | Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance. |
 | `/intelligence-workbench` | Technical OSINT Workbench | Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation. |
 | `/health-osint` | Health OSINT Workbench | Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation. |
-| `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
+| `/emergency-alert-hub-workbench` | Emergency Alert Hub | Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health. |
 | `/human-systems-workbench` | Human Systems Workbench | Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal. |
+| `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory Workbench | Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces. |
 | `/briefs` | Briefs | The intelligence brief archive — every synthesized brief across every domain, filterable by review/publish status. |
 | `/agent-status-workbench` | Agent & Job Status | Scheduler job health, agent run history, and failure triage across all automated platform tasks. |
-| `/emergency-alert-hub-workbench` | Emergency Alert Hub | Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health. |
 | `/self-improvement-findings` | Self-Improvement Findings | Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence. |
 
 ## Real routes deliberately NOT in the master list
@@ -47,5 +50,4 @@ before assuming an absence here is a bug.
 | `/knowledge-workbench` | Reachable via a secondary in-app link, not orphaned but not hub-listed. |
 | `/mission-workbench` | Reachable via a secondary in-app link, not orphaned but not hub-listed. |
 
-**Last synced:** 2026-08-29, alongside the nav-orphan fix in
-`docs/UI-Layer-Debt-Handoff-2026-08-29.md`.
+**Last synced:** 2026-08-31, reordering only (dropdown/hub grouping fix).
