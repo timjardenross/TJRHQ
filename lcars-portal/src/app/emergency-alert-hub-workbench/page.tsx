@@ -105,7 +105,7 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
           <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
         </div>
-        <button onClick={onClose} className="text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
+        <button onClick={onClose} className="rounded-md px-3 py-2 text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
       <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
         <div><span className="uppercase tracking-wide text-[10px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
@@ -281,7 +281,7 @@ export default function EmergencyAlertHubWorkbench() {
             <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
               Jurisdiction
               <select
-                className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-[12px] text-wb-ink"
+                className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
                 value={jurisdictionFilter}
                 onChange={(e) => setJurisdictionFilter(e.target.value)}
               >
@@ -294,7 +294,7 @@ export default function EmergencyAlertHubWorkbench() {
             <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
               Severity
               <select
-                className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-[12px] text-wb-ink"
+                className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
               >
@@ -304,8 +304,8 @@ export default function EmergencyAlertHubWorkbench() {
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
-              <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+            <label className="flex items-center gap-2 rounded-md px-1 py-2 text-[12px] text-wb-ink2">
+              <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
               Include expired/inactive
             </label>
           </div>
