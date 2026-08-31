@@ -166,7 +166,7 @@ SOURCES = [
         "source_type":        "api",
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.88,
-        "active":             True,
+        "active":             False,
         "notes":              "Atlassian Statuspage. 2026-08-10: migrated from history.atom (RSS) to the statuspage.io JSON "
                               "incidents API (confirmed live, 50 incidents, real impact field present — 27 minor, 10 critical, "
                               "10 major, 3 none in the sampled window) so filter.py's status-page low-impact suppression rule "
@@ -174,12 +174,15 @@ SOURCES = [
                               "2026-08-31: demoted priority_rank 1->2, confidence_weight 0.92->0.88 (Captain-requested "
                               "relevance reduction). Was sitting above every other status-page peer (Cloudflare/Atlassian/"
                               "Zoom/OpenAI/Akamai all 2/0.88) despite being the same class of source — a dev-tooling/SaaS "
-                              "status page, not core cloud infra like AWS/GCP/Azure (which correctly stay at 1). Now "
-                              "matches its real peer tier exactly rather than an arbitrary number. Also: canonical_url for "
-                              "this source's items now built from the feed's stable `id` field (api_adapter.py's "
-                              "_parse_statuspage_incidents), not the ephemeral `shortlink` - the same incident's "
-                              "investigating/monitoring/resolved lifecycle updates were previously landing as separate, "
-                              "fully-scored rows because shortlink isn't stable across polls.",
+                              "status page, not core cloud infra like AWS/GCP/Azure (which correctly stay at 1). Also: "
+                              "canonical_url for this source's items now built from the feed's stable `id` field "
+                              "(api_adapter.py's _parse_statuspage_incidents), not the ephemeral `shortlink` - the same "
+                              "incident's investigating/monitoring/resolved lifecycle updates were previously landing as "
+                              "separate, fully-scored rows because shortlink isn't stable across polls. "
+                              "2026-08-31 (same day, follow-up): Captain paused this source entirely (active=False) "
+                              "rather than continuing to tune relevance/confidence weighting. Re-activate by flipping "
+                              "this flag (and the live intelligence_source_registry row, which this seed only upserts, "
+                              "never demotes on its own) when/if GitHub incidents should resume flowing.",
         "content_expectation": "continuous",
         "useful_life_days": 14,
     },
