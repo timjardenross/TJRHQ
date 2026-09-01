@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Duplicate Self Improvement Policy Configuration Formats",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Both JSON and YAML formats exist for self_improvement_policy",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "Both JSON and YAML formats exist for self_improvement_policy",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single configuration format for self_improvement_policy and remove the redundant configuration file."
+      },
+      "expected_benefit": "Prevents configuration drift and ambiguity over source of truth for self-improvement policy settings.",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Virtual Environment Files Polluting Filesystem Audit Metrics",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Virtual environment package files from .venv are being captured in repository doc_files and config_files inventories, inflating doc_count to 1891",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update filesystem audit crawler ignore patterns to exclude .venv and site-packages directories."
+      },
+      "expected_benefit": "Ensures accurate metric reporting and prevents vendor library metadata from polluting repository inventory.",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "route_policy_drift",
+      "title": "Available Local Models Unassigned in Model Router Policy",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Models qwen3.5:9b, qwen3.5:4b, qwen3.5:2b, and gemma4:12b are loaded/available in Ollama but not referenced in any router task_type policy",
+          "location": "core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Audit available model inventory and either allocate unassigned models (e.g. qwen3.5 family, gemma4:12b) to routing tasks or prune unneeded models from Ollama storage."
+      },
+      "expected_benefit": "Optimizes local VRAM/disk usage and aligns active routing policy with available model capabilities.",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: route_policy_drift; Evidence strength: None; Confidence: 0.85; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}
