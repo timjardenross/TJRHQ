@@ -190,6 +190,28 @@ _OUTAGE_INDICATOR_TERMS = (
     "rollback", "network disruption", "network problem",
 )
 
+# 2026-09-02 (Platform Health investigation): distinct from the outage
+# vocabulary above — that list detects an item IS an incident report at all,
+# this one detects the incident is now CLOSED. Statuspage.io-style feeds
+# (Cloudflare, GitHub, etc.) mark closure with "This incident has been
+# resolved" / a trailing "(resolved)" / "resolved -" timeline label; kept
+# narrow and phrase-based (not bare "resolved") so an ongoing report that
+# merely mentions a fix being "in progress" doesn't get misread as closed.
+_RESOLVED_INDICATOR_PHRASES = (
+    "this incident has been resolved", "(resolved)", "resolved -",
+    "issue has been resolved", "has been fully resolved",
+    "postmortem", "post-incident review",
+)
+
+
+def is_resolved_incident(title: Optional[str], summary: Optional[str] = None) -> bool:
+    """True if the title/summary explicitly marks the incident as closed.
+    Used to keep closed incidents from outranking live ones in risk scoring
+    and brief rendering (see intelligence_analyst.py, captains_brief.py)."""
+    text = f"{title or ''} {summary or ''}".lower()
+    return any(phrase in text for phrase in _RESOLVED_INDICATOR_PHRASES)
+
+
 _GEOGRAPHY_AU = [
     "australia", "australian", "victoria", "new south wales", "queensland",
     "south australia", "western australia", "tasmania", "northern territory",
