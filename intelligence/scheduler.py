@@ -8,6 +8,15 @@ Modes:
 
 Schedule is configurable via OR_INTEL_SCHEDULE_CRON env var.
 Default: "0 6 1,15 * *"  (1st and 15th of each month at 06:00 UTC)
+
+DEPLOY WINDOW WARNING (2026-09-02): avoid `git pull` + `systemctl restart
+intelligence-scheduler.service` between 06:00-07:00 AEST. The daily
+collection job (_daily_collection_job, CronTrigger 06:00) is once-daily
+with no retry — a restart mid-run silently strands the intelligence_collection
+deadman's-switch heartbeat (migration 0071) on the previous day's timestamp
+even when collection itself succeeded, firing a false Platform Health alert
+~24h later. If you must deploy in this window, backfill the heartbeat
+afterward via core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
@@ -627,17 +636,34 @@ def _daily_collection_job() -> None:
     No LLM synthesis — that runs fortnightly via _brief_job().
     """
     log.info("Daily source collection triggered")
+    from datetime import datetime, timedelta, timezone
+    from intelligence.classification.classifier import classify
+    from intelligence.classification.deduplicator import _normalise
+    from intelligence.classification.filter import apply_filter
+    from intelligence.ingestion.collection_engine import collect_all
+    from intelligence.persistence import intelligence_store as store
+    from intelligence.ranking.ranker import rank
+
     try:
-        from datetime import datetime, timedelta, timezone
-        from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
-        from intelligence.classification.filter import apply_filter
-        from intelligence.ingestion.collection_engine import collect_all
-        from intelligence.persistence import intelligence_store as store
-        from intelligence.ranking.ranker import rank
-
         items, health_records = collect_all()
+    except Exception as exc:
+        log.error("Daily collection job failed: %s", exc)
+        _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+        return
 
+    # 2026-09-02: heartbeat now fires as soon as per-source collection itself
+    # succeeds, not after the slower downstream enrich/dedup/save pipeline
+    # below. Deploys that restart this service mid-run (git pull + systemctl
+    # restart during the 06:00-07:00 window) were killing the process before
+    # it reached the old post-save heartbeat call, stranding the deadman's
+    # switch (migration 0071, domain_key=intelligence_collection) on
+    # yesterday's timestamp even though sources were collected fine.
+    _record_heartbeat(
+        "intelligence_collection", "ok",
+        detail=f"sources={len(health_records)} items={len(items)}",
+    )
+
+    try:
         classified = []
         dedup_hashes_seen: set[str] = set()
         dedup_urls_seen: set[str] = set()
@@ -692,13 +718,10 @@ def _daily_collection_job() -> None:
             "events_classified=%d events_saved=%d",
             len(health_records), len(items), len(classified), saved,
         )
-        _record_heartbeat(
-            "intelligence_collection", "ok",
-            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
-        )
     except Exception as exc:
-        log.error("Daily collection job failed: %s", exc)
-        _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+        # Collection heartbeat already recorded above — this stage is
+        # classify/dedup/save, logged but not deadman's-switch-gated.
+        log.error("Daily collection post-processing failed: %s", exc)
 
 
 def _health_osint_weekly_fetch_job() -> None:
