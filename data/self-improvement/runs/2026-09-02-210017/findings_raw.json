@@ -1,0 +1,58 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Direct-to-Main Modification of Production Scoring Logic",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Commit 53393dd0b993cef5a6c428f6afad754283744526 explicitly documents a direct-to-main change modifying core scoring and brief rendering code (classifier.py, intelligence_analyst.py, captains_brief.py) without PR review or automated regression test execution.",
+          "location": "repo:53393dd0b993cef5a6c428f6afad754283744526"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Enforce branch protection rules on main requiring pull request reviews and CI test suite validation before merging."
+      },
+      "expected_benefit": "Eliminates risk of introducing regressions or unreviewed scoring logic into live production services."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Filesystem Audit Source Python File Detection Failure",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Filesystem audit reported 0 python_files despite 74 test files being present and recent commits modifying classifier.py, intelligence_analyst.py, and captains_brief.py.",
+          "location": "filesystem_audit.python_files"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Update repository audit file pattern matching to accurately discover and count core application Python files."
+      },
+      "expected_benefit": "Ensures accurate telemetry and inventory tracking for repository analysis and reporting."
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Unlisted Model 'gemini-flash-latest' Configured in Router Policy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Model router policy assigns 'gemini-flash-latest' to multiple tasks (intelligence-brief, captain-insight-synthesis, captain-reasoning-synthesis, billing-report, self-improvement-*, adhd-decompose), but the model is absent from the router's available_models catalog.",
+          "location": "model_router_audit.router_status"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Register gemini-flash-latest in the router model registry or verify external API connector catalog syncing."
+      },
+      "expected_benefit": "Prevents potential routing failures or unvalidated fallback execution when calling Gemini tasks."
+    }
+  ]
+}
