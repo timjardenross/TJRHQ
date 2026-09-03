@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "governance_violation",
+      "title": "Virtual environment directories indexed in repository audits",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Virtual environment paths in platform-runtime and core/infrastructure/vm-processing are being scanned as repository documentation and configurations",
+          "location": "core/infrastructure/vm-processing/.venv"
+        },
+        {
+          "type": "config_value",
+          "observation": "Vendor package YAML configurations from torchgen, rapidocr, and markdown_it are included in config file audit list",
+          "location": "core/infrastructure/vm-processing/.venv/lib/python3.12/site-packages"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add .venv directories across all subprojects to .gitignore and exclude virtual environments from filesystem audit scripts"
+      },
+      "expected_benefit": "Eliminates metric noise across 1,800+ vendor doc files and prevents vendor dependencies from polluting repository audit statistics",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Zero production Python source files detected despite 76 test suites",
+      "evidence": [
+        {
+          "type": "manual_inspection",
+          "observation": "Audit reports 0 python_files while detecting 76 active test files across the repository",
+          "location": "filesystem_audit"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Update repository audit file pattern matcher to correctly discover and index non-test Python implementation source modules"
+      },
+      "expected_benefit": "Restores visibility into Python codebase size, test-to-code coverage ratios, and source file health",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: None; Confidence: 0.90; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "performance_gap",
+      "title": "High average model router latency across recent requests",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Model router average execution duration is 6552ms across recent requests with no models currently kept hot in memory",
+          "location": "core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Review model keep-alive policies and pre-warm frequent models such as gemma3:4b to avoid cold-start load delays"
+      },
+      "expected_benefit": "Reduces task turnaround latency for interactive routes like classify-capture and xo-response",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: performance_gap; Evidence strength: None; Confidence: 0.85; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}
