@@ -80,6 +80,24 @@ Same trust-boundary principle as §2.3's Home Assistant note: **the kiosk never 
 
 **Google Cloud setup — done (2026-09-04):** the Captain completed step 1 ahead of the implementation mission — project created, Calendar API enabled, consent screen branded and published **In production** (avoids the 7-day refresh-token expiry that Testing status carries), and a Web application OAuth client created with redirect URI `https://usstjros.vercel.app/api/auth/google-calendar/callback` matching the design above. Client ID and secret are saved outside this repo (password manager) — never committed here. Nothing left on Google's side; the remaining work (the callback route, the Supabase token table, `/api/calendar/today`) is all code, for whenever the implementation mission opens.
 
+### 2.8 Always-listening wake-word voice — flagged, not V1 (2026-09-04)
+
+The Captain asked for the voice interaction to be "more interactive, like a JARVIS setup," and confirmed — after being shown the trade-off explicitly — that this means **always-listening wake-word activation** (a live microphone, continuously running, waiting for a trigger phrase), not just richer replies to the existing tap-to-talk button. This is a different category of component from everything else in §3.2: it's the one piece that changes the household's default privacy posture rather than being purely user-initiated or passive display. Flagging per Chief Engineer escalation duty, same reasoning as the kiosk auth model in §2.3 — a privacy-relevant default belongs in front of the Captain explicitly, not decided inside a build.
+
+**The privacy design this requires, not an alternative to it:**
+- **On-device wake-word spotting only** (e.g. Picovoice Porcupine, free tier, runs via WASM in-browser). No audio leaves the device and nothing is buffered or transmitted until the wake word actually fires — the same pattern Alexa/Google Home use. Continuously streaming raw audio anywhere, even to USS TJR's own infrastructure, is explicitly not an option under consideration here.
+- **A visible listening/processing state**, and an easy, obvious mute — ideally a physical switch on whatever hardware gets chosen, not just a software toggle.
+- Single-person household lowers but does not remove the "capturing someone without consent" risk (§2.4) — guests and tradespeople still apply, same reasoning already established for kiosk physical access.
+
+**Technical constraint:** this only works while the kiosk's browser tab is active/foregrounded — a PWA cannot listen while the screen is asleep or the tab is backgrounded. Since a wall-mounted kiosk's whole purpose is to stay on and visible, this is a minor real-world limitation, not a blocker. True listen-while-asleep would require a native Android app instead of a PWA — a materially bigger architecture commitment than anything else in this build, and not recommended without a separate, deliberate decision to make that jump.
+
+**Reuse-first architecture (three pieces, two already exist):**
+1. **Wake-word spotting** — genuinely new, on-device, free-tier library.
+2. **Transcription** — reuses the same channel-agnostic STT API already planned for tap-to-talk capture (§2.6), not a second speech pipeline.
+3. **Conversational responses** — the part that actually makes this feel like an assistant rather than a fancier capture button. This should be a new *voice front-end onto the existing XO chat capability* (Telegram's `buildShipContext`/Ollama-backed assistant, per `docs/MOBILE-MVP.md`'s "XO Chat" surface) — not a new AI build. Composition over duplication, SUOC Principle 3.
+
+**Recommendation:** real, valuable, and buildable — but a genuinely bigger scope item than the rest of V1 (three new/extended pieces vs. the thin composition everywhere else), and the one component with a default privacy trade-off. Sequence it as its own item **after V1 ships and the kiosk shell is proven**, not folded into the current implementation mission. Not excluded — deliberately sequenced.
+
 ### 2.3 Security note (flagging per Chief Engineer escalation duty, not deciding it)
 
 A wall tablet is still a different threat model from a phone in a pocket, single-occupant household or not: it's a browser session that must stay authenticated 24/7, physically accessible to anyone who is ever in the house (guests, tradespeople, a future change in household) or who can see the screen from outside a window. The existing `BOT_API_SECRET` bypass in `middleware.ts` is explicitly scoped to `/api/*` server-to-server calls "so a leaked/shared bot secret grants programmatic access only, not full authenticated-UI browsing" — reusing that pattern for a client-rendered kiosk page would undo that exact protection and should not be done. This repo has twice shipped and fixed real RLS/anon-read exposures on sensitive tables (`advisory_sessions`, `health_daily_logs`) — a new always-on unauthenticated-feeling surface is precisely the shape of thing that produces a third. **This is a platform-wide, shared-middleware decision and belongs to the Captain, not something to design around unilaterally** (see §4).
@@ -103,6 +121,7 @@ The same reasoning applies to the new Home Assistant hub in §2.4: vendor cloud 
 | Voice capture (tap-to-talk) | Partial — STT/classify/write pipeline live (Telegram-only) | **Winner** — elevated by Captain, real composition work (§2.6) |
 | Spoken alerts (TTS output) | Partial — `tts_edge.py` live (Telegram-only) | **Winner** — elevated by Captain, thin new caller (§2.6) |
 | "XO Voice Daily Debrief" | **Dead** — silently regressed, separate feature from the above | Untouched — not part of this elevation (§2.6) |
+| Always-listening wake-word assistant | **No** — needs on-device wake-word + a voice front-end onto existing XO chat | Real, sequenced after V1 — privacy trade-off needs its own decision (§2.8) |
 | Latest brief / ambient intel | Yes — Briefs archive | Strong V1.1 candidate |
 | Meal planning / groceries | **No** | **Excluded** — confirmed not wanted, not deferred |
 | Chores / routines | **No** | **Excluded** — confirmed not wanted, not deferred |
@@ -130,6 +149,7 @@ The same reasoning applies to the new Home Assistant hub in §2.4: vendor cloud 
 **Deferred to V1.1 as one bundle, not excluded:**
 
 9. **Smart-home panel: lighting (Kasa/Tapo) + aircon (Sensibo)**, both via Home Assistant on the Contabo VPS. Aircon is technically unblocked on its own (Sensibo is cloud-API-only, no LAN dependency), but the Captain chose to hold both until Home Assistant's home-LAN bridge is decided (§2.5), rather than half-standing-up smart-home control. Build together once the bridge (VPN / relocate HA / cloud-only) is chosen.
+10. **Always-listening wake-word voice assistant** (§2.8) — a voice front-end onto the existing XO chat capability, triggered by an on-device wake word rather than the tap-to-talk button. Real and wanted, but sequenced after V1 ships: it's the one component with a default privacy trade-off (a continuously-listening microphone), and needs its own explicit go-ahead on the privacy design in §2.8 before a build mission opens for it — not bundled into the current one.
 
 **Untouched, not part of this scope:**
 
@@ -158,4 +178,4 @@ Meal planning, groceries, and chores remain excluded outright per §2.4/§3.1 �
 
 ## Mission Status
 
-**Advisory only.** No code changed. All three original Captain decisions are resolved (§2.5); an implementation mission can now be opened per §4.5, scoped to V1 = kiosk shell, situation strip, emergency alerts, alerts ticker, reminders, calendar, capture bar (text + voice), and spoken alerts. Smart-home (lighting + aircon, bundled) is V1.1, waiting on the HA↔LAN bridge decision. The dead Voice Daily Debrief is explicitly out of scope.
+**Advisory only.** No code changed. All three original Captain decisions are resolved (§2.5); an implementation mission can now be opened per §4.5, scoped to V1 = kiosk shell, situation strip, emergency alerts, alerts ticker, reminders, calendar, capture bar (text + voice), and spoken alerts. Smart-home (lighting + aircon, bundled) is V1.1, waiting on the HA↔LAN bridge decision. An always-listening wake-word voice assistant (§2.8) is real and wanted but explicitly sequenced after V1, pending its own privacy-design go-ahead. The dead Voice Daily Debrief is explicitly out of scope.
