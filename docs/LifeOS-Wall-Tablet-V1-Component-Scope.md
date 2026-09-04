@@ -1,9 +1,10 @@
 # LifeOS Wall Tablet — V1 Component Scope
 
-**Status:** Advisory / Chief Engineer research pass. Not yet built. Needs Captain decision on the auth-model question in §4 before any implementation mission is opened.
+**Status:** Advisory / Chief Engineer research pass. Not yet built. Needs Captain decision on the auth-model question and the Home Assistant hub question in §4 before any implementation mission is opened.
 **Author:** Chief Engineer (USS-TJR-003, Engineering Division)
-**Date:** 2026-09-04
+**Date:** 2026-09-04 (revised same day — household context and smart-home hardware confirmed by Captain, see §2.4)
 **Target hardware:** Lenovo Tab (ZAEH0138AU) — 10.1" 1920×1200 IPS, MediaTek Helio G85, 4GB RAM, 128GB storage, 5100mAh, Wi-Fi only, Android. Budget/entry silicon and RAM headroom — this constrains the technical approach (§5), not just the component list.
+**Household:** Single-person household plus one dog. No multiple residents, no shared-custody access model.
 
 ---
 
@@ -27,15 +28,27 @@ This platform runs on a reuse-before-rebuild principle (SUOC Principle 3, ADR-02
 
 ### 2.2 What genuinely doesn't exist (real gaps, not just unwired UI)
 
-- **No calendar/schedule capability anywhere in the platform.** Grepped `lcars-portal` and `core` for calendar/family/grocery/chore/meal-plan/routine — the only hits are unrelated (`mission-workbench`, `contentScoring.ts`). "What's on today" is arguably the single most-expected wall-tablet widget and it would be net-new integration work (a calendar source — Google Calendar/CalDAV/etc. — plus a new read model), not composition.
-- **No household/family multi-user model.** The platform's governance is Captain-singular by design (SUOC Principle 9, "Captain Intelligence Is Composed, Not Implemented"; RLS policies are keyed to a single authenticated identity — see the `advisory_sessions`/`health_daily_logs` anon-RLS incidents already fixed in 2026-07-18, which is exactly the failure mode a shared-household surface risks reintroducing if rushed). Turning this into "the family's" tablet is an identity/authorization model change, not a UI feature.
-- **No smart-home/IoT integration** (lights, locks, thermostat) anywhere in the registry.
-- **No meal planning, grocery list, or chores/routines data model.**
+- **No calendar/schedule capability anywhere in the platform.** Grepped `lcars-portal` and `core` for calendar/family/grocery/chore/meal-plan/routine — the only hits are unrelated (`mission-workbench`, `contentScoring.ts`). "What's on today" is arguably the single most-expected wall-tablet widget and it would be net-new integration work (a calendar source plus a new read model), not composition. **Now confirmed in scope for V1** — see §2.4.
+- **No smart-home/IoT integration** (lights, locks, thermostat, aircon) anywhere in the registry. **Now confirmed in scope for V1** (lighting + aircon only) — see §2.4.
+- **No meal planning, grocery list, or chores/routines data model.** **Confirmed explicitly out of scope** by the Captain (single-person household, this admin overhead isn't wanted) — not deferred, excluded.
 - **No existing kiosk/wall-display/always-on presentation mode.** Every UI surface in the platform — including the Mobile Command MVP — sits behind full Supabase-authenticated middleware (`lcars-portal/src/middleware.ts`: any unauthenticated request to a non-allowlisted route redirects to `/login`). There is no precedent for a screen that stays open and logged in indefinitely in a physically shared space.
+
+### 2.4 Household context and hardware confirmed by the Captain (2026-09-04)
+
+The original wide scan (§2.1–2.2) flagged a household/family multi-user model as a real architectural gap. That gap **doesn't apply here**: this is a single-person household plus a dog, no shared-custody or multi-resident access model — which is exactly what the platform's existing Captain-singular governance (SUOC Principle 9) already assumes. Nothing about identity/authorization needs to change; the kiosk-auth question in §2.3/§4 is about *device* security (a screen physically present in the home), not about supporting multiple distinct household identities.
+
+Three further specifics that change the V1 scope directly:
+
+- **Lighting:** TP-Link Kasa/Tapo. No existing platform integration; well-supported by Home Assistant's `python-kasa`-based integration, largely local-network control (no cloud round-trip needed for on/off/brightness on most Kasa devices; some newer Tapo devices are cloud-dependent).
+- **Aircon:** Sensibo — a WiFi retrofit AC controller (IR-based, works regardless of the underlying aircon brand). Cloud-API only; no local control path. Well-supported by Home Assistant's official Sensibo integration.
+- **Hub:** No smart-home hub exists yet. Standing up **Home Assistant** as a local aggregation layer is the reuse-first answer here, for the same reason the platform favors one canonical implementation per capability elsewhere (SUOC Principle 5): one integration point for Kasa/Tapo + Sensibo (and whatever gets added later) instead of USS TJR/Supabase talking to two-plus vendor clouds directly and holding their credentials. This is net-new local infrastructure (not an existing USS TJR capability) and needs to be stood up before any wall-tablet smart-home panel can work — see §4.
+- **Calendar:** No single existing "life calendar" — currently split across providers, and the Outlook 365 **work** calendar is explicitly excluded from this surface (enterprise account, not to be pulled into a personal wall display). The Captain is open to consolidating personal scheduling onto one calendar to be the canonical source. **Recommendation: Google Calendar** — REST API + OAuth is the lowest-friction integration path for a read-only wall display (versus CalDAV for iCloud), and it can still absorb subscribed feeds (e.g. public holidays) without extra integration work. Final pick is the Captain's call, not pre-decided here.
 
 ### 2.3 Security note (flagging per Chief Engineer escalation duty, not deciding it)
 
-A wall tablet is a different threat model from a phone in a pocket: it's a browser session that must stay authenticated 24/7, physically walk-up-accessible to anyone in the house (and to anyone who can see the screen). The existing `BOT_API_SECRET` bypass in `middleware.ts` is explicitly scoped to `/api/*` server-to-server calls "so a leaked/shared bot secret grants programmatic access only, not full authenticated-UI browsing" — reusing that pattern for a client-rendered kiosk page would undo that exact protection and should not be done. This repo has twice shipped and fixed real RLS/anon-read exposures on sensitive tables (`advisory_sessions`, `health_daily_logs`) — a new always-on unauthenticated-feeling surface is precisely the shape of thing that produces a third. **This is a platform-wide, shared-middleware decision and belongs to the Captain, not something to design around unilaterally** (see §4).
+A wall tablet is still a different threat model from a phone in a pocket, single-occupant household or not: it's a browser session that must stay authenticated 24/7, physically accessible to anyone who is ever in the house (guests, tradespeople, a future change in household) or who can see the screen from outside a window. The existing `BOT_API_SECRET` bypass in `middleware.ts` is explicitly scoped to `/api/*` server-to-server calls "so a leaked/shared bot secret grants programmatic access only, not full authenticated-UI browsing" — reusing that pattern for a client-rendered kiosk page would undo that exact protection and should not be done. This repo has twice shipped and fixed real RLS/anon-read exposures on sensitive tables (`advisory_sessions`, `health_daily_logs`) — a new always-on unauthenticated-feeling surface is precisely the shape of thing that produces a third. **This is a platform-wide, shared-middleware decision and belongs to the Captain, not something to design around unilaterally** (see §4).
+
+The same reasoning applies to the new Home Assistant hub in §2.4: vendor cloud credentials for Kasa/Tapo and Sensibo should live in Home Assistant's own credential store, not in USS TJR's Supabase — keep the wall tablet's control surface a thin authenticated call to HA's local API, not a place that holds smart-home vendor secrets itself. Don't repeat the anon-RLS mistake by giving a new device-facing surface broader data access than it needs.
 
 ## 3. Recommendations
 
@@ -47,12 +60,12 @@ A wall tablet is a different threat model from a phone in a pocket: it's a brows
 | Emergency/safety alerts (Tier‑1 AU) | Yes — Emergency Alert Hub Workbench | **Winner** |
 | Needs-attention / alerts ticker | Yes — `useAlerts` + gated alert engine | **Winner** |
 | Reminders / nudges | Partial — Notification service built, dormant | **Winner** (activates existing debt) |
+| Today's calendar/schedule | **No** — net-new, single-source (Google Calendar recommended) | **Winner** — confirmed valuable by Captain (§2.4) |
+| Lighting control (TP-Link Kasa/Tapo) | **No** — net-new, via Home Assistant | **Winner** — confirmed hardware (§2.4) |
+| Aircon control (Sensibo) | **No** — net-new, via Home Assistant | **Winner** — confirmed hardware, "important" per Captain (§2.4) |
 | Latest brief / ambient intel | Yes — Briefs archive | Strong V1.1 candidate |
-| Today's calendar/schedule | **No** — no capability exists | Deferred — real new-build |
-| Family/household shared view | **No** — Captain-singular governance model | Deferred — architecture decision, not UI |
-| Meal planning / groceries | **No** | Deferred |
-| Chores / routines | **No** | Deferred |
-| Smart home controls | **No** | Out of scope — security-sensitive, no integration exists |
+| Meal planning / groceries | **No** | **Excluded** — confirmed not wanted, not deferred |
+| Chores / routines | **No** | **Excluded** — confirmed not wanted, not deferred |
 | Voice interaction | Partial — TTS only, prior voice feature dead | Deferred — root-cause the dead feature first |
 | Weather | **No** | Cheap standalone add, not platform-dependent — low priority filler |
 | Ambient photo mode | **No** | Trivial, zero platform risk — nice-to-have filler, not a "component" |
@@ -61,28 +74,36 @@ A wall tablet is a different threat model from a phone in a pocket: it's a brows
 
 ### 3.2 Recommended V1 scope (the actual winners)
 
+**Composed from existing USS TJR capability — no new backend needed beyond the kiosk shell itself:**
+
 1. **Kiosk display shell** (new, foundational — see §4 for the auth blocker this depends on) — a dedicated always-on route, no interactive chrome, auto-cycling panels, large type, screen-timeout-safe.
 2. **Situation strip** — recovery posture, capacity state, health severity — reusing `lib/departments.ts` tone-mapping, not the retired `MobileOperatingPicture`.
 3. **Emergency Alert Hub panel** — near-zero build cost, highest safety value, already hardened.
 4. **Alerts/needs-attention ticker** — thin wrapper over the existing `useAlerts` hook.
 5. **Reminder/nudge ticker** — first production caller of the dormant Notification capability.
 
-Everything else in §3.1 is deliberately **not** V1: calendar and family/household are the two components a household member will most expect and are also the two with zero existing platform support — they're the right V1.1 target once the kiosk shell and its auth model exist, not something to bolt on now.
+**Net-new for this household, confirmed valuable — real build effort, sequenced after the shell exists:**
+
+6. **Calendar/schedule panel** — read-only view of one consolidated "life calendar" (Google Calendar recommended, final pick is the Captain's; the Outlook 365 work calendar is never ingested here). New integration, new small read model — not composition, but now in scope.
+7. **Smart-home panel: lighting (Kasa/Tapo) + aircon (Sensibo)** — both routed through a Home Assistant hub (§2.4) rather than USS TJR holding vendor-cloud credentials directly. This is two dependencies stacked: stand up Home Assistant first, then build the wall-tablet panel against HA's own API. Aircon was flagged as important by the Captain — sequence it no later than lighting, not as an afterthought.
+
+Meal planning, groceries, and chores are excluded outright per §2.4/§3.1 — not on any version's roadmap unless that changes.
 
 ## 4. Next Actions
 
 1. **Captain decision required before any build:** how does an always-on wall device authenticate? Options to weigh (not pre-decided here): a scoped, revocable device/kiosk identity with least-privilege RLS behind a dedicated server-side read API; vs. a long-lived kiosk-specific session cookie; vs. something else. This is a shared-middleware, platform-wide change per SUOC governance and Chief Engineer escalation rules — it does not get decided inside a component-scope doc.
-2. Once the auth model is set: open a mission to build the kiosk shell as its own thin route, composing the four reuse-winners in §3.2 — no new backend capability needed for V1.
-3. Defer calendar and household/family-model work to a V1.1 mission scope once the shell exists and the auth pattern is proven.
-4. Before touching voice: check recoverability of the dead XO Voice Daily Debrief feature per the Registry's existing open item, rather than starting a parallel voice effort.
+2. **Captain decision on the Home Assistant hub:** confirm HA as the smart-home aggregation layer (recommended, §2.4) and where it runs (a local always-on box on the home network — e.g. a small dedicated device — separate from the tablet itself, which is a client, not the hub).
+3. **Captain decision on calendar provider:** confirm Google Calendar (recommended, §2.4) or name the alternative to consolidate onto.
+4. Once 1–3 are set: open a mission to build the kiosk shell as its own thin route, composing the five reuse-winners in §3.2 first, then the calendar panel, then the Home Assistant-backed smart-home panel.
+5. Before touching voice: check recoverability of the dead XO Voice Daily Debrief feature per the Registry's existing open item, rather than starting a parallel voice effort.
 
-## 5. Hardware-driven implementation notes (non-binding, for whoever builds §4.2)
+## 5. Hardware-driven implementation notes (non-binding, for whoever builds §4.4)
 
 - Helio G85 + 4GB RAM is entry-tier silicon: favor server-rendered/SSR-light panels, poll-based refresh (the platform's existing pattern, e.g. `useAlerts`'s 120s default) over heavy websocket fan-out, and avoid animation-heavy re-renders across a 1920×1200 always-on canvas.
-- Wi-Fi-only, no cellular fallback: the shell needs a visible "stale data" state (the Emergency Alert Hub's existing per-source crawl-health pattern is a good model) rather than silently freezing on a dropped connection.
+- Wi-Fi-only, no cellular fallback: the shell needs a visible "stale data" state (the Emergency Alert Hub's existing per-source crawl-health pattern is a good model) rather than silently freezing on a dropped connection. This applies doubly to the smart-home panel — a lighting/aircon command sent while the tablet's Wi-Fi is degraded needs to fail visibly, not silently no-op.
 
 ---
 
 ## Mission Status
 
-**Advisory only.** No code changed. Blocked on Captain decision (§4.1) before an implementation mission can be opened.
+**Advisory only.** No code changed. Blocked on three Captain decisions (§4.1–§4.3) before an implementation mission can be opened.
