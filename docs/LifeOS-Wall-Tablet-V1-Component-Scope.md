@@ -50,10 +50,7 @@ Three further specifics that change the V1 scope directly:
 - **Calendar provider:** **Google Calendar**, confirmed.
 - **Home Assistant host:** the Captain's existing always-on machine is a **Contabo VPS**, not local hardware. This changes the picture from §2.4's assumption of a local box: **Home Assistant on a VPS cannot reach Kasa/Tapo devices on the home LAN directly** — local device discovery/control doesn't cross the WAN. Three options were put to the Captain (a VPN tunnel between the VPS and home network; moving HA to a small local device instead; or cloud-only control on the VPS as-is) and the Captain deferred that specific bridging decision to **V1.1**, rather than picking now.
 
-That deferral has a direct, asymmetric scope consequence, not a symmetric one:
-
-- **Sensibo (aircon) is cloud-API-only regardless of where Home Assistant runs** — it has no local control path at all (§2.4). So Home Assistant-on-the-Contabo-VPS controlling Sensibo is **fully unblocked today**, independent of the deferred bridge decision. Aircon — which the Captain flagged as important — **stays in V1**.
-- **Kasa/Tapo (lighting) local control depends on exactly the bridge question that was deferred.** Building it now would mean guessing an architecture (VPN vs. relocate HA vs. cloud-only) the Captain explicitly chose not to lock in yet. **Lighting moves to V1.1**, to be built once the bridge is chosen — this isn't a downgrade in importance, it's sequencing around a real open dependency rather than building on a guess.
+Sensibo is cloud-API-only regardless of where Home Assistant runs, so aircon control is technically unblocked by the deferred bridge decision on its own — that was this doc's initial read. **The Captain overrode that and moved aircon to V1.1 as well**, alongside lighting: smart-home control ships as one bundle once Home Assistant and its LAN bridge are properly stood up, rather than partially standing up device control for one vendor while the hub's own network story is still unresolved. Both Kasa/Tapo lighting and Sensibo aircon are **V1.1**.
 
 ### 2.3 Security note (flagging per Chief Engineer escalation duty, not deciding it)
 
@@ -72,8 +69,8 @@ The same reasoning applies to the new Home Assistant hub in §2.4: vendor cloud 
 | Needs-attention / alerts ticker | Yes — `useAlerts` + gated alert engine | **Winner** |
 | Reminders / nudges | Partial — Notification service built, dormant | **Winner** (activates existing debt) |
 | Today's calendar/schedule | **No** — net-new, single-source | **Winner** — Google Calendar confirmed (§2.5) |
-| Aircon control (Sensibo) | **No** — net-new, via Home Assistant on VPS | **Winner** — cloud-only, unblocked regardless of LAN bridge (§2.5), "important" per Captain |
-| Lighting control (TP-Link Kasa/Tapo) | **No** — net-new, needs a VPS↔LAN bridge Home Assistant doesn't have yet | **V1.1** — blocked on a bridge decision deferred by the Captain (§2.5), not a priority downgrade |
+| Aircon control (Sensibo) | **No** — net-new, via Home Assistant on VPS | **V1.1** — technically unblocked (cloud-only), but Captain chose to bundle it with lighting (§2.5) |
+| Lighting control (TP-Link Kasa/Tapo) | **No** — net-new, needs a VPS↔LAN bridge Home Assistant doesn't have yet | **V1.1** — blocked on a bridge decision deferred by the Captain (§2.5) |
 | Latest brief / ambient intel | Yes — Briefs archive | Strong V1.1 candidate |
 | Meal planning / groceries | **No** | **Excluded** — confirmed not wanted, not deferred |
 | Chores / routines | **No** | **Excluded** — confirmed not wanted, not deferred |
@@ -96,11 +93,10 @@ The same reasoning applies to the new Home Assistant hub in §2.4: vendor cloud 
 **Net-new for this household, confirmed valuable — real build effort, sequenced after the shell exists:**
 
 6. **Calendar/schedule panel** — read-only view of Google Calendar (§2.5; the Outlook 365 work calendar is never ingested here). New integration, new small read model — not composition, but now in scope.
-7. **Aircon panel (Sensibo)** — routed through Home Assistant on the Contabo VPS (§2.5) rather than USS TJR holding Sensibo's cloud credentials directly. Cloud-API-only device, so this has no dependency on the deferred LAN-bridge decision — fully buildable in V1. Flagged as important by the Captain, so sequence it alongside the calendar panel, not after it.
 
-**Deferred to V1.1, not excluded:**
+**Deferred to V1.1 as one bundle, not excluded:**
 
-8. **Lighting panel (Kasa/Tapo)** — blocked on the Home Assistant VPS↔home-LAN bridge decision the Captain deferred (§2.5: VPN tunnel vs. relocating HA locally vs. cloud-only fallback). Build this once that's chosen, not on a guessed architecture.
+7. **Smart-home panel: lighting (Kasa/Tapo) + aircon (Sensibo)**, both via Home Assistant on the Contabo VPS. Aircon is technically unblocked on its own (Sensibo is cloud-API-only, no LAN dependency), but the Captain chose to hold both until Home Assistant's home-LAN bridge is decided (§2.5), rather than half-standing-up smart-home control. Build together once the bridge (VPN / relocate HA / cloud-only) is chosen.
 
 Meal planning, groceries, and chores remain excluded outright per §2.4/§3.1 — not on any version's roadmap unless that changes.
 
@@ -109,17 +105,18 @@ Meal planning, groceries, and chores remain excluded outright per §2.4/§3.1 �
 1. ~~Captain decision on kiosk auth model~~ — **Resolved:** scoped device identity + read-only server-side API, adopted as designed.
 2. ~~Captain decision on Home Assistant hub~~ — **Resolved:** runs on the existing Contabo VPS. This surfaced a new, narrower open item — see below.
 3. ~~Captain decision on calendar provider~~ — **Resolved:** Google Calendar.
-4. **New open item, deferred to V1.1 by the Captain's own call, not blocking V1:** how Home Assistant (on the VPS) reaches Kasa/Tapo devices on the home LAN — VPN tunnel, relocate HA locally, or cloud-only fallback. Revisit when lighting control is scheduled.
-5. Open the implementation mission: build the kiosk shell first (item 1 in §3.2), against the now-adopted device-identity auth model, composing the four remaining reuse-winners, then the calendar panel, then the Sensibo/Home Assistant aircon panel.
+4. **Open item, deferred to V1.1 by the Captain's own call, not blocking V1:** how Home Assistant (on the VPS) reaches Kasa/Tapo and Sensibo devices — VPN tunnel, relocate HA locally, or cloud-only fallback. Both lighting and aircon wait on this together.
+5. Open the implementation mission: build the kiosk shell first (item 1 in §3.2), against the now-adopted device-identity auth model, composing the four remaining reuse-winners, then the calendar panel. Smart-home is V1.1, not part of this mission.
 6. Before touching voice: check recoverability of the dead XO Voice Daily Debrief feature per the Registry's existing open item, rather than starting a parallel voice effort.
 
 ## 5. Hardware-driven implementation notes (non-binding, for whoever builds §4.5)
 
 - Helio G85 + 4GB RAM is entry-tier silicon: favor server-rendered/SSR-light panels, poll-based refresh (the platform's existing pattern, e.g. `useAlerts`'s 120s default) over heavy websocket fan-out, and avoid animation-heavy re-renders across a 1920×1200 always-on canvas.
-- Wi-Fi-only, no cellular fallback: the shell needs a visible "stale data" state (the Emergency Alert Hub's existing per-source crawl-health pattern is a good model) rather than silently freezing on a dropped connection. This applies doubly to the aircon panel — a Sensibo command now routes tablet → USS TJR's kiosk API → Home Assistant on the Contabo VPS → Sensibo's own cloud, three network hops rather than a same-LAN call, so the panel needs to show "command sent" vs. "command confirmed" as distinct states rather than assuming an instant round-trip.
+- Wi-Fi-only, no cellular fallback: the shell needs a visible "stale data" state (the Emergency Alert Hub's existing per-source crawl-health pattern is a good model) rather than silently freezing on a dropped connection.
+- For V1.1's smart-home panel: a Sensibo command routes tablet → USS TJR's kiosk API → Home Assistant on the Contabo VPS → Sensibo's own cloud, three network hops rather than a same-LAN call — the panel will need to show "command sent" vs. "command confirmed" as distinct states rather than assuming an instant round-trip.
 
 ---
 
 ## Mission Status
 
-**Advisory only.** No code changed. All three original Captain decisions are resolved (§2.5); an implementation mission can now be opened per §4.5. One narrower item (the HA↔LAN bridge) is intentionally deferred to V1.1 and doesn't block V1.
+**Advisory only.** No code changed. All three original Captain decisions are resolved (§2.5); an implementation mission can now be opened per §4.5, scoped to software-only V1 (kiosk shell, situation strip, emergency alerts, alerts ticker, reminders, calendar). Smart-home (lighting + aircon, bundled) is V1.1, waiting on the HA↔LAN bridge decision.
