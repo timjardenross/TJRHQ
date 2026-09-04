@@ -472,6 +472,29 @@ def _start_scheduler() -> None:
     else:
         log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
 
+    # ── Google Tasks two-way sync (2026-09-05) ───────────────────────────────
+    # Design: this session's conversation — personal_tasks stays the real
+    # follow-through engine (task_nudge_scheduler.py/follow_through_engine.py
+    # above both keep reading it unchanged); Google Tasks is just another
+    # capture surface so tasks added on the phone still get nudged. Same
+    # server-to-server auth XO's Telegram bot already uses against the
+    # portal (LCARS_API_SECRET -> X-Bot-Secret header, checked in
+    # lcars-portal/src/middleware.ts against Vercel's BOT_API_SECRET — same
+    # value, different var name per side, already set on Vercel). Requires
+    # LCARS_PORTAL_URL and LCARS_API_SECRET in this process's env — copy the
+    # same LCARS_API_SECRET line already in telegram-bots/xo/.env.
+    google_tasks_sync_interval = int(os.environ.get("GOOGLE_TASKS_SYNC_INTERVAL_MINUTES", "15"))
+    if os.environ.get("GOOGLE_TASKS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _google_tasks_sync_job,
+            IntervalTrigger(minutes=google_tasks_sync_interval),
+            id="google_tasks_sync",
+            replace_existing=True,
+        )
+        log.info("Google Tasks sync scheduler enabled (every %d min)", google_tasks_sync_interval)
+    else:
+        log.info("Google Tasks sync scheduler disabled (set GOOGLE_TASKS_SYNC_ENABLED=true to enable)")
+
     # 2026-08-13: wellness-coaching automation (D-055 Recovery Officer)
     # retired — recovery_officer/engagement_dispatcher.py's compliance-toned
     # reminders/escalations duplicated and contradicted
@@ -1199,6 +1222,47 @@ def _adhd_nudge_job() -> None:
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
         _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
+
+
+def _google_tasks_sync_job() -> None:
+    """Calls the portal's /api/google-tasks/sync — pushes locally-changed
+    personal_tasks rows to Google Tasks, pulls new/completed tasks back.
+    Skipped cleanly (not an error) if LCARS_PORTAL_URL/LCARS_API_SECRET
+    aren't configured yet, or if Google isn't connected (409 from the
+    route) — both are expected states before the Captain finishes setup,
+    not failures worth a heartbeat 'failed' entry."""
+    portal_url = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
+    secret = os.environ.get("LCARS_API_SECRET", "")
+    if not portal_url or not secret:
+        log.info("Google Tasks sync skipped — LCARS_PORTAL_URL/LCARS_API_SECRET not configured")
+        return
+
+    log.info("Google Tasks sync job triggered")
+    try:
+        import requests
+        resp = requests.post(
+            f"{portal_url}/api/google-tasks/sync",
+            headers={"X-Bot-Secret": secret},
+            timeout=30,
+        )
+        if resp.status_code == 409:
+            log.info("Google Tasks sync skipped — Google not connected yet")
+            _record_heartbeat("google_tasks_sync", "skipped", detail="Google not connected")
+            return
+        resp.raise_for_status()
+        body = resp.json()
+        log.info(
+            "Google Tasks sync complete: pushed=%d pulled=%d completions_synced=%d errors=%d",
+            body.get("pushed", 0), body.get("pulled", 0),
+            body.get("completionsSynced", 0), len(body.get("errors", [])),
+        )
+        _record_heartbeat(
+            "google_tasks_sync", "ok",
+            detail=f"pushed={body.get('pushed', 0)} pulled={body.get('pulled', 0)}",
+        )
+    except Exception as exc:
+        log.error("Google Tasks sync job failed: %s", exc)
+        _record_heartbeat("google_tasks_sync", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:

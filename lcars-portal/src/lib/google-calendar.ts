@@ -16,7 +16,13 @@ const CALENDAR_EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 const TIMEZONE = 'Australia/Brisbane';
 
-export const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+// 2026-09-05: widened to also cover Google Tasks (google-tasks.ts) — same
+// account, same OAuth connection, one reconnect needed since a stored
+// refresh token's scope is fixed at grant time. GOOGLE_CALENDAR_SCOPE kept
+// as an alias so nothing importing the old name breaks.
+export const GOOGLE_OAUTH_SCOPES =
+  'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks';
+export const GOOGLE_CALENDAR_SCOPE = GOOGLE_OAUTH_SCOPES;
 
 export class GoogleCalendarDisconnectedError extends Error {
   constructor(message = 'Google Calendar is not connected.') {
@@ -170,6 +176,15 @@ async function refreshAccessToken(row: TokenRow): Promise<string> {
     .eq('id', TOKEN_ROW_ID);
 
   return data.access_token;
+}
+
+/** Shared by google-tasks.ts — same stored token, same account, both APIs
+ * covered by the widened scope above. Returns just the access token; the
+ * calendarId is Calendar-specific so getValidCalendarAccessToken below
+ * keeps returning the pair for fetchTodayEvents' own use. */
+export async function getValidGoogleAccessToken(): Promise<string> {
+  const { accessToken } = await getValidAccessToken();
+  return accessToken;
 }
 
 async function getValidAccessToken(): Promise<{ accessToken: string; calendarId: string }> {
