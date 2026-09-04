@@ -478,11 +478,11 @@ def _start_scheduler() -> None:
     # above both keep reading it unchanged); Google Tasks is just another
     # capture surface so tasks added on the phone still get nudged. Same
     # server-to-server auth XO's Telegram bot already uses against the
-    # portal (LCARS_API_SECRET -> X-Bot-Secret header, checked in
-    # lcars-portal/src/middleware.ts against Vercel's BOT_API_SECRET — same
-    # value, different var name per side, already set on Vercel). Requires
-    # LCARS_PORTAL_URL and LCARS_API_SECRET in this process's env — copy the
-    # same LCARS_API_SECRET line already in telegram-bots/xo/.env.
+    # portal (X-Bot-Secret header, checked in lcars-portal/src/middleware.ts
+    # against BOT_API_SECRET). 2026-09-05: reads BOT_API_SECRET/
+    # LCARS_PORTAL_URL from this process's env — both live in Infisical
+    # (project USSTJR, prod env), pulled in via `infisical run` wrapping
+    # this service's ExecStart, not a raw .env file.
     google_tasks_sync_interval = int(os.environ.get("GOOGLE_TASKS_SYNC_INTERVAL_MINUTES", "15"))
     if os.environ.get("GOOGLE_TASKS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
         scheduler.add_job(
@@ -1227,14 +1227,14 @@ def _adhd_nudge_job() -> None:
 def _google_tasks_sync_job() -> None:
     """Calls the portal's /api/google-tasks/sync — pushes locally-changed
     personal_tasks rows to Google Tasks, pulls new/completed tasks back.
-    Skipped cleanly (not an error) if LCARS_PORTAL_URL/LCARS_API_SECRET
+    Skipped cleanly (not an error) if LCARS_PORTAL_URL/BOT_API_SECRET
     aren't configured yet, or if Google isn't connected (409 from the
     route) — both are expected states before the Captain finishes setup,
     not failures worth a heartbeat 'failed' entry."""
     portal_url = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
-    secret = os.environ.get("LCARS_API_SECRET", "")
+    secret = os.environ.get("BOT_API_SECRET", "")
     if not portal_url or not secret:
-        log.info("Google Tasks sync skipped — LCARS_PORTAL_URL/LCARS_API_SECRET not configured")
+        log.info("Google Tasks sync skipped — LCARS_PORTAL_URL/BOT_API_SECRET not configured")
         return
 
     log.info("Google Tasks sync job triggered")
