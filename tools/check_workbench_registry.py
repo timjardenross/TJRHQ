@@ -47,6 +47,8 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "health-osint-curation": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "knowledge-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
+    "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
+    "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
 }
 
 

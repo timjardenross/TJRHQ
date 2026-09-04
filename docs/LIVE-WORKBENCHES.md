@@ -49,5 +49,7 @@ before assuming an absence here is a bug.
 | `/health-osint-curation` | Reachable via a secondary in-app link, not orphaned but not hub-listed. |
 | `/knowledge-workbench` | Reachable via a secondary in-app link, not orphaned but not hub-listed. |
 | `/mission-workbench` | Reachable via a secondary in-app link, not orphaned but not hub-listed. |
+| `/privacy` | Public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench. |
+| `/terms` | Public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench. |
 
-**Last synced:** 2026-08-31, reordering only (dropdown/hub grouping fix).
+**Last synced:** 2026-09-04, added `/privacy` and `/terms` (Google Calendar OAuth verification pages, LifeOS wall tablet §2.7).
