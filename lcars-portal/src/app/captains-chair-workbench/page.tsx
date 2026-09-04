@@ -231,6 +231,65 @@ function useAgentHealth(): { data: AgentHealthSummary | null; loading: boolean; 
   return { data, loading, error };
 }
 
+// LifeOS Wall Tablet §2.7/§3.2 item 6 (docs/LifeOS-Wall-Tablet-V1-Component-
+// Scope.md) — first surface of the Google Calendar integration, ahead of
+// the kiosk shell it was originally scoped for. /api/calendar/today
+// already distinguishes "disconnected" (409, revoked/expired token) from a
+// genuine fetch error — this hook keeps that distinction instead of
+// collapsing both into one generic error state, so the card can point the
+// Captain at reconnecting rather than just saying "failed."
+interface CalendarTodayEvent {
+  time: string | null;
+  title: string;
+  location: string | null;
+  allDay: boolean;
+}
+
+type CalendarTodayStatus = 'ok' | 'disconnected' | 'error';
+
+function useCalendarToday(): {
+  events: CalendarTodayEvent[];
+  status: CalendarTodayStatus;
+  loading: boolean;
+} {
+  const [events, setEvents] = useState<CalendarTodayEvent[]>([]);
+  const [status, setStatus] = useState<CalendarTodayStatus>('ok');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/calendar/today');
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.status === 409 || body?.status === 'disconnected') {
+          setStatus('disconnected');
+          setEvents([]);
+        } else if (!res.ok || body?.status === 'error') {
+          setStatus('error');
+          setEvents([]);
+        } else {
+          setStatus('ok');
+          setEvents(Array.isArray(body?.events) ? body.events : []);
+        }
+      } catch (e) {
+        console.error('[CaptainsChair] useCalendarToday failed:', e);
+        if (!cancelled) {
+          setStatus('error');
+          setEvents([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { events, status, loading };
+}
+
 interface TodaysBriefingStats {
   confidence: number | null;
   priorities: number;
@@ -555,6 +614,7 @@ export default function CaptainsChairWorkbench() {
   const { data: attention, snapshot, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
   const { data: emergency, loading: emergencyLoading, error: emergencyError } = useEmergencyAlerts();
   const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
+  const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
 
   const postureBand = currentPosture.posture;
   const postureTone = POSTURE_STATE_TONE[postureBand];
@@ -722,6 +782,40 @@ export default function CaptainsChairWorkbench() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* ── Today's Calendar (LifeOS Wall Tablet §2.7/§3.2 item 6) ── */}
+        <div className="rounded-lg border border-wb-line bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Calendar</h2>
+          {calendarLoading ? (
+            <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+          ) : calendarStatus === 'disconnected' ? (
+            <p className="text-xs text-wb-ink2">
+              Google Calendar isn&apos;t connected.{' '}
+              <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">
+                Connect it
+              </a>
+              .
+            </p>
+          ) : calendarStatus === 'error' ? (
+            <p className="text-xs text-wb-crit-on">Failed to load calendar — see console for detail.</p>
+          ) : calendarEvents.length === 0 ? (
+            <p className="text-xs text-wb-ink2">No events today.</p>
+          ) : (
+            <ul className="space-y-2">
+              {calendarEvents.map((event, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-xs">
+                  <span className="w-14 shrink-0 font-semibold text-wb-ink">
+                    {event.allDay ? 'All day' : event.time ?? '—'}
+                  </span>
+                  <span className="text-wb-ink">
+                    {event.title}
+                    {event.location && <span className="text-wb-ink2"> · {event.location}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <TodaysBriefPanel />
