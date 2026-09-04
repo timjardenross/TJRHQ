@@ -9,6 +9,7 @@ import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
+import { fetchTasks, attendBucket, categoryMeta, type PersonalTask } from '@/lib/personalTasks';
 import type { RecoveryPostureBand, StateTone } from '@/lib/types';
 
 // Executive-summary redesign (2026-08-22): Captain's Chair no longer runs a
@@ -288,6 +289,39 @@ function useCalendarToday(): {
   }, []);
 
   return { events, status, loading };
+}
+
+// LifeOS Wall Tablet §3.2 item 5 — "Reminder/nudge ticker, first production
+// caller of the dormant Notification capability." Checked notification_
+// service.py directly before building this: it is NOT dormant (SUOC Wave 2,
+// 2026-08-22, cut command_bus.py's ALERT/CRITICAL sends over to it, plus 14
+// other live callers) — but its call log is in-process only inside the
+// intelligence-scheduler process, not persisted to Supabase, so the portal
+// can't read it. personal_tasks (migration 0090/0163) is the real durable
+// source for "what needs a nudge" — task_nudge_scheduler/follow_through_
+// engine already read/write nudge_count, next_review_at, snoozed_until on
+// it, and the Telegram follow-through bot already surfaces from it. This
+// reuses lib/personalTasks.ts's existing fetchTasks/attendBucket rather
+// than adding a second read path.
+function useReminders(): { tasks: PersonalTask[]; loading: boolean } {
+  const [tasks, setTasks] = useState<PersonalTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTasks({ limit: 100 })
+      .then((all) => {
+        if (cancelled) return;
+        const due = all
+          .filter((t) => attendBucket(t) === 'now' && !t.follow_through_paused)
+          .sort((a, b) => (b.nudge_count - a.nudge_count) || (b.urgency - a.urgency));
+        setTasks(due.slice(0, 5));
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { tasks, loading };
 }
 
 interface TodaysBriefingStats {
@@ -615,6 +649,7 @@ export default function CaptainsChairWorkbench() {
   const { data: emergency, loading: emergencyLoading, error: emergencyError } = useEmergencyAlerts();
   const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
   const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
+  const { tasks: reminders, loading: remindersLoading } = useReminders();
 
   const postureBand = currentPosture.posture;
   const postureTone = POSTURE_STATE_TONE[postureBand];
@@ -622,6 +657,38 @@ export default function CaptainsChairWorkbench() {
   const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
   const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
   const agentHealthTone: StateTone = (agentHealth?.failedCount ?? 0) > 0 ? 'crit' : 'ok';
+
+  // LifeOS Wall Tablet §3.2 item 8 — "Spoken alerts, reads the active
+  // Emergency Alert Hub / needs-attention item aloud." §2.6's design reused
+  // tts_edge.py's Australian voice (en-AU-WilliamNeural), but that's a
+  // Telegram-bot-local Python call with no HTTP surface — standing up a
+  // microservice just to proxy it would be a separate mini-project, not the
+  // cheap win this pass is scoped to. Uses the browser's own SpeechSynthesis
+  // (zero new backend, works on any tablet browser today) and picks an
+  // en-AU voice when the device has one, same intent as the doc's design
+  // even though the specific voice differs.
+  function speakAlertsAloud() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const parts: string[] = [];
+    if (emergency?.count) {
+      parts.push(`${emergency.count} active emergency alert${emergency.count === 1 ? '' : 's'}${emergency.worstHeadline ? `. Worst: ${emergency.worstHeadline}` : ''}.`);
+    } else {
+      parts.push('No active emergency alerts.');
+    }
+    const interruptNow = briefingStats?.interruptNow ?? 0;
+    if (interruptNow > 0) {
+      parts.push(`${interruptNow} item${interruptNow === 1 ? '' : 's'} need you right now.`);
+    }
+    if (liveAlerts.length > 0) {
+      parts.push(`Top alert: ${liveAlerts[0].title}.`);
+    }
+    const utterance = new SpeechSynthesisUtterance(parts.join(' '));
+    const voices = window.speechSynthesis.getVoices();
+    const auVoice = voices.find((v) => v.lang === 'en-AU') ?? voices.find((v) => v.lang?.startsWith('en'));
+    if (auVoice) utterance.voice = auVoice;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
 
   return (
     <WorkbenchShell
@@ -680,7 +747,16 @@ export default function CaptainsChairWorkbench() {
 
         {/* ── Needs Your Attention ── */}
         <div className="rounded-lg border border-wb-line bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-wb-ink">Needs Your Attention</h2>
+            <button
+              type="button"
+              onClick={speakAlertsAloud}
+              className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            >
+              🔊 Read aloud
+            </button>
+          </div>
 
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <CountTile label="Content Awaiting Publish" value={attention.contentAwaitingPublish} href="/content-workbench" loading={attentionLoading} topItem={attention.oldestContentAwaitingPublish} />
@@ -816,6 +892,33 @@ export default function CaptainsChairWorkbench() {
               ))}
             </ul>
           )}
+        </div>
+
+        {/* ── Reminders (LifeOS Wall Tablet §3.2 item 5) ── */}
+        <div className="rounded-lg border border-wb-line bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Reminders</h2>
+          {remindersLoading ? (
+            <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+          ) : reminders.length === 0 ? (
+            <p className="text-xs text-wb-ink2">Nothing needs a nudge right now.</p>
+          ) : (
+            <ul className="space-y-2">
+              {reminders.map((task) => (
+                <li key={task.id} className="flex items-start gap-2 text-xs">
+                  <span className="mt-0.5 text-wb-ink2">{categoryMeta(task.category).glyph}</span>
+                  <span className="flex-1 text-wb-ink">
+                    {task.title}
+                    {task.nudge_count > 3 && (
+                      <span className="ml-1 text-wb-ink2">(nudged {task.nudge_count}×)</span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link href="/ready-room" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
+            Ready Room →
+          </Link>
         </div>
 
         <TodaysBriefPanel />
