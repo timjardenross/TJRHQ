@@ -35,6 +35,20 @@ function debugEnabled(): boolean {
   return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('speakdebug') === '1';
 }
 
+// 2026-09-05, third real cause found: warming up voices (above) got 69
+// voices loading correctly, but speech still never played — same "speak()
+// called, synth.speaking stuck true forever, no onstart/onerror ever
+// fires" symptom. That combination matches a separate, also well-known
+// iOS Safari bug: the utterance was a bare local variable inside this
+// function, with nothing else holding a reference to it — iOS Safari can
+// garbage-collect a SpeechSynthesisUtterance the instant the function
+// that created it returns, silently killing speech that was about to
+// start (the engine's internal `speaking` flag flips true because it
+// accepted the utterance, then has nothing left to actually speak once
+// GC'd). Module-level variable below keeps a strong reference alive for
+// the duration.
+let currentUtterance: SpeechSynthesisUtterance | null = null;
+
 export function speakAloud(text: string): void {
   const debug = debugEnabled();
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -58,11 +72,13 @@ export function speakAloud(text: string): void {
   const auVoice = voices.find((v) => v.lang === 'en-AU') ?? voices.find((v) => v.lang?.startsWith('en'));
   if (auVoice) utterance.voice = auVoice;
   utterance.onstart = () => { if (debug) alert('onstart fired — speech should be audible now.'); };
-  utterance.onend = () => { if (debug) alert('onend fired — finished normally.'); };
+  utterance.onend = () => { currentUtterance = null; if (debug) alert('onend fired — finished normally.'); };
   utterance.onerror = (e) => {
+    currentUtterance = null;
     console.error('[speakAloud] speechSynthesis error:', e.error);
     if (debug) alert(`speechSynthesis error: ${e.error}`);
   };
+  currentUtterance = utterance; // keep a strong reference alive — see module header comment
   synth.speak(utterance);
   if (debug) alert(`speak() called. synth.speaking is now: ${synth.speaking}`);
 }
