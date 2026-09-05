@@ -60,3 +60,7 @@ outputs/
 # artifact like data/self-improvement/runs/ (which IS tracked) — rebuilt
 # from core_events by re-running the backfill, never hand-authored.
 data/memory_graph.db*
+
+# 2026-09-05: caught a leak — .infisical-auth.env didn't match .env/.env.*
+.infisical-auth.env
+*-auth.env
