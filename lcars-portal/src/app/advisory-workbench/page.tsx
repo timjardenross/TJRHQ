@@ -63,7 +63,7 @@ function Workbench() {
   };
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Advisory"
       eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Advisory · Ask a question, one specific advisor, or a panel of voices · Advisory only — the Captain decides"

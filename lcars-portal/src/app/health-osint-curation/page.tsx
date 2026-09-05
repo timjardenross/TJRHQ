@@ -72,7 +72,7 @@ export default function HealthOsintCurationPage() {
   }
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Health OSINT Curation"
       eyebrow="Sunday Night Review"
       tagline="USS TJR · Auto-ingested signals pending approval — nothing publishes without a human decision"

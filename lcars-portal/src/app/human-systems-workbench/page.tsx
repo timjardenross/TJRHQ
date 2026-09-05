@@ -95,7 +95,7 @@ function Workbench() {
   );
 
   return (
-    <WorkbenchShell title="Human Systems Workbench" eyebrow="Capacity, Regulation & Recovery"
+    <WorkbenchShell wide title="Human Systems Workbench" eyebrow="Capacity, Regulation & Recovery"
       tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}>

@@ -24,7 +24,7 @@ function Workbench() {
   }, []);
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Weekly Review"
       eyebrow="Scan · Review · Decide · Reset"
       tagline="USS TJR · Weekly Review · What happened, what slipped, what's coming — one calm pass."

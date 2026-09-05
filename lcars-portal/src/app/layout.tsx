@@ -44,7 +44,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    // 'black-translucent' (first pass) makes iOS standalone-mode content
+    // flow underneath the status bar — that's what pushed
+    // WorkbenchShell's top-right workbench-switcher dropdown into/behind
+    // the status bar area, unreachable, on the real device. 'default'
+    // keeps the status bar opaque and content below it, no manual
+    // safe-area-inset-top math needed.
+    statusBarStyle: 'default',
     title: 'TJR HQ',
   },
   openGraph: {

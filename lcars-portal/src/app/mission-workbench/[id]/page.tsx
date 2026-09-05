@@ -99,7 +99,7 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'loading') {
     return (
-      <WorkbenchShell title="Mission Workbench" eyebrow="Loading" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering">
+      <WorkbenchShell wide title="Mission Workbench" eyebrow="Loading" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering">
         <p className="py-16 text-center text-[13px] text-wb-ink2">Loading mission…</p>
       </WorkbenchShell>
     );
@@ -107,7 +107,7 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'error') {
     return (
-      <WorkbenchShell title="Mission Data Unavailable" eyebrow="Fetch error" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell wide title="Mission Data Unavailable" eyebrow="Fetch error" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
           <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
             <p className="text-[13px] font-semibold text-wb-crit-on">Couldn&rsquo;t load this mission right now.</p>
@@ -123,7 +123,7 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'notfound' || !mission) {
     return (
-      <WorkbenchShell title="Mission Not Found" eyebrow="No such record" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
+      <WorkbenchShell wide title="Mission Not Found" eyebrow="No such record" tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }}>
         <Card>
           <p className="text-[13px] text-wb-ink2">
             No mission with ID <span className="font-mono text-wb-ink">{id}</span> exists in the registry.
@@ -136,7 +136,7 @@ export default function MissionWorkbenchDetailPage() {
   const eyebrow = [mission.mission_type, mission.task_type].filter(Boolean).join(' · ') || 'Mission';
 
   return (
-    <WorkbenchShell title={mission.mission_id} eyebrow={eyebrow} tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
+    <WorkbenchShell wide title={mission.mission_id} eyebrow={eyebrow} tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" back={{ href: '/mission-workbench', label: 'Mission Registry' }} right={<Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>}>
       <div className="flex flex-col gap-4">
         <Card>
           <h2 className="font-serif text-xl text-wb-ink">{mission.title}</h2>

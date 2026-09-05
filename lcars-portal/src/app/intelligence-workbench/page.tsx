@@ -102,7 +102,7 @@ function Workbench() {
   );
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Technical OSINT Workbench"
       eyebrow="Cyber & Infrastructure Intelligence"
       tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"

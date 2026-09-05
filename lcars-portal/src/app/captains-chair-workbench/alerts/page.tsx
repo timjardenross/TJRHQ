@@ -144,7 +144,7 @@ export default function CaptainsChairAlertsPage() {
   );
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Push Alerts"
       eyebrow="Captain's Chair"
       tagline="USS TJR · Push Alerts · gated: decision · escalation · blocked · review · wellness — nothing surfaces here unless it genuinely needs you."
