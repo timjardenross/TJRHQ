@@ -1,10 +1,13 @@
 'use client';
 
-// Client helper for the Chatterbox TTS proxy (/api/tts/speak) — replaces
-// the browser SpeechSynthesis path (src/lib/speakAloud.ts) that turned out
-// to be unreliable on the Captain's real iPad. Plays a real generated WAV
-// via a standard <audio> element — no Web Speech API involved, so none of
-// the iOS Safari quirks that path required five separate fixes for.
+// Client helper for the TTS proxy (/api/tts/speak, currently Google Cloud
+// Text-to-Speech Neural2) — replaces the browser SpeechSynthesis path
+// (src/lib/speakAloud.ts) that hit five confirmed iOS Safari bugs in a row
+// on the Captain's real iPad. Plays a real generated audio file via a
+// standard <audio> element — no Web Speech API involved, so none of those
+// quirks apply. Named provider-neutrally (playTts, not playViaChatterbox)
+// since the backend has already switched once (self-hosted Chatterbox ->
+// Google Cloud TTS) and may again.
 
 export type TtsPlaybackState = 'idle' | 'generating' | 'playing' | 'error';
 
@@ -13,7 +16,7 @@ export interface PlayTtsOptions {
   onStateChange?: (state: TtsPlaybackState, message?: string) => void;
 }
 
-export async function playViaChatterbox(text: string, options: PlayTtsOptions = {}): Promise<void> {
+export async function playTts(text: string, options: PlayTtsOptions = {}): Promise<void> {
   const { cacheKey, onStateChange } = options;
   onStateChange?.('generating');
   try {
@@ -43,7 +46,7 @@ export async function playViaChatterbox(text: string, options: PlayTtsOptions = 
     URL.revokeObjectURL(url);
     onStateChange?.('idle');
   } catch (err) {
-    console.error('[playViaChatterbox] failed:', err);
+    console.error('[playTts] failed:', err);
     onStateChange?.('error', err instanceof Error ? err.message : 'Playback failed.');
   }
 }

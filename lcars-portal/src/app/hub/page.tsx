@@ -43,7 +43,7 @@ import {
   useCalendarToday,
   useReminders,
 } from '@/lib/captainsChairData';
-import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
+import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import { useWakeLock } from '@/lib/useWakeLock';
 import type { StateTone } from '@/lib/types';
 
@@ -74,17 +74,13 @@ export default function LifeOSHub() {
 
   const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
 
-  // 2026-09-05: switched from browser SpeechSynthesis (src/lib/speakAloud.ts)
-  // to the Chatterbox TTS service (real generated audio via <audio>
-  // playback) after five confirmed iOS Safari SpeechSynthesis bugs on the
-  // Captain's actual iPad in a row. No cache_key here — this content is
-  // live/dynamic (current alert state), so it always generates fresh and
-  // pays the full ~1min cold-generation latency on this VM's hardware
-  // (Turbo model, switched from Nano 2026-09-05 same day — Nano's ~35s
-  // was faster but confirmed unintelligible on a live listen test).
-  // Accepted for now, Captain's call (testing phase) — see
-  // core/voice/tts_chatterbox.py's module docstring for the measured
-  // latency and why it can't easily be reduced further.
+  // 2026-09-05: switched from browser SpeechSynthesis (src/lib/speakAloud.ts,
+  // five confirmed iOS Safari bugs in a row) to real generated audio via
+  // <audio> playback. Backend went through two iterations same day:
+  // self-hosted Chatterbox (Nano — too fast, unintelligible; Turbo —
+  // intelligible, but ~66s/request on this VM's CPU) then Google Cloud
+  // TTS (Neural2 — fast and clear, current default; see /api/tts/speak
+  // for the full history).
   function speakAlertsAloud() {
     const parts: string[] = [];
     if (emergency?.count) {
@@ -99,16 +95,11 @@ export default function LifeOSHub() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    // cacheKey = the spoken text itself (hashed into a safe filename
-    // server-side, see tts_chatterbox.py's _safe_cache_path) — this
-    // content is "live" but often doesn't actually change between taps
-    // (same alert state, same interrupt count). Identical text -> cache
-    // hit -> instant instead of another ~1min generation; any real change
-    // in wording still produces a fresh one automatically, no separate
-    // proactive job needed for this case (unlike the daily brief, which
-    // has a real schedule to hook — see _pregenerate_brief_audio).
+    // cacheKey kept for backward compatibility (see ttsPlayer.ts/
+    // /api/tts/speak) but unused now that Google Cloud TTS is fast
+    // enough that caching isn't needed here.
     const text = parts.join(' ');
-    playViaChatterbox(text, { cacheKey: text, onStateChange: setSpeakState });
+    playTts(text, { cacheKey: text, onStateChange: setSpeakState });
   }
 
   return (
@@ -180,7 +171,7 @@ export default function LifeOSHub() {
                 disabled={speakState === 'generating' || speakState === 'playing'}
                 className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
               >
-                {speakState === 'generating' ? 'Generating… (~1 min)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
+                {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>
             </div>
           </div>

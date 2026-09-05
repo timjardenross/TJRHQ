@@ -22,7 +22,7 @@
 
 import { useEffect, useState } from 'react';
 import { WorkbenchPanel } from './WorkbenchPanel';
-import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
+import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
 
 interface Brief {
   id: string;
@@ -96,14 +96,14 @@ export function TodaysBriefPanel() {
   const [error, setError] = useState<string | null>(null);
   const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
 
-  // cache_key = brief-<id> — intelligence/scheduler.py's
-  // _pregenerate_brief_audio() warms this exact key the moment the brief
-  // is generated (07:00/12:30/18:00 AEST), so this should play near-
-  // instantly rather than paying the ~35s cold-generation latency the
-  // Hub's live-alerts button accepts.
+  // cacheKey accepted for backward compatibility (still passed through
+  // by intelligence/scheduler.py's _pregenerate_brief_audio, which
+  // originally pre-warmed a Chatterbox cache for this brief) but unused
+  // now that /api/tts/speak calls Google Cloud TTS — see that route's
+  // header comment for why caching stopped being worth the complexity.
   function speakBriefAloud() {
     if (!brief) return;
-    playViaChatterbox(toSpokenText(brief.brief_text), {
+    playTts(toSpokenText(brief.brief_text), {
       cacheKey: `brief-${brief.id}`,
       onStateChange: setSpeakState,
     });
