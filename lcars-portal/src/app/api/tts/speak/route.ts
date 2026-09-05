@@ -21,6 +21,16 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 
+// 2026-09-05: without this, Vercel kills the whole function at its own
+// default execution limit (~10s on most plans) — separate from, and
+// shorter than, this route's own fetch timeout to Chatterbox. Confirmed
+// live: Vercel logs showed "DOMException [TimeoutError]: The operation
+// was aborted due to timeout" at ~13s, well before Chatterbox's own ~35s
+// generation could complete. 60s covers that with real headroom; the
+// fetch's own AbortSignal timeout below is kept under this so it fires
+// first with a clean error instead of an opaque platform-level kill.
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const session = await requireSession();
   if (!session) {
@@ -50,7 +60,10 @@ export async function POST(request: Request) {
       body: JSON.stringify({ text, cache_key: cacheKey }),
       // Cold generation on this VM measures ~35s for a short sentence —
       // give it real headroom rather than Vercel's default fetch timeout.
-      signal: AbortSignal.timeout(90_000),
+      // Kept under maxDuration (60s) so this fetch's own timeout can fire
+      // and produce a clean error, instead of Vercel's platform-level
+      // kill hitting first with an opaque one.
+      signal: AbortSignal.timeout(55_000),
     });
 
     if (!res.ok) {

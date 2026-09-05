@@ -27,13 +27,18 @@ export async function playViaChatterbox(text: string, options: PlayTtsOptions = 
       throw new Error(body?.error ?? `TTS request failed (${res.status})`);
     }
     const blob = await res.blob();
+    if (blob.size === 0) throw new Error('TTS returned an empty audio file.');
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
+    // Only flip to 'playing' once play() has actually resolved — a
+    // rejected play() (e.g. a browser autoplay-policy block) is caught by
+    // the outer try/catch and surfaces as a real error state, rather than
+    // silently claiming "playing" for audio that never started.
+    await audio.play();
     onStateChange?.('playing');
     await new Promise<void>((resolve, reject) => {
       audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error('Audio playback failed.'));
-      audio.play().catch(reject);
+      audio.onerror = () => reject(new Error(`Audio playback failed (code ${audio.error?.code ?? 'unknown'}).`));
     });
     URL.revokeObjectURL(url);
     onStateChange?.('idle');
