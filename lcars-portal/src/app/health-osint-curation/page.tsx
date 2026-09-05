@@ -21,7 +21,26 @@ interface PendingSignal {
   source_name: string | null;
   collected_at: string;
   canonical_url: string | null;
+  // OSINT Ingestion Quality & Relevance Mission Phase 4/7 — the model's
+  // recommendation, for the human to confirm/override, not act on blindly.
+  mission_relevance: string | null;
+  relevance_reason: string | null;
+  evidence_contribution: string | null;
+  population_fit: string | null;
+  safety_relevance: boolean | null;
+  disposition: string | null;
+  disposition_reason: string | null;
 }
+
+// Shared vocabulary with the reject API route + migration 0186's CHECK
+// constraint. Kept short/optional per mission §19 ("don't make feedback
+// burdensome") — a curator can always leave it unset.
+const FEEDBACK_REASONS = [
+  'IRRELEVANT_TOPIC', 'WRONG_POPULATION', 'WRONG_GEOGRAPHY',
+  'NO_OPERATIONAL_RELEVANCE', 'TOO_GENERIC', 'DUPLICATE', 'ALREADY_KNOWN',
+  'COMMENTARY_ONLY', 'MARKETING_COMMERCIAL', 'WEAK_EVIDENCE',
+  'LOW_INFORMATION_VALUE', 'OUT_OF_SCOPE', 'OTHER',
+];
 
 interface FetchStat {
   source_name: string | null;
@@ -36,6 +55,7 @@ export default function HealthOsintCurationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
   function load() {
     setLoading(true);
@@ -58,7 +78,11 @@ export default function HealthOsintCurationPage() {
   async function decide(signalId: string, action: 'publish' | 'reject') {
     setBusyId(signalId);
     try {
-      const res = await fetch(`/api/health-osint-curation/${signalId}/${action}`, { method: 'POST' });
+      const reason = action === 'reject' ? rejectReason[signalId] : undefined;
+      const res = await fetch(`/api/health-osint-curation/${signalId}/${action}`, {
+        method: 'POST',
+        ...(reason ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) } : {}),
+      });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || `Failed to ${action}`);
@@ -138,7 +162,16 @@ export default function HealthOsintCurationPage() {
                 {signal.description && (
                   <p className="mt-2 text-xs text-wb-ink2/80">{signal.description.slice(0, 220)}…</p>
                 )}
-                <div className="mt-3 flex gap-2">
+                {(signal.mission_relevance || signal.evidence_contribution || signal.disposition) && (
+                  <p className="mt-2 text-xs text-wb-ink2/70">
+                    Recommended: {signal.disposition ?? '—'}
+                    {signal.mission_relevance && ` · relevance ${signal.mission_relevance}`}
+                    {signal.evidence_contribution && ` · ${signal.evidence_contribution}`}
+                    {signal.safety_relevance && ' · SAFETY'}
+                    {signal.relevance_reason && ` — ${signal.relevance_reason}`}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     disabled={busyId === signal.signal_id}
@@ -155,6 +188,17 @@ export default function HealthOsintCurationPage() {
                   >
                     ✗ Reject
                   </button>
+                  <select
+                    value={rejectReason[signal.signal_id] ?? ''}
+                    onChange={(e) => setRejectReason((prev) => ({ ...prev, [signal.signal_id]: e.target.value }))}
+                    className="rounded border border-wb-line bg-transparent px-2 py-1 text-xs text-wb-ink2"
+                    aria-label="Reject reason (optional)"
+                  >
+                    <option value="">Reject reason (optional)</option>
+                    {FEEDBACK_REASONS.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ))}

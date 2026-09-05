@@ -22,10 +22,38 @@ function serviceClient() {
   );
 }
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+// Shared human-feedback reason vocabulary (mission §19) — kept in sync
+// with the CHECK constraint on health_signals.human_feedback_reason
+// (migration 0186) and intelligence_events.human_feedback_reason.
+const VALID_FEEDBACK_REASONS = new Set([
+  'IRRELEVANT_TOPIC', 'WRONG_POPULATION', 'WRONG_GEOGRAPHY',
+  'NO_OPERATIONAL_RELEVANCE', 'TOO_GENERIC', 'DUPLICATE', 'ALREADY_KNOWN',
+  'COMMENTARY_ONLY', 'MARKETING_COMMERCIAL', 'WEAK_EVIDENCE',
+  'LOW_INFORMATION_VALUE', 'OUT_OF_SCOPE', 'OTHER',
+]);
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // OSINT Ingestion Quality & Relevance Mission Phase 9: optional structured
+  // feedback reason captured on reject. Body is optional — omitting it keeps
+  // reject working exactly as before (mission §19: "do not make feedback
+  // burdensome").
+  let feedbackReason: string | null = null;
+  let feedbackNote: string | null = null;
+  try {
+    const body = await req.json();
+    if (body && typeof body.reason === 'string' && VALID_FEEDBACK_REASONS.has(body.reason)) {
+      feedbackReason = body.reason;
+    }
+    if (body && typeof body.note === 'string' && body.note.trim()) {
+      feedbackNote = body.note.trim().slice(0, 2000);
+    }
+  } catch {
+    // No body / not JSON — proceed with no feedback reason, same as before.
   }
 
   try {
@@ -48,7 +76,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
     const { error: updateErr } = await sb
       .from('health_signals')
-      .update({ suppressed: true, auto_ingest_reviewed: true })
+      .update({
+        suppressed: true,
+        auto_ingest_reviewed: true,
+        disposition: 'SUPPRESS',
+        disposition_reason: 'human_rejected',
+        ...(feedbackReason ? { human_feedback_reason: feedbackReason } : {}),
+        ...(feedbackNote ? { human_feedback_note: feedbackNote } : {}),
+      })
       .eq('signal_id', params.id);
     if (updateErr) throw updateErr;
 

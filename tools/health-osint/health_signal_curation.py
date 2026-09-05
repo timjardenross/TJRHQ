@@ -96,8 +96,41 @@ have:
 A signal that is clearly noise (manufacturer claim, mangled parse, obvious duplicate) is still
 REJECT regardless of priority — the priority flag only moves genuinely borderline calls.
 
-Respond with ONLY a JSON object: {"decision": "PUBLISH"|"REJECT"|"ESCALATE", "reason": "<one short sentence>"}
+In addition to the decision, also assess (these never change the PUBLISH/REJECT/ESCALATE
+decision above — they are separate, additive metadata for the human curator and the
+workbench, not a second gate):
+- mission_relevance: "RELEVANT" (fits an explicitly monitored domain), "LOW_CONFIDENCE"
+  (might be relevant but you're not sure), or "NOT_RELEVANT" (credible medicine, but not
+  something TJR HQ's health intelligence mission tracks).
+- evidence_contribution: one of CONFIRMS (strengthens an existing position), CHALLENGES
+  (contradicts/weakens one), EXTENDS (a genuinely new dimension/finding), REPLICATION
+  (meaningfully strengthens confidence via replication), SAFETY (material adverse-event/
+  safety information), BACKGROUND (relevant but doesn't change the current picture), or
+  UNRESOLVED (relevant but evidence quality/conflict is insufficient to say more). You do
+  not have TJR's full existing evidence base to compare against — give your best single-signal
+  judgment; BACKGROUND or UNRESOLVED are honest answers when you can't tell more from this
+  signal alone.
+- population_fit: one short sentence on whether the study population matches TJR HQ's
+  monitored populations (autistic/ADHD/AuDHD/neurodivergent working-age adults, chronic pain
+  patients, burnout/occupational populations) — or "not applicable" if this isn't a population
+  study (e.g. a regulatory alert).
+- safety_relevance: true only if this signal carries a plausible adverse-event/safety
+  implication for an actively-monitored intervention or exposure — per mission policy this can
+  be true even for a signal that is REJECT or not a priority area; a real safety signal must
+  never be hidden by ordinary topic filtering. Default false.
+
+Respond with ONLY a JSON object:
+{"decision": "PUBLISH"|"REJECT"|"ESCALATE", "reason": "<one short sentence>",
+ "mission_relevance": "RELEVANT"|"LOW_CONFIDENCE"|"NOT_RELEVANT",
+ "evidence_contribution": "CONFIRMS"|"CHALLENGES"|"EXTENDS"|"REPLICATION"|"SAFETY"|"BACKGROUND"|"UNRESOLVED",
+ "population_fit": "<one short sentence>",
+ "safety_relevance": true|false}
 """
+
+_VALID_MISSION_RELEVANCE = {"RELEVANT", "LOW_CONFIDENCE", "NOT_RELEVANT"}
+_VALID_EVIDENCE_CONTRIBUTION = {
+    "CONFIRMS", "CHALLENGES", "EXTENDS", "REPLICATION", "SAFETY", "BACKGROUND", "UNRESOLVED",
+}
 
 
 def _client():
@@ -107,11 +140,14 @@ def _client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def _classify(signal: dict[str, Any]) -> tuple[str, str]:
-    """Runs one signal through the shared LLM provider chain. Returns
-    (decision, reason). Never raises — any provider failure or unparseable
-    response degrades to ESCALATE, the same safe default as low confidence,
-    not a crash and not a silent guess."""
+def _classify(signal: dict[str, Any]) -> dict[str, Any]:
+    """Runs one signal through the shared LLM provider chain. Returns a dict
+    with decision/reason plus the additive mission_relevance/
+    evidence_contribution/population_fit/safety_relevance fields (mission
+    Phase 4/7 — see module docstring). Never raises — any provider failure
+    or unparseable response degrades to ESCALATE with the additive fields
+    left None/False, the same safe default as low confidence, not a crash
+    and not a silent guess."""
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
     from priority_domains import is_priority_domain
 
@@ -123,17 +159,28 @@ def _classify(signal: dict[str, Any]) -> tuple[str, str]:
         f"Signal type: {signal.get('signal_type')}\n"
         f"Health domain: {signal.get('health_domain')} ({priority_tag})\n"
         f"Contributing factor type: {signal.get('contributing_factor_type') or '(none)'}\n"
+        f"Population description: {signal.get('population_description') or '(none)'}\n"
+        f"Study design: {signal.get('study_design') or '(none)'}\n"
+        f"FDA flagged: {signal.get('fda_flagged') or False}\n"
+        f"Adverse event text: {signal.get('adverse_event_text') or '(none)'}\n"
         f"Source: {signal.get('source_name')}\n"
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
     )
 
+    def _fallback(reason: str) -> dict[str, Any]:
+        return {
+            "decision": "ESCALATE", "reason": reason,
+            "mission_relevance": None, "evidence_contribution": None,
+            "population_fit": None, "safety_relevance": False,
+        }
+
     providers = [
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
-                                        max_output_tokens=200, temperature=0.1, timeout=30)),
+                                        max_output_tokens=300, temperature=0.1, timeout=30)),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
-                                          max_tokens=200, temperature=0.1, timeout=30)),
+                                          max_tokens=300, temperature=0.1, timeout=30)),
         ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=200, timeout=60)),
+                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60)),
     ]
 
     for name, fn in providers:
@@ -145,15 +192,31 @@ def _classify(signal: dict[str, Any]) -> tuple[str, str]:
             data = json.loads(match.group() if match else raw)
             decision = str(data.get("decision", "")).upper().strip()
             reason = str(data.get("reason", "")).strip()
-            if decision in ("PUBLISH", "REJECT", "ESCALATE"):
-                return decision, reason or f"(no reason given, via {name})"
-            log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
-            return "ESCALATE", f"unrecognised model output via {name}"
+            if decision not in ("PUBLISH", "REJECT", "ESCALATE"):
+                log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
+                return _fallback(f"unrecognised model output via {name}")
+
+            mission_relevance = str(data.get("mission_relevance", "")).upper().strip()
+            if mission_relevance not in _VALID_MISSION_RELEVANCE:
+                mission_relevance = None
+
+            evidence_contribution = str(data.get("evidence_contribution", "")).upper().strip()
+            if evidence_contribution not in _VALID_EVIDENCE_CONTRIBUTION:
+                evidence_contribution = None
+
+            return {
+                "decision": decision,
+                "reason": reason or f"(no reason given, via {name})",
+                "mission_relevance": mission_relevance,
+                "evidence_contribution": evidence_contribution,
+                "population_fit": (str(data.get("population_fit", "")).strip() or None),
+                "safety_relevance": bool(data.get("safety_relevance", False)),
+            }
         except Exception as exc:
             log.warning("[curation] provider %s failed for signal %s: %s", name, signal.get("signal_id"), exc)
             continue
 
-    return "ESCALATE", "all LLM providers unavailable"
+    return _fallback("all LLM providers unavailable")
 
 
 class HealthSignalCurator:
@@ -188,6 +251,7 @@ class HealthSignalCurator:
             .select(
                 "signal_id, title, description, signal_type, health_domain, "
                 "contributing_factor_type, source_id, canonical_url, "
+                "population_description, study_design, fda_flagged, adverse_event_text, "
                 "health_source_registry(source_name)"
             )
             .eq("auto_ingested", True)
@@ -201,17 +265,38 @@ class HealthSignalCurator:
             r["source_name"] = (r.get("health_source_registry") or {}).get("source_name")
         return rows
 
-    def _apply(self, signal_id: str, decision: str) -> None:
+    def _apply(self, signal_id: str, classification: dict[str, Any]) -> None:
+        decision = classification["decision"]
+        # Additive metadata (mission Phase 4/7) is written regardless of
+        # decision, including ESCALATE — a human curator benefits from
+        # seeing the model's relevance/evidence-contribution read even on
+        # signals it wasn't confident enough to publish/reject outright.
+        from intelligence.classification.disposition import health_disposition
+        disposition, disposition_reason = health_disposition(
+            {"suppressed": decision == "REJECT", "auto_ingested": True, "auto_ingest_reviewed": decision != "ESCALATE",
+             "safety_relevance": classification.get("safety_relevance", False)},
+            curator_decision=decision,
+        )
+        fields = {
+            "mission_relevance": classification.get("mission_relevance"),
+            "relevance_reason": classification.get("reason"),
+            "evidence_contribution": classification.get("evidence_contribution"),
+            "population_fit": classification.get("population_fit"),
+            "safety_relevance": classification.get("safety_relevance", False),
+            "disposition": disposition,
+            "disposition_reason": disposition_reason,
+        }
+
         if decision == "PUBLISH":
-            self.supabase.table("health_signals").update(
-                {"suppressed": False, "auto_ingest_reviewed": True}
-            ).eq("signal_id", signal_id).execute()
+            fields.update({"suppressed": False, "auto_ingest_reviewed": True})
         elif decision == "REJECT":
-            self.supabase.table("health_signals").update(
-                {"suppressed": True, "auto_ingest_reviewed": True}
-            ).eq("signal_id", signal_id).execute()
-        # ESCALATE: no write at all — the signal stays exactly as ingestion
-        # left it, still visible in /health-osint-curation for a human.
+            fields.update({"suppressed": True, "auto_ingest_reviewed": True})
+        # ESCALATE: suppressed/auto_ingest_reviewed stay untouched — the
+        # signal stays exactly as ingestion left it, still visible in
+        # /health-osint-curation for a human. The additive fields above
+        # still get written so the human sees the model's read.
+
+        self.supabase.table("health_signals").update(fields).eq("signal_id", signal_id).execute()
 
     def run(self) -> dict[str, Any]:
         if self.dry_run:
@@ -231,18 +316,23 @@ class HealthSignalCurator:
         details = []
         for group in groups.values():
             representative = group[0]
-            decision, reason = _classify(representative)
+            classification = _classify(representative)
+            decision = classification["decision"]
+            reason = classification["reason"]
             if len(group) > 1:
-                reason = f"{reason} (applied to {len(group)} near-duplicate signals from the same source)"
+                classification = {**classification, "reason": f"{reason} (applied to {len(group)} near-duplicate signals from the same source)"}
+                reason = classification["reason"]
 
             for signal in group:
                 counts[decision] += 1
-                self._apply(signal["signal_id"], decision)
+                self._apply(signal["signal_id"], classification)
                 details.append({
                     "signal_id": signal["signal_id"],
                     "title": signal.get("title"),
                     "decision": decision,
                     "reason": reason,
+                    "mission_relevance": classification.get("mission_relevance"),
+                    "evidence_contribution": classification.get("evidence_contribution"),
                 })
 
             dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""

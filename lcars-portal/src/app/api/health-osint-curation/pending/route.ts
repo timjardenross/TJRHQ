@@ -29,6 +29,8 @@ export async function GET() {
         signal_id, title, description, signal_type, health_domain,
         contributing_factor_type, source_id, collected_at, published_at,
         canonical_url,
+        mission_relevance, relevance_reason, evidence_contribution,
+        population_fit, safety_relevance, disposition, disposition_reason,
         health_source_registry(source_name)
       `)
       .eq('auto_ingested', true)
