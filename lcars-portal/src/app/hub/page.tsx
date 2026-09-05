@@ -44,9 +44,18 @@ import {
   useReminders,
 } from '@/lib/captainsChairData';
 import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
+import { useWakeLock } from '@/lib/useWakeLock';
 import type { StateTone } from '@/lib/types';
 
 export default function LifeOSHub() {
+  // Always-on wall-tablet use (this page's whole purpose) — keeps the
+  // screen awake while it's open. Deliberately only on this page, not
+  // Captain's Chair or any other workbench, since those aren't meant to
+  // stay open 24/7. Still needs Auto-Lock set to Never / Guided Access /
+  // Configurator kiosk mode on the device itself — this covers "someone
+  // forgot to set that," not the reboot/power-loss case.
+  useWakeLock();
+
   const { posture: currentPosture, postureFetchFailed } = useROSData();
   const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
