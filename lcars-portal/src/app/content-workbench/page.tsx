@@ -6,63 +6,72 @@
  * A new, standalone workbench, additive to the existing Communications
  * Workbench and Capture Workbench (neither of those is modified by this
  * route). It reuses comms_content/content_signals under the hood via
- * migrations 0095/0096 (purely additive columns + one new revisions table)
- * and the same canonical POST /api/comms/[id]/advance for every status
- * transition it makes.
+ * migrations 0095/0096/0185 (purely additive columns + one new revisions
+ * table) and the same canonical POST /api/comms/[id]/advance for every
+ * status transition it makes.
  *
- * Carries the flow end to end through publish submission: the Proofing
- * column surfaces "Confirm Ready to Publish" and "Submit for Publish
- * Approval" (see ContentBoard.tsx's ProofingStageBody) instead of handing
- * off to the Communications Workbench. mark_published still only queues a
- * governed proposal — the Captain approves the actual publish in Decide,
- * same as always.
+ * MSN-0363 (single-person AI content desk uplift): re-anchored around
+ * Today / Pipeline / Library instead of always landing on the 4-column
+ * board. Today answers "what needs me?" (brief §5); Pipeline now defaults
+ * to a priority Queue with Board as a secondary toggle (brief §18);
+ * Portfolio is renamed Library with search/filter/export unchanged plus a
+ * new Reuse Idea action (brief §19). Selecting any item anywhere opens the
+ * shared Content Studio (brief §9) instead of the old per-column Modal —
+ * the legacy Board's own Modal-per-card interaction is left exactly as it
+ * was (unchanged code path) for anyone who lands there directly.
+ *
+ * Capture is no longer a permanently-dominant box (brief §6): it's now a
+ * "+ Capture Idea" trigger (QuickCaptureModal) shown on Today and Pipeline,
+ * wrapping the same unchanged CaptureBox/contentScoring.ts pipeline.
  *
  * 2026-08: Communications Workbench was delisted from /workbenches (see
- * workbenches/page.tsx) in favour of this one. Its Portfolio tab (published
- * items + export) had no equivalent here, so a Pipeline/Portfolio split
- * was added — reading PortfolioTab.tsx, a new but intentionally duplicated
- * component (not an import from comms-workbench/_components, per the
- * design-system barrel rule). Nothing on comms-workbench itself changed;
- * its route still works, it's just not the only place to reach this
- * content anymore.
+ * workbenches/page.tsx) in favour of this one. mark_published still only
+ * queues a governed proposal — the Captain approves the actual publish in
+ * Decide, same as always.
  *
- * 2026-08 follow-up (workbench fault-finding audit): originally used the
- * `Tabs` component (plain buttons, `aria-current="page"` — semantically
- * wrong for tab selection, no arrow-key nav). Switched to `DomainToggle`,
- * the real WAI-ARIA tablist every other *-workbench page uses (see its
- * own header comment for why it exists) — this was the one page still on
- * the old inaccessible pattern DomainToggle's consolidation was meant to
- * retire. Also added URL-sync (?tab=) matching human-systems-workbench's
- * pattern — previously a refresh on Portfolio silently dropped back to
- * Pipeline.
+ * 2026-08 follow-up (workbench fault-finding audit): uses `DomainToggle`,
+ * the real WAI-ARIA tablist every other *-workbench page uses, with
+ * URL-sync (?tab=) matching human-systems-workbench's pattern.
+ *
+ * MSN-0363 isolation note: this route and everything under
+ * content-workbench/_components/ and api/content-workbench/ is this
+ * mission's own touch surface. WorkbenchShell/DomainToggle (imported
+ * below) are consumed via their existing interface only — not forked,
+ * not modified — per the concurrent adaptive-themes-workbench-redesign
+ * session's ownership of shared shell/theme components.
  */
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
-import { CaptureBox } from './_components/CaptureBox';
+import { QuickCaptureModal } from './_components/QuickCaptureModal';
+import { TodayView } from './_components/TodayView';
+import { QueueView } from './_components/QueueView';
 import { ContentBoard } from './_components/ContentBoard';
+import { ContentStudioById } from './_components/ContentStudio';
 import { PortfolioTab } from './_components/PortfolioTab';
-import type { Stage } from './_components/shared';
 
-type Tab = 'pipeline' | 'portfolio';
+type Tab = 'today' | 'pipeline' | 'library';
+type PipelineView = 'queue' | 'board';
 
 const TAB_OPTIONS: { key: Tab; label: string }[] = [
+  { key: 'today', label: 'Today' },
   { key: 'pipeline', label: 'Pipeline' },
-  { key: 'portfolio', label: 'Portfolio' },
+  { key: 'library', label: 'Library' },
 ];
 
 function isTab(v: string | null): v is Tab {
-  return v === 'pipeline' || v === 'portfolio';
+  return v === 'today' || v === 'pipeline' || v === 'library';
 }
 
 function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
   const initial = params.get('tab');
-  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'pipeline');
+  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'today');
+  const [pipelineView, setPipelineView] = useState<PipelineView>('queue');
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const refresh = () => setRefreshSignal((n) => n + 1);
 
   const setTab = (t: Tab) => {
@@ -72,29 +81,63 @@ function Workbench() {
     router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
   };
 
-  const right = counts ? (
-    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
-      {counts.capture + counts.research + counts.content_prep + counts.proofing} active
-    </span>
-  ) : null;
+  function openStudio(contentId: string) {
+    setSelectedContentId(contentId);
+  }
+
+  function closeStudio() {
+    setSelectedContentId(null);
+    refresh();
+  }
+
+  const captureBar = (
+    <QuickCaptureModal onCaptured={refresh} onDevelop={openStudio} />
+  );
 
   return (
     <WorkbenchShell
       title="Content Workbench"
-      eyebrow="Capture → Research → Content Prep → Proofing → Portfolio"
-      tagline="USS TJR · Content Workbench · Capture to publish submission, one governed pipeline"
-      right={right}
-      tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />}
+      eyebrow="Your personal AI-assisted content desk"
+      tagline="USS TJR · Content Workbench · Capture to publish, AI prepares, you decide"
+      right={!selectedContentId ? captureBar : null}
+      tabs={!selectedContentId ? (
+        <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
+      ) : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
-      {tab === 'pipeline' && (
+      {selectedContentId ? (
+        <ContentStudioById contentId={selectedContentId} onChanged={refresh} onClose={closeStudio} />
+      ) : (
         <>
-          <CaptureBox onCaptured={refresh} />
-          <ContentBoard refreshSignal={refreshSignal} onLoaded={setCounts} />
+          {tab === 'today' && (
+            <TodayView refreshSignal={refreshSignal} onOpenStudio={openStudio} onOpenPipeline={() => setTab('pipeline')} />
+          )}
+          {tab === 'pipeline' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPipelineView('queue')}
+                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'queue' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                >
+                  Queue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPipelineView('board')}
+                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${pipelineView === 'board' ? 'bg-wb-sage-deep text-white' : 'border border-wb-line text-wb-ink2'}`}
+                >
+                  Board
+                </button>
+              </div>
+              {pipelineView === 'queue' && <QueueView refreshSignal={refreshSignal} onOpenStudio={openStudio} />}
+              {pipelineView === 'board' && <ContentBoard refreshSignal={refreshSignal} onLoaded={() => {}} />}
+            </div>
+          )}
+          {tab === 'library' && <PortfolioTab />}
         </>
       )}
-      {tab === 'portfolio' && <PortfolioTab />}
     </WorkbenchShell>
   );
 }

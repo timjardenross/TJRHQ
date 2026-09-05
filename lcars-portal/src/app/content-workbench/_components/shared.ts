@@ -88,6 +88,8 @@ export interface ContentItem {
   rank_score: number | null;
   capture_scored: boolean;
   captain_focus: boolean;
+  scheduled_for: string | null;
+  calendar_event_id: string | null;
   created_at: string;
   updated_at: string;
 }

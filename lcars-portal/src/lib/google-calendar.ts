@@ -18,14 +18,26 @@ const TIMEZONE = 'Australia/Brisbane';
 
 // 2026-09-05: widened again to cover Gmail/Drive/Photos — all read-only,
 // no feature built against any of the three yet (this is legwork ahead of
-// need, not a shipped capability). Read-only kept deliberately: least-
-// privilege until a real write use case shows up. Same account, same
-// OAuth connection — another reconnect needed, same drill as last time,
-// since a stored refresh token's scope is fixed at grant time.
-// GOOGLE_CALENDAR_SCOPE kept as an alias so nothing importing the old name
-// breaks.
+// need, not a shipped capability).
+//
+// 2026-09-05, same day (MSN-0363, Captain-confirmed): calendar.readonly ->
+// calendar.events — the real write use case the comment above was waiting
+// for. Content Workbench scheduling (comms_content.scheduled_for/
+// calendar_event_id, migration 0185) now creates a real calendar event.
+// calendar.events is scoped to event CRUD only (not the broader `calendar`
+// scope, which also grants calendar-list/settings management) — narrowest
+// scope that can create/update/delete events. Every other scope here
+// stays read-only. GOOGLE_CALENDAR_SCOPE kept as an alias so nothing
+// importing the old name breaks.
+//
+// IMPORTANT: a stored refresh token's scope is fixed at grant time — this
+// change alone does NOT retroactively grant calendar.events to an
+// already-connected account. Re-run the OAuth connect flow
+// (/api/auth/google-calendar/connect) once to pick up the new scope;
+// until then, createCalendarEvent() below fails with an insufficient-scope
+// error from Google, not a silent no-op.
 export const GOOGLE_OAUTH_SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/tasks',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/drive.readonly',
@@ -268,4 +280,163 @@ export async function fetchTodayEvents(): Promise<CalendarEvent[]> {
       allDay,
     };
   });
+}
+
+export interface UpcomingCalendarEvent extends CalendarEvent {
+  dateISO: string; // YYYY-MM-DD, Brisbane-local
+}
+
+/** MSN-0363 (Content Workbench "Coming Up"): a wider read window than
+ * fetchTodayEvents, with the date attached since callers span multiple
+ * days. Read-only (list only) — event creation for Content Workbench
+ * scheduling is createCalendarEvent() below, added the same day once the
+ * scope was widened to calendar.events. */
+export async function fetchUpcomingEvents(daysAhead: number): Promise<UpcomingCalendarEvent[]> {
+  const { accessToken, calendarId } = await getValidAccessToken();
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+  const start = new Date(`${todayStr}T00:00:00+10:00`);
+  const end = new Date(start.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+
+  const params = new URLSearchParams({
+    timeMin: start.toISOString(),
+    timeMax: end.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    timeZone: TIMEZONE,
+  });
+
+  const res = await fetch(`${CALENDAR_EVENTS_URL(calendarId)}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 401) {
+    throw new GoogleCalendarDisconnectedError('Google Calendar access token was rejected. Reconnect required.');
+  }
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Google Calendar events fetch failed (${res.status}): ${body}`);
+  }
+
+  const data = (await res.json()) as {
+    items?: Array<{
+      summary?: string;
+      location?: string;
+      start?: { dateTime?: string; date?: string };
+    }>;
+  };
+
+  return (data.items ?? []).map((item) => {
+    const allDay = !item.start?.dateTime;
+    const startValue = item.start?.dateTime ?? item.start?.date ?? todayStr;
+    const time = item.start?.dateTime
+      ? new Date(item.start.dateTime).toLocaleTimeString('en-AU', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: TIMEZONE,
+        })
+      : null;
+    const dateISO = item.start?.dateTime
+      ? new Date(item.start.dateTime).toLocaleDateString('en-CA', { timeZone: TIMEZONE })
+      : startValue.slice(0, 10);
+    return {
+      time,
+      title: item.summary || '(no title)',
+      location: item.location ?? null,
+      allDay,
+      dateISO,
+    };
+  });
+}
+
+export interface CreateEventInput {
+  title: string;
+  startISO: string; // full RFC3339 datetime
+  durationMinutes?: number; // default 30
+  description?: string;
+}
+
+/** MSN-0363 (Content Workbench scheduling, Captain-confirmed): creates a
+ * real Calendar event using the widened calendar.events scope above.
+ * Returns the created event's id, stored as comms_content.calendar_event_id
+ * so a later reschedule/cancel can target the same event instead of
+ * creating a duplicate. Throws GoogleCalendarDisconnectedError on 401
+ * (covers both "not connected" and "connected but pre-widening token,
+ * needs a reconnect") and GoogleCalendarInsufficientScopeError on 403,
+ * so callers can tell those apart. */
+export class GoogleCalendarInsufficientScopeError extends Error {
+  constructor(message = 'Google Calendar token lacks the calendar.events scope. Reconnect via /api/auth/google-calendar/connect.') {
+    super(message);
+    this.name = 'GoogleCalendarInsufficientScopeError';
+  }
+}
+
+export async function createCalendarEvent(input: CreateEventInput): Promise<{ id: string }> {
+  const { accessToken, calendarId } = await getValidAccessToken();
+  const start = new Date(input.startISO);
+  const end = new Date(start.getTime() + (input.durationMinutes ?? 30) * 60 * 1000);
+
+  const res = await fetch(CALENDAR_EVENTS_URL(calendarId), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      summary: input.title,
+      description: input.description,
+      start: { dateTime: start.toISOString(), timeZone: TIMEZONE },
+      end: { dateTime: end.toISOString(), timeZone: TIMEZONE },
+    }),
+  });
+
+  if (res.status === 401) throw new GoogleCalendarDisconnectedError();
+  if (res.status === 403) throw new GoogleCalendarInsufficientScopeError();
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Google Calendar event create failed (${res.status}): ${body}`);
+  }
+
+  const data = (await res.json()) as { id: string };
+  return { id: data.id };
+}
+
+/** Updates an existing event's time (reschedule). Silently returns if the
+ * event was deleted on the Google side (404) — the caller's own
+ * calendar_event_id is then stale and should be cleared/recreated, not
+ * treated as a hard failure of the reschedule action itself. */
+export async function updateCalendarEventTime(eventId: string, startISO: string, durationMinutes = 30): Promise<void> {
+  const { accessToken, calendarId } = await getValidAccessToken();
+  const start = new Date(startISO);
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+
+  const res = await fetch(`${CALENDAR_EVENTS_URL(calendarId)}/${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      start: { dateTime: start.toISOString(), timeZone: TIMEZONE },
+      end: { dateTime: end.toISOString(), timeZone: TIMEZONE },
+    }),
+  });
+
+  if (res.status === 401) throw new GoogleCalendarDisconnectedError();
+  if (res.status === 403) throw new GoogleCalendarInsufficientScopeError();
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text();
+    throw new Error(`Google Calendar event update failed (${res.status}): ${body}`);
+  }
+}
+
+/** Deletes an event (unschedule/cancel). 404/410 treated as already-gone,
+ * not an error — the caller's goal ("this event should not exist") is
+ * already satisfied. */
+export async function deleteCalendarEvent(eventId: string): Promise<void> {
+  const { accessToken, calendarId } = await getValidAccessToken();
+  const res = await fetch(`${CALENDAR_EVENTS_URL(calendarId)}/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 401) throw new GoogleCalendarDisconnectedError();
+  if (res.status === 403) throw new GoogleCalendarInsufficientScopeError();
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    const body = await res.text();
+    throw new Error(`Google Calendar event delete failed (${res.status}): ${body}`);
+  }
 }

@@ -46,6 +46,44 @@ function ExportMenu({ item }: { item: PublishedItem }) {
   );
 }
 
+function ReuseIdeaButton({ item }: { item: PublishedItem }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  // MSN-0363 §19: creates a *new* opportunity derived from the published
+  // piece via the same scored capture endpoint every fresh idea goes
+  // through — never mutates the published source record (no PATCH to this
+  // item at all).
+  async function reuse() {
+    setBusy(true);
+    setMsg('');
+    try {
+      const seed = `Revisit and update for a new angle: "${item.title}"\n\n${item.body ?? ''}`.slice(0, 4000);
+      const res = await fetch('/api/content-workbench/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: seed }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setMsg('✓ New opportunity created — see Today/Pipeline.');
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Error creating opportunity');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="secondary" onClick={reuse} disabled={busy}>
+        {busy ? 'Creating…' : 'Reuse Idea'}
+      </Button>
+      {msg && <span className="text-[11px] text-wb-ink2">{msg}</span>}
+    </div>
+  );
+}
+
 function PortfolioCard({ item }: { item: PublishedItem }) {
   const [open, setOpen] = useState(false);
   return (
@@ -76,7 +114,10 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
       )}
       {open && !item.body && <p className="text-[12px] text-wb-ink2">No stored body for this item.</p>}
 
-      <ExportMenu item={item} />
+      <div className="flex flex-wrap items-center gap-2">
+        <ExportMenu item={item} />
+        <ReuseIdeaButton item={item} />
+      </div>
     </div>
   );
 }
