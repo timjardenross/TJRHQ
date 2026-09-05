@@ -13,11 +13,24 @@
 // fix for the same bug) would trade one Safari quirk for another.
 // 2026-09-05: two attempted fixes (removing the unconditional cancel(),
 // then confirming it's not the known standalone-PWA bug — user tested in
-// a regular Safari tab, not installed) both failed to fix real-device
-// silence with no visible error. Rather than guess a third time blind,
-// ?speakdebug=1 on the URL surfaces every step via alert() — no Web
-// Inspector/pairing needed, works on-device. Remove this once the real
-// cause is found and fixed for good.
+// a regular Safari tab, not installed) didn't fix real-device silence
+// with no visible error. ?speakdebug=1 diagnostics (added same day)
+// confirmed the real cause on the Captain's actual iPad: "voices loaded:
+// 0" at speak()-time, synth.speaking stuck true forever, no onstart/
+// onerror ever fires — a known iOS Safari bug where calling speak()
+// before the voice list has ever populated wedges the engine with no
+// audio and no error surfaced.
+//
+// Fix: warm up the voice list as early as possible — a bare getVoices()
+// call, thrown away, the moment this module first loads client-side —
+// so by the time the user actually taps the button seconds/minutes
+// later, voices are already populated and the synchronous speak() call
+// in the click handler (still required for iOS's user-gesture rule) has
+// real data instead of an empty list.
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.getVoices();
+}
+
 function debugEnabled(): boolean {
   return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('speakdebug') === '1';
 }
