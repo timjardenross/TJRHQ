@@ -90,7 +90,16 @@ export default function LifeOSHub() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    playViaChatterbox(parts.join(' '), { onStateChange: setSpeakState });
+    // cacheKey = the spoken text itself (hashed into a safe filename
+    // server-side, see tts_chatterbox.py's _safe_cache_path) — this
+    // content is "live" but often doesn't actually change between taps
+    // (same alert state, same interrupt count). Identical text -> cache
+    // hit -> instant instead of another ~1min generation; any real change
+    // in wording still produces a fresh one automatically, no separate
+    // proactive job needed for this case (unlike the daily brief, which
+    // has a real schedule to hook — see _pregenerate_brief_audio).
+    const text = parts.join(' ');
+    playViaChatterbox(text, { cacheKey: text, onStateChange: setSpeakState });
   }
 
   return (

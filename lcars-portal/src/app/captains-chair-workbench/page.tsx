@@ -368,7 +368,11 @@ export default function CaptainsChairWorkbench() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    playViaChatterbox(parts.join(' '), { onStateChange: setSpeakState });
+    // cacheKey = the spoken text itself — same reasoning as hub/page.tsx's
+    // matching comment: identical alert state between taps becomes an
+    // instant cache hit instead of another ~1min generation.
+    const text = parts.join(' ');
+    playViaChatterbox(text, { cacheKey: text, onStateChange: setSpeakState });
   }
 
   return (
