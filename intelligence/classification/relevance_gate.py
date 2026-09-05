@@ -151,18 +151,37 @@ def assess_relevance(event: ClassifiedEvent) -> dict:
         category = _category_match(text, _CONFIG)
         tier = _proximity_tier(event, text, _CONFIG)
         op_relevance = float(getattr(event, "operational_relevance", 0.0) or 0.0)
+        systemic_kw = _CONFIG.get("systemic_value_override", {}).get("keywords", [])
+        systemic_hit = any(kw.lower() in text for kw in systemic_kw)
 
         strength = op_relevance * float(tier.get("weight", 0.05))
         if category:
             strength *= 1.2
         strength = min(1.0, strength)
 
-        is_relevant = strength >= _RELEVANT_STRENGTH_FLOOR
+        # 2026-09-05 fix (found via Phase 3 eval-set sampling against real
+        # historical rows): operational_relevance is a classifier
+        # confidence/signal-strength field, not a mission-fit signal — a
+        # generic AU-tagged human-interest story (ferry sinks off Guyana,
+        # a politician blocked from entering a country) can carry
+        # operational_relevance>=0.35 from classifier.py's own heuristics
+        # while matching NONE of the mission's named priority categories
+        # (mission §5/§8: a closed list of named operational-resilience/
+        # cyber/infra/banking areas, not "anything AU-tagged above a
+        # floor"). Confirmed against 38 real sampled rows: without this
+        # gate, ~15 pure human-interest/markets-commentary items scored
+        # RELEVANT purely on operational_relevance+AU-geography. A
+        # category keyword match (or an explicit systemic-value override
+        # hit) is now REQUIRED for RELEVANT — strength alone can still
+        # push a category-matched item's confidence up, but can no longer
+        # substitute for matching the mission at all.
+        is_relevant = (category is not None or systemic_hit) and strength >= _RELEVANT_STRENGTH_FLOOR
         mission_relevance = "RELEVANT" if is_relevant else "LOW_CONFIDENCE"
 
         category_bit = f"matches priority category '{category['label']}'" if category else "no specific priority-category keyword match"
+        systemic_bit = "; systemic-value override keyword hit" if systemic_hit else ""
         reason = (
-            f"{category_bit}; proximity tier {tier['tier']} (weight {tier.get('weight')}); "
+            f"{category_bit}{systemic_bit}; proximity tier {tier['tier']} (weight {tier.get('weight')}); "
             f"operational_relevance={op_relevance:.2f}; combined strength={strength:.2f}"
         )
 
