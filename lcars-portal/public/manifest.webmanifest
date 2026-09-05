@@ -1,7 +1,7 @@
 {
-  "name": "USS TJR — Command Centre",
-  "short_name": "Endeavour",
-  "description": "Starship Endeavour mobile Command Centre — Captain's Chair, Quick Capture, XO Chat, Engineering Queue, and Push Alerts.",
+  "name": "TJR HQ",
+  "short_name": "TJR HQ",
+  "description": "TJR HQ — Captain's Chair, Quick Capture, Engineering Queue, and Push Alerts.",
   "id": "/captains-chair-workbench",
   "start_url": "/captains-chair-workbench",
   "scope": "/",
