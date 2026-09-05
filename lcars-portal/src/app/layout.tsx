@@ -34,6 +34,19 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  // 2026-09-05: iPad-kiosk retrofit — manifest.webmanifest was only linked
+  // from the (app) route group's layout, so "Add to Home Screen" on
+  // captains-chair-workbench (outside that group, the real live dashboard
+  // this session built the calendar/reminders/spoken-alerts cards onto)
+  // never picked it up at all — no standalone/fullscreen mode, just a
+  // regular Safari tab shortcut. appleWebApp is what iOS Safari actually
+  // reads for "Add to Home Screen" fullscreen behavior.
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'TJR HQ',
+  },
   openGraph: {
     title: OPS_PORTAL_NAME,
     description: OPS_PORTAL_DESCRIPTION,

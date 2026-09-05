@@ -696,6 +696,7 @@ export default function CaptainsChairWorkbench() {
       eyebrow="Executive Summary"
       tagline="USS TJR · Captain's Chair · Executive Summary"
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      wide
     >
       <div className="space-y-4">
         {/* ── Situation strip ── */}
