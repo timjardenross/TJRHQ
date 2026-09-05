@@ -41,6 +41,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import { computeInterventionEffectiveness } from './intervention-effectiveness';
 import { fetchSensoryRegulation } from './sensory-regulation';
 import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
+import { deriveSystemPosture } from './derive-system-posture';
 import type {
   Band,
   CapacityBalance,
@@ -141,38 +142,6 @@ function capacityStateDetail(state: string | null | undefined): string | null {
 // Deterministic, no LLM (spec §35) — same discipline as the Capacity Bot's
 // own intervention_engine.py. Rules mirror spec §36/§37 exactly; illustrative
 // per the doc, tuned here against the same field vocabulary the bot writes.
-
-function deriveSystemPosture(c: CheckinRow | null): { posture: SystemPostureBand; message: string } {
-  if (!c || !c.capacity_state) {
-    return { posture: 'UNKNOWN', message: 'No capacity check-in recorded for today yet.' };
-  }
-  const cap = c.capacity_state; // green | orange | red
-  const reg = c.regulation_state; // settled | manageable | activated | overloaded
-  const ef = c.executive_function; // good | strained | difficult | very_difficult
-  const comp = c.compensation_load; // low | moderate | high | extreme
-  const stim = c.stimulation_state; // low | balanced | high
-  const painElevated = c.pain_state === 'elevated' || c.pain_state === 'high';
-  const highPain = c.pain_state === 'high';
-
-  if (cap === 'red' || (reg === 'overloaded' && ef === 'very_difficult') || (highPain && cap === 'red')) {
-    return { posture: 'RECOVER', message: 'Capacity is depleted or recovery debt is high. Recovery is the primary objective.' };
-  }
-  // RESET: stimulation significantly mismatched AND dysregulated — a short
-  // regulation intervention before deciding the rest of the day.
-  if ((stim === 'low' || stim === 'high') && (reg === 'overloaded' || reg === 'activated') && cap !== 'green') {
-    return { posture: 'RESET', message: 'The system appears mismatched or dysregulated — a short regulation step before deciding what comes next.' };
-  }
-  if (cap === 'orange' || comp === 'high' || comp === 'extreme' || reg === 'activated' || (painElevated && cap !== 'green')) {
-    return { posture: 'PROTECT', message: 'Capacity is stretched. Reduce unnecessary demand and intervene early.' };
-  }
-  if (cap === 'green' && (stim === 'balanced' || !stim) && !painElevated && comp !== 'high' && comp !== 'extreme') {
-    return { posture: 'ENGAGE', message: 'Capacity is available and the system can tolerate meaningful demand.' };
-  }
-  if (cap === 'green') {
-    return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
-  }
-  return { posture: 'STEADY', message: 'Maintain current pace. Avoid unnecessary load increases.' };
-}
 
 function deriveCapacityBalance(c: CheckinRow | null): CapacityBalance {
   if (!c || !c.capacity_state) return 'unknown';

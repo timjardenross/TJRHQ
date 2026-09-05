@@ -20,6 +20,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { Signal, SignalItem, SystemSummary, WorkbenchSection } from '@/lib/weeklyReview';
+import { buildSynthesis, flattenSignalCounts } from './synthesis';
+import { deriveSystemPosture } from '@/app/api/human-systems/derive-system-posture';
+import { computeStrategicPosture, type BurnoutWindowRow } from '@/app/api/human-systems/strategic-posture';
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -121,20 +124,32 @@ async function reviewHealthOsint(sb: SB, since: string): Promise<WorkbenchSectio
 // Source: comms_content. No performance/engagement table exists in this
 // schema — "performance after publication" is deliberately omitted rather
 // than faked.
+//
+// FIX (2026-09-05, Weekly Review synthesis mission): this section's
+// "Drafts created" signal queried status='draft', a value that has never
+// existed in comms_content's live status enum (confirmed live:
+// archived/review/opportunity/ready_to_publish/published) — it always
+// silently returned 0, a false zero rather than an honest "unavailable" or
+// a real count, exactly the class of bug brief §29 warns against.
+// Replaced with draft_generated_at (a real timestamp column) for "drafts
+// generated," and added the 'ready' signal (status='ready_to_publish') the
+// synthesis layer needs for the "Decide" carry-forward framing (brief §25).
 async function reviewContent(sb: SB, since: string): Promise<WorkbenchSection> {
-  const [drafted, published, review, blocked] = await Promise.all([
-    safe(() => sb.from('comms_content').select('id, title, created_at').eq('status', 'draft').gte('created_at', since).limit(20)),
+  const [drafted, published, review, ready, blocked] = await Promise.all([
+    safe(() => sb.from('comms_content').select('id, title, draft_generated_at').gte('draft_generated_at', since).limit(20)),
     safe(() => sb.from('comms_content').select('id, title, updated_at').eq('status', 'published').gte('updated_at', since).limit(20)),
     safe(() => sb.from('comms_content').select('id, title, created_at').eq('status', 'review').gte('created_at', since).limit(20)),
+    safe(() => sb.from('comms_content').select('id, title, scheduled_for').eq('status', 'ready_to_publish').limit(20)),
     safe(() => sb.from('comms_content').select('id, title, qa_status').eq('qa_status', 'qa_failed').limit(20)),
   ]);
 
   return {
     key: 'content', title: 'Content Workbench', href: '/content-workbench',
     signals: [
-      signal('drafted', 'Drafts created', drafted.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'neutral', drafted.unavailable),
+      signal('drafted', 'Drafts generated', drafted.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'neutral', drafted.unavailable),
       signal('published', 'Published', published.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'ok', published.unavailable),
       signal('review', 'Awaiting review', review.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'warn', review.unavailable),
+      signal('ready', 'Ready to publish — decide', ready.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'warn', ready.unavailable),
       signal('blocked', 'Blocked (QA failed)', blocked.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'crit', blocked.unavailable),
     ],
   };
@@ -232,15 +247,17 @@ async function reviewAgentStatus(sb: SB, since: string): Promise<WorkbenchSectio
   };
 }
 
+// "Newly important" and "Safe to ignore" removed here 2026-09-05 — see
+// lib/weeklyReview.ts's SystemSummary doc comment for why. openLoops/
+// waitingOn/urgentThisWeek remain as secondary diagnostics (brief §21).
 function computeSummary(weekStartISO: string, weekEndISO: string, sections: WorkbenchSection[], lastCompletedAt: string | null): SystemSummary {
-  let openLoops = 0, waitingOn = 0, urgentThisWeek = 0, newlyImportant = 0, noiseToIgnore = 0;
+  let openLoops = 0, waitingOn = 0, urgentThisWeek = 0;
   for (const section of sections) {
     for (const s of section.signals) {
       if (s.unavailable) continue;
-      if (s.tone === 'crit') { urgentThisWeek += s.count; newlyImportant += s.count; }
+      if (s.tone === 'crit') { urgentThisWeek += s.count; }
       if (s.tone === 'warn') { openLoops += s.count; }
       if (s.key.includes('waiting') || s.key.includes('blocked') || s.key === 'appraisal' || s.key === 'never' || s.key === 'stale' || s.key === 'uncorroborated' || s.key === 'decisions') waitingOn += s.count;
-      if (s.tone === 'neutral' && s.count === 0) noiseToIgnore += 1;
     }
   }
 
@@ -248,9 +265,41 @@ function computeSummary(weekStartISO: string, weekEndISO: string, sections: Work
 
   return {
     weekStart: weekStartISO, weekEnd: weekEndISO,
-    openLoops, waitingOn, urgentThisWeek, newlyImportant, noiseToIgnore,
+    openLoops, waitingOn, urgentThisWeek,
     reviewDebtDays, lastCompletedAt,
   };
+}
+
+// ── Capacity-adjusted posture (brief §6/§16) ─────────────────────────────────
+// Reuses Human Systems' own existing posture engines rather than inventing a
+// competing taxonomy (brief §16 explicit instruction) — today's posture via
+// deriveSystemPosture() (now a shared export, see that file's header
+// comment), the week's strain floor via computeStrategicPosture(), exactly
+// mirroring how /api/human-systems/route.ts itself calls them
+// (BURNOUT_WINDOW_DAYS=21, same field selection).
+const BURNOUT_WINDOW_DAYS = 21;
+const CHECKIN_FIELDS = 'capacity_state,regulation_state,executive_function,compensation_load,stimulation_state,pain_state';
+
+async function fetchStrategicPosture(sb: SB) {
+  const today = new Date().toISOString().slice(0, 10);
+  const windowStart = new Date(Date.now() - (BURNOUT_WINDOW_DAYS - 1) * DAY_MS).toISOString().slice(0, 10);
+
+  const [todayCheckin, windowRows] = await Promise.all([
+    safe(() => sb.from('capacity_checkins').select(CHECKIN_FIELDS).eq('checkin_type', 'capacity').eq('log_date', today).order('captured_at', { ascending: false }).limit(1)),
+    safe(() => sb.from('capacity_checkins').select('checkin_type,capacity_state,executive_function,stimulation_state,compensation_load,recovery_duration,capacity_debt,log_date,captured_at').gte('log_date', windowStart).lte('log_date', today)),
+  ]);
+
+  if (todayCheckin.unavailable || windowRows.unavailable) {
+    // Human Systems couldn't be checked this run — fall back to a neutral
+    // posture rather than crash the whole review; hasStrategicSignal=false
+    // tells the synthesis layer to omit the recovery-trajectory learned
+    // item/watch line rather than fabricate one.
+    return { posture: 'steady' as const, message: 'Human Systems data was unavailable this run — posture defaults to steady.', hasSignal: false };
+  }
+
+  const { posture: todayPosture } = deriveSystemPosture(todayCheckin.rows[0] ?? null);
+  const result = computeStrategicPosture(windowRows.rows as unknown as BurnoutWindowRow[], BURNOUT_WINDOW_DAYS, todayPosture);
+  return { posture: result.strategic_posture, message: result.strategic_posture_message, hasSignal: result.system_trajectory !== 'insufficient_data' };
 }
 
 export async function GET() {
@@ -261,7 +310,7 @@ export async function GET() {
     const sb = await createSupabaseServerClient();
     const { weekStartISO, weekEndISO } = weekWindow();
 
-    const [chair, osint, healthOsint, content, humanSystems, advisory, briefs, agentStatus, lastReview] = await Promise.all([
+    const [chair, osint, healthOsint, content, humanSystems, advisory, briefs, agentStatus, lastReview, posture] = await Promise.all([
       reviewChair(sb, weekStartISO),
       reviewOsint(sb, weekStartISO),
       reviewHealthOsint(sb, weekStartISO),
@@ -270,14 +319,22 @@ export async function GET() {
       reviewAdvisory(sb, weekStartISO),
       reviewBriefs(sb, weekStartISO),
       reviewAgentStatus(sb, weekStartISO),
-      safe(() => sb.from('weekly_reviews').select('completed_at').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1)),
+      // Full summary jsonb (not just completed_at) — signalCounts lives
+      // inside it, needed for What Changed's week-over-week diff.
+      safe(() => sb.from('weekly_reviews').select('completed_at, summary').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1)),
+      fetchStrategicPosture(sb),
     ]);
 
     const workbenches = [chair, osint, healthOsint, content, humanSystems, advisory, briefs, agentStatus];
     const lastCompletedAt = lastReview.rows[0]?.completed_at ?? null;
     const summary = computeSummary(weekStartISO, weekEndISO, workbenches, lastCompletedAt);
 
-    return NextResponse.json({ summary, workbenches });
+    const priorSummary = lastReview.rows[0]?.summary as { signalCounts?: Record<string, number> } | null;
+    const priorSignalCounts = priorSummary?.signalCounts ?? null;
+    const synthesis = buildSynthesis(workbenches, priorSignalCounts, posture.posture, posture.message, posture.hasSignal);
+    const signalCounts = flattenSignalCounts(workbenches);
+
+    return NextResponse.json({ summary, workbenches, synthesis, signalCounts });
   } catch (err) {
     return NextResponse.json({ error: 'Failed to build weekly review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
@@ -291,6 +348,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const notes = typeof body?.notes === 'string' ? body.notes.slice(0, 4000) : null;
     const summary = body?.summary ?? null;
+    // signalCounts rides inside the same summary jsonb (additive field, not
+    // a new table) — next week's GET reads it back out for What Changed's
+    // week-over-week diff. Older rows simply lack this key, which
+    // buildSynthesis already treats as "no prior data" (noHistory), never
+    // as "no change."
+    const signalCounts = body?.signalCounts && typeof body.signalCounts === 'object' ? body.signalCounts : null;
+    const nextWeekPostureAccepted = body?.nextWeekPostureAccepted === true;
+    const storedSummary = summary ? { ...summary, signalCounts, nextWeekPostureAccepted } : null;
 
     const sb = await createSupabaseServerClient();
     const { weekStart, weekEnd } = weekWindow();
@@ -298,7 +363,7 @@ export async function POST(req: NextRequest) {
     const weekEndDate = weekEnd.toISOString().slice(0, 10);
 
     const { error } = await sb.from('weekly_reviews').upsert(
-      { week_start: weekStartDate, week_end: weekEndDate, completed_at: new Date().toISOString(), summary, notes },
+      { week_start: weekStartDate, week_end: weekEndDate, completed_at: new Date().toISOString(), summary: storedSummary, notes },
       { onConflict: 'week_start' },
     );
     if (error) throw error;

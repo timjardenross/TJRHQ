@@ -1,23 +1,39 @@
 'use client';
 
-// Weekly Review — one calm ritual across every workbench: what happened,
-// what slipped, what's coming, what needs attention, what's safe to ignore.
+// Weekly Review — TJR HQ's weekly synthesis, learning and adaptation loop
+// (redesigned 2026-09-05, mission brief "Weekly Review Redesign"). Was a
+// per-workbench metrics dashboard ("here is everything HQ collected"); now
+// leads with interpreted synthesis ("HQ reviewed the week for you") and
+// demotes the original per-workbench cards to a collapsed Source Detail
+// drill-down (brief §22) — nothing deleted, just reordered by significance
+// instead of by source workbench.
 //
-// No new source-of-truth tables: every signal is computed live from each
-// workbench's own existing tables (see api/weekly-review/route.ts). Only
-// weekly_reviews (migration 0164) persists — completion state + a frozen
-// summary snapshot, so "review debt" is queryable across visits.
+// No new source-of-truth tables: every signal is still computed live from
+// each workbench's own existing tables (see api/weekly-review/route.ts).
+// The synthesis layer (api/weekly-review/synthesis.ts) is pure
+// interpretation of that same data plus Human Systems' existing
+// StrategicPosture engine — see that file's header comment. Only
+// weekly_reviews (migration 0164) persists, now also carrying a flattened
+// signal-count snapshot for next week's What-Changed diff.
 
 import { Suspense, useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { fetchWeeklyReview, type WeeklyReviewData } from '@/lib/weeklyReview';
-import { SummaryCards } from './_components/SummaryCards';
-import { WorkbenchCard } from './_components/WorkbenchCard';
+import { WeekInReview } from './_components/WeekInReview';
+import { WhatChanged } from './_components/WhatChanged';
+import { WhatMattered } from './_components/WhatMattered';
+import { WhatLearned } from './_components/WhatLearned';
+import { CarryForward } from './_components/CarryForward';
+import { YouCanIgnore } from './_components/YouCanIgnore';
+import { WatchNextWeek } from './_components/WatchNextWeek';
+import { NextWeekPosture } from './_components/NextWeekPosture';
+import { SourceDetail } from './_components/SourceDetail';
 import { CompletePanel } from './_components/CompletePanel';
 
 function Workbench() {
   const [data, setData] = useState<WeeklyReviewData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nextWeekAccepted, setNextWeekAccepted] = useState(false);
 
   useEffect(() => {
     fetchWeeklyReview().then((d) => { setData(d); setLoading(false); });
@@ -26,8 +42,8 @@ function Workbench() {
   return (
     <WorkbenchShell wide
       title="Weekly Review"
-      eyebrow="Scan · Review · Decide · Reset"
-      tagline="USS TJR · Weekly Review · What happened, what slipped, what's coming — one calm pass."
+      eyebrow="Scan · Synthesise · Learn · Adapt"
+      tagline="USS TJR · Weekly Review · What happened, what mattered, what HQ learned — one calm pass."
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {loading && <div className="h-40 animate-pulse rounded-md bg-wb-line/40" />}
@@ -39,16 +55,31 @@ function Workbench() {
       )}
 
       {data && (
-        <div className="flex flex-col gap-6">
-          <SummaryCards summary={data.summary} />
+        <div className="flex flex-col gap-4">
+          <WeekInReview data={data.synthesis.weekInReview} />
+          <WhatChanged items={data.synthesis.whatChanged} />
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {data.workbenches.map((section) => (
-              <WorkbenchCard key={section.key} section={section} />
-            ))}
+            <WhatMattered items={data.synthesis.whatMattered} />
+            <WhatLearned items={data.synthesis.learned} />
           </div>
 
-          <CompletePanel summary={data.summary} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <CarryForward items={data.synthesis.carryForward} />
+            <YouCanIgnore lines={data.synthesis.youCanIgnore} />
+          </div>
+
+          <WatchNextWeek items={data.synthesis.watchNextWeek} />
+
+          <NextWeekPosture
+            data={data.synthesis.nextWeek}
+            accepted={nextWeekAccepted}
+            onAccept={() => setNextWeekAccepted(true)}
+          />
+
+          <CompletePanel summary={data.summary} signalCounts={data.signalCounts} nextWeekAccepted={nextWeekAccepted} />
+
+          <SourceDetail summary={data.summary} sections={data.workbenches} />
         </div>
       )}
     </WorkbenchShell>
