@@ -58,6 +58,31 @@ function pickLocalVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | 
     ?? voices.find((v) => v.lang?.startsWith('en') && v.localService);
 }
 
+// 2026-09-05, fifth attempt: local-voice-only selection ("Karen [en-AU]",
+// confirmed local) still produced the identical wedge — ruling out voice
+// selection as the cause entirely. Volume confirmed up, Focus/DND
+// confirmed off on the real device, so it's not a basic muting issue
+// either. Remaining theory, matching many real-world "SpeechSynthesis
+// silently does nothing on iOS Safari" reports with this exact profile:
+// iOS sometimes never opens a real audio output route for
+// speechSynthesis specifically until an actual <audio>/<video> element
+// has been played at least once on the page — the JS API still reports
+// success (speaking=true) because the engine itself accepted the
+// utterance, but no audio route exists to actually play it through.
+// Playing one silent sample, synchronously in the same click, has fixed
+// this exact symptom for other sites. One-line, silent 1-sample WAV as a
+// data URI — nothing downloaded, nothing audible if this isn't the cause.
+function unlockIOSAudioOutput(): void {
+  try {
+    const audio = new Audio(
+      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
+    );
+    audio.play().catch(() => {});
+  } catch {
+    // best-effort only
+  }
+}
+
 export function speakAloud(text: string): void {
   const debug = debugEnabled();
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -65,6 +90,8 @@ export function speakAloud(text: string): void {
     return;
   }
   const synth = window.speechSynthesis;
+
+  unlockIOSAudioOutput();
 
   if (synth.speaking || synth.pending) {
     synth.cancel();
