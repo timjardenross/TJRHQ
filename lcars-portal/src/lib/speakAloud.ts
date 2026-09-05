@@ -35,19 +35,28 @@ function debugEnabled(): boolean {
   return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('speakdebug') === '1';
 }
 
-// 2026-09-05, third real cause found: warming up voices (above) got 69
-// voices loading correctly, but speech still never played — same "speak()
-// called, synth.speaking stuck true forever, no onstart/onerror ever
-// fires" symptom. That combination matches a separate, also well-known
-// iOS Safari bug: the utterance was a bare local variable inside this
-// function, with nothing else holding a reference to it — iOS Safari can
-// garbage-collect a SpeechSynthesisUtterance the instant the function
-// that created it returns, silently killing speech that was about to
-// start (the engine's internal `speaking` flag flips true because it
-// accepted the utterance, then has nothing left to actually speak once
-// GC'd). Module-level variable below keeps a strong reference alive for
-// the duration.
+// 2026-09-05, third attempt: keeping a strong reference to the utterance
+// (module-level var below) didn't fix it either — still speaking stuck
+// true forever, zero onstart/onerror, confirmed again via ?speakdebug=1
+// on the real device. Module-level variable kept anyway (harmless, likely
+// still correct practice) while chasing the fourth theory below.
 let currentUtterance: SpeechSynthesisUtterance | null = null;
+
+// 2026-09-05, fourth attempt: getVoices() on iOS Safari is known to list
+// voices that aren't actually downloaded/installed on the device —
+// calling speak() with one of those produces exactly this symptom
+// (speaking flips true, then wedges forever, no events, no audio,
+// because there's genuinely no local voice engine backing the one that
+// was picked). The previous voice-selection only checked `lang`, never
+// whether the voice was actually local. SpeechSynthesisVoice.localService
+// is the (imperfect but real) signal for "actually on this device" —
+// restricting to that, and leaving utterance.voice unset entirely (uses
+// the guaranteed system default) when no local match exists, rather than
+// ever risking a networked/uninstalled voice.
+function pickLocalVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined {
+  return voices.find((v) => v.lang === 'en-AU' && v.localService)
+    ?? voices.find((v) => v.lang?.startsWith('en') && v.localService);
+}
 
 export function speakAloud(text: string): void {
   const debug = debugEnabled();
@@ -66,11 +75,13 @@ export function speakAloud(text: string): void {
   // fired once — that's fine here, an unset voice just uses the system
   // default rather than failing.
   const voices = synth.getVoices();
+  const localVoice = pickLocalVoice(voices);
   if (debug) {
-    alert(`voices loaded: ${voices.length}\ntext length: ${text.length} chars\nsynth.speaking: ${synth.speaking}\nsynth.pending: ${synth.pending}`);
+    const localCount = voices.filter((v) => v.localService).length;
+    alert(`voices loaded: ${voices.length} (${localCount} local)\npicked: ${localVoice ? `${localVoice.name} [${localVoice.lang}]` : '(none — using system default)'}\ntext length: ${text.length} chars\nsynth.speaking: ${synth.speaking}\nsynth.pending: ${synth.pending}`);
   }
-  const auVoice = voices.find((v) => v.lang === 'en-AU') ?? voices.find((v) => v.lang?.startsWith('en'));
-  if (auVoice) utterance.voice = auVoice;
+  if (localVoice) utterance.voice = localVoice;
+  utterance.lang = localVoice?.lang ?? 'en-AU';
   utterance.onstart = () => { if (debug) alert('onstart fired — speech should be audible now.'); };
   utterance.onend = () => { currentUtterance = null; if (debug) alert('onend fired — finished normally.'); };
   utterance.onerror = (e) => {
