@@ -8,14 +8,14 @@
 
 | Field | Value |
 |---|---|
-| **Registry Version** | 2.12 |
-| **Last Architecture Review** | 2026-08-12 (added REVS Content Generation Agents as a new capability — built, tested, and specialist-reviewed this session, previously missing from the Registry entirely per Chief Engineer's composition-first finding. No other capability's figures touched by this pass.) |
-| **Previous Review** | 2026-07-17 (ad hoc CMDB extension — cross-referenced every "built not live" claim across ~25 missions against fresh git log + live Supabase row counts rather than trusting memory dates; added CMDB Status/Risk/Built-Deployed-Wired-Live/Category/Recommendation to every capability; added the non-capability Asset Registry and Prioritised Remediation Roadmap below. Source: `reports/LIVE-24-7-OPERATIONS-AUDIT-2026-07-17.md`, `reports/BUILT-VS-LIVE-CONSOLIDATED-REGISTRY-2026-07-17.md`) |
-| **Platform Capability Count** | 32 (was 31; +1 for REVS Content Generation Agents) |
+| **Registry Version** | 2.13 |
+| **Last Architecture Review** | 2026-09-05 (added Voice Synthesis (Chatterbox TTS) as a new capability — built and deployed this session per Captain's request, systemd-live with one HTTP smoke test, zero adopters. No other capability's figures touched by this pass.) |
+| **Previous Review** | 2026-08-12 (added REVS Content Generation Agents as a new capability — built, tested, and specialist-reviewed this session, previously missing from the Registry entirely per Chief Engineer's composition-first finding. No other capability's figures touched by this pass.) |
+| **Platform Capability Count** | 33 (was 32; +1 for Voice Synthesis (Chatterbox TTS)) |
 | **Non-Capability Assets Tracked** | 15 (see Asset Registry) |
-| **Average Capability Maturity** | not recomputed this pass — one L2 addition to a 31-capability average shifts it negligibly; not worth a false-precision figure without redoing the full weighted calculation |
-| **Average Engineering Confidence** | not recomputed this pass, same reasoning — REVS itself is 65% |
-| **Capabilities by Maturity** | L1: 5 · L2: 19 · L3: 7 · L4: 1 · L5: 0 |
+| **Average Capability Maturity** | not recomputed this pass — one L1 addition to a 32-capability average shifts it negligibly; not worth a false-precision figure without redoing the full weighted calculation |
+| **Average Engineering Confidence** | not recomputed this pass, same reasoning — Voice Synthesis itself is 40% |
+| **Capabilities by Maturity** | L1: 6 · L2: 19 · L3: 7 · L4: 1 · L5: 0 |
 
 ---
 
@@ -47,6 +47,7 @@ These are platform invariants. They rarely change, and every future engineering 
 | Notification | Validated standalone, zero production callers | L2 | 80% | Chief Engineer | Dormant | Low | Y·N·N·N | Architectural Debt | Fix Later | `command_bus.py` cutover (held) |
 | Configuration | Implemented, zero adopters | L2 | 70% | Chief Engineer | Dormant | Low | Y·N·N·N | Architectural Debt | Fix Later — Retire if still zero adopters at next review | Migrate one real service to prove adoption |
 | Model Router | Stable, canonical, widely used | **L4** | **99%** | Chief Engineer | Active | Low | Y·Y·Y·Y | Healthy | Leave As-Is | None planned — reference implementation |
+| Voice Synthesis (Chatterbox TTS) | Built + deployed, one smoke test, no adopters | L1 | 40% | Chief Engineer | Dormant | Low | Y·Y·Y·N (zero real callers) | Architectural Debt (unpinned git install, zero adopters) | Fix Later | Wire a first real consumer (XO debrief audio / Ready Room narration candidates) |
 | Knowledge | Sensitivity enforcement shipped: RPC-level SQL fix + RLS/officer_clearances + shared accessors, verified against real data | L3 | 84% | Knowledge domain | Active | Medium (disclosed PATCH auth gap) | Y·Y·Y·Y | Operational Issue (auth gap) / Architectural Debt (manual graph sync) | Fix Now (PATCH authorization gap — any authenticated caller can reclassify/archive any document) | Search readiness now safely buildable; add officer-management UI when a 2nd officer exists |
 | Search | Fragmented (6 implementations) | L2 | 63% | TBD | Active (per-implementation) | Low-Medium | Y·Y·Y·Y | Architectural Debt | Fix Later | Wave 4 consolidation (mission not yet assigned) |
 | Confidence | Activated, narrow scope, verified end-to-end | L3 | 78% | Chief Engineer | Degraded | Low | Y·Y·Y·N (`quality_scores`=0 rows since test cleanup, confirmed 2026-07-17) | Operational Issue | Fix Later — re-verify live-fire before assuming broken | Extend beyond research/comms into remaining decision domains |
@@ -232,6 +233,28 @@ Every record follows the same field order: Capability Name, Description, Purpose
 - **Technical Debt:** none significant. `MODEL_CODE`'s default was corrected from an uninstalled model (`qwen3-coder:30b`) to the installed one (`qwen2.5-coder:7b`) in MSN-0210F Phase 1.
 - **Next Planned Evolution:** none currently planned.
 - **Last Updated:** 2026-07-05.
+
+### Voice Synthesis (Chatterbox TTS)
+
+- **Description:** local, self-hosted text-to-speech service using Resemble AI's open-source Chatterbox Nano model (110M params), with voice-cloning support via a reference audio clip.
+- **Purpose:** give workbenches and LifeOS a local, cost-free, voice-cloneable speech option alongside the existing cloud `tts_edge.py` (Microsoft edge-tts) path — no per-call API cost, no data leaving the VM.
+- **Engineering Confidence:** 40% — one successful end-to-end generation via the live HTTP service confirms the mechanism works, but that's a single short-text smoke test: no voice-cloning tested, no concurrent-request behaviour tested, no adopter has exercised it yet.
+- **Current Maturity:** L1 — Implemented, zero adopters.
+- **Current Status:** built and deployed this session (2026-09-05); systemd-managed, running, HTTP-verified with one real generation call. This VM is CPU-only (no GPU) — measured real-world speed is 0.08x realtime (a 4-second clip took 48 seconds to generate), far below upstream's advertised "3x realtime on 8 CPU cores" claim for this same Nano model, so it is viable only for async pre-generated audio (briefs, narration, debrief clips), not live/conversational voice. The pip package (`chatterbox-tts` 0.1.7 on PyPI) does not yet include Nano support — this install is from GitHub master (unpinned commit), which does. Model download from Hugging Face was unreliable on this VM's network (repeated dropped connections mid-transfer over ~40 min, Xet backend hung entirely and had to be disabled via `HF_HUB_DISABLE_XET=1`) — worth knowing before assuming a future re-download will be quick.
+- **Owner:** Chief Engineer.
+- **Canonical Implementation:** `core/voice/tts_chatterbox.py` (FastAPI wrapper, `/api/tts/generate`, `/api/tts/status`), dedicated venv at `core/voice/chatterbox-venv/` (chatterbox-tts installed via `pip install git+https://github.com/resemble-ai/chatterbox.git`, not the stale PyPI release), systemd unit `/etc/systemd/system/chatterbox-tts.service`, port 8893.
+- **Consumers:** none yet — no workbench or LifeOS surface has been wired to call it.
+- **Dependencies:** none in-platform (self-contained model + torch/torchaudio inference); Hugging Face Hub for the one-time model download (~2GB, cached locally after).
+- **Capability Relationships:**
+  - *Depends On:* none.
+  - *Consumes:* nothing in-platform.
+  - *Produces:* synthesized speech (WAV), for future consumption by workbenches/LifeOS.
+  - *Future Dependencies:* Notification (a candidate future consumer, for voice-based alerts); whichever workbench/LifeOS surface adopts it first.
+- **Related ADRs:** none yet — not formally reviewed against ADR-020/ADR-027 (composition-first, whole-of-system) since it has no adopter to evaluate integration against.
+- **Related Missions:** none — built ad hoc this session at Captain's request, not run as a formal mission.
+- **Technical Debt:** unpinned git install (`chatterbox-tts` from GitHub master, no commit SHA pinned) — a future upstream change could silently alter behaviour or break `nano=True`; zero real adopters, same at-risk pattern already flagged for Configuration/Notification in this registry; voice-cloning path (`voice_ref`) implemented but never exercised; no concurrency/load testing; not yet linked into Discoverability/Monitoring/Governance per ADR-027 (no dashboard entry beyond this record, no health check wired to any monitoring surface).
+- **Next Planned Evolution:** pick a first real consumer (candidates raised: XO debrief audio, Ready Room narration) and wire it end-to-end to prove adoption, per the same pattern this registry recommends for Configuration/Notification; pin the git install to a specific commit once stable; consider whether Chatterbox should sit alongside or replace `tts_edge.py` for specific use cases.
+- **Last Updated:** 2026-09-05.
 
 ### Knowledge
 
