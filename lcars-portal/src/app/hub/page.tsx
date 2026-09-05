@@ -70,7 +70,9 @@ export default function LifeOSHub() {
   // playback) after five confirmed iOS Safari SpeechSynthesis bugs on the
   // Captain's actual iPad in a row. No cache_key here — this content is
   // live/dynamic (current alert state), so it always generates fresh and
-  // pays the full ~35s cold-generation latency on this VM's hardware.
+  // pays the full ~1min cold-generation latency on this VM's hardware
+  // (Turbo model, switched from Nano 2026-09-05 same day — Nano's ~35s
+  // was faster but confirmed unintelligible on a live listen test).
   // Accepted for now, Captain's call (testing phase) — see
   // core/voice/tts_chatterbox.py's module docstring for the measured
   // latency and why it can't easily be reduced further.
@@ -160,7 +162,7 @@ export default function LifeOSHub() {
                 disabled={speakState === 'generating' || speakState === 'playing'}
                 className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
               >
-                {speakState === 'generating' ? 'Generating… (~35s)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
+                {speakState === 'generating' ? 'Generating… (~1 min)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>
             </div>
           </div>

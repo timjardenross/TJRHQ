@@ -440,7 +440,7 @@ export default function CaptainsChairWorkbench() {
               disabled={speakState === 'generating' || speakState === 'playing'}
               className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
             >
-              {speakState === 'generating' ? 'Generating… (~35s)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
+              {speakState === 'generating' ? 'Generating… (~1 min)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
             </button>
           </div>
 

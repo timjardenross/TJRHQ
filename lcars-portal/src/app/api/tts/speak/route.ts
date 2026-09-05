@@ -15,21 +15,21 @@
 // intelligence/scheduler.py's _pregenerate_brief_audio, which warms the
 // cache for each daily brief the moment it's generated). Omitted for
 // live/dynamic content (e.g. the alerts read-aloud) — that always
-// generates fresh and pays the full ~35s latency, accepted for now
-// (Captain's call, testing phase).
+// generates fresh and pays the full cold-generation latency, accepted
+// for now (Captain's call, testing phase).
 
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 
-// 2026-09-05: without this, Vercel kills the whole function at its own
-// default execution limit (~10s on most plans) — separate from, and
-// shorter than, this route's own fetch timeout to Chatterbox. Confirmed
-// live: Vercel logs showed "DOMException [TimeoutError]: The operation
-// was aborted due to timeout" at ~13s, well before Chatterbox's own ~35s
-// generation could complete. 60s covers that with real headroom; the
-// fetch's own AbortSignal timeout below is kept under this so it fires
-// first with a clean error instead of an opaque platform-level kill.
-export const maxDuration = 60;
+// 2026-09-05: was 60s, raised to 120s same day after switching the
+// Chatterbox model Nano -> Turbo (quality fix — Nano's output was
+// confirmed "typewriter speed, couldn't understand"; Turbo is a real
+// bigger model, not a tunable setting). Turbo measured ~66s for a
+// ~90-char sentence on this VM (vs Nano's ~35s) — 60s would now cut off
+// almost every uncached request. 120s gives real headroom; the fetch's
+// own AbortSignal timeout below is kept under this so it fires first
+// with a clean error instead of an opaque platform-level kill.
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const session = await requireSession();
@@ -58,12 +58,10 @@ export async function POST(request: Request) {
         'X-TTS-Secret': ttsSecret,
       },
       body: JSON.stringify({ text, cache_key: cacheKey }),
-      // Cold generation on this VM measures ~35s for a short sentence —
-      // give it real headroom rather than Vercel's default fetch timeout.
-      // Kept under maxDuration (60s) so this fetch's own timeout can fire
-      // and produce a clean error, instead of Vercel's platform-level
-      // kill hitting first with an opaque one.
-      signal: AbortSignal.timeout(55_000),
+      // Kept under maxDuration (120s) so this fetch's own timeout can
+      // fire and produce a clean error, instead of Vercel's platform-
+      // level kill hitting first with an opaque one.
+      signal: AbortSignal.timeout(110_000),
     });
 
     if (!res.ok) {

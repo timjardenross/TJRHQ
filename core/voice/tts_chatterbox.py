@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """
-Starship Endeavour Chatterbox TTS — local Nano-model voice service.
+Starship Endeavour Chatterbox TTS — local voice service.
 
-Wraps resemble-ai/chatterbox (Nano, 110M, CPU-friendly) behind a small HTTP
-API so workbenches and LifeOS can request local, voice-cloneable speech
-without going through edge-tts (cloud).
+Wraps resemble-ai/chatterbox behind a small HTTP API so workbenches and
+LifeOS can request local, voice-cloneable speech without going through
+edge-tts (cloud). Defaults to the Turbo variant (GPT2_medium) — switched
+from Nano (GPT2_small) 2026-09-05 after a live listen test came back
+"typewriter speed, couldn't understand"; set CHATTERBOX_NANO=true to
+go back to Nano (faster, lower quality). See get_model()'s own comment
+for the full story.
 
 Endpoints:
     POST /api/tts/generate   {"text": str, "voice_ref": str|null, "cache_key": str|null} -> wav bytes
     GET  /api/tts/status     model load state + device
 
 Port: CHATTERBOX_PORT (default 8893)
-Model loads once at startup and stays resident (Nano is small enough
-to keep warm; no keep_alive eviction like the Ollama router).
+Model loads once at startup and stays resident (small enough to keep
+warm; no keep_alive eviction like the Ollama router).
 
 2026-09-05: measured ~35s to generate one ~90-char sentence on this VM's
 8-core AMD EPYC — confirmed live (top during a generate() call) the
@@ -84,10 +88,24 @@ def get_model():
     if _model is None:
         with _model_lock:
             if _model is None:
-                log.info("Loading Chatterbox Nano model (cpu)...")
+                # 2026-09-05: switched Nano -> Turbo default after a live
+                # listen test came back "typewriter speed, couldn't
+                # understand." Confirmed in chatterbox's own source
+                # (tts_turbo.py): Nano uses GPT2_small, Turbo uses
+                # GPT2_medium — a real model-capacity difference, not a
+                # tunable parameter (cfg_weight/exaggeration are explicitly
+                # unsupported on either variant per that same source —
+                # the library warns and ignores them if set). Turbo is
+                # slower; accepted, since latency was already the accepted
+                # tradeoff and intelligibility matters more. Still
+                # env-var-switchable in case Turbo's latency turns out to
+                # be a worse tradeoff in practice.
+                use_nano = os.environ.get("CHATTERBOX_NANO", "false").lower() in ("1", "true", "yes")
+                label = "Nano" if use_nano else "Turbo"
+                log.info("Loading Chatterbox %s model (cpu)...", label)
                 from chatterbox.tts_turbo import ChatterboxTurboTTS
-                _model = ChatterboxTurboTTS.from_pretrained(device="cpu", nano=True)
-                log.info("Chatterbox Nano loaded, sample rate=%s", _model.sr)
+                _model = ChatterboxTurboTTS.from_pretrained(device="cpu", nano=use_nano)
+                log.info("Chatterbox %s loaded, sample rate=%s", label, _model.sr)
     return _model
 
 
@@ -96,7 +114,7 @@ def status():
     return {
         "loaded": _model is not None,
         "device": "cpu",
-        "model": "chatterbox-nano",
+        "model": f"chatterbox-{_model.model_label.lower()}" if _model is not None else None,
         "default_voice_ref": DEFAULT_VOICE_REF,
     }
 
