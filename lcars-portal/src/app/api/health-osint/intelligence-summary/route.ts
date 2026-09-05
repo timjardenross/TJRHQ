@@ -2,17 +2,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import fs from 'fs';
+import path from 'path';
 
 const DAYS_365 = 365 * 86_400_000;
 
-// Captain-directed 2026-08-27 — mirrors
-// tools/health-osint/priority_domains.py (no shared config crosses the
-// Python/TypeScript boundary anywhere else in this platform; kept in sync
-// by comment cross-reference, same convention as MedicalView.tsx's
-// STIMULATION_STATE_LABEL). Chronic Pain coverage added same day
-// (migration 0178, parse_europepmc_chronic_pain.py) — 8 chronic_pain_*
-// sub-tags now included below.
-const PRIORITY_DOMAINS = new Set([
+// Captain-directed 2026-08-27. Moved into config/osint_intelligence_missions.json
+// (OSINT Ingestion Quality & Relevance Mission, Phase 2) so this and
+// tools/health-osint/priority_domains.py read one shared file instead of
+// two hand-synced copies. Falls back to the hard-coded set below if the
+// config file is missing/malformed, so a bad deploy never breaks this route.
+const FALLBACK_PRIORITY_DOMAINS = new Set([
   'mental_health', 'supplement', 'performance',
   'neuro_adhd', 'neuro_autism', 'neuro_audhd',
   'neuro_sensory', 'neuro_regulation', 'neuro_executive_function',
@@ -23,6 +23,31 @@ const PRIORITY_DOMAINS = new Set([
   'chronic_pain_neuropathic', 'chronic_pain_medication',
   'chronic_pain_treatment', 'chronic_pain_flare',
 ]);
+
+function loadPriorityDomains(): Set<string> {
+  try {
+    const REPO_ROOT = process.env.REPO_ROOT
+      ? path.resolve(process.env.REPO_ROOT)
+      : path.resolve(process.cwd(), '..');
+    const raw = fs.readFileSync(
+      path.join(REPO_ROOT, 'config', 'osint_intelligence_missions.json'),
+      'utf8'
+    );
+    const config = JSON.parse(raw);
+    const tiers = config?.health?.domain_tiers;
+    if (!tiers) throw new Error('missing health.domain_tiers in config');
+    const tags = new Set<string>();
+    for (const tier of Object.values(tiers) as Array<{ tags: string[] }>) {
+      for (const tag of tier.tags) tags.add(tag);
+    }
+    if (tags.size === 0) throw new Error('empty domain_tiers in config');
+    return tags;
+  } catch {
+    return FALLBACK_PRIORITY_DOMAINS;
+  }
+}
+
+const PRIORITY_DOMAINS = loadPriorityDomains();
 
 // Structural coverage gaps for health OSINT — HEALTH_OSINT_WORKBENCH.md section 7.
 // Static because these are domain-level blind spots, not derived from current signals.
