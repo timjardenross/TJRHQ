@@ -16,6 +16,11 @@ plain save if anything here fails. Design notes:
     score_breakdown / relevance_score / risk_rating (ratified separation).
   * Canonicals are saved first so near-duplicate members can reference the real
     canonical event_id (migration 0077 canonical_signal_id).
+  * OSINT Ingestion Quality & Relevance Mission (2026-09-05): also computes
+    mission_relevance/relevance_reason/novelty (relevance_gate.py, Phase 4/6)
+    and disposition/disposition_reason (disposition.py, Phase 8). Shadow-mode
+    only — these are new inspectable columns, they do not change suppressed/
+    signal_status/rank_score or anything any consumer currently reads.
 """
 
 from __future__ import annotations
@@ -98,6 +103,54 @@ def _score_fields(
     }
 
 
+def _relevance_and_disposition_fields(event: Any, pa: dict, *, is_duplicate: bool = False) -> dict:
+    """OSINT Ingestion Quality & Relevance Mission Phase 4/6/8. Never raises —
+    both underlying modules already guard internally, but this seam must
+    survive even if their imports fail (e.g. a malformed config file)."""
+    try:
+        from intelligence.classification.relevance_gate import assess_relevance
+        relevance = assess_relevance(event)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("assess_relevance failed for %s: %s", getattr(event, "raw_title", "")[:60], exc)
+        relevance = {"mission_relevance": None, "relevance_reason": None, "novelty": None}
+
+    if is_duplicate:
+        # Cluster membership is a stronger novelty signal than the
+        # suppression-reason-based guess relevance_gate makes — a fuzzy-
+        # dedup duplicate is definitionally DUPLICATE regardless of what
+        # should_suppress said about the canonical.
+        relevance["novelty"] = "DUPLICATE"
+
+    try:
+        from intelligence.classification.disposition import technical_disposition
+        disposition_input = {
+            "suppressed": getattr(event, "suppressed", False),
+            "suppression_reason": getattr(event, "suppression_reason", None),
+            "signal_status": pa.get("signal_status"),
+            "source_tier": pa.get("source_tier"),
+            "confidence_level": pa.get("confidence_level"),
+            "osint_confidence_level": getattr(event, "osint_confidence_level", None),
+            "criticality_score": getattr(event, "criticality_score", None),
+            "risk_rating": pa.get("risk_rating"),
+            "operational_relevance": getattr(event, "operational_relevance", None),
+            "banking_relevance": getattr(event, "banking_relevance", None),
+            "cps230_relevance": getattr(event, "cps230_relevance", False),
+            "rank_score": getattr(event, "rank_score", None),
+        }
+        disposition, disposition_reason = technical_disposition(disposition_input)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("technical_disposition failed for %s: %s", getattr(event, "raw_title", "")[:60], exc)
+        disposition, disposition_reason = None, None
+
+    return {
+        "mission_relevance": relevance.get("mission_relevance"),
+        "relevance_reason": relevance.get("relevance_reason"),
+        "novelty": relevance.get("novelty"),
+        "disposition": disposition,
+        "disposition_reason": disposition_reason,
+    }
+
+
 def cluster_events(events: list) -> list:
     """Fuzzy-cluster a batch of events. Returns SignalCluster list keyed by
     the events' batch index (as string id)."""
@@ -174,6 +227,7 @@ def enrich_and_save(
             ))
         except Exception as exc:  # scoring must never block persistence
             log.warning("Phase A scoring failed for %s: %s", getattr(ev, "raw_title", "")[:60], exc)
+        pa.update(_relevance_and_disposition_fields(ev, pa, is_duplicate=False))
         try:
             eid = store.save_event(ev, phase_a=pa)
         except Exception as exc:
@@ -197,6 +251,7 @@ def enrich_and_save(
                 "canonical_signal_id": canon_event_id,
                 "cluster_similarity": cluster.similarities.get(member),
             }
+            pa.update(_relevance_and_disposition_fields(ev, pa, is_duplicate=True))
             try:
                 if store.save_event(ev, phase_a=pa):
                     stats["duplicate"] += 1

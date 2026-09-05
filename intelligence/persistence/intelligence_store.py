@@ -776,6 +776,10 @@ _PHASE_A_FIELDS = (
     "confidence_level", "verified_against", "signal_owner",
     "score_method", "score_provenance", "llm_score_breakdown",
     "llm_relevance_score", "llm_risk_rating", "llm_provider",
+    # OSINT Ingestion Quality & Relevance Mission Phase 4/6/8 — see
+    # intelligence/classification/relevance_gate.py and disposition.py.
+    "mission_relevance", "relevance_reason", "novelty",
+    "disposition", "disposition_reason",
 )
 
 
