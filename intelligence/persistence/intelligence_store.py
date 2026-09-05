@@ -757,11 +757,25 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
     return len(rows) > 0
 
 
+# 2026-09-05 fix (OSINT Ingestion Quality & Relevance Mission): this
+# allowlist was silently dropping score_method/score_provenance/
+# llm_score_breakdown/llm_relevance_score/llm_risk_rating/llm_provider
+# before every save_event() call since shadow mode (score_dual_path in
+# intelligence/analysis/intelligence_analyst.py) went live 2026-07-30 —
+# phase_a_enrichment.py's shadow branch computed these every run, but
+# they never reached the DB. Confirmed live: 8445 events collected since
+# 2026-07-30, 0 with llm_relevance_score/llm_score_breakdown/non-empty
+# score_provenance despite ~66% of rows having the heuristic half. This
+# starved evaluate_shadow_mode_data.py (Issue 15) and silently defeated
+# selective_augmentation.py (Issue 16, which also depends on
+# score_method actually reaching the DB to be inspectable/auditable).
 _PHASE_A_FIELDS = (
     "source_tier", "signal_status", "score_breakdown", "relevance_score",
     "risk_rating", "canonical_signal_id", "cluster_similarity",
     "analysis_summary", "services_affected", "customers_affected",
     "confidence_level", "verified_against", "signal_owner",
+    "score_method", "score_provenance", "llm_score_breakdown",
+    "llm_relevance_score", "llm_risk_rating", "llm_provider",
 )
 
 
