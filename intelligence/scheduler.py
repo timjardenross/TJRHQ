@@ -551,6 +551,47 @@ def _start_scheduler() -> None:
 _morning_brief_sent_at: str | None = None
 
 
+def _pregenerate_brief_audio(brief_type: str) -> None:
+    """Fire-and-forget: pre-generate + cache the just-sent brief's audio via
+    the Chatterbox TTS service (core/voice/tts_chatterbox.py, cache_key
+    support added 2026-09-05), so the Hub/Captain's Chair "read brief
+    aloud" button plays instantly instead of the ~35s cold-generation
+    latency measured live on this VM. Best-effort — brief delivery has
+    already succeeded by the time this runs; a TTS failure here must never
+    surface as a brief-delivery failure."""
+    try:
+        import re
+        import requests
+        sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
+        from heartbeat import supabase_get
+
+        rows = supabase_get(
+            f"captains_daily_briefs?brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id,brief_text"
+        )
+        if not rows:
+            return
+        row = rows[0]
+        clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
+        clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
+        tts_url = os.environ.get("TTS_SERVICE_URL", "")
+        tts_secret = os.environ.get("TTS_SERVICE_SECRET", "")
+        if not tts_url or not tts_secret:
+            log.info("Brief audio pre-generation skipped — TTS_SERVICE_URL/TTS_SERVICE_SECRET not configured")
+            return
+
+        resp = requests.post(
+            f"{tts_url.rstrip('/')}/api/tts/generate",
+            headers={"X-TTS-Secret": tts_secret},
+            json={"text": clean_text, "cache_key": f"brief-{row['id']}"},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        log.info("Brief audio pre-generated and cached: brief_type=%s id=%s", brief_type, row["id"])
+    except Exception as exc:
+        log.warning("Brief audio pre-generation failed (non-blocking): %s", exc)
+
+
 def _morning_brief_job() -> None:
     global _morning_brief_sent_at
     from datetime import datetime, timezone
@@ -570,6 +611,7 @@ def _morning_brief_job() -> None:
             # the actual live morning-brief send today, so it also heartbeats the
             # legacy domain_key rather than leaving it permanently "never succeeded".
             _record_heartbeat("morning_brief", "ok", detail="morning brief delivered (via captains_brief/XO Telegram)")
+            _pregenerate_brief_audio("morning")
         else:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
@@ -595,6 +637,7 @@ def _midday_check_job() -> None:
         if signals:
             log.info("Midday check: %d new signals — delivering update", len(signals))
             send_brief("midday", signals=signals)
+            _pregenerate_brief_audio("midday")
         else:
             log.info("Midday check: no new significant signals — suppressing brief")
     except Exception as exc:
@@ -611,6 +654,8 @@ def _eod_brief_job() -> None:
         _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
                            detail="eod brief" if ok else None,
                            error_message=None if ok else "eod brief delivery failed")
+        if ok:
+            _pregenerate_brief_audio("eod")
     except Exception as exc:
         log.error("EOD brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))

@@ -22,7 +22,7 @@ import {
   useCalendarToday,
   useReminders,
 } from '@/lib/captainsChairData';
-import { speakAloud } from '@/lib/speakAloud';
+import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import type { StateTone } from '@/lib/types';
 
 // Executive-summary redesign (2026-08-22): Captain's Chair no longer runs a
@@ -347,6 +347,13 @@ export default function CaptainsChairWorkbench() {
   // (zero new backend, works on any tablet browser today) and picks an
   // en-AU voice when the device has one, same intent as the doc's design
   // even though the specific voice differs.
+  const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
+
+  // 2026-09-05: switched from browser SpeechSynthesis to the Chatterbox
+  // TTS service — see hub/page.tsx's matching comment for the full
+  // history (five confirmed iOS Safari SpeechSynthesis bugs in a row on
+  // the real device). No cache_key — live/dynamic content, always
+  // generates fresh, ~35s accepted for now.
   function speakAlertsAloud() {
     const parts: string[] = [];
     if (emergency?.count) {
@@ -361,7 +368,7 @@ export default function CaptainsChairWorkbench() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    speakAloud(parts.join(' '));
+    playViaChatterbox(parts.join(' '), { onStateChange: setSpeakState });
   }
 
   return (
@@ -430,9 +437,10 @@ export default function CaptainsChairWorkbench() {
             <button
               type="button"
               onClick={speakAlertsAloud}
-              className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              disabled={speakState === 'generating' || speakState === 'playing'}
+              className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
             >
-              🔊 Read aloud
+              {speakState === 'generating' ? 'Generating… (~35s)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
             </button>
           </div>
 

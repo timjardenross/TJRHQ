@@ -64,3 +64,11 @@ data/memory_graph.db*
 # 2026-09-05: caught a leak — .infisical-auth.env didn't match .env/.env.*
 .infisical-auth.env
 *-auth.env
+
+# Chatterbox TTS (core/voice/tts_chatterbox.py, real tracked source) — its
+# venv (torch/transformers, multi-GB) and generated-audio disk cache don't
+# match the venv/ patterns above (different literal name) and were found
+# untracked-but-not-ignored on the VM, same shape of gap that caused the
+# .infisical-auth.env leak. Ignored explicitly before that repeats.
+core/voice/chatterbox-venv/
+core/voice/cache/

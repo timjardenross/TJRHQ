@@ -25,6 +25,7 @@
 // other, not the same page as this one.
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { SituationBadge } from '@/components/SituationBadge';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
@@ -42,7 +43,7 @@ import {
   useCalendarToday,
   useReminders,
 } from '@/lib/captainsChairData';
-import { speakAloud } from '@/lib/speakAloud';
+import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import type { StateTone } from '@/lib/types';
 
 export default function LifeOSHub() {
@@ -62,6 +63,17 @@ export default function LifeOSHub() {
   const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
   const agentHealthTone: StateTone = (agentHealth?.failedCount ?? 0) > 0 ? 'crit' : 'ok';
 
+  const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
+
+  // 2026-09-05: switched from browser SpeechSynthesis (src/lib/speakAloud.ts)
+  // to the Chatterbox TTS service (real generated audio via <audio>
+  // playback) after five confirmed iOS Safari SpeechSynthesis bugs on the
+  // Captain's actual iPad in a row. No cache_key here — this content is
+  // live/dynamic (current alert state), so it always generates fresh and
+  // pays the full ~35s cold-generation latency on this VM's hardware.
+  // Accepted for now, Captain's call (testing phase) — see
+  // core/voice/tts_chatterbox.py's module docstring for the measured
+  // latency and why it can't easily be reduced further.
   function speakAlertsAloud() {
     const parts: string[] = [];
     if (emergency?.count) {
@@ -76,7 +88,7 @@ export default function LifeOSHub() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    speakAloud(parts.join(' '));
+    playViaChatterbox(parts.join(' '), { onStateChange: setSpeakState });
   }
 
   return (
@@ -145,9 +157,10 @@ export default function LifeOSHub() {
               <button
                 type="button"
                 onClick={speakAlertsAloud}
-                className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                disabled={speakState === 'generating' || speakState === 'playing'}
+                className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
               >
-                🔊 Read aloud
+                {speakState === 'generating' ? 'Generating… (~35s)' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>
             </div>
           </div>

@@ -22,6 +22,7 @@
 
 import { useEffect, useState } from 'react';
 import { WorkbenchPanel } from './WorkbenchPanel';
+import { playViaChatterbox, type TtsPlaybackState } from '@/lib/ttsPlayer';
 
 interface Brief {
   id: string;
@@ -72,6 +73,13 @@ function parseBriefText(raw: string): BriefLine[] {
   });
 }
 
+// Flat, spoken-friendly text for TTS — unlike parseBriefText (which keeps
+// line structure for on-screen display), speech doesn't need visual
+// paragraph breaks, just tags stripped and whitespace normalized.
+function toSpokenText(raw: string): string {
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function isToday(dateStr: string): boolean {
   const d = new Date(dateStr);
   const now = new Date();
@@ -86,6 +94,20 @@ export function TodaysBriefPanel() {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
+
+  // cache_key = brief-<id> — intelligence/scheduler.py's
+  // _pregenerate_brief_audio() warms this exact key the moment the brief
+  // is generated (07:00/12:30/18:00 AEST), so this should play near-
+  // instantly rather than paying the ~35s cold-generation latency the
+  // Hub's live-alerts button accepts.
+  function speakBriefAloud() {
+    if (!brief) return;
+    playViaChatterbox(toSpokenText(brief.brief_text), {
+      cacheKey: `brief-${brief.id}`,
+      onStateChange: setSpeakState,
+    });
+  }
 
   useEffect(() => {
     fetch('/api/captains-daily-brief')
@@ -128,6 +150,14 @@ export function TodaysBriefPanel() {
             <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
               {new Date(brief.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
+            <button
+              type="button"
+              onClick={speakBriefAloud}
+              disabled={speakState === 'generating' || speakState === 'playing'}
+              className="ml-auto text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
+            >
+              {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
+            </button>
           </div>
           <div className="space-y-1">
             {parseBriefText(brief.brief_text).map((line, i) => {
