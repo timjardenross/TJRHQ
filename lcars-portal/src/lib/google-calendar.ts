@@ -16,12 +16,21 @@ const CALENDAR_EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 const TIMEZONE = 'Australia/Brisbane';
 
-// 2026-09-05: widened to also cover Google Tasks (google-tasks.ts) — same
-// account, same OAuth connection, one reconnect needed since a stored
-// refresh token's scope is fixed at grant time. GOOGLE_CALENDAR_SCOPE kept
-// as an alias so nothing importing the old name breaks.
-export const GOOGLE_OAUTH_SCOPES =
-  'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks';
+// 2026-09-05: widened again to cover Gmail/Drive/Photos — all read-only,
+// no feature built against any of the three yet (this is legwork ahead of
+// need, not a shipped capability). Read-only kept deliberately: least-
+// privilege until a real write use case shows up. Same account, same
+// OAuth connection — another reconnect needed, same drill as last time,
+// since a stored refresh token's scope is fixed at grant time.
+// GOOGLE_CALENDAR_SCOPE kept as an alias so nothing importing the old name
+// breaks.
+export const GOOGLE_OAUTH_SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/photoslibrary.readonly',
+].join(' ');
 export const GOOGLE_CALENDAR_SCOPE = GOOGLE_OAUTH_SCOPES;
 
 export class GoogleCalendarDisconnectedError extends Error {
