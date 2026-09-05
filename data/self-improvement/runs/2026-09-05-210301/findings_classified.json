@@ -1,0 +1,98 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Duplicate self-improvement policy configuration files",
+      "evidence": [
+        {
+          "type": "duplicate_file",
+          "observation": "Both JSON and YAML formats exist concurrently for self_improvement_policy",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "duplicate_file",
+          "observation": "Co-existing YAML policy file risks drift between configuration definitions",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single configuration format for self_improvement_policy and remove the duplicate file"
+      },
+      "expected_benefit": "Prevents configuration desynchronization and ambiguous runtime policy loading",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Ollama available models unmapped in routing policy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Models gemma4:12b, qwen3.5:9b, qwen3.5:4b, and qwen3.5:2b are available in Ollama but not assigned to any router task types",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Review routing policy to evaluate whether gemma4:12b or qwen3.5 variants should supersede existing tier models or be purged from disk"
+      },
+      "expected_benefit": "Ensures local model capacity is efficiently utilized and clarifies model lifecycle management",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: model_catalogue_drift; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "performance_gap",
+      "title": "Model cold start latency and unpopulated loaded models",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Router average latency is 7478ms while loaded_models is currently empty",
+          "location": "http://localhost:11434"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Configure keep-alive pre-warming or persistence for frequent local models such as gemma3:4b to avoid repeated cold-start loading overhead"
+      },
+      "expected_benefit": "Reduces invocation latency for high-frequency routing tasks like classify-capture and summarise-note",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: performance_gap; Evidence strength: None; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "knowledge_health",
+      "title": "Dependency node_modules polluting documentation index",
+      "evidence": [
+        {
+          "type": "manual_inspection",
+          "observation": "1932 doc files detected because scanner audits lcars-portal/node_modules packages",
+          "location": "lcars-portal/node_modules"
+        }
+      ],
+      "confidence": 0.98,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Update repository audit ignore patterns to exclude node_modules directories across all audit passes"
+      },
+      "expected_benefit": "Accurate metrics for repository documentation health and faster filesystem audits",
+      "finding_id": "FND-004",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: knowledge_health; Evidence strength: None; Confidence: 0.98; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

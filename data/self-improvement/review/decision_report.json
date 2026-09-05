@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-04T21:01:57.148437+00:00",
+  "timestamp": "2026-09-05T21:04:41.415535+00:00",
   "model_confidence": 1.0,
   "model_confidence_rating": "high",
   "total_decisions": 3,
@@ -13,12 +13,15 @@
     "FND-003"
   ],
   "auto_remediation_eligible_count": 3,
-  "manual_review_needed": [],
-  "manual_review_count": 0,
+  "manual_review_needed": [
+    "FND-004"
+  ],
+  "manual_review_count": 1,
   "finding_scores": {
     "FND-001": 0.95,
     "FND-002": 0.95,
-    "FND-003": 0.95
+    "FND-003": 0.95,
+    "FND-004": 0.5
   },
   "recommendations": [
     "Model confidence is 100% \u2014 safe for auto-remediation",
