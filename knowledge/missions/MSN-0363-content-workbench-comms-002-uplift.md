@@ -79,5 +79,5 @@ Per original brief §26, unchanged, plus: no edits landed in `WorkbenchShell.tsx
 ## 9. Open Decisions for Captain
 
 - Confirm mission ID (provisional MSN-0363) against canonical registry before this is cited elsewhere.
-- Confirm the Gmail label/query to bound signal intake to (e.g. a specific Gmail label name) before Phase 7 starts.
-- Confirm whether Phase 7 (Gmail) should wait until after `adaptive-themes-workbench-redesign` merges, given it's the most greenfield phase and lowest urgency.
+- Gmail signal adapter (§17): deferred by Captain 2026-09-05 — skipped this pass, revisit once a bounding label/query is chosen.
+- Calendar write scope (§16): Captain confirmed 2026-09-05 — `GOOGLE_OAUTH_SCOPES` widened from `calendar.readonly` to `calendar.events`, `createCalendarEvent`/`updateCalendarEventTime`/`deleteCalendarEvent` added to `lib/google-calendar.ts`, schedule endpoint now creates/updates/deletes a real event per scheduled item. **Requires a one-time reconnect** at `/api/auth/google-calendar/connect` for the new scope to take effect on the already-stored token — until then scheduling still works (DB-only) with a surfaced warning, per the route's own fallback.

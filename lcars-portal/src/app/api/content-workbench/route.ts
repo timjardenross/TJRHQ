@@ -37,6 +37,7 @@ const SELECT =
   'research_notes, research_sources, research_angle, research_completed_at, ' +
   'qa_checklist, qa_status, reviewed_by, reviewed_at, ' +
   'rank_score, capture_scored, captain_focus, ' +
+  'scheduled_for, calendar_event_id, ' +
   'created_at, updated_at';
 
 interface Row {
@@ -47,6 +48,7 @@ interface Row {
   research_completed_at: string | null;
   qa_checklist: unknown; qa_status: string | null; reviewed_by: string | null; reviewed_at: string | null;
   rank_score: number | null; capture_scored: boolean; captain_focus: boolean;
+  scheduled_for: string | null; calendar_event_id: string | null;
   created_at: string; updated_at: string;
 }
 
