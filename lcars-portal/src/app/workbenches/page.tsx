@@ -6,41 +6,53 @@
 // home/page.tsx) — this directory of direct tiles is the one canonical
 // landing surface, not an alternative to something else.
 //
-// Tile content now comes from lib/workbenches.ts's LIVE_WORKBENCHES,
-// shared with WorkbenchShell's persistent switcher, so the two lists
-// can't drift the way this file's own local array once did (its Content
-// Workbench description kept describing a "Captain approval in Decide"
-// step for weeks after that step was removed from the actual pipeline).
+// Tile content comes from lib/workbenches.ts's LIVE_WORKBENCHES, shared with
+// WorkbenchShell's persistent switcher, so the two lists can't drift the
+// way this file's own local array once did (its Content Workbench
+// description kept describing a "Captain approval in Decide" step for
+// weeks after that step was removed from the actual pipeline).
+//
+// Redesigned 2026-09-05 (Adaptive Themes + Home/Workbench Redesign
+// mission, §7-9) — welcome header + theme-specific tagline, icon-bearing
+// WorkbenchCard grid, global Sidebar (this page doesn't use WorkbenchShell
+// itself — it's the one page that predates it — so it renders Sidebar
+// directly, matching the Captain's "global sidebar everywhere" call rather
+// than being the one page left out of it). Every existing route/position
+// unchanged; this only touches how they're presented.
 'use client';
 
-import Link from 'next/link';
-import { Card, QuickCapture } from '@/components/ui';
+import { QuickCapture, Sidebar, ThemeSelector, WorkbenchCard } from '@/components/ui';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
+import { useTheme, THEME_TAGLINE } from '@/lib/theme';
 
 export default function Workbenches() {
+  const [theme] = useTheme();
+
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="mb-1 font-serif text-2xl text-wb-ink">Welcome</h1>
-        <p className="mb-8 text-[13px] text-wb-ink2">
-          Choose a workbench or surface to navigate to. Every real experience is reachable from here.
-        </p>
-        {/* 2026-08-09 mobile/iPad review (P3): stayed 2-col from sm all the
-            way through desktop, never using iPad landscape/desktop's extra
-            width. lg:grid-cols-3 only kicks in at 1024px+, so mobile/iPad
-            portrait behavior (1-col below sm, 2-col sm-lg) is unchanged. */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {LIVE_WORKBENCHES.map((t) => (
-            <Link key={t.href} href={t.href} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep rounded-lg">
-              <Card className="h-full transition hover:-translate-y-px hover:border-wb-sage-deep">
-                <h2 className="mb-1.5 font-serif text-[16px] text-wb-ink">{t.title}</h2>
-                <p className="text-[13px] text-wb-ink2">{t.description}</p>
-              </Card>
-            </Link>
-          ))}
+      <div className="flex">
+        <Sidebar />
+        <div className="min-w-0 flex-1">
+          <header className="border-b border-wb-line bg-wb-bg/80 px-6 py-4 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center justify-end">
+              <ThemeSelector />
+            </div>
+          </header>
+          <main className="mx-auto max-w-6xl px-6 py-10">
+            <h1 className="mb-1 font-serif text-2xl text-wb-ink">Welcome, TJR</h1>
+            <p className="mb-1 text-[13px] text-wb-ink2">
+              Choose a workbench or surface to navigate to. Every real experience is reachable from here.
+            </p>
+            <p className="mb-8 text-[13px] italic text-wb-sage-deep">{THEME_TAGLINE[theme]}</p>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {LIVE_WORKBENCHES.map((entry) => (
+                <WorkbenchCard key={entry.href} entry={entry} />
+              ))}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
       <QuickCapture />
       <MobileCommandBar />
     </div>

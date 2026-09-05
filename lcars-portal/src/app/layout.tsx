@@ -74,9 +74,31 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// Adaptive Themes mission (2026-09-05): reads the saved theme choice and
+// sets it on <html> synchronously, BEFORE hydration/first paint — the
+// standard flash-of-wrong-theme fix for localStorage-based (not cookie/
+// SSR-based) theming. Deliberately a tiny inline script, not a dependency
+// (next-themes etc.) — the actual requirement is one localStorage read and
+// one attribute set. Falls back silently to the default (archive, via
+// globals.css's bare :root block) if localStorage is unavailable or holds
+// an unrecognised value.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var t = localStorage.getItem('tjr-hq-theme');
+    if (t && ['archive','command','midnight','horizon','sanctuary'].indexOf(t) !== -1) {
+      document.documentElement.setAttribute('data-theme', t);
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={sourceSerif.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         {children}
       </body>

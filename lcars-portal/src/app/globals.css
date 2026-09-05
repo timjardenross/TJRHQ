@@ -8,6 +8,100 @@
   color-scheme: light;
 }
 
+/* ── Adaptive themes (mission: Adaptive Themes + Home/Workbench Redesign,
+   2026-09-05) ────────────────────────────────────────────────────────────
+   5 selectable visual environments, all feeding the same `wb-*` Tailwind
+   tokens (tailwind.config.ts now reads these as var(--wb-*) instead of
+   literal hex) — structure/routes/workbench positions never change between
+   themes, only these values do. Selected via src/lib/theme.ts's
+   useTheme()/[data-theme] on <html>, set before hydration by the inline
+   script in layout.tsx to avoid a flash of the wrong theme.
+
+   Status colours (ok/warn/crit/-on, gold, navy, crit-deep) are
+   DELIBERATELY IDENTICAL across every theme — "colour should communicate
+   atmosphere, not status" (mission brief §2) — only background/surface/
+   text/accent/border shift per theme. All text/accent pairings below are
+   contrast-validated (see conversation) against both --wb-bg and
+   --wb-surface: text-primary >=11:1, text-secondary/sage-deep >=4.5:1
+   (AA body text), sage (fills/borders/large-text only, same two-tier
+   pattern the existing Archive palette already used for sage/sage-deep)
+   >=3:1.
+
+   --wb-surface-raised is new (existing bg-wb-surface call sites are
+   unaffected — they read --wb-surface, unchanged) — for new components
+   (Sidebar, ThemeSelector, WorkbenchCard) that want a second, brighter
+   surface tier on top of the base card surface. */
+:root,
+:root[data-theme='archive'] {
+  --wb-bg: #F5F1EA;
+  --wb-surface: #FCFBF8;
+  --wb-surface-raised: #FFFFFF;
+  --wb-line: #DDD8CF;
+  --wb-ink: #273248;
+  --wb-ink2: #657080;
+  --wb-sage: #176D70;
+  --wb-sage-deep: #125759;
+}
+
+:root[data-theme='command'] {
+  --wb-bg: #F3F5F6;
+  --wb-surface: #FFFFFF;
+  --wb-surface-raised: #FFFFFF;
+  --wb-line: #D9E0E3;
+  --wb-ink: #17263A;
+  --wb-ink2: #607080;
+  --wb-sage: #006C70;
+  --wb-sage-deep: #005154;
+}
+
+:root[data-theme='midnight'] {
+  color-scheme: dark;
+  --wb-bg: #111820;
+  --wb-surface: #19232D;
+  --wb-surface-raised: #202C37;
+  --wb-line: #2C3A46;
+  --wb-ink: #E7EDF2;
+  --wb-ink2: #A4B2BE;
+  --wb-sage: #66B8BA;
+  --wb-sage-deep: #66B8BA;
+}
+
+:root[data-theme='horizon'] {
+  --wb-bg: #EEF4F5;
+  --wb-surface: #F8FBFB;
+  --wb-surface-raised: #FFFFFF;
+  --wb-line: #D6E4E7;
+  --wb-ink: #203342;
+  --wb-ink2: #5A6B74;
+  --wb-sage: #3B7F8C;
+  --wb-sage-deep: #2C5F69;
+}
+
+:root[data-theme='sanctuary'] {
+  --wb-bg: #F4F0E8;
+  --wb-surface: #FAF8F3;
+  --wb-surface-raised: #FFFFFF;
+  --wb-line: #DDD8CE;
+  --wb-ink: #293240;
+  --wb-ink2: #6D726E;
+  --wb-sage: #667C78;
+  --wb-sage-deep: #4C5D5A;
+}
+
+/* Status/constant tokens — same across all 5 themes, defined once on
+   :root so no theme block above needs to repeat them. */
+:root {
+  --wb-navy: #1B365D;
+  --wb-gold: #C9A84C;
+  --wb-ok: #6B8E6B;
+  --wb-warn: #B57A34;
+  --wb-crit: #C85A54;
+  --wb-ok-on: #3F633F;
+  --wb-warn-on: #8A5A1B;
+  --wb-crit-on: #A23A34;
+  --wb-crit-deep: #8a2f2a;
+}
+
 @layer base {
   /* Neutral, un-branded default — both route groups paint their own full-
      height background (AppLayout's own wrapper div for (app)/*,
@@ -20,6 +114,11 @@
   body {
     @apply bg-white text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
+    /* Gentle theme-switch cross-fade (mission §15: ~150-200ms only) —
+       prefers-reduced-motion below already zeroes all transition-duration
+       globally, so this degrades to an instant swap for anyone who wants
+       that. */
+    transition: background-color 180ms ease, color 180ms ease;
   }
 
   h1,

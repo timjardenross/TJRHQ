@@ -11,7 +11,6 @@ export interface Preferences {
   briefingTime: string;
   notifyTelegram: boolean;
   notifyInApp: boolean;
-  theme: 'dark';
 }
 
 const DEFAULTS: Preferences = {
@@ -23,7 +22,6 @@ const DEFAULTS: Preferences = {
   briefingTime: '07:00',
   notifyTelegram: true,
   notifyInApp: true,
-  theme: 'dark',
 };
 
 const STORAGE_KEY = 'lcars-prefs';

@@ -32,6 +32,8 @@ import { ReactNode } from 'react';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { QuickCapture } from './QuickCapture';
+import { Sidebar } from './Sidebar';
+import { ThemeSelector } from './ThemeSelector';
 
 const GLOBAL_HOME = '/workbenches';
 
@@ -90,44 +92,53 @@ export function WorkbenchShell({
       >
         Skip to content
       </a>
-      <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
-        <div className={`mx-auto flex ${shellWidth} items-center gap-3 px-6 py-4`}>
-          <Link
-            href={GLOBAL_HOME}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
-            aria-label="Workbenches home"
-          >
-            TJR
-          </Link>
-          <div className="leading-tight">
-            <div className="font-serif text-[17px]">{title}</div>
-            <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
-          </div>
-          <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
-            {right}
-            <WorkbenchSwitcher />
-          </span>
+      {/* Adaptive Themes mission (2026-09-05): Sidebar is global chrome on
+          every *-workbench page, not just Home — Captain's explicit call.
+          xl:flex on Sidebar itself, no extra breakpoint class needed here. */}
+      <div className="flex">
+        <Sidebar />
+        <div className="min-w-0 flex-1">
+          <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
+            <div className={`mx-auto flex ${shellWidth} items-center gap-3 px-6 py-4`}>
+              <Link
+                href={GLOBAL_HOME}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
+                aria-label="Workbenches home"
+              >
+                TJR
+              </Link>
+              <div className="leading-tight">
+                <div className="font-serif text-[17px]">{title}</div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
+              </div>
+              <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
+                {right}
+                <ThemeSelector />
+                <WorkbenchSwitcher />
+              </span>
+            </div>
+            {tabs && (
+              <div className={`mx-auto ${shellWidth} px-6 pb-4`}>
+                {tabs}
+              </div>
+            )}
+          </header>
+          <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
+            {back && (
+              <Link
+                href={back.href}
+                className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+              >
+                ← {back.label}
+              </Link>
+            )}
+            {children}
+            <p className="mt-8 text-center text-[11px] text-wb-ink2">
+              {tagline}
+            </p>
+          </main>
         </div>
-        {tabs && (
-          <div className={`mx-auto ${shellWidth} px-6 pb-4`}>
-            {tabs}
-          </div>
-        )}
-      </header>
-      <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
-        {back && (
-          <Link
-            href={back.href}
-            className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
-          >
-            ← {back.label}
-          </Link>
-        )}
-        {children}
-        <p className="mt-8 text-center text-[11px] text-wb-ink2">
-          {tagline}
-        </p>
-      </main>
+      </div>
       <QuickCapture />
       <MobileCommandBar />
     </div>

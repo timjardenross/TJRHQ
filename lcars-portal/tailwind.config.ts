@@ -58,30 +58,38 @@ const config: Config = {
         // fails AA badly as text at any size; the real site only ever uses
         // it for blockquote borders, never text). Validate any new pairing
         // with the method in docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        // 2026-09-05 (Adaptive Themes mission): every value below now reads
+        // a CSS custom property (defined per-theme in globals.css, keyed by
+        // [data-theme] on <html>) instead of a literal hex — same class
+        // names everywhere (bg-wb-bg, text-wb-ink2, ...), so no call site
+        // anywhere in the app needed to change. `archive` theme's variable
+        // values are what used to be hardcoded here directly; every other
+        // theme just supplies different values for the same variables.
         wb: {
-          bg:       '#F7F4EE',
-          surface:  '#FFFFFF',
-          line:     '#E3E8E4',
-          ink:      '#1A2035',
-          ink2:     '#475569',
-          sage:     '#2E8B8B',
-          'sage-deep': '#0F5B5D',
-          navy:     '#1B365D',
-          gold:     '#C9A84C',
-          ok:       '#6B8E6B',
-          warn:     '#B57A34',
-          crit:     '#C85A54',
+          bg:       'var(--wb-bg)',
+          surface:  'var(--wb-surface)',
+          'surface-raised': 'var(--wb-surface-raised)',
+          line:     'var(--wb-line)',
+          ink:      'var(--wb-ink)',
+          ink2:     'var(--wb-ink2)',
+          sage:     'var(--wb-sage)',
+          'sage-deep': 'var(--wb-sage-deep)',
+          navy:     'var(--wb-navy)',
+          gold:     'var(--wb-gold)',
+          ok:       'var(--wb-ok)',
+          warn:     'var(--wb-warn)',
+          crit:     'var(--wb-crit)',
           // AA-safe (>=4.5:1) text/solid-button variants of the status hues.
           // sage/ok/warn/crit fail AA as small text or white-on-fill; use these
           // for pill text and white-on-colour buttons. Contrast validated
-          // (docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md method).
-          'ok-on':   '#3F633F',
-          'warn-on': '#8A5A1B',
-          'crit-on': '#A23A34',
+          // (docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md method) — and,
+          // as of the theme system, per-theme (see globals.css).
+          'ok-on':   'var(--wb-ok-on)',
+          'warn-on': 'var(--wb-warn-on)',
+          'crit-on': 'var(--wb-crit-on)',
           // Gradient endpoint for the escalation "critical incident" banner
           // (white text on top — high contrast preserved at both ends).
-          // Promoted from a hardcoded bg-[#8a2f2a] arbitrary value.
-          'crit-deep': '#8a2f2a',
+          'crit-deep': 'var(--wb-crit-deep)',
         },
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)

@@ -17,11 +17,34 @@
 // comms-workbench's deletion, 2026-08-29, for the pattern of removing a
 // page outright once it's confirmed superseded rather than leaving it to
 // rot half-reachable).
+//
+// `icon` added 2026-09-05 (Adaptive Themes + Home/Workbench Redesign
+// mission, §13) — a component reference (lucide-react), not a string name,
+// so a typo fails at compile time rather than silently rendering nothing.
+
+import type { LucideIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Compass,
+  BarChart3,
+  ListChecks,
+  Radar,
+  Heart,
+  TriangleAlert,
+  Users,
+  Dumbbell,
+  FileText,
+  MessageSquare,
+  Archive as ArchiveIcon,
+  Activity,
+  Lightbulb,
+} from 'lucide-react';
 
 export interface WorkbenchEntry {
   href: string;
   title: string;
   description: string;
+  icon: LucideIcon;
 }
 
 // Order below is deliberate, not alphabetical: command/triage surfaces
@@ -33,70 +56,84 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     href: '/hub',
     title: 'LifeOS Hub',
     description: 'Always-on glance view — situation strip, live alerts, calendar, reminders, and today\'s briefing. The front door.',
+    icon: LayoutDashboard,
   },
   {
     href: '/captains-chair-workbench',
     title: "Captain's Chair",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
+    icon: Compass,
   },
   {
     href: '/weekly-review',
     title: 'Weekly Review',
     description: 'One calm weekly pass across every workbench — what happened, what slipped, what needs attention, what is safe to ignore.',
+    icon: BarChart3,
   },
   {
     href: '/ready-room',
     title: 'Ready Room',
     description: 'Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming.',
+    icon: ListChecks,
   },
   {
     href: '/intelligence-workbench',
     title: 'Technical OSINT Workbench',
     description: 'Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation.',
+    icon: Radar,
   },
   {
     href: '/health-osint',
     title: 'Health OSINT Workbench',
     description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
+    icon: Heart,
   },
   {
     href: '/emergency-alert-hub-workbench',
     title: 'Emergency Alert Hub',
     description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
+    icon: TriangleAlert,
   },
   {
     href: '/human-systems-workbench',
     title: 'Human Systems Workbench',
     description: 'Recovery posture and medical tracking in one collection - live from the recovery-pulse signal.',
+    icon: Users,
   },
   {
     href: '/physical-readiness',
     title: 'Physical Readiness',
     description: 'Adaptive gym decision-support - builds a safe session from the equipment on hand, plus exercise library and workout history.',
+    icon: Dumbbell,
   },
   {
     href: '/content-workbench',
     title: 'Content Workbench',
     description: 'Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline.',
+    icon: FileText,
   },
   {
     href: '/advisory-workbench',
     title: 'Advisory Workbench',
     description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
+    icon: MessageSquare,
   },
   {
     href: '/briefs',
     title: 'Briefs',
     description: 'The intelligence brief archive - every synthesized brief across every domain, filterable by review/publish status.',
+    icon: ArchiveIcon,
   },
   {
     href: '/agent-status-workbench',
     title: 'Agent & Job Status',
     description: 'Scheduler job health, agent run history, and failure triage across all automated platform tasks.',
+    icon: Activity,
   },
   {
     href: '/self-improvement-findings',
     title: 'Self-Improvement Findings',
     description: 'Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence.',
+    icon: Lightbulb,
   },
 ];
