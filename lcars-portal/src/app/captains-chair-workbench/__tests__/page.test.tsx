@@ -3,17 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
-// 2026-08-29 council follow-up ("fresh look, further holes" — Captain's
-// Chair card council): smoke-test the two new Situation Strip badges
-// (Emergency Alerts, Background Systems). This page had zero test
-// coverage before this session; a full precise mock of every one of its
-// ~8 data sources is disproportionate to what's changing here, so the
-// hooks this session didn't touch are mocked at the module boundary
-// (established convention, see lib/__tests__/decide.test.ts) and only the
-// two new hooks' real fetch-driven logic runs.
+// MSN-0364 Captain's Chair redesign: the 5 equal-weight SituationBadge
+// cards this file's original tests asserted on are gone, replaced by one
+// interpreted Command Status + a Needs You decision queue. These tests
+// are the deliberate replacement (mission doc §8's acceptance criterion),
+// not a silent drop — same underlying data flows (emergency alerts, agent
+// health, curated oldest-item), asserted against the new copy/structure.
 
 vi.mock('@/lib/useROSData', () => ({
-  useROSData: () => ({ posture: { posture: 'STABLE', capacity_band: null }, postureFetchFailed: false }),
+  useROSData: () => ({
+    posture: { posture: 'STABLE', capacity_band: 'GOOD', posture_message: '', capacity_message: '', best_window: '', mission_guidance: '', data_available: true },
+    postureFetchFailed: false,
+  }),
 }));
 vi.mock('@/lib/useAlerts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/useAlerts')>();
@@ -37,12 +38,14 @@ vi.mock('@/lib/supabase-browser', () => ({
   createSupabaseBrowserClient: () => ({
     from: () => ({
       select: () => ({
+        eq: () => Promise.resolve({ data: [], error: null }),
         in: () => ({
           order: () => ({
             limit: () => Promise.resolve({ data: [], error: null }),
           }),
         }),
       }),
+      insert: () => Promise.resolve({ error: null }),
     }),
   }),
 }));
@@ -75,8 +78,8 @@ function mockFetchByUrl(routes: Record<string, unknown>) {
   }));
 }
 
-describe('Captain\'s Chair — Situation Strip', () => {
-  it('renders without throwing and shows "Clear"/"Nominal" defaults when no emergency alerts or failed jobs exist', async () => {
+describe('Captain\'s Chair — Command Status', () => {
+  it('renders a stable interpretation and Nothing-needs-you when every source is quiet', async () => {
     mockFetchByUrl({
       '/api/emergency-alerts': { alerts: [] },
       '/api/agent-status': { jobs: [] },
@@ -84,16 +87,17 @@ describe('Captain\'s Chair — Situation Strip', () => {
 
     render(<CaptainsChairWorkbench />);
 
-    expect(await screen.findByText('Emergency Alerts')).toBeInTheDocument();
-    expect(await screen.findByText('Background Systems')).toBeInTheDocument();
-
+    expect(await screen.findByText('STABLE')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText('Clear')).toBeInTheDocument();
-      expect(screen.getByText('Nominal')).toBeInTheDocument();
+      expect(screen.getByText(/both stable/i)).toBeInTheDocument();
+      expect(screen.getByText('✓ Nothing needs you right now.')).toBeInTheDocument();
     });
+    // Drill-down signal chips are preserved even though the 5-badge strip is gone.
+    expect(screen.getByText(/Alerts: Clear/)).toBeInTheDocument();
+    expect(screen.getByText(/Systems: Nominal/)).toBeInTheDocument();
   });
 
-  it('shows the worst active alert tier and headline when an emergency_warning is active', async () => {
+  it('surfaces an emergency_warning as a Needs You safety item and an urgent-exception flag', async () => {
     mockFetchByUrl({
       '/api/emergency-alerts': {
         alerts: [
@@ -106,13 +110,16 @@ describe('Captain\'s Chair — Situation Strip', () => {
 
     render(<CaptainsChairWorkbench />);
 
-    // 2 urgent-tier alerts total (1 watch_and_act + 1 emergency_warning) —
-    // count includes both tiers, worst-headline picks emergency_warning first.
-    expect(await screen.findByText('2 Active')).toBeInTheDocument();
-    expect(await screen.findByText('Emergency warning — Bushfire, Blue Mountains')).toBeInTheDocument();
+    expect(await screen.findByText('Needs attention now')).toBeInTheDocument();
+    // Appears in both Needs You and Situation — both are legitimate places
+    // to surface it, so assert presence rather than uniqueness.
+    await waitFor(() => {
+      expect(screen.getAllByText('Emergency warning — Bushfire, Blue Mountains').length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText(/Alerts: 2 Active/)).toBeInTheDocument();
   });
 
-  it('shows the failing job count and worst job label when a scheduled job has failed', async () => {
+  it('surfaces a failing job as a Systems chip, not a full-page red state', async () => {
     mockFetchByUrl({
       '/api/emergency-alerts': { alerts: [] },
       '/api/agent-status': {
@@ -125,11 +132,10 @@ describe('Captain\'s Chair — Situation Strip', () => {
 
     render(<CaptainsChairWorkbench />);
 
-    expect(await screen.findByText('1 Failing')).toBeInTheDocument();
-    expect(await screen.findByText('Downdetector Priority Polling')).toBeInTheDocument();
+    expect(await screen.findByText(/Systems: 1 Failing/)).toBeInTheDocument();
   });
 
-  it('demotes Content Awaiting Publish and Capture Pending Triage to curated oldest-item cards, not just raw counts', async () => {
+  it('surfaces content awaiting publish as a curated oldest-item Needs You card, not just a raw count', async () => {
     mockFetchByUrl({
       '/api/emergency-alerts': { alerts: [] },
       '/api/agent-status': { jobs: [] },

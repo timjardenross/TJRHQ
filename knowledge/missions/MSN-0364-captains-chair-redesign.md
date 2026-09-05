@@ -69,6 +69,11 @@ Per brief §22, unchanged, plus: existing `__tests__/page.test.tsx` assertions s
 ## 9. Open Decisions for Captain
 
 - Confirm mission ID (provisional MSN-0364).
-- Command Status's interpretation sentence: template-based (fast, deterministic, matches existing `departments.ts` tone-mapping style) or LLM-generated (richer, matches Captain's Brief's own synthesis approach, adds a model-router dependency)? Recommend template-based for Command Status (needs to be instant/always-available) and reserve LLM synthesis for Captain's Brief, which already works that way.
-- `recommended_route` on `intelligence_notes`: needs a quick check (Phase 1 follow-up, cheap) whether any existing Python job populates it before Phase 7 assumes new classification logic is needed from scratch.
-- Should the `SituationBadge` alerts-only Read Aloud button be removed once Command Status ships, or kept as a narrower "just the alerts" option alongside a new page-level one? Brief says avoid redundant controls but doesn't mandate exactly one.
+
+## 10. Locked Design Decisions (Captain-approved 2026-09-05)
+
+- **Command Status interpretation is template-based, not LLM-generated.** A deterministic function over (posture × operational risk × interrupts × alerts × systems) → one of a fixed set of interpretation sentences, reusing `departments.ts`'s tone-mapping style. Must render instantly with zero network dependency — this is a glanced-at-20x/day surface, not a briefing. LLM synthesis stays reserved for Captain's Brief, which already does it well.
+- **The `/api/captain-brief` (context-service) stat tile is removed from Captain's Chair entirely, not demoted behind a disclosure.** It depends on an external always-running Python process with a documented history of silently dying on Vercel — a fragile source has no place feeding an executive surface even collapsed. If the underlying data is ever wanted again, it belongs on a dedicated `/brief-details` diagnostic route, not this page.
+- **Needs You's empty state is enforced strictly.** If there is genuinely nothing requiring a decision, render one quiet line ("Nothing needs you right now") — never pad with collapsed/low-content sections to avoid looking empty. This is the one place brief §7's "do not manufacture work" rule gets zero flex.
+- **Captain's Log ships as a one-line capture box pinned on the Chair page itself**, not a link out to `/captains-chair-workbench/notebook`. Friction is the enemy of capturing a fleeting thought. Route-suggestion/classification (brief §12's "suggested destination") is explicitly deferred to a fast-follow — ship plain capture into the existing `intelligence_notes` triage backend first, unchanged.
+- **`SituationBadge`'s alerts-only Read Aloud button is removed once Command Status ships**; the page consolidates to one Read Aloud control (Captain's Brief's), per brief's "avoid redundant read-aloud controls" instruction, taken as a preference for exactly one over "at most a few."

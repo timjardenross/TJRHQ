@@ -260,6 +260,59 @@ export function useCalendarToday(): {
   return { events, status, loading };
 }
 
+// ── Calendar, beyond today (MSN-0364, Captain's Chair "Ahead") ─────────────
+
+export interface UpcomingCalendarEvent {
+  time: string | null;
+  title: string;
+  location: string | null;
+  allDay: boolean;
+  dateISO: string;
+}
+
+export function useCalendarUpcoming(days = 2): {
+  events: UpcomingCalendarEvent[];
+  status: CalendarTodayStatus;
+  loading: boolean;
+} {
+  const [events, setEvents] = useState<UpcomingCalendarEvent[]>([]);
+  const [status, setStatus] = useState<CalendarTodayStatus>('ok');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/calendar/upcoming?days=${days}`);
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.status === 409 || body?.status === 'disconnected') {
+          setStatus('disconnected');
+          setEvents([]);
+        } else if (!res.ok || body?.status === 'error') {
+          setStatus('error');
+          setEvents([]);
+        } else {
+          setStatus('ok');
+          setEvents(Array.isArray(body?.events) ? body.events : []);
+        }
+      } catch (e) {
+        console.error('[captainsChairData] useCalendarUpcoming failed:', e);
+        if (!cancelled) {
+          setStatus('error');
+          setEvents([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [days]);
+
+  return { events, status, loading };
+}
+
 // ── Reminders ──────────────────────────────────────────────────────────────
 
 export function useReminders(): { tasks: PersonalTask[]; loading: boolean } {
