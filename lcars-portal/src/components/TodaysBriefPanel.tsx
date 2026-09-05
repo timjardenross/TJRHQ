@@ -39,12 +39,37 @@ const BRIEF_TYPE_LABEL: Record<Brief['brief_type'], string> = {
   weekly: 'Weekly',
 };
 
-// brief_text is Telegram HTML (captains_brief.py builds it for direct
-// bot delivery, e.g. "<b>☀️ MORNING BRIEF ...</b>") — stripped rather
-// than rendered, so this card never dangerouslySetInnerHTML's bot-
-// generated markup.
-function stripHtml(text: string): string {
-  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+// brief_text is Telegram HTML (captains_brief.py builds it for direct bot
+// delivery — whole-line "<b>SECTION HEADER</b>" for section titles,
+// "<i>...</i>" for the stardate line and footer signature, plain text
+// paragraphs in between, sections separated by blank lines). Original
+// stripHtml() below stripped tags AND collapsed every run of whitespace
+// (including all newlines) into one space — safe from a raw-HTML-
+// injection angle, but destroyed 100% of that structure into one run-on
+// paragraph, which is what made this "hard to read." Parsed line-by-line
+// instead so headers/subtitle/paragraph breaks survive, still never
+// dangerouslySetInnerHTML — every tag is matched and stripped explicitly,
+// nothing is ever rendered as raw HTML.
+type BriefLine =
+  | { type: 'header'; text: string }
+  | { type: 'subtitle'; text: string }
+  | { type: 'blank' }
+  | { type: 'text'; text: string };
+
+function stripInlineTags(text: string): string {
+  return text.replace(/<[^>]+>/g, '').trim();
+}
+
+function parseBriefText(raw: string): BriefLine[] {
+  return raw.split('\n').map((line): BriefLine => {
+    const trimmed = line.trim();
+    if (trimmed === '') return { type: 'blank' };
+    const headerMatch = trimmed.match(/^<b>(.*)<\/b>$/);
+    if (headerMatch) return { type: 'header', text: stripInlineTags(headerMatch[1]) };
+    const subtitleMatch = trimmed.match(/^<i>(.*)<\/i>$/);
+    if (subtitleMatch) return { type: 'subtitle', text: stripInlineTags(subtitleMatch[1]) };
+    return { type: 'text', text: stripInlineTags(trimmed) };
+  });
 }
 
 function isToday(dateStr: string): boolean {
@@ -104,7 +129,30 @@ export function TodaysBriefPanel() {
               {new Date(brief.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <p className="text-wb-ink whitespace-pre-wrap">{stripHtml(brief.brief_text)}</p>
+          <div className="space-y-1">
+            {parseBriefText(brief.brief_text).map((line, i) => {
+              if (line.type === 'blank') return <div key={i} className="h-2" />;
+              if (line.type === 'header') {
+                return (
+                  <p key={i} className="mt-3 text-sm font-semibold text-wb-ink first:mt-0">
+                    {line.text}
+                  </p>
+                );
+              }
+              if (line.type === 'subtitle') {
+                return (
+                  <p key={i} className="text-[11px] italic text-wb-ink2">
+                    {line.text}
+                  </p>
+                );
+              }
+              return (
+                <p key={i} className="text-sm leading-relaxed text-wb-ink">
+                  {line.text}
+                </p>
+              );
+            })}
+          </div>
         </div>
       )}
     </WorkbenchPanel>

@@ -27,6 +27,7 @@
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import { SituationBadge } from '@/components/SituationBadge';
+import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
@@ -231,37 +232,9 @@ export default function LifeOSHub() {
           </div>
         </div>
 
-        {/* ── Today's Briefing (Exec Brief) ── */}
-        <div className="rounded-lg border border-wb-line bg-white p-4">
-          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
-          {briefingLoading ? (
-            <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-          ) : briefingError ? (
-            <p className="text-xs text-wb-crit-on">Failed to load: {briefingError}</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
-              <div className="flex flex-col">
-                <span className="text-wb-ink2">Confidence</span>
-                <span className="text-base font-semibold text-wb-ink">{briefingStats?.confidence != null ? `${briefingStats.confidence}%` : '—'}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-wb-ink2">Priorities</span>
-                <span className="text-base font-semibold text-wb-ink">{briefingStats?.priorities ?? 0}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-wb-ink2">Warnings</span>
-                <span className="text-base font-semibold text-wb-ink">{briefingStats?.warnings ?? 0}</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-wb-ink2">Recommendations</span>
-                <span className="text-base font-semibold text-wb-ink">{briefingStats?.recommendations ?? 0}</span>
-              </div>
-            </div>
-          )}
-          <Link href="/captains-brief-workbench" className="mt-3 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-            Full Brief →
-          </Link>
-        </div>
+        {/* ── Today's Briefing (real LLM-generated Executive Brief, not
+              just stats — captains_daily_briefs.brief_text) ── */}
+        <TodaysBriefPanel />
       </div>
     </WorkbenchShell>
   );
