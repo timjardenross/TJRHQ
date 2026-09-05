@@ -113,6 +113,39 @@ export async function POST(request: Request) {
       : { data: [], error: null };
     if (linkedError) throw new Error(`Linked select failed: ${linkedError.message}`);
 
+    // Deletion: a task removed in the Google Tasks app (not completed —
+    // completion is handled separately below, this is "swiped away as not
+    // relevant") stops appearing in listGoogleTasks entirely, there's no
+    // tombstone to detect. So instead of diffing against what Google
+    // returned, check every still-open row this app has ever linked — any
+    // whose google_task_id is no longer in the current list was deleted on
+    // Google's side. Marked 'abandoned', not 'completed' (that would
+    // misrepresent it as done) — this also stops the follow-through engine
+    // nudging about it, since task_nudge_scheduler/follow_through_engine
+    // both exclude completed/abandoned work_state.
+    let deleted = 0;
+    const { data: allLinkedOpen, error: allLinkedError } = await supabase
+      .from('personal_tasks')
+      .select('id, google_task_id')
+      .not('google_task_id', 'is', null)
+      .not('work_state', 'in', '(completed,abandoned)');
+    if (allLinkedError) throw new Error(`All-linked select failed: ${allLinkedError.message}`);
+
+    const googleIdSet = new Set(googleIds);
+    for (const row of (allLinkedOpen ?? []) as { id: string; google_task_id: string }[]) {
+      if (!googleIdSet.has(row.google_task_id)) {
+        try {
+          await supabase
+            .from('personal_tasks')
+            .update({ work_state: 'abandoned', google_synced_at: now })
+            .eq('id', row.id);
+          deleted++;
+        } catch (err) {
+          errors.push(`deleted-detect ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+
     const linkedByGoogleId = new Map((linkedRows ?? []).map((r: { google_task_id: string | null }) => [r.google_task_id, r]));
 
     for (const gtask of googleTasks) {
@@ -169,7 +202,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ status: 'ok', pushed, pulled, completionsSynced, errors });
+    return NextResponse.json({ status: 'ok', pushed, pulled, completionsSynced, deleted, errors });
   } catch (err) {
     if (err instanceof GoogleCalendarDisconnectedError) {
       return NextResponse.json({ status: 'disconnected', message: err.message }, { status: 409 });
