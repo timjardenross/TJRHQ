@@ -73,11 +73,24 @@ function parseBriefText(raw: string): BriefLine[] {
   });
 }
 
+// Emoji ranges covering the ones captains_brief.py actually uses (☀️⚡🌐🤖
+// etc. — Misc Symbols/Dingbats/Transport/Supplemental Symbols blocks plus
+// the variation-selector byte that rides along with some of them) — not
+// exhaustive of every Unicode emoji ever defined, but real section-header
+// decoration, not content, so stripping them loses nothing when spoken.
+const EMOJI_PATTERN = /[\u{2600}-\u{27BF}\u{1F300}-\u{1FAFF}\u{2B00}-\u{2BFF}️]/gu;
+
 // Flat, spoken-friendly text for TTS — unlike parseBriefText (which keeps
 // line structure for on-screen display), speech doesn't need visual
-// paragraph breaks, just tags stripped and whitespace normalized.
+// paragraph breaks, just tags stripped and whitespace normalized. Emojis
+// stripped too — Google Cloud TTS otherwise tries to read them out
+// ("sun emoji," etc.), which is just noise spoken aloud.
 function toSpokenText(raw: string): string {
-  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return raw
+    .replace(/<[^>]+>/g, ' ')
+    .replace(EMOJI_PATTERN, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isToday(dateStr: string): boolean {
