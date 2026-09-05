@@ -30,6 +30,11 @@ export interface WorkbenchEntry {
 // switcher/hub order previously had no discernible grouping).
 export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   {
+    href: '/hub',
+    title: 'LifeOS Hub',
+    description: 'Always-on glance view — situation strip, live alerts, calendar, reminders, and today\'s briefing. The front door.',
+  },
+  {
     href: '/captains-chair-workbench',
     title: "Captain's Chair",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
@@ -62,7 +67,12 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   {
     href: '/human-systems-workbench',
     title: 'Human Systems Workbench',
-    description: 'Recovery posture, medical tracking, and physical readiness in one collection - live from the recovery-pulse signal.',
+    description: 'Recovery posture and medical tracking in one collection - live from the recovery-pulse signal.',
+  },
+  {
+    href: '/physical-readiness',
+    title: 'Physical Readiness',
+    description: 'Adaptive gym decision-support - builds a safe session from the equipment on hand, plus exercise library and workout history.',
   },
   {
     href: '/content-workbench',

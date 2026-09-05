@@ -22,6 +22,7 @@ import {
   useCalendarToday,
   useReminders,
 } from '@/lib/captainsChairData';
+import { speakAloud } from '@/lib/speakAloud';
 import type { StateTone } from '@/lib/types';
 
 // Executive-summary redesign (2026-08-22): Captain's Chair no longer runs a
@@ -347,7 +348,6 @@ export default function CaptainsChairWorkbench() {
   // en-AU voice when the device has one, same intent as the doc's design
   // even though the specific voice differs.
   function speakAlertsAloud() {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     const parts: string[] = [];
     if (emergency?.count) {
       parts.push(`${emergency.count} active emergency alert${emergency.count === 1 ? '' : 's'}${emergency.worstHeadline ? `. Worst: ${emergency.worstHeadline}` : ''}.`);
@@ -361,12 +361,7 @@ export default function CaptainsChairWorkbench() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    const utterance = new SpeechSynthesisUtterance(parts.join(' '));
-    const voices = window.speechSynthesis.getVoices();
-    const auVoice = voices.find((v) => v.lang === 'en-AU') ?? voices.find((v) => v.lang?.startsWith('en'));
-    if (auVoice) utterance.voice = auVoice;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    speakAloud(parts.join(' '));
   }
 
   return (
@@ -388,18 +383,21 @@ export default function CaptainsChairWorkbench() {
             value={postureFetchFailed ? 'Data error' : postureBand}
             tone={postureFetchFailed ? 'unknown' : postureTone}
             sublabel={postureFetchFailed ? 'Check connection — see console' : currentPosture.capacity_band}
+            href="/human-systems-workbench"
           />
           <SituationBadge
             label="Operational Risk"
             value={opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data')}
             tone={opRiskError ? 'unknown' : riskTone}
             sublabel={opRisk && opRisk.escalateCount > 0 ? `${opRisk.escalateCount} threat${opRisk.escalateCount === 1 ? '' : 's'} at escalate` : undefined}
+            href="/intelligence-workbench"
           />
           <SituationBadge
             label="Interrupt Now"
             value={briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`}
             tone={briefingError ? 'unknown' : interruptTone}
             sublabel={(briefingStats?.interruptNow ?? 0) > 0 ? 'Needs you right now' : undefined}
+            href="/captains-brief-workbench"
           />
           <SituationBadge
             label="Emergency Alerts"

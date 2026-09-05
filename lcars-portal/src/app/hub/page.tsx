@@ -27,22 +27,21 @@
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import { SituationBadge } from '@/components/SituationBadge';
-import { stateToneClasses, alertSeverityToTone, capacityStateToTone } from '@/lib/departments';
+import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
 import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { categoryMeta } from '@/lib/personalTasks';
 import {
   POSTURE_STATE_TONE,
   RISK_STATE_TONE,
-  CAPACITY_STATE_LABEL,
   useOperationalRisk,
   useEmergencyAlerts,
   useAgentHealth,
   useTodaysBriefing,
   useCalendarToday,
   useReminders,
-  useCapacityToday,
 } from '@/lib/captainsChairData';
+import { speakAloud } from '@/lib/speakAloud';
 import type { StateTone } from '@/lib/types';
 
 export default function LifeOSHub() {
@@ -54,7 +53,6 @@ export default function LifeOSHub() {
   const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
   const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
   const { tasks: reminders, loading: remindersLoading } = useReminders();
-  const { data: capacity, loading: capacityLoading } = useCapacityToday();
 
   const postureBand = currentPosture.posture;
   const postureTone = POSTURE_STATE_TONE[postureBand];
@@ -62,10 +60,8 @@ export default function LifeOSHub() {
   const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
   const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
   const agentHealthTone: StateTone = (agentHealth?.failedCount ?? 0) > 0 ? 'crit' : 'ok';
-  const capacityTone = capacityStateToTone(capacity.capacityState ?? null);
 
   function speakAlertsAloud() {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     const parts: string[] = [];
     if (emergency?.count) {
       parts.push(`${emergency.count} active emergency alert${emergency.count === 1 ? '' : 's'}${emergency.worstHeadline ? `. Worst: ${emergency.worstHeadline}` : ''}.`);
@@ -79,12 +75,7 @@ export default function LifeOSHub() {
     if (liveAlerts.length > 0) {
       parts.push(`Top alert: ${liveAlerts[0].title}.`);
     }
-    const utterance = new SpeechSynthesisUtterance(parts.join(' '));
-    const voices = window.speechSynthesis.getVoices();
-    const auVoice = voices.find((v) => v.lang === 'en-AU') ?? voices.find((v) => v.lang?.startsWith('en'));
-    if (auVoice) utterance.voice = auVoice;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    speakAloud(parts.join(' '));
   }
 
   return (
@@ -102,18 +93,21 @@ export default function LifeOSHub() {
             value={postureFetchFailed ? 'Data error' : postureBand}
             tone={postureFetchFailed ? 'unknown' : postureTone}
             sublabel={postureFetchFailed ? 'Check connection — see console' : currentPosture.capacity_band}
+            href="/human-systems-workbench"
           />
           <SituationBadge
             label="Operational Risk"
             value={opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data')}
             tone={opRiskError ? 'unknown' : riskTone}
             sublabel={opRisk && opRisk.escalateCount > 0 ? `${opRisk.escalateCount} threat${opRisk.escalateCount === 1 ? '' : 's'} at escalate` : undefined}
+            href="/intelligence-workbench"
           />
           <SituationBadge
             label="Interrupt Now"
             value={briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`}
             tone={briefingError ? 'unknown' : interruptTone}
             sublabel={(briefingStats?.interruptNow ?? 0) > 0 ? 'Needs you right now' : undefined}
+            href="/captains-brief-workbench"
           />
           <SituationBadge
             label="Emergency Alerts"
@@ -175,78 +169,97 @@ export default function LifeOSHub() {
           )}
         </div>
 
-        {/* ── Today's Calendar ── */}
-        <div className="rounded-lg border border-wb-line bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Calendar</h2>
-          {calendarLoading ? (
-            <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-          ) : calendarStatus === 'disconnected' ? (
-            <p className="text-xs text-wb-ink2">
-              Google Calendar isn&apos;t connected.{' '}
-              <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">
-                Connect it
-              </a>
-              .
-            </p>
-          ) : calendarStatus === 'error' ? (
-            <p className="text-xs text-wb-crit-on">Failed to load calendar — see console for detail.</p>
-          ) : calendarEvents.length === 0 ? (
-            <p className="text-xs text-wb-ink2">No events today.</p>
-          ) : (
-            <ul className="space-y-2">
-              {calendarEvents.map((event, i) => (
-                <li key={i} className="flex items-baseline gap-2 text-xs">
-                  <span className="w-14 shrink-0 font-semibold text-wb-ink">
-                    {event.allDay ? 'All day' : event.time ?? '—'}
-                  </span>
-                  <span className="text-wb-ink">
-                    {event.title}
-                    {event.location && <span className="text-wb-ink2"> · {event.location}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        {/* ── Calendar + Reminders (two columns) ── */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-wb-line bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Calendar</h2>
+            {calendarLoading ? (
+              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+            ) : calendarStatus === 'disconnected' ? (
+              <p className="text-xs text-wb-ink2">
+                Google Calendar isn&apos;t connected.{' '}
+                <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">
+                  Connect it
+                </a>
+                .
+              </p>
+            ) : calendarStatus === 'error' ? (
+              <p className="text-xs text-wb-crit-on">Failed to load calendar — see console for detail.</p>
+            ) : calendarEvents.length === 0 ? (
+              <p className="text-xs text-wb-ink2">No events today.</p>
+            ) : (
+              <ul className="space-y-2">
+                {calendarEvents.map((event, i) => (
+                  <li key={i} className="flex items-baseline gap-2 text-xs">
+                    <span className="w-14 shrink-0 font-semibold text-wb-ink">
+                      {event.allDay ? 'All day' : event.time ?? '—'}
+                    </span>
+                    <span className="text-wb-ink">
+                      {event.title}
+                      {event.location && <span className="text-wb-ink2"> · {event.location}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-wb-line bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-wb-ink">Reminders</h2>
+            {remindersLoading ? (
+              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
+            ) : reminders.length === 0 ? (
+              <p className="text-xs text-wb-ink2">Nothing needs a nudge right now.</p>
+            ) : (
+              <ul className="space-y-2">
+                {reminders.map((task) => (
+                  <li key={task.id} className="flex items-start gap-2 text-xs">
+                    <span className="mt-0.5 text-wb-ink2">{categoryMeta(task.category).glyph}</span>
+                    <span className="flex-1 text-wb-ink">
+                      {task.title}
+                      {task.nudge_count > 3 && (
+                        <span className="ml-1 text-wb-ink2">(nudged {task.nudge_count}×)</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link href="/ready-room" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
+              Ready Room →
+            </Link>
+          </div>
         </div>
 
-        {/* ── Reminders ── */}
+        {/* ── Today's Briefing (Exec Brief) ── */}
         <div className="rounded-lg border border-wb-line bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-wb-ink">Reminders</h2>
-          {remindersLoading ? (
+          <h3 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Briefing</h3>
+          {briefingLoading ? (
             <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-          ) : reminders.length === 0 ? (
-            <p className="text-xs text-wb-ink2">Nothing needs a nudge right now.</p>
+          ) : briefingError ? (
+            <p className="text-xs text-wb-crit-on">Failed to load: {briefingError}</p>
           ) : (
-            <ul className="space-y-2">
-              {reminders.map((task) => (
-                <li key={task.id} className="flex items-start gap-2 text-xs">
-                  <span className="mt-0.5 text-wb-ink2">{categoryMeta(task.category).glyph}</span>
-                  <span className="flex-1 text-wb-ink">
-                    {task.title}
-                    {task.nudge_count > 3 && (
-                      <span className="ml-1 text-wb-ink2">(nudged {task.nudge_count}×)</span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
+              <div className="flex flex-col">
+                <span className="text-wb-ink2">Confidence</span>
+                <span className="text-base font-semibold text-wb-ink">{briefingStats?.confidence != null ? `${briefingStats.confidence}%` : '—'}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-wb-ink2">Priorities</span>
+                <span className="text-base font-semibold text-wb-ink">{briefingStats?.priorities ?? 0}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-wb-ink2">Warnings</span>
+                <span className="text-base font-semibold text-wb-ink">{briefingStats?.warnings ?? 0}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-wb-ink2">Recommendations</span>
+                <span className="text-base font-semibold text-wb-ink">{briefingStats?.recommendations ?? 0}</span>
+              </div>
+            </div>
           )}
-          <Link href="/ready-room" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
-            Ready Room →
-          </Link>
-        </div>
-
-        {/* ── Capacity Today ── */}
-        <div className={`rounded-lg border ${stateToneClasses(capacityTone).border} ${stateToneClasses(capacityTone).bg} p-4`}>
-          <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Capacity Today</p>
-          <p className={`mt-0.5 text-lg font-bold ${stateToneClasses(capacityTone).text}`}>
-            {capacityLoading ? '…' : capacity.capacityState ? CAPACITY_STATE_LABEL[capacity.capacityState] ?? capacity.capacityState : 'No data'}
-          </p>
-          {capacity.postureMessage && (
-            <p className="mt-1 text-xs text-wb-ink/80">{capacity.postureMessage}</p>
-          )}
-          <Link href="/human-systems-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
-            Human Systems →
+          <Link href="/captains-brief-workbench" className="mt-3 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+            Full Brief →
           </Link>
         </div>
       </div>
