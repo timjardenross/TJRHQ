@@ -22,6 +22,33 @@ from typing import Any, Optional
 
 log = logging.getLogger("collector")
 
+# Directories that are large, irrelevant to source analysis, and expensive
+# to walk — excluding them is what keeps find/grep here inside their 10s
+# timeouts. Found via a real ad-hoc run on the production VM where
+# _count_python_files() and _find_todos() both timed out walking the full
+# tree (node_modules, .venv, .git history, .next build output) before
+# reaching a single real source file.
+_WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", ".next")
+
+
+def _find_prune_args() -> list[str]:
+    """`find` arguments that prune _WALK_EXCLUDED_DIRS (at any depth)
+    before descending into them. Caller appends the real `-name`/`-type`
+    filter plus a trailing `-print` (required once `-prune` is combined
+    with `-o`, since find no longer prints by default)."""
+    args: list[str] = ["("]
+    for i, d in enumerate(_WALK_EXCLUDED_DIRS):
+        if i:
+            args.append("-o")
+        args += ["-path", f"*/{d}"]
+    args += [")", "-prune", "-o"]
+    return args
+
+
+def _grep_exclude_args() -> list[str]:
+    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely."""
+    return [f"--exclude-dir={d}" for d in _WALK_EXCLUDED_DIRS]
+
 
 class RepositoryState:
     """Collects git and working-tree state."""
@@ -131,7 +158,7 @@ class FileSystemAudit:
         """Count .py files in repo."""
         try:
             result = subprocess.run(
-                ["find", str(self.repo_root), "-name", "*.py", "-type", "f"],
+                ["find", str(self.repo_root)] + _find_prune_args() + ["-name", "*.py", "-type", "f", "-print"],
                 capture_output=True, text=True, timeout=10
             )
             return len(result.stdout.strip().splitlines()) if result.returncode == 0 else 0
@@ -293,7 +320,7 @@ class CodeAnalysis:
         try:
             for pattern, label in patterns:
                 result = subprocess.run(
-                    ["grep", "-r", pattern, str(self.repo_root), "--include=*.py"],
+                    ["grep", "-r", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
                     capture_output=True, text=True, timeout=10
                 )
                 if result.returncode == 0 and result.stdout:
@@ -308,7 +335,7 @@ class CodeAnalysis:
         # This is a light check, not comprehensive
         try:
             result = subprocess.run(
-                ["grep", "-r", "^import .*#.*unused", str(self.repo_root), "--include=*.py"],
+                ["grep", "-r", "^import .*#.*unused", str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
                 capture_output=True, text=True, timeout=10
             )
             if result.returncode == 0 and result.stdout:
@@ -328,7 +355,7 @@ class CodeAnalysis:
         for pattern in patterns:
             try:
                 result = subprocess.run(
-                    ["grep", "-r", "-E", pattern, str(self.repo_root), "--include=*.py"],
+                    ["grep", "-r", "-E", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
                     capture_output=True, text=True, timeout=10
                 )
                 if result.returncode == 0 and result.stdout:

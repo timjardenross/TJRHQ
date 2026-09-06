@@ -181,19 +181,35 @@ class PolicyEngine:
         return "; ".join(parts)
 
     def _load_policy(self, policy_file: Path) -> dict[str, Any]:
-        """Load policy configuration from JSON (or YAML if available)."""
-        # Try JSON first (stdlib), then YAML if available
-        json_file = policy_file.parent / policy_file.stem / "policy.json"
-        if json_file.exists():
+        """Load policy configuration — JSON via stdlib when policy_file
+        itself is a .json file (both real call sites pass
+        config/self_improvement_policy.json directly), YAML via PyYAML
+        otherwise.
+
+        2026-09-06: previously checked for a JSON file at
+        `policy_file.parent / policy_file.stem / "policy.json"` (e.g.
+        config/self_improvement_policy/policy.json) — a path that has
+        never existed — so this always fell through to the YAML branch
+        even when handed the real .json config. That happened to keep
+        working wherever PyYAML was installed (JSON is valid YAML, so
+        yaml.safe_load() parsed it fine) but silently degraded to the
+        empty {"categories": {}} default — every finding/opportunity
+        classified against zero configured rules — on any host without
+        PyYAML. Found live on the production VM via evolution_orchestrator.py
+        --dry-run logging "PyYAML not available; policy loading will use
+        defaults".
+        """
+        if policy_file.suffix == ".json":
             try:
-                with json_file.open("r") as f:
+                with policy_file.open("r") as f:
                     config = json.load(f)
-                log.info(f"Loaded policy from {json_file}")
+                log.info(f"Loaded policy from {policy_file}")
                 return config
             except Exception as exc:
                 log.error(f"Failed to load policy: {exc}")
+                return {"categories": {}}
 
-        # Fall back to YAML if available
+        # Non-JSON policy file (e.g. .yaml) — needs PyYAML.
         try:
             import yaml
             with policy_file.open("r") as f:
