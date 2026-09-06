@@ -15,12 +15,35 @@
 // broader, workbench-level materiality judgement described in the mission
 // spec §27, informed by but not identical to the DB flag.
 //
-// Also added three domain_keys that already heartbeat and already have
-// domain_registry rows (self_improvement_cycle: migration 0180,
-// capacity_checkins: migration 0181, intraday_media_collection: migration
-// 0188) but had drifted out of this hand-maintained list — a real gap the
-// mission's own registry audit called out as a risk (spec §14). Fixing them
-// closes a false-"never seen" hole rather than adding scope.
+// Also added eight domain_keys that already heartbeat in production
+// (confirmed via record_heartbeat()/record_heartbeat_ok()/_failed() call
+// sites, not just a domain_registry row) but had drifted out of this
+// hand-maintained list — a real gap the mission's own registry audit
+// called out as a risk (spec §14):
+//   self_improvement_cycle (migration 0180), capacity_checkins (0181),
+//   intraday_media_collection (0188) — found in the initial 2026-09-06 pass;
+//   content_intelligence (core/content/draft_worker.py), engineering_handoff
+//   (core/coordination/delivery_reconciler.py), weekly_health_synthesis
+//   (core/health/weekly_synthesis.py), follow_through_engine
+//   (intelligence/adhd/follow_through_engine.py), emergency_alert_hourly_summary
+//   (intelligence/emergency_alert_summary.py) — found in a second,
+//   exhaustive domain_registry-vs-SCHEDULER_JOBS diff during the HQ Status
+//   PR audit, cross-checked against live record_heartbeat() call sites so
+//   only genuinely-live jobs were added (not merely-registered-but-dead
+//   Phase-0 rows). Fixing these closes a false-"never seen" hole rather
+//   than adding scope. `content_pipeline`'s capability was also corrected
+//   from 'morning_intelligence' to 'content_workbench' in the same pass —
+//   it is intelligence/proactive_cadences.py's Content Workbench promotion/
+//   drafting job, not an intelligence-briefing job; the original mapping
+//   went by label similarity, not the actual code path.
+//
+// 'data'-category domain_registry rows (missions, decisions, health_daily_
+// logs, physical_readiness, advisory_sessions, governance_records,
+// insight_outcomes, lessons_learned, recovery_pulses) were deliberately
+// left out of this diff — they are content-freshness domains, not
+// scheduler jobs, and were out of SCHEDULER_JOBS' scope before this PR too;
+// including them would be a scope expansion (a different, data-freshness
+// concept) not a drift fix.
 
 export type Criticality = 'critical' | 'important' | 'supporting' | 'background';
 
@@ -80,6 +103,11 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'attention_engine_drill', label: 'Attention Engine Weekly Drill', domain: 'intelligence', cadenceLabel: 'Weekly · Mon 08:00', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'brief_qa_agent_nightly', label: 'Brief QA Pre-screen', domain: 'intelligence', cadenceLabel: 'Daily · 02:00', capability: 'morning_intelligence', criticality: 'supporting' },
   { domainKey: 'adhd_task_nudge', label: 'ADHD Task Nudge', domain: 'human-systems', cadenceLabel: 'Hourly', capability: 'human_systems', criticality: 'background' },
+  // follow_through_engine (intelligence/adhd/follow_through_engine.py) runs
+  // inside the adhd_task_nudge job slot in intelligence/scheduler.py but
+  // heartbeats under its own domain_key — registered late (2026-09-06
+  // registry-drift audit), confirmed live.
+  { domainKey: 'follow_through_engine', label: 'Adaptive Follow-Through Engine', domain: 'human-systems', cadenceLabel: 'Hourly (adhd_task_nudge slot)', capability: 'human_systems', criticality: 'background' },
   // intelligence/proactive_cadences.py jobs (migrated from Slack bot 2026-08-23)
   { domainKey: 'decision_review', label: 'Decision Review (Fri)', domain: 'intelligence', cadenceLabel: 'Weekly · Fri 16:00', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'weekly_review', label: 'Weekly Review (Fri)', domain: 'intelligence', cadenceLabel: 'Weekly · Fri 16:30', capability: 'weekly_review', criticality: 'supporting' },
@@ -91,10 +119,24 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'ko_monthly_brief', label: 'KO Monthly Brief', domain: 'intelligence', cadenceLabel: 'Monthly · 1st 08:30', capability: 'weekly_review', criticality: 'background' },
   { domainKey: 'mission_registry_sync', label: 'Mission Registry Sync', domain: 'platform', cadenceLabel: 'Daily · 06:45', capability: 'platform_core', criticality: 'supporting' },
   { domainKey: 'google_tasks_sync', label: 'Google Tasks Sync', domain: 'platform', cadenceLabel: 'Every 15min', capability: 'ready_room', criticality: 'important' },
-  { domainKey: 'content_pipeline', label: 'Content Pipeline', domain: 'intelligence', cadenceLabel: 'Daily · 06:15', capability: 'morning_intelligence', criticality: 'supporting' },
+  // content_pipeline (intelligence/proactive_cadences.py: opportunity
+  // promotion + drafting) and content_intelligence (core/content/
+  // draft_worker.py: two-pass AI drafting worker) are both Content
+  // Workbench pipeline stages, not intelligence-briefing jobs — corrected
+  // 2026-09-06 registry-drift audit: content_pipeline was originally
+  // mis-mapped to 'morning_intelligence' (label similarity, not actual
+  // code path); verified live in intelligence/proactive_cadences.py.
+  { domainKey: 'content_pipeline', label: 'Content Pipeline', domain: 'intelligence', cadenceLabel: 'Daily · 06:15', capability: 'content_workbench', criticality: 'supporting' },
+  { domainKey: 'content_intelligence', label: 'Content Draft Worker', domain: 'platform', cadenceLabel: 'Every ~30min', capability: 'content_workbench', criticality: 'supporting' },
   { domainKey: 'pending_research_sweep', label: 'Pending Research Sweep', domain: 'intelligence', cadenceLabel: 'Every 5min', capability: 'technical_intelligence', criticality: 'background' },
   { domainKey: 'intraday_media_collection', label: 'Intraday Media Collection', domain: 'intelligence', cadenceLabel: 'Every 90min', capability: 'technical_intelligence', criticality: 'supporting' },
   { domainKey: 'self_improvement_cycle', label: 'HQ Evolution — Self-Improvement Cycle', domain: 'platform', cadenceLabel: 'Daily · ~07:00', capability: 'hq_evolution', criticality: 'important' },
+  // Registered late (2026-09-06 registry-drift audit): confirmed live via
+  // record_heartbeat() call sites in core/coordination/delivery_reconciler.py
+  // and core/health/weekly_synthesis.py respectively — both write heartbeats
+  // today but had never been added to this hand-maintained list.
+  { domainKey: 'engineering_handoff', label: 'Engineering Handoff Reconciler', domain: 'platform', cadenceLabel: 'Every 15min', capability: 'platform_core', criticality: 'supporting' },
+  { domainKey: 'weekly_health_synthesis', label: 'Weekly Health Synthesis', domain: 'health', cadenceLabel: 'Weekly · Sat 08:00', capability: 'health_intelligence', criticality: 'supporting' },
   // Emergency Alert Hub (migration 0174, intelligence/emergency_alerts.py) ──
   { domainKey: 'emergency_alert_nsw_rfs', label: 'Emergency Alert Hub — NSW RFS', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'critical' },
   { domainKey: 'emergency_alert_vic', label: 'Emergency Alert Hub — VicEmergency', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'critical' },
@@ -112,6 +154,10 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'emergency_alert_bom_vic', label: 'Emergency Alert Hub — BOM VIC', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'important' },
   { domainKey: 'emergency_alert_bom_wa', label: 'Emergency Alert Hub — BOM WA', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'important' },
   { domainKey: 'emergency_alert_bom_act', label: 'Emergency Alert Hub — BOM ACT', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'important' },
+  // Registered late (2026-09-06 registry-drift audit): confirmed live via
+  // intelligence/emergency_alert_summary.py; sibling to the feed-poll jobs
+  // above but a derived hourly digest, not a raw feed itself.
+  { domainKey: 'emergency_alert_hourly_summary', label: 'Emergency Alert Hub — Hourly Summary Email', domain: 'emergency-alerts', cadenceLabel: 'Hourly', capability: 'emergency_monitoring', criticality: 'important' },
   // human_systems_scheduler.py ─────────────────────────────────────────────
   // Confirmed 2026-08-25: NOT actually live — its only invoker,
   // start_in_process(), is called solely from platform-runtime/app.py,

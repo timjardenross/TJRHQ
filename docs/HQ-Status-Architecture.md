@@ -26,11 +26,26 @@ All of that is preserved. This uplift added one new layer — interpretation
   tab that nests the old separate Source Health / Pipeline Health tabs
   behind one secondary toggle instead of two top-level tabs; a small stable
   Captain's-Chair/LifeOS summary shape.
-- **Fixed in passing**: three domain_keys that already heartbeat and already
-  have `domain_registry` rows (`self_improvement_cycle`, `capacity_checkins`,
-  `intraday_media_collection`) had drifted out of the hand-maintained
-  `SCHEDULER_JOBS` registry — a real gap the mission's own audit flagged as
-  a drift risk (job registry duplication). Added, not redesigned.
+- **Fixed in passing**: an exhaustive diff of every `domain_key` ever
+  inserted into `domain_registry` (across all 190+ migrations) against
+  `SCHEDULER_JOBS`, cross-checked against live `record_heartbeat()` call
+  sites so only genuinely-live jobs were added, surfaced **eight**
+  domain_keys that already heartbeat in production but had drifted out of
+  this hand-maintained registry: `self_improvement_cycle`,
+  `capacity_checkins`, `intraday_media_collection` (found in the initial
+  pass), plus `content_intelligence`, `engineering_handoff`,
+  `weekly_health_synthesis`, `follow_through_engine`, and
+  `emergency_alert_hourly_summary` (found in a follow-up audit pass — see
+  §4). One existing entry's capability was also corrected:
+  `content_pipeline` was mapped to `morning_intelligence` by label
+  similarity; it is actually `intelligence/proactive_cadences.py`'s Content
+  Workbench promotion/drafting job, now correctly mapped to a new
+  `content_workbench` capability alongside `content_intelligence`. Every
+  other `domain_registry` key not in `SCHEDULER_JOBS` is either explicitly
+  retired (`active = false`, e.g. `appointment_prep`, `pain_escalation`,
+  `stale_missions_job`) or a `data`-category content-freshness domain
+  (`missions`, `decisions`, `health_daily_logs`, etc.) that was out of this
+  registry's scope before this PR too. All additive fixes, not redesigns.
 
 ## 2. Telemetry sources (unchanged from Phase 3)
 
@@ -85,6 +100,33 @@ out-of-scope for this uplift: it would require a cross-language contract
 (Python scheduler → TS workbench) that doesn't exist yet. Classified
 **FUTURE** per the mission's own audit categories — the current
 hand-maintained list is a known, bounded drift risk, not a blocker.
+
+### Registry drift audit (method + result)
+
+To bound that drift risk concretely rather than leave it as an abstract
+"known risk," every `domain_key` literal ever inserted into `domain_registry`
+across all migrations was diffed against `SCHEDULER_JOBS`, then every
+`job`/`infra`-category leftover was checked two ways: (1) does a later
+migration set `active = false` for it (confirmed retired), and (2) does a
+repo-wide grep for `record_heartbeat`/`record_heartbeat_ok`/
+`record_heartbeat_failed` calls show it's still actually written today
+(confirmed live, not just registered). Result:
+
+- **8 genuinely live, previously-invisible domains** — added (see §1).
+- **`appointment_prep`, `pain_escalation`, `stale_missions_job`,
+  `decision_review`\*, `knowledge_freshness`\*** and others — confirmed
+  `active = false` in `domain_registry` (migrations 0113/0114), correctly
+  absent. \*`decision_review`/`knowledge_freshness` were retired in 0114
+  then explicitly reactivated in migration 0172 once a real live writer
+  (`intelligence/proactive_cadences.py`) replaced the dead one — both ARE in
+  `SCHEDULER_JOBS` today, correctly, matching their reactivated state.
+- **`missions`, `decisions`, `health_daily_logs`, `physical_readiness`,
+  `advisory_sessions`, `governance_records`, `insight_outcomes`,
+  `lessons_learned`, `recovery_pulses`** — `data`-category content-freshness
+  domains, a different concept from scheduler jobs; out of `SCHEDULER_JOBS`'
+  scope by design, not a gap.
+
+No further drift found after this pass.
 
 ## 5. Cadence / staleness — Phase A only, deliberately
 
@@ -176,6 +218,28 @@ Precedence, most severe first:
 `needsAttentionCount` counts only critical-and-unavailable capabilities —
 never raw failure volume. Seventeen failing supporting jobs contribute
 `0` to this count and leave HQ `normal`; see the interpreter tests.
+
+### Known V1 limitation: ATTENTION does not yet distinguish a fresh failure from a persistent one
+
+Mission §25-26 draws a line between a **system issue** ("HQ knows about it
+and will retry/recover automatically" — no human task) and something that
+**needs attention** ("cannot recover automatically or materially blocks a
+capability"). The current rule collapses that distinction for critical
+capabilities: a critical job's *single* latest `failed` heartbeat produces
+`unavailable` → `ATTENTION` immediately, even if that job retries every few
+minutes and would self-heal before a human ever looks — e.g. a lone,
+transient `core_events` blip reads identically to `core_events` being stuck
+down for hours. `domain_heartbeats_latest` only exposes the single most
+recent attempt per domain, which isn't enough to tell "just failed once" from
+"failed N times in a row"; the raw `domain_heartbeats` event log (already
+read by History, §7) has what's needed to add a failure-streak check, but
+wiring that into the interpreter is a real signal-source change, not a
+one-line fix, and was deliberately **not** done in the same pass as this
+audit to avoid scope creep into "further features/redesign." Tracked as a
+fast-follow, not fixed here: for now, treat a single-cycle `ATTENTION` on a
+capability with a short cadence (e.g. `core_events`, every 30s) with more
+skepticism than one on a slow-cadence capability (e.g. `captains_daily_briefs`,
+hours between runs), where a single failure is much more likely to be real.
 
 ## 7. What each tab owns
 

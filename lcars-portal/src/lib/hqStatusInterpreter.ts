@@ -57,6 +57,7 @@ export const CAPABILITIES: ReadonlyArray<CapabilityMeta> = [
   { key: 'weekly_review', label: 'Weekly & Periodic Review', impact: 'Weekly or periodic synthesis (reviews, digests, reminders) may be delayed.', order: 6 },
   { key: 'ready_room', label: 'Ready Room Sync', impact: 'Google Tasks sync may be delayed, so Ready Room may not reflect the latest tasks.', order: 7 },
   { key: 'human_systems', label: 'Human Systems', impact: 'Human-systems nudges/check-ins may be delayed. This capability is background/best-effort by design.', order: 8 },
+  { key: 'content_workbench', label: 'Content Workbench', impact: 'Comms content promotion/drafting may be delayed. Not a Captain-facing intelligence capability.', order: 9 },
 ];
 
 const CAPABILITY_META_BY_KEY: ReadonlyMap<string, CapabilityMeta> = new Map(
