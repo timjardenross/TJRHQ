@@ -5,8 +5,16 @@
 // that link into the deeper tabs. Combines three already-governed sources
 // of truth, all read-only:
 //   - domain_heartbeats_latest (via lib/agentStatusJobs) for job health
-//   - intelligence_source_health / health_source_fetch_config for source health
+//   - intelligence_source_health_latest (migration 0190) / health_source_fetch_config for source health
 //   - the Phase 26 views (migration 0187) for per-pipeline-stage health
+//
+// 2026-09-06 fix: technical source health now reads the exact latest-per-
+// source view instead of a top-1500-rows-deduped-in-JS approach, which
+// could silently drop a failing source from Needs Attention if its most
+// recent check fell outside that window. Retired sources (active=false in
+// intelligence_source_registry) are also excluded from Needs Attention —
+// their last-known status before retirement would otherwise generate a
+// permanent, un-actionable "failing" card.
 //
 // No new scoring logic: pipeline stage health below is a pragmatic
 // tri-state derived from the same counts humans would read off the Phase 26
@@ -76,17 +84,19 @@ export async function GET() {
   try {
     const sb = await createSupabaseServerClient();
 
-    const [jobs, techQuality, healthQuality, techSources, healthFetchConfigs] = await Promise.all([
+    const [jobs, techQuality, healthQuality, techSources, activeTechSourceIds, healthFetchConfigs] = await Promise.all([
       fetchAgentStatusEntries(sb),
       sb.from('intelligence_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
       sb.from('health_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
-      sb.from('intelligence_source_health').select('source_id, status, checked_at, error_message').order('checked_at', { ascending: false }).limit(1500),
+      sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message'),
+      sb.from('intelligence_source_registry').select('source_id').eq('active', true),
       sb.from('health_source_fetch_config').select('source_id, cadence, last_fetch, last_fetch_status, last_fetch_message, health_source_registry(source_name)'),
     ]);
 
     if (techQuality.error) throw techQuality.error;
     if (healthQuality.error) throw healthQuality.error;
     if (techSources.error) throw techSources.error;
+    if (activeTechSourceIds.error) throw activeTechSourceIds.error;
     if (healthFetchConfigs.error) throw healthFetchConfigs.error;
 
     const jobsByKey = jobStatusByKey(jobs);
@@ -125,9 +135,13 @@ export async function GET() {
       });
     }
 
+    // Retired sources (active=false) are excluded — their last-known status
+    // before retirement would otherwise generate a permanent, un-actionable
+    // "failing" card and inflate the source-health summary strip forever.
+    const activeIds = new Set((activeTechSourceIds.data ?? []).map((r) => r.source_id));
     const latestTechBySource = new Map<string, { status: string; checked_at: string; error_message: string | null }>();
     for (const row of techSources.data ?? []) {
-      if (!latestTechBySource.has(row.source_id)) latestTechBySource.set(row.source_id, row);
+      if (activeIds.has(row.source_id)) latestTechBySource.set(row.source_id, row);
     }
     const failingTechByMessage = new Map<string, number>();
     for (const row of latestTechBySource.values()) {

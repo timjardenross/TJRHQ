@@ -4,12 +4,19 @@
 // OSINT and Health OSINT link here instead of duplicating this view.
 //
 // Technical (intelligence) sources: intelligence_source_registry +
-// intelligence_source_health. The health table has no "latest per source"
-// view, so we pull the most recent ~1500 rows ordered by checked_at desc
-// and reduce to one row per source_id in JS — confirmed against the live
-// data (2026-09-06) that only ~106 of 163 registered sources appear even
-// in the most recent 1000 rows, so anything not in this window is reported
-// as "no recent health check" rather than fabricated as healthy.
+// intelligence_source_health_latest (migration 0190 — a DISTINCT ON view,
+// same fix 0168 already applied to domain_heartbeats_latest). The prior
+// approach here pulled the most recent ~1500 raw rows and deduped in JS,
+// which silently dropped any source whose most recent check fell outside
+// that window instead of reporting it as "no recent health check" — the
+// view makes "one real row per source" exact instead of a best-effort
+// window.
+//
+// Retired/disabled sources (active=false) are excluded from the returned
+// `technical` list and its summary counts — their last-known status before
+// deactivation would otherwise read as a live failure forever (2026-09-06
+// fix; mirrors the health side's existing `hasFetchConfig` filtering below).
+// Their count is reported separately as `technicalInactive`, never hidden.
 //
 // Health (health_signals) sources: health_source_registry +
 // health_source_fetch_config. Only 11 of 308 registered health sources have
@@ -84,19 +91,17 @@ export async function GET() {
       .order('source_name', { ascending: true });
     if (regErr) throw regErr;
 
-    const { data: recentHealth, error: healthErr } = await sb
-      .from('intelligence_source_health')
-      .select('source_id, status, checked_at, error_message')
-      .order('checked_at', { ascending: false })
-      .limit(1500);
+    const { data: latestHealth, error: healthErr } = await sb
+      .from('intelligence_source_health_latest')
+      .select('source_id, status, checked_at, error_message');
     if (healthErr) throw healthErr;
 
     const latestBySource = new Map<string, { status: string; checked_at: string; error_message: string | null }>();
-    for (const row of recentHealth ?? []) {
-      if (!latestBySource.has(row.source_id)) latestBySource.set(row.source_id, row);
+    for (const row of latestHealth ?? []) {
+      latestBySource.set(row.source_id, row);
     }
 
-    const technical: TechnicalSourceRow[] = (technicalRegistry ?? []).map((s: any) => {
+    const technicalAll: TechnicalSourceRow[] = (technicalRegistry ?? []).map((s: any) => {
       const latest = latestBySource.get(s.source_id);
       return {
         sourceId: s.source_id,
@@ -110,6 +115,7 @@ export async function GET() {
         active: s.active,
       };
     });
+    const technical = technicalAll.filter((s) => s.active);
 
     // ── Health sources ─────────────────────────────────────────────────────
     const { data: healthRegistry, error: hRegErr } = await sb
@@ -181,13 +187,14 @@ export async function GET() {
     return NextResponse.json({
       fetchedAt: new Date().toISOString(),
       technical,
+      technicalInactive: technicalAll.length - technical.length,
       health: health.filter((h) => h.hasFetchConfig),
       healthUncadenced: health.filter((h) => !h.hasFetchConfig).length,
       summary: {
         technical: summarize(technical),
         health: summarize(health.filter((h) => h.hasFetchConfig)),
       },
-      note: `${health.filter((h) => !h.hasFetchConfig).length} of ${health.length} registered health sources have no automated fetch cadence tracked (health_source_fetch_config) — they are manually curated/seed sources, not shown as failing or healthy.`,
+      note: `${health.filter((h) => !h.hasFetchConfig).length} of ${health.length} registered health sources have no automated fetch cadence tracked (health_source_fetch_config) — they are manually curated/seed sources, not shown as failing or healthy. ${technicalAll.length - technical.length} of ${technicalAll.length} registered technical sources are retired/disabled (active=false) and excluded from the counts above.`,
     });
   } catch (err) {
     console.error('[agent-status-workbench/sources] read failed:', err);
