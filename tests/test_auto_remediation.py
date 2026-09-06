@@ -218,5 +218,53 @@ class TestExecuteRoutingSafety(unittest.TestCase):
         self.assertEqual(result["approved_count"], 0)
 
 
+class TestHandoffPRStrategyMessageSurfacesRealReason(unittest.TestCase):
+    """2026-09-06: sync-one's pr_error field (batch_coding.py's
+    run_sync_one) now carries the real reason a PR wasn't opened, instead
+    of the strategy always guessing "GitHub not configured or no new
+    files to add" regardless of the actual cause — confirmed live: a
+    fully-configured GITHUB_TOKEN/GITHUB_REPO and a genuinely new file
+    still produced that exact guess, because the true cause (a git-level
+    failure) was never surfaced anywhere."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.strategy = HandoffPRStrategy()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _remediate(self, sync_one_stdout: dict):
+        fake_result = type("R", (), {
+            "returncode": 0, "stdout": json.dumps(sync_one_stdout), "stderr": "",
+        })()
+        with patch("auto_remediation.subprocess.run", return_value=fake_result):
+            return self.strategy.remediate(self.tmpdir, make_finding(finding_id="FND-999"))
+
+    def test_real_pr_error_reason_replaces_the_old_generic_guess(self):
+        result = self._remediate({
+            "status": "delivered", "artifact": "artifacts/x.patch.md",
+            "pr_url": "", "pr_error": "git_failed: push rejected",
+        })
+        self.assertIn("git_failed: push rejected", result["message"])
+        self.assertNotIn("GitHub not configured or no new files to add", result["message"])
+
+    def test_missing_pr_error_falls_back_to_old_generic_wording(self):
+        """Backward compatible with an older sync-one or the diff-mode
+        fallback path, neither of which sets pr_error."""
+        result = self._remediate({
+            "status": "delivered", "artifact": "artifacts/x.patch.md", "pr_url": "",
+        })
+        self.assertIn("GitHub not configured or no new files to add", result["message"])
+
+    def test_successful_pr_open_still_reports_the_url_not_pr_error(self):
+        result = self._remediate({
+            "status": "delivered", "artifact": "artifacts/x.patch.md",
+            "pr_url": "https://github.com/x/y/pull/1", "pr_error": "",
+        })
+        self.assertIn("https://github.com/x/y/pull/1", result["message"])
+        self.assertNotIn("no PR opened", result["message"])
+
+
 if __name__ == "__main__":
     unittest.main()
