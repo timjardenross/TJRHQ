@@ -90,7 +90,7 @@ since 2026-08-22 auto-publishes and never uses that state machine.
 | Domain picture (cross-domain synthesis) | FUTURE → implemented (bounded, deterministic) |
 | Known unknowns | NEEDS SMALL UPLIFT → implemented (LLM prompt addition) |
 | Telegram/Captain's Chair rendering from canonical brief | NEEDS SMALL UPLIFT → implemented |
-| Full Health OSINT / Emergency Alert Hub fusion into brief evidence | FUTURE — not implemented, see §4 |
+| Health OSINT / Emergency Alert Hub fusion into brief evidence (assessed-output only, via decoupled reads) | FUTURE → implemented, see §2.9 |
 | `/briefs/[id]` canonical route | FUTURE → implemented, see §5 |
 
 ---
@@ -157,8 +157,9 @@ FUTURE work.
 New module `intelligence/brief/domain_picture.py`. Groups `top_events` by a
 small fixed taxonomy derived from the `event_type` the classifier already
 assigns (technical/regulatory/environmental/payments/other) — genuine
-cross-domain structure over what the OSINT collector actually covers.
-**Does not** claim Health OSINT or Emergency Alert Hub coverage — see §4.
+cross-domain structure over what the OSINT collector actually covers. At
+this stage it did **not** claim Health OSINT or Emergency Alert Hub
+coverage — that gap was closed as a follow-on, see §2.9.
 
 ### 2.6 Known unknowns (Section 11)
 
