@@ -131,6 +131,17 @@ export async function fetchTasks(opts?: { includeCompleted?: boolean; limit?: nu
   }
 }
 
+export async function getTask(id: string): Promise<PersonalTask | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.from('personal_tasks').select(TASK_SELECT).eq('id', id).maybeSingle();
+    if (error || !data) return null;
+    return (data as unknown) as PersonalTask;
+  } catch {
+    return null;
+  }
+}
+
 export interface TaskCounts {
   now: number;
   upcoming: number;
@@ -153,6 +164,114 @@ export function countByBucket(tasks: PersonalTask[]): TaskCounts {
   const counts: TaskCounts = { now: 0, upcoming: 0, waiting: 0 };
   for (const t of tasks) counts[attendBucket(t)]++;
   return counts;
+}
+
+/** True if a task is deferred out of Today via "Not today" — reuses
+ * snoozed_until (already exists for follow-through snoozing) rather than a
+ * new column; a task is only "not snoozed" once the date has passed. */
+export function isSnoozedToday(task: PersonalTask): boolean {
+  return !!task.snoozed_until && new Date(task.snoozed_until).getTime() > Date.now();
+}
+
+/** Deterministic Today ranking (spec §7) — overdue/due-soon, then urgent,
+ * then in-progress/restartable, then oldest open, capped at 3 (or a lower
+ * capacityLimit). Deliberately simple/inspectable — no opaque AI ranking. */
+export function rankToday(tasks: PersonalTask[], opts?: { capacityLimit?: number }): PersonalTask[] {
+  const cap = opts?.capacityLimit ?? 3;
+  const eligible = tasks.filter((t) => t.work_state !== 'blocked' && !isSnoozedToday(t));
+
+  const score = (t: PersonalTask): number => {
+    if (t.due_date) {
+      const daysOut = (new Date(t.due_date).getTime() - Date.now()) / 86_400_000;
+      if (daysOut <= 0) return 0; // overdue
+      if (daysOut <= 2) return 1; // due soon
+    }
+    if (t.urgency >= 4) return 2; // urgent
+    if ((t.work_state === 'paused' || t.work_state === 'in_progress') && t.restart_cue) return 3; // restartable
+    return 4; // everything else, oldest first
+  };
+
+  return [...eligible]
+    .sort((a, b) => {
+      const diff = score(a) - score(b);
+      if (diff !== 0) return diff;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    })
+    .slice(0, Math.max(0, cap));
+}
+
+/** "Pick up where you left off" candidates — paused/blocked-with-restart-cue
+ * items, surfaced separately from (and ahead of) the ranked Today list. */
+export function pickUpItems(tasks: PersonalTask[]): PersonalTask[] {
+  return tasks.filter((t) => t.work_state === 'paused' && t.restart_cue && !isSnoozedToday(t));
+}
+
+/** Sets snoozed_until to the end of today (local) — "Not today": keeps the
+ * task open and valid, just off today's attention set until it's reconsidered. */
+export async function deferNotToday(id: string): Promise<TaskResult> {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('personal_tasks')
+      .update({ snoozed_until: end.toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+  }
+}
+
+/** Behavioural status sentence (spec §8) — machine workload ≠ human
+ * workload, so this never just echoes raw counts. */
+export function buildStatusSentence(opts: { todayCount: number; waitingCount: number; capacityLow?: boolean }): string {
+  const { todayCount, waitingCount, capacityLow } = opts;
+  if (capacityLow && todayCount > 0) {
+    return `Capacity looks limited today. Let's keep today small. ${todayCount} thing${todayCount === 1 ? '' : 's'} worth doing.`;
+  }
+  if (todayCount === 0) {
+    return waitingCount > 0
+      ? `Nothing needs you right now. ${waitingCount} thing${waitingCount === 1 ? ' is' : 's are'} waiting on someone else.`
+      : 'Nothing needs you right now.';
+  }
+  if (todayCount === 1) return 'One thing needs you today. Everything else can wait.';
+  return `Nothing urgent. ${todayCount} things are worth doing today.`;
+}
+
+/** "Turn into a Mission" (spec §26) — calls the canonical, already-live
+ * mission creation gate. Never automatic — only invoked on explicit user
+ * click, per spec's "do not automatically create a Mission". */
+export async function promoteToMission(task: Pick<PersonalTask, 'title' | 'context'>): Promise<TaskResult & { mission_id?: string }> {
+  try {
+    const resp = await fetch('/api/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: task.title, description: task.context ?? undefined }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? 'Failed to create mission.' };
+    return { ok: true, mission_id: json?.mission?.mission_id ?? json?.mission_id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to create mission.' };
+  }
+}
+
+/** Thin capacity read for the optional Human Systems hook (spec §27) — a
+ * light-touch signal only ("keep today small"), never a diagnosis. Fails
+ * safe to { low: false } so a read error never hides urgent items or
+ * blocks the page — Ready Room does not make medical decisions. */
+export async function getCapacityLevel(): Promise<{ low: boolean }> {
+  try {
+    const resp = await fetch('/api/human-systems?domain=recovery');
+    if (!resp.ok) return { low: false };
+    const json = await resp.json();
+    const band = json?.capacity_band ?? json?.kpis?.capacity_band;
+    return { low: band === 'limited' || band === 'rest' };
+  } catch {
+    return { low: false };
+  }
 }
 
 // ── Write ─────────────────────────────────────────────────────────────────────
@@ -282,15 +401,27 @@ export interface DecomposeResult {
   error?: string;
 }
 
+export type DecomposeMode = 'first' | 'smaller' | 'another';
+
 /** Calls /api/ready-room/decompose (proxies Model Router). Never throws —
  * a failed/unreachable provider chain returns { action: null } so the UI
- * can fall back to "write your own first step" rather than block. */
-export async function decomposeTask(taskText: string): Promise<DecomposeResult> {
+ * can fall back to "write your own first step" rather than block.
+ * `mode` drives "Make it smaller" / "Try another" without creating a new
+ * task or losing the original goal — see spec §17/§18. `previousAction` is
+ * passed along so the router can vary its answer instead of repeating it. */
+export async function decomposeTask(
+  taskText: string,
+  opts?: { mode?: DecomposeMode; previousAction?: string },
+): Promise<DecomposeResult> {
   try {
     const resp = await fetch('/api/ready-room/decompose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: taskText }),
+      body: JSON.stringify({
+        task: taskText,
+        mode: opts?.mode ?? 'first',
+        previous_action: opts?.previousAction,
+      }),
     });
     const json = await resp.json();
     return { action: json?.action ?? null, error: json?.error };

@@ -19,9 +19,13 @@ export async function POST(req: NextRequest) {
   }
 
   let task = '';
+  let mode: 'first' | 'smaller' | 'another' = 'first';
+  let previousAction: string | undefined;
   try {
     const body = await req.json();
     task = typeof body?.task === 'string' ? body.task.trim() : '';
+    if (body?.mode === 'smaller' || body?.mode === 'another') mode = body.mode;
+    if (typeof body?.previous_action === 'string') previousAction = body.previous_action;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
@@ -33,7 +37,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${ROUTER_BASE}/api/model/adhd-decompose`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task }),
+      body: JSON.stringify({ task, mode, previous_action: previousAction }),
       // Model Router's own adhd-decompose timeout is 60s (app.py TASK_POLICY)
       // and a cold gemma3:4b load can take ~50s — give it real room rather
       // than aborting into a false "couldn't generate a step" fallback.

@@ -243,6 +243,20 @@ _ADHD_DECOMPOSE_SYSTEM_PROMPT = (
     "Respond with ONLY the micro-action, nothing else. No preamble, no explanation."
 )
 
+_ADHD_DECOMPOSE_SMALLER_SUFFIX = (
+    "\n\nThe person tried the first action above and it still feels too big. "
+    "Propose an even smaller sub-step of that SAME action — something "
+    "completable in 1-5 minutes, not a new direction. Respond with ONLY the "
+    "smaller action, nothing else."
+)
+
+_ADHD_DECOMPOSE_ANOTHER_SUFFIX = (
+    "\n\nThe person doesn't want to do the first action above, even though it "
+    "may be valid. Propose a DIFFERENT concrete first action toward the same "
+    "goal — not a bigger plan, not the same action reworded. Respond with "
+    "ONLY the alternative action, nothing else."
+)
+
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
 # not words that naturally appear in classification tags/summaries.
@@ -622,7 +636,13 @@ class RouterHandler(BaseHTTPRequestHandler):
         if not task_text:
             self._send_json(400, {"error": "task is required"})
             return
+        mode = body.get("mode") or "first"
+        previous_action = (body.get("previous_action") or "").strip()[:500]
         prompt = f"{_ADHD_DECOMPOSE_SYSTEM_PROMPT}\n\nTask: {task_text}"
+        if mode == "smaller" and previous_action:
+            prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_SMALLER_SUFFIX}"
+        elif mode == "another" and previous_action:
+            prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_ANOTHER_SUFFIX}"
         result = _run_task("adhd-decompose", prompt, body)
         if not result.get("success"):
             self._send_json(502, {"action": None, "error": result.get("error")})

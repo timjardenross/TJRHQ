@@ -1,10 +1,10 @@
-export type Domain = 'attend' | 'decompose';
+export type Domain = 'do' | 'unstick';
 
 export function isDomain(value: string | null): value is Domain {
-  return value === 'attend' || value === 'decompose';
+  return value === 'do' || value === 'unstick';
 }
 
 export const EYEBROW: Record<Domain, string> = {
-  attend: 'Ready Room · What needs you',
-  decompose: 'Ready Room · Break it down',
+  do: 'Ready Room · What’s worth doing now',
+  unstick: 'Ready Room · Help me start',
 };

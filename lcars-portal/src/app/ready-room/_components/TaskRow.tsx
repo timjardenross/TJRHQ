@@ -8,26 +8,28 @@ import {
   followThroughModeMeta,
   updateTaskState,
   toggleFollowThroughPause,
+  deferNotToday,
+  FOLLOW_THROUGH_MODES,
   type PersonalTask,
   type WorkState,
+  type FollowThroughMode,
 } from '@/lib/personalTasks';
 
 const URL_RE = /(https?:\/\/\S+)/;
 
 /** context often ends with "...From <workbench> · <signal>. <link>" (see
- * Weekly Review's "Send to Ready Room"). Split out a trailing URL and
- * render it as a real link instead of dead text, so the source is one tap
- * away — not just recorded and forgotten. */
+ * Weekly Review's "Send to Ready Room"). Render the link as "Source →"
+ * instead of a raw URL on the card (spec §25). */
 function renderContext(context: string) {
   const match = context.match(URL_RE);
-  if (!match) return context;
+  if (!match) return <>{context}</>;
   const url = match[1];
   const before = context.slice(0, match.index).trim();
   return (
     <>
       {before && `${before} `}
       <Link href={url} target="_blank" rel="noopener noreferrer" className="text-wb-sage-deep hover:underline">
-        {url}
+        Source →
       </Link>
     </>
   );
@@ -42,15 +44,26 @@ function dueLabel(due: string | null): string | null {
   return `Due ${new Date(due).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}`;
 }
 
-/** One task/life-admin item row. Always shows what a "waiting" item is
- * waiting on, and — when re-opening a paused/blocked item — its restart
- * cue, so resuming after an interruption never starts from a blank page. */
-export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: () => void }) {
+/** One task card. Default surface exposes only what helps action (spec
+ * §10) — title, due/context, Start/Done/•••. Category, follow-through
+ * mode, waiting-on detail, mute, and "Not today" all live behind •••. */
+export function TaskRow({
+  task,
+  onChanged,
+  onStart,
+  showNotToday = true,
+}: {
+  task: PersonalTask;
+  onChanged: () => void;
+  onStart?: (task: PersonalTask) => void;
+  showNotToday?: boolean;
+}) {
   const meta = categoryMeta(task.category);
   const ftMeta = followThroughModeMeta(task.follow_through_mode);
   const due = dueLabel(task.due_date);
   const [waitingDraft, setWaitingDraft] = useState(task.waiting_on ?? '');
   const [showWaitingForm, setShowWaitingForm] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function setState(work_state: WorkState, extra?: Parameters<typeof updateTaskState>[2]) {
@@ -67,7 +80,19 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
     onChanged();
   }
 
-  const showRestartCue = (task.work_state === 'blocked' || task.work_state === 'paused') && task.restart_cue;
+  async function notToday() {
+    setBusy(true);
+    await deferNotToday(task.id);
+    setBusy(false);
+    onChanged();
+  }
+
+  async function changeMode(mode: FollowThroughMode) {
+    setBusy(true);
+    await updateTaskState(task.id, task.work_state, { follow_through_mode: mode });
+    setBusy(false);
+    onChanged();
+  }
 
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-3">
@@ -77,58 +102,92 @@ export function TaskRow({ task, onChanged }: { task: PersonalTask; onChanged: ()
             <span aria-hidden className="shrink-0 text-wb-ink2">{meta.glyph}</span>
             <span className="break-words text-[14px] font-medium text-wb-ink">{task.title}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge status="neutral">{meta.label}</Badge>
-            <span title={ftMeta.hint}>
-              <Badge status="neutral">{ftMeta.label}</Badge>
-            </span>
-            {due && <span className="text-[11px] text-wb-ink2">{due}</span>}
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
+            {due && <span>{due}</span>}
+            {task.work_state === 'blocked' && <span>Waiting on: {task.waiting_on || 'not noted yet'}</span>}
           </div>
           {task.context && (
             <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{renderContext(task.context)}</p>
           )}
-          {task.work_state === 'blocked' && (
-            <p className="mt-1.5 text-[12px] text-wb-warn-on">
-              Waiting on: {task.waiting_on || 'not noted yet'}
-            </p>
-          )}
-          {task.micro_action && task.work_state !== 'completed' && (
-            <p className="mt-1.5 text-[12px] text-wb-ink2">First step: {task.micro_action}</p>
-          )}
-          {showRestartCue && (
-            <p className="mt-1.5 rounded bg-wb-sage/10 px-2 py-1 text-[12px] text-wb-sage-deep">
-              Restart here: {task.restart_cue}
-            </p>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
+          {task.work_state !== 'completed' && task.work_state !== 'blocked' && onStart && (
+            <Button size="sm" variant="primary" disabled={busy} onClick={() => onStart(task)}>
+              Start
+            </Button>
+          )}
           {task.work_state !== 'completed' && (
-            <Button size="sm" variant="primary" disabled={busy} onClick={() => setState('completed')}>
+            <Button size="sm" variant={onStart ? 'secondary' : 'primary'} disabled={busy} onClick={() => setState('completed')}>
               Done
             </Button>
           )}
-          {task.work_state !== 'blocked' && task.work_state !== 'completed' && (
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => setShowWaitingForm(true)}>
-              Waiting on…
-            </Button>
-          )}
-          {task.work_state === 'blocked' && (
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => setState('captured')}>
-              No longer waiting
+          {showNotToday && task.work_state !== 'completed' && task.work_state !== 'blocked' && (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={notToday}>
+              Not today
             </Button>
           )}
           <button
             type="button"
             disabled={busy}
-            onClick={togglePause}
-            title={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
-            aria-label={task.follow_through_paused ? 'Follow-through muted — click to unmute' : 'Mute follow-through nudges for this item'}
-            className="ml-auto text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            onClick={() => setShowDetails((v) => !v)}
+            aria-expanded={showDetails}
+            aria-label="More options"
+            className="ml-auto rounded px-2 py-1 text-[13px] text-wb-ink2 opacity-70 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
-            {task.follow_through_paused ? '🔕' : '🔔'}
+            •••
           </button>
         </div>
+
+        {showDetails && (
+          <div className="mt-1 flex flex-col gap-2 border-t border-wb-line pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge status="neutral">{meta.label}</Badge>
+              <span title={ftMeta.hint}>
+                <Badge status="neutral">🔔 HQ will remind you — {ftMeta.label.toLowerCase()}</Badge>
+              </span>
+            </div>
+            {task.micro_action && task.work_state !== 'completed' && (
+              <p className="text-[12px] text-wb-ink2">First step: {task.micro_action}</p>
+            )}
+            {task.mvp_note && (
+              <p className="text-[12px] text-wb-ink2">Good enough: {task.mvp_note}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {task.work_state !== 'blocked' && task.work_state !== 'completed' && (
+                <Button size="sm" variant="secondary" disabled={busy} onClick={() => setShowWaitingForm(true)}>
+                  Waiting on…
+                </Button>
+              )}
+              {task.work_state === 'blocked' && (
+                <Button size="sm" variant="secondary" disabled={busy} onClick={() => setState('captured')}>
+                  No longer waiting
+                </Button>
+              )}
+              <label className="ml-1 flex items-center gap-1 text-[12px] text-wb-ink2">
+                Remind me:
+                <select
+                  className="rounded border border-wb-line bg-wb-surface px-1 py-0.5 text-[12px]"
+                  value={task.follow_through_mode}
+                  disabled={busy}
+                  onChange={(e) => changeMode(e.target.value as FollowThroughMode)}
+                >
+                  {FOLLOW_THROUGH_MODES.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={togglePause}
+                title={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
+                aria-label={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
+                className="text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              >
+                {task.follow_through_paused ? '🔕' : '🔔'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showWaitingForm && (

@@ -1,35 +1,29 @@
 'use client';
 
-// Ready Room — Life Admin Hub + Task Decomposition Engine, one workbench.
-//
-// Two DomainToggle panes sharing one operating surface (per mission brief:
-// "treat Life Admin and Task Decomposition as two halves of the same
-// operating surface"), both reading/writing personal_tasks (migration 0090,
-// extended 0163). Same WorkbenchShell + DomainToggle architecture as every
-// other workbench; see capture-workbench/page.tsx for the sibling pattern.
+// Ready Room — the activation and execution layer for TJR HQ. Two modes:
+// DO ("what's worth doing now") and UNSTICK ME ("help me start"). Both read/
+// write personal_tasks (migration 0090, extended 0163/0165/0184). Same
+// WorkbenchShell + DomainToggle architecture as every other workbench.
 
 import { Suspense, useCallback, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
-import { KpiDashboard } from './_components/KpiDashboard';
-import { AttendView } from './_components/AttendView';
+import { TodayStream } from './_components/TodayStream';
 import { DecomposeView } from './_components/DecomposeView';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
-import { countByBucket, type PersonalTask, type TaskCounts } from '@/lib/personalTasks';
+import { rankToday, type PersonalTask } from '@/lib/personalTasks';
 
 function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
 
   const initialDomain = params.get('domain');
-  const [domain, setDomain] = useState<Domain>(isDomain(initialDomain) ? initialDomain : 'attend');
-  const [counts, setCounts] = useState<TaskCounts | null>(null);
-  const [countsLoading, setCountsLoading] = useState(true);
+  const [domain, setDomain] = useState<Domain>(isDomain(initialDomain) ? initialDomain : 'do');
+  const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
   const [refreshSignal, setRefreshSignal] = useState(0);
 
-  const handleAttendLoaded = useCallback((tasks: PersonalTask[]) => {
-    setCounts(countByBucket(tasks));
-    setCountsLoading(false);
+  const handleLoaded = useCallback((tasks: PersonalTask[]) => {
+    setTodayBadge(rankToday(tasks).length);
   }, []);
 
   const changeDomain = (d: Domain) => {
@@ -43,10 +37,10 @@ function Workbench() {
     <DomainToggle
       value={domain}
       onChange={changeDomain}
-      ariaLabel="Ready Room domain"
+      ariaLabel="Ready Room mode"
       options={[
-        { key: 'attend' as const, label: 'Attend', badge: counts ? counts.now + counts.waiting : undefined },
-        { key: 'decompose' as const, label: 'Break It Down' },
+        { key: 'do' as const, label: 'Do', badge: todayBadge },
+        { key: 'unstick' as const, label: 'Unstick Me' },
       ]}
     />
   );
@@ -55,18 +49,15 @@ function Workbench() {
     <WorkbenchShell
       title="Ready Room"
       eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Ready Room · Nothing falls through. Nothing has to be figured out alone."
+      tagline="The place where things become doable. Nothing falls through. Nothing has to be figured out alone."
       right={right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
-      {domain === 'attend' && (
-        <>
-          <KpiDashboard counts={counts} loading={countsLoading} />
-          <AttendView refreshSignal={refreshSignal} onLoaded={handleAttendLoaded} />
-        </>
+      {domain === 'do' && (
+        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} />
       )}
-      {domain === 'decompose' && (
+      {domain === 'unstick' && (
         <DecomposeView onSaved={() => setRefreshSignal((n) => n + 1)} />
       )}
     </WorkbenchShell>
