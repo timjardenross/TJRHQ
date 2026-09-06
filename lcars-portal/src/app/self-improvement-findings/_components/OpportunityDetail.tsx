@@ -46,7 +46,17 @@ function observationWindowText(window: { type: string; count: number } | undefin
 /** Section 22: investigation / evaluation detail, progressively disclosed
  * (raw provenance behind a <details>, section 22/47). Section 26: a
  * Mission-only banner for capability/product_improvement/architecture. */
-export function OpportunityDetail({ opportunity, actions }: { opportunity: Opportunity; actions?: ReactNode }) {
+export function OpportunityDetail({
+  opportunity, actions, missionStatus,
+}: {
+  opportunity: Opportunity;
+  actions?: ReactNode;
+  /** Live status of the Mission this opportunity was handed off to, when
+   * known — e.g. "Approved for Engineering", "Awaiting XO Approval". The
+   * Mission system's own staged-approval ladder, surfaced here rather than
+   * requiring the Captain to go look it up elsewhere. */
+  missionStatus?: string | null;
+}) {
   const inv = opportunity.investigation || {};
   const isMissionOnly = MISSION_ONLY_CLASSES.includes(opportunity.change_class);
   const contract = opportunity.outcome_contract && 'expected_benefit' in opportunity.outcome_contract
@@ -65,6 +75,9 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
         <Badge status={toneToStatus(lifecycleStateToTone(opportunity.lifecycle_state))}>
           {opportunity.lifecycle_state.replace('_', ' ')}
         </Badge>
+        {opportunity.mission_id && (
+          <Badge status="info">Mission {opportunity.mission_id}: {missionStatus ?? 'loading…'}</Badge>
+        )}
         {opportunity.value && <Badge status={toneToStatus(valueToTone(opportunity.value))}>Value: {opportunity.value}</Badge>}
         {opportunity.risk_level && (
           <Badge status={toneToStatus(opportunityRiskToTone(opportunity.risk_level))}>Risk: {opportunity.risk_level}</Badge>
