@@ -219,38 +219,39 @@ Precedence, most severe first:
 never raw failure volume. Seventeen failing supporting jobs contribute
 `0` to this count and leave HQ `normal`; see the interpreter tests.
 
-### Known V1 limitation: ATTENTION does not yet distinguish a fresh failure from a persistent one
+### Resolved (HQ V1 Integration QA): ATTENTION now distinguishes a fresh failure from a persistent one
 
 Mission §25-26 draws a line between a **system issue** ("HQ knows about it
 and will retry/recover automatically" — no human task) and something that
 **needs attention** ("cannot recover automatically or materially blocks a
-capability"). The current rule collapses that distinction for critical
-capabilities: a critical job's *single* latest `failed` heartbeat produces
+capability"). Previously the rule collapsed that distinction for critical
+capabilities: a critical job's *single* latest `failed` heartbeat produced
 `unavailable` → `ATTENTION` immediately, even if that job retries every few
 minutes and would self-heal before a human ever looks — e.g. a lone,
-transient `core_events` blip reads identically to `core_events` being stuck
+transient `core_events` blip read identically to `core_events` being stuck
 down for hours. `domain_heartbeats_latest` only exposes the single most
-recent attempt per domain, which isn't enough to tell "just failed once" from
-"failed N times in a row"; the raw `domain_heartbeats` event log (already
-read by History, §7) has what's needed to add a failure-streak check, but
-wiring that into the interpreter is a real signal-source change, not a
-one-line fix, and was deliberately **not** done in the same pass as this
-audit to avoid scope creep into "further features/redesign." Not fixed here,
-and deliberately not spun off as an independent fast-follow either (see
-Ownership below): for now, treat a single-cycle `ATTENTION` on a capability
-with a short cadence (e.g. `core_events`, every 30s) with more skepticism
-than one on a slow-cadence capability (e.g. `captains_daily_briefs`, hours
-between runs), where a single failure is much more likely to be real.
+recent attempt per domain, which wasn't enough to tell "just failed once"
+from "failed N times in a row."
 
-**Ownership of the fix**: explicitly carried into the planned HQ V1
-Integration QA & Contract Validation mission, which already scopes
-ATTENTION/"needs user attention" semantics, heartbeat/scheduler
-consistency, and failure→retry→recovery behaviour as part of validating
-HQ Status as a trustworthy command-layer contract. That mission is the
-right place to inspect the raw `domain_heartbeats` history (as History
-already does) and determine the smallest correct persistence/failure-streak
-interpretation — not this uplift, and not a standalone fast-follow raised
-independently of that audit.
+**Fix (HQ V1 Integration QA, this mission):** `fetchAgentStatusEntries()`
+(`lib/agentStatusJobs.ts`) now checks, only for critical jobs that are
+*currently* `failed` (the common healthy-HQ case adds zero extra queries),
+whether the immediately preceding heartbeat for that same `domain_key` was
+`ok` — a bounded, per-domain read of the raw `domain_heartbeats` event log
+(the same table/shape History already reads; see `fetchIsolatedFailureFlags`).
+If so, the failure is marked `isIsolatedFailure: true` and
+`computeCapabilities()` (`lib/hqStatusInterpreter.ts`) holds the capability
+at `degraded` for that cycle instead of escalating to `unavailable` —
+letting a job that fails once and recovers on its own next scheduled run
+self-heal without ever crossing into `ATTENTION`. Two consecutive failures
+(or a missing/errored history query) still escalate to `unavailable` →
+`ATTENTION` exactly as before: the default is fail-safe (escalate), and only
+a *positively confirmed* isolated first attempt relaxes it. This is
+deliberately narrow — a two-row persistence check, not general cadence math
+— per the "do not add cadence math unless a correctness defect makes it
+necessary" instruction. See `lib/__tests__/hqStatusInterpreter.test.ts` and
+`lib/__tests__/agentStatusJobs.isolatedFailure.test.ts` for the regression
+coverage.
 
 ## 7. What each tab owns
 

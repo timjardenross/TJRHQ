@@ -195,6 +195,13 @@ export interface AgentStatusEntry {
   cadenceLabel: string;
   capability: string;
   criticality: Criticality;
+  /** True only when the immediately preceding heartbeat for this job was
+   *  'ok' — i.e. this 'failed' status is a fresh, first-time attempt that
+   *  hasn't had its own scheduled retry yet, not a persistent outage. See
+   *  fetchIsolatedFailureFlags. Undefined/false means "not confirmed
+   *  isolated" and is the safe default — hqStatusInterpreter.ts only ever
+   *  relaxes ATTENTION when this is positively `true`. */
+  isIsolatedFailure?: boolean;
 }
 
 /** Given the domain_heartbeats_latest rows keyed by domain_key, builds the
@@ -261,6 +268,52 @@ export function buildAgentStatusEntries(
   });
 }
 
+/** For each of the given domain_keys (expected: currently-'failed' critical
+ *  jobs only — see fetchAgentStatusEntries), determines whether the
+ *  IMMEDIATELY PRECEDING heartbeat (before the current failed one) was
+ *  'ok' — i.e. this is a fresh, first-time failure that hasn't even had its
+ *  own scheduled retry yet, not a persistent outage.
+ *
+ *  domain_heartbeats_latest only ever exposes the single latest row per
+ *  domain, so a lone blip and a week-long outage look byte-identical there
+ *  (HQ V1 Integration QA §12 finding). This reads the raw domain_heartbeats
+ *  event log — the same table/shape the History tab already reads — for
+ *  just the 2 most recent rows per affected domain. Bounded and cheap: it
+ *  only runs at all when a critical job is actually failing, which is the
+ *  rare case (zero extra queries on a normal, healthy HQ).
+ *
+ *  Defaults to NOT isolated (still escalates) on a missing prior row or any
+ *  query error — never suppress a genuine attention signal on ambiguity. */
+export async function fetchIsolatedFailureFlags(
+  sb: { from: (table: string) => any },
+  domainKeys: string[],
+): Promise<Map<string, boolean>> {
+  const result = new Map<string, boolean>();
+  if (domainKeys.length === 0) return result;
+
+  await Promise.all(domainKeys.map(async (domainKey) => {
+    try {
+      const { data, error } = await sb
+        .from('domain_heartbeats')
+        .select('status')
+        .eq('domain_key', domainKey)
+        .order('checked_at', { ascending: false })
+        .limit(2);
+      if (error || !data || data.length < 2) {
+        result.set(domainKey, false);
+        return;
+      }
+      // data[0] is the current failed row (the same one domain_heartbeats_
+      // latest reported); data[1] is the immediately preceding attempt.
+      result.set(domainKey, data[1]?.status === 'ok');
+    } catch {
+      result.set(domainKey, false);
+    }
+  }));
+
+  return result;
+}
+
 /** Shared query used by both /api/agent-status (Jobs tab) and
  *  /api/agent-status-workbench/overview (Needs Attention + Jobs summary) —
  *  one place that knows how to turn domain_heartbeats_latest into
@@ -286,5 +339,15 @@ export async function fetchAgentStatusEntries(sb: {
     latestByDomainKey.set(row.domain_key, row);
   }
 
-  return buildAgentStatusEntries(latestByDomainKey);
+  const entries = buildAgentStatusEntries(latestByDomainKey);
+
+  const failedCriticalKeys = entries
+    .filter((e) => e.status === 'failed' && e.criticality === 'critical')
+    .map((e) => e.domainKey);
+  if (failedCriticalKeys.length === 0) return entries;
+
+  const isolatedByKey = await fetchIsolatedFailureFlags(sb, failedCriticalKeys);
+  return entries.map((e) =>
+    isolatedByKey.has(e.domainKey) ? { ...e, isIsolatedFailure: isolatedByKey.get(e.domainKey) } : e,
+  );
 }

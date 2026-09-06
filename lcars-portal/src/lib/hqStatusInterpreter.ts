@@ -134,14 +134,29 @@ export function computeCapabilities(jobs: AgentStatusEntry[]): CapabilityResult[
       tone = 'unknown';
       reason = `No recent telemetry for any job feeding ${label}.`;
     } else if (failed.length > 0) {
-      // A known failure on a critical capability is treated as materially
-      // unavailable (spec §30: "critical capability unavailable ... may
-      // make HQ ATTENTION"); on a lesser capability it's simply degraded —
-      // HQ stays usable, this is a system issue, not a human task.
-      tone = criticality === 'critical' ? 'unavailable' : 'degraded';
+      // A known, PERSISTENT failure on a critical capability is treated as
+      // materially unavailable (spec §30: "critical capability unavailable
+      // ... may make HQ ATTENTION"). But a failure that is still only a
+      // single isolated attempt — the immediately preceding heartbeat for
+      // that job was 'ok', per isIsolatedFailure (see agentStatusJobs.ts's
+      // fetchIsolatedFailureFlags) — hasn't even had its own scheduled
+      // retry yet. HQ V1 Integration QA §12: "self-recovering machine
+      // failures do not automatically become human ATTENTION" — a job that
+      // fails once and recovers on its next run must never have crossed
+      // into ATTENTION in between. isIsolatedFailure defaults to
+      // undefined/false (not confirmed isolated) when no persistence data
+      // was supplied, which keeps this fail-safe: escalate unless a fresh
+      // prior success is positively confirmed, never the other way round.
+      // On a lesser (non-critical) capability this distinction doesn't
+      // matter — it's simply degraded either way; HQ stays usable.
+      const isolated = criticality === 'critical' && failed.every((j) => j.isIsolatedFailure === true);
+      tone = criticality === 'critical' && !isolated ? 'unavailable' : 'degraded';
+      const isolatedNote = isolated
+        ? ' First failed attempt — re-checking on the next scheduled run before this needs your attention.'
+        : '';
       reason = failed.length === 1
-        ? `${failed[0].label} is failing: ${failed[0].lastAction ?? 'no detail recorded'}.`
-        : `${failed.length} jobs feeding ${label} are failing.`;
+        ? `${failed[0].label} is failing: ${failed[0].lastAction ?? 'no detail recorded'}.${isolatedNote}`
+        : `${failed.length} jobs feeding ${label} are failing.${isolatedNote}`;
     } else if (known.length < capJobs.length) {
       // Some jobs ok, some never reported — honest partial-unknown rather
       // than papering over the gap as healthy.
