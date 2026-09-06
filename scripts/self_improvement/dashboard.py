@@ -8,6 +8,7 @@ Runs on http://localhost:8892
 
 import json
 import logging
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request
@@ -36,6 +37,8 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+REMEDIATION_RESULTS_FILE = DATA_ROOT / "review" / "remediation_results.jsonl"
+_PR_URL_RE = re.compile(r"https?://\S+")
 
 log.info(f"DATA_ROOT: {DATA_ROOT}")
 log.info(f"RUNS_DIR exists: {RUNS_DIR.exists()}")
@@ -103,6 +106,49 @@ def load_decisions():
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
+
+
+def load_remediation_results():
+    """Latest auto_remediation.py outcome per finding_id (its append-only
+    remediation_results.jsonl — last entry per finding_id wins, same
+    last-write-wins convention as load_decisions() above)."""
+    if not REMEDIATION_RESULTS_FILE.exists():
+        return {}
+
+    results = {}
+    try:
+        with open(REMEDIATION_RESULTS_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    finding_id = r.get("finding_id")
+                    if finding_id:
+                        results[finding_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load remediation results: {exc}")
+
+    return results
+
+
+def _attach_remediation_status(opportunities, remediation_results):
+    """Read-only join of auto_remediation.py's own outcome log onto each
+    opportunity via source_finding_id, so an opportunity you approved that
+    quietly got a draft PR opened (or failed) is visible on the same page
+    where you made the decision — previously this only ever surfaced in
+    Number One's separate advisory queue, never back on HQ Evolution's own
+    UI. Never mutates the opportunity store itself."""
+    for opp in opportunities:
+        fid = opp.get("source_finding_id")
+        result = remediation_results.get(fid) if fid else None
+        if not result:
+            continue
+        message = result.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        opp["remediation_status"] = "succeeded" if result.get("success") else "failed"
+        opp["remediation_message"] = message
+        opp["remediation_pr_url"] = url_match.group(0) if url_match else None
+        opp["remediation_at"] = result.get("timestamp")
+    return opportunities
 
 
 def save_decision(finding_id, decision, reasoning=""):
@@ -229,6 +275,7 @@ def api_opportunities():
     if states:
         opportunities = [o for o in opportunities if o.get("lifecycle_state") in states]
     opportunities.sort(key=lambda o: o.get("updated_at") or "", reverse=True)
+    opportunities = _attach_remediation_status(opportunities, load_remediation_results())
 
     return jsonify({"opportunities": opportunities, "total": len(opportunities)})
 
@@ -240,6 +287,7 @@ def api_opportunity(opportunity_id):
     opp = opportunity_store.get(opportunity_id)
     if not opp:
         return jsonify({"error": "Opportunity not found"}), 404
+    _attach_remediation_status([opp], load_remediation_results())
     return jsonify(opp)
 
 
@@ -415,6 +463,49 @@ def api_evolution_summary():
         "cycle_status": cycle_summary.get("cycle_status", "unknown" if not cycle_summary else "ok"),
         "freshness": cycle_summary.get("freshness", cycle_summary.get("timestamp")),
     })
+
+
+MISSION_DISPATCH_LOG_FILE = DATA_ROOT / "review" / "mission_dispatch_log.jsonl"
+
+
+def load_mission_dispatch_log():
+    """Latest core/engineering/mission_dispatch.py outcome per mission_id
+    (its append-only mission_dispatch_log.jsonl — last entry per mission_id
+    wins, same convention as load_decisions()/load_remediation_results())."""
+    if not MISSION_DISPATCH_LOG_FILE.exists():
+        return {}
+
+    entries = {}
+    try:
+        with open(MISSION_DISPATCH_LOG_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    mission_id = r.get("mission_id")
+                    if mission_id:
+                        entries[mission_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load mission dispatch log: {exc}")
+
+    return entries
+
+
+@app.route("/api/mission-dispatch-status")
+def api_mission_dispatch_status():
+    """Read-only surfacing of mission_dispatch.py's own outcome log.
+
+    mission_dispatch.py opens a draft PR but never writes back to Supabase,
+    so a Mission's status there (e.g. "Approved for Engineering") can keep
+    reading that way indefinitely even after a PR has already been opened
+    for it — this endpoint is how the frontend tells those two apart
+    without conflating "not yet dispatched" with "dispatched, PR pending
+    your merge"."""
+    entries = load_mission_dispatch_log()
+    for entry in entries.values():
+        message = entry.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        entry["pr_url"] = url_match.group(0) if url_match else None
+    return jsonify({"dispatches": entries})
 
 
 @app.route("/api/status")

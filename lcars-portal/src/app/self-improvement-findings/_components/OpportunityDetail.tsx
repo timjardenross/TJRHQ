@@ -47,7 +47,7 @@ function observationWindowText(window: { type: string; count: number } | undefin
  * (raw provenance behind a <details>, section 22/47). Section 26: a
  * Mission-only banner for capability/product_improvement/architecture. */
 export function OpportunityDetail({
-  opportunity, actions, missionStatus,
+  opportunity, actions, missionStatus, missionDispatch,
 }: {
   opportunity: Opportunity;
   actions?: ReactNode;
@@ -56,6 +56,12 @@ export function OpportunityDetail({
    * Mission system's own staged-approval ladder, surfaced here rather than
    * requiring the Captain to go look it up elsewhere. */
   missionStatus?: string | null;
+  /** core/engineering/mission_dispatch.py's own outcome for this Mission,
+   * when it has actually dispatched one — mission_dispatch.py never writes
+   * back to Supabase, so missionStatus above can keep reading e.g.
+   * "Approved for Engineering" long after a draft PR was already opened;
+   * this is how that gets told apart from "not yet dispatched" at all. */
+  missionDispatch?: { success: boolean; message: string; pr_url: string | null } | null;
 }) {
   const inv = opportunity.investigation || {};
   const isMissionOnly = MISSION_ONLY_CLASSES.includes(opportunity.change_class);
@@ -269,6 +275,51 @@ export function OpportunityDetail({
           </div>
           {outcome.improvement_success_note && (
             <div className="mt-1 text-xs text-wb-ink2">{outcome.improvement_success_note}</div>
+          )}
+        </Field>
+      )}
+
+      {opportunity.remediation_status && (
+        <Field label="Auto-remediation">
+          {opportunity.remediation_status === 'succeeded' ? (
+            <div>
+              Draft PR opened for review
+              {opportunity.remediation_pr_url && (
+                <>
+                  :{' '}
+                  <a href={opportunity.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">
+                    {opportunity.remediation_pr_url}
+                  </a>
+                </>
+              )}
+              . Review and merge it like any other PR — HQ never merges this itself.
+            </div>
+          ) : (
+            <div className="text-wb-crit-on">Attempt failed: {opportunity.remediation_message}</div>
+          )}
+          {opportunity.remediation_at && (
+            <div className="mt-1 text-xs text-wb-ink2">{new Date(opportunity.remediation_at).toLocaleString()}</div>
+          )}
+        </Field>
+      )}
+
+      {opportunity.mission_id && missionDispatch && (
+        <Field label="Engineering dispatch">
+          {missionDispatch.success ? (
+            <div>
+              Auto-dispatched to engineering
+              {missionDispatch.pr_url && (
+                <>
+                  :{' '}
+                  <a href={missionDispatch.pr_url} target="_blank" rel="noreferrer" className="underline break-all">
+                    {missionDispatch.pr_url}
+                  </a>
+                </>
+              )}
+              . This may not yet be reflected in the Mission status above — review and merge like any other PR.
+            </div>
+          ) : (
+            <div className="text-wb-crit-on">Dispatch attempt failed: {missionDispatch.message}</div>
           )}
         </Field>
       )}
