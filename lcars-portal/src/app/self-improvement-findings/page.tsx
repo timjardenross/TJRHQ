@@ -56,6 +56,11 @@ export default function HqEvolutionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
+  // Mission's own staged-approval ladder (Idea -> ... -> Approved), surfaced
+  // inline for any opportunity handed off via "Create Mission" rather than
+  // requiring the Captain to go look it up elsewhere. Best-effort: a failed
+  // fetch here never blocks the rest of the page.
+  const [missionStatuses, setMissionStatuses] = useState<Record<string, string>>({});
 
   async function loadAll() {
     try {
@@ -69,11 +74,25 @@ export default function HqEvolutionPage() {
       const findingsBody = await findingsRes.json();
       if (!oppRes.ok) throw new Error(typeof oppBody?.error === 'string' ? oppBody.error : 'Failed to load opportunities');
 
-      setOpportunities(oppBody.opportunities || []);
+      const loadedOpportunities: Opportunity[] = oppBody.opportunities || [];
+      setOpportunities(loadedOpportunities);
       setSummary(summaryRes.ok ? summaryBody : null);
       setLegacyFindings(findingsBody.findings || []);
       setError(null);
       setLoading(false);
+
+      const missionIds = Array.from(new Set(loadedOpportunities.map((o) => o.mission_id).filter((id): id is string => !!id)));
+      if (missionIds.length > 0) {
+        fetch(`/api/missions?mission_id=${encodeURIComponent(missionIds.join(','))}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body) => {
+            if (!body?.missions) return;
+            const next: Record<string, string> = {};
+            for (const m of body.missions as Array<{ mission_id: string; status: string }>) next[m.mission_id] = m.status;
+            setMissionStatuses(next);
+          })
+          .catch(() => {}); // best-effort — a badge staying blank is fine, never blocks the page
+      }
     } catch (err) {
       console.error('[HQ Evolution] load failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to load HQ Evolution data');
@@ -236,7 +255,7 @@ export default function HqEvolutionPage() {
         />
       )}
 
-      {tab === 'learned' && <LearnedTab learned={learned} historical={historical} onDecide={decide} />}
+      {tab === 'learned' && <LearnedTab learned={learned} historical={historical} onDecide={decide} missionStatuses={missionStatuses} />}
 
       <div className="text-center text-xs text-wb-ink2 mt-8">
         Refreshes automatically every minute while this tab is visible ·{' '}
@@ -653,11 +672,12 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide,
+  learned, historical, onDecide, missionStatuses,
 }: {
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  missionStatuses: Record<string, string>;
 }) {
   const [filter, setFilter] = useState('all');
   const activeFilter = LEARNED_FILTERS.find((f) => f.key === filter) ?? LEARNED_FILTERS[0];
