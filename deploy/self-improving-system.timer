@@ -4,10 +4,22 @@ Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REME
 Requires=self-improving-system.service
 
 [Timer]
-# Run daily at 07:00 Melbourne local time (host TZ set to
-# Australia/Melbourne 2026-07-18). No explicit TZ suffix -> follows system
-# localtime, so this tracks AEST/AEDT across DST automatically.
-OnCalendar=*-*-* 07:00:00
+# HQ V1 Integration QA §23 fix (Deferred Gap I5): previously ran at 07:00,
+# a documented, acknowledged collision with intelligence/scheduler.py's own
+# captains_morning_brief job (also 07:00) — two independent OS processes
+# competing for CPU/DB-connection/API-rate-limit headroom at the single
+# most safety/visibility-critical moment of the day. deploy/hq-evolution.
+# timer's own header comment named this collision explicitly and picked
+# 03:00 specifically to avoid adding to it, without fixing the original.
+#
+# Moved to 04:30 Melbourne local time (host TZ Australia/Melbourne, no
+# explicit TZ suffix -> tracks AEST/AEDT across DST automatically, same
+# convention as hq-evolution.timer): 1h clear of hq-evolution's own
+# worst-case end (03:00 + this unit's shared 30min TimeoutStartSec bound =
+# 03:30), 30min clear of health-intelligence-weekly.timer's Monday-only
+# 04:00 slot, and 30min clear of intelligence/scheduler.py's 05:00
+# downdetector_threshold_recompute job.
+OnCalendar=*-*-* 04:30:00
 # Also run on system startup if missed
 Persistent=true
 # Randomize by up to 5 minutes to avoid thundering herd
