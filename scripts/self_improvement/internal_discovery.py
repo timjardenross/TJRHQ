@@ -123,6 +123,11 @@ def evidence_derived_candidates(evidence: dict[str, Any], max_candidates: int) -
             "complexity": "low",
             "provenance": [{"source": "internal_evidence_collector", "location": "core/model-router/call_log.jsonl",
                              "detail": f"call_log_size_mb={call_log_mb}"}],
+            # V2 section 6-8: a concrete, honestly re-checkable quantitative
+            # signal — outcome_contract.py uses this for baseline capture,
+            # outcome_evaluation.py re-reads the same metric post-window for
+            # a real before/after comparison, not a guess.
+            "measurement_hint": {"type": "file_size_mb", "path": "core/model-router/call_log.jsonl"},
         })
 
     fs_audit = evidence.get("filesystem_audit", {}) or {}

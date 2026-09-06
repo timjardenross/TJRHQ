@@ -10,6 +10,7 @@ import {
   MISSION_ONLY_CLASSES,
   type ChangeClass,
   type EvolutionSummary,
+  type Investigation,
   type LegacyFinding,
   type Opportunity,
   type OpportunityDecisionType,
@@ -289,6 +290,11 @@ function DiscoverTab({
             </p>
           </>
         )}
+        {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
+          <p className="mt-1 text-xs text-wb-ink2">
+            {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
+          </p>
+        )}
       </Card>
 
       {[...grouped.entries()].map(([changeClass, items]) => (
@@ -340,6 +346,44 @@ function DiscoverTab({
   );
 }
 
+const RELATIONSHIP_LABEL: Record<string, string> = {
+  learned: 'Learned',
+  rejected: 'Rejected',
+  watching: 'Watching',
+  resolved_before_research: 'Already checked',
+};
+
+/** Secondary, subordinate context — HQ's memory of similar past work — shown
+ * beneath an investigation's own evidence, never competing with it. */
+function RelatedExperienceBlock({ investigation }: { investigation?: Investigation }) {
+  const items = investigation?.related_experience ?? [];
+  const summaryText = investigation?.related_experience_summary;
+  if (!summaryText && items.length === 0) return null;
+
+  return (
+    <div className="mb-4 text-xs text-wb-ink2">
+      <h4 className="uppercase tracking-wider font-semibold mb-1">Related HQ experience</h4>
+      {summaryText ? (
+        <p>{summaryText}</p>
+      ) : (
+        <ul className="list-disc pl-4 space-y-1">
+          {items.map((item) => {
+            const detail = item.outcome_summary || item.rejection_reason || item.watch_reason || item.resolution_note || item.future_implication;
+            return (
+              <li key={item.opportunity_id}>
+                <span className="font-semibold text-wb-ink2">{item.title}</span>
+                {' — '}
+                {RELATIONSHIP_LABEL[item.relationship] ?? item.relationship}
+                {detail ? `: ${detail}` : ''}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── Investigate ─────────────────────────────────────────────────────────
 
 function InvestigateTab({
@@ -385,16 +429,19 @@ function InvestigateTab({
           <OpportunityDetail
             opportunity={selected}
             actions={
-              <div className="flex gap-2 flex-wrap pt-2">
-                <button onClick={() => onDecide(selected.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
-                  Turn into improvement
-                </button>
-                <button onClick={() => onDecide(selected.opportunity_id, 'keep_watching', 'Promising but premature')} className="px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">
-                  Keep watching
-                </button>
-                <button onClick={() => onDecide(selected.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
-                  Not useful
-                </button>
+              <div className="pt-2">
+                <RelatedExperienceBlock investigation={selected.investigation} />
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={() => onDecide(selected.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
+                    Turn into improvement
+                  </button>
+                  <button onClick={() => onDecide(selected.opportunity_id, 'keep_watching', 'Promising but premature')} className="px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">
+                    Keep watching
+                  </button>
+                  <button onClick={() => onDecide(selected.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
+                    Not useful
+                  </button>
+                </div>
               </div>
             }
           />
@@ -402,6 +449,38 @@ function InvestigateTab({
           <Card title="Investigation"><div className="text-center py-12 text-wb-ink2">Select an item to review its investigation record.</div></Card>
         )}
       </div>
+    </div>
+  );
+}
+
+// Mirrors the Python-side outcome_contract builder — display-only preview of
+// what approval will commit HQ to measuring; the real contract is created
+// server-side on approval and rendered from OpportunityDetail's "What HQ
+// committed to measure" field once it exists.
+const MEASUREMENT_TYPE_BY_CLASS: Record<string, string> = {
+  maintenance: 'deterministic', configuration: 'deterministic',
+  reliability: 'quantitative', cost_optimisation: 'quantitative',
+  capability: 'mixed', product_improvement: 'mixed', architecture: 'mixed',
+};
+const OBSERVATION_WINDOW_BY_CLASS: Record<string, string> = {
+  maintenance: 'Immediate verification', configuration: 'Immediate verification',
+  reliability: '5 completed HQ Evolution cycles', cost_optimisation: '7 completed HQ Evolution cycles',
+  capability: '7 completed HQ Evolution cycles', product_improvement: '7 completed HQ Evolution cycles',
+  architecture: '14 completed HQ Evolution cycles',
+};
+
+function ApprovalPreview({ opportunity }: { opportunity: Opportunity }) {
+  const measurementType = MEASUREMENT_TYPE_BY_CLASS[opportunity.change_class] ?? 'unknown';
+  const observationWindow = OBSERVATION_WINDOW_BY_CLASS[opportunity.change_class] ?? 'an observation period';
+  const expected = opportunity.investigation?.why_hq_is_looking_at_this || opportunity.why_relevant;
+
+  return (
+    <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-xs text-wb-ink space-y-1">
+      <h4 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-1">If you approve this</h4>
+      {expected && <div>Expected: {expected}</div>}
+      <div>HQ will verify: implementation succeeds, then observe for {observationWindow}.</div>
+      <div>Measurement type: {measurementType}.</div>
+      <div>Then: HQ will report whether the improvement was observed.</div>
     </div>
   );
 }
@@ -451,10 +530,13 @@ function ImproveTab({
                 actions={
                   <div className="space-y-3 pt-2">
                     {!isMissionOnly && (
-                      <p className="text-xs text-wb-ink2">
-                        Approving authorises HQ to apply the bounded remediation described above, run verification, and
-                        roll back on verification failure. No broader changes are authorised.
-                      </p>
+                      <>
+                        <ApprovalPreview opportunity={selected} />
+                        <p className="text-xs text-wb-ink2">
+                          Approving authorises HQ to apply the bounded remediation described above, run verification, and
+                          roll back on verification failure. No broader changes are authorised.
+                        </p>
+                      </>
                     )}
                     <div className="flex gap-2 flex-wrap">
                       {!isMissionOnly && (
@@ -562,16 +644,52 @@ function ImproveTab({
 
 // ── Learned ─────────────────────────────────────────────────────────────
 
+const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] = [
+  { key: 'all', label: 'All', result: null },
+  { key: 'improved', label: 'Improved', result: 'improved' },
+  { key: 'no_material_change', label: 'No material change', result: 'no_material_change' },
+  { key: 'regressed', label: 'Regressed', result: 'regressed' },
+  { key: 'inconclusive', label: 'Inconclusive', result: 'inconclusive' },
+];
+
 function LearnedTab({ learned, historical }: { learned: Opportunity[]; historical: Opportunity[] }) {
+  const [filter, setFilter] = useState('all');
+  const activeFilter = LEARNED_FILTERS.find((f) => f.key === filter) ?? LEARNED_FILTERS[0];
+  const filteredLearned = useMemo(
+    () => (activeFilter.result ? learned.filter((o) => o.outcome?.outcome_result === activeFilter.result) : learned),
+    [learned, activeFilter],
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-sm font-semibold text-wb-ink mb-3">Recent improvements</h2>
-        {learned.length === 0 ? (
-          <Card><p className="text-sm text-wb-ink2">Nothing has an assessed outcome yet.</p></Card>
+        <div className="flex gap-2 flex-wrap mb-4">
+          {LEARNED_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`rounded border px-3 py-1.5 text-xs transition-colors ${
+                filter === f.key
+                  ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'
+                  : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        {filteredLearned.length === 0 ? (
+          <Card>
+            <p className="text-sm text-wb-ink2">
+              {filter === 'all'
+                ? 'No improvements have completed their observation period yet.'
+                : `No opportunities with outcome '${activeFilter.label}' yet.`}
+            </p>
+          </Card>
         ) : (
           <div className="space-y-4">
-            {learned.map((o) => <OpportunityDetail key={o.opportunity_id} opportunity={o} />)}
+            {filteredLearned.map((o) => <OpportunityDetail key={o.opportunity_id} opportunity={o} />)}
           </div>
         )}
       </div>

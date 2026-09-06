@@ -66,6 +66,13 @@ MISSION_ONLY_CLASSES = frozenset({"capability", "product_improvement", "architec
 
 DISCOVERY_SOURCES = ("internal", "external")
 
+# V2 section 10: canonical outcome-evaluation vocabulary. NOT_YET_READY is
+# the state while an observation window is still open — it is a valid,
+# calm, non-urgent result (section 42), never converted to success.
+OUTCOME_RESULTS = ("improved", "no_material_change", "regressed", "inconclusive", "not_yet_ready")
+MEASUREMENT_TYPES = ("quantitative", "deterministic", "qualitative", "mixed", "unknown")
+CONFIDENCE_LEVELS = ("low", "moderate", "high")
+
 
 def new_fingerprint(title: str, source: str, discovery_source: str) -> str:
     """Stable identity for dedup — section 17. Normalises whitespace/case so
@@ -114,8 +121,44 @@ class Opportunity:
     rejection_reason: Optional[str] = None
     missing_evidence: list[str] = field(default_factory=list)
 
-    # Outcome / learning (sections 27-29)
+    # Outcome / learning (V1 sections 27-29; V2 sections 5-21).
+    #
+    # `outcome_contract` — set once, at approval time, before implementation
+    # (V2 section 5-6). Shape (all keys optional/defaulted, never required
+    # to match exactly — this is a dict, not a second dataclass, precisely
+    # so evaluation code can degrade gracefully on a missing key):
+    #   expected_benefit: str
+    #   measurement_type: "quantitative"|"deterministic"|"qualitative"|"mixed"|"unknown"
+    #   baseline: {"available": bool, "value": Any, "description": str,
+    #              "provenance": str, "captured_at": iso} — or
+    #             {"available": False, "reason": str} when no honest
+    #             baseline exists (V2 section 8: never fabricate one)
+    #   success_signal / regression_signal: str (human-readable) with an
+    #     optional structured "success_threshold" / "regression_threshold"
+    #     dict for deterministic comparison — regression_signal is the
+    #     no-self-reward-loop guardrail (V2 section 30)
+    #   observation_window: {"type": "cycles"|"events"|"immediate"|"days", "count": int}
+    #   evidence_sources: [str, ...] naming which evidence_sources.py reader(s) apply
+    #   evaluation_status: "pending_implementation"|"observing"|"ready_to_evaluate"|"evaluated"
+    #   observation_started_at: iso|None — set once implementation is confirmed
+    #   created_at: iso
+    #
+    # `outcome` — the evaluation record (also holds the V1 legacy-migration
+    # shape: implementation_success/improvement_success/improvement_success_note/
+    # remediation_history — untouched, still written by migration.py). V2 adds:
+    #   implementation_source: "remediation"|"mission"|"manual"|None
+    #   implementation_verified_at: iso|None
+    #   outcome_result: "improved"|"no_material_change"|"regressed"|"inconclusive"|"not_yet_ready"|None
+    #   evidence_summary / what_worked / what_did_not / future_implication: str
+    #   unexpected_effects: [str]
+    #   attribution_risk: str|None — set when concurrent changes make attribution unsafe
+    #   confidence: "low"|"moderate"|"high"|None — never a fabricated percentage
+    #   method: "deterministic"|"model_synthesis"|"template_fallback"|None
+    #   evaluation_history: [{outcome_result, confidence, evidence_summary,
+    #     evaluated_at, method}, ...] — V2 section 37: re-evaluation appends,
+    #     never silently overwrites the prior verdict
     outcome: dict[str, Any] = field(default_factory=dict)
+    outcome_contract: dict[str, Any] = field(default_factory=dict)
 
     # Current-state validation (follow-up mission, sections 11-17): the
     # result of checking a watchlist gap_hypothesis against real repo
@@ -123,6 +166,17 @@ class Opportunity:
     validation_result: Optional[str] = None  # "confirmed" | "resolved" | "unclear"
     validation_evidence: list[str] = field(default_factory=list)
     validated_at: Optional[str] = None
+
+    # V2 section 6/8: set by a discovery module (e.g. internal_discovery.py's
+    # call-log-rotation candidate) when a concrete, honestly re-checkable
+    # quantitative signal exists for THIS specific opportunity — e.g.
+    # {"type": "file_size_mb", "path": "core/model-router/call_log.jsonl"}.
+    # outcome_contract.py reads it to capture a real baseline at approval
+    # time; outcome_evaluation.py reads the SAME hint post-window for an
+    # apples-to-apples comparison. Must survive from the discovery candidate
+    # dict onto the persisted Opportunity — see evolution_orchestrator.py's
+    # discovery-persistence step.
+    measurement_hint: Optional[dict[str, Any]] = None
 
     # Links to the existing engine (section 34 migration) — never re-surfaced
     # as a "new" opportunity once linked.

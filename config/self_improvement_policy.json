@@ -234,7 +234,7 @@
     "require_explicit_delete_approval": true
   },
   "evolution": {
-    "description": "Bounds for the HQ Evolution overnight discovery cycle (scripts/self_improvement/evolution_orchestrator.py). Cheap filtering before expensive investigation: DISCOVER MANY -> RELEVANCE FILTER -> DEDUP -> SHORTLIST -> DEEP INVESTIGATION OF FEW. These bounds exist so overnight research cannot itself become an uncontrolled cost centre.",
+    "description": "Bounds for the HQ Evolution overnight discovery cycle (scripts/self_improvement/evolution_orchestrator.py). Cheap filtering before expensive investigation: DISCOVER MANY -> RELEVANCE FILTER -> DEDUP -> SHORTLIST -> DEEP INVESTIGATION OF FEW. These bounds exist so overnight research cannot itself become an uncontrolled cost centre. max_evaluations_per_cycle bounds the separate V2 outcome-evaluation phase (implementation-confirmation + evaluate_outcome checks), which runs before discovery each cycle.",
     "max_internal_candidates_per_cycle": 20,
     "max_external_searches_per_cycle": 6,
     "max_external_candidates_per_search": 5,
@@ -242,6 +242,7 @@
     "max_shortlist_per_cycle": 6,
     "max_investigations_per_cycle": 6,
     "max_opportunities_surfaced_per_cycle": 3,
+    "max_evaluations_per_cycle": 10,
     "run_duration_budget_minutes": 20,
     "external_request_timeout_seconds": 8,
     "min_relevance_score_to_investigate": 0.5,

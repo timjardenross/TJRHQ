@@ -37,6 +37,8 @@ from investigation_schema import validate_investigation, honest_fallback_investi
 import internal_discovery
 import external_discovery
 import state_validation
+import outcome_evaluation
+import evolution_memory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
 from heartbeat import record_heartbeat  # noqa: E402
@@ -167,6 +169,253 @@ class EvolutionOrchestrator:
                     continue
         return []
 
+    def _count_cycles_since(self, since_iso: str) -> int:
+        """V2 section 9: an honest cycle count for observation_window types
+        "cycles"/"events" — there is no separate cycle-counter state
+        anywhere in this codebase, so this counts DISTINCT `run_id` values
+        already stamped on every OpportunityStore write (the append-only
+        log in opportunity_store.py) that are `>= since_iso`, INCLUDING
+        this cycle's own run_id (the caller always passes a run_id that is
+        itself >= since_iso once this cycle's writes land).
+
+        `run_id` is formatted "%Y-%m-%d-%H%M%S" (always UTC — see
+        _run_cycle_locked's run_id line), not directly comparable to an
+        ISO datetime, so both sides are parsed into real datetimes before
+        comparing. Per-record parsing is wrapped so one malformed run_id
+        string never crashes the whole count — this must never raise."""
+        try:
+            since_dt = datetime.fromisoformat(since_iso)
+            if since_dt.tzinfo is None:
+                since_dt = since_dt.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError) as exc:
+            log.warning(f"_count_cycles_since: could not parse since_iso={since_iso!r}: {exc}")
+            return 0
+
+        distinct_run_ids: set[str] = set()
+        for rec in self.store.all_records():
+            rid = rec.get("run_id")
+            if not rid or rid in distinct_run_ids:
+                continue
+            try:
+                rid_dt = datetime.strptime(rid, "%Y-%m-%d-%H%M%S").replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                continue  # malformed/legacy run_id — skip rather than crash the count
+            if rid_dt >= since_dt:
+                distinct_run_ids.add(rid)
+        return len(distinct_run_ids)
+
+    def _evaluate_due_outcomes(self, run_id: str) -> dict[str, Any]:
+        """V2 sections 9-37: EVALUATE DUE OUTCOMES. Runs before discovery
+        each cycle (spec ordering: "1. Validate previous observation
+        windows. 2. Evaluate any outcomes now ready. 3. Run discovery.").
+
+        Reads self._cycle_t0 / self._cycle_budget_s / self._cycle_router_
+        reachable, set by _run_cycle_locked immediately before calling this
+        — they carry this cycle's shared run-duration budget and the one
+        Model Router health check already made this cycle, so this phase
+        never starts its own clock or makes a second health_check() call.
+
+        Never raises: each opportunity's evaluation is independently
+        wrapped in try/except (log a warning, continue) as defense in
+        depth, matching this file's discipline elsewhere — even though
+        outcome_evaluation.evaluate_outcome() is itself documented never
+        to raise."""
+        max_evaluations = self.evolution_config.get("max_evaluations_per_cycle", 10)
+        t0 = self._cycle_t0
+        budget_s = self._cycle_budget_s
+        router_reachable = self._cycle_router_reachable
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Only records with an outcome_contract are ours to evaluate —
+        # records with none are pre-V2/manually-created, nothing to check
+        # against, and that's not an error, just silently out of scope.
+        candidates = [
+            opp for opp in self.store.all_current()
+            if opp.get("lifecycle_state") in ("approved", "implementing", "verifying")
+            and opp.get("outcome_contract")
+        ]
+
+        implementations_confirmed = 0
+        outcomes_evaluated = 0
+        regressions = 0
+        latest_material_learning: Optional[dict[str, Any]] = None
+        latest_material_learning_ts: Optional[str] = None
+
+        for opp in candidates[:max_evaluations]:
+            if time.monotonic() - t0 > budget_s:
+                log.warning(f"Run duration budget ({budget_s}s) exceeded — stopping outcome evaluation early")
+                break
+
+            opportunity_id = opp.get("opportunity_id")
+            try:
+                lifecycle_state = opp.get("lifecycle_state")
+                contract = opp.get("outcome_contract") or {}
+                evaluate_now = False
+
+                if lifecycle_state in ("approved", "implementing") and not contract.get("observation_started_at"):
+                    impl = outcome_evaluation.check_implementation_status(opp, self.repo_root, self.data_root)
+                    if impl.get("implemented"):
+                        impl_source = impl.get("source")
+                        # First confirmation. Missions take real time to
+                        # land, so "implementing" is a more honest interim
+                        # label than jumping straight to "verifying" the
+                        # moment a fresh "approved" Mission's status flips
+                        # to implemented — a remediation is synchronous
+                        # (it already ran, success or not, by the time we
+                        # see it) and a manual confirmation means a human
+                        # already watched it happen, so both of those (and
+                        # an opportunity that reaches this check already in
+                        # "implementing" from some other path) go straight
+                        # to "verifying". Invariant preserved either way:
+                        # once implemented=True is confirmed, the
+                        # observation window starts ticking now — "verifying"
+                        # is simply the state in which this method actually
+                        # calls evaluate_outcome() on it.
+                        if lifecycle_state == "approved" and impl_source == "mission":
+                            new_state = "implementing"
+                        else:
+                            new_state = "verifying"
+
+                        verified_at = impl.get("verified_at") or now_iso
+                        new_outcome = {
+                            **opp.get("outcome", {}),
+                            "implementation_success": True,
+                            "implementation_source": impl_source,
+                            "implementation_verified_at": verified_at,
+                        }
+                        new_contract = {
+                            **contract,
+                            "observation_started_at": verified_at,
+                            "evaluation_status": "observing",
+                        }
+                        updated = self.store.update(
+                            opportunity_id,
+                            lifecycle_state=new_state,
+                            outcome=new_outcome,
+                            outcome_contract=new_contract,
+                            run_id=run_id,
+                        )
+                        if updated is None:
+                            log.warning(f"{opportunity_id}: store.update returned None confirming implementation — skipping")
+                            continue
+                        opp = updated.to_dict()
+                        implementations_confirmed += 1
+                        lifecycle_state = new_state
+                        contract = new_contract
+
+                        if new_state == "verifying":
+                            # No reason to wait a whole extra cycle when the
+                            # observation window is "immediate" (or already
+                            # elapsed) — try evaluating right away.
+                            evaluate_now = True
+                    else:
+                        # Normal, expected, not-yet state — info at most,
+                        # and only ever logged once per cycle per
+                        # opportunity (never a repeated warning every cycle
+                        # for the same still-pending record).
+                        log.info(f"{opportunity_id}: not yet implemented ({impl.get('detail', '')})")
+
+                elif lifecycle_state == "verifying":
+                    evaluate_now = True
+
+                if not evaluate_now:
+                    continue
+
+                cycles_elapsed = None
+                observation_started_at = contract.get("observation_started_at")
+                if observation_started_at:
+                    cycles_elapsed = self._count_cycles_since(observation_started_at)
+
+                result = outcome_evaluation.evaluate_outcome(
+                    opp, self.repo_root, self.data_root, self.store,
+                    router=self.router if router_reachable else None,
+                    cycles_elapsed=cycles_elapsed,
+                )
+
+                if result.get("skip"):
+                    # Defensive only — shouldn't normally happen here since
+                    # we only reach this for state "verifying", but
+                    # evaluate_outcome is the sole authority on readiness.
+                    continue
+
+                outcome_result = result.get("outcome_result")
+                if outcome_result == "not_yet_ready":
+                    # Calm, valid, non-urgent (section 42) — stays
+                    # "verifying". Only write if evaluation_status would
+                    # actually change, to avoid spamming a store write
+                    # every cycle for a record that isn't ready yet.
+                    if contract.get("evaluation_status") != "observing":
+                        self.store.update(
+                            opportunity_id,
+                            outcome_contract={**contract, "evaluation_status": "observing"},
+                            run_id=run_id,
+                        )
+                    continue
+
+                # Terminal result: improved / no_material_change / regressed
+                # / inconclusive. Section 37: append to evaluation_history
+                # BEFORE overwriting the top-level outcome fields, so a
+                # later re-evaluation (should one ever happen) never
+                # silently loses this verdict.
+                evaluated_at = result.get("evaluated_at") or now_iso
+                history_entry = {
+                    "outcome_result": outcome_result,
+                    "confidence": result.get("confidence"),
+                    "evidence_summary": result.get("evidence_summary"),
+                    "evaluated_at": evaluated_at,
+                    "method": result.get("method"),
+                }
+                new_history = list(opp.get("outcome", {}).get("evaluation_history", [])) + [history_entry]
+                merged_outcome = {
+                    **opp.get("outcome", {}),
+                    "outcome_result": outcome_result,
+                    "evidence_summary": result.get("evidence_summary"),
+                    "confidence": result.get("confidence"),
+                    "what_worked": result.get("what_worked"),
+                    "what_did_not": result.get("what_did_not"),
+                    "unexpected_effects": result.get("unexpected_effects"),
+                    "future_implication": result.get("future_implication"),
+                    "attribution_risk": result.get("attribution_risk"),
+                    "method": result.get("method"),
+                    "evaluated_at": evaluated_at,
+                    "evaluation_history": new_history,
+                }
+                updated = self.store.update(
+                    opportunity_id,
+                    lifecycle_state="learned",
+                    outcome=merged_outcome,
+                    outcome_contract={**contract, "evaluation_status": "evaluated"},
+                    run_id=run_id,
+                )
+                if updated is None:
+                    log.warning(f"{opportunity_id}: store.update returned None recording evaluation — skipping")
+                    continue
+
+                outcomes_evaluated += 1
+                if outcome_result == "regressed":
+                    regressions += 1
+
+                if outcome_result in ("improved", "regressed"):
+                    if latest_material_learning_ts is None or evaluated_at > latest_material_learning_ts:
+                        latest_material_learning = {
+                            "opportunity_id": opportunity_id,
+                            "title": opp.get("title"),
+                            "outcome_result": outcome_result,
+                            "future_implication": result.get("future_implication"),
+                        }
+                        latest_material_learning_ts = evaluated_at
+
+            except Exception as exc:
+                log.warning(f"Outcome evaluation failed for {opportunity_id}: {exc}")
+                continue
+
+        return {
+            "implementations_confirmed": implementations_confirmed,
+            "outcomes_evaluated": outcomes_evaluated,
+            "regressions": regressions,
+            "latest_material_learning": latest_material_learning,
+        }
+
     def _investigate(self, candidate: dict[str, Any], router_reachable: bool) -> dict[str, Any]:
         """Section 7-10/22/45: the model may interpret evidence already in
         `candidate` (a bounded, opportunity-specific evidence bundle — see
@@ -178,18 +427,30 @@ class EvolutionOrchestrator:
 
         Every path here returns a schema-validated shape (investigation_
         schema.py) — a malformed model response degrades individual fields
-        rather than propagating an unvalidated shape into the store/UI."""
+        rather than propagating an unvalidated shape into the store/UI.
+
+        V2 sections 20-23: evolution_memory recall is deterministic and
+        cheap (no model call), so both the model-synthesis path and the
+        template-fallback path get it — not just the model path."""
+        related = evolution_memory.find_related_outcomes(candidate, self.store, max_results=3)
+        related_summary = evolution_memory.format_related_experience(related) if related else ""
+
         if router_reachable:
             try:
-                result = self.router.investigate_opportunity(candidate)
+                result = self.router.investigate_opportunity(candidate, context=related_summary if related_summary else None)
                 if result.get("success") and result.get("investigation"):
                     inv = validate_investigation(result["investigation"])
                     inv["method"] = "model_synthesis"
+                    inv["related_experience"] = related
+                    inv["related_experience_summary"] = related_summary
                     return inv
             except Exception as exc:
                 log.warning(f"Model investigation failed, falling back to template: {exc}")
 
-        return honest_fallback_investigation(candidate)
+        fallback = honest_fallback_investigation(candidate)
+        fallback["related_experience"] = related
+        fallback["related_experience_summary"] = related_summary
+        return fallback
 
     def run_cycle(self, dry_run: bool = False) -> dict[str, Any]:
         """dry_run is fully lock-free (section 5: "dry-run remains
@@ -220,6 +481,25 @@ class EvolutionOrchestrator:
 
         evidence = self.collector.collect_all()
         classified_findings = self._load_latest_classified_findings()
+
+        # ONE Model Router health check per cycle — health_check() is a
+        # real network call, shared between this phase and the
+        # investigation phase further down rather than made twice.
+        router_reachable = False if dry_run else self.router.health_check()
+
+        # V2 EVALUATE DUE OUTCOMES — spec ordering: "1. Validate previous
+        # observation windows. 2. Evaluate any outcomes now ready.
+        # 3. Run discovery. ..." — genuinely the first substantive phase,
+        # ahead of internal/external discovery. dry_run stays fully
+        # side-effect free (this phase only ever writes via
+        # self.store.update()), so it's skipped outright rather than run
+        # in some read-only mode.
+        self._cycle_t0 = t0
+        self._cycle_budget_s = budget_s
+        self._cycle_router_reachable = router_reachable
+        outcome_eval_summary = self._evaluate_due_outcomes(run_id) if not dry_run else {
+            "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
+        }
 
         max_internal = self.evolution_config.get("max_internal_candidates_per_cycle", 20)
         internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal)
@@ -274,6 +554,7 @@ class EvolutionOrchestrator:
                 validation_result=candidate.get("validation_result"),
                 validation_evidence=candidate.get("validation_evidence", []),
                 validated_at=candidate.get("validated_at"),
+                measurement_hint=candidate.get("measurement_hint"),
                 run_id=run_id,
             ) if not dry_run else None
             discovered_opps.append((candidate, verdict, opp))
@@ -285,7 +566,9 @@ class EvolutionOrchestrator:
         shortlisted = sorted(discovered_opps, key=lambda t: t[1].score, reverse=True)[:max_shortlist]
         to_investigate = shortlisted[:max_investigations]
 
-        router_reachable = False if dry_run else self.router.health_check()
+        # router_reachable was already computed once above, before the
+        # EVALUATE DUE OUTCOMES phase — reused here rather than calling
+        # health_check() a second time this cycle.
         min_surface = self.evolution_config.get("min_relevance_score_to_surface", 0.65)
         max_surfaced = self.evolution_config.get("max_opportunities_surfaced_per_cycle", 3)
 
@@ -353,9 +636,11 @@ class EvolutionOrchestrator:
             if rec.get("run_id") == run_id and rec.get("lifecycle_state") == "resolved_before_research"
         ) if not dry_run else 0
 
+        cycle_timestamp = datetime.now(timezone.utc).isoformat()
+
         summary = {
             "run_id": run_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": cycle_timestamp,
             "dry_run": dry_run,
             "investigated_count": len(all_candidates),
             "cleared_relevance_gate_count": len(passed),
@@ -367,6 +652,21 @@ class EvolutionOrchestrator:
             "highest_value_opportunity": highest_value,
             "pending_decisions_count": pending_decisions_count,
             "duration_ms": int((time.monotonic() - t0) * 1000),
+            # V2 sections 9-37: outcome-evaluation phase results — see
+            # _evaluate_due_outcomes(), run before discovery this cycle.
+            "outcomes_completed_count": outcome_eval_summary["outcomes_evaluated"],
+            "regressions_count": outcome_eval_summary["regressions"],
+            "latest_material_learning": outcome_eval_summary["latest_material_learning"],
+            "implementations_confirmed_count": outcome_eval_summary["implementations_confirmed"],
+            # This cycle reached completion — a crash never reaches this
+            # line, so "ok" is the only value ever written here. Distinct
+            # from record_heartbeat()'s own failed/skipped tracking in
+            # main(); this field is for evolution_summary.json's own
+            # consumers (dashboard.py's /api/evolution-summary).
+            "cycle_status": "ok",
+            # Same timestamp as summary["timestamp"] — deliberately aliased
+            # rather than a second, possibly-different datetime.now() call.
+            "freshness": cycle_timestamp,
             # Section 18: operational cost telemetry, not a human-facing
             # dashboard — kept out of the Discover tab's morning summary.
             "cost_accounting": {

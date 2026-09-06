@@ -185,6 +185,18 @@ export function opportunityRiskToTone(risk: string | null | undefined): StateTon
   }
 }
 
+/** HQ Evolution V2's Opportunity.outcome.outcome_result. */
+export function outcomeResultToTone(result: string | null | undefined): StateTone {
+  switch (result) {
+    case 'improved': return 'ok';
+    case 'no_material_change': return 'unknown';
+    case 'regressed': return 'crit';
+    case 'inconclusive': return 'warn';
+    case 'not_yet_ready': return 'info';
+    default: return 'unknown';
+  }
+}
+
 /** alerts.ts's AlertSeverity ('critical'|'high'|'warning'). */
 export function alertSeverityToTone(severity: 'critical' | 'high' | 'warning'): StateTone {
   switch (severity) {

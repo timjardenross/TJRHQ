@@ -45,6 +45,41 @@ export interface Investigation {
   recommendation?: 'worth_pursuing' | 'keep_watching' | 'not_useful' | string;
   recommendation_rationale?: string;
   method?: 'model_synthesis' | 'template_fallback' | 'migrated_legacy_finding' | string;
+  related_experience?: RelatedExperienceItem[];
+  related_experience_summary?: string;
+}
+
+export type MeasurementType = 'quantitative' | 'deterministic' | 'qualitative' | 'mixed' | 'unknown';
+export type OutcomeResult = 'improved' | 'no_material_change' | 'regressed' | 'inconclusive' | 'not_yet_ready';
+
+export interface OutcomeContract {
+  expected_benefit: string;
+  measurement_type: MeasurementType;
+  baseline:
+    | { available: true; value: any; description: string; provenance: string; captured_at: string }
+    | { available: false; reason: string; captured_at: string };
+  success_signal: string;
+  regression_signal: string;
+  observation_window: { type: 'immediate' | 'cycles' | 'events' | 'days'; count: number };
+  evidence_sources: string[];
+  evaluation_status: 'pending_implementation' | 'observing' | 'ready_to_evaluate' | 'evaluated';
+  observation_started_at: string | null;
+  created_at: string;
+}
+
+export interface RelatedExperienceItem {
+  opportunity_id: string;
+  title: string;
+  change_class: string;
+  relationship: 'learned' | 'rejected' | 'watching' | 'resolved_before_research';
+  outcome_result: string | null;
+  outcome_confidence: string | null;
+  outcome_summary: string | null;
+  rejection_reason: string | null;
+  watch_reason: string | null;
+  future_implication: string | null;
+  resolution_note: string | null;
+  relevance_score: number;
 }
 
 export interface Outcome {
@@ -52,6 +87,19 @@ export interface Outcome {
   improvement_success?: boolean | null;
   improvement_success_note?: string;
   remediation_history?: Array<{ timestamp?: string; success?: boolean; message?: string }>;
+  outcome_result?: OutcomeResult | null;
+  confidence?: 'low' | 'moderate' | 'high' | null;
+  evidence_summary?: string;
+  what_worked?: string;
+  what_did_not?: string;
+  unexpected_effects?: string[];
+  future_implication?: string;
+  attribution_risk?: string | null;
+  method?: 'deterministic' | 'model_synthesis' | 'template_fallback' | null;
+  evaluated_at?: string | null;
+  implementation_source?: 'remediation' | 'mission' | 'manual' | null;
+  implementation_verified_at?: string | null;
+  evaluation_history?: Array<{ outcome_result: string; confidence: string; evidence_summary: string; evaluated_at: string; method: string }>;
 }
 
 export interface Opportunity {
@@ -77,6 +125,7 @@ export interface Opportunity {
   rejection_reason: string | null;
   missing_evidence: string[];
   outcome: Outcome;
+  outcome_contract: OutcomeContract | Record<string, never>; // {} before approval
   validation_result: 'confirmed' | 'resolved' | 'unclear' | null;
   validation_evidence: string[];
   validated_at: string | null;
@@ -108,6 +157,11 @@ export interface EvolutionSummary {
   pending_decisions_count: number;
   any_verification_failure: boolean;
   has_run_yet: boolean;
+  outcomes_completed_count: number;
+  regressions_count: number;
+  latest_material_learning: { opportunity_id: string; title: string; outcome_result: string; future_implication: string } | null;
+  cycle_status: 'ok' | 'failed' | 'skipped' | 'unknown';
+  freshness: string | null;
 }
 
 // ── Legacy (preserved, unmodified pipeline) ─────────────────────────────

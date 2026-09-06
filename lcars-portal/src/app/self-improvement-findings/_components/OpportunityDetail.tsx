@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { Card, Badge, toneToStatus } from '@/components/ui';
-import { lifecycleStateToTone, valueToTone, opportunityRiskToTone } from '@/lib/departments';
+import { lifecycleStateToTone, valueToTone, opportunityRiskToTone, outcomeResultToTone } from '@/lib/departments';
 import { CHANGE_CLASS_LABEL, MISSION_ONLY_CLASSES, type Opportunity } from './types';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -14,12 +14,47 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function capitalizeWords(s: string): string {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const OUTCOME_RESULT_LABEL: Record<string, string> = {
+  improved: 'IMPROVED',
+  no_material_change: 'NO MATERIAL CHANGE',
+  regressed: 'REGRESSED',
+  inconclusive: 'INCONCLUSIVE',
+  not_yet_ready: 'STILL OBSERVING',
+};
+
+const IMPLEMENTATION_SOURCE_LABEL: Record<string, string> = {
+  remediation: 'via remediation',
+  mission: 'via mission',
+  manual: 'manually confirmed',
+};
+
+function observationWindowText(window: { type: string; count: number } | undefined | null): string | null {
+  if (!window) return null;
+  switch (window.type) {
+    case 'immediate': return 'Immediate verification';
+    case 'cycles': return `${window.count} completed HQ Evolution cycles`;
+    case 'events': return `${window.count} events`;
+    case 'days': return `${window.count} days`;
+    default: return null;
+  }
+}
+
 /** Section 22: investigation / evaluation detail, progressively disclosed
  * (raw provenance behind a <details>, section 22/47). Section 26: a
  * Mission-only banner for capability/product_improvement/architecture. */
 export function OpportunityDetail({ opportunity, actions }: { opportunity: Opportunity; actions?: ReactNode }) {
   const inv = opportunity.investigation || {};
   const isMissionOnly = MISSION_ONLY_CLASSES.includes(opportunity.change_class);
+  const contract = opportunity.outcome_contract && 'expected_benefit' in opportunity.outcome_contract
+    ? opportunity.outcome_contract
+    : null;
+  const outcome = opportunity.outcome;
+  const hasV2Outcome = outcome?.outcome_result !== undefined && outcome?.outcome_result !== null;
+  const hasV1Outcome = outcome?.implementation_success !== undefined && outcome?.implementation_success !== null;
 
   return (
     <Card title={opportunity.title}>
@@ -101,6 +136,25 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
         </Field>
       )}
 
+      {contract && (
+        <Field label="What HQ committed to measure">
+          <div><strong>Expected benefit:</strong> {contract.expected_benefit}</div>
+          <div className="mt-1"><strong>Measurement type:</strong> {capitalizeWords(contract.measurement_type)}</div>
+          <div className="mt-1">
+            <strong>Baseline:</strong>{' '}
+            {contract.baseline.available
+              ? contract.baseline.description
+              : `No baseline available — ${contract.baseline.reason}`}
+          </div>
+          <div className="mt-1"><strong>Success would look like:</strong> {contract.success_signal}</div>
+          <div className="mt-1"><strong>Regression would look like:</strong> {contract.regression_signal}</div>
+          {observationWindowText(contract.observation_window) && (
+            <div className="mt-1"><strong>Observation window:</strong> {observationWindowText(contract.observation_window)}</div>
+          )}
+          <div className="mt-1"><strong>Evaluation status:</strong> {capitalizeWords(contract.evaluation_status)}</div>
+        </Field>
+      )}
+
       {opportunity.lifecycle_state === 'resolved_before_research' && (
         <Field label="Why HQ didn't research this further">
           <div>HQ checked its current state before spending external research effort, and the hypothesised gap no longer holds.</div>
@@ -118,19 +172,90 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
       {opportunity.rejection_reason && <Field label="Why this was rejected">{opportunity.rejection_reason}</Field>}
       {opportunity.watch_reason && <Field label="Why HQ is watching, not acting">{opportunity.watch_reason}</Field>}
 
-      {(opportunity.outcome?.implementation_success !== undefined && opportunity.outcome?.implementation_success !== null) && (
+      {hasV2Outcome && outcome && (
         <Field label="Outcome">
-          <div>Implementation: <strong>{opportunity.outcome.implementation_success ? 'Succeeded' : 'Failed'}</strong></div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              Implementation: <strong>{outcome.implementation_success ? 'Succeeded' : 'Failed'}</strong>
+              {outcome.implementation_source && IMPLEMENTATION_SOURCE_LABEL[outcome.implementation_source] && (
+                <span className="text-wb-ink2"> ({IMPLEMENTATION_SOURCE_LABEL[outcome.implementation_source]})</span>
+              )}
+            </div>
+            <Badge status={toneToStatus(outcomeResultToTone(outcome.outcome_result))} className="text-[12px] px-3 py-1">
+              {OUTCOME_RESULT_LABEL[outcome.outcome_result as string] ?? outcome.outcome_result}
+            </Badge>
+          </div>
+
+          {(outcome.evidence_summary || outcome.what_worked || outcome.what_did_not || outcome.unexpected_effects?.length || outcome.future_implication || outcome.confidence) && (
+            <div className="mt-3 space-y-1">
+              {outcome.evidence_summary && <div>{outcome.evidence_summary}</div>}
+              {outcome.what_worked && <div><strong>What worked:</strong> {outcome.what_worked}</div>}
+              {outcome.what_did_not && <div><strong>What didn&apos;t:</strong> {outcome.what_did_not}</div>}
+              {!!outcome.unexpected_effects?.length && (
+                <div>
+                  <strong>Unexpected effects:</strong>
+                  <ul className="list-disc pl-4 mt-1 space-y-1">
+                    {outcome.unexpected_effects.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+              {outcome.future_implication && (
+                <div className="mt-2 font-semibold">{outcome.future_implication}</div>
+              )}
+              {outcome.confidence && (
+                <div className="text-wb-ink2">Confidence: {capitalizeWords(outcome.confidence)}</div>
+              )}
+            </div>
+          )}
+
+          {outcome.attribution_risk && (
+            <div className="mt-2 text-xs text-wb-warn-on bg-wb-warn/10 border border-wb-warn/40 rounded px-2 py-1">
+              Note: {outcome.attribution_risk}
+            </div>
+          )}
+
+          {outcome.method === 'template_fallback' && (
+            <div className="mt-2 text-xs text-wb-ink2 italic">
+              Deeper assessment was unavailable — deterministic evidence only.
+            </div>
+          )}
+
+          {!!outcome.evaluation_history?.length && outcome.evaluation_history.length > 1 && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">
+                Prior evaluations ({outcome.evaluation_history.length})
+              </summary>
+              <div className="mt-2 space-y-2">
+                {[...outcome.evaluation_history]
+                  .sort((a, b) => new Date(a.evaluated_at).getTime() - new Date(b.evaluated_at).getTime())
+                  .map((h, i) => (
+                  <div key={i} className="bg-wb-bg p-2 rounded border-l-4 border-wb-line text-xs text-wb-ink2">
+                    <div>
+                      <strong className="text-wb-ink">{OUTCOME_RESULT_LABEL[h.outcome_result] ?? h.outcome_result}</strong>
+                      {h.evaluated_at ? ` · ${new Date(h.evaluated_at).toLocaleDateString()}` : ''}
+                    </div>
+                    {h.evidence_summary && <div className="mt-1">{h.evidence_summary}</div>}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </Field>
+      )}
+
+      {!hasV2Outcome && hasV1Outcome && outcome && (
+        <Field label="Outcome">
+          <div>Implementation: <strong>{outcome.implementation_success ? 'Succeeded' : 'Failed'}</strong></div>
           <div>
             Improvement:{' '}
             <strong>
-              {opportunity.outcome.improvement_success === true && 'Confirmed'}
-              {opportunity.outcome.improvement_success === false && 'Did not improve'}
-              {(opportunity.outcome.improvement_success === null || opportunity.outcome.improvement_success === undefined) && 'Not yet measured'}
+              {outcome.improvement_success === true && 'Confirmed'}
+              {outcome.improvement_success === false && 'Did not improve'}
+              {(outcome.improvement_success === null || outcome.improvement_success === undefined) && 'Not yet measured'}
             </strong>
           </div>
-          {opportunity.outcome.improvement_success_note && (
-            <div className="mt-1 text-xs text-wb-ink2">{opportunity.outcome.improvement_success_note}</div>
+          {outcome.improvement_success_note && (
+            <div className="mt-1 text-xs text-wb-ink2">{outcome.improvement_success_note}</div>
           )}
         </Field>
       )}

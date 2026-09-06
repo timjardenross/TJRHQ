@@ -87,11 +87,11 @@ class ModelRouterClient:
         prompt = self._build_investigation_prompt(candidate, context)
         result = self._call_router("hq-evolution-investigate", prompt)
         if result.get("success"):
-            result["investigation"] = self._parse_investigation(result.get("response", ""))
+            result["investigation"] = self._parse_json_object(result.get("response", ""))
         return result
 
     @staticmethod
-    def _parse_investigation(response_text: str) -> dict[str, Any]:
+    def _parse_json_object(response_text: str) -> dict[str, Any]:
         text = response_text.strip()
         if text.startswith("```"):
             text = text.strip("`")
@@ -130,6 +130,52 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
   "confidence": 0.7,
   "recommendation": "worth_pursuing|keep_watching|not_useful",
   "recommendation_rationale": "..."
+}
+"""
+        return prompt
+
+    def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+        """
+        HQ Evolution V2 (sections 10, 15): ask the model to interpret
+        already-collected outcome evidence — the Outcome Contract, its
+        baseline, and the evidence gathered during the observation window.
+        The model may propose an interpretation of qualitative evidence; it
+        must not invent evidence, and its output is never treated as a
+        permission decision — only as one input to the fixed
+        IMPROVED/NO_MATERIAL_CHANGE/REGRESSED/INCONCLUSIVE vocabulary,
+        schema-validated by outcome_schema.py.
+
+        Expected route: /api/model/hq-evolution-evaluate-outcome
+        Returns: evaluation dict with outcome_result/evidence_summary/confidence/...
+        """
+        prompt = self._build_outcome_evaluation_prompt(evidence_bundle, context)
+        result = self._call_router("hq-evolution-evaluate-outcome", prompt)
+        if result.get("success"):
+            result["evaluation"] = self._parse_json_object(result.get("response", ""))
+        return result
+
+    def _build_outcome_evaluation_prompt(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> str:
+        prompt = """TASK: Evaluate whether an HQ change actually delivered the benefit it was approved for.
+
+CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the bundle. If the evidence is genuinely insufficient or ambiguous, say so — outcome_result must be "inconclusive" rather than a guess. A technically successful implementation does NOT by itself mean the expected benefit occurred. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
+
+EVIDENCE BUNDLE (outcome contract, baseline, and evidence collected during the observation window):
+"""
+        prompt += json.dumps(evidence_bundle, indent=2, default=str)
+        if context:
+            prompt += f"\n\nCONTEXT:\n{context}"
+
+        prompt += """
+
+OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
+{
+  "outcome_result": "improved|no_material_change|regressed|inconclusive",
+  "evidence_summary": "...",
+  "confidence": "low|moderate|high",
+  "what_worked": "...",
+  "what_did_not": "...",
+  "unexpected_effects": ["..."],
+  "future_implication": "..."
 }
 """
         return prompt
