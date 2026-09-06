@@ -61,6 +61,12 @@ export default function HqEvolutionPage() {
   // requiring the Captain to go look it up elsewhere. Best-effort: a failed
   // fetch here never blocks the rest of the page.
   const [missionStatuses, setMissionStatuses] = useState<Record<string, string>>({});
+  // core/engineering/mission_dispatch.py's own outcome log, keyed by
+  // mission_id — surfaced separately from missionStatuses above because
+  // that engine never writes back to Supabase, so a Mission's status there
+  // can keep reading e.g. "Approved for Engineering" long after a draft PR
+  // has already been opened for it. Best-effort, same as missionStatuses.
+  const [missionDispatch, setMissionDispatch] = useState<Record<string, { success: boolean; message: string; pr_url: string | null }>>({});
 
   async function loadAll() {
     try {
@@ -92,6 +98,14 @@ export default function HqEvolutionPage() {
             setMissionStatuses(next);
           })
           .catch(() => {}); // best-effort — a badge staying blank is fine, never blocks the page
+
+        fetch('/api/self-improvement/mission-dispatch-status')
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body) => {
+            if (!body?.dispatches) return;
+            setMissionDispatch(body.dispatches);
+          })
+          .catch(() => {}); // best-effort, same as above
       }
     } catch (err) {
       console.error('[HQ Evolution] load failed:', err);
@@ -236,6 +250,8 @@ export default function HqEvolutionPage() {
           selected={selected}
           onSelect={setSelectedId}
           onDecide={decide}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
         />
       )}
 
@@ -252,10 +268,20 @@ export default function HqEvolutionPage() {
           reasoning={reasoning}
           setReasoning={setReasoning}
           onLegacyDecision={makeLegacyDecision}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
         />
       )}
 
-      {tab === 'learned' && <LearnedTab learned={learned} historical={historical} onDecide={decide} missionStatuses={missionStatuses} />}
+      {tab === 'learned' && (
+        <LearnedTab
+          learned={learned}
+          historical={historical}
+          onDecide={decide}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
+        />
+      )}
 
       <div className="text-center text-xs text-wb-ink2 mt-8">
         Refreshes automatically every minute while this tab is visible ·{' '}
@@ -406,13 +432,15 @@ function RelatedExperienceBlock({ investigation }: { investigation?: Investigati
 // ── Investigate ─────────────────────────────────────────────────────────
 
 function InvestigateTab({
-  investigating, watching, selected, onSelect, onDecide,
+  investigating, watching, selected, onSelect, onDecide, missionStatuses, missionDispatch,
 }: {
   investigating: Opportunity[];
   watching: Opportunity[];
   selected: Opportunity | null;
   onSelect: (id: string) => void;
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  missionStatuses: Record<string, string>;
+  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -447,6 +475,8 @@ function InvestigateTab({
         {selected ? (
           <OpportunityDetail
             opportunity={selected}
+            missionStatus={selected.mission_id ? missionStatuses[selected.mission_id] : undefined}
+            missionDispatch={selected.mission_id ? missionDispatch[selected.mission_id] : undefined}
             actions={
               <div className="pt-2">
                 <RelatedExperienceBlock investigation={selected.investigation} />
@@ -509,6 +539,7 @@ function ApprovalPreview({ opportunity }: { opportunity: Opportunity }) {
 function ImproveTab({
   proposed, selected, onSelect, onDecide, onCreateMission,
   legacyFindings, selectedLegacyFinding, onSelectLegacyFinding, reasoning, setReasoning, onLegacyDecision,
+  missionStatuses, missionDispatch,
 }: {
   proposed: Opportunity[];
   selected: Opportunity | null;
@@ -521,6 +552,8 @@ function ImproveTab({
   reasoning: string;
   setReasoning: (v: string) => void;
   onLegacyDecision: (decision: 'approved' | 'rejected' | 'more_evidence') => void;
+  missionStatuses: Record<string, string>;
+  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
   const isMissionOnly = selected ? MISSION_ONLY_CLASSES.includes(selected.change_class) : false;
 
@@ -546,6 +579,8 @@ function ImproveTab({
             {selected && proposed.some((o) => o.opportunity_id === selected.opportunity_id) ? (
               <OpportunityDetail
                 opportunity={selected}
+                missionStatus={selected.mission_id ? missionStatuses[selected.mission_id] : undefined}
+                missionDispatch={selected.mission_id ? missionDispatch[selected.mission_id] : undefined}
                 actions={
                   <div className="space-y-3 pt-2">
                     {!isMissionOnly && (
@@ -672,12 +707,13 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide, missionStatuses,
+  learned, historical, onDecide, missionStatuses, missionDispatch,
 }: {
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
   missionStatuses: Record<string, string>;
+  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
   const [filter, setFilter] = useState('all');
   const activeFilter = LEARNED_FILTERS.find((f) => f.key === filter) ?? LEARNED_FILTERS[0];
@@ -715,7 +751,14 @@ function LearnedTab({
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredLearned.map((o) => <OpportunityDetail key={o.opportunity_id} opportunity={o} />)}
+            {filteredLearned.map((o) => (
+              <OpportunityDetail
+                key={o.opportunity_id}
+                opportunity={o}
+                missionStatus={o.mission_id ? missionStatuses[o.mission_id] : undefined}
+                missionDispatch={o.mission_id ? missionDispatch[o.mission_id] : undefined}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -729,15 +772,44 @@ function LearnedTab({
             {historical.map((o) => {
               const canMarkImplemented = ['approved', 'implementing'].includes(o.lifecycle_state)
                 && !!o.outcome_contract && 'expected_benefit' in o.outcome_contract;
+              // automation_eligibility is PolicyEngine's own classification —
+              // manual_only/needs_more_evidence never reach either remediation
+              // gate (direct-commit or draft-PR), everything else might.
+              const autoEligible = !!o.automation_eligibility
+                && !['manual_only', 'needs_more_evidence'].includes(o.automation_eligibility);
+              const dispatch = o.mission_id ? missionDispatch[o.mission_id] : undefined;
               return (
                 <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
-                    {canMarkImplemented && (
+                    {o.remediation_status === 'succeeded' && (
+                      <p className="text-xs text-wb-ok mt-1">
+                        Draft PR opened{o.remediation_pr_url ? ': ' : ''}
+                        {o.remediation_pr_url && (
+                          <a href={o.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">{o.remediation_pr_url}</a>
+                        )}
+                        {' '}— review and merge it like any other PR.
+                      </p>
+                    )}
+                    {o.remediation_status === 'failed' && (
+                      <p className="text-xs text-wb-crit-on mt-1">Auto-remediation attempt failed: {o.remediation_message}</p>
+                    )}
+                    {!o.remediation_status && dispatch?.success && (
+                      <p className="text-xs text-wb-ok mt-1">
+                        Auto-dispatched to engineering{dispatch.pr_url ? ': ' : ''}
+                        {dispatch.pr_url && <a href={dispatch.pr_url} target="_blank" rel="noreferrer" className="underline break-all">{dispatch.pr_url}</a>}
+                      </p>
+                    )}
+                    {!o.remediation_status && dispatch && !dispatch.success && (
+                      <p className="text-xs text-wb-crit-on mt-1">Engineering dispatch failed: {dispatch.message}</p>
+                    )}
+                    {!o.remediation_status && !dispatch && canMarkImplemented && (
                       <p className="text-xs text-wb-ink2 mt-1">
-                        Not yet auto-remediated (needs a human to apply this directly). Once you&apos;ve made the change
-                        yourself, confirm it below so HQ can start observing whether it actually helped.
+                        {autoEligible
+                          ? "Awaiting the next automated cycle to attempt this — or mark implemented below if you've already made the change yourself."
+                          : <>Not yet auto-remediated (needs a human to apply this directly). Once you&apos;ve made the change
+                              yourself, confirm it below so HQ can start observing whether it actually helped.</>}
                       </p>
                     )}
                   </div>
@@ -749,6 +821,9 @@ function LearnedTab({
                       >
                         Mark implemented
                       </button>
+                    )}
+                    {o.mission_id && (
+                      <Badge status="info">Mission: {missionStatuses[o.mission_id] ?? 'loading…'}</Badge>
                     )}
                     <Badge status={toneToStatus(lifecycleStateToTone(o.lifecycle_state))}>{o.lifecycle_state.replace('_', ' ')}</Badge>
                   </div>

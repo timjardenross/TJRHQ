@@ -819,5 +819,154 @@ class TestMorningCompression(unittest.TestCase):
             dashboard.DECISIONS_FILE = original_decisions_file
 
 
+# ── Remediation/dispatch status surfacing (2026-09-06 UI-visibility fix) ──
+#
+# Both auto_remediation.py and mission_dispatch.py act on an opportunity/
+# Mission a human already approved without writing anything back to the
+# record the human is looking at — a needs_signoff opportunity could get a
+# draft PR opened for it, or a Mission could get dispatched, with zero
+# visible change on HQ Evolution's own page. These two endpoints are a
+# read-only join of each engine's own outcome log onto the record it
+# concerns, keyed by the source_finding_id/mission_id link that already
+# exists — never a second source of truth, never a write.
+
+class TestRemediationStatusSurfacing(unittest.TestCase):
+    def setUp(self):
+        try:
+            import flask  # noqa: F401
+        except ImportError:
+            self.skipTest("Flask not installed in this environment")
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write_remediation_result(self, path, finding_id, success, message):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a") as f:
+            f.write(json.dumps({
+                "timestamp": "2026-09-06T12:00:00+00:00",
+                "finding_id": finding_id,
+                "success": success,
+                "message": message,
+            }) + "\n")
+
+    def test_opportunity_list_surfaces_a_successful_pr_remediation(self):
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_results_file = dashboard.REMEDIATION_RESULTS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.REMEDIATION_RESULTS_FILE = self.tmpdir / "remediation_results.jsonl"
+        try:
+            store.create_new(title="Dual config files", change_class="configuration",
+                              discovery_source="internal", lifecycle_state="approved",
+                              source_finding_id="FND-001")
+            self._write_remediation_result(dashboard.REMEDIATION_RESULTS_FILE, "FND-001", True,
+                                            "Draft PR opened for review: https://github.com/x/y/pull/9")
+            client = dashboard.app.test_client()
+            res = client.get("/api/opportunities")
+            opp = res.get_json()["opportunities"][0]
+            self.assertEqual(opp["remediation_status"], "succeeded")
+            self.assertEqual(opp["remediation_pr_url"], "https://github.com/x/y/pull/9")
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.REMEDIATION_RESULTS_FILE = original_results_file
+
+    def test_opportunity_detail_surfaces_a_failed_remediation_with_no_url(self):
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_results_file = dashboard.REMEDIATION_RESULTS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.REMEDIATION_RESULTS_FILE = self.tmpdir / "remediation_results.jsonl"
+        try:
+            opp = store.create_new(title="Flaky finding", change_class="configuration",
+                                    discovery_source="internal", lifecycle_state="approved",
+                                    source_finding_id="FND-002")
+            self._write_remediation_result(dashboard.REMEDIATION_RESULTS_FILE, "FND-002", False,
+                                            "sync-one exited 1: some error")
+            client = dashboard.app.test_client()
+            res = client.get(f"/api/opportunity/{opp.opportunity_id}")
+            body = res.get_json()
+            self.assertEqual(body["remediation_status"], "failed")
+            self.assertIsNone(body["remediation_pr_url"])
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.REMEDIATION_RESULTS_FILE = original_results_file
+
+    def test_opportunity_with_no_source_finding_id_gets_no_remediation_fields(self):
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_results_file = dashboard.REMEDIATION_RESULTS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.REMEDIATION_RESULTS_FILE = self.tmpdir / "remediation_results.jsonl"
+        try:
+            store.create_new(title="External-only opportunity", change_class="configuration",
+                              discovery_source="external", lifecycle_state="approved")
+            client = dashboard.app.test_client()
+            res = client.get("/api/opportunities")
+            opp = res.get_json()["opportunities"][0]
+            self.assertNotIn("remediation_status", opp)
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.REMEDIATION_RESULTS_FILE = original_results_file
+
+    def test_opportunity_approved_but_not_yet_remediated_gets_no_remediation_fields(self):
+        """No entry in remediation_results.jsonl yet (e.g. approved, but the
+        next self-improving-system.timer run hasn't happened) must read as
+        'nothing to show', never a false 'failed'."""
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_results_file = dashboard.REMEDIATION_RESULTS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.REMEDIATION_RESULTS_FILE = self.tmpdir / "remediation_results.jsonl"
+        try:
+            store.create_new(title="Awaiting next cycle", change_class="configuration",
+                              discovery_source="internal", lifecycle_state="approved",
+                              source_finding_id="FND-003")
+            client = dashboard.app.test_client()
+            res = client.get("/api/opportunities")
+            opp = res.get_json()["opportunities"][0]
+            self.assertNotIn("remediation_status", opp)
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.REMEDIATION_RESULTS_FILE = original_results_file
+
+    def test_mission_dispatch_status_endpoint_surfaces_pr_url(self):
+        import dashboard
+        original_log_file = dashboard.MISSION_DISPATCH_LOG_FILE
+        dashboard.MISSION_DISPATCH_LOG_FILE = self.tmpdir / "mission_dispatch_log.jsonl"
+        try:
+            dashboard.MISSION_DISPATCH_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with open(dashboard.MISSION_DISPATCH_LOG_FILE, "a") as f:
+                f.write(json.dumps({
+                    "timestamp": "2026-09-06T12:00:00+00:00",
+                    "mission_id": "MSN-9001",
+                    "success": True,
+                    "message": "Draft PR opened for review: https://github.com/x/y/pull/3",
+                }) + "\n")
+            client = dashboard.app.test_client()
+            res = client.get("/api/mission-dispatch-status")
+            body = res.get_json()
+            self.assertEqual(body["dispatches"]["MSN-9001"]["pr_url"], "https://github.com/x/y/pull/3")
+            self.assertTrue(body["dispatches"]["MSN-9001"]["success"])
+        finally:
+            dashboard.MISSION_DISPATCH_LOG_FILE = original_log_file
+
+    def test_mission_dispatch_status_endpoint_empty_when_no_log_yet(self):
+        import dashboard
+        original_log_file = dashboard.MISSION_DISPATCH_LOG_FILE
+        dashboard.MISSION_DISPATCH_LOG_FILE = self.tmpdir / "no_such_log.jsonl"
+        try:
+            client = dashboard.app.test_client()
+            res = client.get("/api/mission-dispatch-status")
+            self.assertEqual(res.get_json(), {"dispatches": {}})
+        finally:
+            dashboard.MISSION_DISPATCH_LOG_FILE = original_log_file
+
+
 if __name__ == "__main__":
     unittest.main()
