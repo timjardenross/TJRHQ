@@ -19,7 +19,10 @@ import sys
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.self_improvement.collector import EvidenceCollector
+import tempfile
+import shutil
+
+from scripts.self_improvement.collector import EvidenceCollector, FileSystemAudit, CodeAnalysis
 from scripts.self_improvement.policy import PolicyEngine, classify_findings
 from scripts.self_improvement.router_client import ModelRouterClient
 
@@ -101,6 +104,39 @@ class TestEvidenceCollector(unittest.TestCase):
         self.assertEqual(e1["repository_state"]["branch"], e2["repository_state"]["branch"])
 
 
+class TestFileSystemWalkExclusions(unittest.TestCase):
+    """Regression test for a real defect found running evolution_orchestrator.py
+    --dry-run on the production VM: _count_python_files() and _find_todos()
+    both timed out (10s each) walking the FULL repo tree with no exclusions
+    — node_modules, .venv, .git history, .next build output — before
+    reaching a single real source file. Fixed by pruning those directories
+    in the find/grep calls; this proves the pruning actually works rather
+    than just trusting the shell syntax."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        (self.tmpdir / "real_code.py").write_text("# TODO: a real one\nx = 1\n")
+        bloat = self.tmpdir / "node_modules" / "some_package"
+        bloat.mkdir(parents=True)
+        (bloat / "vendored.py").write_text("# TODO: should never be seen\n")
+        venv = self.tmpdir / ".venv" / "lib"
+        venv.mkdir(parents=True)
+        (venv / "site_package.py").write_text("# TODO: should never be seen either\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_count_python_files_excludes_vendored_directories(self):
+        audit = FileSystemAudit(self.tmpdir)
+        self.assertEqual(audit._count_python_files(), 1)
+
+    def test_find_todos_excludes_vendored_directories(self):
+        analysis = CodeAnalysis(self.tmpdir)
+        todos = analysis._find_todos()
+        self.assertEqual(len(todos.get("TODO", [])), 1)
+        self.assertIn("real_code.py", todos["TODO"][0])
+
+
 class TestPolicyEngine(unittest.TestCase):
     """Test policy classification (deterministic rules)."""
 
@@ -114,10 +150,43 @@ class TestPolicyEngine(unittest.TestCase):
             cls.engine = None
 
     def test_policy_engine_loads_config(self):
-        """Policy engine should load config file."""
+        """Policy engine should load config file with real, non-empty
+        category rules — not just the key's presence (which the empty
+        {"categories": {}} fallback would also satisfy)."""
         if self.engine:
             self.assertIsNotNone(self.engine.config)
             self.assertIn("categories", self.engine.config)
+            self.assertGreater(len(self.engine.config["categories"]), 0)
+
+    def test_json_policy_loads_without_pyyaml(self):
+        """Regression test for a real bug found via evolution_orchestrator.py
+        --dry-run on the production VM: _load_policy()'s JSON-first check
+        looked for policy_file.parent/policy_file.stem/policy.json (a path
+        that has never existed) instead of recognizing policy_file itself
+        as JSON, so it always fell through to yaml.safe_load(). That masked
+        itself wherever PyYAML happened to be installed (JSON parses fine
+        as YAML) but silently returned the empty {"categories": {}}
+        default — zero configured rules — on any host without PyYAML. This
+        simulates that exact absence rather than trusting it never
+        recurs."""
+        if not self.policy_file.exists():
+            self.skipTest("Policy file not found")
+
+        import builtins
+        real_import = builtins.__import__
+
+        def no_yaml(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("simulated: PyYAML not installed")
+            return real_import(name, *args, **kwargs)
+
+        builtins.__import__ = no_yaml
+        try:
+            engine = PolicyEngine(self.policy_file)
+        finally:
+            builtins.__import__ = real_import
+
+        self.assertGreater(len(engine.config.get("categories", {})), 0)
 
     def test_classify_finding_adds_required_fields(self):
         """Classification should add automation_eligibility and risk_level."""
