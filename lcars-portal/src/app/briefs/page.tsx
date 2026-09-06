@@ -3,10 +3,14 @@
 // Briefs Workbench — the archive/management view intelligence_briefs never
 // had. Previously the only way to reach any brief was a hand-typed
 // /intelligence-workbench/brief/[id] URL, or the Pending Briefs widget on
-// Captain's Chair (which only shows the not-yet-PUBLISHED ones). Briefs
-// synthesize across domains, not just OSINT, so this is its own top-level
-// workbench rather than a tab under intelligence-workbench. Reuses the
-// existing detail page — this is a list only.
+// Captain's Chair (which only shows the not-yet-PUBLISHED ones). This is
+// its own top-level workbench (rather than a tab under
+// intelligence-workbench, which is OSINT-branded nav) because the archive
+// itself is a distinct concern from any one domain's workbench — not
+// because brief_generator.py synthesizes multiple domains (it collects
+// OSINT/world-news sources only; HQ V1 Integration QA §7 corrected this
+// page's own prior overclaiming tagline below). Reuses the existing detail
+// page — this is a list only.
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -93,7 +97,7 @@ export default function BriefsPage() {
     <WorkbenchShell
       title="Briefs"
       eyebrow="Intelligence Brief Archive"
-      tagline="USS TJR · Every synthesized brief, across every domain — not scoped to one workbench"
+      tagline="USS TJR · Every synthesized OSINT/world-news brief — not scoped to one workbench"
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {error && (

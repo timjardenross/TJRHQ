@@ -79,10 +79,28 @@ export function useOperationalRisk(): { data: OperationalRiskData | null; loadin
 
 // ── Emergency Alerts summary ──────────────────────────────────────────────────
 
+// HQ V1 Integration QA §24 finding: `is_active=true` rows never expire
+// themselves — only a *successful* collection cycle flips a gone alert to
+// inactive (intelligence/emergency_alerts.py's _expire_stale). If collection
+// stops (scheduler down), an active alert — or a genuine all-clear — reads
+// as current indefinitely, with nothing here to say otherwise. Mirrors the
+// exact staleness threshold the Emergency Alert Hub Workbench's own
+// CoveragePanel already uses (90 min = 6 missed 15-min collection cycles,
+// see emergency-alert-hub-workbench/page.tsx's STALE_THRESHOLD_MS) against
+// the same /api/emergency-alerts/sources heartbeat contract, so "Clear" here
+// can never mean "we stopped checking a while ago."
+const EMERGENCY_STALE_THRESHOLD_MS = 90 * 60 * 1000;
+
 export interface EmergencyAlertsSummary {
   worstTier: 'emergency_warning' | 'watch_and_act' | null;
   count: number;
   worstHeadline: string | null;
+  /** 'fresh' = at least one source's collection heartbeat is within the
+   *  threshold; 'stale' = every source's last collection is older than
+   *  that (or none ever ran); this app never claims 'unknown' distinct
+   *  from 'stale' here — both mean "don't trust this as current." */
+  freshness: 'fresh' | 'stale';
+  lastCheckedAt: string | null;
 }
 
 export function useEmergencyAlerts(): { data: EmergencyAlertsSummary | null; loading: boolean; error: string | null } {
@@ -94,10 +112,29 @@ export function useEmergencyAlerts(): { data: EmergencyAlertsSummary | null; loa
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch('/api/emergency-alerts?activeOnly=true');
-        if (!res.ok) throw new Error(`Emergency alerts unavailable (${res.status})`);
-        const body = await res.json();
+        const [alertsRes, sourcesRes] = await Promise.all([
+          fetch('/api/emergency-alerts?activeOnly=true'),
+          fetch('/api/emergency-alerts/sources'),
+        ]);
+        if (!alertsRes.ok) throw new Error(`Emergency alerts unavailable (${alertsRes.status})`);
+        const body = await alertsRes.json();
         if (cancelled) return;
+
+        // Source-health fetch failing must not hide a real alert — fall
+        // back to 'stale' (never silently 'fresh') rather than throwing.
+        let lastCheckedAt: string | null = null;
+        if (sourcesRes.ok) {
+          const sourcesBody = await sourcesRes.json();
+          const sources: { lastRun: string | null }[] = Array.isArray(sourcesBody?.sources) ? sourcesBody.sources : [];
+          for (const s of sources) {
+            if (s.lastRun && (!lastCheckedAt || s.lastRun > lastCheckedAt)) lastCheckedAt = s.lastRun;
+          }
+        }
+        const freshness: EmergencyAlertsSummary['freshness'] =
+          lastCheckedAt && Date.now() - new Date(lastCheckedAt).getTime() <= EMERGENCY_STALE_THRESHOLD_MS
+            ? 'fresh'
+            : 'stale';
+
         const alerts: { severity: string; headline: string }[] = Array.isArray(body?.alerts) ? body.alerts : [];
         const urgent = alerts.filter((a) => a.severity === 'emergency_warning' || a.severity === 'watch_and_act');
         const worst = urgent.find((a) => a.severity === 'emergency_warning') ?? urgent[0] ?? null;
@@ -105,6 +142,8 @@ export function useEmergencyAlerts(): { data: EmergencyAlertsSummary | null; loa
           worstTier: (worst?.severity as EmergencyAlertsSummary['worstTier']) ?? null,
           count: urgent.length,
           worstHeadline: worst?.headline ?? null,
+          freshness,
+          lastCheckedAt,
         });
         setError(null);
       } catch (e) {

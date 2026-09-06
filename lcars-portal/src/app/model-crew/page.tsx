@@ -132,7 +132,7 @@ export default function ModelCrewPage() {
     <WorkbenchShell
       title="Model Crew"
       eyebrow="On-call Ollama crew — local model routing & status"
-      tagline="TJR HQ · Model Crew — read-only routing status. For failures, escalations and job health over time, see Agent & Job Status."
+      tagline="TJR HQ · Model Crew — read-only routing status. For failures, escalations and job health over time, see HQ Status."
       right={
         <>
           {lastRefresh && (

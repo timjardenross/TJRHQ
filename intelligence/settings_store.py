@@ -2,7 +2,7 @@
 
 Settings Page Redesign mission §14 ("Intelligence Preference Architecture"):
 the Captain's chosen monitoring priorities live in Supabase (user_settings,
-migration 0189), written by the Next.js Settings page
+migration 0196, renumbered from 0189), written by the Next.js Settings page
 (lcars-portal/src/app/api/settings/route.ts). This module is the read side
 for the Python ingestion pipeline — it does NOT define or duplicate the
 taxonomy itself (category keys/labels/keywords stay in

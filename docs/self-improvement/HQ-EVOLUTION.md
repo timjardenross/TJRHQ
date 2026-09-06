@@ -85,10 +85,12 @@ python3 scripts/self_improvement/migration.py
 Scheduling: `deploy/hq-evolution.timer` runs this daily at 03:00 Australia/
 Melbourne — the quiet window between `brief_qa_agent_nightly` (02:00,
 LLM-heavy) and `downdetector_threshold_recompute` (05:00), well clear of
-the 06:00+ morning-collection jobs and the 07:00 morning-brief /
-`self-improving-system.timer` pair (see the timer file's own comment for
-the full audited timeline from `intelligence/scheduler.py`). Overlapping
-runs are prevented by a non-blocking `flock` inside
+the 06:00+ morning-collection jobs and the 07:00 morning-brief (see the
+timer file's own comment for the full audited timeline from
+`intelligence/scheduler.py`). `self-improving-system.timer` used to also
+fire at 07:00 — a documented, pre-existing collision this timer
+deliberately avoided adding to — until HQ V1 Integration QA §23 moved it
+to 04:30. Overlapping runs are prevented by a non-blocking `flock` inside
 `evolution_orchestrator.py` itself (auto-released if the process crashes —
 no stale-lock cleanup needed), not by systemd.
 

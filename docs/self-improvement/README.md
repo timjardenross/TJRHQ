@@ -181,7 +181,7 @@ Best for:
 ### Scheduled (systemd timer)
 
 ```
-self-improving-system.timer (daily 07:00 Melbourne local, enabled)
+self-improving-system.timer (daily 04:30 Melbourne local, enabled)
 → self-improving-system.service (oneshot)
 → orchestrator.py: collect → analyse (Model Router) → classify (policy engine)
   → process decisions → auto-remediate (if confidence ≥ 0.75) → summarise
@@ -309,8 +309,10 @@ python3 scripts/self_improvement/orchestrator.py --dry-run
 
 ### Scheduled runs — already enabled on the VM
 
-`self-improving-system.timer` is enabled and fires daily at 07:00 Melbourne
-local time (randomized ±5 min). No setup needed; to check or change it:
+`self-improving-system.timer` is enabled and fires daily at 04:30 Melbourne
+local time (randomized ±5 min — moved from 07:00 by HQ V1 Integration QA
+§23 to resolve a documented collision with the Morning Brief). No setup
+needed; to check or change it:
 
 ```bash
 sudo systemctl status self-improving-system.timer

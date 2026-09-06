@@ -266,7 +266,7 @@ export function healthSeverityToTone(severity: string): StateTone {
  *  one inference rule instead of forking it. */
 export function inferTone(status: string): StatusTone {
   const s = status.toUpperCase();
-  if (s.includes('BLOCK') || s.includes('OFFLINE') || s.includes('CRITICAL'))
+  if (s.includes('BLOCK') || s.includes('OFFLINE') || s.includes('CRITICAL') || s.includes('FAIL'))
     return 'operations';
   if (s.includes('REVIEW') || s.includes('DEGRADED') || s.includes('PENDING'))
     return 'command';

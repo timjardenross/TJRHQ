@@ -137,7 +137,14 @@ export default function LifeOSHub() {
             label="Emergency Alerts"
             value={emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear'}
             tone={emergencyError ? 'unknown' : emergencyTone}
-            sublabel={emergency?.worstHeadline ?? undefined}
+            // HQ V1 Integration QA §24: "Clear" must never silently mean
+            // "we stopped checking a while ago" — surface the stale check
+            // rather than hide it, without touching the tone/severity logic.
+            sublabel={
+              emergency?.worstHeadline
+                ? emergency.freshness === 'stale' ? `${emergency.worstHeadline} (check overdue)` : emergency.worstHeadline
+                : emergency?.freshness === 'stale' ? 'Check overdue' : undefined
+            }
             href="/emergency-alert-hub-workbench"
           />
           <SituationBadge
