@@ -332,6 +332,46 @@ export async function fetchIsolatedFailureFlags(
   return result;
 }
 
+/** HQ V1 Integration QA §9/§10 fix (Deferred Gap I4): domain_heartbeats_latest
+ *  (the plural, DISTINCT-ON view fetchAgentStatusEntries reads for current
+ *  status) has no concept of staleness — a job that wrote 'ok' once and then
+ *  silently stopped running (crashed, unscheduled, host lost cron) reports
+ *  'ok' forever, which computeCapabilities then reports as 'healthy'. This
+ *  is a real violation of this module's own stated rule ("missing data is
+ *  never healthy") once "missing" is read as "no *recent* data."
+ *
+ *  Rather than inventing new cadence math (the exact "cron-edge-case math
+ *  is easy to get subtly wrong" risk this file's own header comment already
+ *  warns about), this reuses `domain_heartbeat_latest` — a separate,
+ *  pre-existing, already-deployed view (migration 0071, the original
+ *  verification-engine design, predating this workbench) that joins
+ *  domain_registry's own expected_cadence_minutes/grace_period_minutes and
+ *  computes `is_stale` deterministically against the LAST SUCCESS, not the
+ *  last attempt. Only checked for jobs currently reporting 'ok' — a
+ *  'failed'/'unknown' job needs no staleness override, it's already
+ *  correctly not-healthy. */
+export async function fetchStaleOkDomainKeys(
+  sb: { from: (table: string) => any },
+  domainKeys: string[],
+): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (domainKeys.length === 0) return result;
+
+  const { data, error } = await sb
+    .from('domain_heartbeat_latest')
+    .select('domain_key, is_stale')
+    .in('domain_key', domainKeys)
+    .eq('is_stale', true);
+  // Fails safe to "none flagged stale" on a query error — this is a
+  // best-effort downgrade on top of an already-correct 'ok' status, never
+  // the sole source of truth, so a transient read failure here must not
+  // block the rest of the overview from rendering.
+  if (error || !data) return result;
+
+  for (const row of data) result.add(row.domain_key);
+  return result;
+}
+
 /** Shared query used by both /api/agent-status (Jobs tab) and
  *  /api/agent-status-workbench/overview (Needs Attention + Jobs summary) —
  *  one place that knows how to turn domain_heartbeats_latest into
@@ -357,7 +397,17 @@ export async function fetchAgentStatusEntries(sb: {
     latestByDomainKey.set(row.domain_key, row);
   }
 
-  const entries = buildAgentStatusEntries(latestByDomainKey);
+  let entries = buildAgentStatusEntries(latestByDomainKey);
+
+  const currentlyOkKeys = entries.filter((e) => e.status === 'ok').map((e) => e.domainKey);
+  if (currentlyOkKeys.length > 0) {
+    const staleOkKeys = await fetchStaleOkDomainKeys(sb, currentlyOkKeys);
+    if (staleOkKeys.size > 0) {
+      entries = entries.map((e) =>
+        staleOkKeys.has(e.domainKey) ? { ...e, status: 'unknown' as const } : e,
+      );
+    }
+  }
 
   const failedCriticalKeys = entries
     .filter((e) => e.status === 'failed' && e.criticality === 'critical')
