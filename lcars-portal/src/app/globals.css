@@ -169,3 +169,16 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Settings → Appearance → Motion: 'Reduced' — a manual override for a
+   Captain whose OS-level prefers-reduced-motion isn't set (or can't be,
+   e.g. a shared/kiosk device) but who still wants HQ's own motion cut.
+   Same rule as the OS-level query above, just gated on the data-motion
+   attribute lib/motion.ts sets instead of a media feature. */
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

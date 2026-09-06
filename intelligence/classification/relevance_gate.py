@@ -48,6 +48,7 @@ from typing import Any, Optional
 
 from intelligence.classification.filter import should_suppress
 from intelligence.models import ClassifiedEvent
+from intelligence.settings_store import enabled_technical_categories
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +89,21 @@ def _category_match(text: str, config: dict) -> Optional[dict]:
     """Best-matching priority_category by keyword hit count. Returns None
     if no category has any keyword hit — that's a real signal (mission §5's
     mission statement is a closed list of named priority areas, not
-    "anything vaguely technology-related")."""
+    "anything vaguely technology-related").
+
+    TJR HQ Settings Page Redesign mission §14: a category the Captain has
+    switched off in Settings → Intelligence → Technical is skipped here as
+    if it had zero keyword hits, so a disabled category can never win the
+    best-match slot. `enabled_technical_categories()` returns None (no
+    filter) when Settings hasn't narrowed anything or the read failed —
+    every category stays eligible in that case, same as before this
+    mission."""
+    enabled = enabled_technical_categories()
     best = None
     best_hits = 0
     for category in config.get("priority_categories", []):
+        if enabled is not None and category.get("key") not in enabled:
+            continue
         hits = sum(1 for kw in category.get("keywords", []) if kw.lower() in text)
         if hits > best_hits:
             best_hits = hits

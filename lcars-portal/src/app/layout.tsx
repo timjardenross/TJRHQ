@@ -90,6 +90,12 @@ const THEME_INIT_SCRIPT = `
       document.documentElement.setAttribute('data-theme', t);
     }
   } catch (e) {}
+  try {
+    var m = localStorage.getItem('tjr-hq-motion');
+    if (m === 'reduced') {
+      document.documentElement.setAttribute('data-motion', 'reduced');
+    }
+  } catch (e) {}
 })();
 `;
 
