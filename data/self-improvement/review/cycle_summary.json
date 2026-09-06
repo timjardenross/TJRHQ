@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-09-05T21:04:41.420876+00:00",
-  "run_id": "2026-09-05-210301",
+  "timestamp": "2026-09-06T09:07:53.235765+00:00",
+  "run_id": "2026-09-06-090533",
   "success": true,
   "evidence_collected": 7,
   "findings_analyzed": 4,
@@ -10,8 +10,8 @@
   "model_confidence": 1.0,
   "auto_remediation_eligible": 3,
   "auto_remediation": {
-    "timestamp": "2026-09-05T21:04:41.417985+00:00",
-    "run_id": "2026-09-05-210301",
+    "timestamp": "2026-09-06T09:07:53.228916+00:00",
+    "run_id": "2026-09-06-090533",
     "model_confidence": 1.0,
     "dry_run": false,
     "total_findings": 4,
@@ -22,7 +22,7 @@
     "remediation_results": []
   },
   "decision_report": {
-    "timestamp": "2026-09-05T21:04:41.415535+00:00",
+    "timestamp": "2026-09-06T09:07:53.226656+00:00",
     "model_confidence": 1.0,
     "model_confidence_rating": "high",
     "total_decisions": 3,

@@ -1,0 +1,108 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Dual JSON and YAML self-improvement policy configuration files",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Both JSON and YAML variants of self_improvement_policy exist in configuration directory",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML variant of self-improvement policy present alongside JSON variant",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Establish a single canonical format (JSON or YAML) for self-improvement policy configuration and remove the redundant file"
+      },
+      "expected_benefit": "Prevents configuration drift and ambiguity over source of truth for self-improvement policy",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Filesystem audit scanning traverses virtual environment and dependency directories",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Virtual environment package files from core/infrastructure/vm-processing/.venv are indexed as repository config files",
+          "location": "core/infrastructure/vm-processing/.venv"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Documentation scanner indexes 1900+ documentation files heavily polluted by lcars-portal/node_modules",
+          "location": "lcars-portal/node_modules"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add .venv, node_modules, and third-party dependency exclusion paths to repository audit collector"
+      },
+      "expected_benefit": "Reduces audit execution duration (currently ~130s) and eliminates false metrics from vendored dependencies",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: None; Confidence: 0.95; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Python file metric inconsistency with detected test suite files",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Audit reports 0 python_files while detecting 77 active python test files",
+          "location": "filesystem_audit.python_files"
+        },
+        {
+          "type": "file_exists",
+          "observation": "77 python test files exist in the repository root or subtrees",
+          "location": "filesystem_audit.test_files"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Update repository audit filesystem scanner to properly count non-test Python source files and reconcile with test suites"
+      },
+      "expected_benefit": "Accurate metrics for codebase inventory and language distribution",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: None; Confidence: 0.90; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "performance_gap",
+      "title": "Elevated average latency across model router invocations",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Recent average invocation latency on model router port 8891 is 8119ms",
+          "location": "model_router_audit.router_status.recent_avg_ms"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Investigate execution times across local Ollama models versus cloud endpoints to determine bottlenecks and tune model keep_alive or concurrency"
+      },
+      "expected_benefit": "Reduced response latency for interactive and pipeline-driven agentic tasks",
+      "finding_id": "FND-004",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: performance_gap; Evidence strength: None; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}
