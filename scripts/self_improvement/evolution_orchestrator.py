@@ -543,10 +543,18 @@ class EvolutionOrchestrator:
 
         # Persist every gate-cleared candidate as a lightweight DISCOVERED
         # record (so future cycles can dedup against it) before spending
-        # any investigation budget.
+        # any investigation budget. A candidate the relevance gate is
+        # RECONSIDERING (verdict.reconsider_of set — a prior "discovered"/
+        # "investigating"/"watching"/"rejected" record for this same
+        # fingerprint) must update that SAME opportunity_id rather than
+        # create_new() a fresh one: otherwise something rediscovered every
+        # cycle without ever being promoted would pile up one new
+        # "discovered" card per cycle forever instead of one card that
+        # just keeps refreshing (found alongside the fix that stopped
+        # "discovered"/"investigating" from being permanently frozen).
         discovered_opps = []
         for candidate, verdict in passed:
-            opp = self.store.create_new(
+            fields = dict(
                 title=candidate["title"],
                 change_class=candidate["change_class"],
                 discovery_source=candidate["discovery_source"],
@@ -568,7 +576,13 @@ class EvolutionOrchestrator:
                 validated_at=candidate.get("validated_at"),
                 measurement_hint=candidate.get("measurement_hint"),
                 run_id=run_id,
-            ) if not dry_run else None
+            )
+            if dry_run:
+                opp = None
+            elif verdict.reconsider_of:
+                opp = self.store.update(verdict.reconsider_of, **fields)
+            else:
+                opp = self.store.create_new(**fields)
             discovered_opps.append((candidate, verdict, opp))
 
         # SHORTLIST -> INVESTIGATE (the expensive step; bounded)

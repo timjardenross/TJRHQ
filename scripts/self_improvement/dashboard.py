@@ -307,6 +307,20 @@ def api_opportunity_decide():
         except Exception as exc:
             log.warning(f"Failed to build outcome contract for {opportunity_id}: {exc}")
 
+    # Bridge to the existing, unmodified bounded-remediation engine (spec
+    # diagram: "HUMAN DECISION -> bounded remediation (existing engine)").
+    # AutoRemediationExecutor (auto_remediation.py, run by the separate
+    # self-improving-system.service) only ever reads decisions.jsonl by
+    # finding_id — it has no knowledge of the Opportunity store at all.
+    # Without this, "Approve improvement" recorded the decision on the
+    # Opportunity but never actually authorised anything to execute; found
+    # live when two real approvals sat with no remediation triggered.
+    # Only opportunities with a source_finding_id came from a legacy
+    # classified finding this engine can act on — internally-discovered-
+    # only or externally-discovered opportunities have nothing to bridge to.
+    if decision_type == "approve_improvement" and existing.get("source_finding_id"):
+        save_decision(existing["source_finding_id"], "approved", reasoning or "Approved via HQ Evolution")
+
     # V2: a human directly asserting implementation happened — start the
     # observation window immediately rather than waiting for the next
     # overnight cycle to detect it (there is nothing to detect; only the

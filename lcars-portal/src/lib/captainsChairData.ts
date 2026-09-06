@@ -8,15 +8,21 @@
 
 import { useEffect, useState } from 'react';
 import { fetchTasks, attendBucket, type PersonalTask } from '@/lib/personalTasks';
-import type { RecoveryPostureBand, StateTone } from '@/lib/types';
+import type { StateTone } from '@/lib/types';
+import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
+import type { AssessedContext } from '@/app/api/human-systems/assessed-context';
 
 // ── Situation strip tone/label maps ──────────────────────────────────────────
 
-export const POSTURE_STATE_TONE: Record<RecoveryPostureBand, StateTone> = {
-  STRONG: 'ok',
-  STABLE: 'ok',
-  FRAGILE: 'warn',
-  REST: 'crit',
+/** Tone for the canonical Human Systems posture band (assessed-context.ts /
+ * deriveSystemPosture). This is the ONLY posture-tone map Captain's Chair
+ * and LifeOS should use — see useHumanSystemsContext() below for why. */
+export const SYSTEM_POSTURE_STATE_TONE: Record<SystemPostureBand, StateTone> = {
+  ENGAGE: 'ok',
+  STEADY: 'ok',
+  PROTECT: 'warn',
+  RESET: 'warn',
+  RECOVER: 'crit',
   UNKNOWN: 'unknown',
 };
 
@@ -31,6 +37,50 @@ export const CAPACITY_STATE_LABEL: Record<string, string> = {
   orange: 'Stretched',
   red: 'Depleted',
 };
+
+// ── Human Systems (canonical assessed context) ───────────────────────────────
+//
+// This is the ONE Human Systems read Captain's Chair and LifeOS are allowed
+// to use. It hits /api/human-systems/context — the same small, fresh/stale-
+// aware boundary Ready Room and Weekly Review already consume (see
+// assessed-context.ts) — instead of the retired get_recovery_posture() RPC
+// (useROSData/ros-data.ts, which reads from analytics_health_daily, a view
+// over tables capacity_checkins replaced). Command-surface correctness
+// repair (P0): both pages previously derived posture from useROSData()'s
+// `?? mockPosture` fallback, so "no check-in today" (a real, empty result)
+// rendered identically to a fabricated STABLE/MODERATE day. The canonical
+// path never does this — deriveSystemPosture(null) returns UNKNOWN with an
+// honest message, no mock fallback exists here at all.
+export function useHumanSystemsContext(): {
+  context: AssessedContext | null;
+  loading: boolean;
+  /** True only when the /context fetch itself failed — distinct from a
+   *  successful response reporting has_checkin_today: false. */
+  error: string | null;
+} {
+  const [context, setContext] = useState<AssessedContext | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/human-systems/context')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body: AssessedContext) => {
+        if (cancelled) return;
+        setContext(body);
+        setError(null);
+      })
+      .catch((e) => {
+        console.error('[captainsChairData] useHumanSystemsContext failed:', e);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load Human Systems context');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { context, loading, error };
+}
 
 // ── Operational Risk ──────────────────────────────────────────────────────────
 
@@ -334,40 +384,4 @@ export function useReminders(): { tasks: PersonalTask[]; loading: boolean } {
   }, []);
 
   return { tasks, loading };
-}
-
-// ── Capacity Today (lean — /hub only needs capacityState + postureMessage,
-// not the full Signal Snapshot's OSINT/health cross-section) ───────────────
-
-export interface CapacityToday {
-  capacityState: string | null;
-  postureMessage: string | null;
-}
-
-export function useCapacityToday(): { data: CapacityToday; loading: boolean; error: string | null } {
-  const [data, setData] = useState<CapacityToday>({ capacityState: null, postureMessage: null });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/human-systems?domain=recovery')
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((wellness) => {
-        if (cancelled) return;
-        setData({
-          capacityState: wellness?.latest_capacity_state ?? null,
-          postureMessage: wellness?.system_posture_message ?? null,
-        });
-        setError(null);
-      })
-      .catch((e) => {
-        console.error('[captainsChairData] useCapacityToday failed:', e);
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load capacity');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
-
-  return { data, loading, error };
 }

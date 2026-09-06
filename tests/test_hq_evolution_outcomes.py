@@ -763,6 +763,61 @@ class TestMorningCompression(unittest.TestCase):
         finally:
             dashboard.opportunity_store = original_store
 
+    def test_approve_improvement_bridges_to_bounded_remediation_engine(self):
+        """Regression test for a real bug found live: approve_improvement
+        recorded the decision on the Opportunity but never wrote to
+        decisions.jsonl — the ONLY file AutoRemediationExecutor (the actual
+        code-changing engine, run by the separate self-improving-system.
+        service) reads to decide what to remediate. Two real approvals sat
+        with nothing ever triggered. Opportunities that came from a legacy
+        classified finding (source_finding_id set) must get an "approved"
+        decision written for that exact finding_id so the existing,
+        unmodified engine picks it up on its own next run."""
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_decisions_file = dashboard.DECISIONS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.DECISIONS_FILE = self.tmpdir / "decisions.jsonl"
+        try:
+            client = dashboard.app.test_client()
+            opp = store.create_new(title="Dual config files", change_class="configuration",
+                                    discovery_source="internal", lifecycle_state="proposed",
+                                    source_finding_id="FND-001")
+            res = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement"})
+            self.assertEqual(res.status_code, 200)
+
+            self.assertTrue(dashboard.DECISIONS_FILE.exists())
+            decisions = [json.loads(line) for line in dashboard.DECISIONS_FILE.read_text().splitlines() if line.strip()]
+            matching = [d for d in decisions if d.get("finding_id") == "FND-001"]
+            self.assertEqual(len(matching), 1)
+            self.assertEqual(matching[0]["decision"], "approved")
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.DECISIONS_FILE = original_decisions_file
+
+    def test_approve_improvement_without_source_finding_id_writes_no_decision(self):
+        """An opportunity with no source_finding_id (pure internal/external
+        discovery, not mirroring a legacy classified finding) has nothing
+        for the bounded-remediation engine to act on — must not write a
+        decisions.jsonl entry with a None/missing finding_id."""
+        import dashboard
+        original_store = dashboard.opportunity_store
+        original_decisions_file = dashboard.DECISIONS_FILE
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        dashboard.DECISIONS_FILE = self.tmpdir / "decisions2.jsonl"
+        try:
+            client = dashboard.app.test_client()
+            opp = store.create_new(title="External-only opportunity", change_class="configuration",
+                                    discovery_source="external", lifecycle_state="proposed")
+            res = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement"})
+            self.assertEqual(res.status_code, 200)
+            self.assertFalse(dashboard.DECISIONS_FILE.exists())
+        finally:
+            dashboard.opportunity_store = original_store
+            dashboard.DECISIONS_FILE = original_decisions_file
+
 
 if __name__ == "__main__":
     unittest.main()

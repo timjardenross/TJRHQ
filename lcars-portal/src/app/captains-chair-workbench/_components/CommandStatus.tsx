@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { WorkbenchPanel } from '@/components/WorkbenchPanel';
 import { stateToneClasses } from '@/lib/departments';
-import { POSTURE_STATE_TONE, RISK_STATE_TONE } from '@/lib/captainsChairData';
+import { SYSTEM_POSTURE_STATE_TONE } from '@/lib/captainsChairData';
 import type { CommandStatusResult } from '@/lib/captainsChairSynthesis';
 import type { StateTone } from '@/lib/types';
 
@@ -28,7 +28,7 @@ export function CommandStatus({
   loading: boolean;
   signals: SignalChip[];
 }) {
-  const postureTone: StateTone = status.posture === 'UNKNOWN' ? 'unknown' : POSTURE_STATE_TONE[status.posture];
+  const postureTone: StateTone = SYSTEM_POSTURE_STATE_TONE[status.posture];
   const toneClasses = stateToneClasses(postureTone);
 
   return (
