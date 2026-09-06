@@ -73,6 +73,67 @@ class ModelRouterClient:
         prompt = self._build_critique_prompt(findings, context)
         return self._call_router("self-improvement-critique", prompt)
 
+    def investigate_opportunity(self, candidate: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+        """
+        HQ Evolution (section 22): ask the model to interpret already-
+        collected evidence into an investigation narrative. The model may
+        propose an interpretation; it must not invent evidence, and its
+        output is never treated as a permission decision (relevance.py and
+        PolicyEngine remain authoritative for that).
+
+        Expected route: /api/model/hq-evolution-investigate
+        Returns: investigation dict with why/fit/benefits/risks/alternatives/recommendation
+        """
+        prompt = self._build_investigation_prompt(candidate, context)
+        result = self._call_router("hq-evolution-investigate", prompt)
+        if result.get("success"):
+            result["investigation"] = self._parse_investigation(result.get("response", ""))
+        return result
+
+    @staticmethod
+    def _parse_investigation(response_text: str) -> dict[str, Any]:
+        text = response_text.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as exc:
+            log.error(f"Failed to parse investigation JSON from model response: {exc}")
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    def _build_investigation_prompt(self, candidate: dict[str, Any], context: Optional[str] = None) -> str:
+        prompt = """TASK: Investigate whether this HQ Evolution candidate is genuinely worth pursuing for TJR HQ.
+
+CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the candidate data. You may interpret the evidence; you may not manufacture it. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
+
+CANDIDATE:
+"""
+        prompt += json.dumps(candidate, indent=2)
+        if context:
+            prompt += f"\n\nCONTEXT:\n{context}"
+
+        prompt += """
+
+OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
+{
+  "why_hq_is_looking_at_this": "...",
+  "fit_with_hq": "weak|moderate|strong",
+  "potential_benefits": ["..."],
+  "cost_impact": "lower|neutral|higher|unknown",
+  "risks": ["..."],
+  "implementation_effort": "low|moderate|high",
+  "alternatives": ["..."],
+  "confidence": 0.7,
+  "recommendation": "worth_pursuing|keep_watching|not_useful",
+  "recommendation_rationale": "..."
+}
+"""
+        return prompt
+
     def generate_mission(self, finding: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
         """
         Convert an approved finding into a mission document.

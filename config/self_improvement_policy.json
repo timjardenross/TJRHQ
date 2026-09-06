@@ -155,6 +155,62 @@
       "automation_eligibility": "needs_signoff",
       "allowed_actions": [],
       "reason": "New automation requires design review and testing"
+    },
+    "maintenance": {
+      "description": "HQ Evolution generic bucket for a maintenance-class candidate with no precise legacy category (e.g. an evidence-derived candidate, not a model-analysed finding)",
+      "default_severity": "low",
+      "evidence_required": "strong",
+      "automation_eligibility": "needs_signoff",
+      "allowed_actions": [],
+      "reason": "Generic bucket — deliberately more conservative than the precise legacy categories (doc_drift, dead_code) it's a fallback for; those keep their own auto-eligible rules unchanged"
+    },
+    "configuration": {
+      "description": "HQ Evolution generic bucket for a configuration-class candidate with no precise legacy category",
+      "default_severity": "low",
+      "evidence_required": "strong",
+      "automation_eligibility": "needs_signoff",
+      "allowed_actions": [],
+      "reason": "Generic bucket — see 'maintenance' category reason"
+    },
+    "reliability": {
+      "description": "HQ Evolution generic bucket for a reliability-class candidate with no precise legacy category",
+      "default_severity": "medium",
+      "evidence_required": "strong",
+      "automation_eligibility": "needs_signoff",
+      "allowed_actions": [],
+      "reason": "Generic bucket — see 'maintenance' category reason"
+    },
+    "cost_optimisation": {
+      "description": "HQ Evolution: redundant LLM calls, duplicate synthesis, expensive-model-where-cheap-suffices, unused services, or other cost-reduction opportunity",
+      "default_severity": "low",
+      "evidence_required": "strong",
+      "automation_eligibility": "needs_signoff",
+      "allowed_actions": [],
+      "reason": "Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority."
+    },
+    "capability": {
+      "description": "HQ Evolution: a new tool/integration/architecture pattern that would give HQ a capability it does not have today",
+      "default_severity": "info",
+      "evidence_required": "strong",
+      "automation_eligibility": "manual_only",
+      "allowed_actions": [],
+      "reason": "New capability requires a Mission — never bounded remediation, never auto-applied"
+    },
+    "product_improvement": {
+      "description": "HQ Evolution: a change to how an existing HQ surface behaves or prioritises (e.g. Brief prioritisation)",
+      "default_severity": "info",
+      "evidence_required": "strong",
+      "automation_eligibility": "manual_only",
+      "allowed_actions": [],
+      "reason": "Product-behaviour changes require a Mission / controlled build"
+    },
+    "architecture": {
+      "description": "HQ Evolution: replacing or restructuring a major subsystem",
+      "default_severity": "info",
+      "evidence_required": "conclusive",
+      "automation_eligibility": "manual_only",
+      "allowed_actions": [],
+      "reason": "Architecture-level change is Mission-only, always — the highest change class HQ Evolution can propose, never remediated directly"
     }
   },
   "auto_remediation": {
@@ -176,5 +232,20 @@
     "backup_before_remediate": true,
     "rollback_on_verify_failure": true,
     "require_explicit_delete_approval": true
+  },
+  "evolution": {
+    "description": "Bounds for the HQ Evolution overnight discovery cycle (scripts/self_improvement/evolution_orchestrator.py). Cheap filtering before expensive investigation: DISCOVER MANY -> RELEVANCE FILTER -> DEDUP -> SHORTLIST -> DEEP INVESTIGATION OF FEW. These bounds exist so overnight research cannot itself become an uncontrolled cost centre.",
+    "max_internal_candidates_per_cycle": 20,
+    "max_external_searches_per_cycle": 6,
+    "max_external_candidates_per_search": 5,
+    "max_external_candidates_per_cycle": 20,
+    "max_shortlist_per_cycle": 6,
+    "max_investigations_per_cycle": 6,
+    "max_opportunities_surfaced_per_cycle": 3,
+    "run_duration_budget_minutes": 20,
+    "external_request_timeout_seconds": 8,
+    "min_relevance_score_to_investigate": 0.5,
+    "min_relevance_score_to_surface": 0.65,
+    "dedup_reconsideration_days": 21
   }
 }

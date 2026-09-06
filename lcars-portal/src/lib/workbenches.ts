@@ -131,9 +131,14 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: Activity,
   },
   {
+    // HQ Evolution (retitled from "Self-Improvement Findings" — the
+    // existing evidence/policy/remediation engine is preserved underneath
+    // and now covers overnight internal + external discovery too, not
+    // just bounded remediation findings). Route kept for compatibility;
+    // see docs/self-improvement/HQ-EVOLUTION.md.
     href: '/self-improvement-findings',
-    title: 'Self-Improvement Findings',
-    description: 'Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence.',
+    title: 'HQ Evolution',
+    description: 'Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work.',
     icon: Lightbulb,
   },
 ];
