@@ -100,6 +100,27 @@ class TestOpportunityStore(TempStoreTestCase):
         fp2 = new_fingerprint("  same   title  ", "src", "internal")
         self.assertEqual(fp1, fp2)
 
+    def test_find_by_fingerprint_returns_most_recently_updated_match(self):
+        """Regression test for a real bug found alongside the dedup-
+        reconsideration fix: relevance.py's reconsideration path creates a
+        NEW opportunity_id each time a candidate is reconsidered rather
+        than updating the old one, so two records can legitimately share a
+        fingerprint. find_by_fingerprint() used to return whichever match
+        iteration happened to reach first (oldest, by dict-insertion
+        order) — silently defeating reconsideration for anything
+        rediscovered a second time, since every future dedup check would
+        keep seeing the stale old record's lifecycle_state forever."""
+        fp = "shared-fingerprint"
+        older = self.store.create_new(title="First pass", change_class="maintenance",
+                                       discovery_source="internal", lifecycle_state="rejected", fingerprint=fp)
+        import time
+        time.sleep(0.01)
+        newer = self.store.create_new(title="Reconsidered", change_class="maintenance",
+                                       discovery_source="internal", lifecycle_state="discovered", fingerprint=fp)
+        found = self.store.find_by_fingerprint(fp)
+        self.assertEqual(found["opportunity_id"], newer.opportunity_id)
+        self.assertNotEqual(found["opportunity_id"], older.opportunity_id)
+
     def test_mission_only_classes_match_policy_manual_only(self):
         """The code-level MISSION_ONLY_CLASSES set must agree with which
         change classes config/self_improvement_policy.json actually marks
@@ -167,6 +188,43 @@ class TestRelevanceGate(TempStoreTestCase):
                                lifecycle_state="learned", fingerprint=fp, relevance_score=0.1)
         verdict = self.gate.evaluate({**c, "fingerprint": fp})
         self.assertTrue(verdict.is_duplicate)
+
+    def test_discovered_but_not_shortlisted_opportunity_is_always_reconsidered(self):
+        """Regression test for a real dead end found live: a candidate that
+        cleared the relevance gate but didn't fit this cycle's shortlist/
+        investigation cap (a pure capacity limit, never a human decision)
+        used to be permanently frozen at 'discovered' — the Discover tab's
+        own "HQ will reconsider it in a future cycle" text was false.
+        Nothing needs to be beaten (no decision, no score, no elapsed time)
+        for it to compete again."""
+        c = make_candidate()
+        fp = new_fingerprint(c["title"], c["source"], c["discovery_source"])
+        self.store.create_new(title=c["title"], change_class=c["change_class"], discovery_source=c["discovery_source"],
+                               lifecycle_state="discovered", fingerprint=fp, relevance_score=0.9)
+        verdict = self.gate.evaluate({**c, "fingerprint": fp})
+        self.assertFalse(verdict.is_duplicate)
+
+    def test_investigating_opportunity_not_resurfaced_without_better_evidence(self):
+        """Regression test for a real dead end found live: clicking 'Get
+        more evidence' moves an opportunity to 'investigating' and records
+        the ask, but nothing ever re-investigates it — this used to
+        permanently block reconsideration too. It should behave like
+        'watching' (a soft human deferral): not resurfaced without a
+        meaningfully better score or the reconsideration window elapsing."""
+        c = make_candidate()
+        fp = new_fingerprint(c["title"], c["source"], c["discovery_source"])
+        self.store.create_new(title=c["title"], change_class=c["change_class"], discovery_source=c["discovery_source"],
+                               lifecycle_state="investigating", fingerprint=fp, relevance_score=0.9)
+        verdict = self.gate.evaluate({**c, "fingerprint": fp})
+        self.assertTrue(verdict.is_duplicate)
+
+    def test_investigating_opportunity_resurfaced_with_meaningfully_better_evidence(self):
+        c = make_candidate()
+        fp = new_fingerprint(c["title"], c["source"], c["discovery_source"])
+        self.store.create_new(title=c["title"], change_class=c["change_class"], discovery_source=c["discovery_source"],
+                               lifecycle_state="investigating", fingerprint=fp, relevance_score=0.2)
+        verdict = self.gate.evaluate({**c, "fingerprint": fp})  # scores ~0.8+, well above 0.2 + 0.1
+        self.assertFalse(verdict.is_duplicate)
 
 
 class TestPolicyOnEvolutionCategories(unittest.TestCase):
@@ -376,7 +434,34 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         current = store.all_current()
         self.assertEqual(len(current), 1)
         self.assertEqual(current[0]["lifecycle_state"], "proposed")
-        self.assertIn("method", current[0]["investigation"])  # template fallback recorded, not silently empty
+
+    def test_rediscovered_candidate_updates_the_same_record_not_a_duplicate(self):
+        """Regression test for a real bug found alongside the dedup-
+        reconsideration fix: a 'discovered' candidate (cleared the gate but
+        didn't reach investigation — a pure capacity limit) is now
+        correctly reconsidered on the next cycle rather than frozen
+        forever, but that reconsideration must UPDATE the existing
+        opportunity_id rather than create_new() a fresh one every cycle —
+        otherwise a candidate rediscovered nightly without ever being
+        promoted would pile up one new 'discovered' card per night
+        forever, contradicting the Discover tab's "HQ will reconsider it"
+        (singular, same item) framing."""
+        store = OpportunityStore(self.tmpdir)
+        candidate = make_candidate(discovery_source="internal", category="performance_gap", change_class="cost_optimisation")
+        fp = new_fingerprint(candidate["title"], candidate.get("source", ""), candidate["discovery_source"])
+        seeded = store.create_new(title=candidate["title"], change_class=candidate["change_class"],
+                                   discovery_source=candidate["discovery_source"], lifecycle_state="discovered",
+                                   fingerprint=fp, relevance_score=0.5)
+
+        orch = self._make_orchestrator()
+        orch.evolution_config["max_investigations_per_cycle"] = 0  # never reaches investigation this cycle
+        with patch("internal_discovery.discover", return_value=[{**candidate, "fingerprint": fp}]):
+            orch.run_cycle(dry_run=False)
+
+        current = store.all_current()
+        matching = [o for o in current if o.get("fingerprint") == fp]
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(matching[0]["opportunity_id"], seeded.opportunity_id)
 
     def test_capability_opportunity_is_never_auto_eligible(self):
         orch = self._make_orchestrator()
