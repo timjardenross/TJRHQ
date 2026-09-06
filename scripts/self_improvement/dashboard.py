@@ -297,8 +297,11 @@ def api_opportunity_decide():
     # before implementation — never rebuilt afterward. Both approval paths
     # (bounded remediation and Mission handoff) get a contract; only the
     # evidence-collection specifics differ per implementation_source at
-    # evaluation time (outcome_evaluation.py).
-    if decision_type in ("approve_improvement", "create_mission"):
+    # evaluation time (outcome_evaluation.py). Guarded on "no contract yet"
+    # rather than just decision_type so a duplicate/replayed approve call
+    # can never retrospectively rewrite the original baseline to fit
+    # whatever has happened since — the whole point of a contract.
+    if decision_type in ("approve_improvement", "create_mission") and not existing.get("outcome_contract"):
         try:
             changes["outcome_contract"] = outcome_contract_module.build_outcome_contract(existing, REPO_ROOT)
         except Exception as exc:

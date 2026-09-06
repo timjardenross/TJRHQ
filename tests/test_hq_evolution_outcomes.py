@@ -302,6 +302,42 @@ class TestInconclusiveHandling(TempStoreTestCase):
         result = outcome_evaluation.evaluate_outcome(opp, REPO_ROOT, self.tmpdir, self.store, cycles_elapsed=1)
         self.assertEqual(result["outcome_result"], "not_yet_ready")
 
+    def test_qualitative_class_never_reaches_improved_without_new_evidence(self):
+        """A capability/architecture/product_improvement opportunity has no
+        measurement_hint and no post-implementation evidence source wired —
+        only its own PRE-implementation investigation notes. Even if a
+        mocked model would happily assert "improved" from those notes
+        alone, evaluate_outcome must never call the model (there is no new
+        evidence for it to interpret) and must return inconclusive. This
+        guards the exact failure mode section 10 forbids: the model
+        confirming its own earlier optimism instead of genuine evidence."""
+        contract = outcome_contract.build_outcome_contract(
+            make_candidate(change_class="capability", investigation={"why_hq_is_looking_at_this": "seems promising"}),
+            REPO_ROOT,
+        )
+        contract["observation_window"] = {"type": "immediate", "count": 1}
+        opp = {
+            "opportunity_id": "EVO-QUAL-TEST",
+            "change_class": "capability",
+            "investigation": {"why_hq_is_looking_at_this": "seems promising"},
+            "outcome": {"implementation_source": "manual", "implementation_verified_at": datetime.now(timezone.utc).isoformat()},
+            "outcome_contract": {**contract, "observation_started_at": datetime.now(timezone.utc).isoformat()},
+        }
+
+        class ImproperlyOptimisticRouter:
+            def health_check(self):
+                return True
+
+            def evaluate_outcome(self, evidence_bundle):
+                return {"success": True, "evaluation": {"outcome_result": "improved", "confidence": "high",
+                                                          "evidence_summary": "it feels great", "what_worked": "",
+                                                          "what_did_not": "", "unexpected_effects": [], "future_implication": ""}}
+
+        router = ImproperlyOptimisticRouter()
+        result = outcome_evaluation.evaluate_outcome(opp, REPO_ROOT, self.tmpdir, self.store, router=router)
+        self.assertEqual(result["outcome_result"], "inconclusive")
+        self.assertNotEqual(result.get("method"), "model_synthesis")
+
 
 class TestOutcomeSchema(unittest.TestCase):
     def test_valid_input_passes_through(self):
@@ -585,6 +621,19 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
         self.assertEqual(final["outcome"]["outcome_result"], "improved")
         self.assertEqual(final["outcome"]["method"], "deterministic")
 
+    def test_evaluation_phase_failure_never_blocks_discovery(self):
+        """Section 8 of the audit checklist: a total, unanticipated failure
+        of the (newer, less battle-tested) outcome-evaluation phase must
+        never take the rest of the overnight cycle down with it —
+        discovery/investigation is the pre-existing, load-bearing pipeline
+        and has to keep running regardless."""
+        orch = self._make_orchestrator()
+        with patch.object(orch, "_evaluate_due_outcomes", side_effect=RuntimeError("boom")):
+            result = orch.run_cycle(dry_run=False)
+        self.assertEqual(result["outcomes_completed_count"], 0)
+        self.assertIn("run_id", result)
+        self.assertIsNotNone(result["run_id"])
+
 
 # ── Morning compression (section 48) ────────────────────────────────────
 
@@ -679,6 +728,38 @@ class TestMorningCompression(unittest.TestCase):
             body = res.get_json()
             self.assertTrue(body["opportunity"]["outcome_contract"]["expected_benefit"])
             self.assertEqual(body["opportunity"]["outcome_contract"]["evaluation_status"], "pending_implementation")
+        finally:
+            dashboard.opportunity_store = original_store
+
+    def test_duplicate_approve_call_never_rebuilds_an_existing_contract(self):
+        """Section 6: the Outcome Contract is built once, at approval,
+        before implementation, and never rebuilt afterward — even if the
+        approve/create_mission decision is (re-)posted again later (a
+        double-submit, a retried request, or a re-approval after further
+        review). A rebuild would recompute baseline/created_at from
+        whatever the repo looks like NOW, retrospectively rewriting the
+        original pre-implementation baseline to fit later reality."""
+        import dashboard
+        original_store = dashboard.opportunity_store
+        store = OpportunityStore(self.tmpdir)
+        dashboard.opportunity_store = store
+        try:
+            client = dashboard.app.test_client()
+            opp = store.create_new(title="Reduce config sprawl", change_class="configuration",
+                                    discovery_source="internal", lifecycle_state="proposed",
+                                    provenance=[{"source": "internal_evidence_collector", "location": "config/", "detail": "config_files_count=47"}])
+            res1 = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement"})
+            first_contract = res1.get_json()["opportunity"]["outcome_contract"]
+
+            # Simulate a second approve call landing later, after the
+            # underlying evidence has moved on (state mutated in between,
+            # as if the repo/opportunity changed between the two calls).
+            store.update(opp.opportunity_id, provenance=[{"source": "internal_evidence_collector", "location": "config/", "detail": "config_files_count=3"}])
+            res2 = client.post("/api/opportunity/decide", json={"opportunity_id": opp.opportunity_id, "decision_type": "approve_improvement"})
+            second_contract = res2.get_json()["opportunity"]["outcome_contract"]
+
+            self.assertEqual(first_contract["created_at"], second_contract["created_at"])
+            self.assertEqual(first_contract["baseline"], second_contract["baseline"])
         finally:
             dashboard.opportunity_store = original_store
 

@@ -497,9 +497,21 @@ class EvolutionOrchestrator:
         self._cycle_t0 = t0
         self._cycle_budget_s = budget_s
         self._cycle_router_reachable = router_reachable
-        outcome_eval_summary = self._evaluate_due_outcomes(run_id) if not dry_run else {
-            "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
-        }
+        # Belt-and-suspenders on top of _evaluate_due_outcomes' own
+        # per-opportunity try/except (section 8 of the audit checklist):
+        # this new, less battle-tested V2 phase must never be able to take
+        # the WHOLE cycle down with it — discovery/investigation below is
+        # the pre-existing, load-bearing pipeline and has to run regardless
+        # of what happens here.
+        try:
+            outcome_eval_summary = self._evaluate_due_outcomes(run_id) if not dry_run else {
+                "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
+            }
+        except Exception as exc:
+            log.error(f"Outcome evaluation phase failed entirely — continuing to discovery unaffected: {exc}")
+            outcome_eval_summary = {
+                "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
+            }
 
         max_internal = self.evolution_config.get("max_internal_candidates_per_cycle", 20)
         internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal)

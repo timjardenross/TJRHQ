@@ -424,17 +424,33 @@ def evaluate_outcome(
                 and not current_measurement.get("available")
             )
             investigation = opportunity.get("investigation") or {}
-            has_qualitative_content = bool(
-                measurement_type in ("qualitative", "mixed", "unknown")
-                or investigation
-            )
+            # A qualitative/mixed candidate is only worth a model call when
+            # there is genuine POST-IMPLEMENTATION evidence to interpret —
+            # `current_measurement.available` is the only signal this
+            # function has for "something new was actually observed".
+            # `investigation` alone is PRE-implementation reasoning (it was
+            # written before the change happened); replaying it back to the
+            # model with no new evidence would let the model assert
+            # "improved" from nothing but its own earlier optimism, which
+            # is exactly the missing-evidence-becomes-success failure mode
+            # section 10 forbids. No cross-workbench evidence source is
+            # wired for qualitative measurement yet (deferred — see
+            # docs/self-improvement/HQ-EVOLUTION.md's V2 audit table), so
+            # today this path is honestly "inconclusive" for those classes
+            # until a real evidence reader exists; it is NOT a regression,
+            # since nothing currently supplies genuine qualitative evidence
+            # for the model to interpret anyway.
+            has_new_evidence = bool(current_measurement.get("available"))
 
-            if evidence_missing_for_quantitative or not has_qualitative_content:
-                reason = (
-                    current_measurement.get("reason", "Current measurement unavailable")
-                    if evidence_missing_for_quantitative
-                    else "No qualitative investigation content and no quantitative evidence to evaluate."
-                )
+            if evidence_missing_for_quantitative or not has_new_evidence:
+                if evidence_missing_for_quantitative:
+                    reason = current_measurement.get("reason", "Current measurement unavailable")
+                elif measurement_type in ("qualitative", "mixed", "unknown"):
+                    reason = ("No post-implementation evidence source is wired for this measurement "
+                              "type yet — evaluating from pre-implementation investigation reasoning "
+                              "alone would risk treating the original optimism as its own confirmation.")
+                else:
+                    reason = "No qualitative investigation content and no quantitative evidence to evaluate."
                 result = {
                     "outcome_result": "inconclusive",
                     "evidence_summary": f"Evidence unavailable: {reason}",
