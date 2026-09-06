@@ -235,11 +235,22 @@ recent attempt per domain, which isn't enough to tell "just failed once" from
 read by History, §7) has what's needed to add a failure-streak check, but
 wiring that into the interpreter is a real signal-source change, not a
 one-line fix, and was deliberately **not** done in the same pass as this
-audit to avoid scope creep into "further features/redesign." Tracked as a
-fast-follow, not fixed here: for now, treat a single-cycle `ATTENTION` on a
-capability with a short cadence (e.g. `core_events`, every 30s) with more
-skepticism than one on a slow-cadence capability (e.g. `captains_daily_briefs`,
-hours between runs), where a single failure is much more likely to be real.
+audit to avoid scope creep into "further features/redesign." Not fixed here,
+and deliberately not spun off as an independent fast-follow either (see
+Ownership below): for now, treat a single-cycle `ATTENTION` on a capability
+with a short cadence (e.g. `core_events`, every 30s) with more skepticism
+than one on a slow-cadence capability (e.g. `captains_daily_briefs`, hours
+between runs), where a single failure is much more likely to be real.
+
+**Ownership of the fix**: explicitly carried into the planned HQ V1
+Integration QA & Contract Validation mission, which already scopes
+ATTENTION/"needs user attention" semantics, heartbeat/scheduler
+consistency, and failure→retry→recovery behaviour as part of validating
+HQ Status as a trustworthy command-layer contract. That mission is the
+right place to inspect the raw `domain_heartbeats` history (as History
+already does) and determine the smallest correct persistence/failure-streak
+interpretation — not this uplift, and not a standalone fast-follow raised
+independently of that audit.
 
 ## 7. What each tab owns
 
