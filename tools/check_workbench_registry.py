@@ -48,6 +48,7 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "knowledge-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "settings": "platform chrome, not a workbench — deliberately excluded from LIVE_WORKBENCHES (see settings/layout.tsx's own header comment)",
+    "model-crew": "read-only model-router status dashboard, reachable via Settings > AI & Automation > Advanced, not hub-listed (moved off the (app) group's bespoke dark theme onto WorkbenchShell 2026-09-06 — see the page's own header comment)",
     "privacy": "public, unauthenticated OAuth-verification page outside the (app) route group (see privacy/page.tsx's own header comment)",
     "terms": "public, unauthenticated OAuth-verification page outside the (app) route group (see terms/page.tsx's own header comment)",
 }
