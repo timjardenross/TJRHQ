@@ -19,7 +19,7 @@ export default function LogActivityPage() {
       title="Log Activity"
       eyebrow="Health Tracking"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
-      back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}
+      back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <Card title="Manual activity logging retired">
         <p className="text-sm leading-relaxed text-wb-ink2">

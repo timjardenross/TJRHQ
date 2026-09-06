@@ -12,12 +12,31 @@ import { useEffect, useState, type ReactNode } from 'react';
  *  breakpoint. */
 const MOBILE_BREAKPOINT = '(max-width: 639px)';
 
-export function CollapsibleSection({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(true);
+export function CollapsibleSection({
+  title,
+  children,
+  className = '',
+  defaultOpen = true,
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+  /** Desktop-only initial state (mobile always starts closed via the
+   *  matchMedia effect below regardless of this). Defaults to true, matching
+   *  every existing caller's prior always-open-on-desktop behaviour — pass
+   *  false for a section that should start collapsed even on desktop (e.g.
+   *  supporting detail folded under a NOW-tab summary card). */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
-    setOpen(!window.matchMedia(MOBILE_BREAKPOINT).matches);
+    // Mobile always starts closed, regardless of defaultOpen. Desktop keeps
+    // whatever defaultOpen requested — previously this unconditionally
+    // forced `open` back to true on desktop, which would have silently
+    // undone a `defaultOpen={false}` caller.
+    if (window.matchMedia(MOBILE_BREAKPOINT).matches) setOpen(false);
   }, []);
 
   return (

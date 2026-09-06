@@ -63,7 +63,7 @@ export default function HealthCheckInPage() {
       title="Daily Check-In"
       eyebrow="Health Tracking"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
-      back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}
+      back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <div className="flex flex-col gap-4">
         <Card title="Manual daily check-in has been retired">
