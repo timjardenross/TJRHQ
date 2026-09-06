@@ -218,6 +218,101 @@ Chair's excerpt are asserted to come from the exact same function call.
   Timeline (`top_events`, `coverage`, `comparison`, `domain_picture`,
   `known_unknowns`, `morning_cycle_id`) in addition to its existing 7.
 
+### 2.9 Cross-domain integration: Health OSINT + Emergency Alert Hub (§4.1 design, implemented as a follow-on)
+
+Implemented 2026-09-06 as a follow-on to the initial PR, per the audit
+below. Both domains' already-*assessed* output now reaches the brief's one
+synthesis step, without Briefs importing either pipeline's ingestion or
+curation code — the same data-boundary-not-code-boundary pattern this
+codebase already uses for `domain_heartbeats`/`domain_heartbeat_latest`
+(migration 0071, read by `infra_narrative.py`, `verification_engine.py`, a
+Next.js API route — none of which import the heartbeat-writing code) and
+`intelligence_source_health_latest` (migration 0190, read by two workbench
+API routes, not by the collector that writes it).
+
+**Health OSINT.** Assessed output lives in `health_signals`, gated by
+`suppressed = false` (curation sets this plus `auto_ingest_reviewed = true`
+on publish — see `tools/health-osint/health_signal_curation.py`, not
+imported here). This is the same read contract
+`intelligence/captains_brief.py::_get_weekly_health_signals` already uses
+cross-module.
+
+**Emergency Alert Hub.** Assessed output lives in `alerts`, gated by
+`is_active = true` — a first-class lifecycle column (migration 0174), not a
+raw feed log. Same shape `emergency_alert_summary.py`'s own hourly digest
+already reads (not imported here — that module additionally pulls in an
+LLM client this read has no reason to load).
+
+**What was built:**
+1. `intelligence_store.py`: `load_assessed_health_signals(since)` and
+   `load_active_emergency_alerts()` — two new thin readers (plus a
+   `_get_strict()` helper that raises instead of swallowing a failure into
+   `[]`, needed so "queried, found nothing" and "could not query" can never
+   be conflated — Section 30).
+2. `intelligence/brief/external_domains.py` (new): `fetch_health_signals()`
+   / `fetch_emergency_alerts()` call those readers and normalise rows into
+   `ExternalDomainSignal` (domain, title verbatim, risk_rating mapped from
+   the domain's own severity vocabulary, source_name, assessed_at,
+   canonical_url, and — for emergency alerts — `official_severity_label`
+   preserved exactly as issued, never paraphrased, per Section 30's "no
+   hidden replacement of official emergency wording"). Each fetch returns a
+   `DomainFetchResult(available, signals, error)` — a raised exception is
+   caught here and turned into `available=False`, distinct from a
+   genuinely quiet `available=True, signals=[]`.
+3. `domain_picture.py`'s `compute_domain_picture()` now also accepts
+   `external_signals` and buckets them under `health`/`emergency` labels
+   alongside the existing OSINT-derived buckets — still fully
+   deterministic, still fabricates nothing absent from either input.
+4. `coverage` now includes a `domains` map
+   (`{"health": {"available", "count", "error"}, "emergency": {...}}`) and
+   folds both domains into the existing `expected`/`completed`/`failed`/
+   `missing_sources` counts and the `degraded` flag — a Health OSINT or
+   Emergency Alert Hub outage is disclosed exactly like an OSINT source
+   outage. `latest_included_at` also considers both domains' freshest
+   `assessed_at` timestamp, per Section 27.
+5. `_generate_narrative()`'s single prompt gained an "OTHER DOMAINS
+   ASSESSED THIS MORNING" section (still one LLM call, not a second one),
+   with explicit instructions to (a) only use what's given, (b) look for a
+   genuine cross-domain connection to a TOP EVENT without forcing one
+   (Section 12's "preserve domain boundaries while enabling cross-domain
+   interpretation"), and (c) never paraphrase an official emergency
+   severity label. The narrative gate no longer skips generation just
+   because OSINT's `top_events` is empty — a health/emergency-only morning
+   still gets synthesized.
+6. `_compute_risk()` now floors `overall_risk` against the worst external
+   signal too (same "never rate below your own worst included item"
+   invariant the OSINT-only floor already enforced), so an active
+   Emergency Warning or a severe/critical Health OSINT signal can't be
+   hidden by an otherwise-calm OSINT picture — including when OSINT has no
+   events at all (previously `UNKNOWN` in that case; now floors to the
+   external signal's risk).
+
+**Deliberately not changed:** `top_events` (the OSINT `BriefEvent`
+snapshot array `comparison.py` diffs day-over-day) still holds only OSINT
+events — external signals are not forced into that shape or that
+comparison. Day-over-day comparison for health/emergency content stays
+FUTURE work (§4), same as the already-documented "deeper comparison"
+limitation. `render.py`, Telegram, and Captain's Chair are untouched — see
+§2.10 below for why that's still correct now that `domain_picture`/
+`coverage` carry cross-domain content.
+
+### 2.10 Confirmed: the one canonical synthesis step is still the only interpretive step
+
+Re-verified directly against the shipped code: `brief_generator.py::
+_generate_narrative` remains the single LLM call responsible for
+interpreting *why* the top events (now including cross-domain content, per
+§2.9) matter — `executive_snapshot`/`bottom_line` — and it still runs
+before any downstream rendering. `render.py` (zero LLM calls, confirmed by
+inspection) and `captains_brief.py::_format_intelligence_posture_block`
+only select fields this one step already produced; neither reaches into
+`domain_picture` to independently re-derive a narrative (see
+`tests/test_external_domain_signals.py::TestCrossDomainRenderingConsistency`).
+`daily_digest.py`'s remaining LLM call is scoped to genuinely separate
+platform `core_events` content (health/engineering/learning/opportunities
+logs) that was never part of `intelligence_briefs` — it does not re-reason
+the brief's own assessed content. No second LLM call was added anywhere in
+§2.9's integration.
+
 ---
 
 ## 3. Deliberate non-changes (and why)
@@ -244,97 +339,6 @@ Chair's excerpt are asserted to come from the exact same function call.
 
 ## 4. What was deferred as FUTURE (not implemented)
 
-- **Health OSINT and Emergency Alert Hub are not fused into the ORI
-  brief's evidence base.** They run on entirely separate schedules
-  (Health OSINT: weekly, Sunday 02:00; Emergency Alert Hub: continuous,
-  every 15 min) and write to separate tables never read by
-  `BriefGenerator.generate()`'s `collect_all()`/classify/rank pipeline.
-  `domain_picture` therefore only ever produces buckets the OSINT
-  collector actually covers (technical/regulatory/environmental/
-  payments) — it does not claim Health or Emergency coverage. A concrete,
-  decoupled design for closing this gap is specified in §4.1 below — not
-  yet built, pending sign-off, since it changes the live generation
-  pipeline this PR ships.
-
-### 4.1 Decoupled integration design: Health OSINT + Emergency Alert Hub → Briefs
-
-Audited as a follow-on to this PR (2026-09-06). The goal: let these two
-pipelines' already-*assessed* output reach the brief's one synthesis step,
-without Briefs importing either pipeline's ingestion/collector code — the
-same data-boundary-not-code-boundary pattern this codebase already uses for
-`domain_heartbeats`/`domain_heartbeat_latest` (migration 0071, read by
-`infra_narrative.py`, `verification_engine.py`, a Next.js API route — none
-of which import the heartbeat-writing code) and
-`intelligence_source_health_latest` (migration 0190, read by two workbench
-API routes, not by the collector that writes it).
-
-**Health OSINT.** Assessed output lives in `health_signals`, gated by
-`suppressed = false` (curation sets this plus `auto_ingest_reviewed = true`
-on publish — see `tools/health-osint/health_signal_curation.py`). No new
-view is needed: `suppressed=false` is already a stable predicate, not a
-rolling log needing a `DISTINCT ON` collapse. This exact read already
-exists cross-module — `intelligence/captains_brief.py::
-_get_weekly_health_signals` reads `health_signals?suppressed=eq.false&...`
-via the same plain PostgREST `_get()` idiom as `intelligence_store.py`,
-with zero import of `health_signal_curation.py` or
-`health_signal_ingestion.py` (which would otherwise pull in LLM provider
-clients, Firecrawl/BrightData scraper clients, and ingestion
-budget-circuit-breaker state into Briefs' import graph).
-
-**Emergency Alert Hub.** Assessed output lives in `alerts`, gated by
-`is_active = true` — a first-class lifecycle column (migration 0174), not a
-raw feed log. `emergency_alert_summary.py`'s own hourly digest already
-reads exactly this shape (`alerts?is_active=eq.true&order=...&select=...`).
-No consumer outside that module reads it yet, but the contract to copy
-already exists in-repo. Importing `emergency_alerts.py` directly would pull
-in all 9 government-feed scraper adapters plus an email-sending client;
-importing `emergency_alert_summary.py` would pull in another LLM client —
-both avoided by a plain `_get()` read.
-
-**Recommended shape, not yet implemented:**
-1. `intelligence_store.py`: `load_assessed_health_signals(since)` and
-   `load_active_emergency_alerts()` — two new thin readers, same `_get()`
-   idiom as every existing reader in that file.
-2. A small `ExternalDomainSignal` record (title, domain tag `"health"` /
-   `"emergency"`, severity, source_id, assessed_at) — deliberately not
-   forced through `ClassifiedEvent`/`RankedEvent` (wrong shape for
-   non-OSINT content, same reasoning `daily_digest.py` already applies to
-   platform `core_events`).
-3. `domain_picture.py` gains `health`/`emergency` buckets fed from these
-   signals directly alongside the existing OSINT-derived buckets — genuine
-   cross-domain grouping, still fully deterministic.
-4. `coverage` gains these two sources in its `expected`/`completed`/
-   `failed` counts, so a Health OSINT or Emergency Alert Hub outage is
-   disclosed exactly like an OSINT source outage is today.
-5. `_generate_narrative`'s prompt gets these signals appended to
-   `event_summaries` under the same "only use information provided, do not
-   invent" instruction it already carries — this is what makes the
-   existing single synthesis step genuinely cross-domain, without adding a
-   second LLM call anywhere in the pipeline.
-
-This does not touch Telegram, Captain's Chair, or `render.py` — they stay
-purely selection-based against whatever `intelligence_briefs` ends up
-storing, per §4.2.
-
-### 4.2 Confirmed: the one canonical synthesis step was not removed
-
-Re-verified directly against the shipped code, not just Phase 0's audit:
-`brief_generator.py::_generate_narrative` is untouched by this PR except
-for adding `known_unknowns` to its JSON schema — it is still the single LLM
-call responsible for interpreting *why* the top events matter
-(`executive_snapshot`/`bottom_line`), and it still runs before any
-downstream rendering. `render.py` (confirmed via inspection: zero LLM
-calls) and `captains_brief.py::_format_intelligence_posture_block` only
-select fields this one step already produced. `daily_digest.py`'s
-remaining LLM call is scoped to genuinely separate platform `core_events`
-content (health/engineering/learning/opportunities logs) that was never
-part of `intelligence_briefs` — it does not re-reason the brief's own
-assessed content.
-
-The real limitation is scope, not removal: this one synthesis step has
-*always* only seen OSINT/world-news events (true before this PR too) — it
-was never fed Health OSINT or Emergency Alert Hub content. §4.1's design
-is what would make it genuinely cross-domain.
 - **"Not Material Today" section** — not implemented. No reliable,
   non-noisy way to populate it from current data without either dumping
   every suppressed event (noise) or inventing a judgment the generator
@@ -363,8 +367,9 @@ is what would make it genuinely cross-domain.
 Backend (Python):
 - `intelligence/brief/morning_cycle.py` (new)
 - `intelligence/brief/comparison.py` (new)
-- `intelligence/brief/domain_picture.py` (new)
+- `intelligence/brief/domain_picture.py` (also extended for §2.9's external signals)
 - `intelligence/brief/render.py` (new)
+- `intelligence/brief/external_domains.py` (new, §2.9)
 - `intelligence/brief/brief_generator.py`
 - `intelligence/brief/daily_digest.py`
 - `intelligence/models.py`
@@ -374,8 +379,9 @@ Backend (Python):
 - `telegram-bots/xo/app.py` (`cmd_brief`)
 - `core/infrastructure/supabase/migrations/0191_brief_canonical_uplift.sql` (new)
 - Tests: `tests/test_morning_cycle.py` (new), `tests/test_brief_canonical_uplift.py`
-  (new), `tests/test_intelligence_brief_generator.py` (updated for the new
-  `store.load_latest_brief()` call)
+  (new), `tests/test_external_domain_signals.py` (new, §2.9),
+  `tests/test_intelligence_brief_generator.py` (updated for the new
+  `store.load_latest_brief()` call and §2.9's cross-domain integration)
 
 Frontend (`lcars-portal/`) — see the PR diff for the full list; summary in
 §2.8 above.

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from intelligence.brief.external_domains import DomainFetchResult
 from intelligence.models import (
     ResilienceBrief, RankedEvent, BriefEvent, ClassifiedEvent,
     IntelligenceItem, SourceRecord,
@@ -81,6 +82,10 @@ class TestLLMFailureDegradation(unittest.TestCase):
              patch("intelligence.brief.brief_generator.rank", return_value=top), \
              patch("intelligence.brief.brief_generator.top_events", return_value=top), \
              patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[])), \
              patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
 
             mock_llm = MagicMock()
@@ -101,6 +106,10 @@ class TestLLMFailureDegradation(unittest.TestCase):
              patch("intelligence.brief.brief_generator.rank", return_value=[]), \
              patch("intelligence.brief.brief_generator.top_events", return_value=[]), \
              patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[])), \
              patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
 
             mock_llm = MagicMock()
@@ -112,6 +121,124 @@ class TestLLMFailureDegradation(unittest.TestCase):
         self.assertFalse(brief.narrative_available)
         if brief.executive_snapshot:
             self.assertIn("UNAVAILABLE", brief.executive_snapshot.upper())
+
+
+class TestCrossDomainIntegration(unittest.TestCase):
+    """Full generate() pipeline coverage for BRIEFS_CANONICAL_UPLIFT.md §4.1
+    — Health OSINT / Emergency Alert Hub folded into the one synthesis
+    step, without a second LLM call or coupling to either pipeline."""
+
+    def _patch_store(self):
+        mock_store = MagicMock()
+        mock_store.event_hash_exists.return_value = False
+        mock_store.event_canonical_url_exists.return_value = False
+        mock_store.event_title_date_exists.return_value = False
+        mock_store.save_event.return_value = "uuid-1"
+        mock_store.save_brief.return_value = "brief-uuid-1"
+        mock_store.load_latest_brief.return_value = None
+        return mock_store
+
+    def test_coverage_distinguishes_no_signals_from_unavailable_domain(self):
+        """One domain genuinely quiet (available, zero signals), the other
+        genuinely unreachable (unavailable) — coverage must tell them apart,
+        never treat a fetch failure as if nothing happened."""
+        from intelligence.brief.brief_generator import BriefGenerator
+        from intelligence.brief.external_domains import DomainFetchResult
+
+        with patch("intelligence.brief.brief_generator.collect_all", return_value=([], [])), \
+             patch("intelligence.brief.brief_generator.store", self._patch_store()), \
+             patch("intelligence.brief.brief_generator.rank", return_value=[]), \
+             patch("intelligence.brief.brief_generator.top_events", return_value=[]), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=False, signals=[],
+                                                   error="timeout")), \
+             patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
+
+            mock_llm = MagicMock()
+            mock_llm.generate.return_value = (None, None)
+            mock_llm_cls.return_value = mock_llm
+
+            brief = BriefGenerator().generate()
+
+        self.assertTrue(brief.coverage["domains"]["health"]["available"])
+        self.assertEqual(brief.coverage["domains"]["health"]["count"], 0)
+        self.assertFalse(brief.coverage["domains"]["emergency"]["available"])
+        self.assertTrue(brief.coverage["degraded"])
+        self.assertIn("Emergency Alert Hub", brief.coverage["missing_sources"])
+        self.assertNotIn("Health OSINT", brief.coverage["missing_sources"])
+
+    def test_overall_risk_floors_to_external_signal_when_osint_empty(self):
+        """No OSINT events today, but an active RED emergency alert — the
+        brief must not report UNKNOWN and hide it."""
+        from intelligence.brief.brief_generator import BriefGenerator
+        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+
+        red_alert = ExternalDomainSignal(
+            domain="emergency", title="Emergency Warning: Bushfire", summary=None,
+            risk_rating="RED", source_name="NSW", assessed_at="2026-09-06T01:00:00Z",
+            official_severity_label="Emergency Warning",
+        )
+
+        with patch("intelligence.brief.brief_generator.collect_all", return_value=([], [])), \
+             patch("intelligence.brief.brief_generator.store", self._patch_store()), \
+             patch("intelligence.brief.brief_generator.rank", return_value=[]), \
+             patch("intelligence.brief.brief_generator.top_events", return_value=[]), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[red_alert])), \
+             patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
+
+            mock_llm = MagicMock()
+            mock_llm.generate.return_value = (None, None)
+            mock_llm_cls.return_value = mock_llm
+
+            brief = BriefGenerator().generate()
+
+        self.assertEqual(brief.overall_risk, "RED")
+        self.assertIn("emergency", brief.domain_picture)
+
+    def test_narrative_still_generated_when_only_external_domains_have_content(self):
+        """The narrative gate must not skip generation just because OSINT's
+        top_events list is empty — a single synthesis call still runs."""
+        from intelligence.brief.brief_generator import BriefGenerator
+        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+
+        signal = ExternalDomainSignal(
+            domain="health", title="Adverse event cluster", summary="desc",
+            risk_rating="AMBER", source_name="FDA", assessed_at="2026-09-06T01:00:00Z",
+        )
+
+        with patch("intelligence.brief.brief_generator.collect_all", return_value=([], [])), \
+             patch("intelligence.brief.brief_generator.store", self._patch_store()), \
+             patch("intelligence.brief.brief_generator.rank", return_value=[]), \
+             patch("intelligence.brief.brief_generator.top_events", return_value=[]), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[signal])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
+
+            mock_llm = MagicMock()
+            mock_llm.generate.return_value = (None, None)
+            mock_llm_cls.return_value = mock_llm
+
+            BriefGenerator().generate()
+
+        # The one synthesis call (_generate_narrative -> self.llm.generate)
+        # must have run — not skipped — even with zero OSINT top_events.
+        # (_generate_so_whats also calls .generate but only when `top` is
+        # non-empty, which it isn't here, so any call recorded is the
+        # narrative step.)
+        self.assertTrue(mock_llm.generate.called)
+        prompt_arg = mock_llm.generate.call_args[0][0]
+        self.assertIn("Adverse event cluster", prompt_arg)
+        self.assertIn("(none collected this period)", prompt_arg)
 
 
 class TestBriefDataclassFields(unittest.TestCase):
