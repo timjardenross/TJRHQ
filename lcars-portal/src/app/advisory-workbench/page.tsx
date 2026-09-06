@@ -1,57 +1,53 @@
 'use client';
 
-// Advisory Workbench — Ask / Talk to Someone / Panel of Voices on the wb-
-// design system.
+// Advisory — Think / Perspectives / Outcomes on the wb- design system.
 //
 // Standalone route (outside the (app) group), same Shell + domain-toggle
-// architecture as the Human Systems / Intelligence Workbenches. Reachable from
-// /workbenches and (Captain decision 2026-07-12) kept first-class in the main
-// nav via a repoint of the old /advisory-council references.
+// architecture as the Human Systems / Intelligence Workbenches. Reachable
+// from /workbenches and (Captain decision 2026-07-12) kept first-class in
+// the main nav via a repoint of the old /advisory-council references.
 //
-// Unlike Human Systems, advisory is request/response — this page decides which
-// view is shown; each view calls the existing advisory endpoints unchanged. No
-// new GET route, no realtime, no live indicator (would be dishonest here).
-// See ADVISORY-COUNCIL-WORKBENCH-MIGRATION-PLAN.md.
+// Unlike Human Systems, advisory is request/response — this page decides
+// which view is shown; each view calls the existing advisory endpoints
+// unchanged. No new GET route, no realtime, no live indicator (would be
+// dishonest here).
 //
-// 2026-08-09: redesigned around the Captain's own review of this workbench
-// — too many roles, no invitation on the first page, wanted "ask a
-// question, then pull it apart." Ask (AskView.tsx, internal key 'board')
-// is now the default landing domain instead of Consult's 18-officer
-// sidebar; Consult itself is regrouped behind 5 group chips instead of
-// all 18 always expanded (see ConsultView.tsx).
+// 2026-09 redesign: four competing interaction models (Ask / Talk to
+// Someone / Panel of Voices / Close Out) collapsed into three simple jobs —
+// Think ("help me reason through something"), Perspectives ("show me
+// another way to see it"), Outcomes ("learn from what actually happened").
+// The underlying engine (specialist routing → challenge → evidence →
+// synthesis → recommendation → decision → outcome → calibration) is
+// unchanged; only what's exposed up front changed. See types.ts's
+// normalizeDomain for the back-compat mapping from the old domain keys.
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
-import { ConsultView } from './_components/ConsultView';
-import { AskView } from './_components/AskView';
+import { ThinkView } from './_components/ThinkView';
 import { PerspectivesView } from './_components/PerspectivesView';
-import { LoopsView } from './_components/LoopsView';
+import { OutcomesView } from './_components/OutcomesView';
 import { ProactiveBanner } from './_components/ProactiveBanner';
-import { EYEBROW, isDomain, type Domain } from './_components/types';
+import { EYEBROW, normalizeDomain, type Domain } from './_components/types';
 
-// 2026-08-09 redesign: 'board' is the internal key (unchanged — existing
-// advisory-sessions rows already use mode:'board', investigate/page.tsx's
-// deep link already targets ?domain=board) but "Ask" is now both the
-// label and the default landing view, not "Consult"'s 18-officer sidebar.
 const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
-  { key: 'board', label: 'Ask' },
-  { key: 'consult', label: 'Talk to Someone' },
-  { key: 'perspectives', label: 'Panel of Voices' },
-  { key: 'loops', label: 'Close Out' },
+  { key: 'think', label: 'Think' },
+  { key: 'perspectives', label: 'Perspectives' },
+  { key: 'outcomes', label: 'Outcomes' },
 ];
 
 function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
 
-  // Back-compat: the legacy page used ?tab=; honour it as an alias for ?domain=.
-  // A deep-linked investigation lands on Ask (default domain), matching
-  // the old contract's "opens Board" behavior.
+  // Back-compat: the legacy page used ?tab=, and the legacy domain keys
+  // were 'board'/'consult'/'loops' — normalizeDomain maps all of them onto
+  // the current three. A deep-linked investigation lands on Think.
   const investigationType = params.get('investigationType') ?? undefined;
   const investigationReason = params.get('investigationReason') ?? undefined;
   const initial = params.get('domain') ?? params.get('tab');
-  const [domain, setDomain] = useState<Domain>(isDomain(initial) ? initial : 'board');
+  const [domain, setDomain] = useState<Domain>(normalizeDomain(initial));
+  const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(null);
 
   const changeDomain = (d: Domain) => {
     setDomain(d);
@@ -62,23 +58,27 @@ function Workbench() {
     router.replace(`/advisory-workbench?${sp.toString()}`, { scroll: false });
   };
 
+  const thinkItThrough = (text: string) => {
+    setPrefill((prev) => ({ text, nonce: (prev?.nonce ?? 0) + 1 }));
+    changeDomain('think');
+  };
+
   return (
     <WorkbenchShell wide
       title="Advisory"
       eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Advisory · Ask a question, one specific advisor, or a panel of voices · Advisory only — the Captain decides"
-      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory domain" />}
+      tagline="USS TJR · Advisory · Think through a decision, challenge your assumptions, and get another perspective · Advisory only. You decide what happens next."
+      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory mode" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       <div className="mb-4">
-        <ProactiveBanner />
+        <ProactiveBanner onThinkItThrough={thinkItThrough} />
       </div>
-      {domain === 'board' && (
-        <AskView investigationType={investigationType} investigationReason={investigationReason} />
+      {domain === 'think' && (
+        <ThinkView investigationType={investigationType} investigationReason={investigationReason} prefill={prefill} />
       )}
-      {domain === 'consult' && <ConsultView />}
       {domain === 'perspectives' && <PerspectivesView />}
-      {domain === 'loops' && <LoopsView />}
+      {domain === 'outcomes' && <OutcomesView />}
     </WorkbenchShell>
   );
 }
