@@ -1,7 +1,7 @@
 # TJR HQ — Command Experience Architecture
 
-Status: **Phase 1 (correctness repair) complete. Phase 2 (full LifeOS vNext /
-Captain's Chair vNext presentation redesign) not yet built — see §11.**
+Status: **Phase 1 (correctness repair) and Phase 2 (LifeOS vNext / Captain's
+Chair vNext presentation redesign) both delivered — see §11.**
 
 This document describes how Captain's Chair (`/captains-chair-workbench`)
 and LifeOS Hub (`/hub`) are meant to relate to the rest of TJR HQ, what has
@@ -20,8 +20,12 @@ Ready Room ───────────────────────
 Calendar (captainsChairData.ts) ───────┤
 Canonical Brief (/api/captain-brief) ──┤──▶ Captain's Chair page-level synthesis
 Emergency Alert Hub ────────────────────┤    (captainsChairSynthesis.ts)
-HQ Status (hqStatusInterpreter.ts) ────┤
-HQ Evolution ───────────────────────────┘
+HQ Status (hqStatusInterpreter.ts) ────┤          │
+HQ Evolution ───────────────────────────┘          ▼
+                                          Command State (commandState.ts)
+                                          deriveCommandPosture() /
+                                          buildNeedsYouItems() /
+                                          deriveIntelligenceHeadline()
                                              │
                               ┌──────────────┴──────────────┐
                               ▼                              ▼
@@ -35,6 +39,17 @@ already-assessed signals. Where a shared hook exists
 (`src/lib/captainsChairData.ts`), both surfaces call the *same* hook rather
 than each fetching and interpreting the underlying table/RPC themselves.
 
+Phase 2 added a second shared layer above the hooks:
+`src/lib/commandState.ts`, a pure-function module (no React, no fetch) that
+both pages call with the same inputs to get the same outputs —
+`deriveCommandPosture()` (the top-level "what kind of day is this" read,
+§11), `buildNeedsYouItems()` (the one curated Needs You list, §5), and
+`deriveIntelligenceHeadline()` (the one Brief/Emergency/Operational-Risk
+headline, §7). `captainsChairSynthesis.ts`'s `deriveCommandStatus()` still
+sits underneath it and is still called directly by both pages for the
+personal/environment 2×2 interpretation (§3, §6) — `commandState.ts`
+composes `deriveCommandStatus()`'s output rather than replacing it.
+
 ## 2. Domain owners (unchanged by this mission)
 
 | Domain | Canonical owner | Notes |
@@ -44,7 +59,7 @@ than each fetching and interpreting the underlying table/RPC themselves.
 | Calendar | `src/app/api/calendar/{today,upcoming}` | See §4. |
 | Canonical Brief | `src/app/api/captain-brief/route.ts` | External context-service process; documented fragile source. |
 | Emergency Alert Hub | `src/app/emergency-alert-hub-workbench/page.tsx` + `/api/emergency-alerts` | Severity tiers: `emergency_warning` > `watch_and_act` > advice/unclassified. |
-| HQ Status | `src/lib/hqStatusInterpreter.ts` | Pure interpreter over `AgentStatusEntry[]`; consumed by `/api/agent-status`. |
+| HQ Status | `src/lib/hqStatusInterpreter.ts` | Pure interpreter over `AgentStatusEntry[]`; command surfaces consume its `buildCaptainChairSummary()` output via `/api/agent-status-workbench/overview` (§8). |
 | HQ Evolution | `src/app/api/self-improvement/evolution-summary/route.ts` | Small morning-signal proxy, not the full Discover/Investigate surface. |
 | Weekly Review | `src/app/api/weekly-review/route.ts` + `synthesis.ts` | Also consumes `getAssessedContext()`. |
 
@@ -129,16 +144,35 @@ mission made.
 
 ## 5. Needs You — human-attention contract
 
-`src/lib/captainsChairSynthesis.ts` exports `NeedsYouItem`/`sortNeedsYou`,
-used only by Captain's Chair today (LifeOS does not yet render a Needs You
-list — see §11 deferred work). Sources currently wired into it
-(`captains-chair-workbench/page.tsx`): emergency `emergency_warning` tier,
-Brief `interrupt_now`, Content awaiting-publish decisions, Human Systems
-wellness risk flags, Notebook items ready for routing, Capture pending
-triage, HQ Evolution pending decisions, and critical live alerts. None of
-these are raw backlog/queue counts — each is filtered to items genuinely
-awaiting a TJR decision. An empty list renders "Nothing needs your
-attention right now" (see `NeedsYou.tsx`).
+`src/lib/captainsChairSynthesis.ts` exports the `NeedsYouItem`/`NeedsYouKind`
+types and `sortNeedsYou()` (priority ordering — safety first, triage last).
+The list itself is built by `buildNeedsYouItems()` in
+`src/lib/commandState.ts`, one function called identically by both Captain's
+Chair (`captains-chair-workbench/page.tsx`) and LifeOS (`hub/page.tsx`) —
+Phase 2 closed the gap the Phase 1 doc flagged as deferred (LifeOS not
+rendering a curated Needs You list at all). Sources wired into it: emergency
+`emergency_warning` tier, Brief `interrupt_now`, HQ Status `ATTENTION`
+posture (only `ATTENTION` generates an item — `DEGRADED` never does, see
+§8), Content awaiting-publish decisions, Human Systems wellness risk flags,
+Notebook items ready for routing, Capture pending triage, HQ Evolution
+pending decisions, and critical live alerts (capped at 2). None of these are
+raw backlog/queue counts — each is filtered to items genuinely awaiting a
+TJR decision. An empty list renders "Nothing needs your attention right
+now" (Captain's Chair's `NeedsYou.tsx`) or "Nothing needs your attention."
+(LifeOS).
+
+Sharing the interpretation was not enough on its own — both surfaces also
+had to share the *raw-data fetches* feeding it, or they could still drift
+by reading two different snapshots of the same underlying data. Phase 2
+moved `useAttentionCounts()` (Content/Capture/Wellness counts),
+`useEvolutionSignal()` (HQ Evolution's pending-decision count and
+highest-value opportunity), and `useNotebookReadyCount()` out of
+`captains-chair-workbench/page.tsx` and into `src/lib/captainsChairData.ts`,
+alongside the hooks that were already shared (`useHumanSystemsContext()`,
+`useEmergencyAlerts()`, `useTodaysBriefing()`, `useHqStatusSummary()`). Both
+pages now call the same six-plus hooks and feed the same
+`buildNeedsYouItems()` inputs — there is exactly one Needs You
+fetch-and-interpret path, not two that happen to agree today.
 
 ## 6. Emergency override
 
@@ -160,17 +194,47 @@ between both pages.
 
 ## 8. HQ Status consumption
 
-`useAgentHealth()` (`captainsChairData.ts`, hitting `/api/agent-status`)
-surfaces a failed-job count and worst label only — never the raw job list.
-Both Captain's Chair (Situation panel + Systems signal chip) and LifeOS
-(Background Systems badge) read this one hook.
+**Before Phase 2:** `useAgentHealth()` (`captainsChairData.ts`, hitting
+`/api/agent-status`) surfaced a failed-job count and worst label,
+re-derived from the raw job list on the command-surface side — a second,
+cruder HQ-health interpretation living outside HQ Status's own module.
+
+**After Phase 2:** `useAgentHealth()` is deleted. Both surfaces read
+`useHqStatusSummary()` (`captainsChairData.ts`), which calls
+`/api/agent-status-workbench/overview` and reads its `captainSummary`
+field — the already-interpreted `CaptainChairSummary` that
+`hqStatusInterpreter.ts`'s `buildCaptainChairSummary()` builds for exactly
+this purpose. The hook exposes `{ posture, summary, needsAttentionCount,
+attentionItems }`, where `posture` is one of HQ Status's own
+`NORMAL | DEGRADED | ATTENTION | UNKNOWN` values (uppercased from
+`HQPosture`). There is now exactly one HQ-health interpretation
+(`hqStatusInterpreter.ts`'s), not two.
+
+This is a behavior change, not just a wiring change:
+`captainsChairSynthesis.ts`'s `deriveCommandStatus()` now takes
+`hqPosture`/`hqSummary`/`hqUnavailable` instead of a raw failed-job count,
+and only `ATTENTION` counts as an environment concern —
+`environmentConcern()` checks `inputs.hqPosture === 'attention'`, not any
+nonzero failed-job count. `DEGRADED` is HQ's own business and generates no
+command-surface concern, no Needs You item, and no RESPOND posture
+(mission rule: a degraded HQ needs no action, only `ATTENTION` does — see
+§11). Both Captain's Chair (`SystemStatus.tsx`, a small dedicated section —
+the old "Systems" fold inside Situation is gone) and LifeOS (the tiny HQ
+status line at the foot of the page) read this one hook.
 
 ## 9. Evolution consumption
 
-`useEvolutionSignal()` (inline in `captains-chair-workbench/page.tsx`)
-reads `/api/self-improvement/evolution-summary` for a pending-decision
-count and the single highest-value opportunity title — never the full
-Discover/Investigate/Improve/Learned surface. Not yet surfaced on LifeOS.
+`useEvolutionSignal()` reads `/api/self-improvement/evolution-summary` for
+a pending-decision count and the single highest-value opportunity title —
+never the full Discover/Investigate/Improve/Learned surface. Phase 2 moved
+it from being inline in `captains-chair-workbench/page.tsx` into
+`captainsChairData.ts` (see §5) so LifeOS could call it too. Captain's
+Chair surfaces it in a dedicated `HqEvolution.tsx` section (AHEAD →
+CAPACITY → **HQ EVOLUTION** → SYSTEM STATUS, §11) that hides itself
+entirely when there is nothing to consider; LifeOS does not render a
+dedicated Evolution section but feeds the same pending-decision count into
+`buildNeedsYouItems()`, so a pending Evolution decision surfaces there as a
+Needs You item on both pages.
 
 ## 10. Freshness / UNKNOWN / unavailable rules
 
@@ -182,56 +246,158 @@ this mission:
 - Calendar: `disconnected`/`error` states are distinct from an empty day.
 - Emergency: worst tier is read from currently-active alerts only
   (`activeOnly=true`); no persisted-but-stale alert is treated as current.
-- HQ Status: `agentHealthError !== null` renders "Unknown," not "Nominal."
+- HQ Status: `useHqStatusSummary()`'s `error !== null` (the
+  `/api/agent-status-workbench/overview` fetch itself failing) feeds
+  `hqUnavailable`, which renders as "Unknown," never "Nominal" — distinct
+  from a successful read reporting `DEGRADED`, which is worded as
+  "no action required," not "unknown."
 - Brief: `interruptNow` is `null` (not `0`) when the brief fetch fails, and
   `deriveCommandStatus()` treats a null interrupt count as "not urgent" but
   never as "confirmed clear" — see `hasUrgentException` semantics in
   `captainsChairSynthesis.ts`.
 
-## 11. What this mission delivered vs. deferred
+## 11. Command posture — the top-level "what kind of day is this" taxonomy
 
-The full mission brief describes a much larger presentation redesign of
-both surfaces (LifeOS vNext's ambient/sanctuary UI, Captain's Chair vNext's
-TODAY/NEEDS YOU/INTELLIGENCE/AHEAD/CAPACITY/HQ EVOLUTION/SYSTEM STATUS
-information architecture, a formal top-level "what kind of day is this"
-command-posture taxonomy, and Sanctuary/low-stimulation behaviour). That
-visual/IA redesign is **not** part of this change.
+`src/lib/commandState.ts`'s `deriveCommandPosture()` produces a
+`CommandPosture`: `RESPOND | RECOVER | PROTECT | FOCUS | STEADY | UNKNOWN`.
+This is a distinct vocabulary from Human Systems' own `SystemPostureBand`
+(`ENGAGE | STEADY | PROTECT | RECOVER | RESET | UNKNOWN`,
+`assessed-context.ts` / §3), and the module header is explicit about why:
+**Human Systems contributes to the command posture. Human Systems does
+NOT become the command posture.** The MSN-0364-era Captain's Chair used
+Human Systems' posture band directly as the page headline — that conflated
+"what is my capacity" with "what kind of day is this," which is wrong
+whenever something material is happening *outside* Human Systems (an
+emergency, an HQ outage, a full calendar) while capacity itself reads fine,
+or vice versa. `CommandStatus.tsx`'s "Why?" expansion (§9.1 of the mission
+brief) exists precisely so the Human Systems contribution stays visible as
+an explanation without becoming the headline.
 
-**Delivered (this change):**
-- P0 correctness repair: both surfaces now consume the canonical Human
-  Systems assessed context exclusively; the mock-fallback posture path is
-  gone from both pages.
+`deriveCommandPosture()`'s inputs are themselves already-interpreted:
+`hasEnvironmentConcern` (from `deriveCommandStatus()`, §6, which already
+folds in operational risk, escalations, emergency tier, Brief interrupt-now,
+and HQ Status `ATTENTION`), a genuine curated `needsYouCount`
+(`buildNeedsYouItems().length` — never a raw backlog count),
+`humanSystemsUnavailable`/`hasCheckinToday`/`humanSystemsPosture` (Human
+Systems' own contract, §3), and `meaningfulCommitmentsToday` (Calendar
+event count, but only when `calendarStatus === 'ok'` — 0 when
+disconnected/errored, never treated as "nothing scheduled"). The module
+does not re-derive any domain's own truth; it composes.
+
+Derivation precedence, in order:
+
+1. **RESPOND** — `hasEnvironmentConcern || needsYouCount > 0`. A material
+   external condition or a genuine human-attention item always wins,
+   regardless of recovery posture ("emergency overrides calm presentation;
+   no hiding behind recovery posture" — mission scenario D).
+2. **UNKNOWN** — if RESPOND doesn't fire: `humanSystemsUnavailable` (the
+   `/context` fetch itself failed) or `!hasCheckinToday` (no capacity
+   check-in yet today). Today is unknown, not clear, in either case — this
+   mirrors the honesty rule in §3/§10 (no fabricated "clear" day when the
+   underlying data simply isn't in yet).
+3. **RECOVER** — Human Systems posture is `RECOVER`. Recovery conditions
+   dominate discretionary demand; nothing external overrode it in step 1,
+   so nothing does now either.
+4. **PROTECT** — Human Systems posture is `PROTECT` or `RESET`. Capacity is
+   constrained; same reasoning as RECOVER, one notch less severe.
+5. **FOCUS** — none of the above, and `meaningfulCommitmentsToday > 0`.
+   Capacity is workable and there is something on the calendar worth
+   protecting attention for.
+6. **STEADY** — the fallback: capacity is workable and nothing external or
+   scheduled needs priority. A normal operating day.
+
+Each result carries a `headline` (the posture word itself, e.g.
+`"RESPOND"`) and a one-sentence `explanation` safe to read aloud verbatim —
+this is what LifeOS's TTS reads (§12) and what both pages render as the
+TODAY/day headline.
+
+## 12. LifeOS presentation model and sanctuary mode
+
+Phase 2 rewrote `hub/page.tsx` from a permanent 5-badge situation strip
+(Recovery Posture / Operational Risk / Interrupt Now / Emergency Alerts /
+Background Systems) plus a raw "Live Alerts" list into the mission's
+target ~3–10-second information model, answering five questions and
+nothing else:
+
+1. Day / date / time.
+2. Command posture headline + one-sentence explanation
+   (`deriveCommandPosture()`, §11).
+3. Next commitments — today's Calendar events, honest on
+   `disconnected`/`error`/empty (§4) — **omitted entirely in sanctuary
+   mode**.
+4. Needs You — 0–3 items from the same `buildNeedsYouItems()` Captain's
+   Chair uses (§5); a calm end state ("Nothing else needs you.") when
+   empty.
+5. World / intelligence headline (`deriveIntelligenceHeadline()`, §7) —
+   also omitted in sanctuary mode.
+6. A tiny one-line HQ status readout (`useHqStatusSummary()`, §8):
+   "Operating normally" / "Degraded — no action required" / "Needs you —
+   {summary}" / "HQ status unknown."
+
+**Sanctuary (quiet) mode:** when `commandPosture.posture` is `PROTECT` or
+`RECOVER` **and** `needsYouItems.length === 0`, the Next and World sections
+collapse to nothing — only the posture headline, Needs You's empty state,
+and the HQ line remain. This never hides genuine risk: `RESPOND` always
+takes priority in `deriveCommandPosture()`'s precedence (§11), so an
+emergency or a genuine Needs You item forces the page out of sanctuary
+before the quiet-mode check ever runs.
+
+Text-to-speech ("Read aloud") was rewritten to read the command picture —
+posture headline + explanation, the next commitment if any, the Needs You
+count and top item (or "Nothing needs you right now"), and the
+intelligence headline/detail — instead of a raw alerts inventory.
+
+## 13. What this mission delivered
+
+The mission brief described a two-phase change: a required P0 correctness
+repair (§3, "REQUIRED CORRECTNESS REPAIRS — DO FIRST"), landed first as its
+own reviewable change, and a broader LifeOS vNext / Captain's Chair vNext
+presentation redesign, landed second as Phase 2. Both are now complete.
+
+**Phase 1 — P0 correctness repair:**
+- Both surfaces consume the canonical Human Systems assessed context
+  exclusively; the mock-fallback posture path (`useROSData()` /
+  `?? mockPosture`) is gone from both pages (§3).
 - `deriveCommandStatus()` rewritten onto the canonical `SystemPostureBand`
   vocabulary, with distinct, tested wording for known/no-checkin/
   unavailable states.
 - Removed the dead second capacity-read hook (`useCapacityToday`).
 - P3 doc correction (Calendar wiring — see
   `HQ-V1-INTEGRATION-CONTRACTS.md`).
-- This document.
 
-**Deferred (follow-on work, tracked but not built here):**
-- LifeOS vNext presentation (command-posture headline, sanctuary/quiet
-  mode, trimmed 3–10-second information model, removal of the 5-badge
-  strip in favour of one posture headline).
-- Captain's Chair vNext information architecture (TODAY / NEEDS YOU /
-  INTELLIGENCE / AHEAD / CAPACITY / HQ EVOLUTION / SYSTEM STATUS sections,
-  "Why?" drill-down, HQ Evolution/System Status trimming).
-- A formal top-level command-posture taxonomy distinct from Human Systems
-  posture (mission §6's PROTECT/FOCUS/RESPOND/RECOVER-style "what kind of
-  day is this" layer) — today's `deriveCommandStatus()` is a *personal +
-  environment concern* interpretation, not yet a full command-posture
-  synthesis incorporating Calendar load and Evolution opportunity signal.
-- Extending Needs You / intelligence-headline / HQ-status-tiny presentation
-  to LifeOS (LifeOS currently still shows the 5-badge strip and a raw Live
-  Alerts list, not a curated Needs You list).
+**Phase 2 — presentation redesign:**
+- `src/lib/commandState.ts`: the new shared composition layer
+  (`deriveCommandPosture()`, `buildNeedsYouItems()`,
+  `deriveIntelligenceHeadline()`) — §1, §11, §12.
+- `deriveCommandStatus()` extended to consume the canonical, interpreted HQ
+  Status summary (`hqPosture`/`hqSummary`/`hqUnavailable`) instead of a raw
+  failed-job count; only HQ `ATTENTION` counts as an environment concern,
+  `DEGRADED` does not — §8.
+- `useAgentHealth()` deleted; replaced by `useHqStatusSummary()` — §8.
+- `useAttentionCounts()`, `useEvolutionSignal()`, and
+  `useNotebookReadyCount()` centralized into `captainsChairData.ts` so both
+  surfaces share the raw-data fetches, not just the interpretation — §5.
+- Captain's Chair restructured into the target information architecture:
+  TODAY (`CommandStatus.tsx`, posture headline + "Why?" drill-down) → NEEDS
+  YOU → INTELLIGENCE (`Intelligence.tsx`) → AHEAD (unchanged) → CAPACITY
+  (`Capacity.tsx`, the dedicated Human Systems display) → HQ EVOLUTION
+  (`HqEvolution.tsx`, hides itself when empty) → SYSTEM STATUS
+  (`SystemStatus.tsx`, tiny). The old Situation panel's Personal/
+  Environment/Systems fold (`Situation.tsx`) is deleted — its
+  responsibilities are now split across Intelligence, Capacity, and System
+  Status, each consuming one canonical contract instead of re-curating raw
+  signals on the page.
+- LifeOS rewritten onto the target ambient information model, with
+  sanctuary/quiet mode — §12.
+
+**Still open (tracked, not addressed by either phase):**
 - The Alerts taxonomy audit (decision/escalation/blocked/review/wellness
-  vs. `NeedsYouKind`/`AlertSeverity`) named in mission §11.
-
-Reason for scoping this way: the mission brief itself designates §3 (this
-repair) as "REQUIRED CORRECTNESS REPAIRS — DO FIRST" and states the
-broader redesign should not proceed by reopening domain workbenches or
-introducing a second interpretation path. Landing the correctness fix as
-its own reviewable change, with the target architecture documented here,
-keeps that sequencing honest rather than bundling an unreviewed, largely
-untested visual rewrite into the same change as a safety-relevant data
-correctness fix.
+  vs. `NeedsYouKind`/`AlertSeverity`) named in the original mission brief.
+  `src/lib/alerts.ts`'s `AlertSeverity` still does not map 1:1 onto
+  `NeedsYouKind` — see `HQ-V1-INTEGRATION-CONTRACTS.md`'s "known remaining
+  duplication" section. This is an audit, not a required repair, per the
+  mission brief's own scoping.
+- Ready Room's own assessed execution-state contract (analogous to Human
+  Systems' `assessed-context.ts`) does not exist yet; both surfaces still
+  read a personal-tasks reminder slice (`useReminders()`) rather than a
+  full execution-state summary (§2, `HQ-V1-INTEGRATION-CONTRACTS.md`).

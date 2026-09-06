@@ -8,6 +8,8 @@
 
 import { useEffect, useState } from 'react';
 import { fetchTasks, attendBucket, type PersonalTask } from '@/lib/personalTasks';
+import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { StateTone } from '@/lib/types';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 import type { AssessedContext } from '@/app/api/human-systems/assessed-context';
@@ -171,15 +173,25 @@ export function useEmergencyAlerts(): { data: EmergencyAlertsSummary | null; loa
   return { data, loading, error };
 }
 
-// ── Agent/Job health ──────────────────────────────────────────────────────────
+// ── HQ Status (canonical interpreted summary) ────────────────────────────────
+//
+// Command-Experience vNext (Phase 2): replaces the old useAgentHealth() hook,
+// which re-derived a "failing jobs" count from the raw /api/agent-status job
+// list — a second, cruder HQ-health interpretation living outside HQ
+// Status's own module. hqStatusInterpreter.ts already builds a small,
+// stable, posture-first summary (buildCaptainChairSummary()) specifically
+// for Captain's Chair/LifeOS consumption; this hook reads that instead, so
+// HQ health has exactly one interpretation, not two disagreeing ones.
 
-export interface AgentHealthSummary {
-  failedCount: number;
-  worstLabel: string | null;
+export interface HqStatusSummary {
+  posture: 'NORMAL' | 'DEGRADED' | 'ATTENTION' | 'UNKNOWN';
+  summary: string;
+  needsAttentionCount: number;
+  attentionItems: Array<{ title: string; detail: string }>;
 }
 
-export function useAgentHealth(): { data: AgentHealthSummary | null; loading: boolean; error: string | null } {
-  const [data, setData] = useState<AgentHealthSummary | null>(null);
+export function useHqStatusSummary(): { data: HqStatusSummary | null; loading: boolean; error: string | null } {
+  const [data, setData] = useState<HqStatusSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,17 +199,20 @@ export function useAgentHealth(): { data: AgentHealthSummary | null; loading: bo
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch('/api/agent-status');
-        if (!res.ok) throw new Error(`Agent status unavailable (${res.status})`);
+        const res = await fetch('/api/agent-status-workbench/overview');
+        if (!res.ok) throw new Error(`HQ Status unavailable (${res.status})`);
         const body = await res.json();
         if (cancelled) return;
-        const jobs: { status: string; label: string }[] = Array.isArray(body?.jobs) ? body.jobs : [];
-        const failed = jobs.filter((j) => j.status === 'failed');
-        setData({ failedCount: failed.length, worstLabel: failed[0]?.label ?? null });
+        setData({
+          posture: body?.captainSummary?.hq_posture ?? 'UNKNOWN',
+          summary: body?.captainSummary?.summary ?? body?.headline ?? 'HQ status unknown',
+          needsAttentionCount: body?.needsAttentionCount ?? 0,
+          attentionItems: Array.isArray(body?.attentionItems) ? body.attentionItems : [],
+        });
         setError(null);
       } catch (e) {
-        console.error('[captainsChairData] useAgentHealth failed:', e);
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load agent status');
+        console.error('[captainsChairData] useHqStatusSummary failed:', e);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load HQ status');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -384,4 +399,128 @@ export function useReminders(): { tasks: PersonalTask[]; loading: boolean } {
   }, []);
 
   return { tasks, loading };
+}
+
+// ── Needs You raw inputs (Content/Capture/Wellness/Notebook/Evolution) ──────
+//
+// Moved here from captains-chair-workbench/page.tsx (Command-Experience
+// vNext, Phase 2) so LifeOS can feed commandState.ts's buildNeedsYouItems()
+// the exact same inputs Captain's Chair does — mission requirement: "no
+// duplicate Needs You logic exists between Captain and LifeOS." Sharing the
+// fetch here, not just the interpretation, is what keeps them unable to
+// disagree on "what needs you."
+
+export interface AttentionCounts {
+  contentAwaitingPublish: number | null;
+  capturePending: number | null;
+  wellnessRiskFlags: number | null;
+  oldestContentAwaitingPublish: string | null;
+  oldestCapturePending: string | null;
+}
+
+export function useAttentionCounts(): { data: AttentionCounts; loading: boolean; errors: string[] } {
+  const [data, setData] = useState<AttentionCounts>({
+    contentAwaitingPublish: null,
+    capturePending: null,
+    wellnessRiskFlags: null,
+    oldestContentAwaitingPublish: null,
+    oldestCapturePending: null,
+  });
+  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const errs: string[] = [];
+
+      const content = await fetch('/api/content-workbench')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[captainsChairData] content pipeline count failed:', e); errs.push('Content pipeline'); return null; });
+
+      const capture = await fetchCaptureAnalytics();
+      if (capture === null) { console.error('[captainsChairData] capture pending count failed'); errs.push('Capture pending'); }
+
+      const oldestCapture = await fetchInboxCaptures({ statusFilter: 'pending', limit: 50 })
+        .then((rows) => rows.length > 0 ? rows[rows.length - 1] : null)
+        .catch((e) => { console.error('[captainsChairData] oldest pending capture failed:', e); return null; });
+
+      const wellness = await fetch('/api/human-systems?domain=recovery')
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .catch((e) => { console.error('[captainsChairData] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
+
+      if (cancelled) return;
+
+      const items: { status: string; captain_focus?: boolean; title?: string; created_at?: string }[] =
+        Array.isArray(content?.items) ? content.items : [];
+      const readyToPublish = items.filter((i) => i.status === 'ready_to_publish');
+      const oldestContentItem = readyToPublish.length > 0
+        ? [...readyToPublish].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0]
+        : null;
+
+      setData({
+        contentAwaitingPublish: content ? readyToPublish.length : null,
+        capturePending: capture ? capture.pending : null,
+        wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
+        oldestContentAwaitingPublish: oldestContentItem?.title ?? null,
+        oldestCapturePending: oldestCapture ? (oldestCapture.title || oldestCapture.raw_text?.slice(0, 60) || null) : null,
+      });
+      setErrors(errs);
+      setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, loading, errors };
+}
+
+/** HQ Evolution's small morning signal (spec §37) — a count + the
+ * highest-value opportunity, never the full Discover/Investigate/Improve/
+ * Learned surface. Reuses the same summary endpoint the HQ Evolution page
+ * itself uses for morning compression. */
+export function useEvolutionSignal(): { pendingCount: number | null; highestValueTitle: string | null; error: string | null } {
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [highestValueTitle, setHighestValueTitle] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/self-improvement/evolution-summary')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setPendingCount(body.pending_decisions_count ?? 0);
+        setHighestValueTitle(body.highest_value_opportunity?.title ?? null);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] HQ Evolution summary failed:', e); setError('HQ Evolution'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { pendingCount, highestValueTitle, error };
+}
+
+/** Minimal slice of the old NotebookCard's fetch — just the ready-for-
+ * routing count. Full detail is one click away, in Captain's Chair's
+ * Notebook sub-page. */
+export function useNotebookReadyCount(): { readyCount: number | null; error: string | null } {
+  const [readyCount, setReadyCount] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseBrowserClient();
+    supabase
+      .from('intelligence_notes')
+      .select('status')
+      .eq('status', 'READY_FOR_ROUTING')
+      .then(({ data, error: fetchError }) => {
+        if (cancelled) return;
+        if (fetchError) { setError(fetchError.message); return; }
+        setReadyCount(data?.length ?? 0);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { readyCount, error };
 }

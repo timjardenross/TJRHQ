@@ -1,115 +1,162 @@
 'use client';
 
-// LifeOS Hub — 2026-09-05, per Captain's design session extending
-// docs/LifeOS-Wall-Tablet-V1-Component-Scope.md. The always-on/unattended
-// wall-display design intent from that doc is unchanged (kiosk device auth
-// §2.5, auto-cycling panels — none of that is built, it's just moot for
-// now since an iPad with normal login is standing in for real kiosk
-// hardware while the Captain evaluates devices). This page IS the eventual
-// kiosk's content: a deliberately trimmed, glance-from-across-the-room
-// subset of Captain's Chair, not a re-derivation of it — Captain's Chair
-// itself is untouched and stays the full executive-summary workbench.
+// LifeOS Hub — Command-Experience vNext (Phase 2, 2026-09-06).
 //
-// Cut vs Captain's Chair (Captain's own call): the 3 "Needs Attention"
-// count tiles (Content Awaiting Publish/Capture Pending/Wellness Risk
-// Flags — workbench-triage detail, not household-glance material), Top
-// OSINT Signal (the consultancy/business pipeline, not home-relevant),
-// Top Health Signal (deferred for now, Captain's call), Today's Briefing
-// card + the separate Today's Brief panel (both "read in detail," not
-// glance), and the Notebook card.
+// Target role (docs/architecture/COMMAND-EXPERIENCE.md, mission §8): the
+// ambient operating picture, understandable in ~3–10 seconds. Answers five
+// questions — what kind of day is this, what's next, does anything need
+// me, has anything material changed, is HQ okay — and nothing else. It is
+// not a mini Captain's Chair, a dashboard, or a workbench browser.
 //
-// Architecture: /hub is the new start_url (manifest.webmanifest) — the
-// front door. The WorkbenchShell logo click goes to /workbenches (the
-// full directory) — "workbenches behind it," one tap away. Captain's
-// Chair is just one of those workbenches now, reachable the same as any
-// other, not the same page as this one.
+// Supersedes the 2026-09-05 MSN-0364-era version, which rendered a
+// permanent 5-badge situation strip (Recovery Posture/Operational
+// Risk/Interrupt Now/Emergency Alerts/Background Systems) plus a raw Live
+// Alerts list — exactly the "dashboard, not command system" pattern the
+// vNext mission calls out. This version consumes the same shared command
+// synthesis Captain's Chair does (captainsChairSynthesis.ts's
+// deriveCommandStatus(), commandState.ts's deriveCommandPosture()/
+// buildNeedsYouItems()/deriveIntelligenceHeadline()) so the two surfaces
+// cannot disagree on Human Systems state, genuine Needs You, Emergency
+// materiality, HQ health, or command posture (mission §17).
 //
-// Command-Experience correctness repair (P0, 2026-09-06): the Recovery
-// Posture badge used to read useROSData() (the retired get_recovery_
-// posture() RPC, `?? mockPosture` fallback) — a day with no capacity
-// check-in silently rendered a fabricated STABLE posture. It now reads
-// useHumanSystemsContext() (/api/human-systems/context), the same
-// canonical assessed-context.ts boundary Ready Room and Captain's Chair
-// consume — see docs/architecture/COMMAND-EXPERIENCE.md. Both surfaces
-// now agree on Human Systems state; neither can show a mock value as
-// current truth.
+// Sanctuary / low-stimulation behaviour (mission §8): when capacity is
+// constrained (PROTECT/RECOVER) and nothing needs you, the page quiets
+// itself — Next Commitments and Intelligence collapse to their headline
+// only, no expanded detail.
+//
+// Architecture: /hub is the start_url (manifest.webmanifest) — the front
+// door. The WorkbenchShell logo click goes to /workbenches (the full
+// directory) — Captain's Chair is one of those workbenches, reachable the
+// same as any other, not the same page as this one.
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
-import { SituationBadge } from '@/components/SituationBadge';
-import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
-import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
-import { useAlerts } from '@/lib/useAlerts';
-import { categoryMeta } from '@/lib/personalTasks';
 import {
-  CAPACITY_STATE_LABEL,
-  RISK_STATE_TONE,
-  SYSTEM_POSTURE_STATE_TONE,
   useHumanSystemsContext,
+  useHqStatusSummary,
   useOperationalRisk,
   useEmergencyAlerts,
-  useAgentHealth,
   useTodaysBriefing,
   useCalendarToday,
-  useReminders,
+  useAttentionCounts,
+  useEvolutionSignal,
+  useNotebookReadyCount,
 } from '@/lib/captainsChairData';
+import { useAlerts } from '@/lib/useAlerts';
+import { deriveCommandStatus } from '@/lib/captainsChairSynthesis';
+import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
 import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import { useWakeLock } from '@/lib/useWakeLock';
-import type { StateTone } from '@/lib/types';
+
+const POSTURE_TONE_CLASS: Record<string, string> = {
+  RESPOND: 'text-state-crit',
+  RECOVER: 'text-state-crit',
+  PROTECT: 'text-state-warn',
+  FOCUS: 'text-state-ok',
+  STEADY: 'text-state-ok',
+  UNKNOWN: 'text-state-unknown',
+};
 
 export default function LifeOSHub() {
   // Always-on wall-tablet use (this page's whole purpose) — keeps the
-  // screen awake while it's open. Deliberately only on this page, not
-  // Captain's Chair or any other workbench, since those aren't meant to
-  // stay open 24/7. Still needs Auto-Lock set to Never / Guided Access /
-  // Configurator kiosk mode on the device itself — this covers "someone
-  // forgot to set that," not the reboot/power-loss case.
+  // screen awake while it's open. Deliberately only on this page.
   useWakeLock();
 
   const { context: humanSystems, loading: humanSystemsLoading, error: humanSystemsError } = useHumanSystemsContext();
-  const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
   const { data: emergency, loading: emergencyLoading, error: emergencyError } = useEmergencyAlerts();
-  const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
+  const { data: hqStatus, loading: hqStatusLoading, error: hqStatusError } = useHqStatusSummary();
   const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
-  const { tasks: reminders, loading: remindersLoading } = useReminders();
+  const { data: attention, loading: attentionLoading } = useAttentionCounts();
+  const { readyCount: notebookReadyCount } = useNotebookReadyCount();
+  const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
+  const { alerts: liveAlerts } = useAlerts();
 
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
-  const postureBand = humanSystems?.posture ?? 'UNKNOWN';
-  const postureTone = SYSTEM_POSTURE_STATE_TONE[postureBand];
-  const riskTone = opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown';
-  const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
-  const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
-  const agentHealthTone: StateTone = (agentHealth?.failedCount ?? 0) > 0 ? 'crit' : 'ok';
+  const hqPostureLower = (hqStatus?.posture ?? 'UNKNOWN').toLowerCase() as 'normal' | 'degraded' | 'attention' | 'unknown';
+
+  const commandStatus = deriveCommandStatus({
+    posture: humanSystems?.posture ?? 'UNKNOWN',
+    postureMessage: humanSystems?.posture_message ?? 'No capacity check-in recorded for today yet.',
+    availableCapacity: humanSystems?.available_capacity ?? 'unknown',
+    hasCheckinToday,
+    humanSystemsUnavailable: humanSystemsError !== null,
+    operationalRisk: (opRisk?.overallRisk as 'GREEN' | 'AMBER' | 'RED' | null) ?? null,
+    operationalRiskUnknown: opRiskError !== null,
+    escalateCount: opRisk?.escalateCount ?? 0,
+    interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
+    emergencyCount: emergency?.count ?? 0,
+    emergencyWorstTier: emergency?.worstTier ?? null,
+    hqPosture: hqPostureLower,
+    hqSummary: hqStatus?.summary ?? null,
+    hqUnavailable: hqStatusError !== null,
+  });
+
+  // The exact same builder Captain's Chair uses — same inputs, same
+  // output, so the two surfaces cannot disagree on "what needs you."
+  const needsYouItems = buildNeedsYouItems({
+    emergency,
+    briefingError: briefingError !== null,
+    interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
+    contentAwaitingPublish: attention.contentAwaitingPublish,
+    oldestContentAwaitingPublish: attention.oldestContentAwaitingPublish,
+    wellnessRiskFlags: attention.wellnessRiskFlags,
+    notebookReadyCount,
+    capturePending: attention.capturePending,
+    oldestCapturePending: attention.oldestCapturePending,
+    evolutionPendingCount,
+    evolutionHighestValueTitle,
+    hqPosture: hqStatus?.posture ?? null,
+    hqAttentionItems: hqStatus?.attentionItems ?? [],
+    criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
+  });
+
+  const commandPosture = deriveCommandPosture({
+    hasEnvironmentConcern: commandStatus.hasEnvironmentConcern,
+    needsYouCount: needsYouItems.length,
+    humanSystemsUnavailable: humanSystemsError !== null,
+    hasCheckinToday,
+    humanSystemsPosture: humanSystems?.posture ?? 'UNKNOWN',
+    meaningfulCommitmentsToday: calendarStatus === 'ok' ? calendarEvents.length : 0,
+  });
+
+  const intelligenceHeadline = deriveIntelligenceHeadline({
+    briefingError: briefingError !== null,
+    briefingWarningsCount: briefingStats?.warnings ?? 0,
+    operationalRisk: (opRisk?.overallRisk as 'GREEN' | 'AMBER' | 'RED' | null) ?? null,
+    operationalRiskUnknown: opRiskError !== null,
+    emergencyWorstTier: emergency?.worstTier ?? null,
+    emergencyHeadline: emergency?.worstHeadline ?? null,
+  });
+
+  const stillLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading || attentionLoading;
+
+  // Sanctuary / low-stimulation behaviour (mission §8): quiet the page when
+  // capacity is constrained and nothing genuinely needs attention. Never
+  // hides genuine risk — RESPOND always takes priority over quieting.
+  const sanctuary = !stillLoading
+    && (commandPosture.posture === 'PROTECT' || commandPosture.posture === 'RECOVER')
+    && needsYouItems.length === 0;
 
   const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
 
-  // 2026-09-05: switched from browser SpeechSynthesis (src/lib/speakAloud.ts,
-  // five confirmed iOS Safari bugs in a row) to real generated audio via
-  // <audio> playback. Backend went through two iterations same day:
-  // self-hosted Chatterbox (Nano — too fast, unintelligible; Turbo —
-  // intelligible, but ~66s/request on this VM's CPU) then Google Cloud
-  // TTS (Neural2 — fast and clear, current default; see /api/tts/speak
-  // for the full history).
-  function speakAlertsAloud() {
-    const parts: string[] = [];
-    if (emergency?.count) {
-      parts.push(`${emergency.count} active emergency alert${emergency.count === 1 ? '' : 's'}${emergency.worstHeadline ? `. Worst: ${emergency.worstHeadline}` : ''}.`);
+  // TTS reads the command picture (posture, next commitment, Needs You,
+  // intelligence headline), not a dashboard inventory — 2026-09-05 switched
+  // from browser SpeechSynthesis to generated audio via <audio> playback;
+  // see /api/tts/speak for the backend history.
+  function speakCommandPicture() {
+    const parts: string[] = [`${commandPosture.headline}. ${commandPosture.explanation}`];
+    if (calendarStatus === 'ok' && calendarEvents.length > 0) {
+      const next = calendarEvents[0];
+      parts.push(`Next: ${next.allDay ? 'all day' : next.time ?? ''} ${next.title}.`);
+    }
+    if (needsYouItems.length > 0) {
+      parts.push(`${needsYouItems.length} thing${needsYouItems.length === 1 ? '' : 's'} need you: ${needsYouItems[0].title}.`);
     } else {
-      parts.push('No active emergency alerts.');
+      parts.push('Nothing needs you right now.');
     }
-    const interruptNow = briefingStats?.interruptNow ?? 0;
-    if (interruptNow > 0) {
-      parts.push(`${interruptNow} item${interruptNow === 1 ? '' : 's'} need you right now.`);
-    }
-    if (liveAlerts.length > 0) {
-      parts.push(`Top alert: ${liveAlerts[0].title}.`);
-    }
-    // cacheKey kept for backward compatibility (see ttsPlayer.ts/
-    // /api/tts/speak) but unused now that Google Cloud TTS is fast
-    // enough that caching isn't needed here.
+    parts.push(intelligenceHeadline.headline === 'NO MATERIAL CHANGE' ? 'No material change in the world.' : intelligenceHeadline.detail);
     const text = parts.join(' ');
     playTts(text, { cacheKey: text, onStateChange: setSpeakState });
   }
@@ -121,176 +168,113 @@ export default function LifeOSHub() {
       tagline="USS TJR · LifeOS Hub · Workbenches →"
       wide
     >
-      <div className="space-y-4">
-        {/* ── Situation strip ── */}
-        <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
-          <SituationBadge
-            label="Recovery Posture"
-            value={humanSystemsLoading ? '…' : humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : postureBand}
-            tone={humanSystemsLoading ? 'unknown' : humanSystemsError ? 'unknown' : postureTone}
-            sublabel={
-              humanSystemsLoading
-                ? undefined
-                : humanSystemsError
-                  ? 'Check connection — see console'
-                  : !hasCheckinToday
-                    ? 'No check-in today'
-                    : (CAPACITY_STATE_LABEL[humanSystems?.available_capacity ?? ''] ?? 'No data')
-            }
-            href="/human-systems-workbench"
-          />
-          <SituationBadge
-            label="Operational Risk"
-            value={opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data')}
-            tone={opRiskError ? 'unknown' : riskTone}
-            sublabel={opRisk && opRisk.escalateCount > 0 ? `${opRisk.escalateCount} threat${opRisk.escalateCount === 1 ? '' : 's'} at escalate` : undefined}
-            href="/intelligence-workbench"
-          />
-          <SituationBadge
-            label="Interrupt Now"
-            value={briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`}
-            tone={briefingError ? 'unknown' : interruptTone}
-            sublabel={(briefingStats?.interruptNow ?? 0) > 0 ? 'Needs you right now' : undefined}
-            href="/captains-brief-workbench"
-          />
-          <SituationBadge
-            label="Emergency Alerts"
-            value={emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear'}
-            tone={emergencyError ? 'unknown' : emergencyTone}
-            sublabel={emergency?.worstHeadline ?? undefined}
-            href="/emergency-alert-hub-workbench"
-          />
-          <SituationBadge
-            label="Background Systems"
-            value={agentHealthLoading ? '…' : agentHealthError ? 'Unknown' : agentHealth?.failedCount ? `${agentHealth.failedCount} Failing` : 'Nominal'}
-            tone={agentHealthError ? 'unknown' : agentHealthTone}
-            sublabel={agentHealth?.worstLabel ?? undefined}
-            href="/agent-status-workbench"
-          />
+      <div className="mx-auto max-w-xl space-y-6 py-2">
+        {/* ── 1. Day / date / time — subtle, always useful ── */}
+        <p className="text-center text-xs uppercase tracking-wider text-wb-ink2">
+          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+
+        {/* ── 2. Command posture — one headline, one explanation ── */}
+        <div className="text-center">
+          {stillLoading ? (
+            <p className="text-sm text-wb-ink2 animate-pulse">Assessing…</p>
+          ) : (
+            <>
+              <p className={`text-4xl font-bold tracking-tight ${POSTURE_TONE_CLASS[commandPosture.posture]}`}>
+                {commandPosture.headline} TODAY
+              </p>
+              <p className="mx-auto mt-2 max-w-md text-sm text-wb-ink/80">{commandPosture.explanation}</p>
+            </>
+          )}
         </div>
 
-        {!humanSystemsLoading && (postureBand === 'PROTECT' || postureBand === 'RECOVER' || postureBand === 'RESET') && !humanSystemsError && hasCheckinToday && (
-          <div className={postureBand === 'RECOVER' ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3' : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3'}>
-            <p className={postureBand === 'RECOVER' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
-              Recovery posture is {postureBand} — consider deferring anything below that isn&apos;t genuinely urgent.
+        {!stillLoading && (
+          <>
+            {/* ── 3. Next commitments — only meaningful upcoming Calendar items ── */}
+            {!sanctuary && (
+              <div className="rounded-lg border border-wb-line bg-white p-4">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Next</h2>
+                {calendarStatus === 'disconnected' ? (
+                  <p className="text-sm text-wb-ink2">
+                    Calendar isn&apos;t connected.{' '}
+                    <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">Connect it</a>.
+                  </p>
+                ) : calendarStatus === 'error' ? (
+                  <p className="text-sm text-wb-crit-on">Calendar failed to load — not confirmation of an empty day.</p>
+                ) : calendarEvents.length === 0 ? (
+                  <p className="text-sm text-wb-ink2">Nothing on the calendar today.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {calendarEvents.slice(0, 3).map((event, i) => (
+                      <li key={i} className="flex items-baseline gap-2 text-sm">
+                        <span className="w-14 shrink-0 font-semibold text-wb-ink">{event.allDay ? 'All day' : event.time ?? '—'}</span>
+                        <span className="text-wb-ink">{event.title}{event.location && <span className="text-wb-ink2"> · {event.location}</span>}</span>
+                      </li>
+                    ))}
+                    {calendarEvents.length > 3 && <p className="text-xs text-wb-ink2">+{calendarEvents.length - 3} more</p>}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* ── 4. Needs You — prefer 0–3 genuinely actionable items ── */}
+            <div className="rounded-lg border border-wb-line bg-white p-4">
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Needs You</h2>
+              {needsYouItems.length === 0 ? (
+                <p className="text-sm font-medium text-wb-ink2">✓ Nothing needs your attention.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {needsYouItems.slice(0, 3).map((item) => (
+                    <li key={item.id} className="text-sm">
+                      <span className="font-semibold text-wb-ink">{item.title}</span>
+                      <span className="text-wb-ink2"> — {item.detail}</span>
+                    </li>
+                  ))}
+                  {needsYouItems.length > 3 && (
+                    <li className="text-xs text-wb-ink2">+{needsYouItems.length - 3} more — see Captain&apos;s Chair</li>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            {/* ── 5. World / intelligence — one headline or honest unknown ── */}
+            {!sanctuary && (
+              <div className="rounded-lg border border-wb-line bg-white p-4">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">World</h2>
+                <p className="text-sm font-medium text-wb-ink">{intelligenceHeadline.headline === 'NO MATERIAL CHANGE' ? 'No material change' : intelligenceHeadline.headline}</p>
+                <p className="mt-0.5 text-xs text-wb-ink2">{intelligenceHeadline.detail}</p>
+              </div>
+            )}
+
+            {/* ── 6. HQ — tiny status ── */}
+            <p className="text-center text-xs text-wb-ink2">
+              {hqStatusError
+                ? 'HQ status unknown'
+                : hqStatus?.posture === 'NORMAL'
+                  ? 'Operating normally'
+                  : hqStatus?.posture === 'ATTENTION'
+                    ? `Needs you — ${hqStatus.summary}`
+                    : hqStatus?.posture === 'DEGRADED'
+                      ? 'Degraded — no action required'
+                      : 'Status unknown'}
             </p>
-          </div>
-        )}
 
-        {/* P0 correctness repair: "no check-in today" must never render as
-            a healthy/clear posture — this reads honestly as unknown rather
-            than silently disappearing or falling back to a mock value.
-            Gated on !humanSystemsLoading so the initial fetch (context and
-            error both null/false) doesn't flash this as a false "no
-            check-in" before the real result arrives. */}
-        {!humanSystemsLoading && !hasCheckinToday && !humanSystemsError && (
-          <div className="rounded-lg border border-wb-line bg-wb-bg/50 p-3">
-            <p className="text-sm text-wb-ink2">No capacity check-in yet today — recovery posture is unknown.</p>
-          </div>
-        )}
-
-        {/* ── Live Alerts ── */}
-        <div className="rounded-lg border border-wb-line bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-wb-ink">Live Alerts</h2>
-            <div className="flex items-center gap-3">
-              {alertsFailedSources > 0 && (
-                <span className="text-[10px] text-wb-ink2">{alertsFailedSources} of {alertsTotalSources} sources unavailable</span>
+            {/* ── 7. Calm end state + Read aloud ── */}
+            <div className="flex flex-col items-center gap-2 pt-2">
+              {needsYouItems.length === 0 && (
+                <p className="text-sm text-wb-ink2">Nothing else needs you.</p>
               )}
               <button
                 type="button"
-                onClick={speakAlertsAloud}
+                onClick={speakCommandPicture}
                 disabled={speakState === 'generating' || speakState === 'playing'}
                 className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
               >
                 {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>
             </div>
-          </div>
-          {alertsLoading ? (
-            <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-          ) : liveAlerts.length === 0 ? (
-            <p className="text-xs text-wb-ink2">No alerts.</p>
-          ) : (
-            <ul className="space-y-2">
-              {liveAlerts.slice(0, 5).map((alert) => (
-                <li key={alert.id} className={`border-l-2 ${stateToneClasses(alertSeverityToTone(alert.severity)).border} pl-2 text-xs`}>
-                  <p className="font-semibold text-wb-ink">{alert.title}</p>
-                  <p className="text-wb-ink2">{alert.detail}</p>
-                </li>
-              ))}
-              {liveAlerts.length > 5 && (
-                <p className="text-xs text-wb-ink2">+{liveAlerts.length - 5} more</p>
-              )}
-            </ul>
-          )}
-        </div>
-
-        {/* ── Calendar + Reminders (two columns) ── */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border border-wb-line bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-wb-ink">Today&apos;s Calendar</h2>
-            {calendarLoading ? (
-              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-            ) : calendarStatus === 'disconnected' ? (
-              <p className="text-xs text-wb-ink2">
-                Google Calendar isn&apos;t connected.{' '}
-                <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">
-                  Connect it
-                </a>
-                .
-              </p>
-            ) : calendarStatus === 'error' ? (
-              <p className="text-xs text-wb-crit-on">Failed to load calendar — see console for detail.</p>
-            ) : calendarEvents.length === 0 ? (
-              <p className="text-xs text-wb-ink2">No events today.</p>
-            ) : (
-              <ul className="space-y-2">
-                {calendarEvents.map((event, i) => (
-                  <li key={i} className="flex items-baseline gap-2 text-xs">
-                    <span className="w-14 shrink-0 font-semibold text-wb-ink">
-                      {event.allDay ? 'All day' : event.time ?? '—'}
-                    </span>
-                    <span className="text-wb-ink">
-                      {event.title}
-                      {event.location && <span className="text-wb-ink2"> · {event.location}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-wb-line bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-wb-ink">Reminders</h2>
-            {remindersLoading ? (
-              <p className="text-xs text-wb-ink2 animate-pulse">Loading…</p>
-            ) : reminders.length === 0 ? (
-              <p className="text-xs text-wb-ink2">Nothing needs a nudge right now.</p>
-            ) : (
-              <ul className="space-y-2">
-                {reminders.map((task) => (
-                  <li key={task.id} className="flex items-start gap-2 text-xs">
-                    <span className="mt-0.5 text-wb-ink2">{categoryMeta(task.category).glyph}</span>
-                    <span className="flex-1 text-wb-ink">
-                      {task.title}
-                      {task.nudge_count > 3 && (
-                        <span className="ml-1 text-wb-ink2">(nudged {task.nudge_count}×)</span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link href="/ready-room" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">
-              Ready Room →
-            </Link>
-          </div>
-        </div>
-
-        {/* ── Today's Briefing (real LLM-generated Executive Brief, not
-              just stats — captains_daily_briefs.brief_text) ── */}
-        <TodaysBriefPanel />
+          </>
+        )}
       </div>
     </WorkbenchShell>
   );
