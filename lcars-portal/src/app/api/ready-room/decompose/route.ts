@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ action: data?.action ?? null }, { status: res.ok ? 200 : 200 });
   } catch (err) {
     // Model Router unreachable — degrade gracefully, don't block the user.
-    return NextResponse.json({ action: null, error: String(err) }, { status: 200 });
+    // Log the real cause server-side but never surface a raw fetch/undici
+    // error string (e.g. "TypeError: fetch failed") in the UI.
+    console.error('Model Router unreachable (ready-room/decompose):', err);
+    return NextResponse.json(
+      { action: null, error: "Couldn't reach the suggestion service — write your own first step below." },
+      { status: 200 },
+    );
   }
 }
