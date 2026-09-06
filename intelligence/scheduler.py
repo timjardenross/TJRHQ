@@ -272,6 +272,28 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # 2026-09-06 gap-closure (OSINT Ingestion Quality & Relevance Mission):
+    # found live via a user-requested spot-check against a real curated
+    # brief — a Telstra-outage-review followup and an Origin-breach-update
+    # article never reached intelligence_events at all. Root cause: ABC
+    # News's general RSS feed (source_type=rss, category=media) carries
+    # only ~25 items per fetch, and the 06:00 daily sweep is the only thing
+    # that ever polls it — any story published between fetches that scrolls
+    # off the feed's 25-item window before the next 06:00 run is silently
+    # never seen (an upstream collection/coverage gap, not a filter/
+    # relevance one). All 6 active `media`-category sources are plain RSS
+    # (live-checked 2026-09-06, zero Firecrawl-fetch-path sources in this
+    # category) — unlike _INTRADAY_STATUS_CATEGORIES, there is no credit-
+    # budget reason to poll this category only once a day.
+    media_interval = int(os.environ.get("INTRADAY_MEDIA_INTERVAL_MINUTES", "90"))
+    scheduler.add_job(
+        _intraday_media_collection_job,
+        _IntervalTrigger(minutes=media_interval),
+        id="intraday_media_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── Emergency Alert Hub (migration 0174) ─────────────────────────────────
     # 15 minutes: the tightest realistic cadence across the 5 live-feed
     # sources (ACT's own feed updates every 60s, but a shared interval this
@@ -1227,6 +1249,92 @@ def _intraday_status_collection_job() -> None:
     except Exception as exc:
         log.error("Intraday status collection job failed: %s", exc)
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
+
+
+def _intraday_media_collection_job() -> None:
+    """2026-09-06 gap-closure (see registration comment above for the real
+    coverage-gap finding this closes). Polls `media`-category (plain-RSS,
+    zero Firecrawl cost) sources more often than the once-daily 06:00
+    sweep, so a story that scrolls off a general news feed's item window
+    between daily fetches still gets caught by a later intraday poll. Same
+    collect -> classify -> dedup -> filter -> rank -> save_event pipeline
+    every other collection job in this module uses (same dedup keys, so
+    this can never double-save an event another job already collected
+    today) — identical structure to _intraday_status_collection_job,
+    scoped to a different category with no cost-budget exclusion needed."""
+    log.info("Intraday media collection triggered")
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.category == "media"]
+        if not sources:
+            log.warning("Intraday media collection: no active sources in category 'media'")
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on intraday media run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Intraday media collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "intraday_media_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Intraday media collection job failed: %s", exc)
+        _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
 
 
 def _health_mission_correlation_job() -> None:
