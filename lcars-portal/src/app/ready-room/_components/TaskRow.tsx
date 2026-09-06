@@ -9,6 +9,7 @@ import {
   updateTaskState,
   toggleFollowThroughPause,
   deferNotToday,
+  setPinnedToday,
   FOLLOW_THROUGH_MODES,
   type PersonalTask,
   type WorkState,
@@ -83,6 +84,13 @@ export function TaskRow({
   async function notToday() {
     setBusy(true);
     await deferNotToday(task.id);
+    setBusy(false);
+    onChanged();
+  }
+
+  async function togglePinned() {
+    setBusy(true);
+    await setPinnedToday(task.id, !task.pinned_today);
     setBusy(false);
     onChanged();
   }
@@ -185,6 +193,19 @@ export function TaskRow({
               >
                 {task.follow_through_paused ? '🔕' : '🔔'}
               </button>
+              {task.work_state !== 'completed' && task.work_state !== 'blocked' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={togglePinned}
+                  title={task.pinned_today ? 'Keeping this in Today regardless of capacity — click to unpin' : 'Keep this in Today even on a constrained day'}
+                  aria-label={task.pinned_today ? 'Unpin from Today' : 'Pin to Today'}
+                  aria-pressed={task.pinned_today}
+                  className={`text-[13px] opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${task.pinned_today ? 'text-wb-sage-deep opacity-100' : 'text-wb-ink2'}`}
+                >
+                  {task.pinned_today ? '📌 Pinned' : '📌 Keep in Today'}
+                </button>
+              )}
             </div>
           </div>
         )}

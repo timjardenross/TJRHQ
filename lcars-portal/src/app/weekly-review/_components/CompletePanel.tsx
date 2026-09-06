@@ -19,9 +19,10 @@ function Check({ done, label }: { done: boolean; label: string }) {
  * §18); everything else always shows as done because reaching this panel
  * means the synthesis/carry-forward/watch sections above already rendered. */
 export function CompletePanel({
-  summary, signalCounts, nextWeekAccepted,
+  summary, signalCounts, nextWeekAccepted, nextWeekPosture, acceptedCarryForward,
 }: {
   summary: SystemSummary; signalCounts: Record<string, number>; nextWeekAccepted: boolean;
+  nextWeekPosture: string; acceptedCarryForward: string[];
 }) {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export function CompletePanel({
   async function complete() {
     setBusy(true);
     setError(null);
-    const result = await completeWeeklyReview(notes, summary, signalCounts, nextWeekAccepted);
+    const result = await completeWeeklyReview(notes, summary, signalCounts, nextWeekAccepted, nextWeekPosture, acceptedCarryForward);
     setBusy(false);
     if (result.ok) setDone(true);
     else setError(result.error ?? 'Failed to mark complete.');
