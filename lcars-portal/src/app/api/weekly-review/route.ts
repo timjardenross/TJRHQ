@@ -21,8 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { Signal, SignalItem, SystemSummary, WorkbenchSection } from '@/lib/weeklyReview';
 import { buildSynthesis, flattenSignalCounts } from './synthesis';
-import { deriveSystemPosture } from '@/app/api/human-systems/derive-system-posture';
-import { computeStrategicPosture, type BurnoutWindowRow } from '@/app/api/human-systems/strategic-posture';
+import { getAssessedContext } from '@/app/api/human-systems/assessed-context';
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -174,6 +173,36 @@ async function reviewHumanSystems(sb: SB, since: string): Promise<WorkbenchSecti
   };
 }
 
+// ── Ready Room (Human Execution Loop mission, brief §21/§26/§29) ───────────────
+// Source: personal_tasks. Weekly Review reads execution evidence Ready Room
+// already owns — it never queries this table anywhere else in this file
+// before now, and never writes to it here either (brief §30/§51: carry
+// forward is an attention decision, not a task-state mutation). Completion
+// is reported as evidence for "what mattered," not a productivity score
+// (brief §50/§58) — non-completion of a low-importance item is not framed
+// as failure anywhere below.
+async function reviewReadyRoom(sb: SB, since: string): Promise<WorkbenchSection> {
+  const [completed, importantOpen, newlyWaiting, parked] = await Promise.all([
+    safe(() => sb.from('personal_tasks').select('id, title, completed_at').eq('work_state', 'completed').gte('completed_at', since).limit(20)),
+    safe(() => sb.from('personal_tasks').select('id, title, importance, due_date').gte('importance', 4).not('work_state', 'in', '(completed,abandoned)').limit(20)),
+    safe(() => sb.from('personal_tasks').select('id, title, waiting_on, updated_at').eq('work_state', 'blocked').gte('updated_at', since).limit(20)),
+    // Low-importance, no due date, untouched this week — genuinely safe to
+    // leave parked (brief §31: "unavailable ≠ safe" — this is an evidenced
+    // absence of urgency, not a guess), never itself a carry-forward item.
+    safe(() => sb.from('personal_tasks').select('id, title').lte('importance', 2).is('due_date', null).not('work_state', 'in', '(completed,abandoned,blocked)').lt('updated_at', since).limit(20)),
+  ]);
+
+  return {
+    key: 'ready-room', title: 'Ready Room', href: '/ready-room',
+    signals: [
+      signal('completed', 'Completed this week', completed.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'ok', completed.unavailable),
+      signal('important-open', 'Important and still open', importantOpen.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)', meta: r.due_date ?? undefined })), 'warn', importantOpen.unavailable),
+      signal('newly-waiting', 'Newly waiting on someone else', newlyWaiting.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)', meta: r.waiting_on ?? undefined })), 'neutral', newlyWaiting.unavailable),
+      signal('parked', 'Low-priority, untouched this week', parked.rows.map((r) => ({ id: r.id, title: r.title ?? '(untitled)' })), 'neutral', parked.unavailable),
+    ],
+  };
+}
+
 // ── Advisory ───────────────────────────────────────────────────────────────────
 // Source: advisory_sessions. No "actioned" column exists on this table — the
 // closest real proxy for "not yet actioned" is result.attention_required on
@@ -270,36 +299,27 @@ function computeSummary(weekStartISO: string, weekEndISO: string, sections: Work
   };
 }
 
-// ── Capacity-adjusted posture (brief §6/§16) ─────────────────────────────────
-// Reuses Human Systems' own existing posture engines rather than inventing a
-// competing taxonomy (brief §16 explicit instruction) — today's posture via
-// deriveSystemPosture() (now a shared export, see that file's header
-// comment), the week's strain floor via computeStrategicPosture(), exactly
-// mirroring how /api/human-systems/route.ts itself calls them
-// (BURNOUT_WINDOW_DAYS=21, same field selection).
-const BURNOUT_WINDOW_DAYS = 21;
-const CHECKIN_FIELDS = 'capacity_state,regulation_state,executive_function,compensation_load,stimulation_state,pain_state';
-
+// ── Capacity-adjusted posture (brief §6/§16/§39) ─────────────────────────────
+// Reuses Human Systems' own small assessed-context boundary rather than
+// inventing a competing taxonomy (brief §16) or re-querying capacity_checkins
+// itself (brief §39 — "do not import one workbench's implementation
+// machinery into another"). getAssessedContext() is the same read every
+// other consumer (Ready Room included) goes through.
 async function fetchStrategicPosture(sb: SB) {
-  const today = new Date().toISOString().slice(0, 10);
-  const windowStart = new Date(Date.now() - (BURNOUT_WINDOW_DAYS - 1) * DAY_MS).toISOString().slice(0, 10);
-
-  const [todayCheckin, windowRows] = await Promise.all([
-    safe(() => sb.from('capacity_checkins').select(CHECKIN_FIELDS).eq('checkin_type', 'capacity').eq('log_date', today).order('captured_at', { ascending: false }).limit(1)),
-    safe(() => sb.from('capacity_checkins').select('checkin_type,capacity_state,executive_function,stimulation_state,compensation_load,recovery_duration,capacity_debt,log_date,captured_at').gte('log_date', windowStart).lte('log_date', today)),
-  ]);
-
-  if (todayCheckin.unavailable || windowRows.unavailable) {
+  try {
+    const context = await getAssessedContext(sb);
+    return {
+      posture: context.strain_or_recovery_context.strategic_posture,
+      message: context.strain_or_recovery_context.message,
+      hasSignal: context.strain_or_recovery_context.trajectory !== 'insufficient_data',
+    };
+  } catch {
     // Human Systems couldn't be checked this run — fall back to a neutral
     // posture rather than crash the whole review; hasStrategicSignal=false
     // tells the synthesis layer to omit the recovery-trajectory learned
     // item/watch line rather than fabricate one.
     return { posture: 'steady' as const, message: 'Human Systems data was unavailable this run — posture defaults to steady.', hasSignal: false };
   }
-
-  const { posture: todayPosture } = deriveSystemPosture(todayCheckin.rows[0] ?? null);
-  const result = computeStrategicPosture(windowRows.rows as unknown as BurnoutWindowRow[], BURNOUT_WINDOW_DAYS, todayPosture);
-  return { posture: result.strategic_posture, message: result.strategic_posture_message, hasSignal: result.system_trajectory !== 'insufficient_data' };
 }
 
 export async function GET() {
@@ -310,31 +330,52 @@ export async function GET() {
     const sb = await createSupabaseServerClient();
     const { weekStartISO, weekEndISO } = weekWindow();
 
-    const [chair, osint, healthOsint, content, humanSystems, advisory, briefs, agentStatus, lastReview, posture] = await Promise.all([
+    const [chair, osint, healthOsint, content, humanSystems, readyRoom, advisory, briefs, agentStatus, lastReview, posture] = await Promise.all([
       reviewChair(sb, weekStartISO),
       reviewOsint(sb, weekStartISO),
       reviewHealthOsint(sb, weekStartISO),
       reviewContent(sb, weekStartISO),
       reviewHumanSystems(sb, weekStartISO),
+      reviewReadyRoom(sb, weekStartISO),
       reviewAdvisory(sb, weekStartISO),
       reviewBriefs(sb, weekStartISO),
       reviewAgentStatus(sb, weekStartISO),
-      // Full summary jsonb (not just completed_at) — signalCounts lives
-      // inside it, needed for What Changed's week-over-week diff.
-      safe(() => sb.from('weekly_reviews').select('completed_at, summary').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1)),
+      // Full summary jsonb (not just completed_at) — signalCounts, the
+      // accepted next-week posture/carry-forward, and last week's
+      // reflection all live inside it (brief §34/§36/§38's feedback loop).
+      safe(() => sb.from('weekly_reviews').select('completed_at, summary, notes').not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(1)),
       fetchStrategicPosture(sb),
     ]);
 
-    const workbenches = [chair, osint, healthOsint, content, humanSystems, advisory, briefs, agentStatus];
+    const workbenches = [chair, osint, healthOsint, content, humanSystems, readyRoom, advisory, briefs, agentStatus];
     const lastCompletedAt = lastReview.rows[0]?.completed_at ?? null;
     const summary = computeSummary(weekStartISO, weekEndISO, workbenches, lastCompletedAt);
 
-    const priorSummary = lastReview.rows[0]?.summary as { signalCounts?: Record<string, number> } | null;
+    const priorSummary = lastReview.rows[0]?.summary as {
+      signalCounts?: Record<string, number>;
+      nextWeekPosture?: string;
+      nextWeekPostureAccepted?: boolean;
+      acceptedCarryForward?: string[];
+    } | null;
     const priorSignalCounts = priorSummary?.signalCounts ?? null;
     const synthesis = buildSynthesis(workbenches, priorSignalCounts, posture.posture, posture.message, posture.hasSignal);
     const signalCounts = flattenSignalCounts(workbenches);
 
-    return NextResponse.json({ summary, workbenches, synthesis, signalCounts });
+    // What was planned last week vs. what today's live evidence says now —
+    // shown side by side, never merged. Fresh Human Systems evidence
+    // (posture, computed above from today's own check-in/window) always
+    // wins for current-day decisions; the prior plan is read-only context,
+    // exactly the Sunday-STEADY/Monday-PROTECT example (brief §34).
+    const priorReflection = (lastReview.rows[0] as { notes?: string | null } | undefined)?.notes ?? null;
+    const priorWeek = priorSummary?.nextWeekPostureAccepted || priorReflection
+      ? {
+          posture: priorSummary?.nextWeekPostureAccepted ? priorSummary.nextWeekPosture ?? null : null,
+          carryForward: priorSummary?.nextWeekPostureAccepted ? priorSummary.acceptedCarryForward ?? [] : [],
+          reflection: priorReflection,
+        }
+      : null;
+
+    return NextResponse.json({ summary, workbenches, synthesis, signalCounts, priorWeek });
   } catch (err) {
     return NextResponse.json({ error: 'Failed to build weekly review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
@@ -355,7 +396,15 @@ export async function POST(req: NextRequest) {
     // as "no change."
     const signalCounts = body?.signalCounts && typeof body.signalCounts === 'object' ? body.signalCounts : null;
     const nextWeekPostureAccepted = body?.nextWeekPostureAccepted === true;
-    const storedSummary = summary ? { ...summary, signalCounts, nextWeekPostureAccepted } : null;
+    // Actual accepted posture label + carry-forward, so next week's GET can
+    // read back what was planned (brief §34/§38) — previously only the
+    // boolean rode along, so the plan itself was silently discarded the
+    // moment the review closed.
+    const nextWeekPosture = nextWeekPostureAccepted && typeof body?.nextWeekPosture === 'string' ? body.nextWeekPosture.slice(0, 200) : null;
+    const acceptedCarryForward = nextWeekPostureAccepted && Array.isArray(body?.acceptedCarryForward)
+      ? body.acceptedCarryForward.filter((v: unknown): v is string => typeof v === 'string').slice(0, 10)
+      : [];
+    const storedSummary = summary ? { ...summary, signalCounts, nextWeekPostureAccepted, nextWeekPosture, acceptedCarryForward } : null;
 
     const sb = await createSupabaseServerClient();
     const { weekStart, weekEnd } = weekWindow();

@@ -153,6 +153,15 @@ export interface WeeklyReviewSynthesis {
   health: DomainSynthesis;
 }
 
+/** What was accepted last time the week was closed — read-only context for
+ * this week's synthesis, never a substitute for it (brief §34/§38). Null
+ * when no accepted posture and no reflection exist to carry forward. */
+export interface PriorWeekContext {
+  posture: string | null;
+  carryForward: string[];
+  reflection: string | null;
+}
+
 export interface WeeklyReviewData {
   summary: SystemSummary;
   workbenches: WorkbenchSection[];
@@ -161,6 +170,7 @@ export interface WeeklyReviewData {
    * back to POST on "Close the Week" so next week's GET can diff against it
    * (see route.ts's fetchStrategicPosture/buildSynthesis doc comments). */
   signalCounts: Record<string, number>;
+  priorWeek: PriorWeekContext | null;
 }
 
 export async function fetchWeeklyReview(): Promise<WeeklyReviewData | null> {
@@ -179,13 +189,22 @@ export interface CompleteResult {
 }
 
 export async function completeWeeklyReview(
-  notes: string, summary: SystemSummary, signalCounts: Record<string, number>, nextWeekPostureAccepted: boolean,
+  notes: string,
+  summary: SystemSummary,
+  signalCounts: Record<string, number>,
+  nextWeekPostureAccepted: boolean,
+  nextWeekPosture?: string,
+  acceptedCarryForward?: string[],
 ): Promise<CompleteResult> {
   try {
     const resp = await fetch('/api/weekly-review', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes, summary, signalCounts, nextWeekPostureAccepted }),
+      body: JSON.stringify({
+        notes, summary, signalCounts, nextWeekPostureAccepted,
+        nextWeekPosture: nextWeekPostureAccepted ? nextWeekPosture ?? null : null,
+        acceptedCarryForward: nextWeekPostureAccepted ? acceptedCarryForward ?? [] : [],
+      }),
     });
     const json = await resp.json();
     if (!resp.ok) return { ok: false, error: json?.error ?? `HTTP ${resp.status}` };
