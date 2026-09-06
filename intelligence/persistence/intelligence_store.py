@@ -1191,6 +1191,13 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
         # workflow module itself is left in place, just unused by this path.
         "approval_status": "PUBLISHED",
         "published_at": brief.generated_at.isoformat(),
+        # Briefs canonical uplift (BRIEFS_CANONICAL_UPLIFT.md) — additive
+        # columns, all optional; None is stored as-is (not fabricated).
+        "morning_cycle_id": brief.morning_cycle_id,
+        "coverage": brief.coverage,
+        "comparison": brief.comparison,
+        "domain_picture": brief.domain_picture,
+        "known_unknowns": brief.known_unknowns,
     }
     result = _post("intelligence_briefs", row)
     if result:
@@ -1220,6 +1227,14 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
 def load_latest_brief() -> Optional[dict]:
     rows = _get("intelligence_briefs?order=generated_at.desc&limit=1")
     return rows[0] if rows else None
+
+
+def brief_exists_for_cycle(morning_cycle_id: str) -> bool:
+    """Idempotency check for the readiness-polling scheduler job
+    (intelligence/scheduler.py) — has today's morning cycle already
+    produced a brief, across any of the poll's several fires?"""
+    rows = _get(f"intelligence_briefs?morning_cycle_id=eq.{morning_cycle_id}&limit=1&select=brief_id")
+    return len(rows) > 0
 
 
 def load_brief_archive(limit: int = 20, offset: int = 0) -> list[dict]:

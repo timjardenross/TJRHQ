@@ -64,6 +64,10 @@ class TestLLMFailureDegradation(unittest.TestCase):
         mock_store.event_title_date_exists.return_value = False
         mock_store.save_event.return_value = "uuid-1"
         mock_store.save_brief.return_value = "brief-uuid-1"
+        # Briefs canonical uplift: generate() also asks for the prior brief
+        # to compute a current-vs-prior comparison — None means "no prior
+        # brief", same as a fresh Supabase table.
+        mock_store.load_latest_brief.return_value = None
         return mock_store
 
     def test_brief_assembled_without_llm(self):
@@ -76,6 +80,7 @@ class TestLLMFailureDegradation(unittest.TestCase):
              patch("intelligence.brief.brief_generator.classify", side_effect=lambda x: x), \
              patch("intelligence.brief.brief_generator.rank", return_value=top), \
              patch("intelligence.brief.brief_generator.top_events", return_value=top), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
              patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
 
             mock_llm = MagicMock()
@@ -95,6 +100,7 @@ class TestLLMFailureDegradation(unittest.TestCase):
              patch("intelligence.brief.brief_generator.store", self._patch_store()), \
              patch("intelligence.brief.brief_generator.rank", return_value=[]), \
              patch("intelligence.brief.brief_generator.top_events", return_value=[]), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
              patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
 
             mock_llm = MagicMock()

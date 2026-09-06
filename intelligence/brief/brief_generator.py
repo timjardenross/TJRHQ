@@ -14,6 +14,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from intelligence.brief import morning_cycle
+from intelligence.brief.comparison import compute_comparison
+from intelligence.brief.domain_picture import compute_domain_picture
 from intelligence.brief.llm_provider import LLMProvider
 from intelligence.classification.classifier import classify
 from intelligence.classification.filter import apply_filter
@@ -57,12 +60,24 @@ class BriefGenerator:
         log.info("Starting brief generation: period=%d days, trigger=%s",
                  period_days, self.trigger_type)
 
+        # ── 0. Morning cycle readiness (informational only — never blocks or
+        # waits here; the scheduler's own poll job decides WHEN to call
+        # generate(), this just records what it found so the brief can be
+        # honest about its own coverage). Never allowed to break generation.
+        try:
+            cycle_status = morning_cycle.get_status()
+        except Exception as exc:
+            log.warning("Morning cycle status check failed (non-fatal): %s", exc)
+            cycle_status = None
+
         # ── 1. Collection ─────────────────────────────────────────────────────
         items, health_records = collect_all(sources=sources)
         sources_checked   = len(health_records)
         sources_available = sum(1 for h in health_records if h.status in ("ok", "degraded"))
         sources_failed    = sum(1 for h in health_records if h.status == "failed")
         sources_stale     = sum(1 for h in health_records if h.status in ("stale", "degraded"))
+        missing_sources    = [h.source_name for h in health_records if h.status == "failed"]
+        latest_included_at = max((i.collected_at for i in items), default=None)
 
         log.info("Collected %d items from %d sources", len(items), sources_checked)
 
@@ -135,7 +150,7 @@ class BriefGenerator:
 
         # ── 8. Generate narrative (LLM, may fail) ─────────────────────────────
         (executive_snapshot, emerging_themes, forward_watch,
-         cps230_implications, bottom_line, llm_used, provider_used) = \
+         cps230_implications, bottom_line, known_unknowns, llm_used, provider_used) = \
             self._generate_narrative(top5, brief_events, period_start, period_end,
                                      sources_available, sources_failed)
 
@@ -160,6 +175,46 @@ class BriefGenerator:
                     log.info("[risk-challenge] %s", risk_note)
             except Exception as exc:
                 log.warning("[risk-challenge] check errored: %s", exc)
+
+        # ── 8c. Coverage / comparison / domain picture (Sections 6, 11-13) ─────
+        # Deterministic post-processing — no re-reasoning, no invented
+        # history (Section 26). Never allowed to break brief generation.
+        import dataclasses
+        top_events_dicts = [dataclasses.asdict(be) for be in brief_events]
+
+        coverage: dict = {
+            "expected": sources_checked,
+            "completed": sources_available,
+            "failed": sources_failed,
+            "stale": sources_stale,
+            "missing_sources": missing_sources[:10],
+            "latest_included_at": latest_included_at.isoformat() if latest_included_at else None,
+        }
+        if cycle_status is not None:
+            coverage.update(cycle_status.to_dict())
+            coverage["degraded"] = bool(cycle_status.degraded or sources_failed > 0)
+        else:
+            coverage["degraded"] = sources_failed > 0
+
+        try:
+            prior_brief = store.load_latest_brief()
+        except Exception as exc:
+            log.warning("Could not fetch prior brief for comparison (non-fatal): %s", exc)
+            prior_brief = None
+        comparison = None
+        try:
+            prior_top_events = (prior_brief or {}).get("top_events")
+            comparison = compute_comparison(top_events_dicts, prior_top_events)
+        except Exception as exc:
+            log.warning("Prior-brief comparison failed (non-fatal): %s", exc)
+
+        domain_picture = None
+        try:
+            domain_picture = compute_domain_picture(top_events_dicts)
+        except Exception as exc:
+            log.warning("Domain picture computation failed (non-fatal): %s", exc)
+
+        morning_cycle_id = cycle_status.cycle_id if cycle_status is not None else morning_cycle.cycle_id_for()
 
         # ── 9. Assemble brief ─────────────────────────────────────────────────
         brief_id = str(uuid.uuid4())
@@ -191,6 +246,11 @@ class BriefGenerator:
             provider_used=provider_used,
             confidence=confidence,
             trigger_type=self.trigger_type,
+            morning_cycle_id=morning_cycle_id,
+            coverage=coverage,
+            comparison=comparison,
+            domain_picture=domain_picture,
+            known_unknowns=known_unknowns,
         )
 
         # ── 10. Persist brief and link events ────────────────────────────────
@@ -199,8 +259,10 @@ class BriefGenerator:
             store.link_events_to_brief(persisted_ids[:events_included], saved_id)
 
         log.info(
-            "Brief %s generated: risk=%s, events=%d, narrative=%s, provider=%s",
-            brief_id[:8], overall_risk, events_included, llm_used, provider_used
+            "Brief %s generated: risk=%s, events=%d, narrative=%s, provider=%s, "
+            "cycle=%s, coverage_degraded=%s",
+            brief_id[:8], overall_risk, events_included, llm_used, provider_used,
+            morning_cycle_id, coverage.get("degraded"),
         )
         return brief
 
@@ -370,12 +432,13 @@ class BriefGenerator:
         sources_failed: int,
     ) -> tuple:
         """
-        Generate LLM narrative sections. Returns 7-tuple:
-        (snapshot, themes, forward_watch, cps230, bottom_line, llm_used, provider)
-        All sections default to None (not fabricated placeholders) if LLM unavailable.
+        Generate LLM narrative sections. Returns 8-tuple:
+        (snapshot, themes, forward_watch, cps230, bottom_line, known_unknowns,
+        llm_used, provider). All sections default to None (not fabricated
+        placeholders) if LLM unavailable.
         """
         if not top:
-            return None, None, None, None, None, False, None
+            return None, None, None, None, None, None, False, None
 
         event_summaries = "\n".join([
             f"- [{e.risk_rating}] {e.title} ({e.event_type}, {e.location}): {e.summary}"
@@ -404,7 +467,8 @@ Respond with a JSON object containing exactly these keys:
   "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],
   "forward_watch": ["<upcoming item to watch 1>", "<upcoming item to watch 2>"],
   "cps230_implications": ["<operational-resilience/regulatory implication, ONLY if these events actually touch Australian banking/CPS230 — empty list otherwise, do not force one>"],
-  "bottom_line": "<one paragraph, what Captain TJR should know today>"
+  "bottom_line": "<one paragraph, what Captain TJR should know today>",
+  "known_unknowns": ["<a genuine evidence gap or uncertainty about one of the TOP EVENTS above — e.g. unconfirmed reports, missing timestamps, conflicting sources. Empty list if there is nothing genuinely uncertain — do not invent a gap to fill this>"]
 }}
 
 Only use information from the TOP EVENTS provided. Do not invent incidents."""
@@ -412,7 +476,7 @@ Only use information from the TOP EVENTS provided. Do not invent incidents."""
         raw, provider = self.llm.generate(prompt)
 
         if not raw:
-            return None, None, None, None, None, False, None
+            return None, None, None, None, None, None, False, None
 
         try:
             import re, json
@@ -432,9 +496,10 @@ Only use information from the TOP EVENTS provided. Do not invent incidents."""
                 data.get("forward_watch"),
                 data.get("cps230_implications"),
                 data.get("bottom_line"),
+                data.get("known_unknowns"),
                 True,
                 provider,
             )
         except Exception as exc:
             log.warning("Failed to parse LLM JSON response: %s\nRaw: %s", exc, raw[:200])
-            return None, None, None, None, None, True, provider
+            return None, None, None, None, None, None, True, provider

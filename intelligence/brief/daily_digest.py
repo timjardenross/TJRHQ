@@ -1,32 +1,28 @@
 """
-Daily Digest — 2026-08-22. Combines the OSINT/world-news brief
-(intelligence/brief/brief_generator.py) with the platform's own multi-domain
-Captain Brief (core/platform/captain_brief_orchestrator.py) into one
-LLM-synthesized educational narrative.
+Daily Digest — platform-domain narrative for Telegram delivery.
 
-Two genuinely different inputs, kept parallel rather than merged into one
-pipeline:
-- World/OSINT events — intelligence_source_registry-backed, now broadened
-  past banking-only (see intelligence/classification/filter.py's 2026-08-22
-  _OR_SPECIFIC_MEDIA_CATEGORIES change). Already collected, classified,
-  ranked, and narrated by brief_generator.py; this module just reads its
-  persisted output.
-- The platform's own core_events (health/engineering/learning/opportunities/
-  operational_intelligence) — core/platform/event_bus.py's poll_events(),
-  the exact same call core/context-assembly/context_service.py's
-  /brief/full endpoint makes for the Captain's Brief Workbench. The
-  CVE-shaped classify/rank pipeline is the wrong shape for a health or
-  engineering event, so these are never forced through it — instead
-  reused verbatim via assemble_captain_brief_document(), the same
-  domain-grouping engine System B already runs.
+2026-09 (Briefs canonical uplift, Section 26): this module used to also
+blend the OSINT/world brief's own executive_snapshot/themes into this same
+LLM call — a second, independent re-synthesis of the canonical brief's
+content, which is exactly the "second interpretation of the same morning"
+BRIEFS_CANONICAL_UPLIFT.md eliminates. The OSINT/intelligence posture is now
+rendered deterministically from the canonical intelligence_briefs row (see
+intelligence/brief/render.py, used by captains_brief.py's
+generate_morning_brief() directly) and is no longer an input here.
 
-Persists nothing itself — brief_generator.py already persists its own
-OSINT ResilienceBrief row (auto-published, see
-intelligence/persistence/intelligence_store.py:save_brief()). This
-module's only job is the combined narrative text used for delivery
-(Telegram — see intelligence/captains_brief.py's generate_morning_brief()).
-Never raises — degrades to None on any failure so a caller's existing
-per-domain formatting still works.
+This module's only remaining job: synthesise the platform's own
+multi-domain events (health/engineering/learning/opportunities/
+operational_intelligence — core/platform/event_bus.py's poll_events(), the
+same call core/context-assembly/context_service.py's /brief/full endpoint
+makes for the Captain's Brief Workbench) plus individual HIGH/MEDIUM
+intelligence_events signals into one educational narrative. The CVE-shaped
+classify/rank pipeline is the wrong shape for a health or engineering
+event, so these are never forced through it — instead reused verbatim via
+assemble_captain_brief_document(), the same domain-grouping engine System B
+already runs.
+
+Persists nothing itself. Never raises — degrades to None on any failure so
+a caller's existing per-domain formatting still works.
 """
 
 from __future__ import annotations
@@ -127,16 +123,15 @@ def _format_signal_events(signals: list[dict]) -> str:
     return "Individual news signals (highest-ranked first):\n" + "\n".join(lines)
 
 
-def build_daily_digest(osint_brief: Optional[dict], hours: int = 24, signals: Optional[list[dict]] = None) -> Optional[str]:
+def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) -> Optional[str]:
     """
-    osint_brief: the latest row from intelligence_briefs (dict with
-    executive_snapshot/bottom_line/emerging_themes), or None if unavailable.
     signals: optional raw HIGH/MEDIUM intelligence_events (same shape as
     captains_brief.py's _get_recent_signals) to fold into the narrative
     instead of rendering as a separate raw headline-dump block.
-    Returns one educational narrative covering every domain actually
-    represented, or None if there's nothing to synthesise or the LLM chain
-    is unavailable. Never raises.
+    Returns one educational narrative covering every platform domain
+    actually represented, or None if there's nothing to synthesise or the
+    LLM chain is unavailable. Never raises. Does NOT cover the OSINT/world
+    intelligence picture — see this module's docstring.
     """
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
@@ -154,19 +149,9 @@ def build_daily_digest(osint_brief: Optional[dict], hours: int = 24, signals: Op
             log.warning("[daily_digest] assemble_captain_brief_document failed: %s", exc)
 
     domain_text = _format_domain_events(doc) if doc else ""
-
-    osint_text = ""
-    if osint_brief:
-        snap = osint_brief.get("executive_snapshot") or osint_brief.get("bottom_line") or ""
-        themes = osint_brief.get("emerging_themes") or []
-        if snap:
-            osint_text = f"World/OSINT summary: {snap}"
-            if themes:
-                osint_text += f"\nThemes: {', '.join(str(t) for t in themes[:5])}"
-
     signal_text = _format_signal_events(signals or [])
 
-    if not domain_text and not osint_text and not signal_text:
+    if not domain_text and not signal_text:
         return None
 
     prompt = (
@@ -176,7 +161,7 @@ def build_daily_digest(osint_brief: Optional[dict], hours: int = 24, signals: Op
         "present below; don't force a section for a domain with no input. If individual "
         "news signals are included, weave the notable ones into the narrative by what "
         "they mean for the Captain rather than listing them as a separate section.\n\n"
-        f"{osint_text}\n\n{signal_text}\n\n{domain_text}".strip()
+        f"{signal_text}\n\n{domain_text}".strip()
     )
 
     try:

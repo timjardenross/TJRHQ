@@ -916,6 +916,55 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
+def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
+    """Deterministic rendering of the canonical daily brief
+    (intelligence_briefs) — the ONE place this Telegram message decides
+    posture / what matters / what changed, built on the exact same
+    selection Captain's Chair's excerpt uses (Section 9/10/26/29 of
+    BRIEFS_CANONICAL_UPLIFT.md). No LLM re-synthesis, no independent
+    "overall picture" — everything below is copied or lightly truncated
+    from the stored brief."""
+    from intelligence.brief.render import RISK_LABEL, build_morning_intelligence_view
+
+    view = build_morning_intelligence_view(brief, max_items=3)
+    if not view["has_brief"]:
+        return [
+            "<b>📡 INTELLIGENCE POSTURE</b>",
+            "  Today's canonical brief has not been generated yet.",
+            "",
+        ]
+
+    lines = [
+        "<b>📡 INTELLIGENCE POSTURE</b>",
+        f"  Posture: <b>{RISK_LABEL.get(view['overall_risk'], view['overall_risk'])}</b>",
+    ]
+    if view["what_matters"]:
+        lines.append("  <b>What matters today</b>")
+        for i, item in enumerate(view["what_matters"], 1):
+            line = f"  {i}. {item['title']}"
+            if item.get("so_what"):
+                line += f" — {item['so_what']}"
+            lines.append(_truncate_clean(line, 260))
+    elif view["executive_read"]:
+        lines.append(f"  {_truncate_clean(view['executive_read'], 350)}")
+
+    if view["changed"]:
+        changed_bits = []
+        for label, key in (("New", "new"), ("Escalated", "escalated"), ("Improved", "improved")):
+            for title in view["changed"].get(key) or []:
+                changed_bits.append(f"{label}: {title}")
+        if changed_bits:
+            lines.append("  <b>Changed since yesterday</b>")
+            for bit in changed_bits[:5]:
+                lines.append(_truncate_clean(f"  - {bit}", 200))
+
+    if view["coverage_note"]:
+        lines.append(f"  <i>⚠️ {view['coverage_note']}</i>")
+
+    lines.append("")
+    return lines
+
+
 def generate_morning_brief() -> str:
     now = _now_aest()
     brief = _get_latest_ori_brief()
@@ -931,41 +980,39 @@ def generate_morning_brief() -> str:
 
     lines += _format_capacity_block(capacity)
 
-    # Daily digest — individual HIGH/MEDIUM news signals, platform events
-    # (engineering/learning/opportunities; health is already covered above),
-    # and the widened world/OSINT brief, synthesised into one educational
-    # narrative (Captain feedback 2026-08-26: one summary, not a raw
-    # headline-dump section plus a separate narrative section). Best-effort:
-    # LLM/event-bus unavailability falls back to the raw signal list (and
-    # then the bare ORI snapshot) rather than a silently empty brief.
+    # Intelligence posture — rendered deterministically from the canonical
+    # daily brief. This is the one place that decides posture/what-matters/
+    # what-changed for this message; Captain's Chair renders the same
+    # selection from the same brief (Section 26/29 of
+    # BRIEFS_CANONICAL_UPLIFT.md). No LLM re-synthesis of the OSINT picture
+    # happens here or in build_daily_digest() below.
+    lines += _format_intelligence_posture_block(brief)
+
+    # Daily digest — platform-only content now: individual HIGH/MEDIUM news
+    # signals plus platform events (health/engineering/learning/
+    # opportunities/operational_intelligence), synthesised into one
+    # educational narrative (Captain feedback 2026-08-26: one summary, not
+    # a raw headline-dump section plus a separate narrative section).
+    # Best-effort: LLM/event-bus unavailability falls back to the raw
+    # signal list rather than a silently empty section.
     digest_text = None
     if build_daily_digest is not None:
         try:
-            digest_text = build_daily_digest(brief, signals=signals)
+            digest_text = build_daily_digest(signals=signals)
         except Exception as exc:
             log.warning("Daily digest synthesis failed: %s", exc)
             digest_text = None
 
     if digest_text:
         lines += [
-            "<b>🌐 TODAY, EXPLAINED</b>",
+            "<b>🌐 PLATFORM, TODAY</b>",
             f"  {digest_text}",
             "",
         ]
     else:
-        signal_block = _format_signals_block(signals, "📡 INTELLIGENCE (24h)") if signals else []
+        signal_block = _format_signals_block(signals, "📡 OTHER SIGNALS (24h)") if signals else []
         if signal_block:
             lines += signal_block
-        elif brief:
-            snap = brief.get("executive_snapshot") or brief.get("bottom_line") or ""
-            if snap:
-                lines += [
-                    "<b>📡 INTELLIGENCE</b>",
-                    f"  {_truncate_clean(snap, 350)}",
-                    f"  <i>Risk: {brief.get('overall_risk', '?')}"
-                    f" · ORI brief {brief.get('period_end', '')}</i>",
-                    "",
-                ]
 
     # Platform self-health — only surfaced when something is actually
     # degraded; silence is a valid, positive state (per verification engine
