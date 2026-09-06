@@ -50,6 +50,17 @@ MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8080")
 # for the real cost math and which sources are approved to use this path.
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
 
+# 2026-09-06: a second, independently-billed Firecrawl account, provisioned
+# specifically because the first account's 850/1,000 safe ceiling was being
+# exhausted mid-billing-cycle by Downdetector's telecom polling. Optional —
+# leave unset and firecrawl_client.py behaves exactly as before (single
+# account, refuses once its ceiling is hit). When set, firecrawl_client.py
+# automatically fails over to this key once the primary account's ceiling is
+# reached, rather than refusing the call outright. See
+# intelligence/ingestion/external_fetch_budget.py's "firecrawl_2" provider
+# entry for its own independent budget tracking.
+FIRECRAWL_API_KEY_2 = os.getenv("FIRECRAWL_API_KEY_2", "")
+
 # Mistral Agents — daily digest pipeline (2026-08-22: expanded from 3 stages
 # to use more of the 8 already-provisioned agents; see
 # intelligence/brief/llm_provider.py's _mistral_pipeline for exact order).

@@ -125,6 +125,16 @@ class ProviderBudget:
 PROVIDERS: dict[str, ProviderBudget] = {
     "firecrawl":  ProviderBudget(cap=1000, ceiling=850,  anchor_day=9),
     "brightdata": ProviderBudget(cap=5000, ceiling=4500, anchor_day=1),
+    # 2026-09-06: the second Firecrawl account (FIRECRAWL_API_KEY_2,
+    # firecrawl_client.py's automatic failover target once the primary
+    # account's ceiling is hit). Tracked as its own independent provider key
+    # so usage against each account is counted separately — falling over to
+    # key 2 must never borrow against key 1's already-exhausted budget.
+    # Same Free-plan numbers assumed as key 1; anchor_day=9 is a placeholder
+    # until the second account's real billing-cycle start date is confirmed
+    # (it's a free plan, so this only affects which calendar dates the
+    # cycle boundary falls on, not whether the cap is enforced).
+    "firecrawl_2": ProviderBudget(cap=1000, ceiling=850, anchor_day=9),
 }
 
 
