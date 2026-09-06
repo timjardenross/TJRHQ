@@ -37,6 +37,13 @@ interface StageResult {
   label: string;
   tone: StageTone;
   detail: string;
+  // True only for the notObservable branch below: this stage isn't wired to
+  // any Phase 26 view yet, so its 'unknown' reflects a permanent
+  // instrumentation gap, not a live signal. worstStage() below must not let
+  // a stage like this force the whole pipeline (and therefore the
+  // capability) to read 'unknown' forever when everything actually
+  // observable is fine — see worstStage()'s doc comment.
+  structuralUnknown?: boolean;
 }
 
 /** Tri-state for one pipeline stage: 'crit' if a feeding job has failed,
@@ -58,7 +65,7 @@ function stageHealth(
     return { key, label, tone: 'crit', detail: `Feeding job "${failedJob.label}" is failing: ${failedJob.lastAction ?? 'no detail'}` };
   }
   if (notObservable) {
-    return { key, label, tone: 'unknown', detail: 'Not exposed by the Phase 26 observability views yet — job health only.' };
+    return { key, label, tone: 'unknown', detail: 'Not exposed by the Phase 26 observability views yet — job health only.', structuralUnknown: true };
   }
   if (discoveredToday === 0) {
     return { key, label, tone: 'unknown', detail: 'No items discovered today yet.' };
@@ -69,11 +76,22 @@ function stageHealth(
   return { key, label, tone: 'ok', detail: `${observedCount} today.` };
 }
 
-function worstStageTone(stages: StageResult[]): StageTone {
-  if (stages.some((s) => s.tone === 'crit')) return 'crit';
-  if (stages.some((s) => s.tone === 'warn')) return 'warn';
-  if (stages.some((s) => s.tone === 'unknown')) return 'unknown';
-  return 'ok';
+/** Worst stage across the pipeline, for both the aggregate tone and its
+ *  human-readable reason. Stages permanently pinned to 'unknown' by
+ *  structuralUnknown (Phase 26 doesn't instrument them yet) are excluded
+ *  from this verdict — they still render individually in the Pipeline
+ *  Health view, but must never be the reason Technical/Health Intelligence
+ *  reads "unknown" when every stage that IS observable is healthy. A
+ *  genuine "no data today" unknown (discoveredToday === 0) is a real signal
+ *  and still counts. Returns null when every relevant stage is 'ok'. */
+function worstStage(stages: StageResult[]): StageResult | null {
+  const relevant = stages.filter((s) => !(s.tone === 'unknown' && s.structuralUnknown));
+  return (
+    relevant.find((s) => s.tone === 'crit') ??
+    relevant.find((s) => s.tone === 'warn') ??
+    relevant.find((s) => s.tone === 'unknown') ??
+    null
+  );
 }
 
 function stageToneToCapabilitySignal(tone: StageTone, reason: string): { tone: CapabilityTone; reason: string } | null {
@@ -152,26 +170,30 @@ export async function GET() {
     // ── Capability posture (the interpreter) ──────────────────────────────
     let capabilities = computeCapabilities(jobs);
 
-    const techStageTone = worstStageTone(technicalStages);
+    const techWorst = worstStage(technicalStages);
+    const techStageTone: StageTone = techWorst?.tone ?? 'ok';
     const techSignal = stageToneToCapabilitySignal(
       techStageTone,
       techStageTone === 'crit' || techStageTone === 'warn'
-        ? `Technical OSINT pipeline stage issue: ${technicalStages.find((s) => s.tone === techStageTone)?.detail ?? 'see Sources tab.'}`
-        : techFailing > 0
-          ? `${techFailing} technical source${techFailing === 1 ? '' : 's'} failing.`
-          : 'No technical pipeline telemetry for today yet.',
+        ? `Technical OSINT pipeline stage issue: ${techWorst?.detail ?? 'see Sources tab.'}`
+        : techStageTone === 'unknown'
+          ? (techWorst?.detail ?? 'No technical pipeline telemetry for today yet.')
+          : techFailing > 0
+            ? `${techFailing} technical source${techFailing === 1 ? '' : 's'} failing.`
+            : 'No technical pipeline telemetry for today yet.',
     );
     if (techSignal) capabilities = applyCapabilitySignal(capabilities, 'technical_intelligence', techSignal);
     if (techFailing > 0) {
       capabilities = applyCapabilitySignal(capabilities, 'technical_intelligence', { tone: 'degraded', reason: `${techFailing} technical source${techFailing === 1 ? '' : 's'} failing.` });
     }
 
-    const healthStageTone = worstStageTone(healthStages);
+    const healthWorst = worstStage(healthStages);
+    const healthStageTone: StageTone = healthWorst?.tone ?? 'ok';
     const healthSignal = stageToneToCapabilitySignal(
       healthStageTone,
       healthStageTone === 'crit' || healthStageTone === 'warn'
-        ? `Health OSINT pipeline stage issue: ${healthStages.find((s) => s.tone === healthStageTone)?.detail ?? 'see Sources tab.'}`
-        : 'No health pipeline telemetry for today yet.',
+        ? `Health OSINT pipeline stage issue: ${healthWorst?.detail ?? 'see Sources tab.'}`
+        : healthWorst?.detail ?? 'No health pipeline telemetry for today yet.',
     );
     if (healthSignal) capabilities = applyCapabilitySignal(capabilities, 'health_intelligence', healthSignal);
     if (healthFailing > 0) {
