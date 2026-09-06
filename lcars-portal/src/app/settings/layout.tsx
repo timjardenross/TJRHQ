@@ -9,6 +9,14 @@ import { SettingsNav } from './_components/SettingsNav';
 // / How HQ works for you" frame and the responsive nav split (desktop
 // left rail via SettingsNav, mobile falls back to the list at
 // /settings — SettingsNav hides itself below lg).
+//
+// Deliberately NOT added to lib/workbenches.ts's LIVE_WORKBENCHES: mission
+// §2/§22 is explicit that Settings is platform chrome (reached via
+// Sidebar/WorkbenchShell's header icon, same tier as Home/Calendar/Help),
+// not a workbench — it must not show up as a tile on /workbenches or an
+// option in WorkbenchShell's persistent workbench switcher. See
+// tools/check_workbench_registry.py's _EXCLUDED_ROUTES for the
+// corresponding registry-gate exclusion.
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
     <WorkbenchShell
