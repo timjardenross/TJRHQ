@@ -214,7 +214,30 @@ def _get_knowledge_platform_summary() -> dict:
     }
 
 
-def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None) -> None:
+def _collection_coverage_caveat(domain_key: str) -> Optional[str]:
+    """HQ V1 Integration QA §21 (Deferred Gap I7): checks the feeding
+    collection job's own heartbeat (same domain_heartbeats_latest row HQ
+    Status already reads) so a brief's persisted coverage metadata can
+    distinguish "collection ran fine" from "collection lagged/failed
+    before this brief generated." Mirrors _health_osint_collector_caveat's
+    shape. Returns None (no caveat) when the job looks healthy or when
+    this check itself can't reach Supabase — never fabricates a claim
+    either way on an unreachable status check."""
+    rows = _sb_get(
+        "domain_heartbeats_latest",
+        f"domain_key=eq.{domain_key}&select=status,checked_at&limit=1",
+    )
+    if not rows:
+        return f"{domain_key} status could not be confirmed as of generation time"
+    if rows[0].get("status") == "failed":
+        return f"{domain_key} reported a failure before this brief generated — evidence may be incomplete"
+    return None
+
+
+def _persist_brief(
+    brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None,
+    evidence_window_hours: Optional[int] = None, collection_caveat: Optional[str] = None,
+) -> None:
     """Persist a generated brief to captains_daily_briefs for historical retrieval."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return
@@ -231,6 +254,8 @@ def _persist_brief(brief_type: str, text: str, signals_count: int = 0, health: O
         "brief_text":      text[:8000],
         "signals_count":   signals_count,
         "health_snapshot": health or {},
+        "evidence_window_hours": evidence_window_hours,
+        "collection_caveat":     collection_caveat,
     }).encode()
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
@@ -433,6 +458,29 @@ def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
         f"&select=title,health_domain,rank_score,confidence_level,collected_at,"
         f"health_source_registry(source_name)",
     )
+
+
+def _health_osint_collector_caveat() -> Optional[str]:
+    """HQ V1 Integration QA §21/§9 fix: a genuinely quiet health-OSINT week
+    and a week where the Sunday 02:00 health_osint_weekly_fetch collector
+    silently failed for all 7 days previously rendered identically in this
+    report ("No signals collected this week."). Checks the same
+    domain_heartbeats_latest row HQ Status already reads for this job —
+    no new signal source, just a read of one already-canonical row — and
+    returns a short caveat when there's positive evidence of trouble.
+    Returns None (no caveat added) when the collector looks healthy or
+    when this check itself can't reach Supabase — an unreachable status
+    check must not fabricate a claim of failure any more than of health."""
+    rows = _sb_get(
+        "domain_heartbeats_latest",
+        "domain_key=eq.health_osint_weekly_fetch&select=status,checked_at&limit=1",
+    )
+    if not rows:
+        return "collector status could not be confirmed this week — treat an empty section with that in mind"
+    status = rows[0].get("status")
+    if status == "failed":
+        return "the weekly collector reported a failure this week — this may be missing signals, not a genuinely quiet week"
+    return None
 
 
 def _get_weekly_content_activity(days: int = 7, limit: int = 8) -> list[dict]:
@@ -759,7 +807,7 @@ def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODA
 
 def _format_weekly_osint_block(
     title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
-    summary: Optional[str] = None, top_n: int = 3,
+    summary: Optional[str] = None, top_n: int = 3, empty_caveat: Optional[str] = None,
 ) -> list[str]:
     """Shared weekly OSINT roll-up renderer for generate_weekly_report() —
     same HIGH/MEDIUM/LOW bucketing each workbench's Intelligence Summary tab
@@ -773,9 +821,17 @@ def _format_weekly_osint_block(
     When `summary` is absent (LLM unavailable, or every provider failed),
     this falls back to the original raw severity-count + top-items display,
     which is the graceful-degradation path 2026-08-10's exec-summary change
-    is required to preserve."""
+    is required to preserve.
+
+    `empty_caveat` (HQ V1 Integration QA §21/§9): when supplied, appended
+    as an extra line so a silent collector failure never reads identically
+    to a genuinely quiet week — see _health_osint_collector_caveat()."""
     if not rows:
-        return [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week.", ""]
+        lines = [f"<b>{emoji} {title} — WEEKLY</b>", "  No signals collected this week."]
+        if empty_caveat:
+            lines.append(f"  <i>⚠ {empty_caveat}</i>")
+        lines.append("")
+        return lines
     counts = Counter((r.get(confidence_field) or "UNKNOWN").upper() for r in rows)
     unknown = len(rows) - counts.get("HIGH", 0) - counts.get("MEDIUM", 0) - counts.get("LOW", 0)
     severity_line = (
@@ -1119,7 +1175,7 @@ def generate_weekly_report() -> str:
     )
     lines += _format_weekly_osint_block(
         "HEALTH OSINT", "🩺", health_signals, "confidence_level", "title",
-        summary=health_summary,
+        summary=health_summary, empty_caveat=_health_osint_collector_caveat() if not health_signals else None,
     )
     lines += _format_weekly_content_block(content_items)
     lines += _format_weekly_capacity_block(capacity_entries)
@@ -1205,13 +1261,21 @@ def generate_weekly_debrief_digest() -> str:
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
     signals: list[dict] = []
+    evidence_window_hours: Optional[int] = None
+    collection_caveat: Optional[str] = None
     if brief_type == "morning":
         text = generate_morning_brief()
         # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal
         # signal fetch for display but doesn't return the count — re-fetch here
         # so the persisted signals_count reflects reality instead of always 0
         # (MSN-0338 §8 Gap #1).
-        signals = _get_recent_signals(hours=24)
+        evidence_window_hours = 24
+        signals = _get_recent_signals(hours=evidence_window_hours)
+        # HQ V1 Integration QA §21 (Deferred Gap I7): the morning brief is the
+        # artifact TJR actually reads first each day and the one flagged in
+        # that audit — check whether its feeding 06:00 collection job
+        # actually completed before this 07:00 generation.
+        collection_caveat = _collection_coverage_caveat("intelligence_collection")
     elif brief_type == "midday":
         signals = kwargs.get("signals", [])
         if not signals:
@@ -1220,10 +1284,12 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         text = generate_midday_update(signals)
     elif brief_type == "eod":
         text = generate_eod_summary()
-        signals = _get_recent_signals(hours=24)
+        evidence_window_hours = 24
+        signals = _get_recent_signals(hours=evidence_window_hours)
     elif brief_type == "weekly":
         text = generate_weekly_report()
-        signals = _get_recent_signals(hours=24 * 7)
+        evidence_window_hours = 24 * 7
+        signals = _get_recent_signals(hours=evidence_window_hours)
     elif brief_type == "knowledge_ops":
         text = generate_knowledge_ops_brief()
     elif brief_type == "weekly_debrief":
@@ -1231,7 +1297,10 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     else:
         log.error("Unknown brief type: %s", brief_type)
         return False
-    _persist_brief(brief_type, text, signals_count=len(signals), health=_get_capacity_today())
+    _persist_brief(
+        brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
+        evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
+    )
     return _send_telegram(text)
 
 
