@@ -121,6 +121,13 @@ _COMPANY_NAME_PATTERN = re.compile(
     r'font-medium">[^<]*</span>\s*with\s*<span class="font-medium">([^<]+)</span>',
 )
 
+# Diagnostic-only, for a total parse failure (neither pattern above matched):
+# the page <title> is often the single most telling thing in a block/
+# challenge page ('Just a moment...', 'Attention Required! | Cloudflare',
+# 'Access Denied') that a plain "page shape may have changed" error can't
+# distinguish from a genuine Downdetector layout change.
+_TITLE_PATTERN = re.compile(r"<title[^>]*>([^<]*)</title>", re.IGNORECASE)
+
 # Sector hint (drives which classifier-facing phrasing template is used —
 # see _build_item_text) keyed by the URL slug, not the display name, since
 # slugs are stable and already confirmed live. Matches the 19 sources this
@@ -229,7 +236,8 @@ class DowndetectorAdapter(BaseSourceAdapter):
         if status is None:
             raise RuntimeError(
                 f"Could not parse Downdetector status from {self.source.url} "
-                "(page shape may have changed)"
+                "(page shape may have changed) -- "
+                f"{_diagnostic_snippet(html)}"
             )
         if report_count is None:
             # 2026-08-13: only the prose fallback matched — no atomic report
@@ -478,6 +486,30 @@ def parse_status_and_count(html: str) -> tuple[Optional[str], Optional[int]]:
         return _normalise_tier(m2.group(1).lower()), None
 
     return None, None
+
+
+def _diagnostic_snippet(html: str, max_body_len: int = 300) -> str:
+    """Best-effort context attached to a total parse failure's error_message
+    (base_adapter.run() truncates the final exception string to 500 chars,
+    so this stays well inside that budget alongside the surrounding message
+    text). Surfaces the page <title> when present -- often the one thing
+    that immediately tells a genuine Downdetector layout change apart from
+    a CAPTCHA/interstitial/block page returned by a fetch path (e.g. Bright
+    Data's Web Unlocker) that wasn't actually unblocked -- plus a
+    whitespace-collapsed slice of the raw response as a fallback. Never
+    raises; a title-extraction failure just falls back to the body slice."""
+    if not html:
+        return "empty response body"
+
+    title_match = _TITLE_PATTERN.search(html)
+    title = title_match.group(1).strip() if title_match else None
+
+    collapsed = re.sub(r"\s+", " ", html).strip()
+    body_slice = collapsed[:max_body_len]
+
+    if title:
+        return f"title={title!r} body_start={body_slice!r}"
+    return f"body_start={body_slice!r}"
 
 
 def _normalise_tier(text: str) -> str:
