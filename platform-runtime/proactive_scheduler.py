@@ -220,7 +220,13 @@ def _format_brief(data: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def _check_health_logged_today() -> bool:
-    """Return True if a health check-in or recovery pulse exists for today."""
+    """Return True if a health check-in or capacity check-in exists for today.
+
+    recovery_confidence_today is a view over the retired recovery_pulses
+    table (zero writes since 2026-08-21) — capacity_checkins_today is the
+    live equivalent since the 2026-08-22 MY CAPACITY TODAY migration
+    (core/infrastructure/supabase/migrations/0150, 0181).
+    """
     try:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         from supabase_client import supabase_get, is_configured
@@ -230,8 +236,8 @@ def _check_health_logged_today() -> bool:
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
         if rows:
             return True
-        pulses = supabase_get("recovery_confidence_today?select=pulses_completed&limit=1")
-        return bool(pulses and pulses[0].get("pulses_completed", 0) > 0)
+        checkins = supabase_get("capacity_checkins_today?select=checkins_today&limit=1")
+        return bool(checkins and checkins[0].get("checkins_today", 0) > 0)
     except Exception:
         return False
 

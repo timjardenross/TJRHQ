@@ -438,13 +438,17 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
     try:
-        res = db.table("recovery_confidence_today").select("recovery_confidence,pulses_completed").execute()
+        # recovery_confidence_today is a view over the retired
+        # recovery_pulses table (zero writes since 2026-08-21) —
+        # capacity_checkins_today is the live equivalent since the
+        # 2026-08-22 MY CAPACITY TODAY migration (0150, 0181).
+        res = db.table("capacity_checkins_today").select("checkins_today,checkin_label").execute()
         row = res.data[0] if res.data else {}
-        conf   = row.get("recovery_confidence", 0)
-        pulses = row.get("pulses_completed", 0)
+        checkins = row.get("checkins_today", 0)
+        label    = row.get("checkin_label", "unknown")
         await update.message.reply_text(
             f"✅ *Supabase: connected*\n\n"
-            f"recovery\\_confidence\\_today: {conf}% · {pulses}/3 pulses",
+            f"capacity\\_checkins\\_today: {checkins} check\\-ins \\({_escape(str(label))}\\)",
             parse_mode="MarkdownV2",
         )
     except Exception as exc:

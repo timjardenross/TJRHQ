@@ -37,20 +37,28 @@ except ImportError:
 
 
 def _fetch_recovery_confidence_today() -> int | None:
-    """recovery_confidence_today.recovery_confidence — an aggregate 0-100
-    telemetry-completeness score ("what fraction of today's 3 Recovery Pulse
-    check-ins landed"), not the unpopulated per-pulse recovery_pulses.
-    confidence_score column (see operating_picture.py's own note on that
-    naming collision). Zero rows is the honest "no telemetry yet today"
-    case, not a fetch failure — both return None so the caller falls back
-    to the existing worst-case-confidence behaviour, which is correct in
-    both cases.
+    """Today's capacity-telemetry confidence, 0-100.
+
+    recovery_confidence_today (view over the retired recovery_pulses table)
+    has had zero real writes since 2026-08-21 — capacity_checkins_today is
+    the live equivalent since the 2026-08-22 MY CAPACITY TODAY migration
+    (core/infrastructure/supabase/migrations/0150, 0181). No fixed daily
+    quota exists under the free-form check-in model, so this collapses
+    honestly to a binary checked-in/not signal (100 if at least one
+    check-in landed today, else 0) rather than the old weighted
+    completeness percentage, whose inputs no longer exist. Zero rows is the
+    honest "no telemetry yet today" case, not a fetch failure — both return
+    None so the caller falls back to the existing worst-case-confidence
+    behaviour, which is correct in both cases.
     """
     if not (_SUPABASE_OK and is_configured()):
         return None
     try:
-        rows = supabase_get("recovery_confidence_today?select=recovery_confidence&limit=1")
-        return rows[0]["recovery_confidence"] if rows else None
+        rows = supabase_get("capacity_checkins_today?select=checkins_today&limit=1")
+        if not rows:
+            return None
+        checkins = rows[0].get("checkins_today", 0) or 0
+        return 100 if checkins > 0 else 0
     except Exception:
         return None
 

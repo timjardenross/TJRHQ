@@ -65,13 +65,21 @@ def _dispatch_check(slack_client: Any) -> None:
         return
 
     try:
-        result = db.raw_client.table("recovery_confidence_today").select("*").execute()
+        # recovery_confidence_today is a view over the retired
+        # recovery_pulses table (zero writes since 2026-08-21) —
+        # capacity_checkins_today is the live equivalent since the
+        # 2026-08-22 MY CAPACITY TODAY migration (0150, 0181). No fixed
+        # daily quota exists under the free-form check-in model, so
+        # "confidence" collapses honestly to a binary checked-in/not
+        # signal rather than the old weighted percentage.
+        result = db.raw_client.table("capacity_checkins_today").select("*").execute()
         if not result.data:
             return
-        row    = result.data[0]
-        conf   = row.get("recovery_confidence", 0)
-        pulses = row.get("pulses_completed", 0)
-        level  = _escalation_level(conf, pulses)
+        row      = result.data[0]
+        checkins = row.get("checkins_today", 0) or 0
+        conf     = 100 if checkins > 0 else 0
+        pulses   = checkins
+        level    = _escalation_level(conf, pulses)
     except Exception as exc:
         log.error("[recovery-scheduler] status fetch failed: %s", exc)
         return
@@ -91,18 +99,15 @@ def _dispatch_check(slack_client: Any) -> None:
     if level == 3:
         msg = (
             f":red_circle: *Recovery Officer — Critical Alert*\n\n"
-            f"No recovery pulses logged today ({today}).\n"
+            f"No capacity check-in logged today ({today}).\n"
             f"Confidence: `{bar}` 0%\n\n"
-            f"Log at least one pulse to restore telemetry baseline.\n"
-            f"</recovery-pulse|Log pulse now>"
+            f"Log a check-in via the XO Telegram bot to restore telemetry baseline."
         )
     else:
-        missing = row.get("pulses_missing", 0)
         msg = (
             f":large_orange_circle: *Recovery Officer — Confidence Low*\n\n"
-            f"Recovery confidence: `{bar}` {conf}%  ·  {pulses}/3 pulses\n"
-            f"{missing} pulse{'s' if missing != 1 else ''} remaining today.\n\n"
-            f"</recovery-pulse|Log a pulse>"
+            f"Recovery confidence: `{bar}` {conf}%  ·  {pulses} check-in(s) today\n\n"
+            f"Log a check-in via the XO Telegram bot when convenient."
         )
 
     try:

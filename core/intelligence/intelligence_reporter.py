@@ -167,15 +167,22 @@ def _fetch_todays_health_entry() -> dict[str, Any] | None:
         if rows:
             return rows[0]
 
-        # Fall back to today's recovery pulse telemetry when no captains_log_entries
-        # row exists — the Captain may have logged via /recovery_pulse instead.
-        pulses = supabase_get("recovery_confidence_today?select=*&limit=1")
-        if pulses and pulses[0].get("pulses_completed", 0) > 0:
-            row = pulses[0]
+        # Fall back to today's capacity check-in telemetry when no
+        # captains_log_entries row exists — the Captain may have logged via
+        # MY CAPACITY TODAY (Telegram capacitybot) instead.
+        # recovery_confidence_today (view over the retired recovery_pulses
+        # table) has had zero real writes since 2026-08-21 —
+        # capacity_checkins_today is the live equivalent since the
+        # 2026-08-22 MY CAPACITY TODAY migration (migrations 0150, 0181).
+        # latest_energy/latest_body_signals have no equivalent under the
+        # capacity_checkins model and are left None rather than guessed.
+        checkins = supabase_get("capacity_checkins_today?select=*&limit=1")
+        if checkins and checkins[0].get("checkins_today", 0) > 0:
+            row = checkins[0]
             return {
-                "energy": row.get("latest_energy"),
-                "nervous_system": row.get("latest_nervous_system"),
-                "body_signals": row.get("latest_body_signals"),
+                "energy": None,
+                "nervous_system": row.get("latest_regulation_state"),
+                "body_signals": None,
             }
         return None
     except Exception:
