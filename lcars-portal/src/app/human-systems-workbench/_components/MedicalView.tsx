@@ -66,6 +66,10 @@ export function CapacityConditionsSection({ data, defaultOpen = true }: { data: 
     .filter((d) => d.key !== 'sensory')
     .map((d) => ({ key: d.key, label: d.label, band: d.band, detail: d.value ?? 'Not recorded' }));
   const signals = [...domainSignals, ...data.recovery_conditions];
+  // Phase 5 (health-context reframe) — pain must not be read as a bare
+  // number implying "high pain = stop"; only add the context note when
+  // there's an actual pain-burden reading to ground it (band !== 'unknown').
+  const painSignal = signals.find((s) => s.key === 'pain_burden');
 
   return (
     <CollapsibleSection title="Capacity & Recovery Conditions" className="md:col-span-2" defaultOpen={defaultOpen}>
@@ -84,6 +88,14 @@ export function CapacityConditionsSection({ data, defaultOpen = true }: { data: 
           </div>
         ))}
       </div>
+
+      {painSignal && painSignal.band !== 'unknown' && (
+        <p className="mt-3 text-[12px] leading-relaxed text-wb-ink2">
+          Pain burden above reflects today relative to your own baseline, not an absolute severity score — it
+          interacts with sleep, executive function, and sensory load rather than acting alone, and reducing it
+          isn&rsquo;t the only path to a better day.
+        </p>
+      )}
 
       <div className="mt-4 rounded-md border border-wb-line bg-wb-bg p-3">
         <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
@@ -125,7 +137,9 @@ export function SensoryRegulationSection({ data, defaultOpen = true }: { data: M
     <CollapsibleSection title="Sensory & Regulation" className="md:col-span-2" defaultOpen={defaultOpen}>
       <p className="mb-3 text-[13px] text-wb-ink2">
         Detail underneath the Stimulation reading above — an optional deeper layer (V3 doc §10/§11), not asked
-        on every check-in, so it may be empty even on days with a lot recorded elsewhere.
+        on every check-in, so it may be empty even on days with a lot recorded elsewhere. These are accessibility
+        and environmental-fit signals, not symptoms to correct — a channel you reduce or avoid just means today&rsquo;s
+        environment isn&rsquo;t a good fit for it right now, not that anything is wrong with you.
       </p>
 
       <div className="rounded-md border border-wb-line bg-wb-bg p-3">

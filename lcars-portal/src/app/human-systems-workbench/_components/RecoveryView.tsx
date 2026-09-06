@@ -14,6 +14,7 @@ import {
   SYSTEM_TRAJECTORY_LABEL,
   systemTrajectoryStatus,
   USER_BURNOUT_FRAMING_LABEL,
+  type CapacityBalance,
   type CapacityExperiment,
   type InterventionEffectiveness,
   type RecoveryPayload,
@@ -186,7 +187,12 @@ export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
         </p>
       )}
 
+      {/* Phase 5 (health-context reframe) — "HQ observation" is labelled as
+          explicitly as "User framing" above it, so the two readings never
+          visually blur into one claim (V3 doc §5.1: "the system must never
+          silently convert its observation into a diagnosis"). */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[13px] font-medium text-wb-ink">HQ observation —</span>
         <Badge status={systemTrajectoryStatus(data.system_trajectory)}>
           {SYSTEM_TRAJECTORY_LABEL[data.system_trajectory]}
         </Badge>
@@ -213,6 +219,18 @@ export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
   );
 }
 
+/** Phase 5 (health-context reframe) — explicit "reduce demand" language for
+ *  TOO MUCH, not just "add more capacity/rest harder"; explicit "may not be
+ *  overload" language for NOT ENOUGH so under-stimulation reads as its own
+ *  distinct thing rather than a lesser version of TOO MUCH. Underlying
+ *  CapacityBalance classification (route.ts) is unchanged — copy only. */
+const CAPACITY_BALANCE_DETAIL: Record<CapacityBalance, string> = {
+  too_much: "the available responses include reducing what’s being asked of you today — not only pushing through it or resting harder once it's over.",
+  sustainable: 'capacity and what’s being asked of you are broadly matched right now.',
+  not_enough: 'capacity looks available — the gap may be under-stimulation rather than overload, so the right input can help as much as rest can.',
+  unknown: 'no data yet to read capacity against demand.',
+};
+
 /** ── CAPACITY BALANCE (spec §11) ── */
 export function CapacityBalanceCard({ data }: { data: RecoveryPayload }) {
   return (
@@ -231,13 +249,78 @@ export function CapacityBalanceCard({ data }: { data: RecoveryPayload }) {
           }`}
         />
       </div>
-      <p className="mt-3 text-[12px] text-wb-ink2">{CAPACITY_BALANCE_LABEL[data.capacity_balance]} — regulation may mean reducing input or adding the right input.</p>
+      <p className="mt-3 text-[12px] text-wb-ink2">
+        {CAPACITY_BALANCE_LABEL[data.capacity_balance]} — {CAPACITY_BALANCE_DETAIL[data.capacity_balance]}
+      </p>
     </Card>
   );
 }
 
+/** Phase 5 (health-context reframe) — qualitative cross-signal notes built
+ *  only from fields RecoveryPayload already carries (pain_state/pain_score,
+ *  executive_function, compensation_load, stimulation_state,
+ *  system_trajectory, capacity_balance, latest_capacity_state). Framed as
+ *  association/decision-support, never a stop/go verdict, a diagnosis, or a
+ *  fabricated combined score — each note only renders when its own real
+ *  signal(s) actually support it, so an ordinary day (all fields
+ *  null/typical) renders none of these. */
+function contributingContextNotes(data: RecoveryPayload): { key: string; title: string; text: string }[] {
+  const notes: { key: string; title: string; text: string }[] = [];
+
+  // Pain in context — pain_state already encodes current-vs-baseline
+  // (low/baseline/elevated/high); never shown as a bare number implying
+  // "high pain = stop". Paired with executive function / stimulation
+  // rather than shown in isolation, where those signals are also present.
+  if (data.pain_state === 'elevated' || data.pain_state === 'high') {
+    const efNote = data.executive_function === 'difficult' || data.executive_function === 'very_difficult'
+      ? ' Executive function is also reading as harder than usual today — these often move together without one necessarily causing the other.'
+      : '';
+    const stimNote = data.stimulation_state === 'high'
+      ? ' Stimulation is also reading high, which can make pain feel more prominent without pain itself having changed.'
+      : '';
+    notes.push({
+      key: 'pain',
+      title: 'Pain in Context',
+      text: `Pain is reading ${data.pain_state} relative to your own baseline today${data.pain_score != null ? ` (${data.pain_score}/10)` : ''}. This is one input among several, not a standalone stop/go signal.${efNote}${stimNote}`,
+    });
+  }
+
+  // Compensation / masking — elevated from a minor tile to a real
+  // interpretive line, only when high compensation shows up alongside a
+  // capacity reading that isn't itself high.
+  const highCompensation = data.compensation_load === 'high' || data.compensation_load === 'extreme';
+  const capacityNotHigh = data.latest_capacity_state === 'orange' || data.latest_capacity_state === 'red' || data.capacity_balance === 'too_much';
+  if (highCompensation && capacityNotHigh) {
+    notes.push({
+      key: 'compensation',
+      title: 'Compensation / Masking',
+      text: 'You may be maintaining more output than today’s accessible capacity would normally support, which may increase later recovery requirement.',
+    });
+  }
+
+  // Recovery Cost — a qualitative combination of existing negative signals
+  // only, never a fabricated numeric score. Decision support, not a hard
+  // block on acting.
+  const negativeSignalCount = [
+    data.stimulation_state === 'high',
+    data.pain_state === 'elevated' || data.pain_state === 'high',
+    data.system_trajectory === 'sustained_high_strain' || data.system_trajectory === 'burnout_like_depletion',
+    highCompensation,
+  ].filter(Boolean).length;
+  if (negativeSignalCount >= 3) {
+    notes.push({
+      key: 'recovery-cost',
+      title: 'Recovery Cost',
+      text: 'Several signals are pointing the same way today — sensory load, pain, strain, and/or compensation. Pushing through everything on the list today may cost more to recover from than usual. This is decision support, not a rule against acting.',
+    });
+  }
+
+  return notes;
+}
+
 /** ── WHAT IS DRIVING IT (spec §7) ── */
 export function WhatIsDrivingItCard({ data }: { data: RecoveryPayload }) {
+  const contextNotes = contributingContextNotes(data);
   return (
     <Card title="What Is Driving It">
       {data.active_loads_today.length === 0 ? (
@@ -248,6 +331,16 @@ export function WhatIsDrivingItCard({ data }: { data: RecoveryPayload }) {
             <Badge key={l.label} status={i === 0 ? 'warning' : 'neutral'}>
               {l.label} · {l.count}/{data.checkins_today || l.count}
             </Badge>
+          ))}
+        </div>
+      )}
+      {contextNotes.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          {contextNotes.map((n) => (
+            <div key={n.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">{n.title}</div>
+              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{n.text}</p>
+            </div>
           ))}
         </div>
       )}
@@ -318,7 +411,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
   const changedExperiment = data.experiments.find((e) => (e.status === 'completed' || e.status === 'stopped') && e.result) ?? null;
 
   return (
-    <CollapsibleSection title="System Learning" className={className}>
+    <CollapsibleSection title="Patterns" className={className}>
       <div className="flex flex-col gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>

@@ -47,7 +47,7 @@ import { useRouter } from 'next/navigation';
 import { WorkbenchShell } from '@/components/ui';
 import { NowView } from './_components/NowView';
 import { PatternsView } from './_components/PatternsView';
-import { WhatHelpsMeCard } from './_components/WhatHelpsMeCard';
+import { WhatHelpsView } from './_components/WhatHelpsView';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 import type { MedicalPayload, RecoveryPayload } from './_components/types';
 
@@ -167,8 +167,8 @@ function Workbench() {
       {data?.recovery && (
         <>
           {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'what-helps' && <WhatHelpsMeCard data={data.medical?.intervention_effectiveness ?? []} />}
-          {tab === 'patterns' && <PatternsView recovery={data.recovery} />}
+          {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
+          {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
         </>
       )}
 
