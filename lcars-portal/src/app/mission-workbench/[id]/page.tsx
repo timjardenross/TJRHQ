@@ -17,7 +17,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
 import { WorkbenchShell } from '@/components/ui';
 import { STATUS_OPTIONS, statusToBadge, fmtDate } from '../_components/shared';
@@ -164,12 +163,6 @@ export default function MissionWorkbenchDetailPage() {
             {mission.outcome_rating != null && <Field label="Outcome Rating" value={String(mission.outcome_rating)} />}
             {mission.rework_of && <Field label="Rework Of" value={mission.rework_of} />}
           </div>
-          <Link
-            href={`/comms-studio?type=mission_report&refId=${encodeURIComponent(mission.mission_id)}`}
-            className="mt-4 inline-block text-[12px] text-wb-sage-deep underline underline-offset-2 hover:text-wb-ink"
-          >
-            Draft a Mission Report →
-          </Link>
         </Card>
 
         {(mission.repo || mission.branch_name || mission.pr_url) && (

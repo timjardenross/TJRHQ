@@ -335,6 +335,7 @@ export default function CaptainsChairWorkbench() {
               emergencyCount: emergency?.count ?? 0,
               emergencyWorstHeadline: emergency?.worstHeadline ?? null,
               emergencyTone: emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok',
+              emergencyFreshness: emergency?.freshness ?? 'stale',
               topOsintSignal: snapshot.topOsintSignal,
               agentFailedCount: agentHealth?.failedCount ?? 0,
               agentWorstLabel: agentHealth?.worstLabel ?? null,

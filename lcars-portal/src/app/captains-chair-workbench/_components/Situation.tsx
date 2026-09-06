@@ -41,6 +41,10 @@ export interface SituationInputs {
   emergencyCount: number;
   emergencyWorstHeadline: string | null;
   emergencyTone: StateTone;
+  /** HQ V1 Integration QA §24: 'stale' means the last successful collection
+   *  cycle is older than the Hub's own staleness threshold — surfaced so
+   *  "Clear" is never confused with "we stopped checking a while ago." */
+  emergencyFreshness: 'fresh' | 'stale';
   topOsintSignal: { title: string; risk_rating: string } | null;
   agentFailedCount: number;
   agentWorstLabel: string | null;
@@ -64,6 +68,9 @@ export function Situation({ data, loading }: { data: SituationInputs; loading: b
   const environmentLines = data.emergencyCount > 0
     ? [`${data.emergencyCount} active alert${data.emergencyCount === 1 ? '' : 's'}`, ...(data.emergencyWorstHeadline ? [data.emergencyWorstHeadline] : [])]
     : ['Clear — no relevant local alerts'];
+  if (data.emergencyFreshness === 'stale') {
+    environmentLines.push('Last check is overdue — may not reflect the latest alerts');
+  }
 
   const systemsLines = data.agentFailedCount > 0
     ? [`${data.agentFailedCount} degraded`, ...(data.agentWorstLabel ? [data.agentWorstLabel] : [])]

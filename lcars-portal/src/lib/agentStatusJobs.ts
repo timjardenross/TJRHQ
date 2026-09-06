@@ -129,14 +129,32 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'content_pipeline', label: 'Content Pipeline', domain: 'intelligence', cadenceLabel: 'Daily · 06:15', capability: 'content_workbench', criticality: 'supporting' },
   { domainKey: 'content_intelligence', label: 'Content Draft Worker', domain: 'platform', cadenceLabel: 'Every ~30min', capability: 'content_workbench', criticality: 'supporting' },
   { domainKey: 'pending_research_sweep', label: 'Pending Research Sweep', domain: 'intelligence', cadenceLabel: 'Every 5min', capability: 'technical_intelligence', criticality: 'background' },
+  // HQ V1 Integration QA §25 registry-drift fix: live cron job
+  // (intelligence/scheduler.py, CronTrigger Sunday 03:00, migration 0162)
+  // with a live heartbeat call site, never added here.
+  { domainKey: 'episodic_memory_decay', label: 'Episodic Memory Decay', domain: 'platform', cadenceLabel: 'Weekly · Sun 03:00', capability: 'platform_core', criticality: 'background' },
   { domainKey: 'intraday_media_collection', label: 'Intraday Media Collection', domain: 'intelligence', cadenceLabel: 'Every 90min', capability: 'technical_intelligence', criticality: 'supporting' },
-  { domainKey: 'self_improvement_cycle', label: 'HQ Evolution — Self-Improvement Cycle', domain: 'platform', cadenceLabel: 'Daily · ~07:00', capability: 'hq_evolution', criticality: 'important' },
+  // Legacy self-improvement orchestrator (scripts/self_improvement/
+  // orchestrator.py, self-improving-system.timer). Distinct from
+  // hq_evolution_cycle below (evolution_orchestrator.py, hq-evolution.timer)
+  // despite the similar-sounding label — label kept for backward
+  // compatibility with 0180's registry row, not a duplicate of the job below.
+  { domainKey: 'self_improvement_cycle', label: 'Self-Improvement Cycle (legacy orchestrator)', domain: 'platform', cadenceLabel: 'Daily · ~07:00', capability: 'hq_evolution', criticality: 'important' },
+  // HQ V1 Integration QA §25 registry-drift fix: evolution_orchestrator.py
+  // (deploy/hq-evolution.timer, daily 03:00) has heartbeated since migration
+  // 0192 seeded its domain_registry row, but was never added here — HQ
+  // Status could never show this job's health.
+  { domainKey: 'hq_evolution_cycle', label: 'HQ Evolution Cycle', domain: 'platform', cadenceLabel: 'Daily · ~03:00', capability: 'hq_evolution', criticality: 'important' },
   // Registered late (2026-09-06 registry-drift audit): confirmed live via
   // record_heartbeat() call sites in core/coordination/delivery_reconciler.py
   // and core/health/weekly_synthesis.py respectively — both write heartbeats
   // today but had never been added to this hand-maintained list.
   { domainKey: 'engineering_handoff', label: 'Engineering Handoff Reconciler', domain: 'platform', cadenceLabel: 'Every 15min', capability: 'platform_core', criticality: 'supporting' },
-  { domainKey: 'weekly_health_synthesis', label: 'Weekly Health Synthesis', domain: 'health', cadenceLabel: 'Weekly · Sat 08:00', capability: 'health_intelligence', criticality: 'supporting' },
+  // HQ V1 Integration QA §25 fix: actual trigger is deploy/health-
+  // intelligence-weekly.timer (OnCalendar=Mon *-*-* 04:00:00) — the prior
+  // 'Sat 08:00' label didn't match any real timer and would read a
+  // genuinely-overdue job as "just waiting for Saturday."
+  { domainKey: 'weekly_health_synthesis', label: 'Weekly Health Synthesis', domain: 'health', cadenceLabel: 'Weekly · Mon 04:00', capability: 'health_intelligence', criticality: 'supporting' },
   // Emergency Alert Hub (migration 0174, intelligence/emergency_alerts.py) ──
   { domainKey: 'emergency_alert_nsw_rfs', label: 'Emergency Alert Hub — NSW RFS', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'critical' },
   { domainKey: 'emergency_alert_vic', label: 'Emergency Alert Hub — VicEmergency', domain: 'emergency-alerts', cadenceLabel: 'Every 15min', capability: 'emergency_monitoring', criticality: 'critical' },

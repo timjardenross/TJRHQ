@@ -253,7 +253,7 @@ async function reviewBriefs(sb: SB, since: string): Promise<WorkbenchSection> {
   };
 }
 
-// ── Agent & Job Status ────────────────────────────────────────────────────────
+// ── HQ Status ──────────────────────────────────────────────────────────────────
 // Sources: domain_heartbeat_latest (view), domain_heartbeats (failure history).
 async function reviewAgentStatus(sb: SB, since: string): Promise<WorkbenchSection> {
   const [stale, neverSucceeded, failuresThisWeek] = await Promise.all([
@@ -267,7 +267,7 @@ async function reviewAgentStatus(sb: SB, since: string): Promise<WorkbenchSectio
   const repeated = Array.from(failCounts.entries()).filter(([, n]) => n >= 2);
 
   return {
-    key: 'agent-status', title: 'Agent & Job Status', href: '/agent-status-workbench',
+    key: 'agent-status', title: 'HQ Status', href: '/agent-status-workbench',
     signals: [
       signal('stale', 'Stale schedules (automation drift)', stale.rows.map((r) => ({ id: r.domain_key, title: r.domain_key, meta: r.last_status ?? undefined })), 'warn', stale.unavailable),
       signal('never', 'Never succeeded (needs escalation)', neverSucceeded.rows.map((r) => ({ id: r.domain_key, title: r.domain_key })), 'crit', neverSucceeded.unavailable),
