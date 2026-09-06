@@ -190,7 +190,7 @@ async function reviewAdvisory(sb: SB, since: string): Promise<WorkbenchSection> 
   });
 
   return {
-    key: 'advisory', title: 'Advisory Workbench', href: '/advisory-workbench',
+    key: 'advisory', title: 'Advisory', href: '/advisory-workbench',
     signals: [
       signal('sessions', 'Questions posed this week', rows.map((r) => ({ id: r.id, title: r.question, meta: r.mode })), 'neutral', unavailable),
       signal('carry-forward', 'Flagged for follow-up', carryForward.map((r) => ({ id: r.id, title: r.question })), 'warn', unavailable),

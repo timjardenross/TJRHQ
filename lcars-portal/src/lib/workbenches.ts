@@ -114,8 +114,8 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   },
   {
     href: '/advisory-workbench',
-    title: 'Advisory Workbench',
-    description: 'Consult officer advisors, convene the strategic Board, and hear distinguished perspectives - one advisory brain across surfaces.',
+    title: 'Advisory',
+    description: 'Decision support — think through a question, challenge assumptions, explore perspectives, and learn from what happened.',
     icon: MessageSquare,
   },
   {

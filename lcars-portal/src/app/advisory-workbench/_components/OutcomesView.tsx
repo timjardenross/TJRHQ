@@ -1,8 +1,17 @@
 'use client';
 
-// Open Advisory Loops — close out advice sessions that have no recorded outcome.
-// Reads GET /api/advisory/loops (open ADV-*.json records).
-// Closes via POST /api/advisory { action: "outcome", advisoryId, outcome, note }.
+// Outcomes (renamed from Close Out, mission §13-14) — "Help HQ learn what
+// actually happened." Reads GET /api/advisory/loops (open ADV-*.json
+// records, unchanged). Closes via POST /api/advisory { action: "outcome",
+// advisoryId, outcome, note } — "Worked well"/"Partly"/"Didn't work" map
+// straight onto the existing success/partial/failure values; the note is
+// the same free-text field, now framed as "What did HQ miss?"
+//
+// "What HQ has learned" is new: it reads the existing, unit-testable
+// calibration engine (core/advisory/calibration.py::calibration_report(),
+// via action:"calibration") and shows a pattern ONLY when sufficient_data is
+// true — never fabricated, never inferred from a handful of outcomes.
+// Recording an outcome grants no authority; it only feeds calibration.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Panel } from './shared';
@@ -18,6 +27,15 @@ interface Loop {
   decision_mode?: string;
 }
 
+interface OfficerRankEntry { officer: string; accuracy: number | null; samples: number }
+interface CalibrationReport {
+  total_outcomes: number;
+  overall_accuracy: number | null;
+  officer_ranking: OfficerRankEntry[];
+  confidence_alignment?: { aligned: boolean | null; by_band?: Record<string, { samples: number; success_rate: number | null }> };
+  sufficient_data: boolean;
+}
+
 type OutcomeValue = 'success' | 'partial' | 'failure';
 
 // Migrated onto the canonical stateToneClasses tone system (2026-08-29 —
@@ -25,9 +43,9 @@ type OutcomeValue = 'success' | 'partial' | 'failure';
 // severity-vocab-sprawl finding) instead of its own hand-rolled style
 // strings: success/partial/failure map onto ok/warn/crit exactly.
 const OUTCOME_OPTS: { value: OutcomeValue; label: string; tone: 'ok' | 'warn' | 'crit' }[] = [
-  { value: 'success',  label: '✓ Success',  tone: 'ok' },
-  { value: 'partial',  label: '~ Partial',   tone: 'warn' },
-  { value: 'failure',  label: '✗ Failure',   tone: 'crit' },
+  { value: 'success',  label: '✓ Worked well', tone: 'ok' },
+  { value: 'partial',  label: '~ Partly',       tone: 'warn' },
+  { value: 'failure',  label: '✗ Didn’t work', tone: 'crit' },
 ];
 
 // Written as literal strings (not composed from stateToneClasses' return
@@ -46,7 +64,48 @@ function fmt(iso: string) {
   catch { return iso; }
 }
 
-export function LoopsView() {
+function WhatHqHasLearned() {
+  const [report, setReport] = useState<CalibrationReport | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }) })
+      .then((r) => r.json())
+      .then((d: { result?: CalibrationReport }) => setReport(d.result ?? (d as unknown as CalibrationReport)))
+      .catch(() => { /* calibration is best-effort */ });
+  }, []);
+
+  if (!report || !report.sufficient_data) return null;
+  const top = report.officer_ranking.find((o) => o.samples >= 3 && o.accuracy !== null);
+  if (!top) return null;
+
+  return (
+    <div className="space-y-2 rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/5 px-4 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
+      <p className="text-sm text-wb-ink">
+        {top.officer} has tracked well across recorded outcomes ({Math.round((top.accuracy ?? 0) * 100)}% success).
+      </p>
+      <p className="text-[11px] text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
+      <button onClick={() => setShowEvidence((v) => !v)}
+        className="text-[10px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+        {showEvidence ? '▲ Hide evidence' : '▼ See evidence'}
+      </button>
+      {showEvidence && (
+        <ul className="space-y-1 border-t border-wb-sage-deep/20 pt-2">
+          {report.officer_ranking.filter((o) => o.samples >= 1).slice(0, 8).map((o) => (
+            <li key={o.officer} className="flex justify-between text-[11px] text-wb-ink/80">
+              <span>{o.officer}</span>
+              <span className="text-wb-ink2">{o.accuracy !== null ? `${Math.round(o.accuracy * 100)}%` : '—'} ({o.samples})</span>
+            </li>
+          ))}
+          <li className="pt-1 text-[10px] text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function OutcomesView() {
   const [loops, setLoops] = useState<Loop[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,19 +153,23 @@ export function LoopsView() {
 
   if (loading) {
     return (
-      <Panel title="Open Advisory Loops">
+      <Panel title="Outcomes">
         <p className="text-sm text-wb-ink2">Loading…</p>
       </Panel>
     );
   }
 
   return (
-    <Panel title="Open Advisory Loops">
+    <Panel title="Outcomes">
       <div className="space-y-4">
+        <p className="text-sm text-wb-ink">Help HQ learn what actually happened.</p>
+
+        <WhatHqHasLearned />
+
         {closedCount > 0 && (
           <div className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/5 px-4 py-2.5">
             <p className="text-xs text-wb-sage-deep">
-              {closedCount} loop{closedCount !== 1 ? 's' : ''} closed this session.
+              {closedCount} outcome{closedCount !== 1 ? 's' : ''} recorded this session.
             </p>
           </div>
         )}
@@ -117,10 +180,12 @@ export function LoopsView() {
           </div>
         )}
 
+        <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
+
         {visible.length === 0 && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-10 text-center">
             <p className="text-sm text-wb-ink2">
-              {loops.length === 0 ? 'No open advisory loops — all advice has recorded outcomes.' : 'All open loops closed.'}
+              {loops.length === 0 ? 'No advice is waiting on an outcome — everything has one recorded.' : 'All open advice has an outcome recorded.'}
             </p>
           </div>
         )}
@@ -147,7 +212,7 @@ export function LoopsView() {
                   </div>
                 )}
                 <div>
-                  <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Note (optional)</p>
+                  <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
                   <input
                     type="text"
                     value={notes[loop.advisory_id] ?? ''}
@@ -181,7 +246,7 @@ export function LoopsView() {
         })}
 
         <p className="text-[10px] text-wb-ink2">
-          {visible.length} open loop{visible.length !== 1 ? 's' : ''} · Closing improves advisory calibration.
+          {visible.length} awaiting an outcome · Recording improves advisory calibration. This grants no authority — you decide what happens next.
         </p>
       </div>
     </Panel>

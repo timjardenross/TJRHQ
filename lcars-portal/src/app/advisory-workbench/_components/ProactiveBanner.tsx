@@ -1,13 +1,17 @@
 'use client';
 
-// Ported from the legacy Advisory Council ProactiveSignalsBanner (MSN-0206).
-// Best-effort: POST /api/advisory {action:proactive}; shows nothing unless
-// there are triggers or attention_required. Skin only.
+// Proactive advisory (mission §17) — simplified from a raw trigger dump to
+// "Something worth considering". Still POST /api/advisory {action:proactive}
+// (core/advisory/proactive.py — confidence/outcome decline, escalation risk,
+// repeated blockers, capacity overload, health deterioration, opportunities)
+// and still NOTICES, DOES NOT ACT: no task/Mission is created, no action is
+// dispatched. "Think it through" only prefills Think's input — the user
+// still has to ask.
 
 import { useEffect, useState } from 'react';
 import type { AdvisoryResult } from './types';
 
-export function ProactiveBanner() {
+export function ProactiveBanner({ onThinkItThrough }: { onThinkItThrough: (text: string) => void }) {
   const [signals, setSignals] = useState<{ headline?: string; triggers?: unknown[]; attention_required?: boolean } | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -34,6 +38,7 @@ export function ProactiveBanner() {
   const triggerList = rawTriggers.map((t) =>
     typeof t === 'string' ? t : (t.message ?? t.trigger_type ?? String(t))
   );
+  const observation = signals.headline || triggerList[0] || 'Something in your advisory history may be worth a closer look.';
 
   return (
     <div className={`flex items-start gap-3 rounded-md border px-3 py-2.5 text-sm ${isUrgent ? 'border-wb-warn/50 bg-wb-warn/10' : 'border-wb-sage-deep/30 bg-wb-sage-deep/5'}`}>
@@ -41,17 +46,22 @@ export function ProactiveBanner() {
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="min-w-0 flex-1">
-        {signals.headline && (
-          <p className={`text-xs font-semibold ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>{signals.headline}</p>
-        )}
-        {triggerList.length > 0 && (
-          <p className="mt-0.5 text-[11px] text-wb-ink2">{triggerList.slice(0, 2).join(' · ')}{triggerList.length > 2 ? ` +${triggerList.length - 2} more` : ''}</p>
+        <p className={`text-[10px] font-semibold uppercase tracking-[0.15em] ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>Something worth considering</p>
+        <p className="mt-0.5 text-[13px] text-wb-ink">{observation}</p>
+        {triggerList.length > 1 && (
+          <p className="mt-0.5 text-[11px] text-wb-ink2">{triggerList.slice(1, 3).join(' · ')}{triggerList.length > 3 ? ` +${triggerList.length - 3} more` : ''}</p>
         )}
       </div>
-      <button onClick={() => setDismissed(true)}
-        className="shrink-0 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-        Dismiss
-      </button>
+      <div className="flex shrink-0 items-center gap-3">
+        <button onClick={() => { onThinkItThrough(observation); setDismissed(true); }}
+          className="text-[10px] font-semibold uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          Think it through
+        </button>
+        <button onClick={() => setDismissed(true)}
+          className="text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          Not useful
+        </button>
+      </div>
     </div>
   );
 }
