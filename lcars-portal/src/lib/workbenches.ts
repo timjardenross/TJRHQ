@@ -103,7 +103,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   {
     href: '/physical-readiness',
     title: 'Physical Readiness',
-    description: 'Adaptive gym decision-support - builds a safe session from the equipment on hand, plus exercise library and workout history.',
+    description: 'Exercise library and workout history — a read-only record of what you\'ve done. Session generation and readiness check-in were retired (Captain directive, 2026-08-10/11); Recovery Pulse is the single source for capacity/stats now.',
     icon: Dumbbell,
   },
   {
