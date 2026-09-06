@@ -7,9 +7,10 @@
 
 import Link from 'next/link';
 import { WorkbenchPanel } from '@/components/WorkbenchPanel';
-import { stateToneClasses, capacityStateToTone } from '@/lib/departments';
-import { CAPACITY_STATE_LABEL, RISK_STATE_TONE } from '@/lib/captainsChairData';
+import { stateToneClasses } from '@/lib/departments';
+import { CAPACITY_STATE_LABEL, RISK_STATE_TONE, SYSTEM_POSTURE_STATE_TONE } from '@/lib/captainsChairData';
 import type { StateTone } from '@/lib/types';
+import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 
 interface SituationDomainProps {
   title: string;
@@ -35,8 +36,13 @@ function SituationDomain({ title, lines, tone, href, linkLabel }: SituationDomai
 }
 
 export interface SituationInputs {
-  capacityState: string | null;
+  /** Canonical Human Systems assessed context (assessed-context.ts) — never
+   *  a mock/RPC-derived posture. `null` availableCapacity or hasCheckinToken
+   *  === false must read as "no data", not a fabricated band. */
+  availableCapacity: 'green' | 'orange' | 'red' | 'unknown';
+  posture: SystemPostureBand;
   postureMessage: string | null;
+  hasCheckinToday: boolean;
   topHealthSignal: { title: string; severity: string } | null;
   emergencyCount: number;
   emergencyWorstHeadline: string | null;
@@ -56,7 +62,9 @@ export function Situation({ data, loading }: { data: SituationInputs; loading: b
   }
 
   const personalLines = [
-    data.capacityState ? (CAPACITY_STATE_LABEL[data.capacityState] ?? data.capacityState) : 'No data',
+    data.hasCheckinToday
+      ? (CAPACITY_STATE_LABEL[data.availableCapacity] ?? data.availableCapacity)
+      : 'No check-in today',
     ...(data.postureMessage ? [data.postureMessage] : []),
     ...(data.topHealthSignal ? [`${data.topHealthSignal.title} (${data.topHealthSignal.severity})`] : []),
   ];
@@ -83,7 +91,7 @@ export function Situation({ data, loading }: { data: SituationInputs; loading: b
         <SituationDomain
           title="Personal"
           lines={personalLines}
-          tone={capacityStateToTone(data.capacityState)}
+          tone={SYSTEM_POSTURE_STATE_TONE[data.posture]}
           href="/human-systems-workbench"
           linkLabel="Human Systems"
         />

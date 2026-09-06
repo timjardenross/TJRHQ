@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
-import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
 import {
   RISK_STATE_TONE,
+  SYSTEM_POSTURE_STATE_TONE,
+  useHumanSystemsContext,
   useOperationalRisk,
   useEmergencyAlerts,
   useAgentHealth,
@@ -34,9 +35,14 @@ import { CaptainsLog } from './_components/CaptainsLog';
 // - Command Status's interpretation sentence is TEMPLATE-based
 //   (captainsChairSynthesis.ts), not LLM-generated — must render
 //   instantly, zero network dependency, unlike Captain's Brief below it.
-// - useROSData().guidance (mockGuidance array) is still hardcoded mock —
-//   never surface it as if real. posture.posture_message/mission_guidance
-//   from the RPC ARE real; captainsChairSynthesis.ts only uses those.
+// - Command-Experience correctness repair (P0, 2026-09-06): this page used
+//   to read posture/capacity from useROSData() (the retired get_recovery_
+//   posture() RPC, `?? mockPosture` fallback) — a day with no check-in
+//   rendered a fabricated STABLE/MODERATE sentence. It now reads
+//   useHumanSystemsContext() (/api/human-systems/context), the same
+//   canonical assessed-context.ts boundary Ready Room and Weekly Review
+//   already consume. No mock fallback exists on this path — "no check-in
+//   today" surfaces honestly as posture UNKNOWN.
 // - /api/captain-brief (useTodaysBriefing) is a known-fragile source
 //   (external context-service process, documented prior silent-breakage
 //   on Vercel) — its confidence/priorities/warnings/recommendations
@@ -67,8 +73,6 @@ interface TopOsintSignal { title: string; risk_rating: string; canonical_url: st
 interface TopHealthSignal { title: string; severity: string; }
 
 interface SignalSnapshot {
-  capacityState: string | null;
-  postureMessage: string | null;
   topOsintSignal: TopOsintSignal | null;
   topHealthSignal: TopHealthSignal | null;
 }
@@ -82,8 +86,6 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
     oldestCapturePending: null,
   });
   const [snapshot, setSnapshot] = useState<SignalSnapshot>({
-    capacityState: null,
-    postureMessage: null,
     topOsintSignal: null,
     topHealthSignal: null,
   });
@@ -135,8 +137,6 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
         oldestCapturePending: oldestCapture ? (oldestCapture.title || oldestCapture.raw_text?.slice(0, 60) || null) : null,
       });
       setSnapshot({
-        capacityState: wellness ? (wellness.latest_capacity_state ?? null) : null,
-        postureMessage: wellness ? (wellness.system_posture_message ?? null) : null,
         topOsintSignal: osintAttention ? (osintAttention.top ?? null) : null,
         topHealthSignal: healthOsint ? (healthOsint.top ?? null) : null,
       });
@@ -201,7 +201,7 @@ function useNotebookReadyCount(): { readyCount: number | null; error: string | n
 }
 
 export default function CaptainsChairWorkbench() {
-  const { posture: currentPosture, postureFetchFailed } = useROSData();
+  const { context: humanSystems, error: humanSystemsError } = useHumanSystemsContext();
   const { alerts: liveAlerts } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, error: briefingError } = useTodaysBriefing();
@@ -215,10 +215,13 @@ export default function CaptainsChairWorkbench() {
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
 
   const commandStatusLoading = opRiskLoading || emergencyLoading || agentHealthLoading;
+  const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
   const commandStatus = deriveCommandStatus({
-    postureBand: currentPosture.posture,
-    postureFetchFailed,
-    capacityBand: currentPosture.capacity_band,
+    posture: humanSystems?.posture ?? 'UNKNOWN',
+    postureMessage: humanSystems?.posture_message ?? 'No capacity check-in recorded for today yet.',
+    availableCapacity: humanSystems?.available_capacity ?? 'unknown',
+    hasCheckinToday,
+    humanSystemsUnavailable: humanSystemsError !== null,
     operationalRisk: (opRisk?.overallRisk as 'GREEN' | 'AMBER' | 'RED' | null) ?? null,
     operationalRiskUnknown: opRiskError !== null,
     escalateCount: opRisk?.escalateCount ?? 0,
@@ -229,18 +232,17 @@ export default function CaptainsChairWorkbench() {
     systemsUnknown: agentHealthError !== null,
   });
 
-  const capacityTone = postureFetchFailed
+  const capacityTone = humanSystemsError
     ? ('unknown' as const)
-    : currentPosture.capacity_band === 'REST' || currentPosture.capacity_band === 'LIMITED'
-      ? ('crit' as const)
-      : currentPosture.capacity_band === 'MODERATE'
-        ? ('warn' as const)
-        : currentPosture.capacity_band === 'GOOD'
-          ? ('ok' as const)
-          : ('unknown' as const);
+    : SYSTEM_POSTURE_STATE_TONE[commandStatus.posture];
 
   const signalChips = [
-    { label: 'Capacity', value: postureFetchFailed ? 'Data error' : currentPosture.capacity_band, tone: capacityTone, href: '/human-systems-workbench' },
+    {
+      label: 'Capacity',
+      value: humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : (humanSystems?.available_capacity ?? 'unknown'),
+      tone: capacityTone,
+      href: '/human-systems-workbench',
+    },
     { label: 'Interrupts', value: briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/captains-brief-workbench' },
     { label: 'Alerts', value: emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear', tone: emergencyError ? 'unknown' as const : emergency?.worstTier === 'emergency_warning' ? 'crit' as const : emergency?.worstTier === 'watch_and_act' ? 'warn' as const : 'ok' as const, href: '/emergency-alert-hub-workbench' },
     { label: 'Systems', value: agentHealthLoading ? '…' : agentHealthError ? 'Unknown' : agentHealth?.failedCount ? `${agentHealth.failedCount} Failing` : 'Nominal', tone: agentHealthError ? 'unknown' as const : (agentHealth?.failedCount ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/agent-status-workbench' },
@@ -329,8 +331,10 @@ export default function CaptainsChairWorkbench() {
           <Situation
             loading={attentionLoading}
             data={{
-              capacityState: snapshot.capacityState,
-              postureMessage: snapshot.postureMessage,
+              availableCapacity: humanSystems?.available_capacity ?? 'unknown',
+              posture: humanSystems?.posture ?? 'UNKNOWN',
+              postureMessage: humanSystems?.posture_message ?? null,
+              hasCheckinToday,
               topHealthSignal: snapshot.topHealthSignal,
               emergencyCount: emergency?.count ?? 0,
               emergencyWorstHeadline: emergency?.worstHeadline ?? null,

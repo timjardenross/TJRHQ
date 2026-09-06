@@ -23,6 +23,16 @@
 // full directory) — "workbenches behind it," one tap away. Captain's
 // Chair is just one of those workbenches now, reachable the same as any
 // other, not the same page as this one.
+//
+// Command-Experience correctness repair (P0, 2026-09-06): the Recovery
+// Posture badge used to read useROSData() (the retired get_recovery_
+// posture() RPC, `?? mockPosture` fallback) — a day with no capacity
+// check-in silently rendered a fabricated STABLE posture. It now reads
+// useHumanSystemsContext() (/api/human-systems/context), the same
+// canonical assessed-context.ts boundary Ready Room and Captain's Chair
+// consume — see docs/architecture/COMMAND-EXPERIENCE.md. Both surfaces
+// now agree on Human Systems state; neither can show a mock value as
+// current truth.
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -30,12 +40,13 @@ import { WorkbenchShell } from '@/components/ui';
 import { SituationBadge } from '@/components/SituationBadge';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
-import { useROSData } from '@/lib/useROSData';
 import { useAlerts } from '@/lib/useAlerts';
 import { categoryMeta } from '@/lib/personalTasks';
 import {
-  POSTURE_STATE_TONE,
+  CAPACITY_STATE_LABEL,
   RISK_STATE_TONE,
+  SYSTEM_POSTURE_STATE_TONE,
+  useHumanSystemsContext,
   useOperationalRisk,
   useEmergencyAlerts,
   useAgentHealth,
@@ -56,7 +67,7 @@ export default function LifeOSHub() {
   // forgot to set that," not the reboot/power-loss case.
   useWakeLock();
 
-  const { posture: currentPosture, postureFetchFailed } = useROSData();
+  const { context: humanSystems, error: humanSystemsError } = useHumanSystemsContext();
   const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
@@ -65,8 +76,9 @@ export default function LifeOSHub() {
   const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
   const { tasks: reminders, loading: remindersLoading } = useReminders();
 
-  const postureBand = currentPosture.posture;
-  const postureTone = POSTURE_STATE_TONE[postureBand];
+  const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
+  const postureBand = humanSystems?.posture ?? 'UNKNOWN';
+  const postureTone = SYSTEM_POSTURE_STATE_TONE[postureBand];
   const riskTone = opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown';
   const interruptTone: StateTone = (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' : 'ok';
   const emergencyTone: StateTone = emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok';
@@ -114,9 +126,15 @@ export default function LifeOSHub() {
         <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
           <SituationBadge
             label="Recovery Posture"
-            value={postureFetchFailed ? 'Data error' : postureBand}
-            tone={postureFetchFailed ? 'unknown' : postureTone}
-            sublabel={postureFetchFailed ? 'Check connection — see console' : currentPosture.capacity_band}
+            value={humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : postureBand}
+            tone={humanSystemsError ? 'unknown' : postureTone}
+            sublabel={
+              humanSystemsError
+                ? 'Check connection — see console'
+                : !hasCheckinToday
+                  ? 'No check-in today'
+                  : (CAPACITY_STATE_LABEL[humanSystems?.available_capacity ?? ''] ?? 'No data')
+            }
             href="/human-systems-workbench"
           />
           <SituationBadge
@@ -149,11 +167,20 @@ export default function LifeOSHub() {
           />
         </div>
 
-        {(postureBand === 'FRAGILE' || postureBand === 'REST') && !postureFetchFailed && (
-          <div className={postureBand === 'REST' ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3' : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3'}>
-            <p className={postureBand === 'REST' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
+        {(postureBand === 'PROTECT' || postureBand === 'RECOVER' || postureBand === 'RESET') && !humanSystemsError && hasCheckinToday && (
+          <div className={postureBand === 'RECOVER' ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3' : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3'}>
+            <p className={postureBand === 'RECOVER' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
               Recovery posture is {postureBand} — consider deferring anything below that isn&apos;t genuinely urgent.
             </p>
+          </div>
+        )}
+
+        {/* P0 correctness repair: "no check-in today" must never render as
+            a healthy/clear posture — this reads honestly as unknown rather
+            than silently disappearing or falling back to a mock value. */}
+        {!hasCheckinToday && !humanSystemsError && (
+          <div className="rounded-lg border border-wb-line bg-wb-bg/50 p-3">
+            <p className="text-sm text-wb-ink2">No capacity check-in yet today — recovery posture is unknown.</p>
           </div>
         )}
 
