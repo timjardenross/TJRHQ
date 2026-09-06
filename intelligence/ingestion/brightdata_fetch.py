@@ -143,6 +143,32 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
 
     try:
         with urllib.request.urlopen(req, timeout=timeout or BRIGHTDATA_TIMEOUT_SECONDS) as resp:
+            # Bright Data signals its OWN refusals (IP not whitelisted, a
+            # site requiring KYC-verified residential access per its
+            # robots.txt, etc.) with a real HTTP 200 carrying one of these
+            # x-brd-error* response headers and a short error-message body
+            # in place of the target page — confirmed live 2026-09-06
+            # against downdetector.com.au (policy_20140, "Residential
+            # Failed (bad_endpoint)... KYC form"). Header naming isn't
+            # fully consistent across Bright Data's own error types (seen
+            # both "x-brd-error"/"x-brd-error-code" and "x-brd-err-code"/
+            # "x-brd-err-msg" for different refusal reasons), so check all
+            # of them. Without this check, that error text was silently
+            # handed to the caller as if it were the real page — which
+            # then fails to parse and gets misreported as "page shape may
+            # have changed", masking the real cause (an account-level
+            # Bright Data policy block, not a Downdetector content change).
+            brd_error = (
+                resp.headers.get("x-brd-error")
+                or resp.headers.get("x-brd-err-msg")
+            )
+            if brd_error:
+                brd_code = resp.headers.get("x-brd-error-code") or resp.headers.get("x-brd-err-code")
+                raise RuntimeError(
+                    f"Bright Data Web Unlocker refused {url}"
+                    f"{f' ({brd_code})' if brd_code else ''}: {brd_error}"
+                )
+
             charset = "utf-8"
             content_type = resp.headers.get("Content-Type", "")
             if "charset=" in content_type:
@@ -151,6 +177,8 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
         raise RuntimeError(f"Bright Data Web Unlocker HTTP {exc.code} for {url}: {detail}") from exc
+    except RuntimeError:
+        raise
     except Exception as exc:
         raise RuntimeError(f"Bright Data Web Unlocker fetch failed for {url}: {exc}") from exc
 
