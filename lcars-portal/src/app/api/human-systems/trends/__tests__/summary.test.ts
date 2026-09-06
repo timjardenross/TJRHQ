@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeSummaryStats, buildSummaryPrompt, type TrendDayRow } from '../route';
+import { computeSummaryStats, buildSummaryPrompt, type TrendDayRow } from '../summary';
 
 // Regression coverage for the 2026-09-06 LLM-summary improvement: the model
 // used to be handed only raw per-day lines and asked to count/eyeball state
