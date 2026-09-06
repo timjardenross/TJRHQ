@@ -1,4 +1,4 @@
--- 0191_domain_registry_hq_evolution_cycle.sql
+-- 0192_domain_registry_hq_evolution_cycle.sql
 -- Same FK-409 class as migrations 0180 (self_improvement_cycle) and 0188
 -- (intraday_media_collection): evolution_orchestrator.py now calls
 -- record_heartbeat('hq_evolution_cycle', ...) on every run (deploy/

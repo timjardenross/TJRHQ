@@ -59,7 +59,7 @@ hypothesis is retained rather than deleted (spec sections 11-17).
 | `config/evolution_watchlist.json` | HQ-aware external discovery topics — `gap_hypothesis` (a hypothesis, not a fact) + `why_relevant` + an optional deterministic `validation` block |
 | `lcars-portal/src/app/self-improvement-findings/page.tsx` | Discover / Investigate / Improve / Learned UI |
 | `deploy/hq-evolution.service` / `.timer` | Follow-up: the actual overnight systemd timer, 03:00 Australia/Melbourne |
-| `core/infrastructure/supabase/migrations/0191_domain_registry_hq_evolution_cycle.sql` | Follow-up: registers `hq_evolution_cycle` so its heartbeats don't 409 |
+| `core/infrastructure/supabase/migrations/0192_domain_registry_hq_evolution_cycle.sql` | Follow-up: registers `hq_evolution_cycle` so its heartbeats don't 409 |
 
 `scripts/self_improvement/dashboard.py` gained `/api/opportunities`,
 `/api/opportunity/<id>`, `/api/opportunity/decide`, `/api/evolution-summary`
@@ -105,7 +105,7 @@ no stale-lock cleanup needed), not by systemd.
 | Mission handoff for capability/product/architecture | READY | Reuses the existing canonical `POST /api/missions` |
 | Captain's Chair morning signal | READY | This change — one Needs You item, not the full dashboard |
 | Migration of existing findings/decisions | READY | This change — scoped to the latest run + its decisions (see migration.py's own docstring for why not the full cross-run history) |
-| Overnight scheduler wiring (systemd timer) | READY | Follow-up mission — `deploy/hq-evolution.timer`, audited against `intelligence/scheduler.py`'s real job timeline, domain registered in migration 0191 |
+| Overnight scheduler wiring (systemd timer) | READY | Follow-up mission — `deploy/hq-evolution.timer`, audited against `intelligence/scheduler.py`'s real job timeline, domain registered in migration 0192 |
 | Model-assisted investigation narrative | READY | Follow-up mission — real `hq-evolution-investigate` Model Router task, schema-validated output (`investigation_schema.py`), honest fallback wording when the model is unreachable |
 | Current-state validation of watchlist hypotheses | READY | Follow-up mission — `state_validation.py`; a `gap_hypothesis` that no longer holds is recorded `resolved_before_research` and never reaches external discovery. Duplicate-synthesis regression test (`tests/test_hq_evolution_followup.py`) validates this against the real repo: `telegram-bots/xo/app.py` already renders the canonical `intelligence_briefs` row for `/brief` rather than re-synthesising it, so that watchlist topic correctly resolves and is suppressed |
 | Cross-workbench outcome learning (Briefs/Advisory/Weekly Review as evidence inputs) | FUTURE | Spec section 12 explicitly scopes this incrementally; not built this pass |
