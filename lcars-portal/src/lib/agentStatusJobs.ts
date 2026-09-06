@@ -157,15 +157,6 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   // intelligence/emergency_alert_summary.py; sibling to the feed-poll jobs
   // above but a derived hourly digest, not a raw feed itself.
   { domainKey: 'emergency_alert_hourly_summary', label: 'Emergency Alert Hub — Hourly Summary Email', domain: 'emergency-alerts', cadenceLabel: 'Hourly', capability: 'emergency_monitoring', criticality: 'important' },
-  // human_systems_scheduler.py ─────────────────────────────────────────────
-  // Confirmed 2026-08-25: NOT actually live — its only invoker,
-  // start_in_process(), is called solely from platform-runtime/app.py,
-  // which exists only in a backup directory, not the live repo; its sole
-  // live trigger, starfleet-slack-bot.service, has been disabled since
-  // 2026-07-07. Kept in this list (rather than removed) so "Disabled" here
-  // accurately signals it, instead of silently dropping the row or
-  // misreporting it as a broken/unknown live job.
-  { domainKey: 'human_systems', label: 'Human Systems Scheduler', domain: 'human-systems', cadenceLabel: 'Disabled since 2026-07-07 — see comment', capability: 'human_systems', criticality: 'background', disabled: true },
   { domainKey: 'capacity_checkins', label: 'Capacity Check-ins', domain: 'human-systems', cadenceLabel: 'On capture (Telegram/portal/Command Centre)', capability: 'human_systems', criticality: 'background' },
   // Platform domains (heartbeats from TS or verification side) ─────────────
   { domainKey: 'knowledge_library', label: 'Knowledge Library', domain: 'platform', cadenceLabel: 'Hourly', capability: 'platform_core', criticality: 'important' },
