@@ -5,7 +5,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 // (toHaveTextContent etc.) — import directly (see WhatHelpsMeCard.test.tsx).
 import '@testing-library/jest-dom/vitest';
 
-import { RecoveryView } from '../RecoveryView';
+import { SystemLearningSection } from '../RecoveryView';
 import type { CapacityExperiment, RecoveryPayload } from '../types';
 
 afterEach(cleanup);
@@ -94,9 +94,9 @@ function basePayload(overrides: Partial<RecoveryPayload> = {}): RecoveryPayload 
   };
 }
 
-describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
+describe('SystemLearningSection — Worth Testing / What Changed (V3 §15/§19)', () => {
   it('falls back to the narrative worthTesting() heuristic when there are no structured experiments', () => {
-    render(<RecoveryView data={basePayload()} interventionEffectiveness={[]} />);
+    render(<SystemLearningSection data={basePayload()} />);
     // active_loads_today[0].count is 1, below worthTesting()'s own >=2
     // threshold, so with count=1 no narrative renders either — assert the
     // structured card is simply absent, not a specific string.
@@ -105,9 +105,8 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('shows the narrative fallback text when a load has repeated today and no experiment exists', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({ active_loads_today: [{ label: 'Sensory input', count: 2 }] })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.getByText(/Sensory input has come up in 2 check-ins today/)).toBeInTheDocument();
@@ -115,12 +114,11 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('renders the structured experiment card instead of the narrative fallback when a proposed experiment exists', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({
           active_loads_today: [{ label: 'Sensory input', count: 2 }],
           experiments: [experiment({ status: 'proposed' })],
         })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.getByText(/Using a quieter work location/)).toBeInTheDocument();
@@ -133,9 +131,8 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('labels an active experiment "In progress" rather than "Worth testing"', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({ experiments: [experiment({ status: 'active', started_at: '2026-08-10T09:00:00Z' })] })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.getByText('In progress')).toBeInTheDocument();
@@ -143,14 +140,14 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('never frames the experiment as a commitment — copy stays reversible/stoppable', () => {
     render(
-      <RecoveryView data={basePayload({ experiments: [experiment({ status: 'active' })] })} interventionEffectiveness={[]} />,
+      <SystemLearningSection data={basePayload({ experiments: [experiment({ status: 'active' })] })} />,
     );
     expect(screen.getByText(/stop it anytime/i)).toBeInTheDocument();
   });
 
   it('shows "What Changed" once a completed experiment has a result', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({
           experiments: [
             experiment({
@@ -161,7 +158,6 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
             }),
           ],
         })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.getByText('What Changed')).toBeInTheDocument();
@@ -171,9 +167,8 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('does not show "What Changed" for a completed experiment with no result yet', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({ experiments: [experiment({ status: 'completed', result: null })] })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.queryByText('What Changed')).not.toBeInTheDocument();
@@ -181,7 +176,7 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
 
   it('renders both an active experiment card and a separate finished What Changed entry without crashing', () => {
     render(
-      <RecoveryView
+      <SystemLearningSection
         data={basePayload({
           experiments: [
             experiment({ id: 2, status: 'active', hypothesis: 'New hypothesis in progress' }),
@@ -191,7 +186,6 @@ describe('RecoveryView — Worth Testing / What Changed (V3 §15/§19)', () => {
             }),
           ],
         })}
-        interventionEffectiveness={[]}
       />,
     );
     expect(screen.getByText('New hypothesis in progress')).toBeInTheDocument();

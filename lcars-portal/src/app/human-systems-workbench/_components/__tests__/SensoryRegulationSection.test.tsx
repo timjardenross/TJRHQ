@@ -5,7 +5,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 // (toHaveTextContent etc.) — import directly (see WhatHelpsMeCard.test.tsx).
 import '@testing-library/jest-dom/vitest';
 
-import { MedicalView } from '../MedicalView';
+import { SensoryRegulationSection } from '../MedicalView';
 import type { MedicalPayload } from '../types';
 
 afterEach(cleanup);
@@ -55,9 +55,9 @@ function basePayload(overrides: Partial<MedicalPayload> = {}): MedicalPayload {
   };
 }
 
-describe('MedicalView — Sensory & Regulation card (V3 §10/§11)', () => {
+describe('SensoryRegulationSection (V3 §10/§11)', () => {
   it('shows "Not recorded" for stimulation and natural regulation when nothing is set', () => {
-    render(<MedicalView data={basePayload()} />);
+    render(<SensoryRegulationSection data={basePayload()} />);
     expect(screen.getByText('Sensory & Regulation')).toBeInTheDocument();
     const notRecorded = screen.getAllByText('Not recorded');
     expect(notRecorded.length).toBe(2); // stimulation_state + natural_regulation.response
@@ -66,7 +66,7 @@ describe('MedicalView — Sensory & Regulation card (V3 §10/§11)', () => {
 
   it('pairs the coarse stimulation reading with a per-channel breakdown when channels are recorded', () => {
     render(
-      <MedicalView
+      <SensoryRegulationSection
         data={basePayload({
           sensory_profile: {
             stimulation_state: 'balanced',
@@ -85,23 +85,23 @@ describe('MedicalView — Sensory & Regulation card (V3 §10/§11)', () => {
   });
 
   it('shows the natural regulation response label when set', () => {
-    render(<MedicalView data={basePayload({ natural_regulation: { response: 'be_alone', suppressed: null } })} />);
+    render(<SensoryRegulationSection data={basePayload({ natural_regulation: { response: 'be_alone', suppressed: null } })} />);
     expect(screen.getByText('Be alone')).toBeInTheDocument();
   });
 
   it('shows the suppressed-response note, phrased as compensation-cost learning, only when suppressed is true', () => {
-    render(<MedicalView data={basePayload({ natural_regulation: { response: 'quiet', suppressed: true } })} />);
+    render(<SensoryRegulationSection data={basePayload({ natural_regulation: { response: 'quiet', suppressed: true } })} />);
     expect(screen.getByText(/compensation-cost learning/)).toBeInTheDocument();
     expect(screen.queryByText(/prompt to correct it/)).toBeInTheDocument();
   });
 
   it('does not show the suppressed-response note when suppressed is false or null', () => {
     const { rerender } = render(
-      <MedicalView data={basePayload({ natural_regulation: { response: 'quiet', suppressed: false } })} />,
+      <SensoryRegulationSection data={basePayload({ natural_regulation: { response: 'quiet', suppressed: false } })} />,
     );
     expect(screen.queryByText(/compensation-cost learning/)).not.toBeInTheDocument();
 
-    rerender(<MedicalView data={basePayload({ natural_regulation: { response: 'quiet', suppressed: null } })} />);
+    rerender(<SensoryRegulationSection data={basePayload({ natural_regulation: { response: 'quiet', suppressed: null } })} />);
     expect(screen.queryByText(/compensation-cost learning/)).not.toBeInTheDocument();
   });
 });
