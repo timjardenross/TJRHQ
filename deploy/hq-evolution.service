@@ -1,0 +1,44 @@
+[Unit]
+Description=USS TJR HQ Evolution — overnight discovery cycle
+Documentation=file:///opt/starship-endeavour/docs/self-improvement/HQ-EVOLUTION.md
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour/scripts/self_improvement
+Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+
+# OBSERVE -> DISCOVER (internal + external) -> RELEVANCE GATE/DEDUP ->
+# SHORTLIST -> INVESTIGATE -> PREPARE. Never applies a remediation, never
+# creates a Mission, never touches git — overnight authority ends at
+# investigation/proposal (HQ Evolution spec section 14). Overlapping runs
+# are prevented in-process (evolution_orchestrator.py's non-blocking
+# flock on data/self-improvement/review/.evolution_cycle.lock) rather than
+# by systemd — a held OS file lock is automatically released if this
+# process is killed or crashes, so there is no stale-lock cleanup step.
+ExecStart=/opt/starship-endeavour/scripts/self_improvement/.venv/bin/python3 /opt/starship-endeavour/scripts/self_improvement/evolution_orchestrator.py
+
+# Logging — same convention as self-improving-system.service. Evidence
+# payloads and model prompts can be verbose; this unit must never log a
+# secret (GEMINI_API_KEY etc. are read from environment, never printed).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hq-evolution
+
+# A failed Evolution run must not prevent the rest of HQ from operating —
+# it's a oneshot discovery job, not a dependency of anything else. Restart
+# once after a short delay; if it keeps failing, the domain_heartbeats
+# 'failed' status (hq_evolution_cycle) and Agent & Job Status surface it
+# without blocking any other scheduled job.
+Restart=on-failure
+RestartSec=300
+
+# config/self_improvement_policy.json's "evolution" section bounds the
+# cycle itself to run_duration_budget_minutes (default 20) between
+# investigation steps; this is the hard outer bound including network
+# timeouts that budget check can't preempt mid-call.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

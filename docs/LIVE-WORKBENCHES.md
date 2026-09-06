@@ -31,7 +31,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/advisory-workbench` | Advisory Workbench | Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces. |
 | `/briefs` | Briefs | The intelligence brief archive — every synthesized brief across every domain, filterable by review/publish status. |
 | `/agent-status-workbench` | Agent & Job Status | Scheduler job health, agent run history, and failure triage across all automated platform tasks. |
-| `/self-improvement-findings` | Self-Improvement Findings | Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence. |
+| `/self-improvement-findings` | HQ Evolution | Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work. |
 
 ## Real routes deliberately NOT in the master list
 

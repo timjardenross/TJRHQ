@@ -1,0 +1,32 @@
+[Unit]
+Description=USS TJR HQ Evolution Timer
+Documentation=file:///opt/starship-endeavour/docs/self-improvement/HQ-EVOLUTION.md
+Requires=hq-evolution.service
+
+[Timer]
+# Run daily at 03:00 Melbourne local time (host TZ Australia/Melbourne,
+# same convention as self-improving-system.timer — no explicit TZ suffix,
+# tracks AEST/AEDT across DST automatically).
+#
+# Slot chosen by auditing intelligence/scheduler.py's existing overnight
+# jobs (all Australia/Melbourne per intelligence/config.py's SCHEDULE_TZ):
+#   02:00  brief_qa_agent_nightly       (LLM-heavy — Brief QA pre-screen)
+#   03:00  <- HQ Evolution runs here, in the resulting quiet window
+#   05:00  downdetector_threshold_recompute
+#   06:00  daily_source_collection (+ GitHub sync)
+#   06:15/06:30/06:40/06:45  various pre-brief jobs (content scoring,
+#          source validation, source fidelity audit, mission-registry-sync)
+#   07:00  captains_morning_brief (scheduler.py)  AND
+#          self-improving-system.timer (separate, pre-existing collision
+#          between those two — not introduced or touched by this timer)
+# 03:00 sits in open space: >=2h clear of the 02:00 LLM-heavy QA job and
+# the 05:00 recompute, and well clear of the 06:00+ morning-collection
+# flurry and the 07:00 brief/self-improvement pair — comfortably inside
+# the run_duration_budget_minutes (20min, config/self_improvement_
+# policy.json) + TimeoutStartSec (30min) bound this unit's service enforces.
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=3min
+
+[Install]
+WantedBy=timers.target
