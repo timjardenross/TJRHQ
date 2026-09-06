@@ -19,6 +19,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { fetchWeeklyReview, type WeeklyReviewData } from '@/lib/weeklyReview';
+import { PriorWeekNote } from './_components/PriorWeekNote';
 import { WeekInReview } from './_components/WeekInReview';
 import { WhatChanged } from './_components/WhatChanged';
 import { WhatMattered } from './_components/WhatMattered';
@@ -56,6 +57,7 @@ function Workbench() {
 
       {data && (
         <div className="flex flex-col gap-4">
+          {data.priorWeek && <PriorWeekNote data={data.priorWeek} />}
           <WeekInReview data={data.synthesis.weekInReview} />
           <WhatChanged items={data.synthesis.whatChanged} />
 
@@ -77,7 +79,13 @@ function Workbench() {
             onAccept={() => setNextWeekAccepted(true)}
           />
 
-          <CompletePanel summary={data.summary} signalCounts={data.signalCounts} nextWeekAccepted={nextWeekAccepted} />
+          <CompletePanel
+            summary={data.summary}
+            signalCounts={data.signalCounts}
+            nextWeekAccepted={nextWeekAccepted}
+            nextWeekPosture={data.synthesis.nextWeek.posture}
+            acceptedCarryForward={data.synthesis.carryForward.map((c) => c.detail)}
+          />
 
           <SourceDetail summary={data.summary} sections={data.workbenches} />
         </div>

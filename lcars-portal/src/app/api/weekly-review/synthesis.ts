@@ -123,7 +123,12 @@ function buildWhatMattered(sections: WorkbenchSection[]): MatteredItem[] {
     .slice(0, 5);
 }
 
-function buildLearned(sections: WorkbenchSection[], strategicMessage: string, hasStrategicSignal: boolean): LearnedItem[] {
+function buildLearned(
+  sections: WorkbenchSection[],
+  strategicMessage: string,
+  hasStrategicSignal: boolean,
+  strategicPosture: StrategicPosture,
+): LearnedItem[] {
   const learned: LearnedItem[] = [];
 
   if (hasStrategicSignal) {
@@ -150,6 +155,22 @@ function buildLearned(sections: WorkbenchSection[], strategicMessage: string, ha
       key: 'content-qa-gate',
       title: 'Content',
       lesson: `${blocked} item(s) were held at QA rather than published as-is — the gate caught something worth a second look before it went out.`,
+    });
+  }
+
+  // Human Execution Loop mission (brief §27/§28/§58) — descriptive, not
+  // causal: this observes that progress and a constrained posture
+  // co-occurred this week, never that either one caused the other. Only
+  // surfaced when both facts are independently known this run (never
+  // fabricated, brief §26), and phrased to avoid implying causation
+  // (brief §27's "prefer this over... caused" example).
+  const readyRoomCompleted = count(sections, 'ready-room', 'completed');
+  const restrictivePosture = strategicPosture === 'protect' || strategicPosture === 'recover' || strategicPosture === 'stabilise';
+  if (readyRoomCompleted !== null && readyRoomCompleted > 0 && restrictivePosture) {
+    learned.push({
+      key: 'ready-room-progress-during-constraint',
+      title: 'Execution',
+      lesson: `${readyRoomCompleted} Ready Room item(s) were completed this week alongside a constrained capacity posture — progress and a limited-capacity week aren't mutually exclusive.`,
     });
   }
 
@@ -228,6 +249,25 @@ function buildCarryForward(sections: WorkbenchSection[], posture: StrategicPostu
     });
   }
 
+  // Human Execution Loop mission (brief §29) — carry-forward is an
+  // attention decision, not "still open." Only Ready Room's genuinely
+  // important, still-open items land here; low-importance open tasks stay
+  // out of carry-forward entirely (they surface, if anywhere, in You Can
+  // Ignore's "can remain parked" framing below) and this never touches
+  // personal_tasks itself (brief §30/§51 — proposal only).
+  const importantOpen = findSignal(sections, 'ready-room', 'important-open');
+  if (importantOpen && !importantOpen.unavailable && importantOpen.count > 0) {
+    for (const item of importantOpen.items.slice(0, 3)) {
+      items.push({
+        key: `ready-room-important-${item.id}`,
+        title: 'Ready Room',
+        detail: `"${item.title}" is important and still open.`,
+        recommendation: 'Still worth attention next week — or explicitly decide it can wait.',
+        signalItem: { ...item, sourceLabel: 'Ready Room', signalLabel: importantOpen.label, tone: importantOpen.tone },
+      });
+    }
+  }
+
   return items;
 }
 
@@ -249,6 +289,11 @@ function buildYouCanIgnore(sections: WorkbenchSection[]): string[] {
   const staleAgents = count(sections, 'agent-status', 'stale');
   if (staleAgents !== null && staleAgents > 0) {
     lines.push(`${staleAgents} schedule(s) are running behind cadence but haven't failed — being watched automatically.`);
+  }
+
+  const parked = count(sections, 'ready-room', 'parked');
+  if (parked !== null && parked > 0) {
+    lines.push(`${parked} low-priority Ready Room item(s) can remain parked — nothing due, nothing urgent.`);
   }
 
   return lines;
@@ -337,8 +382,18 @@ function buildWeekInReview(
   const blocked = count(sections, 'content', 'blocked');
   const repeated = count(sections, 'agent-status', 'repeated');
 
+  const readyRoomCompleted = count(sections, 'ready-room', 'completed');
+  const readyRoomImportantOpen = count(sections, 'ready-room', 'important-open');
+
   const narrativeParts: string[] = [];
   narrativeParts.push(restrictive ? 'A constrained week for personal capacity.' : 'A steady week for personal capacity.');
+  if (readyRoomCompleted !== null) {
+    narrativeParts.push(
+      readyRoomCompleted > 0
+        ? `${readyRoomCompleted} Ready Room item(s) were completed this week.`
+        : "Nothing was marked complete in Ready Room this week — not necessarily a problem, just what happened.",
+    );
+  }
   narrativeParts.push(technical.noActionRequired ? 'The external technical environment remained stable.' : 'Technical signal activity required attention.');
   if (restrictive) narrativeParts.push('Recommend reducing discretionary commitments next week.');
 
@@ -347,6 +402,13 @@ function buildWeekInReview(
       key: 'recovery', label: 'Recovery',
       glyph: restrictive ? 'down' : 'flat',
       detail: POSTURE_LABEL[posture],
+    },
+    {
+      key: 'execution', label: 'Execution',
+      glyph: readyRoomImportantOpen !== null && readyRoomImportantOpen > 0 ? 'warn' : 'ok',
+      detail: readyRoomCompleted === null
+        ? 'Not checked this run.'
+        : `${readyRoomCompleted} completed${readyRoomImportantOpen ? `, ${readyRoomImportantOpen} important still open` : ''}.`,
     },
     {
       key: 'intelligence', label: 'Intelligence',
@@ -390,7 +452,7 @@ export function buildSynthesis(
     weekInReview,
     whatChanged: buildWhatChanged(sections, priorSignalCounts),
     whatMattered: buildWhatMattered(sections),
-    learned: buildLearned(sections, strategicPostureMessage, hasStrategicSignal),
+    learned: buildLearned(sections, strategicPostureMessage, hasStrategicSignal, strategicPosture),
     carryForward,
     youCanIgnore: buildYouCanIgnore(sections),
     watchNextWeek: buildWatchNextWeek(sections, strategicPostureMessage, hasStrategicSignal),

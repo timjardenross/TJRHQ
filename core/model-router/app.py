@@ -18,6 +18,8 @@ Endpoints:
     POST /api/model/self-improvement-analyse   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-critique  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
@@ -208,6 +210,17 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
     "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    # HQ Evolution (follow-up to MSN-0099's self-improvement system):
+    # per-opportunity investigation synthesis. Smaller, bounded input than
+    # self-improvement-analyse (one opportunity's evidence bundle, not the
+    # whole repo evidence payload) — shorter timeout accordingly. Same
+    # shared GEMINI_API_KEY as the rest of this family.
+    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    # HQ Evolution V2: post-observation-window outcome evaluation. Input is
+    # a bounded evidence bundle (outcome_contract + baseline + collected
+    # evidence), not a re-run of the original investigation — same timeout
+    # class as hq-evolution-investigate.
+    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -609,6 +622,8 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/self-improvement-analyse": "self-improvement-analyse",
             "/api/model/self-improvement-critique": "self-improvement-critique",
             "/api/model/self-improvement-mission": "self-improvement-mission",
+            "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
+            "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
         }
         task_type = route_map.get(path)
         if task_type is None:

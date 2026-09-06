@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
 import {
-  attendBucket, createTask, fetchTasks, getCapacityLevel, rankToday, pickUpItems,
+  attendBucket, createTask, fetchTasks, getReadyRoomContext, rankToday, pickUpItems,
   buildStatusSentence, deferNotToday, CATEGORIES,
-  type PersonalTask, type TaskCategory, type FollowThroughMode,
+  type PersonalTask, type TaskCategory, type FollowThroughMode, type ReadyRoomContext,
 } from '@/lib/personalTasks';
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { TaskRow } from './TaskRow';
@@ -135,7 +135,9 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   const [openTasks, setOpenTasks] = useState<PersonalTask[]>([]);
   const [doneTasks, setDoneTasks] = useState<PersonalTask[]>([]);
   const [state, setState] = useState<LoadState>('loading');
-  const [capacityLow, setCapacityLow] = useState(false);
+  const [context, setContext] = useState<ReadyRoomContext>({
+    posture: 'UNKNOWN', capacityLimit: 3, hasCheckinToday: false, freshnessStatus: 'none',
+  });
   const [activeTask, setActiveTask] = useState<PersonalTask | null>(null);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [doneOpen, setDoneOpen] = useState(false);
@@ -143,14 +145,14 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   async function load() {
     setState('loading');
     try {
-      const [open, done, capacity] = await Promise.all([
+      const [open, done, readyRoomContext] = await Promise.all([
         fetchTasks({ includeCompleted: false }),
         fetchTasks({ includeCompleted: true, limit: 10 }),
-        getCapacityLevel(),
+        getReadyRoomContext(),
       ]);
       setOpenTasks(open);
       setDoneTasks(done);
-      setCapacityLow(capacity.low);
+      setContext(readyRoomContext);
       onLoaded(open);
       setState('clear');
     } catch {
@@ -195,15 +197,17 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
     );
   }
 
-  const capacityLimit = capacityLow ? 1 : 3;
+  const capacityLow = context.posture === 'PROTECT' || context.posture === 'RESET' || context.posture === 'RECOVER';
   const pickUp = pickUpItems(openTasks);
   const todayCandidates = openTasks.filter((t) => !pickUp.some((p) => p.id === t.id));
-  const today = rankToday(todayCandidates, { capacityLimit });
+  const today = rankToday(todayCandidates, { capacityLimit: context.capacityLimit });
   const shownIds = new Set([...today, ...pickUp].map((t) => t.id));
   const waiting = openTasks.filter((t) => attendBucket(t) === 'waiting');
   const radar = openTasks.filter((t) => !shownIds.has(t.id) && t.work_state !== 'blocked');
 
-  const statusSentence = buildStatusSentence({ todayCount: today.length, waitingCount: waiting.length, capacityLow });
+  const statusSentence = buildStatusSentence({
+    todayCount: today.length, waitingCount: waiting.length, capacityLow, hasCheckinToday: context.hasCheckinToday,
+  });
 
   return (
     <div className="flex flex-col gap-6">

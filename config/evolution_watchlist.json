@@ -1,0 +1,86 @@
+{
+  "version": "2.0.0",
+  "last_updated": "2026-09-06",
+  "_comment": "HQ Evolution external-discovery watchlist (spec section 9/43). Each topic must answer 'why is this relevant to TJR HQ?' before being searched — no generic tech-trend scanning. `gap_hypothesis` is exactly that — a HYPOTHESIS, not a settled fact — validated against current repo evidence by state_validation.py before any external search happens (`validation`, when present; omitted where no honest deterministic check exists, which validates as 'unclear' and still proceeds cautiously). github_query uses GitHub's search-qualifiers syntax (https://docs.github.com/search-github/searching-on-github).",
+  "topics": [
+    {
+      "id": "model-routing",
+      "class": "architecture",
+      "github_query": "local llm model router topic:llm-router",
+      "gap_hypothesis": "core/model-router remains a bespoke, single-service router with no evaluated open-source alternative.",
+      "validation_question": "Does core/model-router/app.py (the bespoke router) still exist as the only routing implementation?",
+      "why_relevant": "HQ already runs a bespoke Model Router that self-improvement's own router_client.py depends on. A more mature open-source router could reduce maintenance burden or improve routing quality for the same workload.",
+      "validation": {"check_type": "file_exists_confirms", "paths": ["core/model-router/app.py"]}
+    },
+    {
+      "id": "long-term-memory",
+      "class": "capability",
+      "github_query": "agent long-term memory architecture topic:llm-memory",
+      "gap_hypothesis": "HQ's episodic/knowledge memory is hand-rolled with no dedicated retrieval-evaluation harness.",
+      "validation_question": "Does a retrieval-evaluation harness exist anywhere under core/ or tests/ yet?",
+      "why_relevant": "HQ's episodic/knowledge stores (tests/test_episodic_memory.py, knowledge/) are hand-rolled. A proven memory architecture could improve recall quality or reduce the surface area HQ has to maintain itself.",
+      "validation": {"check_type": "presence_resolves", "pattern": "retrieval_eval|RetrievalEval|eval_harness", "paths": ["core", "tests"]}
+    },
+    {
+      "id": "retrieval-evaluation",
+      "class": "capability",
+      "github_query": "RAG evaluation framework retrieval metrics",
+      "gap_hypothesis": "Retrieval quality across findings/briefs/advisory is judged qualitatively, with no systematic evaluation harness.",
+      "validation_question": "Does a retrieval-evaluation harness exist anywhere under core/ or tests/ yet?",
+      "why_relevant": "Findings/briefs/advisory all depend on retrieval quality but HQ has no systematic retrieval eval; a lightweight OSS eval harness could catch regressions before they reach the Captain.",
+      "validation": {"check_type": "presence_resolves", "pattern": "retrieval_eval|RetrievalEval|eval_harness", "paths": ["core", "tests"]}
+    },
+    {
+      "id": "duplicate-synthesis",
+      "class": "cost_optimisation",
+      "github_query": "llm output caching deduplication topic:llm-ops",
+      "gap_hypothesis": "Delivery channels (Telegram, Captain's Chair) may still perform independent LLM re-synthesis of the same intelligence instead of rendering one canonical Brief.",
+      "validation_question": "Does telegram-bots/xo/app.py's /brief command render the canonical intelligence_briefs row, or does it call its own separate LLM synthesis for brief content?",
+      "why_relevant": "Independent per-channel re-synthesis of the same intelligence (see spec example: canonical Brief vs duplicate channel narration) would mean redundant LLM calls; worth confirming whether that's still true before researching caching/synthesis-reuse patterns for it.",
+      "validation": {"check_type": "presence_resolves", "pattern": "db\\.table\\(\"intelligence_briefs\"\\)", "paths": ["telegram-bots/xo/app.py"]}
+    },
+    {
+      "id": "observability-llm-ops",
+      "class": "reliability",
+      "github_query": "llm observability tracing topic:llmops",
+      "gap_hypothesis": "core/model-router/call_log.jsonl is a flat, unrotated, unaggregated append-only log with no queryable tracing.",
+      "validation_question": "Does any script or service rotate or aggregate call_log.jsonl yet?",
+      "why_relevant": "An unbounded flat log makes routing/latency/cost regressions invisible to both operators and this cycle's own discovery evidence, and risks unbounded disk growth.",
+      "validation": {"check_type": "presence_resolves", "pattern": "call_log\\.jsonl", "paths": ["deploy", "core/infrastructure"]}
+    },
+    {
+      "id": "browser-automation",
+      "class": "capability",
+      "github_query": "browser automation agent playwright topic:browser-agent",
+      "gap_hypothesis": "No browser-driven collection path exists — OSINT/technical collectors rely entirely on RSS/API polling.",
+      "validation_question": "Does any collector under intelligence/ or core/ use Playwright/Puppeteer/Selenium yet?",
+      "why_relevant": "OSINT/technical collectors rely on RSS/API polling; a maintained browser-automation agent could extend coverage to sources with no feed, if a real coverage gap is confirmed by Technical/Health OSINT findings.",
+      "validation": {"check_type": "presence_resolves", "pattern": "playwright|puppeteer|selenium", "paths": ["intelligence", "core"]}
+    },
+    {
+      "id": "mcp-integrations",
+      "class": "capability",
+      "github_query": "model context protocol server topic:mcp",
+      "gap_hypothesis": "MCP integration effort and fit are tracked ad hoc, not evaluated against a standard checklist.",
+      "validation_question": "Is there a documented MCP integration checklist or evaluation record anywhere in the repo?",
+      "why_relevant": "HQ already integrates several MCP servers; new MCP servers may close a specific integration gap (e.g. a data source Technical OSINT currently polls by hand) rather than being adopted for novelty."
+    },
+    {
+      "id": "task-decomposition",
+      "class": "product_improvement",
+      "github_query": "agent task decomposition planning framework",
+      "gap_hypothesis": "There is no measured PR-acceptance rate for batch_coding.py's engineering-handoff pipeline.",
+      "validation_question": "Does scripts/self_improvement/metrics_template.py (or an equivalent PR-acceptance metric) exist yet?",
+      "why_relevant": "batch_coding.py's engineering-handoff pipeline is a single-shot coder; a proven task-decomposition pattern could improve handoff success rate if HandoffPRStrategy's PR acceptance rate is ever found to be low.",
+      "validation": {"check_type": "file_exists_resolves", "paths": ["scripts/self_improvement/metrics_template.py"]}
+    },
+    {
+      "id": "local-inference",
+      "class": "cost_optimisation",
+      "github_query": "local llm inference server efficient quantized",
+      "gap_hypothesis": "No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.",
+      "validation_question": "Does a cost/quality tradeoff review for TASK_POLICY's cloud-routed task types exist anywhere in docs/?",
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    }
+  ]
+}

@@ -150,6 +150,31 @@ function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot
   return { data, snapshot, loading, errors };
 }
 
+/** HQ Evolution's small morning signal (spec §37) — a count + the
+ * highest-value opportunity, never the full Discover/Investigate/Improve/
+ * Learned surface. Reuses the same summary endpoint the HQ Evolution page
+ * itself uses for morning compression. */
+function useEvolutionSignal(): { pendingCount: number | null; highestValueTitle: string | null; error: string | null } {
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [highestValueTitle, setHighestValueTitle] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/self-improvement/evolution-summary')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setPendingCount(body.pending_decisions_count ?? 0);
+        setHighestValueTitle(body.highest_value_opportunity?.title ?? null);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[CaptainsChair] HQ Evolution summary failed:', e); setError('HQ Evolution'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { pendingCount, highestValueTitle, error };
+}
+
 /** Minimal slice of the old NotebookCard's fetch — just the ready-for-
  * routing count, since Captain's Log (compact capture box) replaces the
  * rest of that card's surface. Full detail is one click away. */
@@ -187,6 +212,7 @@ export default function CaptainsChairWorkbench() {
   const { events: upcoming, status: upcomingStatus, loading: upcomingLoading } = useCalendarUpcoming(2);
   const { tasks: reminders, loading: remindersLoading } = useReminders();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
+  const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
 
   const commandStatusLoading = opRiskLoading || emergencyLoading || agentHealthLoading;
   const commandStatus = deriveCommandStatus({
@@ -269,6 +295,14 @@ export default function CaptainsChairWorkbench() {
       title: attention.oldestCapturePending ?? 'Captures waiting on triage',
       detail: `${attention.capturePending} item${attention.capturePending === 1 ? '' : 's'} waiting.`,
       href: '/capture-workbench', actionLabel: 'Review',
+    });
+  }
+  if ((evolutionPendingCount ?? 0) > 0) {
+    needsYouItems.push({
+      id: 'hq-evolution', kind: 'review',
+      title: evolutionHighestValueTitle ?? 'HQ Evolution has opportunities worth considering',
+      detail: `${evolutionPendingCount} opportunit${evolutionPendingCount === 1 ? 'y' : 'ies'} from overnight research ${evolutionPendingCount === 1 ? 'needs' : 'need'} your decision.`,
+      href: '/self-improvement-findings', actionLabel: 'Review',
     });
   }
   for (const alert of liveAlerts.filter((a) => a.severity === 'critical').slice(0, 2)) {
