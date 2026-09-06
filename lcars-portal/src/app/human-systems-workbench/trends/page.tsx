@@ -74,22 +74,68 @@ interface TrendField {
   caption?: string;
 }
 
-const FIELDS: TrendField[] = [
-  { key: 'energy', label: 'Energy', map: TREND_ENERGY },
-  { key: 'pain_score', label: 'Pain (0-10)', map: null },
-  { key: 'pain_state', label: 'Pain State', map: TREND_PAIN_STATE },
-  { key: 'nervous_system_state', label: 'Nervous System', map: TREND_NS },
-  { key: 'regulation_state', label: 'Regulation', map: TREND_REGULATION },
-  { key: 'capacity_state', label: 'Capacity', map: TREND_CAPACITY },
-  { key: 'executive_function', label: 'Executive Function', map: TREND_EXEC_FN },
-  { key: 'compensation_load', label: 'Compensation Load', map: TREND_COMPENSATION },
-  { key: 'emotional_state', label: 'Emotional Load', map: TREND_EMOTIONAL },
-  { key: 'social_state', label: 'Social Resource', map: TREND_SOCIAL },
+// Phase 9 (Human Systems redesign, 2026-09-06) — grouped into 4 buckets
+// instead of one flat list of equally-prominent tiles, so the page reads
+// as "here's how capacity, regulation, load, and recovery resources have
+// each moved" rather than 11 undifferentiated cards. Purely a display/
+// grouping change — every field, its scoring map, and the underlying
+// trends query are unchanged from before this phase.
+interface TrendGroup {
+  key: string;
+  label: string;
+  blurb: string;
+  fields: TrendField[];
+}
+
+const TREND_GROUPS: TrendGroup[] = [
   {
-    key: 'stimulation_state', label: 'Stimulation', map: TREND_STIMULATION_POSITION,
-    caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (Balanced) is the goal.',
+    key: 'capacity',
+    label: 'Capacity',
+    blurb: 'How much the system has had available to work with.',
+    fields: [
+      { key: 'energy', label: 'Energy', map: TREND_ENERGY },
+      { key: 'capacity_state', label: 'Capacity', map: TREND_CAPACITY },
+    ],
+  },
+  {
+    key: 'regulation',
+    label: 'Regulation',
+    blurb: 'Nervous-system state and sensory input balance.',
+    fields: [
+      { key: 'nervous_system_state', label: 'Nervous System', map: TREND_NS },
+      { key: 'regulation_state', label: 'Regulation', map: TREND_REGULATION },
+      {
+        key: 'stimulation_state', label: 'Stimulation', map: TREND_STIMULATION_POSITION,
+        caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (Balanced) is the goal.',
+      },
+    ],
+  },
+  {
+    key: 'load',
+    label: 'Load',
+    blurb: 'What has been costing effort or asking more of the system than usual.',
+    fields: [
+      { key: 'pain_score', label: 'Pain (0-10)', map: null },
+      { key: 'pain_state', label: 'Pain State', map: TREND_PAIN_STATE },
+      { key: 'executive_function', label: 'Executive Function', map: TREND_EXEC_FN },
+      { key: 'compensation_load', label: 'Compensation Load', map: TREND_COMPENSATION },
+    ],
+  },
+  {
+    key: 'recovery',
+    label: 'Recovery',
+    blurb: 'Resources available for restoring capacity.',
+    fields: [
+      { key: 'emotional_state', label: 'Emotional Load', map: TREND_EMOTIONAL },
+      { key: 'social_state', label: 'Social Resource', map: TREND_SOCIAL },
+    ],
   },
 ];
+
+// Flat list retained for the code that operates across every field
+// regardless of grouping (recordedDays count, etc.) — unchanged logic,
+// just derived from the grouped structure instead of duplicated.
+const FIELDS: TrendField[] = TREND_GROUPS.flatMap((g) => g.fields);
 
 const LABEL_MAPS: Partial<Record<keyof TrendDayRow, Record<string, string>>> = {
   capacity_state: CAPACITY_STATE_LABEL,
@@ -198,11 +244,14 @@ export default function TrendsPage() {
       `}</style>
       <div className="flex flex-col gap-4 print:gap-2">
         <Card className="print-compact">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">Summary (last 30 days)</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">What Changed (last 30 days)</div>
           <p className="mt-1 text-[13px] text-wb-ink">
             {summaryLoading
               ? 'Generating summary…'
               : summary ?? 'Not enough recorded days yet for a summary.'}
+          </p>
+          <p className="mt-2 text-[11px] text-wb-ink2">
+            Built only from what was actually recorded — never a value it doesn&rsquo;t have.
           </p>
         </Card>
 
@@ -248,26 +297,34 @@ export default function TrendsPage() {
         )}
 
         {trends && !loadError && (
-          <Card className="print-compact">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 print:gap-2">
-              {FIELDS.map((field) => {
-                const score = latestScore(windowed, field);
-                return (
-                  <div key={field.key} className="print-tile rounded-md border border-wb-line bg-wb-bg p-3 print:p-1.5">
-                    <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
-                      {score != null && <span className="text-[12px] tabular-nums text-wb-ink2">{score}/100</span>}
-                    </div>
-                    <div className="mt-2">
-                      <Sparkline values={fieldValues(windowed, field)} />
-                    </div>
-                    {field.caption && <p className="mt-1 text-[10px] italic text-wb-ink2">{field.caption}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          <div className="flex flex-col gap-4 print:gap-2">
+            {TREND_GROUPS.map((group) => (
+              <Card key={group.key} className="print-compact print-tile">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink">{group.label}</div>
+                  <div className="text-[11px] text-wb-ink2">{group.blurb}</div>
+                </div>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 print:gap-2">
+                  {group.fields.map((field) => {
+                    const score = latestScore(windowed, field);
+                    return (
+                      <div key={field.key} className="print-tile rounded-md border border-wb-line bg-wb-bg p-3 print:p-1.5">
+                        <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
+                          {score != null && <span className="text-[12px] tabular-nums text-wb-ink2">{score}/100</span>}
+                        </div>
+                        <div className="mt-2">
+                          <Sparkline values={fieldValues(windowed, field)} />
+                        </div>
+                        {field.caption && <p className="mt-1 text-[10px] italic text-wb-ink2">{field.caption}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
     </WorkbenchShell>

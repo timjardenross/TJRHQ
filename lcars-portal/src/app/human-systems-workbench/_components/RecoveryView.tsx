@@ -89,8 +89,8 @@ function revsStatusText(key: RevsKey, active: RevsKey): string {
   if (key === active) return 'Current priority';
   switch (key) {
     case 'regulate': return 'Supportive';
-    case 'recover': return 'Gated';
-    case 'rebuild': return 'Gated';
+    case 'recover': return 'Not the current focus';
+    case 'rebuild': return 'Not the current focus';
     case 'redesign': return 'As patterns emerge';
     default: return '';
   }
@@ -439,6 +439,26 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
           </div>
         )}
 
+        {/* Phase 10 (recovery-brief consolidation, 2026-09-06) — "Wins This
+            Week" was real content in the retired recovery-brief page's
+            Wellness Intelligence section (health_insights.wins_this_week,
+            already carried through as data.wellness.wins) but had no home
+            in NOW/WHAT HELPS/PATTERNS after the tab split. Sits next to
+            Possible Pattern as the positive counterpart, only rendered
+            when real wins exist. */}
+        {data.wellness.wins.length > 0 && (
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Wins This Week</div>
+            <div className="mt-1 flex flex-col gap-1">
+              {data.wellness.wins.map((w, i) => (
+                <div key={i} className="rounded-md border border-wb-line bg-wb-bg p-2 text-[13px] text-wb-ink">
+                  {w}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {currentExperiment && (
           <div>
             <div className="flex items-center justify-between gap-2">
@@ -511,7 +531,10 @@ export function RevsPositionSection({ data, className = 'md:col-span-2' }: { dat
         })}
       </div>
       <p className="mt-3 text-[12px] text-wb-ink2">
-        A management orientation, not a completion score — these can overlap. See &ldquo;What May Need to Change&rdquo; for redesign candidates.
+        This isn&rsquo;t a completion score or a ladder to climb — stages can overlap, and you may move between them in either direction as things change day to day. The highlighted tile is today&rsquo;s emphasis, not a milestone you&rsquo;ve reached or a rank you&rsquo;ve earned.
+      </p>
+      <p className="mt-2 text-[12px] text-wb-ink2">
+        Redesign-stage thinking (see &ldquo;What May Need to Change&rdquo;) isn&rsquo;t locked behind reaching Regulate, Recover, or Rebuild first — it can be relevant at any time, independent of which orientation is current right now.
       </p>
     </CollapsibleSection>
   );

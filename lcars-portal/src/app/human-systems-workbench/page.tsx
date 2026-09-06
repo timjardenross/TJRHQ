@@ -42,7 +42,6 @@
 // fetches), so none of them needed touching.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { WorkbenchShell } from '@/components/ui';
 import { NowView } from './_components/NowView';
@@ -150,17 +149,14 @@ function Workbench() {
       right={right}
       tabs={tabsRow}
       back={{ href: '/workbenches', label: 'Workbenches' }}>
-      {/* 2026-08-29 (3-workbench council item 3/5): recovery-brief/page.tsx
-          was live and real (a genuine wb-native replacement for the retired
-          (app)/recovery-brief page) but had zero inbound link from this
-          workbench's own main page — only reachable via a legacy redirect.
-          One line back in, as recommended, not a redesign. */}
-      <Link
-        href="/human-systems-workbench/recovery-brief"
-        className="mb-1 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-      >
-        Recovery Brief →
-      </Link>
+      {/* Human Systems redesign Phase 10 (2026-09-06): recovery-brief's real
+          content has been consolidated into the NOW/PATTERNS tabs below
+          (see recovery-brief/page.tsx's own header comment) — the
+          "Recovery Brief →" link added here 2026-08-29 pointed at a page
+          that is now an explainer stub, so it's removed rather than
+          linking a Captain to a dead end. /human-systems-workbench/
+          recovery-brief itself is kept as a route (other callers still
+          link to it), just not promoted from this page any more. */}
 
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
