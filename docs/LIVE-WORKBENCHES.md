@@ -30,7 +30,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory Workbench | Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces. |
 | `/briefs` | Briefs | The intelligence brief archive — every synthesized brief across every domain, filterable by review/publish status. |
-| `/agent-status-workbench` | Agent & Job Status | Scheduler job health, agent run history, and failure triage across all automated platform tasks. |
+| `/agent-status-workbench` | HQ Status | Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows. |
 | `/self-improvement-findings` | Self-Improvement Findings | Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence. |
 
 ## Real routes deliberately NOT in the master list

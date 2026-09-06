@@ -126,8 +126,8 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   },
   {
     href: '/agent-status-workbench',
-    title: 'Agent & Job Status',
-    description: 'Scheduler job health, agent run history, and failure triage across all automated platform tasks.',
+    title: 'HQ Status',
+    description: 'Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows.',
     icon: Activity,
   },
   {
