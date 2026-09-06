@@ -145,7 +145,8 @@ export type OpportunityDecisionType =
   | 'approve_improvement'
   | 'create_mission'
   | 'more_evidence'
-  | 'reject';
+  | 'reject'
+  | 'mark_implemented';
 
 export interface EvolutionSummary {
   run_id: string | null;

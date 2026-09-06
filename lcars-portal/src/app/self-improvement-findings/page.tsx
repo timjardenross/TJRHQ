@@ -236,7 +236,7 @@ export default function HqEvolutionPage() {
         />
       )}
 
-      {tab === 'learned' && <LearnedTab learned={learned} historical={historical} />}
+      {tab === 'learned' && <LearnedTab learned={learned} historical={historical} onDecide={decide} />}
 
       <div className="text-center text-xs text-wb-ink2 mt-8">
         Refreshes automatically every minute while this tab is visible ·{' '}
@@ -652,7 +652,13 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
   { key: 'inconclusive', label: 'Inconclusive', result: 'inconclusive' },
 ];
 
-function LearnedTab({ learned, historical }: { learned: Opportunity[]; historical: Opportunity[] }) {
+function LearnedTab({
+  learned, historical, onDecide,
+}: {
+  learned: Opportunity[];
+  historical: Opportunity[];
+  onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+}) {
   const [filter, setFilter] = useState('all');
   const activeFilter = LEARNED_FILTERS.find((f) => f.key === filter) ?? LEARNED_FILTERS[0];
   const filteredLearned = useMemo(
@@ -700,15 +706,35 @@ function LearnedTab({ learned, historical }: { learned: Opportunity[]; historica
             Historical decisions / changes ({historical.length})
           </summary>
           <div className="mt-3 space-y-2">
-            {historical.map((o) => (
-              <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold">{o.title}</div>
-                  <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
+            {historical.map((o) => {
+              const canMarkImplemented = ['approved', 'implementing'].includes(o.lifecycle_state)
+                && !!o.outcome_contract && 'expected_benefit' in o.outcome_contract;
+              return (
+                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">{o.title}</div>
+                    <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
+                    {canMarkImplemented && (
+                      <p className="text-xs text-wb-ink2 mt-1">
+                        Not yet auto-remediated (needs a human to apply this directly). Once you&apos;ve made the change
+                        yourself, confirm it below so HQ can start observing whether it actually helped.
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {canMarkImplemented && (
+                      <button
+                        onClick={() => onDecide(o.opportunity_id, 'mark_implemented', 'Manually implemented by the Captain')}
+                        className="px-3 py-1.5 rounded bg-wb-sage-deep text-white text-xs font-semibold hover:opacity-90"
+                      >
+                        Mark implemented
+                      </button>
+                    )}
+                    <Badge status={toneToStatus(lifecycleStateToTone(o.lifecycle_state))}>{o.lifecycle_state.replace('_', ' ')}</Badge>
+                  </div>
                 </div>
-                <Badge status={toneToStatus(lifecycleStateToTone(o.lifecycle_state))}>{o.lifecycle_state.replace('_', ' ')}</Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </details>
       )}
