@@ -31,12 +31,22 @@ from tools.intelligence.recompute_signal_scores import (
     compute_escalation,
     impact_from_criticality,
 )
+from intelligence.captains_brief import _derive_risk_label
 
-# Matches intelligence/captains_brief.py's _get_new_signals_since() live
-# digest-inclusion bar (rank_score>=50, suppressed=false, signal_status!=
-# DUPLICATE) — kept as a named constant here so a Phase 11 tuning pass has
-# one place to adjust, not two independently-drifting copies of "50".
-BRIEF_RANK_SCORE_FLOOR = 50
+# 2026-09-06 fix, found via the Phase 3 backfill's real 14-day data:
+# rank_score's composite formula (recency_decay x Source Reliability Score,
+# both <1.0 for almost every real row) essentially never reaches 50 in
+# practice — live-checked max over 14 real days was 57.65, P99 was 36.4.
+# The original BRIEF_RANK_SCORE_FLOOR=50 constant was copied from
+# captains_brief.py's `_get_new_signals_since()` (a narrow midday-check
+# query), not from the function that actually drives what TJR sees day to
+# day in the Morning Brief/EOD Summary — that's `_derive_risk_label()`
+# (HIGH: rank>=75 or operational_relevance>=0.85; MEDIUM: rank>=50 or
+# operational_relevance>=0.60), consumed by `_format_signals_block()`
+# which only ever shows HIGH/MEDIUM. Reusing that function directly here
+# (not reimplementing its thresholds) so disposition's BRIEF label tracks
+# what's actually shown today, the same principle the original design
+# intended but got the wrong reference function for.
 
 
 def technical_disposition(
@@ -89,15 +99,17 @@ def technical_disposition(
             return "WATCH", f"confidence={confidence} impact={impact}"
 
         # escalation == "MONITOR": still check whether this item actually
-        # clears the live captains_brief.py digest bar — if it does, it's
-        # already reaching TJR today and should read as BRIEF, not
-        # REFERENCE, even though its confidence/impact combo isn't an
+        # clears the real Morning Brief/EOD Summary inclusion bar — if it
+        # does, it's already reaching TJR today and should read as BRIEF,
+        # not REFERENCE, even though its confidence/impact combo isn't an
         # escalation-worthy pairing.
         rank_score = event.get("rank_score") or 0
-        if rank_score >= BRIEF_RANK_SCORE_FLOOR:
-            return "BRIEF", f"rank_score={rank_score} clears captains_brief digest floor ({BRIEF_RANK_SCORE_FLOOR})"
+        op_relevance = event.get("operational_relevance") or 0
+        live_risk_label = _derive_risk_label({"rank_score": rank_score, "operational_relevance": op_relevance})
+        if live_risk_label in ("HIGH", "MEDIUM"):
+            return "BRIEF", f"derived risk_rating={live_risk_label} (rank_score={rank_score}, operational_relevance={op_relevance}) clears the real brief-inclusion bar"
 
-        return "REFERENCE", f"confidence={confidence} impact={impact} rank_score={rank_score}"
+        return "REFERENCE", f"confidence={confidence} impact={impact} rank_score={rank_score} operational_relevance={op_relevance}"
 
     except Exception as exc:  # noqa: BLE001 — disposition must never block a save
         return "WATCH", f"disposition_computation_failed: {exc}"
