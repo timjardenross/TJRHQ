@@ -79,6 +79,13 @@ describe('rankToday — pinned tasks always survive a shrinking cap (brief §13/
     expect(result.map((t) => t.id)).toEqual(['pinned', 'a']);
   });
 
+  it('keeps an already-started (in_progress) task in Today even when the cap shrinks — starting work is as explicit as pinning', () => {
+    const started = task({ id: 'started', work_state: 'in_progress', urgency: 1, created_at: new Date('2026-01-05').toISOString() });
+    const urgent = task({ id: 'urgent', urgency: 5 });
+    const result = rankToday([urgent, started], { capacityLimit: 1 });
+    expect(result.map((t) => t.id)).toContain('started');
+  });
+
   it('never exceeds a strong-day cap just because many tasks exist (brief §45)', () => {
     const many = Array.from({ length: 20 }, (_, i) => task({ id: `t${i}`, urgency: 5 }));
     const result = rankToday(many, { capacityLimit: capacityLimitForPosture('ENGAGE') });

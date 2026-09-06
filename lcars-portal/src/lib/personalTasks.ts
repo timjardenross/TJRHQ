@@ -180,16 +180,17 @@ export function isSnoozedToday(task: PersonalTask): boolean {
  *
  * Human Execution Loop mission (brief §13/§45/§56): Human Systems context
  * may shrink capacityLimit on a constrained day, but a task the Captain has
- * explicitly pinned into Today (pinned_today) is never dropped by that
- * shrink — pinned tasks are included first and don't count against the
- * cap, which only governs how many *additional*, algorithm-ranked tasks
- * join them. Human Systems informs the cap; it never removes a decision
- * the Captain already made. */
+ * explicitly acted on — pinned it (pinned_today), or already started it
+ * (work_state === 'in_progress', at least as explicit a signal as a pin
+ * click) — is never dropped by that shrink. These "kept" tasks are included
+ * first and don't count against the cap, which only governs how many
+ * *additional*, algorithm-ranked tasks join them. Human Systems informs the
+ * cap; it never removes a decision the Captain already made. */
 export function rankToday(tasks: PersonalTask[], opts?: { capacityLimit?: number }): PersonalTask[] {
   const cap = opts?.capacityLimit ?? 3;
   const eligible = tasks.filter((t) => t.work_state !== 'blocked' && !isSnoozedToday(t));
-  const pinned = eligible.filter((t) => t.pinned_today);
-  const unpinned = eligible.filter((t) => !t.pinned_today);
+  const kept = eligible.filter((t) => t.pinned_today || t.work_state === 'in_progress');
+  const unpinned = eligible.filter((t) => !t.pinned_today && t.work_state !== 'in_progress');
 
   const score = (t: PersonalTask): number => {
     if (t.due_date) {
@@ -209,8 +210,8 @@ export function rankToday(tasks: PersonalTask[], opts?: { capacityLimit?: number
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
 
-  const ranked = sortByScore(unpinned).slice(0, Math.max(0, cap - pinned.length));
-  return [...sortByScore(pinned), ...ranked];
+  const ranked = sortByScore(unpinned).slice(0, Math.max(0, cap - kept.length));
+  return [...sortByScore(kept), ...ranked];
 }
 
 /** Explicit user selection for Today (brief §13) — set/unset independent

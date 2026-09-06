@@ -42,9 +42,7 @@ describe('buildAssessedContext — freshness', () => {
     expect(ctx.available_capacity).toBe('unknown');
   });
 
-  it('is "stale" when the last check-in is from a prior day, and caps confidence at low even with a rich trajectory window', () => {
-    const yesterday = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
-    const staleToday = { ...todayRow(), captured_at: yesterday };
+  it('a good trajectory history does not manufacture confidence about NOW when today has no check-in', () => {
     const richWindow: BurnoutWindowRow[] = Array.from({ length: 15 }, (_, i) => ({
       checkin_type: 'capacity',
       log_date: `2026-08-${String(i + 1).padStart(2, '0')}`,
@@ -56,14 +54,35 @@ describe('buildAssessedContext — freshness', () => {
       recovery_duration: null,
       capacity_debt: null,
     }));
-    // buildAssessedContext only reads captured_at off todayRow to decide
-    // freshness; it is intentionally called with a null "today" row here
-    // (no capacity_checkins row logged today) plus a rich window, to prove
-    // a good trajectory history does not manufacture confidence about NOW.
     const ctx = buildAssessedContext(null, richWindow);
     expect(ctx.freshness.status).toBe('none');
     expect(ctx.confidence).toBe('low');
-    void staleToday;
+  });
+
+  it('reports "stale" with an honest last_checkin_at when a prior check-in exists but not today (brief §42 — Monday should not silently represent Thursday)', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    // No row for today (null) — a stale prior check-in is supplied
+    // separately, the way getAssessedContext() derives it from the window
+    // query rather than a fabricated "today" row.
+    const ctx = buildAssessedContext(null, [], twoDaysAgo);
+    expect(ctx.freshness.status).toBe('stale');
+    expect(ctx.freshness.last_checkin_at).toBe(twoDaysAgo);
+    expect(ctx.has_checkin_today).toBe(false);
+    expect(ctx.confidence).toBe('low');
+    // Still no posture fabricated from the stale row — NOW stays UNKNOWN.
+    expect(ctx.posture).toBe('UNKNOWN');
+  });
+
+  it('has_checkin_today tracks whether a row exists for today specifically, not just recency-by-clock', () => {
+    // A check-in from 2 hours ago that is nonetheless not "today's row" —
+    // e.g. it's just after midnight and the last check-in was late last
+    // night. freshness.status can still read 'fresh' (the evidence is
+    // recent), but has_checkin_today must not claim a check-in was logged
+    // for today's date, since NOW posture derivation is calendar-day scoped.
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const ctx = buildAssessedContext(null, [], twoHoursAgo);
+    expect(ctx.has_checkin_today).toBe(false);
+    expect(ctx.posture).toBe('UNKNOWN');
   });
 });
 

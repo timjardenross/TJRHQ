@@ -106,13 +106,36 @@ function freshnessOf(lastCheckinAt: string | null): Freshness {
   return 'stale';
 }
 
+/** Most recent captured_at across a set of rows, or null if none carry one
+ * — used to give freshness an honest "last checked in N days ago" instead
+ * of collapsing "checked in yesterday" and "never checked in" into the same
+ * bucket (brief §42's Monday-checkin-by-Thursday example). */
+function latestCapturedAt(rows: { captured_at: string | null }[]): string | null {
+  let latest: string | null = null;
+  for (const r of rows) {
+    if (!r.captured_at) continue;
+    if (!latest || new Date(r.captured_at).getTime() > new Date(latest).getTime()) latest = r.captured_at;
+  }
+  return latest;
+}
+
 /** Pure composition — no querying. Kept separate from getAssessedContext()
  * below so unit tests can exercise the freshness/posture/trajectory rules
- * without a Supabase client. */
-export function buildAssessedContext(todayRow: TodayRow | null, windowRows: BurnoutWindowRow[]): AssessedContext {
+ * without a Supabase client.
+ *
+ * `todayRow` (log_date = today only) is the sole input to NOW posture —
+ * never fall back to an older row for posture itself, or a stale check-in
+ * would silently stand in for today's (brief §42). `lastKnownCheckinAt` is
+ * independent, honest "when did we last actually hear from you" evidence
+ * for the freshness/staleness read only — it never feeds posture. */
+export function buildAssessedContext(
+  todayRow: TodayRow | null,
+  windowRows: BurnoutWindowRow[],
+  lastKnownCheckinAt: string | null = todayRow?.captured_at ?? null,
+): AssessedContext {
   const { posture, message } = deriveSystemPosture(todayRow);
   const strategic = computeStrategicPosture(windowRows, TRAJECTORY_WINDOW_DAYS, posture);
-  const lastCheckinAt = todayRow?.captured_at ?? null;
+  const lastCheckinAt = todayRow?.captured_at ?? lastKnownCheckinAt;
   const freshnessStatus = freshnessOf(lastCheckinAt);
 
   return {
@@ -134,8 +157,11 @@ export function buildAssessedContext(todayRow: TodayRow | null, windowRows: Burn
     // A stale/absent today check-in caps confidence at 'low' regardless of
     // how much trajectory history exists — trajectory confidence describes
     // the window, not whether NOW is current (brief §42/§43).
-    confidence: freshnessStatus === 'fresh' ? strategic.trajectory_confidence : 'low',
-    has_checkin_today: freshnessStatus === 'fresh',
+    confidence: todayRow ? strategic.trajectory_confidence : 'low',
+    // Deliberately keyed on todayRow's presence, not the freshness-by-age
+    // check above — a check-in from 11pm yesterday is under 24h old (so
+    // freshnessStatus reads 'fresh') but is still not a check-in FOR today.
+    has_checkin_today: todayRow !== null,
   };
 }
 
@@ -171,6 +197,12 @@ export async function getAssessedContext(sb: SupabaseLike): Promise<AssessedCont
 
   const todayRow: TodayRow | null = (todayResult?.data ?? [])[0] ?? null;
   const windowRows: BurnoutWindowRow[] = windowResult?.data ?? [];
+  // windowRows already covers the last 21 days (the query above), so the
+  // most recent captured_at in it is a free, honest "last known check-in"
+  // read for freshness — no extra query needed. Anything older than the
+  // window is old enough that "none" and "stale" mean the same thing in
+  // practice, so it isn't worth a further query to distinguish.
+  const lastKnownCheckinAt = latestCapturedAt(windowRows);
 
-  return buildAssessedContext(todayRow, windowRows);
+  return buildAssessedContext(todayRow, windowRows, lastKnownCheckinAt);
 }
