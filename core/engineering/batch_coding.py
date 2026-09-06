@@ -508,7 +508,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
     if not path.is_absolute():
         path = _REPO_ROOT / path
     result: dict[str, Any] = {
-        "handoff": path.stem, "status": "", "artifact": "", "pr_url": "", "error": "",
+        "handoff": path.stem, "status": "", "artifact": "", "pr_url": "", "pr_error": "", "error": "",
     }
     try:
         _ensure_env()
@@ -537,6 +537,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
 
         pr_stamp: dict[str, str] = {}
         pr_url = ""
+        pr_error = ""
         artifact_text = text
         mode_used = "full_file"
 
@@ -555,8 +556,20 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
                     log.info("[batch_coding] files-PR skipped some files for %s: %s",
                              path.stem, pr_result["skipped"])
             else:
+                # 2026-09-06: open_files_pr()'s rich reason/detail (git_failed,
+                # pr_api_*, no_files_written, ...) used to die right here - only
+                # logged, never put anywhere the caller (auto_remediation.py's
+                # HandoffPRStrategy, which only inspects this function's JSON
+                # stdout) could see it. That left every real failure indistinguishable
+                # from "GitHub not configured", the one case auto_remediation.py's
+                # generic message actually named - confirmed live: a token/repo
+                # that WERE configured still produced that exact message for an
+                # unrelated git_failed underneath.
+                reason = pr_result.get("reason", "unknown")
+                detail = pr_result.get("detail")
+                pr_error = f"{reason}: {detail}" if detail else reason
                 log.info("[batch_coding] files-PR not opened for %s (%s)",
-                         path.stem, pr_result.get("reason"))
+                         path.stem, pr_error)
         else:
             # Model returned a diff/prose instead of FILE blocks → diff-mode PR.
             mode_used = "patch-fallback"
@@ -576,7 +589,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
         }
         stamp.update(pr_stamp)
         _stamp(path, stamp)
-        result.update(status="delivered", artifact=artifact_ref, pr_url=pr_url)
+        result.update(status="delivered", artifact=artifact_ref, pr_url=pr_url, pr_error=pr_error)
         log.info("[batch_coding] sync-one delivered %s (mode=%s, pr=%s)",
                  path.stem, mode_used, pr_url or "none")
     except Exception as exc:  # mark FAILED so the queue reflects it; never raise

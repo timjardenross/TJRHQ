@@ -274,13 +274,23 @@ class HandoffPRStrategy(RemediationStrategy):
             return {"success": False, "error": f"sync-one status={out.get('status')}: {out.get('error', '')}"}
 
         pr_url = out.get("pr_url") or ""
+        # 2026-09-06: sync-one's own pr_error field (see batch_coding.py's
+        # run_sync_one) now carries the real reason a PR wasn't opened
+        # (git_failed, pr_api_403, no_files_written, ...) - previously this
+        # branch always guessed "GitHub not configured or no new files to
+        # add" regardless of the actual cause, confirmed live: both were
+        # configured and the file genuinely was new, and the real failure
+        # (a git-level error, never surfaced anywhere) was indistinguishable
+        # from that guess. Falls back to the old wording only when an older
+        # sync-one or the diff-mode fallback path didn't set pr_error.
+        pr_error = out.get("pr_error") or "GitHub not configured or no new files to add"
         return {
             "success": True,
             "mode": "pr",
             "message": (
                 f"Draft PR opened for review: {pr_url}" if pr_url
                 else f"Handoff coded (artifact: {out.get('artifact')}) but no PR opened "
-                     f"(GitHub not configured or no new files to add) — review the artifact manually."
+                     f"({pr_error}) — review the artifact manually."
             ),
         }
 
