@@ -1,17 +1,59 @@
 'use client';
 
+/**
+ * Technical OSINT Workbench (Three-Workbench Simplification, Phase 1).
+ *
+ * Re-anchored from a 5-tab analyst console (Signal Confidence Matrix /
+ * Intelligence Summary / Source Trust Network / Threat Assessment / Signal
+ * Credibility) into a single-user intelligence briefing: Today / Watching /
+ * Library — mirroring the Content Workbench uplift (MSN-0363, commit
+ * f2ee2cb4)'s Today/Studio/Pipeline/Library pattern: one route, tabs via
+ * DomainToggle + ?tab= URL-sync, no new AppShell/theme/nav.
+ *
+ * This is the first workbench to read and gate the UI on
+ * intelligence_events.disposition (intelligence/classification/
+ * disposition.py::technical_disposition(), migration 0186) instead of
+ * treating it as shadow-mode: ESCALATE -> Needs you, BRIEF -> Worth
+ * knowing, WATCH -> Watching, REFERENCE/older -> Library, SUPPRESS ->
+ * hidden from every normal view (still queryable in Library via an
+ * explicit filter — never hard-deleted). See today/watching/library
+ * route.ts files for the real query logic and the documented backfill gap
+ * (disposition is NULL on ~80% of pre-migration-0186 rows; verified live
+ * that the last 7 days are fully populated, so Today/Watching are
+ * unaffected — Library is where NULL disposition surfaces, labelled
+ * "Unclassified" rather than hidden).
+ *
+ * The original 5-tab analyst console is demoted, not deleted: every API
+ * route (confidence-matrix/intelligence-summary/source-network/
+ * threat-assessment/credibility) and its rendering logic below is
+ * unchanged, just reachable via a secondary "Technical view" toggle
+ * instead of being the primary nav. brief/[id] and escalation/[id] are
+ * untouched and still linked from Credibility's technical view and now
+ * also from Library's evidence links.
+ */
+
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, WorkbenchShell, DomainToggle } from '@/components/ui';
+import { Card, WorkbenchShell, DomainToggle, Button } from '@/components/ui';
 import { stateToneClasses } from '@/lib/departments';
 import type { StateTone } from '@/lib/types';
+import { TodayView } from './_components/TodayView';
+import { WatchingView } from './_components/WatchingView';
+import { LibraryView } from './_components/LibraryView';
 
-type Domain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
+type Tab = 'today' | 'watching' | 'library';
+type AnalystDomain = 'confidence-matrix' | 'intelligence-summary' | 'source-network' | 'threat-assessment' | 'credibility';
 
-type Payload = { domain: Domain; [key: string]: any };
+type Payload = { domain: AnalystDomain; [key: string]: any };
 
-const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
+const TAB_OPTIONS: { key: Tab; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'watching', label: 'Watching' },
+  { key: 'library', label: 'Library' },
+];
+
+const ANALYST_DOMAIN_OPTIONS: { key: AnalystDomain; label: string }[] = [
   { key: 'confidence-matrix', label: 'Signal Confidence Matrix' },
   { key: 'intelligence-summary', label: 'Intelligence Summary' },
   { key: 'source-network', label: 'Source Trust Network' },
@@ -19,8 +61,12 @@ const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
   { key: 'credibility', label: 'Signal Credibility' },
 ];
 
-function isDomain(v: string | null): v is Domain {
-  return DOMAIN_OPTIONS.some((o) => o.key === v);
+function isTab(v: string | null): v is Tab {
+  return v === 'today' || v === 'watching' || v === 'library';
+}
+
+function isAnalystDomain(v: string | null): v is AnalystDomain {
+  return ANALYST_DOMAIN_OPTIONS.some((o) => o.key === v);
 }
 
 /** Card title with a semantic state dot in place of a functional emoji glyph.
@@ -35,20 +81,20 @@ function CardTitleWithDot({ tone, label }: { tone: StateTone; label: string }) {
   );
 }
 
-function Workbench() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const initial = params.get('domain');
-  // Land on Intelligence Summary by default (Captain's directive,
-  // 2026-08-22) — was Confidence Matrix.
-  const [domain, setDomainState] = useState<Domain>(isDomain(initial) ? initial : 'intelligence-summary');
+/**
+ * The original 5-tab analyst console, unchanged from before this uplift
+ * except for being reached via a "Technical view" toggle instead of being
+ * the workbench's primary navigation. All 5 API routes are untouched.
+ */
+function AnalystConsole({ onClose }: { onClose: () => void }) {
+  const [domain, setDomain] = useState<AnalystDomain>('intelligence-summary');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
-    const endpoints: Record<Domain, string> = {
+    const endpoints: Record<AnalystDomain, string> = {
       'confidence-matrix': '/api/intelligence-workbench/confidence-matrix',
       'intelligence-summary': '/api/intelligence-workbench/intelligence-summary',
       'source-network': '/api/intelligence-workbench/source-network',
@@ -71,16 +117,6 @@ function Workbench() {
 
   useEffect(() => { load(true); }, [load]);
 
-  const setDomain = (d: Domain) => {
-    setDomainState(d);
-    // Keep the URL shareable/bookmarkable without a full navigation —
-    // matches human-systems-workbench's pattern. Previously a refresh
-    // on a non-default tab silently dropped back to Confidence Matrix.
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('domain', d);
-    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
-  };
-
   const renderSignal = (s: any) => (
     <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
       {s.canonical_url ? (
@@ -102,23 +138,19 @@ function Workbench() {
   );
 
   return (
-    <WorkbenchShell wide
-      title="Technical OSINT Workbench"
-      eyebrow="Cyber & Infrastructure Intelligence"
-      tagline="USS TJR · Signal Confidence, Source Trust, Threat Assessment"
-      tabs={<DomainToggle value={domain} onChange={setDomain} options={DOMAIN_OPTIONS} ariaLabel="OSINT view" />}
-      back={{ href: '/workbenches', label: 'Workbenches' }}
-    >
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[12px] text-wb-ink2">Technical view — full analyst console (Signal Confidence, Source Trust, Threat Assessment).</p>
+        <Button size="sm" variant="secondary" onClick={onClose}>← Back to briefing</Button>
+      </div>
+      <DomainToggle value={domain} onChange={setDomain} options={ANALYST_DOMAIN_OPTIONS} ariaLabel="OSINT analyst view" />
+
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Technical OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Category & Confidence">
-            {/* 2026-08-09 mobile/iPad review (P2): fixed grid-cols-2 gave
-                each category ~170px on a 375px phone for a name + 4
-                stacked confidence counts — tight but the real fix is just
-                not forcing 2 columns below sm. */}
             <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
@@ -234,14 +266,6 @@ function Workbench() {
                 <div>Overall risk: <span className="font-semibold text-wb-ink">{data.brief.overall_risk ?? 'unknown'}</span></div>
                 <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
                 {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
-                {/* 2026-08-29 (3-workbench council item 5/5): brief/[id] and
-                    escalation/[id] were live-fetched, real pages with zero
-                    inbound link from this workbench's own main page — only
-                    reachable via the separate Briefs surface. Both key off
-                    the same brief_id (escalation/[id] hits the identical
-                    /api/intelligence-workbench/brief?id= endpoint, just
-                    renders the RED-escalation workflow instead of a
-                    read-only view), so one id covers both links. */}
                 <div className="mt-2 flex gap-3">
                   <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
                     View full brief →
@@ -276,6 +300,71 @@ function Workbench() {
             </div>
           </Card>
         </div>
+      )}
+    </div>
+  );
+}
+
+function Workbench() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const initial = params.get('tab');
+  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'today');
+  const [showAnalyst, setShowAnalyst] = useState(isAnalystDomain(params.get('view')));
+
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    setShowAnalyst(false);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('tab', t);
+    sp.delete('view');
+    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
+  };
+
+  const openAnalyst = () => {
+    setShowAnalyst(true);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('view', 'technical');
+    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
+  };
+
+  const closeAnalyst = () => {
+    setShowAnalyst(false);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.delete('view');
+    router.replace(`/intelligence-workbench?${sp.toString()}`, { scroll: false });
+  };
+
+  return (
+    <WorkbenchShell
+      title="Technical OSINT Workbench"
+      eyebrow="Cyber & Infrastructure Intelligence"
+      tagline="USS TJR · Your daily technical intelligence briefing"
+      tabs={!showAnalyst ? <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Technical OSINT sections" /> : undefined}
+      back={{ href: '/workbenches', label: 'Workbenches' }}
+      wide
+    >
+      {showAnalyst ? (
+        <AnalystConsole onClose={closeAnalyst} />
+      ) : (
+        <>
+          {tab === 'today' && (
+            <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
+          )}
+          {tab === 'watching' && <WatchingView />}
+          {tab === 'library' && (
+            <div className="space-y-3">
+              <LibraryView />
+              <button
+                type="button"
+                onClick={openAnalyst}
+                className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep"
+              >
+                Technical view (analyst console) →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </WorkbenchShell>
   );
