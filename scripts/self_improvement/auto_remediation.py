@@ -194,17 +194,25 @@ class HandoffPRStrategy(RemediationStrategy):
     docstring — writes generated files into a throwaway worktree and opens a
     **draft** GitHub PR for review. That's the platform's only existing
     precedent for AI-authored code changes; matching it here (confirmed with
-    the Captain) rather than direct-committing, even though this path is
-    gated to risk_level=low + automation_eligibility in (auto_apply,
-    auto_with_verification) by should_remediate() before this class is ever
-    reached. A hard fence against CI/CD config and anything credential-
-    shaped lives in batch_coding._is_fenced_path, applied regardless of risk
-    level.
+    the Captain) rather than direct-committing.
 
-    Only reached when nothing narrower claimed the finding first (registered
-    last in AutoRemediationExecutor.strategies) - always True so a low-risk,
-    high-eligibility finding never silently falls through with "no strategy
-    available" the way it did before this class existed.
+    2026-08-29: originally reached only via should_remediate()'s strict gate
+    (risk_level=low + automation_eligibility in (auto_apply,
+    auto_with_verification)), as the catch-all for anything narrower didn't
+    claim (registered last in AutoRemediationExecutor.strategies) - always
+    True so a low-risk, high-eligibility finding never silently falls
+    through with "no strategy available" the way it did before this class
+    existed.
+
+    2026-09-06 (Captain-approved widening, HQ Evolution follow-up): ALSO
+    reached, via a separate explicit route in execute() (never through
+    get_remediation_strategy()'s normal narrowest-first search), for
+    needs_signoff findings a human has already approved through HQ
+    Evolution — see should_remediate_via_pr() on AutoRemediationExecutor.
+    Still capped at risk_level in (low, medium); still never a direct
+    commit either way. A hard fence against CI/CD config and anything
+    credential-shaped lives in batch_coding._is_fenced_path, applied
+    regardless of risk level or which gate admitted the finding.
     """
 
     def can_remediate(self, finding: dict[str, Any]) -> bool:
@@ -285,12 +293,17 @@ class AutoRemediationExecutor:
         self.data_root = data_root
         self.result_file = data_root / "review" / "remediation_results.jsonl"
         # HandoffPRStrategy is the catch-all (always True) — must stay last,
-        # so the narrower/free/direct strategies get first refusal.
+        # so the narrower/free/direct strategies get first refusal. Also
+        # kept as its own named reference (self.pr_strategy) so execute()
+        # can force routing to it specifically for should_remediate_via_pr()
+        # -eligible findings, never falling through to a narrower,
+        # direct-commit strategy for something only cleared for PR review.
+        self.pr_strategy = HandoffPRStrategy()
         self.strategies = [
             DeleteFileStrategy(),
             DocumentStrategy(),
             ObservabilityStrategy(),
-            HandoffPRStrategy(),
+            self.pr_strategy,
         ]
 
     def load_latest_findings(self) -> tuple[list[dict[str, Any]], str]:
@@ -369,6 +382,48 @@ class AutoRemediationExecutor:
         if eligibility not in ("auto_apply", "auto_with_verification"):
             log.info(f"Skipping {finding.get('finding_id')}: automation_eligibility={eligibility!r} "
                      f"(needs auto_apply or auto_with_verification)")
+            return False
+
+        return True
+
+    def should_remediate_via_pr(self, finding: dict[str, Any]) -> bool:
+        """2026-09-06 (Captain-approved widening of the 2026-08-29 boundary,
+        HQ Evolution follow-up): a wider gate than should_remediate(), but
+        the ONLY strategy it may ever route to is HandoffPRStrategy — a
+        draft PR opened for human review, never a direct working-tree
+        mutation. This exists because a human already approved the
+        underlying OPPORTUNITY (HQ Evolution's approve_improvement); without
+        this, "needs_signoff" findings were being silently and permanently
+        skipped with no path forward at all, even though PR review is
+        exactly the kind of signoff the classification calls for.
+
+        Deliberately still excludes DeleteFileStrategy/DocumentStrategy/
+        ObservabilityStrategy: those write directly to the working tree and
+        get committed to main by execute() itself (mode="direct") with no
+        human review before the commit lands — automation_eligibility
+        staying the sole authority for THAT path (should_remediate() above,
+        unchanged) is non-negotiable. This method only ever widens which
+        findings may reach a strategy that produces a draft PR, and the
+        caller (execute()) is responsible for forcing HandoffPRStrategy
+        specifically rather than calling get_remediation_strategy(), which
+        could still resolve to a narrower, direct-mode strategy first.
+
+        risk_level is capped at "medium" — high/critical never auto-drafts
+        regardless of any approval, matching should_remediate()'s own
+        conservatism about what a human's approval click is allowed to
+        actually trigger.
+        """
+        risk = (finding.get("risk_level") or "medium").lower()
+        eligibility = (finding.get("automation_eligibility") or "").lower()
+
+        if risk not in ("low", "medium"):
+            log.info(f"Skipping {finding.get('finding_id')} for PR-drafting too: risk_level={risk} "
+                     f"(high/critical never auto-drafts)")
+            return False
+
+        if eligibility not in ("auto_apply", "auto_with_verification", "needs_signoff"):
+            log.info(f"Skipping {finding.get('finding_id')} for PR-drafting too: "
+                     f"automation_eligibility={eligibility!r}")
             return False
 
         return True
@@ -498,12 +553,19 @@ class AutoRemediationExecutor:
 
             results["approved_count"] += 1
 
-            if not self.should_remediate(model_confidence, finding):
+            if self.should_remediate(model_confidence, finding):
+                strategy = self.get_remediation_strategy(finding)
+            elif self.should_remediate_via_pr(finding):
+                # PR-only path (e.g. needs_signoff) — force HandoffPRStrategy
+                # specifically, never get_remediation_strategy(), which could
+                # still resolve to a narrower, direct-commit strategy first
+                # for a finding that was only ever cleared for PR review.
+                strategy = self.pr_strategy
+            else:
                 results["skipped_count"] += 1
                 self.record_result(fid, False, "Skipped: model confidence, risk level, or automation eligibility")
                 continue
 
-            strategy = self.get_remediation_strategy(finding)
             if not strategy:
                 results["skipped_count"] += 1
                 log.info(f"{fid}: No remediation strategy available")
