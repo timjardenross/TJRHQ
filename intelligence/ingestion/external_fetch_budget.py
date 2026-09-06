@@ -60,7 +60,7 @@ existing two-layer safety net; it only needs to log clearly and raise.
 
 ── Ceilings (real headroom, not a number that only works if everything else
    about the projection stays perfect) ─────────────────────────────────────
-  - Firecrawl:   cap 1,000/month (Free plan, hard) -> ceiling 850  (85%)
+  - Firecrawl:   cap 2,000/month (2 Free-plan accounts, hard) -> ceiling 1,700 (85%)
   - Bright Data: cap 5,000/month (Free tier)        -> ceiling 4,500 (90%)
 
 Firecrawl gets a slightly larger safety margin (85% vs. 90%) because it's
@@ -123,7 +123,7 @@ class ProviderBudget:
 
 
 PROVIDERS: dict[str, ProviderBudget] = {
-    "firecrawl":  ProviderBudget(cap=1000, ceiling=850,  anchor_day=9),
+    "firecrawl":  ProviderBudget(cap=2000, ceiling=1700, anchor_day=9),
     "brightdata": ProviderBudget(cap=5000, ceiling=4500, anchor_day=1),
 }
 
