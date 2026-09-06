@@ -201,7 +201,7 @@ function useNotebookReadyCount(): { readyCount: number | null; error: string | n
 }
 
 export default function CaptainsChairWorkbench() {
-  const { context: humanSystems, error: humanSystemsError } = useHumanSystemsContext();
+  const { context: humanSystems, loading: humanSystemsLoading, error: humanSystemsError } = useHumanSystemsContext();
   const { alerts: liveAlerts } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, error: briefingError } = useTodaysBriefing();
@@ -214,7 +214,7 @@ export default function CaptainsChairWorkbench() {
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
 
-  const commandStatusLoading = opRiskLoading || emergencyLoading || agentHealthLoading;
+  const commandStatusLoading = humanSystemsLoading || opRiskLoading || emergencyLoading || agentHealthLoading;
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
   const commandStatus = deriveCommandStatus({
     posture: humanSystems?.posture ?? 'UNKNOWN',
@@ -232,14 +232,16 @@ export default function CaptainsChairWorkbench() {
     systemsUnknown: agentHealthError !== null,
   });
 
-  const capacityTone = humanSystemsError
+  const capacityTone = humanSystemsLoading
     ? ('unknown' as const)
-    : SYSTEM_POSTURE_STATE_TONE[commandStatus.posture];
+    : humanSystemsError
+      ? ('unknown' as const)
+      : SYSTEM_POSTURE_STATE_TONE[commandStatus.posture];
 
   const signalChips = [
     {
       label: 'Capacity',
-      value: humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : (humanSystems?.available_capacity ?? 'unknown'),
+      value: humanSystemsLoading ? '…' : humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : (humanSystems?.available_capacity ?? 'unknown'),
       tone: capacityTone,
       href: '/human-systems-workbench',
     },
@@ -329,7 +331,7 @@ export default function CaptainsChairWorkbench() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <NeedsYou items={sortNeedsYou(needsYouItems)} loading={attentionLoading} errors={needsYouErrors} />
           <Situation
-            loading={attentionLoading}
+            loading={attentionLoading || humanSystemsLoading}
             data={{
               availableCapacity: humanSystems?.available_capacity ?? 'unknown',
               posture: humanSystems?.posture ?? 'UNKNOWN',

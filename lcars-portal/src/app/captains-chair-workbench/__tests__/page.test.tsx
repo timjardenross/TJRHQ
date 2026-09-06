@@ -95,6 +95,27 @@ function mockFetchByUrl(routes: Record<string, unknown>) {
   }));
 }
 
+/** Like mockFetchByUrl, but the /api/human-systems/context response only
+ * resolves once the returned `resolve()` is called — lets a test inspect
+ * the DOM mid-flight, before that one fetch settles. */
+function mockFetchWithDeferredHumanSystems(routes: Record<string, unknown> = {}) {
+  let resolveHumanSystems!: (body: unknown) => void;
+  const humanSystemsPromise = new Promise<unknown>((resolve) => { resolveHumanSystems = resolve; });
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.startsWith('/api/human-systems/context')) {
+      return humanSystemsPromise.then((body) => ({ ok: true, json: async () => body }) as Response);
+    }
+    for (const [prefix, body] of Object.entries(routes)) {
+      if (url.startsWith(prefix)) {
+        return Promise.resolve({ ok: true, json: async () => body } as Response);
+      }
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+  }));
+  return { resolveHumanSystems: () => resolveHumanSystems(DEFAULT_HUMAN_SYSTEMS_CONTEXT) };
+}
+
 describe('Captain\'s Chair — Command Status', () => {
   it('renders a stable interpretation and Nothing-needs-you when every source is quiet', async () => {
     mockFetchByUrl({
@@ -204,5 +225,29 @@ describe('Captain\'s Chair — Command Status', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/no check-in today/i).length).toBeGreaterThan(0);
     });
+  });
+
+  // Code-review finding on this PR: the Human Systems fetch being in
+  // flight (context: null, error: null — indistinguishable by shape from
+  // "loaded, no check-in") must not flash the honest "no check-in" state
+  // before the real result arrives. commandStatusLoading must include
+  // Human Systems' own loading flag, not just opRisk/emergency/agentHealth.
+  it('shows Assessing…, not a premature "No check-in", while Human Systems is still loading', async () => {
+    const { resolveHumanSystems } = mockFetchWithDeferredHumanSystems({
+      '/api/emergency-alerts': { alerts: [] },
+      '/api/agent-status': { jobs: [] },
+    });
+
+    render(<CaptainsChairWorkbench />);
+
+    expect(screen.getByText('Assessing…')).toBeInTheDocument();
+    expect(screen.queryByText('No check-in')).not.toBeInTheDocument();
+    expect(screen.queryByText(/UNKNOWN/)).not.toBeInTheDocument();
+    expect(screen.queryByText('STEADY')).not.toBeInTheDocument();
+
+    resolveHumanSystems();
+
+    expect(await screen.findByText('STEADY')).toBeInTheDocument();
+    expect(screen.getByText(/Capacity: green/)).toBeInTheDocument();
   });
 });

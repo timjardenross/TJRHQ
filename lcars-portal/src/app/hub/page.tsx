@@ -67,7 +67,7 @@ export default function LifeOSHub() {
   // forgot to set that," not the reboot/power-loss case.
   useWakeLock();
 
-  const { context: humanSystems, error: humanSystemsError } = useHumanSystemsContext();
+  const { context: humanSystems, loading: humanSystemsLoading, error: humanSystemsError } = useHumanSystemsContext();
   const { alerts: liveAlerts, isLoading: alertsLoading, failedSources: alertsFailedSources, totalSources: alertsTotalSources } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
   const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
@@ -126,14 +126,16 @@ export default function LifeOSHub() {
         <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
           <SituationBadge
             label="Recovery Posture"
-            value={humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : postureBand}
-            tone={humanSystemsError ? 'unknown' : postureTone}
+            value={humanSystemsLoading ? '…' : humanSystemsError ? 'Data error' : !hasCheckinToday ? 'No check-in' : postureBand}
+            tone={humanSystemsLoading ? 'unknown' : humanSystemsError ? 'unknown' : postureTone}
             sublabel={
-              humanSystemsError
-                ? 'Check connection — see console'
-                : !hasCheckinToday
-                  ? 'No check-in today'
-                  : (CAPACITY_STATE_LABEL[humanSystems?.available_capacity ?? ''] ?? 'No data')
+              humanSystemsLoading
+                ? undefined
+                : humanSystemsError
+                  ? 'Check connection — see console'
+                  : !hasCheckinToday
+                    ? 'No check-in today'
+                    : (CAPACITY_STATE_LABEL[humanSystems?.available_capacity ?? ''] ?? 'No data')
             }
             href="/human-systems-workbench"
           />
@@ -167,7 +169,7 @@ export default function LifeOSHub() {
           />
         </div>
 
-        {(postureBand === 'PROTECT' || postureBand === 'RECOVER' || postureBand === 'RESET') && !humanSystemsError && hasCheckinToday && (
+        {!humanSystemsLoading && (postureBand === 'PROTECT' || postureBand === 'RECOVER' || postureBand === 'RESET') && !humanSystemsError && hasCheckinToday && (
           <div className={postureBand === 'RECOVER' ? 'rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3' : 'rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3'}>
             <p className={postureBand === 'RECOVER' ? 'text-sm text-wb-crit-on' : 'text-sm text-wb-warn-on'}>
               Recovery posture is {postureBand} — consider deferring anything below that isn&apos;t genuinely urgent.
@@ -177,8 +179,11 @@ export default function LifeOSHub() {
 
         {/* P0 correctness repair: "no check-in today" must never render as
             a healthy/clear posture — this reads honestly as unknown rather
-            than silently disappearing or falling back to a mock value. */}
-        {!hasCheckinToday && !humanSystemsError && (
+            than silently disappearing or falling back to a mock value.
+            Gated on !humanSystemsLoading so the initial fetch (context and
+            error both null/false) doesn't flash this as a false "no
+            check-in" before the real result arrives. */}
+        {!humanSystemsLoading && !hasCheckinToday && !humanSystemsError && (
           <div className="rounded-lg border border-wb-line bg-wb-bg/50 p-3">
             <p className="text-sm text-wb-ink2">No capacity check-in yet today — recovery posture is unknown.</p>
           </div>
