@@ -33,23 +33,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'task is required' }, { status: 400 });
   }
 
-  try {
-    const res = await fetch(`${ROUTER_BASE}/api/model/adhd-decompose`, {
+  const callRouter = () =>
+    fetch(`${ROUTER_BASE}/api/model/adhd-decompose`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task, mode, previous_action: previousAction }),
-      // Model Router's own adhd-decompose timeout is 60s (app.py TASK_POLICY)
-      // and a cold gemma3:4b load can take ~50s — give it real room rather
-      // than aborting into a false "couldn't generate a step" fallback.
-      signal: AbortSignal.timeout(65_000),
+      // Model Router's own adhd-decompose timeout is 30s — it runs on
+      // Gemini cloud, not local Ollama, since 2026-08-23 (app.py
+      // TASK_POLICY). Give some headroom above that for network/JSON
+      // overhead rather than racing the server's own timeout.
+      signal: AbortSignal.timeout(35_000),
     });
+
+  try {
+    let res: Response;
+    try {
+      res = await callRouter();
+    } catch (firstErr) {
+      // Model Router is deployed via `systemctl restart` independently of
+      // lcars-portal. Next's fetch (undici) pools keep-alive connections
+      // to 127.0.0.1:8891; a router restart kills those sockets, and the
+      // next reuse throws "TypeError: fetch failed" even though the
+      // router is back up within seconds — indistinguishable from a real
+      // outage. One retry on a fresh connection absorbs exactly that
+      // stale-socket race (and any other one-shot connection blip)
+      // instead of surfacing a false "write your own" fallback.
+      console.warn('Model Router fetch failed, retrying once (ready-room/decompose):', firstErr);
+      res = await callRouter();
+    }
     const data = await res.json();
-    return NextResponse.json({ action: data?.action ?? null }, { status: res.ok ? 200 : 200 });
+    if (!res.ok) {
+      console.error('Model Router returned an error (ready-room/decompose):', data?.error);
+    }
+    return NextResponse.json({ action: data?.action ?? null }, { status: 200 });
   } catch (err) {
-    // Model Router unreachable — degrade gracefully, don't block the user.
-    // Log the real cause server-side but never surface a raw fetch/undici
-    // error string (e.g. "TypeError: fetch failed") in the UI.
-    console.error('Model Router unreachable (ready-room/decompose):', err);
+    // Model Router still unreachable after retry — degrade gracefully,
+    // don't block the user. Log the real cause server-side but never
+    // surface a raw fetch/undici error string (e.g. "TypeError: fetch
+    // failed") in the UI.
+    console.error('Model Router unreachable after retry (ready-room/decompose):', err);
     return NextResponse.json(
       { action: null, error: "Couldn't reach the suggestion service — write your own first step below." },
       { status: 200 },
