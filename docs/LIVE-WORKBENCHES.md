@@ -25,7 +25,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/ready-room` | Ready Room | Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming. |
 | `/intelligence-workbench` | Technical OSINT Workbench | Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation. |
 | `/health-osint` | Health OSINT Workbench | Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation. |
-| `/emergency-alert-hub-workbench` | Emergency Alert Hub | Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health. |
+| `/emergency-alert-hub-workbench` | Emergency Alerts | Official Australian emergency information, prioritised by what may require attention now. |
 | `/human-systems-workbench` | Human Systems Workbench | Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal. |
 | `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory Workbench | Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces. |

@@ -90,14 +90,14 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   },
   {
     href: '/emergency-alert-hub-workbench',
-    title: 'Emergency Alert Hub',
-    description: 'Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health.',
+    title: 'Emergency Alerts',
+    description: 'Official Australian emergency information, prioritised by what may require attention now.',
     icon: TriangleAlert,
   },
   {
     href: '/human-systems-workbench',
-    title: 'Human Systems Workbench',
-    description: 'Recovery posture and medical tracking in one collection - live from the recovery-pulse signal.',
+    title: 'Human Systems',
+    description: "Personal capacity intelligence — understand your current state, what's consuming capacity, what appears to help, and what may need to change.",
     icon: Users,
   },
   {
