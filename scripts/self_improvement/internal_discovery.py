@@ -65,7 +65,7 @@ def finding_to_candidate(finding: dict[str, Any]) -> dict[str, Any]:
         "change_class": change_class,
         "summary": finding.get("description", "") or (finding.get("proposed_action") or {}).get("description", ""),
         "why_relevant": finding.get("expected_benefit") or f"Observed directly in HQ's own repository (category: {category}).",
-        "evidence_strength": _confidence_to_evidence_strength(finding.get("confidence", 0.0)),
+        "evidence_strength": confidence_to_evidence_strength(finding.get("confidence", 0.0)),
         "confidence": finding.get("confidence", 0.0),
         "fit": "strong",  # internal findings are HQ's own state by construction
         "value": _severity_to_value(finding.get("severity", "low")),
@@ -83,7 +83,7 @@ def finding_to_candidate(finding: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _confidence_to_evidence_strength(confidence: float) -> str:
+def confidence_to_evidence_strength(confidence: float) -> str:
     if confidence >= 0.9:
         return "conclusive"
     if confidence >= 0.8:
