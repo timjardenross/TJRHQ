@@ -43,7 +43,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { NowView } from './_components/NowView';
 import { PatternsView } from './_components/PatternsView';
 import { WhatHelpsView } from './_components/WhatHelpsView';
@@ -111,32 +111,17 @@ function Workbench() {
   );
 
   const tabsRow = (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Human Systems sections">
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          role="tab"
-          aria-selected={tab === t.key}
-          onClick={() => setTab(t.key)}
-          className={`rounded-md border px-3 py-1.5 text-[12px] font-medium uppercase tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
-            tab === t.key
-              ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'
-              : 'border-wb-line bg-wb-surface text-wb-ink2 hover:border-wb-sage-deep'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center gap-2">
+      <DomainToggle value={tab} onChange={setTab} options={TABS} ariaLabel="Human Systems sections" />
       {/* TRENDS is a real navigation to the existing dedicated Trends page
           (app/human-systems-workbench/trends), not an in-place tab — that
-          page isn't being rebuilt this pass, just wired into the nav. */}
+          page isn't being rebuilt this pass, just wired into the nav. It's
+          rendered as a plain link/button outside the tablist (not
+          role="tab") because it doesn't switch a panel within this page. */}
       <button
         type="button"
-        role="tab"
-        aria-selected={false}
         onClick={() => router.push(TRENDS_HREF)}
-        className="rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         TRENDS →
       </button>

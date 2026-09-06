@@ -208,17 +208,12 @@ export function WhatMayNeedToChangeSection({ data }: { data: MedicalPayload }) {
   );
 }
 
-/** Human Systems redesign (2026-09-06): "Medical" is retired as a primary
- *  user-facing tab — its content is redistributed into the NOW tab (NowView.
- *  tsx) via the exported sections above. This composite is kept, unchanged
- *  in behaviour, only because __tests__/MedicalView.sensoryRegulation.test.
- *  tsx still exercises it as a unit; page.tsx no longer renders it. */
-export function MedicalView({ data }: { data: MedicalPayload }) {
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <CapacityConditionsSection data={data} />
-      <SensoryRegulationSection data={data} />
-      <WhatMayNeedToChangeSection data={data} />
-    </div>
-  );
-}
+// The composite MedicalView() that used to wrap CapacityConditionsSection +
+// SensoryRegulationSection + WhatMayNeedToChangeSection was deleted
+// 2026-09-06 (Human Systems redesign final-validation cleanup): "Medical"
+// is retired as a primary user-facing tab, page.tsx never rendered the
+// composite (only the sections above, individually, from NowView.tsx), and
+// its last caller was its own unit test — a dead exported function kept
+// alive only to keep an old test green. See
+// __tests__/SensoryRegulationSection.test.tsx, which now exercises
+// SensoryRegulationSection directly.

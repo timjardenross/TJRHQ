@@ -2,7 +2,6 @@
 
 import { Badge, Card } from '@/components/ui';
 import { CollapsibleSection } from './CollapsibleSection';
-import { WhatHelpsMeCard } from './WhatHelpsMeCard';
 import {
   CAPACITY_BALANCE_LABEL,
   CAPACITY_STATE_LABEL as CAPACITY_LABEL,
@@ -16,7 +15,6 @@ import {
   USER_BURNOUT_FRAMING_LABEL,
   type CapacityBalance,
   type CapacityExperiment,
-  type InterventionEffectiveness,
   type RecoveryPayload,
   type RecoveryStage,
 } from './types';
@@ -540,34 +538,16 @@ export function RevsPositionSection({ data, className = 'md:col-span-2' }: { dat
   );
 }
 
-/** Recovery tab — "What does my system need today?" VNext consolidation
- *  (Human_Systems_Workbench_VNext_Consolidation_Mission_Scope.md WP02-04):
- *  leads with Capacity Today, the current-state grid, Capacity Balance,
- *  what's driving it, what the system needs, compensation cost, and the
- *  next recommended move — in that order, matching the doc's
- *  STATE→INFLUENCES→NEED→ACTION model (§3).
- *
- *  Human Systems redesign (2026-09-06): the page no longer renders this
- *  composite directly (it's been decomposed into the exported cards/
- *  sections above, assembled by NowView.tsx/PatternsView.tsx per the new
- *  NOW/WHAT HELPS/PATTERNS/TRENDS tab structure) — kept here, unchanged in
- *  behaviour, because __tests__/RecoveryView.experiments.test.tsx still
- *  exercises it as a unit. */
-export function RecoveryView({ data, interventionEffectiveness }: { data: RecoveryPayload; interventionEffectiveness: InterventionEffectiveness[] }) {
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <CapacityTodayCard data={data} />
-      <BurnoutRecoveryCard data={data} />
-      <CapacityBalanceCard data={data} />
-      <WhatIsDrivingItCard data={data} />
-      <WhatMySystemNeedsCard data={data} />
-      <MyNextMoveCard data={data} />
-      <SystemLearningSection data={data} />
-      <WhatHelpsMeCard data={interventionEffectiveness} />
-      <RevsPositionSection data={data} />
-    </div>
-  );
-}
+// The composite RecoveryView() that used to wrap CapacityTodayCard +
+// BurnoutRecoveryCard + CapacityBalanceCard + WhatIsDrivingItCard +
+// WhatMySystemNeedsCard + MyNextMoveCard + SystemLearningSection +
+// WhatHelpsMeCard + RevsPositionSection was deleted 2026-09-06 (Human
+// Systems redesign final-validation cleanup): page.tsx never rendered the
+// composite (only the extracted cards/sections above, individually, from
+// NowView.tsx/WhatHelpsView.tsx/PatternsView.tsx), and its last caller was
+// its own unit test — a dead exported function kept alive only to keep an
+// old test green. See __tests__/SystemLearningSection.experiments.test.tsx,
+// which now exercises SystemLearningSection directly.
 
 /** V3 doc §15 — the structured experiment object, replacing the narrative
  *  string for the "Worth Testing" subsection whenever a proposed/active
