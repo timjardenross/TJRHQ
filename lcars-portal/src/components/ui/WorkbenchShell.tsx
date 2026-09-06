@@ -29,6 +29,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
+import { Settings } from 'lucide-react';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { QuickCapture } from './QuickCapture';
@@ -113,6 +114,20 @@ export function WorkbenchShell({
               </div>
               <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
                 {right}
+                {/* Settings Page Redesign mission §23: Sidebar (xl+) already
+                    links to /settings, but Sidebar is hidden below xl and
+                    MobileCommandBar's 3 MVP tabs don't cover it either —
+                    without this, mobile/tablet had no path to Settings at
+                    all short of typing the URL. xl:hidden mirrors the mobile
+                    home logo above so it disappears exactly when Sidebar
+                    takes over. */}
+                <Link
+                  href="/settings"
+                  aria-label="Settings"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-wb-ink2 hover:bg-wb-surface-raised hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep xl:hidden"
+                >
+                  <Settings className="h-4 w-4" aria-hidden />
+                </Link>
                 <ThemeSelector />
                 <WorkbenchSwitcher />
               </span>

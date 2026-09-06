@@ -8,12 +8,15 @@
 // disappears at (that component remains the below-xl fallback nav,
 // unchanged) — no gap reopened between them.
 //
-// Calendar/Settings/Help have no dedicated standalone page in this app
-// today (calendar lives as a card on /hub; Settings/Help don't exist yet
-// anywhere) — rather than link to a 404 or invent a page outside this
-// mission's scope, those three render as disabled with an inline "soon"
-// tag. Home and Calendar both resolve to /hub by design (glance dashboard
-// IS where today's calendar lives) — a harmless double-highlight, not a bug.
+// Calendar/Help have no dedicated standalone page in this app today
+// (calendar lives as a card on /hub; Help doesn't exist yet anywhere) —
+// rather than link to a 404 or invent a page outside this mission's scope,
+// those two render as disabled with an inline "soon" tag. Home and
+// Calendar both resolve to /hub by design (glance dashboard IS where
+// today's calendar lives) — a harmless double-highlight, not a bug.
+//
+// Settings Page Redesign mission (2026-09-06): Settings now has a real
+// route (/settings) — see app/settings/ — so its entry is enabled.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -45,7 +48,7 @@ const PRIMARY: SidebarLink[] = [
 ];
 
 const SECONDARY: SidebarLink[] = [
-  { href: '#', label: 'Settings', icon: Settings, disabled: true },
+  { href: '/settings', label: 'Settings', icon: Settings },
   { href: '#', label: 'Help', icon: HelpCircle, disabled: true },
 ];
 
@@ -101,7 +104,11 @@ export function Sidebar() {
       </nav>
       <nav className="flex flex-col gap-1" aria-label="Secondary">
         {SECONDARY.map((link) => (
-          <SidebarRow key={link.label} link={link} active={false} />
+          <SidebarRow
+            key={link.label}
+            link={link}
+            active={!link.disabled && (pathname === link.href || pathname?.startsWith(link.href + '/'))}
+          />
         ))}
       </nav>
     </aside>

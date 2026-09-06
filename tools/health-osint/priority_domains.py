@@ -32,6 +32,14 @@ This module still exposes the flat PRIORITY_DOMAINS set (union of all
 tiers) so existing callers of is_priority_domain() are unaffected. Falls
 back to this same hard-coded set if the config file is missing/malformed,
 so a bad deploy of the config never breaks live curation.
+
+2026-09-06 (TJR HQ Settings Page Redesign mission §13/§14): is_priority_domain()
+additionally narrows PRIORITY_DOMAINS by whatever the Captain has enabled
+in Settings → Intelligence → Health (a Supabase-backed overlay, read via
+intelligence.settings_store — never a second copy of this tag taxonomy).
+A tag switched off in Settings behaves as "not a priority domain" without
+being removed from PRIORITY_DOMAINS itself, so any other caller iterating
+that constant is unaffected by this mission's change.
 """
 
 from __future__ import annotations
@@ -39,6 +47,8 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+
+from intelligence.settings_store import enabled_health_tags
 
 logger = logging.getLogger(__name__)
 
@@ -77,4 +87,8 @@ PRIORITY_DOMAINS: frozenset[str] = _load_priority_domains()
 
 
 def is_priority_domain(health_domain: str | None) -> bool:
-    return (health_domain or "") in PRIORITY_DOMAINS
+    domain = health_domain or ""
+    if domain not in PRIORITY_DOMAINS:
+        return False
+    enabled = enabled_health_tags()
+    return enabled is None or domain in enabled

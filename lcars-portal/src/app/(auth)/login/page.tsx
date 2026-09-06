@@ -26,8 +26,24 @@ export default function LoginPage() {
       password,
     });
     setLoading(false);
-    if (error) setError(error.message);
-    else router.push('/workbenches');
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    // Settings → HQ Behaviour → "Default landing page" (mission §5). Best
+    // effort — a Settings read failure or a first-ever sign-in (no row
+    // yet) both fall back to /workbenches, never blocking login itself.
+    let destination = '/workbenches';
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const body = await res.json();
+        destination = body?.settings?.hqBehaviour?.defaultLandingPage || destination;
+      }
+    } catch {
+      // keep the /workbenches fallback
+    }
+    router.push(destination);
   }
 
   async function handleMagicLink(e: React.FormEvent) {

@@ -1,11 +1,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { getSettings } from '@/lib/settings-server';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/home';
+  // Settings → HQ Behaviour → "Default landing page" (mission §5) — falls
+  // back to /workbenches, the platform's one canonical home (see
+  // lib/workbenches.ts), not the retired /home route this previously
+  // pointed at unconditionally.
+  const next = searchParams.get('next') ?? (await getSettings()).hqBehaviour.defaultLandingPage;
 
   if (code) {
     const cookieStore = cookies();
