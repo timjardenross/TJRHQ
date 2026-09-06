@@ -532,6 +532,19 @@ class HealthCollector:
             "rank_score": rank_score, "confidence_level": confidence,
             "source_id": source_id, "canonical_url": item["canonical_url"], "dedup_hash": dedup_hash,
             "published_at": item.get("published_at"),
+            # 2026-09-06: without this, rows defaulted to auto_ingested=false
+            # and never entered health_signal_curation.py's _pending() query
+            # (auto_ingested=true AND auto_ingest_reviewed=false) or the
+            # manual /health-osint-curation queue (same filter) — every
+            # signal this collector ever saved (PubMed/ClinicalTrials.gov/RSS,
+            # running independently of health_signal_ingestion.py's Sunday
+            # cron) sat permanently unscored and unreviewed. This is the
+            # same flag health_signal_ingestion.py's _save_signal() sets
+            # unconditionally for its own rows — matching that convention
+            # routes this collector's output into the same
+            # relevance-gate/evidence-scoring pipeline instead of a second,
+            # silent, un-curated backlog.
+            "auto_ingested": True,
         }
 
         if self.dry_run:

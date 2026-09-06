@@ -256,7 +256,10 @@ class HealthSignalCurator:
             )
             .eq("auto_ingested", True)
             .eq("auto_ingest_reviewed", False)
-            .order("collected_at", desc=True)
+            # Oldest-first — --limit's own help text ("the rest next run")
+            # only holds if older pending rows aren't perpetually pushed
+            # behind newer arrivals.
+            .order("collected_at", desc=False)
         )
         if self.limit:
             query = query.limit(self.limit)

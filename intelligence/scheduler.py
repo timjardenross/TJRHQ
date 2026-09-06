@@ -852,8 +852,19 @@ def _health_osint_weekly_fetch_job() -> None:
         _record_heartbeat("health_osint_weekly_fetch", "ok", detail=result.stdout[-500:])
 
         curation_script = os.path.join(health_osint_dir, "health_signal_curation.py")
+        # --limit 100 (2026-09-06): tools/health/collect_health_signals.py was
+        # just wired to set auto_ingested=true too (previously it never did,
+        # so its output silently never reached this queue at all — see that
+        # script's own comment). That surfaced a 2141-row backlog dating back
+        # to 2025-09-02 sitting behind this same _pending() query. Unbounded,
+        # a single run would try to LLM-classify the whole backlog inside
+        # this 900s subprocess timeout — real risk of a timeout/failed
+        # heartbeat or an LLM cost spike, and no human ever reviewed any of
+        # it. Oldest-first ordering (health_signal_curation.py fix, same
+        # commit) means this drains the backlog gradually across subsequent
+        # weekly runs rather than starving it behind new arrivals.
         curation_result = subprocess.run(
-            [sys.executable, curation_script],
+            [sys.executable, curation_script, "--limit", "100"],
             capture_output=True, text=True, timeout=900,
         )
         if curation_result.returncode != 0:
