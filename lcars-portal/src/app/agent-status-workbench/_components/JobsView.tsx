@@ -1,18 +1,29 @@
 'use client';
 
 /**
- * Jobs drill-down tab — the original Agent & Job Status page content
- * (per-domain job tables from domain_heartbeats), relocated as-is under
- * the Phase 3 System Health / Source Health / Pipeline Health / Jobs
- * uplift. Behaviour unchanged: same 30s auto-refresh, same grouping,
- * same tone/badge mapping.
+ * Automations tab (formerly "Jobs") — the detailed scheduler/job table
+ * (spec §11-§12): per-domain job state from domain_heartbeats, now also
+ * showing which HQ Status capability each job feeds and its criticality,
+ * so a failure here can be read against the interpreted Status tab instead
+ * of in isolation. Behaviour otherwise unchanged: same 30s auto-refresh,
+ * same grouping, same tone/badge mapping.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Card } from '@/components/ui';
 import { stateToneClasses } from '@/lib/departments';
 import type { AgentStatusEntry } from '@/app/api/agent-status/route';
+import { CAPABILITIES } from '@/lib/hqStatusInterpreter';
 import { relativeTime, jobStatusToTone, jobStatusToBadge, jobStatusLabel } from './shared';
+
+const CAPABILITY_LABEL_BY_KEY = new Map(CAPABILITIES.map((c) => [c.key, c.label]));
+
+const CRITICALITY_LABEL: Record<AgentStatusEntry['criticality'], string> = {
+  critical: 'Critical',
+  important: 'Important',
+  supporting: 'Supporting',
+  background: 'Background',
+};
 
 const REFRESH_INTERVAL_MS = 30_000;
 
@@ -47,7 +58,12 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2.5">
           <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${classes.dot}`} aria-hidden />
-          <span className="text-[13px] font-medium text-wb-ink">{job.label}</span>
+          <div>
+            <span className="text-[13px] font-medium text-wb-ink">{job.label}</span>
+            <div className="text-[10px] text-wb-ink2/70">
+              {CAPABILITY_LABEL_BY_KEY.get(job.capability) ?? job.capability} · {CRITICALITY_LABEL[job.criticality]}
+            </div>
+          </div>
         </div>
       </td>
       <td className="py-3 pr-4">
@@ -136,6 +152,7 @@ export function JobsView() {
   const groups = groupByDomain(jobs);
   const totalFailed = jobs.filter((j) => j.status === 'failed').length;
   const totalUnknown = jobs.filter((j) => j.status === 'unknown').length;
+  const totalNonLive = jobs.filter((j) => j.status === 'retired' || j.status === 'disabled').length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -153,7 +170,7 @@ export function JobsView() {
             <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
               <p className="text-2xl font-bold text-wb-ink">{jobs.length}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Total Jobs</p>
@@ -169,6 +186,10 @@ export function JobsView() {
             <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
               <p className="text-2xl font-bold text-state-unknown-on">{totalUnknown}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Unknown</p>
+            </div>
+            <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+              <p className="text-2xl font-bold text-wb-ink2">{totalNonLive}</p>
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Retired / Disabled</p>
             </div>
           </div>
         )}

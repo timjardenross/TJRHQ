@@ -1,59 +1,86 @@
 'use client';
 
 /**
- * Agent & Job Status Workbench — Phase 3 "Three-Workbench Simplification"
- * uplift: from a plain job/heartbeat table into the technical health screen
- * for HQ's machinery. Four tabs, progressive disclosure per the mission
- * spec: System Health (default landing) -> Source Health -> Pipeline
- * Health -> Jobs.
+ * HQ Status (route stays /agent-status-workbench — see spec §59 on
+ * migration/compatibility; a future mission may move this to /hq-status
+ * with a redirect).
  *
- * This workbench is now the SOLE owner of source-health / pipeline-health /
- * ingestion diagnostics UI — Technical OSINT (/intelligence-workbench) and
- * Health OSINT (/health-osint) link here instead of duplicating it.
+ * HQ Status answers one question: "Is HQ working properly, and does
+ * anything actually need me?" — not "what did every job last report?"
+ * (spec §1-§2). Four tabs, progressive disclosure:
+ *   Status      — interpreted capability posture, calm when healthy.
+ *   Automations — the detailed scheduler/job table (formerly "Jobs").
+ *   Sources     — source health + pipeline health, nested under one tab
+ *                 (formerly two separate top-level tabs).
+ *   History     — a compact failure/recovery timeline, not a log viewer.
  *
- * Data sources (all read-only, no new scoring logic):
- *  - /api/agent-status-workbench/overview   — System Health landing
- *  - /api/agent-status-workbench/sources    — Source Health tab
- *  - /api/agent-status-workbench/pipeline-quality — Pipeline Health tab
- *    (reads the Phase 26 views: intelligence_ingestion_quality_daily /
- *    health_ingestion_quality_daily, migration 0187)
- *  - /api/agent-status (unchanged) — Jobs tab, scheduler state from
+ * This workbench remains the SOLE owner of source-health / pipeline-health
+ * / ingestion diagnostics UI — Technical OSINT (/intelligence-workbench)
+ * and Health OSINT (/health-osint) link here instead of duplicating it.
+ * Read-only throughout (spec §46) — no retry/rerun/disable/acknowledge
+ * actions exist here or are planned without a future mission explicitly
+ * authorising them.
+ *
+ * Data sources (all read-only, no new scoring logic beyond the interpreter
+ * in lib/hqStatusInterpreter.ts):
+ *  - /api/agent-status-workbench/overview   — Status tab (interpreted)
+ *  - /api/agent-status-workbench/sources    — Sources tab (source health)
+ *  - /api/agent-status-workbench/pipeline-quality — Sources tab (pipeline)
+ *  - /api/agent-status-workbench/history    — History tab
+ *  - /api/agent-status (unchanged) — Automations tab, scheduler state from
  *    domain_heartbeats
  *
- * Route stays a single page at /agent-status-workbench with tab state
- * synced to ?tab= (same pattern as content-workbench's MSN-0363 uplift) so
- * sibling workbenches can link to stable URLs:
+ * Tab state stays synced to ?tab= (same pattern as content-workbench's
+ * MSN-0363 uplift) so sibling workbenches can link to stable URLs:
+ *   /agent-status-workbench?tab=automations
  *   /agent-status-workbench?tab=sources
- *   /agent-status-workbench?tab=pipeline
- *   /agent-status-workbench?tab=jobs
+ *   /agent-status-workbench?tab=history
+ * Old ?tab=jobs / ?tab=overview / ?tab=pipeline deep links still resolve
+ * (mapped below) so nothing that linked here before this uplift breaks.
  */
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
-import { OverviewView } from './_components/OverviewView';
-import { SourcesView } from './_components/SourcesView';
-import { PipelineHealthView } from './_components/PipelineHealthView';
+import { StatusView } from './_components/StatusView';
+import { SourcesTabView } from './_components/SourcesTabView';
 import { JobsView } from './_components/JobsView';
+import { HistoryView } from './_components/HistoryView';
 
-type Tab = 'overview' | 'sources' | 'pipeline' | 'jobs';
+type Tab = 'status' | 'automations' | 'sources' | 'history';
 
 const TAB_OPTIONS: { key: Tab; label: string }[] = [
-  { key: 'overview', label: 'System Health' },
-  { key: 'sources', label: 'Source Health' },
-  { key: 'pipeline', label: 'Pipeline Health' },
-  { key: 'jobs', label: 'Jobs' },
+  { key: 'status', label: 'Status' },
+  { key: 'automations', label: 'Automations' },
+  { key: 'sources', label: 'Sources' },
+  { key: 'history', label: 'History' },
 ];
 
-function isTab(v: string | null): v is Tab {
-  return v === 'overview' || v === 'sources' || v === 'pipeline' || v === 'jobs';
+/** Maps a raw ?tab= value (including pre-uplift values) to the current Tab
+ *  type, defaulting to 'status'. Keeps old deep links (?tab=overview,
+ *  ?tab=jobs, ?tab=pipeline) working per spec §59. */
+function resolveTab(v: string | null): Tab {
+  switch (v) {
+    case 'status':
+    case 'overview': // pre-uplift name for this tab
+      return 'status';
+    case 'automations':
+    case 'jobs': // pre-uplift name for this tab
+      return 'automations';
+    case 'sources':
+    case 'pipeline': // pre-uplift: was its own tab, now nested under Sources
+      return 'sources';
+    case 'history':
+      return 'history';
+    default:
+      return 'status';
+  }
 }
 
 function Workbench() {
   const router = useRouter();
   const params = useSearchParams();
-  const initial = params.get('tab');
-  const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'overview');
+  const [tab, setTabState] = useState<Tab>(resolveTab(params.get('tab')));
 
   const setTab = (t: Tab) => {
     setTabState(t);
@@ -64,17 +91,17 @@ function Workbench() {
 
   return (
     <WorkbenchShell
-      title="Agent & Job Status"
+      title="HQ Status"
       eyebrow="Platform Operations"
-      tagline="USS TJR · Agent Status · Technical health screen for HQ's machinery"
-      tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Agent & Job Status sections" />}
+      tagline="USS TJR · HQ Status · Is HQ working properly?"
+      tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="HQ Status sections" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
-      {tab === 'overview' && <OverviewView onNavigate={setTab} />}
-      {tab === 'sources' && <SourcesView />}
-      {tab === 'pipeline' && <PipelineHealthView />}
-      {tab === 'jobs' && <JobsView />}
+      {tab === 'status' && <StatusView onNavigate={setTab} />}
+      {tab === 'automations' && <JobsView />}
+      {tab === 'sources' && <SourcesTabView />}
+      {tab === 'history' && <HistoryView />}
     </WorkbenchShell>
   );
 }

@@ -18,7 +18,12 @@ export function relativeTime(isoTimestamp: string | null): string {
   return `${diffDays}d ago`;
 }
 
-/** Maps domain_heartbeats status values to the design-system StateTone. */
+/** Maps domain_heartbeats status values to the design-system StateTone.
+ *  'retired'/'disabled' are known, declared facts (not missing data), so
+ *  they map to the same calm 'unknown' (neutral) tone as a genuine
+ *  unknown rather than 'warn'/'crit' — they must never read as alarming,
+ *  but they also must never be silently indistinguishable from a real
+ *  "no telemetry" gap; jobStatusLabel below is what tells them apart. */
 export function jobStatusToTone(status: AgentStatusEntry['status']): StateTone {
   switch (status) {
     case 'ok': return 'ok';
@@ -43,6 +48,8 @@ export function jobStatusLabel(status: AgentStatusEntry['status']): string {
     case 'ok': return 'OK';
     case 'failed': return 'Failed';
     case 'skipped': return 'Skipped';
+    case 'retired': return 'Retired';
+    case 'disabled': return 'Disabled';
     default: return 'Unknown';
   }
 }
