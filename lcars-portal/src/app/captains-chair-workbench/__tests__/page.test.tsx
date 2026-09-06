@@ -10,12 +10,6 @@ import '@testing-library/jest-dom/vitest';
 // not a silent drop — same underlying data flows (emergency alerts, agent
 // health, curated oldest-item), asserted against the new copy/structure.
 
-vi.mock('@/lib/useROSData', () => ({
-  useROSData: () => ({
-    posture: { posture: 'STABLE', capacity_band: 'GOOD', posture_message: '', capacity_message: '', best_window: '', mission_guidance: '', data_available: true },
-    postureFetchFailed: false,
-  }),
-}));
 vi.mock('@/lib/useAlerts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/useAlerts')>();
   return {
@@ -66,9 +60,52 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Canonical Human Systems assessed context (assessed-context.ts) —
+// consumed via useHumanSystemsContext()/`/api/human-systems/context`
+// since the P0 correctness repair replaced useROSData()'s mock-fallback
+// posture on this page. A fresh, checked-in-today STEADY day by default;
+// individual tests override this key in their own routes map when they
+// need a different Human Systems state.
+const DEFAULT_HUMAN_SYSTEMS_CONTEXT = {
+  posture: 'STEADY',
+  posture_message: 'Maintain current pace. Avoid unnecessary load increases.',
+  available_capacity: 'green',
+  capacity_direction: 'sustainable',
+  stimulation_context: null,
+  executive_function_context: null,
+  regulation_context: null,
+  strain_or_recovery_context: { trajectory: 'stable', strategic_posture: 'steady', message: '' },
+  active_loads: [],
+  relevant_needs: [],
+  freshness: { status: 'fresh', last_checkin_at: new Date().toISOString() },
+  confidence: 'moderate',
+  has_checkin_today: true,
+};
+
 function mockFetchByUrl(routes: Record<string, unknown>) {
+  const merged = { '/api/human-systems/context': DEFAULT_HUMAN_SYSTEMS_CONTEXT, ...routes };
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
+    for (const [prefix, body] of Object.entries(merged)) {
+      if (url.startsWith(prefix)) {
+        return Promise.resolve({ ok: true, json: async () => body } as Response);
+      }
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+  }));
+}
+
+/** Like mockFetchByUrl, but the /api/human-systems/context response only
+ * resolves once the returned `resolve()` is called — lets a test inspect
+ * the DOM mid-flight, before that one fetch settles. */
+function mockFetchWithDeferredHumanSystems(routes: Record<string, unknown> = {}) {
+  let resolveHumanSystems!: (body: unknown) => void;
+  const humanSystemsPromise = new Promise<unknown>((resolve) => { resolveHumanSystems = resolve; });
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.startsWith('/api/human-systems/context')) {
+      return humanSystemsPromise.then((body) => ({ ok: true, json: async () => body }) as Response);
+    }
     for (const [prefix, body] of Object.entries(routes)) {
       if (url.startsWith(prefix)) {
         return Promise.resolve({ ok: true, json: async () => body } as Response);
@@ -76,6 +113,7 @@ function mockFetchByUrl(routes: Record<string, unknown>) {
     }
     return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
   }));
+  return { resolveHumanSystems: () => resolveHumanSystems(DEFAULT_HUMAN_SYSTEMS_CONTEXT) };
 }
 
 describe('Captain\'s Chair — Command Status', () => {
@@ -87,7 +125,7 @@ describe('Captain\'s Chair — Command Status', () => {
 
     render(<CaptainsChairWorkbench />);
 
-    expect(await screen.findByText('STABLE')).toBeInTheDocument();
+    expect(await screen.findByText('STEADY')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText(/both stable/i)).toBeInTheDocument();
       expect(screen.getByText('✓ Nothing needs you right now.')).toBeInTheDocument();
@@ -160,5 +198,56 @@ describe('Captain\'s Chair — Command Status', () => {
 
     // Falls back to a raw_text excerpt when a capture has no title.
     expect(await screen.findByText('A voice memo with no title, captured a while ago')).toBeInTheDocument();
+  });
+
+  // Command-Experience correctness repair, P0 test scenario A: a day with
+  // no Human Systems check-in must never render a fabricated posture band.
+  it('never fabricates a posture when Human Systems has no check-in today', async () => {
+    mockFetchByUrl({
+      '/api/emergency-alerts': { alerts: [] },
+      '/api/agent-status': { jobs: [] },
+      '/api/human-systems/context': {
+        ...DEFAULT_HUMAN_SYSTEMS_CONTEXT,
+        posture: 'UNKNOWN',
+        posture_message: 'No capacity check-in recorded for today yet.',
+        available_capacity: 'unknown',
+        freshness: { status: 'none', last_checkin_at: null },
+        confidence: 'low',
+        has_checkin_today: false,
+      },
+    });
+
+    render(<CaptainsChairWorkbench />);
+
+    expect(await screen.findByText(/^UNKNOWN/)).toBeInTheDocument();
+    expect(screen.queryByText('STEADY')).not.toBeInTheDocument();
+    expect(screen.queryByText('ENGAGE')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText(/no check-in today/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  // Code-review finding on this PR: the Human Systems fetch being in
+  // flight (context: null, error: null — indistinguishable by shape from
+  // "loaded, no check-in") must not flash the honest "no check-in" state
+  // before the real result arrives. commandStatusLoading must include
+  // Human Systems' own loading flag, not just opRisk/emergency/agentHealth.
+  it('shows Assessing…, not a premature "No check-in", while Human Systems is still loading', async () => {
+    const { resolveHumanSystems } = mockFetchWithDeferredHumanSystems({
+      '/api/emergency-alerts': { alerts: [] },
+      '/api/agent-status': { jobs: [] },
+    });
+
+    render(<CaptainsChairWorkbench />);
+
+    expect(screen.getByText('Assessing…')).toBeInTheDocument();
+    expect(screen.queryByText('No check-in')).not.toBeInTheDocument();
+    expect(screen.queryByText(/UNKNOWN/)).not.toBeInTheDocument();
+    expect(screen.queryByText('STEADY')).not.toBeInTheDocument();
+
+    resolveHumanSystems();
+
+    expect(await screen.findByText('STEADY')).toBeInTheDocument();
+    expect(screen.getByText(/Capacity: green/)).toBeInTheDocument();
   });
 });
