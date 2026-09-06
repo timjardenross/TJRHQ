@@ -134,10 +134,21 @@ export default function LifeOSHub() {
 
   // Sanctuary / low-stimulation behaviour (mission §8): quiet the page when
   // capacity is constrained and nothing genuinely needs attention. Never
-  // hides genuine risk — RESPOND always takes priority over quieting.
+  // hides genuine risk — RESPOND always takes priority over quieting, since
+  // deriveCommandPosture() only returns PROTECT/RECOVER when
+  // hasEnvironmentConcern is false and needsYouCount is 0.
   const sanctuary = !stillLoading
     && (commandPosture.posture === 'PROTECT' || commandPosture.posture === 'RECOVER')
     && needsYouItems.length === 0;
+
+  // Acceptance-audit repair: `sanctuary` alone is not enough to hide the
+  // World/Intelligence section. hasEnvironmentConcern only reacts to
+  // emergency_warning/RED — a `watch_and_act` tier or a genuinely
+  // unavailable Brief/Operational-Risk read (intelligenceHeadline.unknown)
+  // can coexist with PROTECT/RECOVER + zero Needs You, and quiet mode must
+  // never suppress that (mission §8: "changes presentation, not truth").
+  // World only disappears when intelligence itself is confirmed quiet.
+  const hideWorldSection = sanctuary && !intelligenceHeadline.unknown && intelligenceHeadline.headline === 'NO MATERIAL CHANGE';
 
   const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
 
@@ -238,7 +249,7 @@ export default function LifeOSHub() {
             </div>
 
             {/* ── 5. World / intelligence — one headline or honest unknown ── */}
-            {!sanctuary && (
+            {!hideWorldSection && (
               <div className="rounded-lg border border-wb-line bg-white p-4">
                 <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">World</h2>
                 <p className="text-sm font-medium text-wb-ink">{intelligenceHeadline.headline === 'NO MATERIAL CHANGE' ? 'No material change' : intelligenceHeadline.headline}</p>

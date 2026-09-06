@@ -1,7 +1,8 @@
 # TJR HQ — Command Experience Architecture
 
 Status: **Phase 1 (correctness repair) and Phase 2 (LifeOS vNext / Captain's
-Chair vNext presentation redesign) both delivered — see §11.**
+Chair vNext presentation redesign) both delivered and acceptance-audited —
+see §13/§14.**
 
 This document describes how Captain's Chair (`/captains-chair-workbench`)
 and LifeOS Hub (`/hub`) are meant to relate to the rest of TJR HQ, what has
@@ -186,11 +187,44 @@ emergency is material.
 ## 7. Intelligence consumption
 
 Both surfaces consume `useTodaysBriefing()` (`/api/captain-brief`) for
-`interruptNow` only — its confidence/priority/warning/recommendation
-counts are deliberately not rendered on either page (Captain-locked
-decision from MSN-0364, unchanged by this mission). `TodaysBriefPanel` is
-the one place the full brief narrative is read in detail, shared verbatim
-between both pages.
+`interruptNow` and `warnings` only — its confidence/priority/
+recommendation counts are deliberately not rendered on either page
+(Captain-locked decision from MSN-0364, unchanged by this mission).
+`TodaysBriefPanel` is the one place the full brief narrative is read in
+detail, shared verbatim between both pages.
+
+Phase 2 added `src/lib/commandState.ts`'s `deriveIntelligenceHeadline()` —
+the one canonical intelligence headline both surfaces render (Captain's
+Chair's `Intelligence.tsx`, LifeOS's "World" section), replacing
+independent Top-OSINT-Signal/Top-Health-Signal curation on each page
+(mission §9.3). It composes only already-assessed signals — Brief
+`warnings` count, Emergency worst tier, Operational Risk — never raw
+OSINT/health feeds. Precedence, most severe/most-certain first:
+
+1. **ELEVATED EXTERNAL CONDITIONS** — `emergencyWorstTier ===
+   'emergency_warning'` or `operationalRisk === 'RED'`. Checked *before*
+   the unavailable case below: a real, independently-confirmed emergency
+   or RED risk read must never be suppressed behind a generic
+   "unavailable" notice just because the Brief *also* happens to be down.
+2. **INTELLIGENCE UNAVAILABLE** (`unknown: true`) — `briefingError ||
+   operationalRiskUnknown`. **Acceptance-audit repair (post-#46):** this
+   condition originally required *both* flags (`briefingError &&
+   operationalRiskUnknown`), so a Brief fetch failure alone — with a
+   merely-successful, non-RED risk read — fell through to step 4 and
+   reported "NO MATERIAL CHANGE," a false-calm claim the mission's own
+   §14 explicitly forbids ("unavailable coverage ≠ no material change").
+   Either source alone being unavailable is now sufficient. The detail
+   text names which source is down (Brief vs. Operational Risk) rather
+   than always saying "Brief."
+3. **N ITEM(S) ON WATCH** — `emergencyWorstTier === 'watch_and_act'` or
+   `briefingWarningsCount > 0`.
+4. **NO MATERIAL CHANGE** — the fallback: nothing above applies.
+
+A pre-existing test file (`commandState.test.ts`) had actually *codified*
+the AND-bug as expected behavior (asserting "briefingError alone does not
+trigger unknown"). Those tests were corrected alongside the fix — a green
+test suite is not proof of correct cross-domain semantics if the tests
+themselves encode the wrong contract. See §14.
 
 ## 8. HQ Status consumption
 
@@ -324,23 +358,37 @@ nothing else:
    (`deriveCommandPosture()`, §11).
 3. Next commitments — today's Calendar events, honest on
    `disconnected`/`error`/empty (§4) — **omitted entirely in sanctuary
-   mode**.
+   mode** (Calendar commitments are discretionary information, not risk).
 4. Needs You — 0–3 items from the same `buildNeedsYouItems()` Captain's
    Chair uses (§5); a calm end state ("Nothing else needs you.") when
-   empty.
+   empty. Never affected by sanctuary.
 5. World / intelligence headline (`deriveIntelligenceHeadline()`, §7) —
-   also omitted in sanctuary mode.
+   omitted in sanctuary mode **only when intelligence itself is confirmed
+   quiet** (see repair below). Never omitted when it has something to say.
 6. A tiny one-line HQ status readout (`useHqStatusSummary()`, §8):
    "Operating normally" / "Degraded — no action required" / "Needs you —
-   {summary}" / "HQ status unknown."
+   {summary}" / "HQ status unknown." Never affected by sanctuary.
 
-**Sanctuary (quiet) mode:** when `commandPosture.posture` is `PROTECT` or
-`RECOVER` **and** `needsYouItems.length === 0`, the Next and World sections
-collapse to nothing — only the posture headline, Needs You's empty state,
-and the HQ line remain. This never hides genuine risk: `RESPOND` always
-takes priority in `deriveCommandPosture()`'s precedence (§11), so an
-emergency or a genuine Needs You item forces the page out of sanctuary
-before the quiet-mode check ever runs.
+**Sanctuary (quiet) mode:** the base `sanctuary` flag is
+`commandPosture.posture === 'PROTECT' || 'RECOVER'` **and**
+`needsYouItems.length === 0`; it hides the Next (Calendar) section. This
+never hides genuine risk on its own: `RESPOND` always takes priority in
+`deriveCommandPosture()`'s precedence (§11), so an emergency or a genuine
+Needs You item forces the page out of `sanctuary` before the quiet-mode
+check ever runs.
+
+**Acceptance-audit repair (post-#46):** `sanctuary` alone used to also gate
+the World/Intelligence section. That was wrong: `hasEnvironmentConcern`
+(which `deriveCommandPosture()` checks to decide RESPOND) only reacts to
+`emergency_warning`/RED risk — a lesser `watch_and_act` emergency tier, or
+a genuinely unavailable Brief/Operational-Risk read
+(`intelligenceHeadline.unknown`), can coexist with `PROTECT`/`RECOVER` and
+zero Needs You items, and the old code would silently hide that material
+signal. The World section now uses a separate `hideWorldSection` flag —
+`sanctuary && !intelligenceHeadline.unknown && intelligenceHeadline.headline
+=== 'NO MATERIAL CHANGE'` — so it only disappears when intelligence itself
+has genuinely nothing to report, never merely because capacity is
+constrained. Quiet mode changes presentation, never truth.
 
 Text-to-speech ("Read aloud") was rewritten to read the command picture —
 posture headline + explanation, the next commitment if any, the Needs You
@@ -389,6 +437,62 @@ presentation redesign, landed second as Phase 2. Both are now complete.
   signals on the page.
 - LifeOS rewritten onto the target ambient information model, with
   sanctuary/quiet mode — §12.
+
+## 14. Final acceptance audit (before merging #46)
+
+Before merging the Phase 2 PR, a focused acceptance audit was run against
+the merged codebase, deliberately hostile to false truth, duplicate
+interpretation, and manufactured human workload — explicitly *not*
+satisfied by "567/567 tests pass," since a test suite can codify a bug as
+"expected" (see §7). It found two real defects and confirmed the rest of
+the design holds:
+
+- **Fixed:** `deriveIntelligenceHeadline()`'s AND-instead-of-OR bug (§7) —
+  false "NO MATERIAL CHANGE" when only one of Brief/Operational-Risk was
+  unavailable. Severity: high (false calm, the exact failure class this
+  mission exists to eliminate).
+- **Fixed:** LifeOS Sanctuary mode could hide a material or unknown
+  Intelligence headline purely because Human Systems posture was
+  constrained and Needs You was empty (§12). Severity: medium-high (quiet
+  mode suppressing truth).
+- **Confirmed clean, no change needed:**
+  - Every input `commandState.ts` consumes traces to a canonical
+    assessed contract for each of Human Systems, canonical Brief,
+    Emergency Alerts, HQ Status, HQ Evolution, and Calendar — no raw-table
+    re-interpretation. (Two pre-existing, out-of-scope patterns were noted
+    as observations, not defects: `useNotebookReadyCount()` reads
+    `intelligence_notes` directly rather than through an API route, and
+    Ready Room's execution state still isn't wired into Needs You at all
+    — both already true before Phase 2 and not claims of false certainty.)
+  - `buildNeedsYouItems()` cannot manufacture an item from a transient or
+    self-recovered machine failure (HQ Status posture only reflects the
+    latest heartbeat — a recovered job reads `healthy` again by
+    construction), HQ `DEGRADED`, ordinary waiting tasks (no such input
+    exists), informational alerts (only pre-filtered `severity ===
+    'critical'` reaches it), non-material Brief warnings (warnings feed
+    only the intelligence headline, never Needs You), or an Evolution
+    opportunity merely available for consideration (`pending_decisions_
+    count` counts only `lifecycle_state === 'proposed'` — genuinely
+    awaiting a decision, confirmed against `scripts/self_improvement/
+    dashboard.py` and its own regression test asserting an in-progress
+    "verifying" opportunity is *not* counted).
+  - `deriveCommandPosture()` correctly treats Human Systems as one input,
+    not the posture itself, across all tested combinations (§11); RESPOND
+    overrides RECOVER/PROTECT/UNKNOWN whenever `hasEnvironmentConcern` or
+    a genuine Needs You item is present.
+  - Both surfaces call the identical `commandState.ts`/
+    `captainsChairSynthesis.ts` functions with identically-constructed
+    inputs — agreement is structural, not coincidental. This is now also
+    asserted directly by `src/app/__tests__/commandExperienceParity.test.tsx`,
+    which renders both pages against identical mocked data and checks they
+    report the same command posture, Needs You content, and HQ state,
+    rather than relying on two separately-written page test files staying
+    in sync by convention.
+  - The quiet-day and absence-of-evidence scenarios (mission §18 B/J and
+    the audit's own combined "Human Systems unavailable + Brief
+    unavailable + Calendar disconnected" case) both behave honestly:
+    `hub/__tests__/page.test.tsx` covers both directly, the latter added
+    by this audit.
 
 **Still open (tracked, not addressed by either phase):**
 - The Alerts taxonomy audit (decision/escalation/blocked/review/wellness

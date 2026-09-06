@@ -162,4 +162,54 @@ describe('LifeOS Hub — command picture', () => {
     expect(screen.queryByText('World')).not.toBeInTheDocument();
     expect(screen.getByText('Needs You')).toBeInTheDocument();
   });
+
+  // Acceptance-audit repair: Sanctuary previously gated the entire World
+  // section on posture + Needs You alone. hasEnvironmentConcern only
+  // reacts to emergency_warning/RED, not a lesser watch_and_act tier — so
+  // PROTECT + zero Needs You could coexist with a genuinely-material
+  // intelligence signal, and quiet mode would silently hide it. Quiet mode
+  // must change presentation, never truth.
+  it('does not hide a material World/Intelligence signal behind Sanctuary quiet mode', async () => {
+    mockFetchByUrl({
+      '/api/emergency-alerts': { alerts: [{ severity: 'watch_and_act', headline: 'Grassfire watch — regional area' }] },
+      '/api/human-systems/context': { ...DEFAULT_HUMAN_SYSTEMS_CONTEXT, posture: 'PROTECT', available_capacity: 'orange' },
+    });
+
+    render(<LifeOSHub />);
+
+    expect(await screen.findByText('PROTECT TODAY')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('✓ Nothing needs your attention.')).toBeInTheDocument();
+    });
+    // Next (calendar) may still quiet itself — it's discretionary, not risk.
+    expect(screen.queryByText('Next')).not.toBeInTheDocument();
+    // World must NOT disappear: a watch_and_act tier is material.
+    expect(screen.getByText('World')).toBeInTheDocument();
+    expect(screen.getByText(/ITEM ON WATCH/)).toBeInTheDocument();
+  });
+
+  // Test scenario per the acceptance audit: absence of evidence must never
+  // become evidence that everything is fine. Human Systems unavailable,
+  // Brief unavailable, and Calendar disconnected simultaneously.
+  it('never synthesizes a reassuring normal day from absence of evidence', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.startsWith('/api/human-systems/context')) return Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response);
+      if (url.startsWith('/api/captain-brief')) return Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response);
+      if (url.startsWith('/api/calendar/today')) return Promise.resolve({ ok: true, json: async () => ({ status: 'disconnected' }) } as Response);
+      if (url.startsWith('/api/emergency-alerts')) return Promise.resolve({ ok: true, json: async () => ({ alerts: [] }) } as Response);
+      if (url.startsWith('/api/agent-status-workbench/overview')) return Promise.resolve({ ok: true, json: async () => DEFAULT_HQ_STATUS } as Response);
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response);
+    }));
+
+    render(<LifeOSHub />);
+
+    expect(await screen.findByText('UNKNOWN TODAY')).toBeInTheDocument();
+    expect(screen.queryByText('STEADY TODAY')).not.toBeInTheDocument();
+    expect(screen.queryByText('FOCUS TODAY')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/INTELLIGENCE UNAVAILABLE/)).toBeInTheDocument();
+      expect(screen.getByText(/Calendar isn.t connected/)).toBeInTheDocument();
+    });
+  });
 });

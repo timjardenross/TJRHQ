@@ -481,24 +481,47 @@ describe('deriveIntelligenceHeadline', () => {
   });
 
   // Scenario G: Brief coverage unavailable != no material change.
+  //
+  // Acceptance-audit repair: this describe block previously asserted the
+  // opposite of mission §14 — it required BOTH briefingError AND
+  // operationalRiskUnknown before reporting "unavailable," so a failed
+  // Brief fetch alone (with a merely-successful, non-RED risk read) fell
+  // through to a false "NO MATERIAL CHANGE." Either source alone being
+  // unavailable must be enough — a test suite that codifies the bug as
+  // "expected" is worse than no test at all.
   describe('unavailable coverage is not confirmation of a quiet day (scenario G)', () => {
-    it('reports unknown: true and a headline that is not "NO MATERIAL CHANGE"', () => {
+    it('reports unknown: true and a headline that is not "NO MATERIAL CHANGE" when both sources are down', () => {
       const result = deriveIntelligenceHeadline(baseHeadlineInputs({ briefingError: true, operationalRiskUnknown: true }));
       expect(result.unknown).toBe(true);
       expect(result.headline).not.toBe('NO MATERIAL CHANGE');
       expect(result.headline).toBe('INTELLIGENCE UNAVAILABLE');
     });
 
-    it('requires both briefingError and operationalRiskUnknown — briefingError alone does not trigger unknown', () => {
-      const result = deriveIntelligenceHeadline(baseHeadlineInputs({ briefingError: true, operationalRiskUnknown: false }));
-      expect(result.unknown).toBe(false);
-      expect(result.headline).not.toBe('INTELLIGENCE UNAVAILABLE');
+    it('briefingError alone is enough to report unavailable, even with a successful non-RED risk read', () => {
+      const result = deriveIntelligenceHeadline(baseHeadlineInputs({ briefingError: true, operationalRiskUnknown: false, operationalRisk: 'GREEN' }));
+      expect(result.unknown).toBe(true);
+      expect(result.headline).toBe('INTELLIGENCE UNAVAILABLE');
+      expect(result.detail).toMatch(/brief coverage is unavailable/i);
     });
 
-    it('requires both — operationalRiskUnknown alone does not trigger unknown', () => {
+    it('operationalRiskUnknown alone is enough to report unavailable, even with a successful quiet Brief', () => {
       const result = deriveIntelligenceHeadline(baseHeadlineInputs({ briefingError: false, operationalRiskUnknown: true }));
+      expect(result.unknown).toBe(true);
+      expect(result.headline).toBe('INTELLIGENCE UNAVAILABLE');
+      expect(result.detail).toMatch(/operational risk assessment is unavailable/i);
+    });
+
+    it('a confirmed emergency_warning still wins even when Brief is also unavailable', () => {
+      // A real, independently-confirmed emergency must never be
+      // suppressed behind a generic "intelligence unavailable" notice.
+      const result = deriveIntelligenceHeadline(baseHeadlineInputs({
+        briefingError: true,
+        operationalRiskUnknown: true,
+        emergencyWorstTier: 'emergency_warning',
+        emergencyHeadline: 'Tornado warning',
+      }));
+      expect(result.headline).toBe('ELEVATED EXTERNAL CONDITIONS');
       expect(result.unknown).toBe(false);
-      expect(result.headline).not.toBe('INTELLIGENCE UNAVAILABLE');
     });
   });
 

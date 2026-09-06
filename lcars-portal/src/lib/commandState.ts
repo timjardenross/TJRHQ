@@ -238,19 +238,33 @@ export interface IntelligenceHeadlineResult {
 }
 
 export function deriveIntelligenceHeadline(inputs: IntelligenceHeadlineInputs): IntelligenceHeadlineResult {
-  if (inputs.briefingError && inputs.operationalRiskUnknown) {
-    return {
-      headline: 'INTELLIGENCE UNAVAILABLE',
-      detail: 'Brief coverage is unavailable right now — this is not confirmation that nothing has changed.',
-      unknown: true,
-    };
-  }
-
+  // Confirmed material conditions from independently-reliable sources
+  // (Emergency Alert Hub, Operational Risk) take priority even when Brief
+  // itself is unavailable — a real, confirmed emergency must never be
+  // suppressed behind a generic "intelligence unavailable" notice just
+  // because a different source is also down.
   if (inputs.emergencyWorstTier === 'emergency_warning' || inputs.operationalRisk === 'RED') {
     return {
       headline: 'ELEVATED EXTERNAL CONDITIONS',
       detail: inputs.emergencyHeadline ?? 'A material external condition may affect today\'s plan.',
       unknown: false,
+    };
+  }
+
+  // Acceptance-audit repair: this used to require BOTH briefingError AND
+  // operationalRiskUnknown (AND) before reporting unavailable — so a
+  // failed Brief fetch with a merely-successful (non-RED) risk read, or an
+  // unknown risk read with a successful-but-quiet Brief, fell through to
+  // "NO MATERIAL CHANGE." Either source alone being unavailable is enough
+  // to make "no material change" a false claim — mission §14: "unavailable
+  // coverage ≠ no material change."
+  if (inputs.briefingError || inputs.operationalRiskUnknown) {
+    return {
+      headline: 'INTELLIGENCE UNAVAILABLE',
+      detail: inputs.briefingError
+        ? 'Brief coverage is unavailable right now — this is not confirmation that nothing has changed.'
+        : 'Operational risk assessment is unavailable right now — this is not confirmation that nothing has changed.',
+      unknown: true,
     };
   }
 
