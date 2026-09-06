@@ -38,6 +38,14 @@ LIFECYCLE_STATES = (
     "learned",
     "watching",
     "rejected",
+    # Follow-up mission (current-state validation, spec section 15): a
+    # watchlist gap_hypothesis that no longer holds against current repo
+    # evidence, checked *before* any external research was spent on it.
+    # Distinct from "rejected" (a human decided against it) and "watching"
+    # (premature, not yet worth acting on) — this one HQ itself determined
+    # is no longer applicable, and the record exists so the hypothesis is
+    # never silently re-researched from scratch.
+    "resolved_before_research",
 )
 
 # Section 24: change classes. "maintenance"/"configuration"/"reliability"/
@@ -108,6 +116,13 @@ class Opportunity:
 
     # Outcome / learning (sections 27-29)
     outcome: dict[str, Any] = field(default_factory=dict)
+
+    # Current-state validation (follow-up mission, sections 11-17): the
+    # result of checking a watchlist gap_hypothesis against real repo
+    # evidence, before any external research money was spent on it.
+    validation_result: Optional[str] = None  # "confirmed" | "resolved" | "unclear"
+    validation_evidence: list[str] = field(default_factory=list)
+    validated_at: Optional[str] = None
 
     # Links to the existing engine (section 34 migration) — never re-surfaced
     # as a "new" opportunity once linked.

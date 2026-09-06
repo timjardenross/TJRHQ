@@ -158,6 +158,7 @@ export function lifecycleStateToTone(state: string): StateTone {
     case 'watching': return 'info';
     case 'rejected': return 'unknown';
     case 'investigating': return 'info';
+    case 'resolved_before_research': return 'unknown';
     case 'discovered':
     default: return 'unknown';
   }

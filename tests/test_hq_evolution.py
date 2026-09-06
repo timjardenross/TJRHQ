@@ -243,7 +243,7 @@ class TestExternalDiscovery(unittest.TestCase):
         self.assertEqual(candidates, [])
 
     def test_results_bounded_by_config(self):
-        topic = {"id": "t1", "class": "capability", "github_query": "q", "why_relevant": "because", "known_gap": "g"}
+        topic = {"id": "t1", "class": "capability", "github_query": "q", "why_relevant": "because", "gap_hypothesis": "g"}
 
         class FakeResponse:
             def __init__(self, payload):

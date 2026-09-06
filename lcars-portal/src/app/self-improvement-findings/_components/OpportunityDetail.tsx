@@ -101,6 +101,20 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
         </Field>
       )}
 
+      {opportunity.lifecycle_state === 'resolved_before_research' && (
+        <Field label="Why HQ didn't research this further">
+          <div>HQ checked its current state before spending external research effort, and the hypothesised gap no longer holds.</div>
+          {!!opportunity.validation_evidence?.length && (
+            <ul className="list-disc pl-4 mt-2 space-y-1 text-xs text-wb-ink2">
+              {opportunity.validation_evidence.map((e, i) => <li key={i} className="break-all">{e}</li>)}
+            </ul>
+          )}
+          {opportunity.validated_at && (
+            <div className="mt-1 text-xs text-wb-ink2">Checked {new Date(opportunity.validated_at).toLocaleDateString()}</div>
+          )}
+        </Field>
+      )}
+
       {opportunity.rejection_reason && <Field label="Why this was rejected">{opportunity.rejection_reason}</Field>}
       {opportunity.watch_reason && <Field label="Why HQ is watching, not acting">{opportunity.watch_reason}</Field>}
 

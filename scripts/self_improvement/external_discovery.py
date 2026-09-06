@@ -65,6 +65,7 @@ def _repo_to_candidate(repo: dict[str, Any], topic: dict[str, Any], retrieved_at
     # popularity: no license or an archived project both raise real friction
     # (legal review; no upstream fixes) regardless of how well-known it is.
     complexity = "high" if (archived or not license_info.get("spdx_id")) else "moderate"
+    verdict = topic.get("validation_verdict") or {}
 
     return {
         "title": repo.get("full_name", "unknown/unknown"),
@@ -79,6 +80,13 @@ def _repo_to_candidate(repo: dict[str, Any], topic: dict[str, Any], retrieved_at
         "value": "medium" if stars >= 500 else "low",
         "cost_impact": "unknown",  # section 11: never fabricate cost data
         "complexity": complexity,
+        # Current-state validation result for the watchlist topic this
+        # candidate came from (follow-up mission, sections 11-17) — the
+        # gap_hypothesis was checked against real repo evidence before this
+        # external search ran at all.
+        "validation_result": verdict.get("result"),
+        "validation_evidence": verdict.get("evidence", []),
+        "validated_at": verdict.get("validated_at"),
         "provenance": [{
             "source": "github",
             "location": repo.get("html_url"),
@@ -91,7 +99,7 @@ def _repo_to_candidate(repo: dict[str, Any], topic: dict[str, Any], retrieved_at
                 "pushed_at": pushed_at,
                 "archived": archived,
                 "watchlist_topic": topic.get("id"),
-                "watchlist_known_gap": topic.get("known_gap"),
+                "watchlist_gap_hypothesis": topic.get("gap_hypothesis"),
             }),
         }],
     }

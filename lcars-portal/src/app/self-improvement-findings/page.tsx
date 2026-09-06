@@ -141,7 +141,7 @@ export default function HqEvolutionPage() {
   const watching = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'watching'), [opportunities]);
   const learned = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'learned'), [opportunities]);
   const historical = useMemo(
-    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'rejected'].includes(o.lifecycle_state)),
+    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'rejected', 'resolved_before_research'].includes(o.lifecycle_state)),
     [opportunities],
   );
   const discoveredOnly = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'discovered'), [opportunities]);

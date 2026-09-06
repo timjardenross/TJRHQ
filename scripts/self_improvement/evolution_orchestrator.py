@@ -19,21 +19,24 @@ discovery can fold in what the model-analysis pipeline already found,
 without re-running it.
 """
 
+import fcntl
 import json
 import logging
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, IO, Optional
 
 from collector import EvidenceCollector
 from router_client import ModelRouterClient
 from policy import PolicyEngine
 from opportunity_store import OpportunityStore, new_fingerprint, MISSION_ONLY_CLASSES
 from relevance import RelevanceGate
+from investigation_schema import validate_investigation, honest_fallback_investigation
 import internal_discovery
 import external_discovery
+import state_validation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
 from heartbeat import record_heartbeat  # noqa: E402
@@ -53,6 +56,83 @@ class EvolutionOrchestrator:
         self.store = OpportunityStore(data_root)
         self.gate = RelevanceGate(self.evolution_config, self.store)
         self.watchlist_path = repo_root / "config" / "evolution_watchlist.json"
+        self._lock_path = data_root / "review" / ".evolution_cycle.lock"
+        self._lock_fd: Optional[IO] = None
+
+    def _try_acquire_lock(self) -> bool:
+        """Section 5: no overlapping Evolution runs. Non-blocking exclusive
+        flock — if another real (non-dry-run) cycle already holds it, this
+        run steps aside cleanly rather than running concurrently. Never
+        blocks: a stuck prior run must not wedge every future scheduled
+        run, it just means this run skips (and says so honestly)."""
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        fd = open(self._lock_path, "w")
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError):
+            fd.close()
+            return False
+        fd.write(str(datetime.now(timezone.utc).isoformat()))
+        fd.flush()
+        self._lock_fd = fd
+        return True
+
+    def _release_lock(self) -> None:
+        if self._lock_fd is not None:
+            try:
+                fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+                self._lock_fd.close()
+            except OSError:
+                pass
+            self._lock_fd = None
+
+    def _resolve_watchlist(self, run_id: str, dry_run: bool) -> list[dict[str, Any]]:
+        """Section 13/17: INTERNAL VALIDATION before EXTERNAL DISCOVERY.
+        Checks each watchlist topic's gap_hypothesis against current repo
+        evidence; suppresses external search for topics whose hypothesis no
+        longer holds, and records why (persisted, not silently dropped —
+        section 15). Returns only the topics still worth external research."""
+        watchlist = self._load_watchlist()
+        if not watchlist:
+            return []
+
+        active_topics, resolved_topics = state_validation.validate_watchlist(watchlist, self.repo_root)
+
+        for topic in resolved_topics:
+            verdict = topic["validation_verdict"]
+            fingerprint = new_fingerprint(topic["id"], "evolution_watchlist", "external")
+            existing = self.store.find_by_fingerprint(fingerprint)
+            if existing is not None and existing.get("lifecycle_state") == "resolved_before_research":
+                continue  # already recorded this exact resolution — don't rewrite every cycle
+            log.info(f"Watchlist topic '{topic['id']}' resolved before research: {verdict['reason']}")
+            if dry_run:
+                continue
+            if existing is not None:
+                self.store.update(
+                    existing["opportunity_id"],
+                    lifecycle_state="resolved_before_research",
+                    validation_result=verdict["result"],
+                    validation_evidence=verdict["evidence"],
+                    validated_at=verdict["validated_at"],
+                    run_id=run_id,
+                )
+            else:
+                self.store.create_new(
+                    title=topic.get("gap_hypothesis", topic["id"]),
+                    change_class=topic.get("class", "capability"),
+                    discovery_source="external",
+                    lifecycle_state="resolved_before_research",
+                    fingerprint=fingerprint,
+                    summary=topic.get("gap_hypothesis", ""),
+                    why_relevant=topic.get("why_relevant", ""),
+                    validation_result=verdict["result"],
+                    validation_evidence=verdict["evidence"],
+                    validated_at=verdict["validated_at"],
+                    provenance=[{"source": "internal_state_validation", "detail": verdict["reason"]}],
+                    run_id=run_id,
+                )
+
+        return active_topics
 
     def _load_watchlist(self) -> list[dict[str, Any]]:
         if not self.watchlist_path.exists():
@@ -88,36 +168,48 @@ class EvolutionOrchestrator:
         return []
 
     def _investigate(self, candidate: dict[str, Any], router_reachable: bool) -> dict[str, Any]:
-        """Section 22/45: the model may interpret evidence already in
-        `candidate`; it may not invent evidence, and its recommendation is
-        advisory only — it never sets lifecycle_state or automation
-        authority (relevance.py's deterministic score and PolicyEngine do
-        that)."""
+        """Section 7-10/22/45: the model may interpret evidence already in
+        `candidate` (a bounded, opportunity-specific evidence bundle — see
+        router_client.py's investigation prompt); it may not invent
+        evidence, and its recommendation is advisory only — it never sets
+        lifecycle_state or automation authority (relevance.py's
+        deterministic score and PolicyEngine do that; classify_finding()
+        below never reads this dict at all).
+
+        Every path here returns a schema-validated shape (investigation_
+        schema.py) — a malformed model response degrades individual fields
+        rather than propagating an unvalidated shape into the store/UI."""
         if router_reachable:
             try:
                 result = self.router.investigate_opportunity(candidate)
                 if result.get("success") and result.get("investigation"):
-                    inv = result["investigation"]
+                    inv = validate_investigation(result["investigation"])
                     inv["method"] = "model_synthesis"
                     return inv
             except Exception as exc:
                 log.warning(f"Model investigation failed, falling back to template: {exc}")
 
-        return {
-            "why_hq_is_looking_at_this": candidate.get("why_relevant", ""),
-            "fit_with_hq": candidate.get("fit", "moderate"),
-            "potential_benefits": [candidate["summary"]] if candidate.get("summary") else [],
-            "cost_impact": candidate.get("cost_impact", "unknown"),
-            "risks": ["Model synthesis unavailable this cycle — template-based investigation only, needs human review."],
-            "implementation_effort": candidate.get("complexity", "moderate"),
-            "alternatives": [],
-            "confidence": candidate.get("confidence", 0.0),
-            "recommendation": "keep_watching",
-            "recommendation_rationale": "Model Router unreachable or synthesis failed; deterministic placeholder pending re-investigation.",
-            "method": "template_fallback",
-        }
+        return honest_fallback_investigation(candidate)
 
     def run_cycle(self, dry_run: bool = False) -> dict[str, Any]:
+        """dry_run is fully lock-free (section 5: "dry-run remains
+        scheduler-independent and side-effect free") — only a real cycle
+        takes the overlap-prevention lock, since only a real cycle writes
+        anything an overlapping run could collide with."""
+        if not dry_run and not self._try_acquire_lock():
+            log.warning(f"Another HQ Evolution cycle already holds {self._lock_path} — skipping this run")
+            return {
+                "run_id": None, "timestamp": datetime.now(timezone.utc).isoformat(),
+                "dry_run": dry_run, "skipped": True, "skipped_reason": "another cycle already running",
+                "investigated_count": 0, "worth_considering_count": 0, "nothing_worth_changing": True,
+                "highest_value_opportunity": None, "pending_decisions_count": 0, "duration_ms": 0,
+            }
+        try:
+            return self._run_cycle_locked(dry_run)
+        finally:
+            self._release_lock()
+
+    def _run_cycle_locked(self, dry_run: bool) -> dict[str, Any]:
         t0 = time.monotonic()
         run_id = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M%S")
         budget_s = self.evolution_config.get("run_duration_budget_minutes", 20) * 60
@@ -132,18 +224,23 @@ class EvolutionOrchestrator:
         max_internal = self.evolution_config.get("max_internal_candidates_per_cycle", 20)
         internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal)
 
+        # Section 17 RESEARCH ORDER: INTERNAL VALIDATION happens before
+        # EXTERNAL DISCOVERY — never "watchlist -> search internet -> then
+        # check whether HQ needs it".
         external_candidates: list[dict[str, Any]] = []
+        active_topics: list[dict[str, Any]] = []
         if not dry_run:
-            watchlist = self._load_watchlist()
-            if watchlist:
-                external_candidates = external_discovery.discover(watchlist, self.evolution_config)
+            active_topics = self._resolve_watchlist(run_id, dry_run)
+            if active_topics:
+                external_candidates = external_discovery.discover(active_topics, self.evolution_config)
 
         all_candidates = internal_candidates + external_candidates
         for c in all_candidates:
             c["fingerprint"] = new_fingerprint(c["title"], c.get("source", ""), c["discovery_source"])
 
         log.info(f"Discovered {len(internal_candidates)} internal + {len(external_candidates)} external "
-                 f"= {len(all_candidates)} candidates")
+                 f"= {len(all_candidates)} candidates ({len(active_topics)} watchlist topic(s) still active "
+                 f"after current-state validation)")
 
         # RELEVANCE GATE + DEDUP
         log.info("\nRELEVANCE GATE / DEDUP")
@@ -174,6 +271,9 @@ class EvolutionOrchestrator:
                 evidence_strength=candidate.get("evidence_strength", "weak"),
                 provenance=candidate.get("provenance", []),
                 source_finding_id=candidate.get("source_finding_id"),
+                validation_result=candidate.get("validation_result"),
+                validation_evidence=candidate.get("validation_evidence", []),
+                validated_at=candidate.get("validated_at"),
                 run_id=run_id,
             ) if not dry_run else None
             discovered_opps.append((candidate, verdict, opp))
@@ -237,9 +337,21 @@ class EvolutionOrchestrator:
                 "summary": top["candidate"].get("summary", ""),
             }
 
+        # worth_considering_count (this cycle's surfaced shortlist) is
+        # deliberately distinct from pending_decisions_count (the whole
+        # current backlog of undecided "proposed" opportunities, which
+        # accumulates across cycles until the user acts) — section 20.
+        # Captain's Chair's signal reads pending_decisions_count; the
+        # Discover tab's morning-compression line reads worth_considering_count.
         pending_decisions_count = sum(
             1 for rec in self.store.all_current() if rec.get("lifecycle_state") == "proposed"
         ) if not dry_run else len(surfaced)
+
+        model_synthesis_count = sum(1 for i in investigated if i["investigation"].get("method") == "model_synthesis")
+        resolved_before_research_count = sum(
+            1 for rec in self.store.all_current()
+            if rec.get("run_id") == run_id and rec.get("lifecycle_state") == "resolved_before_research"
+        ) if not dry_run else 0
 
         summary = {
             "run_id": run_id,
@@ -255,6 +367,17 @@ class EvolutionOrchestrator:
             "highest_value_opportunity": highest_value,
             "pending_decisions_count": pending_decisions_count,
             "duration_ms": int((time.monotonic() - t0) * 1000),
+            # Section 18: operational cost telemetry, not a human-facing
+            # dashboard — kept out of the Discover tab's morning summary.
+            "cost_accounting": {
+                "internal_candidates_checked": len(internal_candidates),
+                "watchlist_topics_total": len(active_topics) + resolved_before_research_count,
+                "watchlist_topics_resolved_before_research": resolved_before_research_count,
+                "external_searches_made": len(active_topics),
+                "external_candidates_found": len(external_candidates),
+                "investigation_model_calls": model_synthesis_count,
+                "investigation_template_fallbacks": len(investigated) - model_synthesis_count,
+            },
         }
 
         if not dry_run:
@@ -293,11 +416,14 @@ def main():
         raise
 
     latency_ms = int((time.monotonic() - t0) * 1000)
-    record_heartbeat(
-        _HEARTBEAT_DOMAIN, status="ok",
-        detail=f"{result['investigated_count']} investigated, {result['worth_considering_count']} worth considering",
-        latency_ms=latency_ms,
-    )
+    if result.get("skipped"):
+        record_heartbeat(_HEARTBEAT_DOMAIN, status="skipped", detail=result.get("skipped_reason", ""), latency_ms=latency_ms)
+    else:
+        record_heartbeat(
+            _HEARTBEAT_DOMAIN, status="ok",
+            detail=f"{result['investigated_count']} investigated, {result['worth_considering_count']} worth considering",
+            latency_ms=latency_ms,
+        )
 
     print("\n" + "=" * 80)
     print("HQ EVOLUTION CYCLE SUMMARY")

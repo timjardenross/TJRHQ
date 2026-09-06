@@ -12,7 +12,8 @@ export type LifecycleState =
   | 'verifying'
   | 'learned'
   | 'watching'
-  | 'rejected';
+  | 'rejected'
+  | 'resolved_before_research';
 
 export type ChangeClass =
   | 'maintenance'
@@ -76,6 +77,9 @@ export interface Opportunity {
   rejection_reason: string | null;
   missing_evidence: string[];
   outcome: Outcome;
+  validation_result: 'confirmed' | 'resolved' | 'unclear' | null;
+  validation_evidence: string[];
+  validated_at: string | null;
   source_finding_id: string | null;
   mission_id: string | null;
   automation_eligibility: string | null;
