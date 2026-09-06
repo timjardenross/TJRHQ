@@ -31,7 +31,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/physical-readiness` | Physical Readiness | Adaptive gym decision-support - builds a safe session from the equipment on hand, plus exercise library and workout history. |
 | `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory | Decision support — think through a question, challenge assumptions, explore perspectives, and learn from what happened. |
-| `/briefs` | Briefs | The intelligence brief archive — every synthesized brief across every domain, filterable by review/publish status. |
+| `/briefs` | Briefs | The intelligence brief archive — every synthesized OSINT/world-news brief, filterable by review/publish status. |
 | `/agent-status-workbench` | HQ Status | Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows. |
 | `/self-improvement-findings` | HQ Evolution | Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work. |
 

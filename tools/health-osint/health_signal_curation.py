@@ -66,6 +66,14 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:8b")
+# HQ V1 Integration QA §28 fix: this module previously called
+# core/llm/provider_chain.py directly, bypassing Model Router entirely (the
+# one confirmed bypass found in that audit). Model Router is now tried
+# first (tier-0, matches intelligence/adhd/task_decomposition.py's own
+# "model-router, then direct providers" ordering); the pre-existing direct
+# provider_chain loop is unchanged as the fallback when Model Router itself
+# is unreachable.
+MODEL_ROUTER_URL = os.environ.get("MODEL_ROUTER_URL", "http://localhost:8891")
 
 _SYSTEM_PROMPT = """You are curating auto-ingested health OSINT signals for Captain TJR aboard
 USS Starship Endeavour, before they reach his main health dashboard.
@@ -140,9 +148,71 @@ def _client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+def _fallback_classification(reason: str) -> dict[str, Any]:
+    return {
+        "decision": "ESCALATE", "reason": reason,
+        "mission_relevance": None, "evidence_contribution": None,
+        "population_fit": None, "safety_relevance": False,
+    }
+
+
+def _parse_classification(raw: str, name: str) -> Optional[dict[str, Any]]:
+    """Parses one provider's raw text response into the classification
+    shape, or returns None (caller falls through to the next provider) if
+    the response is empty/unparseable/an unrecognised decision. Shared by
+    the Model Router path and the direct-provider-chain fallback so the two
+    can't drift on validation rules."""
+    if not raw:
+        return None
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    data = json.loads(match.group() if match else raw)
+    decision = str(data.get("decision", "")).upper().strip()
+    reason = str(data.get("reason", "")).strip()
+    if decision not in ("PUBLISH", "REJECT", "ESCALATE"):
+        log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
+        return _fallback_classification(f"unrecognised model output via {name}")
+
+    mission_relevance = str(data.get("mission_relevance", "")).upper().strip()
+    if mission_relevance not in _VALID_MISSION_RELEVANCE:
+        mission_relevance = None
+
+    evidence_contribution = str(data.get("evidence_contribution", "")).upper().strip()
+    if evidence_contribution not in _VALID_EVIDENCE_CONTRIBUTION:
+        evidence_contribution = None
+
+    return {
+        "decision": decision,
+        "reason": reason or f"(no reason given, via {name})",
+        "mission_relevance": mission_relevance,
+        "evidence_contribution": evidence_contribution,
+        "population_fit": (str(data.get("population_fit", "")).strip() or None),
+        "safety_relevance": bool(data.get("safety_relevance", False)),
+    }
+
+
+def _call_model_router(prompt: str) -> Optional[str]:
+    """Tier-0 (local, preferred) call — matches intelligence/adhd/
+    task_decomposition.py's TaskDecomposer._model_router ordering. Raises on
+    any failure so the caller's try/except falls through to the direct
+    provider_chain loop; never raises out to _classify's own caller."""
+    import urllib.request
+
+    url = f"{MODEL_ROUTER_URL.rstrip('/')}/api/model/health-signal-curation"
+    body = json.dumps({"prompt": f"{_SYSTEM_PROMPT}\n\n{prompt}"}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"}, method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        data = json.loads(resp.read())
+    if not data.get("success"):
+        raise RuntimeError(data.get("error") or "Model Router returned success=false")
+    return data.get("response") or None
+
+
 def _classify(signal: dict[str, Any]) -> dict[str, Any]:
-    """Runs one signal through the shared LLM provider chain. Returns a dict
-    with decision/reason plus the additive mission_relevance/
+    """Runs one signal through Model Router (tier-0), falling back to the
+    direct LLM provider chain if Model Router itself is unreachable.
+    Returns a dict with decision/reason plus the additive mission_relevance/
     evidence_contribution/population_fit/safety_relevance fields (mission
     Phase 4/7 — see module docstring). Never raises — any provider failure
     or unparseable response degrades to ESCALATE with the additive fields
@@ -167,14 +237,8 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
         f"URL: {signal.get('canonical_url') or '(none)'}\n"
     )
 
-    def _fallback(reason: str) -> dict[str, Any]:
-        return {
-            "decision": "ESCALATE", "reason": reason,
-            "mission_relevance": None, "evidence_contribution": None,
-            "population_fit": None, "safety_relevance": False,
-        }
-
     providers = [
+        ("model-router", lambda: _call_model_router(prompt)),
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
                                         max_output_tokens=300, temperature=0.1, timeout=30)),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
@@ -186,37 +250,14 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     for name, fn in providers:
         try:
             raw = fn()
-            if not raw:
-                continue
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            data = json.loads(match.group() if match else raw)
-            decision = str(data.get("decision", "")).upper().strip()
-            reason = str(data.get("reason", "")).strip()
-            if decision not in ("PUBLISH", "REJECT", "ESCALATE"):
-                log.warning("[curation] %s returned unrecognised decision %r — escalating", name, decision)
-                return _fallback(f"unrecognised model output via {name}")
-
-            mission_relevance = str(data.get("mission_relevance", "")).upper().strip()
-            if mission_relevance not in _VALID_MISSION_RELEVANCE:
-                mission_relevance = None
-
-            evidence_contribution = str(data.get("evidence_contribution", "")).upper().strip()
-            if evidence_contribution not in _VALID_EVIDENCE_CONTRIBUTION:
-                evidence_contribution = None
-
-            return {
-                "decision": decision,
-                "reason": reason or f"(no reason given, via {name})",
-                "mission_relevance": mission_relevance,
-                "evidence_contribution": evidence_contribution,
-                "population_fit": (str(data.get("population_fit", "")).strip() or None),
-                "safety_relevance": bool(data.get("safety_relevance", False)),
-            }
+            result = _parse_classification(raw, name)
+            if result is not None:
+                return result
         except Exception as exc:
             log.warning("[curation] provider %s failed for signal %s: %s", name, signal.get("signal_id"), exc)
             continue
 
-    return _fallback("all LLM providers unavailable")
+    return _fallback_classification("all LLM providers unavailable")
 
 
 class HealthSignalCurator:

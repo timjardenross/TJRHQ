@@ -121,7 +121,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   {
     href: '/briefs',
     title: 'Briefs',
-    description: 'The intelligence brief archive - every synthesized brief across every domain, filterable by review/publish status.',
+    description: 'The intelligence brief archive - every synthesized OSINT/world-news brief, filterable by review/publish status.',
     icon: ArchiveIcon,
   },
   {

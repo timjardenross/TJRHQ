@@ -1,9 +1,10 @@
 // GET /api/briefs — full intelligence_briefs archive, independent of any
-// one domain workbench. Briefs synthesize across domains (see
-// brief_generator.py); nesting their only listing under
-// /intelligence-workbench (OSINT-branded) was the actual gap — this is
-// that list, /intelligence-workbench/brief/[id] stays the single detail
-// view (not duplicated here).
+// one domain workbench. brief_generator.py collects OSINT/world-news
+// sources only (not literally cross-domain — HQ V1 Integration QA §7); the
+// actual gap this route closes is that its only listing lived nested under
+// /intelligence-workbench (OSINT-branded nav), not that the Brief itself
+// spans domains. This is that list, /intelligence-workbench/brief/[id]
+// stays the single detail view (not duplicated here).
 
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';

@@ -192,6 +192,30 @@ class TestPolicyOnEvolutionCategories(unittest.TestCase):
         self.assertIn(result["automation_eligibility"], ("needs_signoff", "needs_more_evidence"))
         self.assertNotIn(result["automation_eligibility"], ("auto_apply", "auto_with_verification"))
 
+    def test_policy_confidence_cannot_raise_eligibility(self):
+        """HQ V1 Integration QA §14/§28 authority-firewall regression: the
+        LLM's own self-reported confidence/evidence_strength may only ever
+        DOWNGRADE automation_eligibility below a category's deterministic
+        default, never raise it above that ceiling. A category whose
+        default is needs_signoff (config the model has no influence over)
+        must stay needs_signoff-or-more-restrictive even at maximum
+        self-reported confidence and conclusive evidence_strength."""
+        result = self.policy.classify_finding({
+            "category": "duplicate_implementation", "confidence": 1.0,
+            "evidence_strength": "conclusive", "severity": "low",
+        })
+        self.assertNotIn(result["automation_eligibility"], ("auto_apply", "auto_with_verification"))
+
+    def test_policy_low_confidence_downgrades_an_auto_eligible_category(self):
+        """The other half of the same invariant: confidence CAN downgrade
+        (dead_code defaults to auto_with_verification), confirming the
+        ratchet is real and not simply inert."""
+        result = self.policy.classify_finding({
+            "category": "dead_code", "confidence": 0.1,
+            "evidence_strength": "conclusive", "severity": "low",
+        })
+        self.assertEqual(result["automation_eligibility"], "needs_more_evidence")
+
 
 class TestInternalDiscovery(unittest.TestCase):
     def test_finding_to_candidate_preserves_evidence_and_category(self):
