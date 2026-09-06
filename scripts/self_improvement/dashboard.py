@@ -378,6 +378,22 @@ def api_evolution_summary():
     # undecided backlog) — and both stay distinct from the outcome-learning
     # fields below, which describe what was LEARNED, not what needs a
     # decision. Regressions surfaced here are evidence, not a second queue.
+    #
+    # 2026-09-06: outcomes_completed_count/regressions_count used to prefer
+    # cycle_summary's own (narrower — one cycle's worth) value over these
+    # live totals via dict.get(key, live_value) — harmless while no real
+    # evolution_summary.json existed in this checkout, but the moment one
+    # does (e.g. a committed production snapshot), dict.get only falls back
+    # to the live value when the KEY IS ABSENT, not when its value is 0, so
+    # a stale cycle-time count would permanently shadow the true, always-
+    # accurate running total computed fresh from the store every request —
+    # found via a real evolution_summary.json landing in this repo's own
+    # data/self-improvement/ tree. Same live-total treatment as
+    # pending_decisions_count above now applies to both.
+    outcomes_completed_count = sum(
+        1 for o in current
+        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") is not None
+    )
     regressions_count = sum(
         1 for o in current
         if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
@@ -393,8 +409,8 @@ def api_evolution_summary():
         "pending_decisions_count": pending_decisions_count,
         "any_verification_failure": any_verification_failure,
         "has_run_yet": bool(cycle_summary),
-        "outcomes_completed_count": cycle_summary.get("outcomes_completed_count", 0),
-        "regressions_count": cycle_summary.get("regressions_count", regressions_count),
+        "outcomes_completed_count": outcomes_completed_count,
+        "regressions_count": regressions_count,
         "latest_material_learning": cycle_summary.get("latest_material_learning"),
         "cycle_status": cycle_summary.get("cycle_status", "unknown" if not cycle_summary else "ok"),
         "freshness": cycle_summary.get("freshness", cycle_summary.get("timestamp")),
