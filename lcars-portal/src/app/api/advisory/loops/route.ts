@@ -1,15 +1,22 @@
-// GET  /api/advisory/loops  — returns open advisory records (outcome: null)
-// Read directly from logs/advisory/ADV-*.json — no Python subprocess needed.
+// GET /api/advisory/loops — returns open advisory records (outcome: null).
+//
+// Goes through the same HTTP-backend-first / Python-CLI-fallback chain as
+// /api/advisory (lib/advisoryRuntime.ts) rather than reading
+// logs/advisory/ADV-*.json directly off the local filesystem: that
+// directory only ever exists on the VM. On Vercel, a direct readdir()
+// always throws (ENOENT) and previously fell back to `{ loops: [] }`
+// silently — indistinguishable from "every advisory has a recorded
+// outcome," which OutcomesView.tsx renders as "everything has one
+// recorded." Going through the same backend as every other advisory action
+// means this route sees real data whenever the VM/Command Centre is
+// reachable, exactly like the rest of the Advisor Hub.
 
 import { NextResponse } from 'next/server';
-import { readdir, readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { requireSession } from '@/lib/supabase-server';
+import { callAdvisoryAction } from '@/lib/advisoryRuntime';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const REPO_ROOT = process.env.REPO_ROOT ?? '/opt/starship-endeavour';
-const LOG_DIR = path.join(REPO_ROOT, 'logs', 'advisory');
 
 interface AdvisoryRecord {
   advisory_id: string;
@@ -22,33 +29,23 @@ interface AdvisoryRecord {
 }
 
 export async function GET() {
-  // Middleware enforces authentication for all non-public routes.
+  const session = await requireSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    let files: string[];
-    try {
-      files = await readdir(LOG_DIR);
-    } catch {
-      return NextResponse.json({ loops: [] });
-    }
-
-    const adv = files.filter((f) => f.startsWith('ADV-') && f.endsWith('.json'));
-    const records: AdvisoryRecord[] = [];
-
-    await Promise.all(
-      adv.map(async (f) => {
-        try {
-          const raw = await readFile(path.join(LOG_DIR, f), 'utf-8');
-          const r = JSON.parse(raw) as AdvisoryRecord;
-          if (!r.outcome) records.push(r);
-        } catch { /* skip corrupt files */ }
-      })
-    );
-
+    const result = await callAdvisoryAction('loops', { action: 'loops' }, ['--action', 'loops', '--format', 'json']);
+    const records = (Array.isArray((result as { loops?: unknown })?.loops)
+      ? (result as { loops: AdvisoryRecord[] }).loops
+      : Array.isArray(result)
+        ? (result as AdvisoryRecord[])
+        : []
+    ).filter((r) => !r.outcome);
     records.sort((a, b) => b.recorded_at.localeCompare(a.recorded_at));
-    console.log('[loops] returning', records.length, 'open records from', LOG_DIR);
     return NextResponse.json({ loops: records });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: 'Failed to load loops', detail }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to load loops', detail }, { status: 502 });
   }
 }
