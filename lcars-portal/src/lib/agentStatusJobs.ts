@@ -114,7 +114,6 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'knowledge_freshness', label: 'Knowledge Freshness (Wed)', domain: 'intelligence', cadenceLabel: 'Weekly · Wed 09:00', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'decision_outcome_reminder', label: 'Decision Outcome Reminder (Wed)', domain: 'intelligence', cadenceLabel: 'Weekly · Wed 09:15', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'forgotten_decisions', label: 'Forgotten Decisions (Mon+Thu)', domain: 'intelligence', cadenceLabel: '2x/week · Mon+Thu 09:30', capability: 'weekly_review', criticality: 'supporting' },
-  { domainKey: 'shakedown_digest', label: 'Shakedown Digest (RETIRED 2026-08-27)', domain: 'platform', cadenceLabel: 'Retired — was Daily · 20:00', capability: 'platform_core', criticality: 'background', retired: true },
   { domainKey: 'monthly_lessons_digest', label: 'Monthly Lessons Digest', domain: 'intelligence', cadenceLabel: 'Monthly · 1st 08:00', capability: 'weekly_review', criticality: 'background' },
   { domainKey: 'ko_monthly_brief', label: 'KO Monthly Brief', domain: 'intelligence', cadenceLabel: 'Monthly · 1st 08:30', capability: 'weekly_review', criticality: 'background' },
   { domainKey: 'mission_registry_sync', label: 'Mission Registry Sync', domain: 'platform', cadenceLabel: 'Daily · 06:45', capability: 'platform_core', criticality: 'supporting' },
