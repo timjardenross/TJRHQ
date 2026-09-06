@@ -25,9 +25,11 @@
  * wrapping the same unchanged CaptureBox/contentScoring.ts pipeline.
  *
  * 2026-08: Communications Workbench was delisted from /workbenches (see
- * workbenches/page.tsx) in favour of this one. mark_published still only
- * queues a governed proposal — the Captain approves the actual publish in
- * Decide, same as always.
+ * workbenches/page.tsx) in favour of this one. mark_published is a direct
+ * status flip fired only by the Captain's own click at the end of the QA'd
+ * pipeline (see api/comms/[id]/advance/route.ts's header comment for why
+ * the earlier propose-then-approve-in-Decide detour was reverted — that
+ * queue had no page ever rendering it, so nothing published).
  *
  * 2026-08 follow-up (workbench fault-finding audit): uses `DomainToggle`,
  * the real WAI-ARIA tablist every other *-workbench page uses, with
