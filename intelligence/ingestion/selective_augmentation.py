@@ -67,6 +67,9 @@ def augment_if_ambiguous(
         cost_governor.log_call(
             task_type=task_type,
             provider=(llm_score.provider if llm_score else "unknown"),
+            model_name=llm_score.model_name if llm_score else None,
+            input_tokens=llm_score.input_tokens if llm_score else None,
+            output_tokens=llm_score.output_tokens if llm_score else None,
             success=llm_score is not None,
             failure_reason=None if llm_score else "no_llm_result_or_unparseable",
         )

@@ -119,7 +119,7 @@ class TaskDecomposer:
             max_tokens=256,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
     # ─── Gemini ──────────────────────────────────────────────────────────────
 
@@ -134,7 +134,7 @@ class TaskDecomposer:
             max_output_tokens=256,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
     # ─── Ollama (local) ──────────────────────────────────────────────────────
 
@@ -149,7 +149,7 @@ class TaskDecomposer:
             model=OLLAMA_MODEL,
             temperature=0.5,
             timeout=15,
-        )
+        ).text
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

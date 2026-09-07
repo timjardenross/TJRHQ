@@ -114,20 +114,20 @@ class HealthLLMProvider:
         return call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=_GEMINI_API_KEY, max_output_tokens=1024, temperature=0.3, timeout=30,
-        )
+        ).text
 
     def _mistral(self, prompt: str) -> Optional[str]:
         return call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=_MISTRAL_API_KEY, max_tokens=1024, temperature=0.3, timeout=30,
-        )
+        ).text
 
     def _ollama(self, prompt: str) -> Optional[str]:
         return call_ollama(
             _SYSTEM_PROMPT, prompt,
             base_url=_OLLAMA_BASE_URL, model=_OLLAMA_MODEL,
             temperature=0.3, num_predict=800, timeout=60,
-        )
+        ).text
 
 
 def parse_llm_narrative(raw: str) -> Optional[dict]:

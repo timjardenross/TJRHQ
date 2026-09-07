@@ -39,7 +39,7 @@ from intelligence.config import (
     MISTRAL_QA_AGENT_ID, MISTRAL_QA_AGENT_VERSION,
     MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
-from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+from core.llm.provider_chain import call_gemini, call_mistral, call_ollama, LLMCallResult
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +66,15 @@ Rules:
 
 class LLMProvider:
     """Attempts each provider in preference order. Never raises — returns None on total failure."""
+
+    def __init__(self) -> None:
+        # Set by generate() (via _gemini/_mistral/_ollama/_model_router/
+        # _mistral_pipeline) right before it returns text, so a caller that
+        # needs cost-governance data (token usage, resolved model) can read
+        # it immediately after calling generate() without generate() itself
+        # having to change its public (text, provider_name) return shape —
+        # that shape has ~10 existing callers that only want the text.
+        self.last_usage: Optional[LLMCallResult] = None
 
     def check_brief_quality(self, brief_text: str) -> Optional[str]:
         """
@@ -132,7 +141,11 @@ class LLMProvider:
     def generate(self, prompt: str) -> tuple[Optional[str], Optional[str]]:
         """
         Returns (text, provider_name) or (None, None) if all fail.
+        Also sets self.last_usage (token counts + resolved model, where the
+        winning provider's response exposed them) for callers that need it
+        for cost-governance logging.
         """
+        self.last_usage = None
         providers = [
             ("model-router",            self._model_router),
             ("mistral-4stage-pipeline", self._mistral_pipeline),
@@ -175,6 +188,13 @@ class LLMProvider:
         text = (data.get("response") or data.get("content") or "").strip()
         if not text:
             raise RuntimeError("Model Router returned an empty response")
+        token_info = data.get("token_info") or {}
+        self.last_usage = LLMCallResult(
+            text=text,
+            model=data.get("model") or "model-router",
+            input_tokens=token_info.get("prompt_eval_count"),
+            output_tokens=token_info.get("eval_count"),
+        )
         return text
 
     # ─── 4-Stage Mistral Pipeline ─────────────────────────────────────────────
@@ -362,6 +382,11 @@ class LLMProvider:
             raise RuntimeError("Stage 4 (Briefing Officer) returned no output")
 
         log.info("[pipeline] Stage 3 (Briefing) complete (%d chars) — pipeline finished", len(briefing_output))
+        # Token usage isn't captured per-stage across this up-to-7-agent
+        # chain (the mistralai conversations SDK response isn't parsed for
+        # it here) — record the model label with unknown (not zero) tokens
+        # rather than silently reporting nothing.
+        self.last_usage = LLMCallResult(text=briefing_output, model="mistral-4stage-pipeline")
         return briefing_output
 
     def _call_agent(
@@ -482,24 +507,30 @@ class LLMProvider:
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
     def _gemini(self, prompt: str) -> Optional[str]:
-        return call_gemini(
+        result = call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=GEMINI_API_KEY, max_output_tokens=2048, temperature=0.3, timeout=30,
         )
+        self.last_usage = result
+        return result.text
 
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
     def _mistral(self, prompt: str) -> Optional[str]:
-        return call_mistral(
+        result = call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=MISTRAL_API_KEY, max_tokens=2048, temperature=0.3, timeout=30,
         )
+        self.last_usage = result
+        return result.text
 
     # ─── Ollama ───────────────────────────────────────────────────────────────
 
     def _ollama(self, prompt: str) -> Optional[str]:
-        return call_ollama(
+        result = call_ollama(
             _SYSTEM_PROMPT, prompt,
             base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,
             temperature=0.3, num_predict=1200, timeout=60,
         )
+        self.last_usage = result
+        return result.text
