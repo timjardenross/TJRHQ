@@ -4,10 +4,19 @@ OR Intelligence Scheduler.
 Modes:
   python -m intelligence.scheduler --once        Run one brief generation immediately
   python -m intelligence.scheduler --test        Run with a 3-day period (smoke test)
-  python -m intelligence.scheduler               Start APScheduler daemon (fortnightly cron)
+  python -m intelligence.scheduler               Start APScheduler daemon
 
-Schedule is configurable via OR_INTEL_SCHEDULE_CRON env var.
-Default: "0 6 1,15 * *"  (1st and 15th of each month at 06:00 UTC)
+Daily ORI brief generation ("or_intelligence_brief" job) is EVENT-DRIVEN, not
+a blind clock trigger (Briefs canonical uplift, Section 4): it polls every 5
+minutes (see _brief_readiness_job) for the 06:00 daily_source_collection
+job's completion heartbeat (domain_heartbeats, domain_key=
+'intelligence_collection', migration 0071) and generates as soon as it
+lands. A missing/failed heartbeat cannot block the brief indefinitely — see
+intelligence/brief/morning_cycle.py's bounded cutoff, derived from
+OR_INTEL_SCHEDULE_CRON's configured time (default "30 6 * * *" -> 06:30
+AEST) or overridden directly via OR_INTEL_MORNING_CUTOFF ("HH:MM"). Past
+that cutoff the brief generates anyway with its coverage marked degraded.
+The poll is idempotent — see intelligence_store.brief_exists_for_cycle().
 
 DEPLOY WINDOW WARNING (2026-09-02): avoid `git pull` + `systemctl restart
 intelligence-scheduler.service` between 06:00-07:00 AEST. The daily
@@ -15,8 +24,9 @@ collection job (_daily_collection_job, CronTrigger 06:00) is once-daily
 with no retry — a restart mid-run silently strands the intelligence_collection
 deadman's-switch heartbeat (migration 0071) on the previous day's timestamp
 even when collection itself succeeded, firing a false Platform Health alert
-~24h later. If you must deploy in this window, backfill the heartbeat
-afterward via core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
+~24h later AND leaving the ORI brief poll above waiting past its cutoff. If
+you must deploy in this window, backfill the heartbeat afterward via
+core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
@@ -148,22 +158,50 @@ def _start_scheduler() -> None:
     scheduler = BlockingScheduler()
     tz = _resolve_tz(SCHEDULE_TZ)
 
-    # ── Fortnightly full ORI brief generation ──────────────────────────────────
-    parts = SCHEDULE_CRON.split()
-    brief_trigger = CronTrigger(
-        minute=parts[0], hour=parts[1],
-        day=parts[2],    month=parts[3], day_of_week=parts[4]
-    )
+    # ── Event-driven ORI brief generation (Briefs canonical uplift, Section 4) ──
+    # Fires as soon as the 06:00 daily_source_collection job's completion
+    # heartbeat lands (domain_heartbeats: intelligence_collection, migration
+    # 0071) instead of an unconditional clock trigger — see this module's
+    # docstring and intelligence/brief/morning_cycle.py. Polls every 5
+    # minutes; idempotent (skips once today's cycle already has a persisted
+    # brief); bounded — a missing/failed collection heartbeat cannot block
+    # the brief past morning_cycle's cutoff (default derived from
+    # SCHEDULE_CRON, historically 06:30 AEST), after which it proceeds with
+    # coverage marked degraded rather than waiting forever.
+    from apscheduler.triggers.interval import IntervalTrigger as _BriefPollInterval
 
-    def _brief_job():
-        log.info("Scheduled ORI brief generation triggered")
+    def _brief_readiness_job():
+        from intelligence.brief.morning_cycle import get_status, in_morning_window
+        from intelligence.persistence import intelligence_store as _store
+
+        if not in_morning_window():
+            return
+        status = get_status()
+        try:
+            if _store.brief_exists_for_cycle(status.cycle_id):
+                return
+        except Exception as exc:
+            log.warning("[morning-cycle %s] could not check for an existing brief this poll: %s",
+                        status.cycle_id, exc)
+            return
+        if not status.ready:
+            log.info("[morning-cycle %s] collection not yet ready — waiting (%s)",
+                      status.cycle_id, status.reason)
+            return
+        log.info("[morning-cycle %s] ready (degraded=%s) — generating brief",
+                  status.cycle_id, status.degraded)
         try:
             brief = run_once(trigger="scheduled")
             log.info("ORI brief complete: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
         except Exception as exc:
             log.error("ORI brief generation failed: %s", exc)
 
-    scheduler.add_job(_brief_job, brief_trigger, id="or_intelligence_brief", replace_existing=True)
+    scheduler.add_job(
+        _brief_readiness_job,
+        _BriefPollInterval(minutes=5),
+        id="or_intelligence_brief",
+        replace_existing=True,
+    )
 
     # ── Daily ORI GitHub brief sync (USS-TJR-MSN-0074, WP7) ────────────────────
     gparts = GITHUB_SYNC_CRON.split()
@@ -549,7 +587,8 @@ def _start_scheduler() -> None:
         log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
 
     log.info(
-        "Scheduler started. ORI cron: %s (UTC) | GitHub sync: %s (%s) | "
+        "Scheduler started. ORI brief: event-driven, polls every 5min for collection-ready "
+        "(target ~%s AEST, bounded cutoff — see morning_cycle.py) | GitHub sync: %s (%s) | "
         "Captain's briefs: morning 07:00, midday 12:30, EOD 18:00, weekly Mon 07:00 (%s) | "
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
