@@ -1,0 +1,27 @@
+[Unit]
+# Pull-based auto-deploy for this VM's half of the platform (2026-09-07).
+# See deploy/auto-deploy.sh's own header for the full design rationale and
+# safety rules (dirty-tree abort, fast-forward-only, no push).
+#
+# The frontend (lcars-portal) already deploys automatically on merge via
+# Vercel; nothing on this VM ever checked GitHub before this unit existed,
+# so every backend fix required a manual SSH + `git pull`. This closes
+# that gap on the same polling-timer pattern every other job on this VM
+# already uses (see delivery-reconciler.timer) rather than exposing a new
+# inbound webhook endpoint.
+Description=Pull-based auto-deploy (git pull --ff-only + scoped service restarts)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/opt/starship-endeavour/deploy/auto-deploy.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auto-deploy
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
