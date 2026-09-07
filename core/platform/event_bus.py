@@ -124,6 +124,7 @@ def poll_events(
     status: Optional[str] = None,
     limit: int = 100,
     exclude_cves: bool = True,
+    columns: str = "*",
 ) -> list[dict[str, Any]]:
     """Poll-based subscription: fetch events matching the given filters.
 
@@ -134,6 +135,13 @@ def poll_events(
     Args:
         exclude_cves: If True (default), filter out CVE-* events from the results.
             Set to False only for dedicated CVE analysis workflows.
+        columns: PostgREST select column list. Defaults to "*" (every column,
+            including the linked_entities/linked_missions/linked_documents
+            jsonb arrays) so existing callers are unaffected. A caller that
+            runs often and doesn't touch the jsonb columns should pass an
+            explicit narrower list — `core_events` is egress-heavy at scale,
+            and `select("*")` on a high-frequency poll re-transfers those
+            arrays on every run for no benefit.
     """
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -144,7 +152,7 @@ def poll_events(
             log.info("[event-bus] Supabase disabled; poll returns empty")
             return []
 
-        query = raw.table("core_events").select("*").order("occurred_at", desc=True).limit(limit)
+        query = raw.table("core_events").select(columns).order("occurred_at", desc=True).limit(limit)
         if since is not None:
             query = query.gte("occurred_at", since.astimezone(timezone.utc).isoformat())
         if event_type is not None:

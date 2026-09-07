@@ -28,7 +28,8 @@ async function getConfidenceMatrix(sb: any, days: number, includeSuppressed: boo
       )
     `)
     .gte('collected_at', since)
-    .order('rank_score', { ascending: false });
+    .order('rank_score', { ascending: false })
+    .limit(1000);
 
   if (!includeSuppressed) query = query.eq('suppressed', false);
   query = query.neq('signal_status', 'DUPLICATE');
