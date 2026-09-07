@@ -55,6 +55,12 @@ export default function HqEvolutionPage() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Create Mission moves an opportunity's lifecycle_state straight to
+  // "implementing" (dashboard.py's own decision-effect map), which the
+  // Discover tab's `discoveredOnly`/`proposed` filters immediately exclude —
+  // the item is still there, just relocated to the Improve tab's historical
+  // section. Without this, that relocation reads as "it disappeared."
+  const [notice, setNotice] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
   // Mission's own staged-approval ladder (Idea -> ... -> Approved), surfaced
   // inline for any opportunity handed off via "Create Mission" rather than
@@ -151,7 +157,14 @@ export default function HqEvolutionPage() {
         const detail = typeof body?.detail === 'string' ? body.detail : '';
         throw new Error(detail ? `${base}: ${detail}` : base);
       }
-      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', body.mission?.mission_id);
+      const missionId = body.mission?.mission_id as string | undefined;
+      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', missionId);
+      setNotice(
+        missionId
+          ? `Mission ${missionId} created — moved from Discover to the Improve tab.`
+          : 'Mission created — moved from Discover to the Improve tab.',
+      );
+      setTimeout(() => setNotice(null), 8000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Mission');
     }
@@ -234,6 +247,16 @@ export default function HqEvolutionPage() {
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
           {error}. Showing last known data, not current.
+        </p>
+      )}
+
+      {notice && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-wb-ok/40 bg-wb-ok/10 p-3 text-sm text-wb-ok-on"
+        >
+          ✓ {notice}
         </p>
       )}
 
