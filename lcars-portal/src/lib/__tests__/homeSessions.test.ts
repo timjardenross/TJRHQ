@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { recordAndGetLastSession } from '@/lib/homeSessions';
 
 // Chainable fake matching the Supabase query-builder shape used by
@@ -17,6 +17,19 @@ function fakeSupabase(selectResult: { data: unknown[] | null } | null, opts?: { 
 }
 
 describe('recordAndGetLastSession', () => {
+  // Pinned at noon UTC, well clear of the midnight calendar-day boundary
+  // homeSessions.ts computes against - real system time flaked here in the
+  // first hour after UTC midnight, when "1 hour ago" falls on the previous
+  // calendar day.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('reports first-ever session when no prior row exists', async () => {
     const result = await recordAndGetLastSession(fakeSupabase({ data: [] }));
     expect(result.lastViewedAt).toBeNull();
