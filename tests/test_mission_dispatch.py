@@ -49,7 +49,32 @@ class TestDispatchLog(unittest.TestCase):
         mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", True, "Draft PR opened")
         mission_dispatch.record_dispatch(self.tmpdir, "MSN-9002", False, "sync-one failed")
         ids = mission_dispatch.load_dispatched_ids(self.tmpdir)
-        self.assertEqual(ids, {"MSN-9001", "MSN-9002"})
+        # A single failure is a retry candidate, not "done" — only the
+        # successful mission counts as dispatched (see module comment above
+        # load_dispatched_ids: this used to wrongly include both).
+        self.assertEqual(ids, {"MSN-9001"})
+
+    def test_a_single_failure_is_not_treated_as_dispatched(self):
+        mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", False, "sync-one exited 1")
+        self.assertEqual(mission_dispatch.load_dispatched_ids(self.tmpdir), set())
+
+    def test_failures_below_the_retry_cap_are_not_treated_as_dispatched(self):
+        for _ in range(mission_dispatch.MAX_DISPATCH_ATTEMPTS - 1):
+            mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", False, "sync-one exited 1")
+        self.assertEqual(mission_dispatch.load_dispatched_ids(self.tmpdir), set())
+
+    def test_failures_at_the_retry_cap_stop_being_retried(self):
+        for _ in range(mission_dispatch.MAX_DISPATCH_ATTEMPTS):
+            mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", False, "sync-one exited 1")
+        self.assertEqual(mission_dispatch.load_dispatched_ids(self.tmpdir), {"MSN-9001"})
+
+    def test_a_success_resets_the_failure_streak(self):
+        mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", False, "sync-one exited 1")
+        mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", False, "sync-one exited 1")
+        mission_dispatch.record_dispatch(self.tmpdir, "MSN-9001", True, "Draft PR opened")
+        # Two failures then a success: the streak that mattered ended in
+        # success, so this mission is done (not exhausted-and-stuck).
+        self.assertEqual(mission_dispatch.load_dispatched_ids(self.tmpdir), {"MSN-9001"})
 
     def test_corrupt_log_line_never_raises(self):
         log_path = self.tmpdir / "review" / mission_dispatch.DISPATCH_LOG_NAME
@@ -136,12 +161,41 @@ class TestRunCycle(unittest.TestCase):
         mock_dispatch_again.assert_not_called()
         self.assertEqual(second["already_dispatched"], 1)
 
-    def test_failed_dispatch_still_recorded_so_it_is_not_retried_forever(self):
+    def test_failed_dispatch_is_retried_on_the_next_cycle(self):
         with patch("core.engineering.mission_dispatch.fetch_approved_missions", return_value=[make_mission()]), \
              patch("core.engineering.mission_dispatch.dispatch_one", return_value={"success": False, "error": "sync-one exited 1"}):
             results = mission_dispatch.run_cycle(self.repo_root, self.data_root, dry_run=False)
         self.assertEqual(results["failed"], 1)
+        # A transient failure must not permanently block the Mission — see
+        # this module's own deploy/mission-engineering-dispatch.service
+        # comment: "a retry after a transient failure is always safe."
+        self.assertNotIn("MSN-9001", mission_dispatch.load_dispatched_ids(self.data_root))
+
+        with patch("core.engineering.mission_dispatch.fetch_approved_missions", return_value=[make_mission()]), \
+             patch("core.engineering.mission_dispatch.dispatch_one", return_value={"success": False, "error": "sync-one exited 1"}) as mock_dispatch_again:
+            mission_dispatch.run_cycle(self.repo_root, self.data_root, dry_run=False)
+        mock_dispatch_again.assert_called_once()  # actually retried, not skipped
+
+    def test_failed_dispatch_gives_up_after_the_retry_cap_and_says_so(self):
+        with patch("core.engineering.mission_dispatch.fetch_approved_missions", return_value=[make_mission()]), \
+             patch("core.engineering.mission_dispatch.dispatch_one", return_value={"success": False, "error": "sync-one exited 1"}):
+            for _ in range(mission_dispatch.MAX_DISPATCH_ATTEMPTS):
+                mission_dispatch.run_cycle(self.repo_root, self.data_root, dry_run=False)
+
+        # Now permanently skipped — the retry budget is spent.
         self.assertIn("MSN-9001", mission_dispatch.load_dispatched_ids(self.data_root))
+        with patch("core.engineering.mission_dispatch.fetch_approved_missions", return_value=[make_mission()]), \
+             patch("core.engineering.mission_dispatch.dispatch_one") as mock_dispatch:
+            results = mission_dispatch.run_cycle(self.repo_root, self.data_root, dry_run=False)
+        mock_dispatch.assert_not_called()
+        self.assertEqual(results["already_dispatched"], 1)
+
+        # The Captain-facing message on the exhausting attempt must say it
+        # gave up (mission-dispatch-status only ever surfaces the latest
+        # record per mission_id — see dashboard.py's load_mission_dispatch_log).
+        log_path = self.data_root / "review" / mission_dispatch.DISPATCH_LOG_NAME
+        last_line = log_path.read_text().strip().splitlines()[-1]
+        self.assertIn("giving up", json.loads(last_line)["message"])
 
 
 class TestDispatchOneSubprocessHandling(unittest.TestCase):

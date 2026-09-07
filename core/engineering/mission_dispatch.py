@@ -60,6 +60,20 @@ log = logging.getLogger("mission_dispatch")
 APPROVED_STATUS = "Approved for Engineering"
 DISPATCH_LOG_NAME = "mission_dispatch_log.jsonl"
 
+# 2026-09-07: load_dispatched_ids() used to treat ANY logged attempt (success
+# OR failure) as "already dispatched", so a single transient failure (a
+# Mistral API hiccup, a GitHub push race) permanently and silently stopped
+# a Mission from ever being retried — contradicting this module's own
+# deploy/mission-engineering-dispatch.service comment ("a retry after a
+# transient failure is always safe"). Found via a live end-to-end test
+# (2026-09-07) after fixing missions to reach "Approved for Engineering" in
+# the first place. Now: only a real success (ever) or MAX_DISPATCH_ATTEMPTS
+# consecutive failures count as "done" — the latter so a Mission that will
+# never succeed (e.g. consistently malformed input) doesn't retry forever,
+# burning a Mistral call every 15 minutes; it instead surfaces as needing a
+# human via the existing "Dispatch attempt failed" UI (OpportunityDetail.tsx).
+MAX_DISPATCH_ATTEMPTS = 3
+
 
 def fetch_approved_missions(limit: int = 25) -> list[dict[str, Any]]:
     """Missions currently sitting at APPROVED_STATUS. Never raises — a
@@ -76,22 +90,42 @@ def fetch_approved_missions(limit: int = 25) -> list[dict[str, Any]]:
         return []
 
 
-def load_dispatched_ids(data_root: Path) -> set[str]:
+def _dispatch_history(data_root: Path) -> tuple[set[str], dict[str, int]]:
+    """(mission_ids ever successfully dispatched, consecutive-failure counts
+    since each mission's last success). A success clears that mission's
+    failure streak, so a Mission that failed twice and then succeeded is
+    just "succeeded" — only an unbroken run of failures counts toward
+    MAX_DISPATCH_ATTEMPTS."""
     log_path = data_root / "review" / DISPATCH_LOG_NAME
+    succeeded: set[str] = set()
+    failures: dict[str, int] = {}
     if not log_path.exists():
-        return set()
-    ids: set[str] = set()
+        return succeeded, failures
     try:
         with open(log_path) as f:
             for line in f:
                 if line.strip():
                     rec = json.loads(line)
                     mid = rec.get("mission_id")
-                    if mid:
-                        ids.add(mid)
+                    if not mid:
+                        continue
+                    if rec.get("success"):
+                        succeeded.add(mid)
+                        failures.pop(mid, None)
+                    else:
+                        failures[mid] = failures.get(mid, 0) + 1
     except Exception as exc:
         log.warning(f"Failed to read {log_path}: {exc}")
-    return ids
+        return set(), {}
+    return succeeded, failures
+
+
+def load_dispatched_ids(data_root: Path) -> set[str]:
+    """Mission IDs this cycle should skip: ever succeeded, or has now
+    failed MAX_DISPATCH_ATTEMPTS times in a row (see module comment)."""
+    succeeded, failures = _dispatch_history(data_root)
+    exhausted = {mid for mid, n in failures.items() if n >= MAX_DISPATCH_ATTEMPTS}
+    return succeeded | exhausted
 
 
 def record_dispatch(data_root: Path, mission_id: str, success: bool, message: str) -> None:
@@ -181,6 +215,7 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
 
 def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25) -> dict[str, Any]:
     dispatched_before = load_dispatched_ids(data_root)
+    _, failures_before = _dispatch_history(data_root)
     missions = fetch_approved_missions(limit=limit)
     to_dispatch = [m for m in missions if m.get("mission_id") not in dispatched_before]
 
@@ -197,13 +232,26 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
             continue
 
         outcome = dispatch_one(repo_root, mission)
-        record_dispatch(data_root, mission_id, outcome["success"], outcome.get("message") or outcome.get("error", ""))
+        message = outcome.get("message") or outcome.get("error", "")
+        if not outcome["success"]:
+            attempts = failures_before.get(mission_id, 0) + 1
+            if attempts >= MAX_DISPATCH_ATTEMPTS:
+                # This is the failure that exhausts the retry budget — say so
+                # in the message the Captain actually sees (mission-dispatch-
+                # status surfaces only the latest record per mission_id), so
+                # "still retrying" and "gave up" don't look identical.
+                message = (
+                    f"{message} (giving up after {attempts} attempts — "
+                    f"this Mission needs manual attention, it will not be "
+                    f"retried automatically again)"
+                )
+        record_dispatch(data_root, mission_id, outcome["success"], message)
         if outcome["success"]:
             results["dispatched"] += 1
-            log.info(f"{mission_id}: {outcome['message']}")
+            log.info(f"{mission_id}: {message}")
         else:
             results["failed"] += 1
-            log.warning(f"{mission_id}: {outcome['error']}")
+            log.warning(f"{mission_id}: {message}")
 
     return results
 
