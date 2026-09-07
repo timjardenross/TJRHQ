@@ -76,6 +76,19 @@ class TestEngineeringHandoffsApi(unittest.TestCase):
         res = self.client.get("/api/engineering-handoffs")
         self.assertEqual(res.get_json()["handoffs"], [])
 
+    def test_include_completed_surfaces_it_with_done_status(self):
+        write_handoff(self.handoffs_dir, "ENG-HANDOFF-TEST-002B", **{"Batch Status": "MERGED"})
+        res = self.client.get("/api/engineering-handoffs?include_completed=true")
+        handoffs = res.get_json()["handoffs"]
+        self.assertEqual(len(handoffs), 1)
+        self.assertEqual(handoffs[0]["metadata"]["engineering_status"], "Completed")
+        self.assertIn("Done", handoffs[0]["next_action"])
+
+    def test_include_completed_still_excludes_unapproved(self):
+        write_handoff(self.handoffs_dir, "ENG-HANDOFF-TEST-002C", Status="Idea", **{"Batch Status": "MERGED"})
+        res = self.client.get("/api/engineering-handoffs?include_completed=true")
+        self.assertEqual(res.get_json()["handoffs"], [])
+
     def test_unapproved_handoff_is_excluded(self):
         write_handoff(self.handoffs_dir, "ENG-HANDOFF-TEST-003", Status="Idea")
         res = self.client.get("/api/engineering-handoffs")

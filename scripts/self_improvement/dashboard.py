@@ -524,16 +524,56 @@ def api_engineering_handoffs():
     — this route adds no new logic, just an HTTP window onto data that
     already existed. Lazy import + broad except so a missing/broken
     reader module degrades to an empty list rather than 500ing the whole
-    dashboard, matching this file's other defensive routes."""
+    dashboard, matching this file's other defensive routes.
+
+    ?include_completed=true (2026-09-07: the Captain wants the full 5-stage
+    lifecycle visible on the Engineering Handoffs page, not just outstanding
+    work) also returns Completed handoffs, which the reader excludes by
+    default for every other caller (Number One's advisory queue included)."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+    include_completed = request.args.get("include_completed", "").strip().lower() in {"1", "true", "yes"}
     try:
         from core.coordination.engineering_handoff_reader import load_engineering_handoffs
-        handoffs = load_engineering_handoffs()
+        handoffs = load_engineering_handoffs(include_completed=include_completed)
     except Exception as exc:
         log.error(f"Failed to load engineering handoffs: {exc}")
         return jsonify({"handoffs": [], "error": str(exc)}), 503
     return jsonify({"handoffs": handoffs})
+
+
+@app.route("/api/engineering-handoffs/artifact")
+def api_engineering_handoff_artifact():
+    """Serve the content of one batch_coding.py review artifact.
+
+    core.engineering.batch_coding writes a `.patch.md` here when a handoff's
+    diff couldn't be opened as a PR automatically (an existing-file edit
+    deferred to manual review, per the "only add new files automatically"
+    safety default). Until now the only way to read one was VM shell access
+    — the Engineering Handoffs page just printed the bare path as inert
+    text. `path` is locked to a file directly inside this one directory
+    (resolved against REPO_ROOT computed here, not at import time, so tests
+    can point REPO_ROOT at a scratch dir) to rule out path traversal.
+    """
+    artifacts_dir = (REPO_ROOT / "Missions" / "Engineering-Handoffs" / "artifacts").resolve()
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        return jsonify({"error": "missing 'path' query parameter"}), 400
+    try:
+        candidate = (REPO_ROOT / rel_path).resolve()
+    except (OSError, ValueError):
+        return jsonify({"error": "invalid path"}), 400
+    if candidate.parent != artifacts_dir or candidate.suffix != ".md":
+        return jsonify({"error": "path must point at a file directly inside "
+                                  "Missions/Engineering-Handoffs/artifacts/"}), 400
+    if not candidate.is_file():
+        return jsonify({"error": "artifact not found"}), 404
+    try:
+        content = candidate.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        log.error(f"Failed to read engineering handoff artifact {candidate}: {exc}")
+        return jsonify({"error": str(exc)}), 503
+    return jsonify({"path": rel_path, "content": content})
 
 
 @app.route("/api/status")

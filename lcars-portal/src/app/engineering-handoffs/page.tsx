@@ -50,12 +50,85 @@ const STATUS_BADGE: Record<string, BadgeStatus> = {
   'In Progress': 'info',
   'Assigned': 'info',
   'Pending Triage': 'neutral',
+  'Completed': 'success',
 };
 
+// Outstanding stages, most-needs-attention first — Completed is deliberately
+// excluded here and shown in its own section below instead: it isn't
+// outstanding work, so it doesn't belong in "what needs my attention".
 const STATUS_ORDER = ['Awaiting Review', 'In Progress', 'Assigned', 'Pending Triage'];
+
+// All 5 stages of the lifecycle (2026-09-07: the Captain wants the full
+// progression visible, not just outstanding work), for the stat-tile row.
+const ALL_STAGES = [...STATUS_ORDER, 'Completed'];
 
 function displayTitle(title: string): string {
   return title.replace(/^\[ENG-HANDOFF\]\s*/, '');
+}
+
+function ArtifactViewer({ path }: { path: string }) {
+  const [open, setOpen] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (content !== null || error !== null) return; // already fetched
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/engineering-handoffs/artifact?path=${encodeURIComponent(path)}`, {
+        cache: 'no-store',
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || 'bad upstream response');
+      setContent(body.content ?? '');
+    } catch (e: any) {
+      setError(e?.message || 'Could not load the artifact.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={toggle}
+        className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
+          text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
+      >
+        {open ? 'Hide artifact ↑' : 'View artifact →'}
+      </button>
+      {open && (
+        <div className="mt-2 rounded-md border border-wb-line bg-wb-surface-raised p-3">
+          {isLoading ? (
+            <p className="text-[12px] italic text-wb-ink2">Loading artifact…</p>
+          ) : error ? (
+            <p className="text-[12px] text-wb-crit-on">{error}</p>
+          ) : (
+            <>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-wb-ink">
+                {content}
+              </pre>
+              <p className="mt-2 border-t border-wb-line pt-2 text-[11px] italic text-wb-ink2">
+                This edit touches an existing file, so it was deliberately held back from an
+                automatic PR (a whole-file rewrite can silently drop code) — it was never opened,
+                so there is nothing here to merge yet. To progress it: apply the change yourself
+                and open a normal PR, or hand this artifact to an engineering session to implement
+                properly with a real, reviewable diff.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function HandoffCard({ handoff }: { handoff: Handoff }) {
@@ -77,7 +150,20 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
         </span>
       </div>
       <p className="mb-3 text-[12px] text-wb-ink2">{handoff.next_action}</p>
-      {metadata.pr_url ? (
+      {metadata.engineering_status === 'Completed' ? (
+        metadata.pr_url && (
+          <a
+            href={metadata.pr_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
+              text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+              focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
+          >
+            View merged PR →
+          </a>
+        )
+      ) : metadata.pr_url ? (
         <a
           href={metadata.pr_url}
           target="_blank"
@@ -89,9 +175,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
           Open draft PR →
         </a>
       ) : metadata.batch_artifact ? (
-        <p className="text-[11px] italic text-wb-ink2">
-          No PR yet — review artifact: {metadata.batch_artifact}
-        </p>
+        <ArtifactViewer path={metadata.batch_artifact} />
       ) : (
         <p className="text-[11px] italic text-wb-ink2">No PR or artifact yet.</p>
       )}
@@ -107,7 +191,7 @@ export default function EngineeringHandoffsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/engineering-handoffs', { cache: 'no-store' });
+        const res = await fetch('/api/engineering-handoffs?include_completed=true', { cache: 'no-store' });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error || 'bad upstream response');
         setHandoffs(body.handoffs ?? []);
@@ -127,8 +211,16 @@ export default function EngineeringHandoffsPage() {
     byStatus[s] = (byStatus[s] ?? 0) + 1;
   });
 
-  const sorted = [...handoffs].sort(
+  const outstanding = handoffs.filter(h => h.metadata.engineering_status !== 'Completed');
+  const completed = handoffs.filter(h => h.metadata.engineering_status === 'Completed');
+
+  const sorted = [...outstanding].sort(
     (a, b) => STATUS_ORDER.indexOf(a.metadata.engineering_status) - STATUS_ORDER.indexOf(b.metadata.engineering_status)
+  );
+  // Most recently completed first — approved_at is the only timestamp this
+  // shape carries; good enough for "what finished recently".
+  const sortedCompleted = [...completed].sort(
+    (a, b) => (b.metadata.approved_at || '').localeCompare(a.metadata.approved_at || '')
   );
 
   return (
@@ -149,8 +241,8 @@ export default function EngineeringHandoffsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {STATUS_ORDER.map(s => (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {ALL_STAGES.map(s => (
                 <div key={s} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                   <p className="text-2xl font-bold text-wb-ink">{byStatus[s] ?? 0}</p>
                   <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s}</p>
@@ -183,6 +275,22 @@ export default function EngineeringHandoffsPage() {
             </div>
           )}
         </Card>
+
+        {!isLoading && !loadError && sortedCompleted.length > 0 && (
+          <Card>
+            <div className="mb-3">
+              <h2 className="font-serif text-lg text-wb-ink">Completed</h2>
+              <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
+                Merged and done — most recent first
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 opacity-80">
+              {sortedCompleted.map(h => (
+                <HandoffCard key={h.mission_id} handoff={h} />
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </WorkbenchShell>
   );
