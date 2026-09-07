@@ -281,19 +281,25 @@ export function OpportunityDetail({
 
       {opportunity.remediation_status && (
         <Field label="Auto-remediation">
+          {/* 2026-09-07: HandoffPRStrategy reports success=true even when NO
+              PR was opened (an existing-file edit deferred to manual review,
+              or no_files_written) — success only ever meant "the coding
+              attempt didn't error," never "a PR exists". Must gate on the
+              real pr_url, not remediation_status alone, or this falsely
+              tells the Captain a PR is waiting to merge when there is none —
+              confirmed live on several real opportunities. */}
           {opportunity.remediation_status === 'succeeded' ? (
-            <div>
-              Draft PR opened for review
-              {opportunity.remediation_pr_url && (
-                <>
-                  :{' '}
-                  <a href={opportunity.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">
-                    {opportunity.remediation_pr_url}
-                  </a>
-                </>
-              )}
-              . Review and merge it like any other PR — HQ never merges this itself.
-            </div>
+            opportunity.remediation_pr_url ? (
+              <div>
+                Draft PR opened for review:{' '}
+                <a href={opportunity.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">
+                  {opportunity.remediation_pr_url}
+                </a>
+                . Review and merge it like any other PR — HQ never merges this itself.
+              </div>
+            ) : (
+              <div>{opportunity.remediation_message}</div>
+            )
           ) : (
             <div className="text-wb-crit-on">Attempt failed: {opportunity.remediation_message}</div>
           )}
