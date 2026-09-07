@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0205D: the ONLY write path from the processing pipeline
 // (processing_documents/processing_chunks, MSN-0205C, pre-approval
@@ -82,7 +83,7 @@ export async function POST(
       memory_document_id: outcome.memory_document_id,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Decision failed', detail }, { status: 500 });
   }
 }

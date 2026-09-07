@@ -12,6 +12,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { getAssessedContext } from '../assessed-context';
+import { errorDetail } from '@/lib/errorDetail';
 
 export async function GET() {
   const session = await requireSession();
@@ -23,7 +24,7 @@ export async function GET() {
     return NextResponse.json(context);
   } catch (err) {
     return NextResponse.json(
-      { error: 'Failed to build assessed context', detail: err instanceof Error ? err.message : String(err) },
+      { error: 'Failed to build assessed context', detail: errorDetail(err) },
       { status: 500 },
     );
   }
