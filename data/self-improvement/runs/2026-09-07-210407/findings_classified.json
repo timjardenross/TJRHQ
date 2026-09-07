@@ -1,0 +1,56 @@
+{
+  "findings": [
+    {
+      "category": "operational_failure",
+      "title": "Runtime state artifacts in working tree block VM auto-deploy script",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "auto-deploy.sh was introduced in commit 0e23775 and aborts execution if the working tree is dirty to prevent overwriting manual changes.",
+          "location": "deploy/auto-deploy.sh"
+        },
+        {
+          "type": "file_exists",
+          "observation": "Working tree is currently dirty with untracked/modified runtime state files: data/self-improvement/review/evolution_summary.json, data/self-improvement/review/opportunities.jsonl, Missions/Engineering-Handoffs/, data/self-improvement/review/.evolution_cycle.lock, and data/self-improvement/review/mission_dispatch_log.jsonl.",
+          "location": "data/self-improvement/review/"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add data/self-improvement/review/ and runtime handoff artifact paths to .gitignore so automated review cycles do not create a dirty working tree that halts automated VM pulls."
+      },
+      "expected_benefit": "Restores automated GitHub-to-VM deployment pipeline reliability without manual git stash/clean operations.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "high",
+      "policy_decision_rationale": "Category: operational_failure; Evidence strength: conclusive; Confidence: 0.95; Risk: high; Automation: needs_signoff; Category reason: Operational failures need manual triage"
+    },
+    {
+      "category": "config_drift",
+      "title": "Systemd unit name drift between repository deploy configurations and live runtime services",
+      "evidence": [
+        {
+          "type": "manual_inspection",
+          "observation": "Commit 0e23775 explicitly notes that deploy/xo-bot.service does not match the live unit tg-xo.service targeted by telegram-bots/xo/app.py, and starfleet-slack-bot.service is running live with no unit file in deploy/.",
+          "location": "deploy/auto-deploy-services.conf"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Reconcile unit definitions in deploy/ with systemctl list-units output on the VM, updating auto-deploy-services.conf and aligning filenames."
+      },
+      "expected_benefit": "Ensures all intended backend services automatically restart with accurate systemd unit targets following auto-deploy pulls.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Config changes can have unintended consequences"
+    }
+  ],
+  "errors": []
+}

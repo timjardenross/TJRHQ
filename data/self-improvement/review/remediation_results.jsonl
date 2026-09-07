@@ -29,3 +29,5 @@
 {"timestamp": "2026-09-06T09:07:53.229100+00:00", "finding_id": "FND-001", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
 {"timestamp": "2026-09-06T09:07:53.235224+00:00", "finding_id": "FND-002", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
 {"timestamp": "2026-09-06T09:07:53.235439+00:00", "finding_id": "FND-003", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-09-07T21:05:37.810122+00:00", "finding_id": "FND-001", "success": false, "message": "Skipped: model confidence, risk level, or automation eligibility"}
+{"timestamp": "2026-09-07T21:07:56.794011+00:00", "finding_id": "FND-002", "success": true, "message": "Draft PR opened for review: https://github.com/timjardenross/TJRHQ/pull/76"}
