@@ -185,11 +185,16 @@ def _coerce_approved_at(value: Optional[str], fallback_path: Path) -> str:
         return datetime.utcnow().isoformat() + "Z"
 
 
-def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[str, Any]]:
+def _normalise_to_mission(
+    fields: dict[str, str], path: Path, include_completed: bool = False,
+) -> Optional[dict[str, Any]]:
     """Map parsed handoff fields into a Number One mission-dict, or None to skip.
 
-    Skips (returns None) when the handoff is not approved-for-engineering or its
-    batch status is terminal — those are not outstanding advisory work.
+    Skips (returns None) when the handoff is not approved-for-engineering, or
+    its batch status is terminal-but-not-Completed (failed/cancelled/archived
+    — never outstanding advisory work), or it's Completed and the caller
+    didn't ask to see completed items (include_completed=False, the default —
+    preserves Number One's existing "active work only" behaviour exactly).
     """
     status = (fields.get("status") or "").strip()
     # Only surface approved engineering handoffs. Do not fabricate approval.
@@ -198,11 +203,10 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
 
     batch_status = (fields.get("batch_status") or "").strip()
     eng_status = derive_engineering_status(batch_status)
-    # Excluded from the active advisory queue: terminal-but-not-completed
-    # (None) and Completed — neither is outstanding work, mirroring how
-    # completed missions drop out of the active queue.
-    if eng_status is None or eng_status in _TERMINAL_ENGINEERING_STATUSES:
-        return None
+    if eng_status is None:
+        return None  # terminal-but-not-Completed (failed/cancelled/archived) — never shown
+    if eng_status in _TERMINAL_ENGINEERING_STATUSES and not include_completed:
+        return None  # Completed, and caller only wants outstanding advisory work
 
     # ID: prefer a real router/mission id; else fall back to the filename stem.
     raw_mission_id = (fields.get("mission_id") or "").strip()
@@ -254,6 +258,10 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
             f"Engineering handoff delivered — review the generated patch at {artifact_ref} "
             f"and sign off (lifecycle: {eng_status.value}; batch status: {batch_status_label})"
         )
+    elif eng_status is EngineeringStatus.COMPLETED:
+        next_action = (
+            f"Done — no action needed (lifecycle: {eng_status.value}; batch status: {batch_status_label})"
+        )
     else:
         next_action = (
             f"{_next_action_by_stage.get(eng_status, 'Review engineering handoff')} "
@@ -297,12 +305,13 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
 def load_engineering_handoffs(
     handoffs_dir: Optional[str | Path] = None,
     command_memory_mission_ids: Optional[set[str]] = None,
+    include_completed: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return approved, outstanding engineering handoffs as mission dicts.
+    """Return approved engineering handoffs as mission dicts.
 
     READ-ONLY and NON-BLOCKING: returns [] when the directory is missing or
     empty, and silently skips any file that cannot be parsed or is not an
-    outstanding approved handoff. Never raises.
+    approved handoff. Never raises.
 
     Args:
         handoffs_dir: Directory to scan. Defaults to DEFAULT_HANDOFFS_DIR.
@@ -310,6 +319,11 @@ def load_engineering_handoffs(
             in Command Memory. Handoffs whose ``decision_id`` appears in this set
             are skipped — Command Memory is the authoritative record after
             approval (WP5: deduplication, M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE).
+        include_completed: When False (default — Number One's advisory queue and
+            every other existing caller), Completed handoffs are excluded, same
+            as always. When True (the Engineering Handoffs page, 2026-09-07 — the
+            Captain wants the full 5-stage lifecycle visible, not just
+            outstanding work), Completed handoffs are included too.
     """
     base = Path(handoffs_dir) if handoffs_dir is not None else DEFAULT_HANDOFFS_DIR
     if not base.exists() or not base.is_dir():
@@ -330,7 +344,7 @@ def load_engineering_handoffs(
         # Skip if already registered in Command Memory (avoid duplicate queue entries)
         if skip_ids and fields.get("decision_id", "") in skip_ids:
             continue
-        mission = _normalise_to_mission(fields, path)
+        mission = _normalise_to_mission(fields, path, include_completed=include_completed)
         if mission is not None:
             missions.append(mission)
 

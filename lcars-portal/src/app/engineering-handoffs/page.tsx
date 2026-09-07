@@ -50,9 +50,17 @@ const STATUS_BADGE: Record<string, BadgeStatus> = {
   'In Progress': 'info',
   'Assigned': 'info',
   'Pending Triage': 'neutral',
+  'Completed': 'success',
 };
 
+// Outstanding stages, most-needs-attention first — Completed is deliberately
+// excluded here and shown in its own section below instead: it isn't
+// outstanding work, so it doesn't belong in "what needs my attention".
 const STATUS_ORDER = ['Awaiting Review', 'In Progress', 'Assigned', 'Pending Triage'];
+
+// All 5 stages of the lifecycle (2026-09-07: the Captain wants the full
+// progression visible, not just outstanding work), for the stat-tile row.
+const ALL_STAGES = [...STATUS_ORDER, 'Completed'];
 
 function displayTitle(title: string): string {
   return title.replace(/^\[ENG-HANDOFF\]\s*/, '');
@@ -142,7 +150,20 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
         </span>
       </div>
       <p className="mb-3 text-[12px] text-wb-ink2">{handoff.next_action}</p>
-      {metadata.pr_url ? (
+      {metadata.engineering_status === 'Completed' ? (
+        metadata.pr_url && (
+          <a
+            href={metadata.pr_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
+              text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+              focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
+          >
+            View merged PR →
+          </a>
+        )
+      ) : metadata.pr_url ? (
         <a
           href={metadata.pr_url}
           target="_blank"
@@ -170,7 +191,7 @@ export default function EngineeringHandoffsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/engineering-handoffs', { cache: 'no-store' });
+        const res = await fetch('/api/engineering-handoffs?include_completed=true', { cache: 'no-store' });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error || 'bad upstream response');
         setHandoffs(body.handoffs ?? []);
@@ -190,8 +211,16 @@ export default function EngineeringHandoffsPage() {
     byStatus[s] = (byStatus[s] ?? 0) + 1;
   });
 
-  const sorted = [...handoffs].sort(
+  const outstanding = handoffs.filter(h => h.metadata.engineering_status !== 'Completed');
+  const completed = handoffs.filter(h => h.metadata.engineering_status === 'Completed');
+
+  const sorted = [...outstanding].sort(
     (a, b) => STATUS_ORDER.indexOf(a.metadata.engineering_status) - STATUS_ORDER.indexOf(b.metadata.engineering_status)
+  );
+  // Most recently completed first — approved_at is the only timestamp this
+  // shape carries; good enough for "what finished recently".
+  const sortedCompleted = [...completed].sort(
+    (a, b) => (b.metadata.approved_at || '').localeCompare(a.metadata.approved_at || '')
   );
 
   return (
@@ -212,8 +241,8 @@ export default function EngineeringHandoffsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {STATUS_ORDER.map(s => (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {ALL_STAGES.map(s => (
                 <div key={s} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                   <p className="text-2xl font-bold text-wb-ink">{byStatus[s] ?? 0}</p>
                   <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s}</p>
@@ -246,6 +275,22 @@ export default function EngineeringHandoffsPage() {
             </div>
           )}
         </Card>
+
+        {!isLoading && !loadError && sortedCompleted.length > 0 && (
+          <Card>
+            <div className="mb-3">
+              <h2 className="font-serif text-lg text-wb-ink">Completed</h2>
+              <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
+                Merged and done — most recent first
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 opacity-80">
+              {sortedCompleted.map(h => (
+                <HandoffCard key={h.mission_id} handoff={h} />
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </WorkbenchShell>
   );

@@ -524,12 +524,18 @@ def api_engineering_handoffs():
     — this route adds no new logic, just an HTTP window onto data that
     already existed. Lazy import + broad except so a missing/broken
     reader module degrades to an empty list rather than 500ing the whole
-    dashboard, matching this file's other defensive routes."""
+    dashboard, matching this file's other defensive routes.
+
+    ?include_completed=true (2026-09-07: the Captain wants the full 5-stage
+    lifecycle visible on the Engineering Handoffs page, not just outstanding
+    work) also returns Completed handoffs, which the reader excludes by
+    default for every other caller (Number One's advisory queue included)."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+    include_completed = request.args.get("include_completed", "").strip().lower() in {"1", "true", "yes"}
     try:
         from core.coordination.engineering_handoff_reader import load_engineering_handoffs
-        handoffs = load_engineering_handoffs()
+        handoffs = load_engineering_handoffs(include_completed=include_completed)
     except Exception as exc:
         log.error(f"Failed to load engineering handoffs: {exc}")
         return jsonify({"handoffs": [], "error": str(exc)}), 503
