@@ -783,23 +783,36 @@ function LearnedTab({
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
+                    {/* 2026-09-07: HandoffPRStrategy/mission_dispatch.py both
+                        report success=true even when NO PR was opened (an
+                        existing-file edit deferred to manual review, or
+                        no_files_written) — success only ever meant "the
+                        coding attempt didn't error," never "a PR exists".
+                        Must gate on the real pr_url, not remediation_status
+                        alone, or this falsely tells the Captain a PR is
+                        waiting to merge when there is none — confirmed live
+                        on several real opportunities. */}
                     {o.remediation_status === 'succeeded' && (
-                      <p className="text-xs text-wb-ok mt-1">
-                        Draft PR opened{o.remediation_pr_url ? ': ' : ''}
-                        {o.remediation_pr_url && (
-                          <a href={o.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">{o.remediation_pr_url}</a>
-                        )}
-                        {' '}— review and merge it like any other PR.
-                      </p>
+                      o.remediation_pr_url ? (
+                        <p className="text-xs text-wb-ok mt-1">
+                          Draft PR opened: <a href={o.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">{o.remediation_pr_url}</a>
+                          {' '}— review and merge it like any other PR.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-wb-ink2 mt-1">{o.remediation_message}</p>
+                      )
                     )}
                     {o.remediation_status === 'failed' && (
                       <p className="text-xs text-wb-crit-on mt-1">Auto-remediation attempt failed: {o.remediation_message}</p>
                     )}
                     {!o.remediation_status && dispatch?.success && (
-                      <p className="text-xs text-wb-ok mt-1">
-                        Auto-dispatched to engineering{dispatch.pr_url ? ': ' : ''}
-                        {dispatch.pr_url && <a href={dispatch.pr_url} target="_blank" rel="noreferrer" className="underline break-all">{dispatch.pr_url}</a>}
-                      </p>
+                      dispatch.pr_url ? (
+                        <p className="text-xs text-wb-ok mt-1">
+                          Auto-dispatched to engineering: <a href={dispatch.pr_url} target="_blank" rel="noreferrer" className="underline break-all">{dispatch.pr_url}</a>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-wb-ink2 mt-1">{dispatch.message}</p>
+                      )
                     )}
                     {!o.remediation_status && dispatch && !dispatch.success && (
                       <p className="text-xs text-wb-crit-on mt-1">Engineering dispatch failed: {dispatch.message}</p>
