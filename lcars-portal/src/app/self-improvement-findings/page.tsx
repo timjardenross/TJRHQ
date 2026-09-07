@@ -171,10 +171,15 @@ export default function HqEvolutionPage() {
       }
       const missionId = body.mission?.mission_id as string | undefined;
       await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', missionId);
+      // Generic wording: this fires both from the Discover tab (where the
+      // opportunity then moves out of view into Improve) and, for an
+      // already-'approved' opportunity with no mission_id, from the Learned
+      // tab's historical section — where it stays in the same list and just
+      // gains a Mission badge instead of moving anywhere.
       setNotice(
         missionId
-          ? `Mission ${missionId} created and queued for engineering dispatch — moved from Discover to the Improve tab.`
-          : 'Mission created and queued for engineering dispatch — moved from Discover to the Improve tab.',
+          ? `Mission ${missionId} created and queued for engineering dispatch.`
+          : 'Mission created and queued for engineering dispatch.',
       );
       setTimeout(() => setNotice(null), 8000);
     } catch (err) {
@@ -317,6 +322,7 @@ export default function HqEvolutionPage() {
           learned={learned}
           historical={historical}
           onDecide={decide}
+          onCreateMission={createMissionFor}
           missionStatuses={missionStatuses}
           missionDispatch={missionDispatch}
         />
@@ -746,11 +752,12 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide, missionStatuses, missionDispatch,
+  learned, historical, onDecide, onCreateMission, missionStatuses, missionDispatch,
 }: {
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  onCreateMission: (o: Opportunity) => void;
   missionStatuses: Record<string, string>;
   missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
@@ -817,6 +824,17 @@ function LearnedTab({
               const autoEligible = !!o.automation_eligibility
                 && !['manual_only', 'needs_more_evidence'].includes(o.automation_eligibility);
               const dispatch = o.mission_id ? missionDispatch[o.mission_id] : undefined;
+              // 2026-09-07: an 'approved' opportunity with no mission_id went
+              // through the legacy bounded-remediation path (approve_improvement)
+              // instead of Create Mission — for a needs_signoff/manual_only
+              // opportunity that path's own risk-level gate skips it every
+              // single cycle, forever, with no other route forward once it's
+              // past 'proposed' (the Improve tab's Create Mission button only
+              // lists opportunities still in that state). Offering it here too
+              // is the same action, just not restricted to the moment it was
+              // first approved — the backend's create_mission transition
+              // doesn't gate on lifecycle_state, only on requiring a mission_id.
+              const canRetroCreateMission = o.lifecycle_state === 'approved' && !o.mission_id;
               return (
                 <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
                   <div>
@@ -844,6 +862,12 @@ function LearnedTab({
                     {o.remediation_status === 'failed' && (
                       <p className="text-xs text-wb-crit-on mt-1">Auto-remediation attempt failed: {o.remediation_message}</p>
                     )}
+                    {o.remediation_status === 'failed' && canRetroCreateMission && (
+                      <p className="text-xs text-wb-ink2 mt-1">
+                        This will keep failing on its own (blocked by risk level/automation eligibility) — use
+                        Create Mission below to route it through AI-assisted engineering instead.
+                      </p>
+                    )}
                     {!o.remediation_status && dispatch?.success && (
                       dispatch.pr_url ? (
                         <p className="text-xs text-wb-ok mt-1">
@@ -866,6 +890,14 @@ function LearnedTab({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {canRetroCreateMission && (
+                      <button
+                        onClick={() => onCreateMission(o)}
+                        className="px-3 py-1.5 rounded bg-wb-sage-deep text-white text-xs font-semibold hover:opacity-90"
+                      >
+                        Create Mission
+                      </button>
+                    )}
                     {canMarkImplemented && (
                       <button
                         onClick={() => onDecide(o.opportunity_id, 'mark_implemented', 'Manually implemented by the Captain')}
