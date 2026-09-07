@@ -30,6 +30,7 @@
 // same as any other, not the same page as this one.
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import {
   useHumanSystemsContext,
@@ -237,12 +238,20 @@ export default function LifeOSHub() {
                 <ul className="space-y-1.5">
                   {needsYouItems.slice(0, 3).map((item) => (
                     <li key={item.id} className="text-sm">
-                      <span className="font-semibold text-wb-ink">{item.title}</span>
-                      <span className="text-wb-ink2"> — {item.detail}</span>
+                      <Link
+                        href={item.href}
+                        className="group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                      >
+                        <span className="font-semibold text-wb-ink group-hover:underline">{item.title}</span>
+                        <span className="text-wb-ink2"> — {item.detail}</span>
+                      </Link>
                     </li>
                   ))}
                   {needsYouItems.length > 3 && (
-                    <li className="text-xs text-wb-ink2">+{needsYouItems.length - 3} more — see Captain&apos;s Chair</li>
+                    <li className="text-xs text-wb-ink2">
+                      +{needsYouItems.length - 3} more — see{' '}
+                      <Link href="/captains-chair-workbench" className="text-wb-sage-deep hover:underline">Captain&apos;s Chair</Link>
+                    </li>
                   )}
                 </ul>
               )}
