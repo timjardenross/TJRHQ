@@ -64,6 +64,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 const TRENDS_HREF = '/human-systems-workbench/trends';
+const REPORT_HREF = '/human-systems-workbench/report';
 
 function Workbench() {
   const router = useRouter();
@@ -124,6 +125,17 @@ function Workbench() {
         className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         TRENDS →
+      </button>
+      {/* REPORT — same "real navigation, not a tab" treatment as TRENDS
+       *  above, added 2026-09-07 alongside the new 14-day clinician report
+       *  page. It was previously reachable only via the Trends page's
+       *  Download PDF button, with no entry point on this page at all. */}
+      <button
+        type="button"
+        onClick={() => router.push(REPORT_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        REPORT →
       </button>
     </div>
   );

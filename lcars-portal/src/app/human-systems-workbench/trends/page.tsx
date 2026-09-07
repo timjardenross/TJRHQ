@@ -13,6 +13,7 @@
 // excluded — 0 real rows for all three).
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { WorkbenchShell, Card } from '@/components/ui';
 import { Sparkline } from '../_components/Sparkline';
 import {
@@ -286,12 +287,17 @@ export default function TrendsPage() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => window.print()}
+              {/* Points at the dedicated 14-day Clinician Report page
+               *  (2026-09-07) rather than window.print()-ing this dashboard
+               *  directly — a psychologist doesn't need 11 sparkline tiles,
+               *  they need "what changed and what's worth discussing" in
+               *  plain language. See human-systems-workbench/report/page.tsx. */}
+              <Link
+                href="/human-systems-workbench/report"
                 className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep"
               >
                 Download PDF
-              </button>
+              </Link>
             </div>
           </div>
         </Card>
