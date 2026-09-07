@@ -3,6 +3,7 @@ import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 // Ollama Cloud base URL — configurable without code changes
 const OLLAMA_BASE_URL =
@@ -220,7 +221,7 @@ export async function POST(request: NextRequest) {
         error: isTimeout
           ? 'Request timed out — GLM 5.2 did not respond within 60 seconds'
           : 'Failed to reach Ollama Cloud',
-        detail: err instanceof Error ? err.message : String(err),
+        detail: errorDetail(err),
       },
       { status: isTimeout ? 504 : 502 }
     );

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 const EXTRACTED_TEXT_PREVIEW_CHARS = 4000;
 const CHUNK_PREVIEW_COUNT = 3;
@@ -53,7 +54,7 @@ export async function GET(
       chunk_preview: chunks ?? [],
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load document', detail }, { status: 500 });
   }
 }

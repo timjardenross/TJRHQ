@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
+import { errorDetail } from '@/lib/errorDetail';
 
 // MSN-0331 — Knowledge Review Backlog Activation. 795 documents sitting
 // at awaiting_review one-at-a-time was the real throughput bottleneck
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
         failed.push({ id, error: outcome.error, detail: outcome.detail });
       }
     } catch (err) {
-      failed.push({ id, error: 'exception', detail: err instanceof Error ? err.message : String(err) });
+      failed.push({ id, error: 'exception', detail: errorDetail(err) });
     }
   }
 

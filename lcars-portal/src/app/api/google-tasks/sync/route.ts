@@ -25,6 +25,7 @@ import { requireSession } from '@/lib/supabase-server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { listGoogleTasks, createGoogleTask, updateGoogleTask, type GoogleTask } from '@/lib/google-tasks';
 import { GoogleCalendarDisconnectedError } from '@/lib/google-calendar';
+import { errorDetail } from '@/lib/errorDetail';
 
 const DEFAULT_TASK_LIST = '@default';
 
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
         }
         pushed++;
       } catch (err) {
-        errors.push(`push ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+        errors.push(`push ${row.id}: ${errorDetail(err)}`);
       }
     }
 
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
             .eq('id', row.id);
           deleted++;
         } catch (err) {
-          errors.push(`deleted-detect ${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`deleted-detect ${row.id}: ${errorDetail(err)}`);
         }
       }
     }
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
           });
           pulled++;
         } catch (err) {
-          errors.push(`pull ${gtask.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`pull ${gtask.id}: ${errorDetail(err)}`);
         }
         continue;
       }
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
             .eq('id', linked.id);
           completionsSynced++;
         } catch (err) {
-          errors.push(`sync-completion ${linked.id}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`sync-completion ${linked.id}: ${errorDetail(err)}`);
         }
       }
     }

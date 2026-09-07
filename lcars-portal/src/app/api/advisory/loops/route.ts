@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { errorDetail } from '@/lib/errorDetail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,7 @@ export async function GET() {
     console.log('[loops] returning', records.length, 'open records from', LOG_DIR);
     return NextResponse.json({ loops: records });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load loops', detail }, { status: 500 });
   }
 }

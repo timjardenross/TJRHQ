@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0206D/J-2: browse/report on Command Memory (knowledge_documents)
 // by retention lifecycle and category. Read-only — the write path into
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ documents: data ?? [], total: count ?? 0, limit, offset });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load memory documents', detail }, { status: 500 });
   }
 }
