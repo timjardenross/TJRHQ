@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { nextId, appendToRegistry } from '@/lib/id-registry';
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
+import { errorDetail } from '@/lib/errorDetail';
 
 // Valid Supabase status values (CHECK constraint on missions.status)
 const VALID_STATUSES = [
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ missions: data ?? [], count: data?.length ?? 0 });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to fetch missions', detail },
       { status: 500 },
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ mission: data }, { status: 201 });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to create mission', detail },
       { status: 500 },
