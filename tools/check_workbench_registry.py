@@ -47,10 +47,10 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "health-osint-curation": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "knowledge-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
-    "settings": "platform chrome, not a workbench — deliberately excluded from LIVE_WORKBENCHES (see settings/layout.tsx's own header comment)",
-    "model-crew": "read-only model-router status dashboard, reachable via Settings > AI & Automation > Advanced, not hub-listed (moved off the (app) group's bespoke dark theme onto WorkbenchShell 2026-09-06 — see the page's own header comment)",
-    "privacy": "public, unauthenticated OAuth-verification page outside the (app) route group (see privacy/page.tsx's own header comment)",
-    "terms": "public, unauthenticated OAuth-verification page outside the (app) route group (see terms/page.tsx's own header comment)",
+    "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
+    "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
+    "settings": "index/nav page listing SETTINGS_SECTIONS (settings/page.tsx) — same category as the workbenches hub page itself, not a workbench of its own",
+    "model-crew": "reachable via a secondary in-app link (Settings -> AI & Automation -> Advanced -> 'View current model routing', per the page's own 2026-09-06 header comment), not orphaned but not hub-listed — same category as health-osint-curation/knowledge-workbench/mission-workbench above",
 }
 
 
