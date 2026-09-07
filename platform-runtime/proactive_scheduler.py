@@ -1166,18 +1166,7 @@ def _job_lifecycle_recommendations(client) -> None:
         if review:
             lines.append(f"\n*Awaiting your review* — delivered, Gate 2 ({review}):")
             for r in payload.get("review", [])[:8]:
-                # 2026-09-06: one-click link straight to the draft PR — a
-                # bare handoff ID left the Captain to go find the PR
-                # manually on GitHub every time. Slack mrkdwn's <url|label>
-                # makes the actor text itself the tappable link (this
-                # message already uses mrkdwn *bold*/_italic_ above, so the
-                # bot's chat_postMessage text param renders it). Falls back
-                # to plain text for non-handoff review items (missions/
-                # build_requests never set pr_url).
-                pr_url = r.get("pr_url")
-                next_actor = r.get("next_actor", "")
-                actor_text = f"<{pr_url}|{next_actor}>" if pr_url else next_actor
-                lines.append(f"  • {r.get('id')} — {actor_text}")
+                lines.append(f"  • {r.get('id')} — {r.get('next_actor', '')}")
         lines.append("\n_Advisory only — nothing is approved or merged without your sign-off._")
 
         # Own destination, independent of BRIEF_CHANNEL — so enabling this one
