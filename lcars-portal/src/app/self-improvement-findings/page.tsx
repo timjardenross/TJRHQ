@@ -146,7 +146,11 @@ export default function HqEvolutionPage() {
         body: JSON.stringify({ title: opportunity.title, description, status: 'Idea', created_by: 'hq-evolution' }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to create Mission');
+      if (!res.ok) {
+        const base = typeof body?.error === 'string' ? body.error : 'Failed to create Mission';
+        const detail = typeof body?.detail === 'string' ? body.detail : '';
+        throw new Error(detail ? `${base}: ${detail}` : base);
+      }
       await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', body.mission?.mission_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Mission');
