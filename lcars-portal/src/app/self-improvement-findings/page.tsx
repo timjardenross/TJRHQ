@@ -55,6 +55,12 @@ export default function HqEvolutionPage() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Create Mission moves an opportunity's lifecycle_state straight to
+  // "implementing" (dashboard.py's own decision-effect map), which the
+  // Discover tab's `discoveredOnly`/`proposed` filters immediately exclude —
+  // the item is still there, just relocated to the Improve tab's historical
+  // section. Without this, that relocation reads as "it disappeared."
+  const [notice, setNotice] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
   // Mission's own staged-approval ladder (Idea -> ... -> Approved), surfaced
   // inline for any opportunity handed off via "Create Mission" rather than
@@ -140,10 +146,22 @@ export default function HqEvolutionPage() {
         opportunity.investigation?.recommendation_rationale ? `HQ assessment: ${opportunity.investigation.recommendation_rationale}` : '',
       ].filter(Boolean).join('\n\n');
 
+      // Skip the Idea/Designed/Implemented/Tested/Number-One/XO ladder: that
+      // sequence describes a human engineer's own manual progress, but here
+      // the Captain clicking "Create Mission" on an investigated opportunity
+      // *is* the approval decision, and batch_coding.py's sync-one (see
+      // mission_dispatch.py) does design+implement as one AI-drafted step.
+      // Going straight to "Approved for Engineering" lets the existing
+      // mission-engineering-dispatch timer pick this up on its own next
+      // cycle instead of the mission sitting inert at Idea forever waiting
+      // for someone to hand-walk it through statuses that don't apply to
+      // this pathway. The human gate isn't removed, just moved to where it
+      // already happened (this click) plus the one that still exists after
+      // it (reviewing/merging the resulting draft PR).
       const res = await fetch('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: opportunity.title, description, status: 'Idea', created_by: 'hq-evolution' }),
+        body: JSON.stringify({ title: opportunity.title, description, status: 'Approved for Engineering', created_by: 'hq-evolution' }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -151,7 +169,14 @@ export default function HqEvolutionPage() {
         const detail = typeof body?.detail === 'string' ? body.detail : '';
         throw new Error(detail ? `${base}: ${detail}` : base);
       }
-      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', body.mission?.mission_id);
+      const missionId = body.mission?.mission_id as string | undefined;
+      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', missionId);
+      setNotice(
+        missionId
+          ? `Mission ${missionId} created and queued for engineering dispatch — moved from Discover to the Improve tab.`
+          : 'Mission created and queued for engineering dispatch — moved from Discover to the Improve tab.',
+      );
+      setTimeout(() => setNotice(null), 8000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Mission');
     }
@@ -234,6 +259,16 @@ export default function HqEvolutionPage() {
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
           {error}. Showing last known data, not current.
+        </p>
+      )}
+
+      {notice && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-wb-ok/40 bg-wb-ok/10 p-3 text-sm text-wb-ok-on"
+        >
+          ✓ {notice}
         </p>
       )}
 
