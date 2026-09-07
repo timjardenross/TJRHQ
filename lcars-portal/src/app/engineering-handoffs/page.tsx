@@ -85,7 +85,16 @@ function ArtifactViewer({ path }: { path: string }) {
         cache: 'no-store',
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'bad upstream response');
+      if (!res.ok) {
+        // 2026-09-07: this used to discard body.detail entirely, so a real
+        // Caddy 502/504 (the self-improvement service down or timed out —
+        // see the proxy route's own comment) and every other failure all
+        // rendered as the exact same bare "bad upstream response," with no
+        // way to tell what actually happened — confirmed live.
+        const base = typeof body?.error === 'string' ? body.error : 'bad upstream response';
+        const detail = typeof body?.detail === 'string' ? body.detail : '';
+        throw new Error(detail ? `${base}: ${detail}` : base);
+      }
       setContent(body.content ?? '');
     } catch (e: any) {
       setError(e?.message || 'Could not load the artifact.');
