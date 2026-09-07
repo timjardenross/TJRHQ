@@ -166,6 +166,13 @@ def build_recommendations(ledger: Optional[dict[str, Any]] = None) -> dict[str, 
                 "claimed": item.get("claimed", ""),
                 "evidence": item.get("evidence", ""),
                 "reason": _reason_for(stage, item),
+                # 2026-09-06: threaded through from delivery_reconciler's
+                # handoff items (which already parse "- PR URL:" off the
+                # handoff file) so the Gate-2 notification can link straight
+                # to the draft PR instead of leaving the Captain a bare
+                # handoff ID to go hunt for manually. Empty for non-handoff
+                # items (missions/build_requests never set this key).
+                "pr_url": item.get("pr_url", ""),
             })
 
     # Stable, most-urgent-first ordering: Review before Approval (Review is the

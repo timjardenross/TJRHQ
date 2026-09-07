@@ -107,6 +107,25 @@ def _clamp(value: Any) -> int:
     return max(_MIN, min(_MAX, v))
 
 
+def _downgrade_if_resolved(score: SignalScore, signal: dict) -> SignalScore:
+    """2026-09-02 (Platform Health investigation): the 10-dimension score is
+    computed once, at ingestion time, from event characteristics — nothing in
+    it reads whether the source feed has since marked the incident closed.
+    A route-leak scored HIGH on criticality/scale stays HIGH in every later
+    brief even after Cloudflare's own feed says "resolved". Cap resolved
+    incidents to MEDIUM (still worth a mention, no longer red-alert urgent)
+    rather than re-running the whole scorer."""
+    from intelligence.classification.classifier import is_resolved_incident
+
+    if score.risk_rating != "HIGH":
+        return score
+    if not is_resolved_incident(signal.get("title"), signal.get("summary")):
+        return score
+    score.risk_rating = "MEDIUM"
+    score.notes = {**score.notes, "downgraded_from": "HIGH", "downgrade_reason": "resolved_incident"}
+    return score
+
+
 def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None) -> SignalScore:
     clean = {dim: _clamp(breakdown.get(dim, 3)) for dim in DIMENSIONS}
     total = sum(clean.values())
@@ -162,8 +181,8 @@ class IntelligenceAnalyst:
         if self._use_llm:
             llm_result = self._score_via_llm(signal)
             if llm_result is not None:
-                return llm_result
-        return self._heuristic_score(signal)
+                return _downgrade_if_resolved(llm_result, signal)
+        return _downgrade_if_resolved(self._heuristic_score(signal), signal)
 
     def score_event(self, event: Any) -> SignalScore:
         """Score a ClassifiedEvent/RankedEvent by adapting it to a signal dict."""
@@ -190,7 +209,7 @@ class IntelligenceAnalyst:
         the LLM path is collected for Issue 15 comparison and never returned
         to callers as the scored result. Never raises — LLM failures degrade
         to llm=None, matching score_signal's own fallback guarantee."""
-        heuristic = self._heuristic_score(signal)
+        heuristic = _downgrade_if_resolved(self._heuristic_score(signal), signal)
         heuristic_scored_at = datetime.now(timezone.utc).isoformat()
 
         llm_result: Optional[SignalScore] = None
@@ -204,6 +223,8 @@ class IntelligenceAnalyst:
             start = time.monotonic()
             try:
                 llm_result = self._score_via_llm(signal)
+                if llm_result is not None:
+                    llm_result = _downgrade_if_resolved(llm_result, signal)
             except Exception as exc:  # pragma: no cover — _score_via_llm already guards this
                 notes["llm_error"] = str(exc)
             latency_ms = int((time.monotonic() - start) * 1000)

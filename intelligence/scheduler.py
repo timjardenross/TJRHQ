@@ -8,6 +8,15 @@ Modes:
 
 Schedule is configurable via OR_INTEL_SCHEDULE_CRON env var.
 Default: "0 6 1,15 * *"  (1st and 15th of each month at 06:00 UTC)
+
+DEPLOY WINDOW WARNING (2026-09-02): avoid `git pull` + `systemctl restart
+intelligence-scheduler.service` between 06:00-07:00 AEST. The daily
+collection job (_daily_collection_job, CronTrigger 06:00) is once-daily
+with no retry — a restart mid-run silently strands the intelligence_collection
+deadman's-switch heartbeat (migration 0071) on the previous day's timestamp
+even when collection itself succeeded, firing a false Platform Health alert
+~24h later. If you must deploy in this window, backfill the heartbeat
+afterward via core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
@@ -263,6 +272,28 @@ def _start_scheduler() -> None:
         next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
     )
 
+    # 2026-09-06 gap-closure (OSINT Ingestion Quality & Relevance Mission):
+    # found live via a user-requested spot-check against a real curated
+    # brief — a Telstra-outage-review followup and an Origin-breach-update
+    # article never reached intelligence_events at all. Root cause: ABC
+    # News's general RSS feed (source_type=rss, category=media) carries
+    # only ~25 items per fetch, and the 06:00 daily sweep is the only thing
+    # that ever polls it — any story published between fetches that scrolls
+    # off the feed's 25-item window before the next 06:00 run is silently
+    # never seen (an upstream collection/coverage gap, not a filter/
+    # relevance one). All 6 active `media`-category sources are plain RSS
+    # (live-checked 2026-09-06, zero Firecrawl-fetch-path sources in this
+    # category) — unlike _INTRADAY_STATUS_CATEGORIES, there is no credit-
+    # budget reason to poll this category only once a day.
+    media_interval = int(os.environ.get("INTRADAY_MEDIA_INTERVAL_MINUTES", "90"))
+    scheduler.add_job(
+        _intraday_media_collection_job,
+        _IntervalTrigger(minutes=media_interval),
+        id="intraday_media_collection",
+        replace_existing=True,
+        next_run_time=datetime.now(tz) if tz else datetime.now(timezone.utc),
+    )
+
     # ── Emergency Alert Hub (migration 0174) ─────────────────────────────────
     # 15 minutes: the tightest realistic cadence across the 5 live-feed
     # sources (ACT's own feed updates every 60s, but a shared interval this
@@ -463,6 +494,29 @@ def _start_scheduler() -> None:
     else:
         log.info("ADHD task nudge scheduler disabled (set ADHD_NUDGE_ENABLED=true to enable)")
 
+    # ── Google Tasks two-way sync (2026-09-05) ───────────────────────────────
+    # Design: this session's conversation — personal_tasks stays the real
+    # follow-through engine (task_nudge_scheduler.py/follow_through_engine.py
+    # above both keep reading it unchanged); Google Tasks is just another
+    # capture surface so tasks added on the phone still get nudged. Same
+    # server-to-server auth XO's Telegram bot already uses against the
+    # portal (X-Bot-Secret header, checked in lcars-portal/src/middleware.ts
+    # against BOT_API_SECRET). 2026-09-05: reads BOT_API_SECRET/
+    # LCARS_PORTAL_URL from this process's env — both live in Infisical
+    # (project USSTJR, prod env), pulled in via `infisical run` wrapping
+    # this service's ExecStart, not a raw .env file.
+    google_tasks_sync_interval = int(os.environ.get("GOOGLE_TASKS_SYNC_INTERVAL_MINUTES", "15"))
+    if os.environ.get("GOOGLE_TASKS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes", "on"):
+        scheduler.add_job(
+            _google_tasks_sync_job,
+            IntervalTrigger(minutes=google_tasks_sync_interval),
+            id="google_tasks_sync",
+            replace_existing=True,
+        )
+        log.info("Google Tasks sync scheduler enabled (every %d min)", google_tasks_sync_interval)
+    else:
+        log.info("Google Tasks sync scheduler disabled (set GOOGLE_TASKS_SYNC_ENABLED=true to enable)")
+
     # 2026-08-13: wellness-coaching automation (D-055 Recovery Officer)
     # retired — recovery_officer/engagement_dispatcher.py's compliance-toned
     # reminders/escalations duplicated and contradicted
@@ -519,6 +573,47 @@ def _start_scheduler() -> None:
 _morning_brief_sent_at: str | None = None
 
 
+def _pregenerate_brief_audio(brief_type: str) -> None:
+    """Fire-and-forget: pre-generate + cache the just-sent brief's audio via
+    the Chatterbox TTS service (core/voice/tts_chatterbox.py, cache_key
+    support added 2026-09-05), so the Hub/Captain's Chair "read brief
+    aloud" button plays instantly instead of the ~35s cold-generation
+    latency measured live on this VM. Best-effort — brief delivery has
+    already succeeded by the time this runs; a TTS failure here must never
+    surface as a brief-delivery failure."""
+    try:
+        import re
+        import requests
+        sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
+        from heartbeat import supabase_get
+
+        rows = supabase_get(
+            f"captains_daily_briefs?brief_type=eq.{brief_type}&order=generated_at.desc&limit=1&select=id,brief_text"
+        )
+        if not rows:
+            return
+        row = rows[0]
+        clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
+        clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
+        tts_url = os.environ.get("TTS_SERVICE_URL", "")
+        tts_secret = os.environ.get("TTS_SERVICE_SECRET", "")
+        if not tts_url or not tts_secret:
+            log.info("Brief audio pre-generation skipped — TTS_SERVICE_URL/TTS_SERVICE_SECRET not configured")
+            return
+
+        resp = requests.post(
+            f"{tts_url.rstrip('/')}/api/tts/generate",
+            headers={"X-TTS-Secret": tts_secret},
+            json={"text": clean_text, "cache_key": f"brief-{row['id']}"},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        log.info("Brief audio pre-generated and cached: brief_type=%s id=%s", brief_type, row["id"])
+    except Exception as exc:
+        log.warning("Brief audio pre-generation failed (non-blocking): %s", exc)
+
+
 def _morning_brief_job() -> None:
     global _morning_brief_sent_at
     from datetime import datetime, timezone
@@ -538,6 +633,7 @@ def _morning_brief_job() -> None:
             # the actual live morning-brief send today, so it also heartbeats the
             # legacy domain_key rather than leaving it permanently "never succeeded".
             _record_heartbeat("morning_brief", "ok", detail="morning brief delivered (via captains_brief/XO Telegram)")
+            _pregenerate_brief_audio("morning")
         else:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
@@ -563,6 +659,7 @@ def _midday_check_job() -> None:
         if signals:
             log.info("Midday check: %d new signals — delivering update", len(signals))
             send_brief("midday", signals=signals)
+            _pregenerate_brief_audio("midday")
         else:
             log.info("Midday check: no new significant signals — suppressing brief")
     except Exception as exc:
@@ -579,6 +676,8 @@ def _eod_brief_job() -> None:
         _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
                            detail="eod brief" if ok else None,
                            error_message=None if ok else "eod brief delivery failed")
+        if ok:
+            _pregenerate_brief_audio("eod")
     except Exception as exc:
         log.error("EOD brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
@@ -627,17 +726,34 @@ def _daily_collection_job() -> None:
     No LLM synthesis — that runs fortnightly via _brief_job().
     """
     log.info("Daily source collection triggered")
+    from datetime import datetime, timedelta, timezone
+    from intelligence.classification.classifier import classify
+    from intelligence.classification.deduplicator import _normalise
+    from intelligence.classification.filter import apply_filter
+    from intelligence.ingestion.collection_engine import collect_all
+    from intelligence.persistence import intelligence_store as store
+    from intelligence.ranking.ranker import rank
+
     try:
-        from datetime import datetime, timedelta, timezone
-        from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
-        from intelligence.classification.filter import apply_filter
-        from intelligence.ingestion.collection_engine import collect_all
-        from intelligence.persistence import intelligence_store as store
-        from intelligence.ranking.ranker import rank
-
         items, health_records = collect_all()
+    except Exception as exc:
+        log.error("Daily collection job failed: %s", exc)
+        _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+        return
 
+    # 2026-09-02: heartbeat now fires as soon as per-source collection itself
+    # succeeds, not after the slower downstream enrich/dedup/save pipeline
+    # below. Deploys that restart this service mid-run (git pull + systemctl
+    # restart during the 06:00-07:00 window) were killing the process before
+    # it reached the old post-save heartbeat call, stranding the deadman's
+    # switch (migration 0071, domain_key=intelligence_collection) on
+    # yesterday's timestamp even though sources were collected fine.
+    _record_heartbeat(
+        "intelligence_collection", "ok",
+        detail=f"sources={len(health_records)} items={len(items)}",
+    )
+
+    try:
         classified = []
         dedup_hashes_seen: set[str] = set()
         dedup_urls_seen: set[str] = set()
@@ -692,13 +808,10 @@ def _daily_collection_job() -> None:
             "events_classified=%d events_saved=%d",
             len(health_records), len(items), len(classified), saved,
         )
-        _record_heartbeat(
-            "intelligence_collection", "ok",
-            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
-        )
     except Exception as exc:
-        log.error("Daily collection job failed: %s", exc)
-        _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
+        # Collection heartbeat already recorded above — this stage is
+        # classify/dedup/save, logged but not deadman's-switch-gated.
+        log.error("Daily collection post-processing failed: %s", exc)
 
 
 def _health_osint_weekly_fetch_job() -> None:
@@ -739,8 +852,19 @@ def _health_osint_weekly_fetch_job() -> None:
         _record_heartbeat("health_osint_weekly_fetch", "ok", detail=result.stdout[-500:])
 
         curation_script = os.path.join(health_osint_dir, "health_signal_curation.py")
+        # --limit 100 (2026-09-06): tools/health/collect_health_signals.py was
+        # just wired to set auto_ingested=true too (previously it never did,
+        # so its output silently never reached this queue at all — see that
+        # script's own comment). That surfaced a 2141-row backlog dating back
+        # to 2025-09-02 sitting behind this same _pending() query. Unbounded,
+        # a single run would try to LLM-classify the whole backlog inside
+        # this 900s subprocess timeout — real risk of a timeout/failed
+        # heartbeat or an LLM cost spike, and no human ever reviewed any of
+        # it. Oldest-first ordering (health_signal_curation.py fix, same
+        # commit) means this drains the backlog gradually across subsequent
+        # weekly runs rather than starving it behind new arrivals.
         curation_result = subprocess.run(
-            [sys.executable, curation_script],
+            [sys.executable, curation_script, "--limit", "100"],
             capture_output=True, text=True, timeout=900,
         )
         if curation_result.returncode != 0:
@@ -1138,6 +1262,92 @@ def _intraday_status_collection_job() -> None:
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
 
 
+def _intraday_media_collection_job() -> None:
+    """2026-09-06 gap-closure (see registration comment above for the real
+    coverage-gap finding this closes). Polls `media`-category (plain-RSS,
+    zero Firecrawl cost) sources more often than the once-daily 06:00
+    sweep, so a story that scrolls off a general news feed's item window
+    between daily fetches still gets caught by a later intraday poll. Same
+    collect -> classify -> dedup -> filter -> rank -> save_event pipeline
+    every other collection job in this module uses (same dedup keys, so
+    this can never double-save an event another job already collected
+    today) — identical structure to _intraday_status_collection_job,
+    scoped to a different category with no cost-budget exclusion needed."""
+    log.info("Intraday media collection triggered")
+    try:
+        from datetime import datetime, timedelta, timezone
+        from intelligence.classification.classifier import classify
+        from intelligence.classification.deduplicator import _normalise
+        from intelligence.classification.filter import apply_filter
+        from intelligence.ingestion.collection_engine import collect_all
+        from intelligence.persistence import intelligence_store as store
+        from intelligence.ranking.ranker import rank
+
+        all_sources = store.load_source_registry()
+        sources = [s for s in all_sources if s.category == "media"]
+        if not sources:
+            log.warning("Intraday media collection: no active sources in category 'media'")
+            return
+
+        items, health_records = collect_all(sources=sources)
+
+        classified = []
+        dedup_hashes_seen: set[str] = set()
+        dedup_urls_seen: set[str] = set()
+        for item in items:
+            event = classify(item)
+
+            if event.dedup_hash in dedup_hashes_seen:
+                continue
+            dedup_hashes_seen.add(event.dedup_hash)
+
+            if event.canonical_url and event.canonical_url in dedup_urls_seen:
+                continue
+            if event.canonical_url:
+                dedup_urls_seen.add(event.canonical_url)
+
+            if store.event_hash_exists(event.dedup_hash):
+                continue
+            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
+                continue
+            if not event.canonical_url and event.published_at:
+                date_str = event.published_at.strftime("%Y-%m-%d")
+                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
+                    continue
+
+            classified.append(event)
+
+        apply_filter(classified)
+        ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
+
+        saved = 0
+        try:
+            from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            saved = _stats["canonical"] + _stats["duplicate"]
+        except Exception as exc:
+            log.warning("Phase A enrichment failed on intraday media run; plain-save fallback: %s", exc)
+            for event in ranked:
+                try:
+                    if store.save_event(event):
+                        saved += 1
+                except Exception as exc2:
+                    log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
+
+        log.info(
+            "Intraday media collection complete: sources_checked=%d items_collected=%d "
+            "events_classified=%d events_saved=%d",
+            len(health_records), len(items), len(classified), saved,
+        )
+        _record_heartbeat(
+            "intraday_media_collection", "ok",
+            detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
+        )
+    except Exception as exc:
+        log.error("Intraday media collection job failed: %s", exc)
+        _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
+
+
 def _health_mission_correlation_job() -> None:
     """Issue 17: Daily health-mission correlation computation.
 
@@ -1176,6 +1386,47 @@ def _adhd_nudge_job() -> None:
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
         _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
+
+
+def _google_tasks_sync_job() -> None:
+    """Calls the portal's /api/google-tasks/sync — pushes locally-changed
+    personal_tasks rows to Google Tasks, pulls new/completed tasks back.
+    Skipped cleanly (not an error) if LCARS_PORTAL_URL/BOT_API_SECRET
+    aren't configured yet, or if Google isn't connected (409 from the
+    route) — both are expected states before the Captain finishes setup,
+    not failures worth a heartbeat 'failed' entry."""
+    portal_url = os.environ.get("LCARS_PORTAL_URL", "").rstrip("/")
+    secret = os.environ.get("BOT_API_SECRET", "")
+    if not portal_url or not secret:
+        log.info("Google Tasks sync skipped — LCARS_PORTAL_URL/BOT_API_SECRET not configured")
+        return
+
+    log.info("Google Tasks sync job triggered")
+    try:
+        import requests
+        resp = requests.post(
+            f"{portal_url}/api/google-tasks/sync",
+            headers={"X-Bot-Secret": secret},
+            timeout=30,
+        )
+        if resp.status_code == 409:
+            log.info("Google Tasks sync skipped — Google not connected yet")
+            _record_heartbeat("google_tasks_sync", "skipped", detail="Google not connected")
+            return
+        resp.raise_for_status()
+        body = resp.json()
+        log.info(
+            "Google Tasks sync complete: pushed=%d pulled=%d completions_synced=%d errors=%d",
+            body.get("pushed", 0), body.get("pulled", 0),
+            body.get("completionsSynced", 0), len(body.get("errors", [])),
+        )
+        _record_heartbeat(
+            "google_tasks_sync", "ok",
+            detail=f"pushed={body.get('pushed', 0)} pulled={body.get('pulled', 0)}",
+        )
+    except Exception as exc:
+        log.error("Google Tasks sync job failed: %s", exc)
+        _record_heartbeat("google_tasks_sync", "failed", error_message=str(exc))
 
 
 def _content_scoring_job() -> None:

@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
       rank_score: score.rankScore,
       captain_focus: score.captainFocus,
       suggested_angle: score.suggestedAngle,
+      reasons: score.reasons,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';

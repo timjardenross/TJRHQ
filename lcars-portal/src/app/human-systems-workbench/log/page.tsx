@@ -13,7 +13,7 @@ import { WorkbenchShell, Card } from '@/components/ui';
 
 export default function CaptainsLogPage() {
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Captain's Log"
       eyebrow="Recovery & Capacity"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"

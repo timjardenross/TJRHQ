@@ -9,11 +9,18 @@ import type { NavHref } from '@/lib/nav';
  * MobileCommandBar — the Captain-facing MVP navigation (MSN-IOS-001 WP7).
  *
  * Fixed, thumb-friendly bottom tab bar. This is the ONLY nav rendered on
- * mobile (LCARSNav and LCARSBottomNav are `lg:`-gated, desktop-only) — a
- * page not listed here is unreachable from a phone, full stop.
- * Mobile-only (`lg:hidden`) so the existing desktop portal navigation is
- * untouched — no broad redesign, no broken web access. Always mounted, so it is
- * also the single global owner that drives Push-Alert notifications.
+ * mobile/tablet (LCARSNav and LCARSBottomNav are `xl:`-gated, desktop-only)
+ * — a page not listed here is unreachable below 1280px, full stop.
+ * `xl:hidden` (2026-09-05, was `lg:hidden`): this component is also
+ * unconditionally mounted inside WorkbenchShell (~20 non-(app) workbenches,
+ * including captains-chair-workbench), which has no desktop nav equivalent
+ * of its own — only a tiny "switch workbench" dropdown. At `lg:hidden`,
+ * every WorkbenchShell page lost real navigation entirely between 1024px
+ * and desktop — an iPad Air 4 in landscape (1180px CSS width) sat right in
+ * that band. LCARSNav/LCARSBottomNav's own breakpoints were bumped to
+ * `xl:` in the same pass so the (app)-group pages' desktop nav still hands
+ * off cleanly (now at 1280 instead of 1024) rather than both nav systems
+ * showing at once in the new gap between them.
  *
  * Real-Captain-walkthrough revision (2026-07-10): restyled on the real
  * public-site brand tokens - one accent colour for the active tab, not
@@ -54,7 +61,7 @@ export function MobileCommandBar() {
   return (
     <nav
       aria-label="Command MVP"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d9e1f0] bg-white/95 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d9e1f0] bg-white/95 backdrop-blur xl:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="mx-auto flex max-w-[640px]">

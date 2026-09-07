@@ -123,7 +123,11 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
         title: 'Recovery debt is high',
         detail: hs.debt.message,
         why: 'Several low-capacity days in a row — a real recovery window now prevents a larger cost later.',
-        href: '/recovery-brief',
+        // Human Systems redesign Phase 10 (2026-09-06): /recovery-brief
+        // (now an explainer stub, its real content consolidated into the
+        // NOW tab) would bounce a Captain acting on this alert through an
+        // extra click — point straight at the live content instead.
+        href: '/human-systems-workbench',
         at: nowIso(),
       });
     }

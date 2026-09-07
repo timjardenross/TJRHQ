@@ -1,10 +1,11 @@
 'use client';
 
-// Human Systems Workbench — unified single-page view.
+// Human Systems Workbench — tabbed view (Human Systems redesign, 2026-09-06).
 //
 // Standalone route (outside the (app) group), same wb- design system as the
 // other workbenches. Reachable from /workbenches; not promoted into the
-// LCARS navigation model.
+// LCARS navigation model. Route stays /human-systems-workbench — only the
+// user-facing title shortened to "Human Systems".
 //
 // Domain boundary (2026-08-29, docs/UI-Layer-Debt-Handoff-2026-08-29.md
 // Finding 3, resolved): this is first-party personal recovery/readiness
@@ -15,13 +16,16 @@
 // tables, disjoint user tasks. Kept as separate workbenches by design, not
 // by drift; no merge needed.
 //
-// VNext consolidation (Human_Systems_Workbench_VNext_Consolidation_Mission_
-// Scope.md, WP01): the former Recovery/Medical tab split is removed. Both
-// domain payloads are fetched together and rendered as one continuous page
-// — a decision-support flow read top to bottom, not a collection of tabs.
+// NOW / WHAT HELPS / PATTERNS / TRENDS tabs (2026-09-06, replacing the
+// 2026-08-29 VNext single continuous-scroll layout): "Medical" is retired
+// as a primary user-facing tab/mode name — its content (Capacity & Recovery
+// Conditions, Sensory & Regulation, redesign candidates) is redistributed
+// into NOW and PATTERNS (see NowView.tsx / PatternsView.tsx), not deleted.
 // /api/human-systems itself is untouched (still domain-branched:
-// ?domain=recovery|medical|readiness) — this page just stops choosing
-// between them.
+// ?domain=recovery|medical|readiness) — both payloads are still fetched
+// together; only how they're presented changed. TRENDS is a real
+// navigation to the existing /human-systems-workbench/trends route, not an
+// embedded rebuild — that page is left alone this pass.
 //
 // Readiness: declutter directive 2026-08-22 unmounted it from this page;
 // 3-workbench council item 2/5 (2026-08-29) then deleted it outright —
@@ -38,11 +42,11 @@
 // fetches), so none of them needed touching.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { WorkbenchShell } from '@/components/ui';
-import { KpiDashboard } from './_components/KpiDashboard';
-import { RecoveryView } from './_components/RecoveryView';
-import { MedicalView } from './_components/MedicalView';
+import { useRouter } from 'next/navigation';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
+import { NowView } from './_components/NowView';
+import { PatternsView } from './_components/PatternsView';
+import { WhatHelpsView } from './_components/WhatHelpsView';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 import type { MedicalPayload, RecoveryPayload } from './_components/types';
 
@@ -51,7 +55,19 @@ interface Loaded {
   medical: MedicalPayload | null;
 }
 
+type TabKey = 'now' | 'what-helps' | 'patterns';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'now', label: 'NOW' },
+  { key: 'what-helps', label: 'WHAT HELPS' },
+  { key: 'patterns', label: 'PATTERNS' },
+];
+
+const TRENDS_HREF = '/human-systems-workbench/trends';
+
 function Workbench() {
+  const router = useRouter();
+  const [tab, setTab] = useState<TabKey>('now');
   const [data, setData] = useState<Loaded | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,32 +110,46 @@ function Workbench() {
     </span>
   );
 
+  const tabsRow = (
+    <div className="flex flex-wrap items-center gap-2">
+      <DomainToggle value={tab} onChange={setTab} options={TABS} ariaLabel="Human Systems sections" />
+      {/* TRENDS is a real navigation to the existing dedicated Trends page
+          (app/human-systems-workbench/trends), not an in-place tab — that
+          page isn't being rebuilt this pass, just wired into the nav. It's
+          rendered as a plain link/button outside the tablist (not
+          role="tab") because it doesn't switch a panel within this page. */}
+      <button
+        type="button"
+        onClick={() => router.push(TRENDS_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        TRENDS →
+      </button>
+    </div>
+  );
+
   return (
-    <WorkbenchShell title="Human Systems Workbench" eyebrow="Capacity, Regulation & Recovery"
+    <WorkbenchShell wide title="Human Systems" eyebrow="Capacity, regulation, recovery & sustainability."
       tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
+      tabs={tabsRow}
       back={{ href: '/workbenches', label: 'Workbenches' }}>
-      {/* 2026-08-29 (3-workbench council item 3/5): recovery-brief/page.tsx
-          was live and real (a genuine wb-native replacement for the retired
-          (app)/recovery-brief page) but had zero inbound link from this
-          workbench's own main page — only reachable via a legacy redirect.
-          One line back in, as recommended, not a redesign. */}
-      <Link
-        href="/human-systems-workbench/recovery-brief"
-        className="mb-1 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-      >
-        Recovery Brief →
-      </Link>
+      {/* Human Systems redesign Phase 10 (2026-09-06): recovery-brief's real
+          content has been consolidated into the NOW/PATTERNS tabs below
+          (see recovery-brief/page.tsx's own header comment) — the
+          "Recovery Brief →" link added here 2026-08-29 pointed at a page
+          that is now an explainer stub, so it's removed rather than
+          linking a Captain to a dead end. /human-systems-workbench/
+          recovery-brief itself is kept as a route (other callers still
+          link to it), just not promoted from this page any more. */}
 
       {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
       {data?.recovery && (
         <>
-          <KpiDashboard kpis={data.recovery.kpis} />
-          <div className="flex flex-col gap-4">
-            <RecoveryView data={data.recovery} interventionEffectiveness={data.medical?.intervention_effectiveness ?? []} />
-            {data.medical && <MedicalView data={data.medical} />}
-          </div>
+          {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
+          {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
+          {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
         </>
       )}
 

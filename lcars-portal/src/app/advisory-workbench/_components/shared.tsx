@@ -11,7 +11,7 @@ import type { ActionResult } from '@/lib/ai-actions';
 import { describeProposalOutcome } from '@/lib/actionProposalCopy';
 import type { RecommendationPackage } from '@/lib/recommendations';
 import type { InvestigationRunResult } from '@/lib/investigate';
-import type { AdvisoryResult, CouncilAdvisor } from './types';
+import type { AdvisoryResult, CouncilAdvisor, EvidenceItem, OfficerPerspective, ReasoningGroup } from './types';
 
 // ── Panel — wb- equivalent of LCARSPanel (title + optional actions header) ────
 export function Panel({
@@ -94,6 +94,35 @@ export const COUNCIL: CouncilAdvisor[] = [
   { id: 'human_systems_advisor', label: 'Human Systems', subtitle: 'People & Culture', group: 'Advisory Board' },
 ];
 
+// ── Reasoning-group lens (mission §8 "Pull apart the reasoning") ─────────────
+/** Maps a returned officer/specialist name onto one of the small set of
+ * user-facing reasoning groups. A relabelling of the existing COUNCIL
+ * registry (plus stance), not a new taxonomy — 'Evidence' is deliberately
+ * absent here since it is never officer-sourced (see EvidencePanel). */
+export function groupForOfficer(op: Pick<OfficerPerspective, 'officer' | 'stance'>): ReasoningGroup {
+  const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase() || a.id.toLowerCase() === op.officer?.toLowerCase());
+  if (advisor?.dissent || op.stance === 'cautions' || op.stance === 'challenges') return 'Challenge';
+  switch (advisor?.group) {
+    case 'Wellness':
+      return 'Human Systems';
+    case 'Resilience':
+      return 'Risk';
+    default:
+      return 'Strategy';
+  }
+}
+
+const REASONING_GROUP_ORDER: ReasoningGroup[] = ['Strategy', 'Human Systems', 'Risk', 'Challenge'];
+
+function groupPerspectives(perspectives: OfficerPerspective[]): Map<ReasoningGroup, OfficerPerspective[]> {
+  const map = new Map<ReasoningGroup, OfficerPerspective[]>();
+  for (const op of perspectives) {
+    const g = groupForOfficer(op);
+    map.set(g, [...(map.get(g) ?? []), op]);
+  }
+  return map;
+}
+
 // ── MSN-0352 proposal block ───────────────────────────────────────────────────
 /** The one place this UI states whether an action was queued or failed. Text
  * comes from describeProposalOutcome() (lib/actionProposalCopy.ts) — a plain,
@@ -122,17 +151,34 @@ export function ProposalBlock({ proposals }: { proposals: ActionResult[] }) {
 export function EvidencePanel({
   recommendations,
   investigation,
+  historicalEvidence,
 }: {
   recommendations: RecommendationPackage | null;
   investigation: InvestigationRunResult | null;
+  historicalEvidence?: EvidenceItem[];
 }) {
   const hasRecommendations = !!recommendations?.recommendations.length;
-  if (!hasRecommendations && !investigation) return null;
+  const hasHistorical = (historicalEvidence?.length ?? 0) > 0;
+  if (!hasRecommendations && !investigation && !hasHistorical) return null;
   return (
     <div className="space-y-3 rounded-md border border-wb-line bg-wb-bg p-3">
       <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
         Evidence — sourced directly from the canonical engines, not an officer&apos;s interpretation
       </p>
+      {hasHistorical && (
+        <div>
+          <p className="mb-1 text-[10px] uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
+          <ul className="space-y-1">
+            {historicalEvidence!.map((e, i) => (
+              <li key={i} className="text-xs text-wb-ink/80">
+                <span className="text-wb-ink">{e.reference}</span>
+                {typeof e.outcome_score === 'number' && <span className="text-wb-ink2"> ({Math.round(e.outcome_score * 100)}%)</span>}
+                {' '}— {e.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {hasRecommendations && (
         <div>
           <p className="mb-1 text-[10px] uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
@@ -165,49 +211,180 @@ export function EvidencePanel({
   );
 }
 
-// ── Advisory block (summary / recommendation / risks / confidence) ────────────
-export function AdvisoryBlock({ data }: { data: AdvisoryResult }) {
+// ── Result section primitive (mission §7 result hierarchy) ───────────────────
+function ResultSection({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={`think-${label}`} className="rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+      <h3 id={`think-${label}`} className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** THE READ / WHY / WHAT I'D CHALLENGE / WHAT'S UNCERTAIN / RECOMMENDATION /
+ * CONFIDENCE (mission §7) — never expose backend architecture before the
+ * answer, never fabricate a section that has nothing real to say. */
+export function ThinkResult({ data }: { data: AdvisoryResult }) {
   const conf = typeof data.confidence === 'object' && data.confidence ? data.confidence : null;
+  const evidence = data.historical_evidence ?? [];
+  const lessons = data.related_lessons ?? [];
+  const risks = data.risks_and_challenges ?? [];
+
+  const uncertainties: string[] = [];
+  if (conf && conf.band !== 'High' && conf.basis) uncertainties.push(conf.basis);
+  if (data.escalation_required) uncertainties.push('This crossed an escalation threshold — treat the recommendation as provisional and revisit before relying on it.');
+  if (evidence.length === 0 && lessons.length === 0) uncertainties.push('No directly comparable history was found for this question.');
+
   return (
     <div className="space-y-3 text-sm">
       {data.degraded && (
-        <div className="flex items-center gap-2 rounded-md border border-wb-warn/50 bg-wb-warn/10 px-3 py-2">
-          <span aria-hidden className="text-xs font-bold text-wb-warn-on">▲</span>
-          <p className="text-xs font-semibold text-wb-warn-on">
-            Degraded — the live specialist pipeline was unavailable. This is historical evidence and lessons only, not officer perspectives.
-          </p>
+        <div className="flex items-start gap-2 rounded-md border border-wb-warn/50 bg-wb-warn/10 px-3 py-2.5">
+          <span aria-hidden className="mt-0.5 text-xs font-bold text-wb-warn-on">▲</span>
+          <div>
+            <p className="text-xs font-semibold text-wb-warn-on">Limited advisory</p>
+            <p className="mt-0.5 text-xs text-wb-warn-on/90">
+              Live specialist reasoning was unavailable. This response is based on available historical evidence only.
+            </p>
+          </div>
         </div>
       )}
+
       {(data.executive_summary || data.bottom_line) && (
-        <div className="rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep">Summary</p>
+        <ResultSection label="The Read">
           <p className="leading-relaxed text-wb-ink">{String(data.executive_summary ?? data.bottom_line ?? '')}</p>
-        </div>
+        </ResultSection>
       )}
-      {data.recommendation && (
-        <div className="rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/10 px-3 py-2">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep">Recommendation</p>
-          <p className="leading-relaxed text-wb-ink">{String(data.recommendation)}</p>
-        </div>
+
+      {(evidence.length > 0 || lessons.length > 0) && (
+        <ResultSection label="Why">
+          <ul className="space-y-1.5">
+            {evidence.slice(0, 3).map((e, i) => (
+              <li key={`e-${i}`} className="flex gap-2 text-wb-ink/85">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
+                <span>{e.detail}{typeof e.outcome_score === 'number' ? ` (${Math.round(e.outcome_score * 100)}% historical outcome)` : ''}</span>
+              </li>
+            ))}
+            {lessons.slice(0, 2).map((l, i) => (
+              <li key={`l-${i}`} className="flex gap-2 text-wb-ink/85">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
+                <span><span className="text-wb-ink">{l.title}</span>{l.guidance ? ` — ${l.guidance}` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        </ResultSection>
       )}
-      {Array.isArray(data.risks_and_challenges) && data.risks_and_challenges.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep">Risks</p>
-          <ul className="space-y-1">
-            {data.risks_and_challenges.map((r, i) => (
-              <li key={i} className="flex gap-2 text-wb-ink/80">
+
+      {(risks.length > 0 || data.disagreement) && (
+        <ResultSection label="What I'd Challenge">
+          <ul className="space-y-1.5">
+            {data.disagreement && (
+              <li className="flex gap-2 text-wb-ink/85">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-crit" />
+                <span>{data.disagreement}</span>
+              </li>
+            )}
+            {risks.map((r, i) => (
+              <li key={i} className="flex gap-2 text-wb-ink/85">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 {String(r)}
               </li>
             ))}
           </ul>
-        </div>
+        </ResultSection>
       )}
+
+      {uncertainties.length > 0 && (
+        <ResultSection label="What's Uncertain">
+          <ul className="space-y-1.5">
+            {uncertainties.map((u, i) => (
+              <li key={i} className="flex gap-2 text-wb-ink/85">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-warn" />
+                {u}
+              </li>
+            ))}
+          </ul>
+        </ResultSection>
+      )}
+
+      {data.recommendation && (
+        <ResultSection label="Recommendation">
+          <p className="leading-relaxed text-wb-ink">{String(data.recommendation)}</p>
+        </ResultSection>
+      )}
+
       {conf && (
         <p className="text-[10px] text-wb-ink2">
-          Confidence: {conf.band ?? ''} ({conf.value ?? ''})
+          Confidence: {conf.band ?? ''} ({Math.round((conf.value ?? 0) * 100)}%)
           {conf.basis ? ` — ${conf.basis}` : ''}
+          {data.learning_note ? ` · ${data.learning_note}` : ''}
         </p>
+      )}
+
+      <p className="text-[10px] italic text-wb-ink2">Advisory only. You decide what happens next.</p>
+    </div>
+  );
+}
+
+/** "Pull apart the reasoning" (mission §8) — the same specialist perspectives
+ * grouped into a small, honest set of user-facing lenses. Evidence is kept
+ * in its own tab, sourced from the canonical engines, never attributed to a
+ * specialist. */
+export function PullApartReasoning({
+  data,
+  openGroup,
+  onOpenGroup,
+  recommendations,
+  investigation,
+}: {
+  data: AdvisoryResult;
+  openGroup: ReasoningGroup | null;
+  onOpenGroup: (g: ReasoningGroup | null) => void;
+  recommendations: RecommendationPackage | null;
+  investigation: InvestigationRunResult | null;
+}) {
+  const perspectives = data.officer_perspectives ?? [];
+  const grouped = groupPerspectives(perspectives);
+  const hasEvidence = !!recommendations?.recommendations.length || !!investigation || (data.historical_evidence?.length ?? 0) > 0;
+  const tabs: ReasoningGroup[] = [...REASONING_GROUP_ORDER.filter((g) => (grouped.get(g)?.length ?? 0) > 0), ...(hasEvidence ? (['Evidence'] as ReasoningGroup[]) : [])];
+
+  if (tabs.length === 0) {
+    return <p className="text-xs text-wb-ink2">No specialist perspectives were retrieved for this question.</p>;
+  }
+
+  const active = openGroup && tabs.includes(openGroup) ? openGroup : tabs[0];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Reasoning groups">
+        {tabs.map((g) => (
+          <button key={g} role="tab" aria-selected={active === g} onClick={() => onOpenGroup(g)}
+            className={`rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active === g ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
+            {g}
+          </button>
+        ))}
+      </div>
+
+      {active === 'Evidence' ? (
+        <EvidencePanel recommendations={recommendations} investigation={investigation} historicalEvidence={data.historical_evidence} />
+      ) : (
+        <div className="space-y-2">
+          {(grouped.get(active) ?? []).map((op, i) => {
+            const advisor = COUNCIL.find((a) => a.label.toLowerCase() === op.officer?.toLowerCase());
+            const accentClass = advisor?.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep';
+            const stance = op.stance ?? '';
+            const stanceColor = stance === 'supports' ? 'text-wb-ok-on' : stance === 'cautions' || stance === 'challenges' ? 'text-wb-warn-on' : 'text-wb-ink2';
+            return (
+              <div key={i} className="space-y-1.5 rounded-md border border-wb-line bg-wb-bg px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
+                  {stance && <span className={`text-[9px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
+                </div>
+                <p className="text-sm leading-relaxed text-wb-ink/85">{op.recommendation}</p>
+                {op.confidence !== undefined && <p className="text-[9px] text-wb-ink2">Confidence: {op.confidence}%</p>}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

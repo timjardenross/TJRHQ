@@ -190,6 +190,28 @@ _OUTAGE_INDICATOR_TERMS = (
     "rollback", "network disruption", "network problem",
 )
 
+# 2026-09-02 (Platform Health investigation): distinct from the outage
+# vocabulary above — that list detects an item IS an incident report at all,
+# this one detects the incident is now CLOSED. Statuspage.io-style feeds
+# (Cloudflare, GitHub, etc.) mark closure with "This incident has been
+# resolved" / a trailing "(resolved)" / "resolved -" timeline label; kept
+# narrow and phrase-based (not bare "resolved") so an ongoing report that
+# merely mentions a fix being "in progress" doesn't get misread as closed.
+_RESOLVED_INDICATOR_PHRASES = (
+    "this incident has been resolved", "(resolved)", "resolved -",
+    "issue has been resolved", "has been fully resolved",
+    "postmortem", "post-incident review",
+)
+
+
+def is_resolved_incident(title: Optional[str], summary: Optional[str] = None) -> bool:
+    """True if the title/summary explicitly marks the incident as closed.
+    Used to keep closed incidents from outranking live ones in risk scoring
+    and brief rendering (see intelligence_analyst.py, captains_brief.py)."""
+    text = f"{title or ''} {summary or ''}".lower()
+    return any(phrase in text for phrase in _RESOLVED_INDICATOR_PHRASES)
+
+
 _GEOGRAPHY_AU = [
     "australia", "australian", "victoria", "new south wales", "queensland",
     "south australia", "western australia", "tasmania", "northern territory",
@@ -317,8 +339,28 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
             event_type = etype
 
     # ── Geography ─────────────────────────────────────────────────────────────
-    au_hits    = sum(1 for kw in _GEOGRAPHY_AU   if kw in text)
-    apac_hits  = sum(1 for kw in _GEOGRAPHY_APAC if kw in text)
+    # 2026-09-04: short state-abbreviation keywords ("wa", "sa", "act",
+    # "nt") were matched with plain substring `kw in text`, which matches
+    # inside completely unrelated words — "wa" inside "Water"/"software"/
+    # "malware"/"firmware", "sa" inside "USA"/"necessary", "act" inside
+    # "impact"/"contact"/"exact". Confirmed live: a CISA advisory for a
+    # Netherlands-HQ'd vendor ("IXON VPN Client", worldwide deployment, zero
+    # AU content) was tagged geography=AU purely because its CISA
+    # boilerplate mentions "Water and Wastewater" — the false AU tag then
+    # added +0.15 to operational_relevance, part of why it capped at 1.00
+    # and got pushed to Telegram as if genuinely AU/Captain-relevant. Short
+    # (<=4 char) keywords now require a whole-word match against the
+    # already-tokenized `words` set; longer/multi-word phrases
+    # ("australia", "new south wales") keep substring matching since they
+    # can't collide this way.
+    au_hits = sum(
+        1 for kw in _GEOGRAPHY_AU
+        if (kw in words if len(kw) <= 4 else kw in text)
+    )
+    apac_hits = sum(
+        1 for kw in _GEOGRAPHY_APAC
+        if (kw in words if len(kw) <= 4 else kw in text)
+    )
     if au_hits > 0:
         geography = "AU"
     elif apac_hits > 0:

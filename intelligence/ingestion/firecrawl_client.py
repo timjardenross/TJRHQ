@@ -50,7 +50,7 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
-from intelligence.config import FIRECRAWL_API_KEY, HTTP_TIMEOUT_SECONDS
+from intelligence.config import FIRECRAWL_API_KEY, FIRECRAWL_API_KEY_2, HTTP_TIMEOUT_SECONDS
 from intelligence.ingestion import external_fetch_budget
 
 log = logging.getLogger(__name__)
@@ -58,10 +58,31 @@ log = logging.getLogger(__name__)
 _SCRAPE_ENDPOINT = "https://api.firecrawl.dev/v1/scrape"
 _UA = "USS-TJR-Intelligence-Agent/1.0"
 
-# Firecrawl Free plan hard limit: 2 concurrent requests. Process-wide
-# (module-level singleton), so it caps real concurrency against the
+# 2026-09-06: two separate Firecrawl Free-plan accounts, round-robined so the
+# combined pipeline gets 2,000 scrapes/month instead of 1,000 (see
+# external_fetch_budget.py's raised "firecrawl" ceiling, which already
+# assumes both are spent from the same shared counter). Only non-empty keys
+# are used, so this degrades to the single-key behavior if the 2nd account
+# isn't configured.
+_API_KEYS = [k for k in (FIRECRAWL_API_KEY, FIRECRAWL_API_KEY_2) if k]
+_key_lock = threading.Lock()
+_key_index = 0
+
+
+def _next_api_key() -> str:
+    global _key_index
+    with _key_lock:
+        key = _API_KEYS[_key_index % len(_API_KEYS)]
+        _key_index += 1
+    return key
+
+
+# Firecrawl Free plan hard limit: 2 concurrent requests PER ACCOUNT. Process-
+# wide (module-level singleton), so it caps real concurrency against the
 # Firecrawl API regardless of how many adapter threads call this module.
-_CONCURRENCY_LIMIT = 2
+# Scaled by the number of configured accounts since each has its own
+# concurrency allowance.
+_CONCURRENCY_LIMIT = 2 * max(len(_API_KEYS), 1)
 _semaphore = threading.Semaphore(_CONCURRENCY_LIMIT)
 
 # A rendered-page fetch legitimately takes longer than a plain HTTP GET —
@@ -88,7 +109,7 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
     this call — see external_fetch_budget.py and this module's own
     docstring, point 2.
     """
-    if not FIRECRAWL_API_KEY:
+    if not _API_KEYS:
         raise FirecrawlNotConfigured(
             "FIRECRAWL_API_KEY not set — cannot use the Firecrawl fetch path "
             "(see .claude/skills/bot-reviews/fixes-2026-08-09/"
@@ -110,7 +131,7 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
         data=payload,
         method="POST",
         headers={
-            "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
+            "Authorization": f"Bearer {_next_api_key()}",
             "Content-Type": "application/json",
             "User-Agent": _UA,
         },

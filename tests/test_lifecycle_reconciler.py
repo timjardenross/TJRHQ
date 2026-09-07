@@ -106,6 +106,25 @@ def test_format_renders_grouped_actions():
     assert "Review" in out
 
 
+def test_pr_url_threads_through_to_the_recommendation():
+    # 2026-09-06: delivery_reconciler already parses "- PR URL:" off the
+    # handoff file into this same item shape — must survive into the
+    # recommendation dict so the Gate-2 notification can link straight to
+    # the draft PR instead of leaving the Captain a bare handoff ID.
+    item = _item("handoff", "ENG-9", "DELIVERED", "AWAITING_REVIEW", "PR #9 draft")
+    item["pr_url"] = "https://github.com/timjardenross/TJRHQ/pull/9"
+    rep = build_recommendations(_ledger(item))
+    assert rep["recommendations"][0]["pr_url"] == "https://github.com/timjardenross/TJRHQ/pull/9"
+
+
+def test_missing_pr_url_defaults_to_empty_string_not_a_crash():
+    # Non-handoff items (missions, build_requests) never set pr_url at all —
+    # must degrade gracefully, not KeyError.
+    rep = build_recommendations(_ledger(
+        _item("handoff", "ENG-10", "DELIVERED", "AWAITING_REVIEW", "PR #10 draft")))
+    assert rep["recommendations"][0]["pr_url"] == ""
+
+
 def _run():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failures = 0

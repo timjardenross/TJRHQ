@@ -1,0 +1,35 @@
+[Unit]
+Description=USS TJR Mission Engineering Auto-Dispatch — Approved-for-Engineering Missions to batch_coding.py
+Documentation=file:///opt/starship-endeavour/core/engineering/mission_dispatch.py
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour
+
+# Pure stdlib (json/logging/subprocess/urllib) — no special venv needed
+# for this script itself. batch_coding.py's own subprocess invocation
+# (inside dispatch_one()) uses platform-runtime/.venv explicitly, same as
+# auto_remediation.py's HandoffPRStrategy already does.
+ExecStart=/usr/bin/python3 -m core.engineering.mission_dispatch
+
+# Logging — same convention as hq-evolution.service.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mission-engineering-dispatch
+
+# A failed dispatch cycle must not prevent the rest of HQ from operating.
+# Idempotent by design (mission_dispatch_log.jsonl), so a retry after a
+# transient failure is always safe — never double-dispatches a Mission
+# that already succeeded.
+Restart=on-failure
+RestartSec=300
+
+# Generous but bounded — a stuck sync-one subprocess (already internally
+# capped at 180s per Mission) must not hang this unit indefinitely if
+# several Missions are approved at once.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

@@ -33,7 +33,7 @@ export function LCARSNav() {
   return (
     <nav
       aria-label="Primary"
-      className="hidden shrink-0 lg:block lg:w-64"
+      className="hidden shrink-0 xl:block xl:w-64"
     >
       <ul className="flex flex-col gap-0">
         {NAV_SECTIONS.map((section, sectionIdx) => {

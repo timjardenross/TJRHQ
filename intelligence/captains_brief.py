@@ -348,13 +348,30 @@ def _format_signal_commentary(s: dict) -> Optional[str]:
     return _truncate_clean(summary, 170)
 
 
+def _bucket_for_display(s: dict) -> str:
+    """2026-09-02 (Platform Health investigation): risk_rating is scored once
+    at ingestion and never re-checked against the source feed's own later
+    "resolved" update, so a closed incident can sit at HIGH indefinitely in
+    every brief until it's re-scored. intelligence_analyst.py now downgrades
+    resolved incidents going forward; this is the safety net for events
+    already scored HIGH in the DB before that fix shipped. Reuses the same
+    is_resolved_incident() phrase-matcher as the scorer, not a second
+    heuristic to keep in sync."""
+    from intelligence.classification.classifier import is_resolved_incident
+
+    rating = s.get("risk_rating")
+    if rating == "HIGH" and is_resolved_incident(s.get("raw_title"), s.get("raw_summary")):
+        return "MEDIUM"
+    return rating
+
+
 def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4, max_medium: int = 3) -> list[str]:
     """Shared HIGH/MEDIUM signal renderer for Morning Brief and EOD Summary
     (2026-08-13, replaces each brief's own flat top-N list). LOW/none-rated
     signals are never shown here — same "only surface what's worth a
     look" principle _format_infra_block already uses."""
-    high = [s for s in signals if s.get("risk_rating") == "HIGH"][:max_high]
-    medium = [s for s in signals if s.get("risk_rating") == "MEDIUM"][:max_medium]
+    high = [s for s in signals if _bucket_for_display(s) == "HIGH"][:max_high]
+    medium = [s for s in signals if _bucket_for_display(s) == "MEDIUM"][:max_medium]
     if not high and not medium:
         return []
 
@@ -365,7 +382,7 @@ def _format_signals_block(signals: list[dict], header: str, *, max_high: int = 4
         count_bits.append(f"{len(medium)} MEDIUM")
     lines = [f"<b>{header}</b> <i>({', '.join(count_bits)})</i>"]
     for s in high + medium:
-        lines.append(f"  {_risk_emoji(s.get('risk_rating'))} {_format_signal_title(s)}")
+        lines.append(f"  {_risk_emoji(_bucket_for_display(s))} {_format_signal_title(s)}")
         commentary = _format_signal_commentary(s)
         if commentary:
             lines.append(f"     <i>{commentary}</i>")

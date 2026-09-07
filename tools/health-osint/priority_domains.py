@@ -24,17 +24,37 @@ tags.
 Everything else (epidemiology, vaccine, treatment) is lower priority —
 general biomedical/outbreak noise, not one of the Captain's named areas.
 
-Used by health_signal_curation.py (LLM curation bar) and, in TypeScript,
-duplicated in lcars-portal/src/app/api/health-osint/intelligence-summary/
-route.ts (display ordering) — no shared config crosses the Python/
-TypeScript boundary anywhere else in this platform, so this is kept in
-sync by comment cross-reference, same convention already used elsewhere
-(e.g. MedicalView.tsx's STIMULATION_STATE_LABEL).
+2026-09-05 (OSINT Ingestion Quality & Relevance Mission, Phase 2): moved
+into config/osint_intelligence_missions.json ("health.domain_tiers") so
+Python and TypeScript read one shared file instead of two hand-synced
+copies — see that file for the tiered (core/recovery/contextual) form.
+This module still exposes the flat PRIORITY_DOMAINS set (union of all
+tiers) so existing callers of is_priority_domain() are unaffected. Falls
+back to this same hard-coded set if the config file is missing/malformed,
+so a bad deploy of the config never breaks live curation.
+
+2026-09-06 (TJR HQ Settings Page Redesign mission §13/§14): is_priority_domain()
+additionally narrows PRIORITY_DOMAINS by whatever the Captain has enabled
+in Settings → Intelligence → Health (a Supabase-backed overlay, read via
+intelligence.settings_store — never a second copy of this tag taxonomy).
+A tag switched off in Settings behaves as "not a priority domain" without
+being removed from PRIORITY_DOMAINS itself, so any other caller iterating
+that constant is unaffected by this mission's change.
 """
 
 from __future__ import annotations
 
-PRIORITY_DOMAINS: frozenset[str] = frozenset({
+import json
+import logging
+from pathlib import Path
+
+from intelligence.settings_store import enabled_health_tags
+
+logger = logging.getLogger(__name__)
+
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "osint_intelligence_missions.json"
+
+_FALLBACK_PRIORITY_DOMAINS: frozenset[str] = frozenset({
     "mental_health", "supplement", "performance",
     "neuro_adhd", "neuro_autism", "neuro_audhd",
     "neuro_sensory", "neuro_regulation", "neuro_executive_function",
@@ -47,5 +67,28 @@ PRIORITY_DOMAINS: frozenset[str] = frozenset({
 })
 
 
+def _load_priority_domains() -> frozenset[str]:
+    try:
+        data = json.loads(_CONFIG_PATH.read_text())
+        tiers = data["health"]["domain_tiers"]
+        tags = frozenset(tag for tier in tiers.values() for tag in tier["tags"])
+        if not tags:
+            raise ValueError("empty domain_tiers in config")
+        return tags
+    except Exception:
+        logger.exception(
+            "Failed to load %s — falling back to hard-coded priority domains",
+            _CONFIG_PATH,
+        )
+        return _FALLBACK_PRIORITY_DOMAINS
+
+
+PRIORITY_DOMAINS: frozenset[str] = _load_priority_domains()
+
+
 def is_priority_domain(health_domain: str | None) -> bool:
-    return (health_domain or "") in PRIORITY_DOMAINS
+    domain = health_domain or ""
+    if domain not in PRIORITY_DOMAINS:
+        return False
+    enabled = enabled_health_tags()
+    return enabled is None or domain in enabled

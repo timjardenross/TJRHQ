@@ -125,6 +125,10 @@ export const PUBLIC_ROUTE_ALLOWLIST = new Set([
   '/robots.txt',
   '/sitemap.xml',
   PUBLIC_SOCIAL_IMAGE_PATH,
+  // Google OAuth consent-screen verification requires these to be
+  // reachable without authentication (LifeOS Wall Tablet §2.7).
+  '/privacy',
+  '/terms',
 ]);
 
 export const PRIVATE_ROBOTS_DISALLOWS = [

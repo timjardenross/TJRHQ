@@ -1,12 +1,17 @@
 """Wellness & Recovery Officer — Intelligence layer.
 
 Aggregates data from Supabase into a WellnessSnapshot:
-- recovery_confidence_today  (view — today's pulse telemetry)
+- capacity_checkins_today    (view — today's capacity telemetry; replaces
+                               recovery_confidence_today, retired 2026-08-21,
+                               see core/infrastructure/supabase/migrations/
+                               0150 + 0181)
 - health_daily_logs          (table — sleep, pain, nervous system, energy)
 - health_insights            (table — LLM narrative, risk/positive flags, wins)
 - activity_logs              (table — movement, intensity, duration)
 - weight_logs                (table — weight trend)
-- recovery_pulses            (table — 7-day pattern for Antifragility/EPM analysis)
+- capacity_checkins          (table — 7-day pattern for Antifragility/EPM
+                               analysis; replaces recovery_pulses, same
+                               2026-08-21/22 cutover)
 """
 
 from __future__ import annotations
@@ -68,7 +73,7 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
 
 @dataclass
 class WellnessSnapshot:
-    # ── Recovery confidence (from recovery_confidence_today view) ──────────────
+    # ── Recovery confidence (from capacity_checkins_today view) ────────────────
     recovery_confidence: int         = 0
     pulses_completed:    int         = 0
     pulses_missing:      int         = 3
@@ -146,27 +151,40 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
     today = _today_brisbane()
 
     # ── 1. Recovery confidence ────────────────────────────────────────────────
+    # recovery_confidence_today (a view over the retired recovery_pulses
+    # table) has had zero real writes since 2026-08-21 — capacity_checkins
+    # is the sole capture path since the 2026-08-22 MY CAPACITY TODAY
+    # migration (see 0150, 0181). Reads capacity_checkins_today instead,
+    # same live view lcars-portal/src/lib/useRecoveryConfidence.ts was
+    # fixed to read this session. No fixed daily quota or 4-slot
+    # morning/midday/evening model exists under the free-form check-in
+    # model, so those fields are honestly collapsed (pulses_completed =
+    # real check-in count, morning_done = "checked in today at all",
+    # midday_done = real has_midday_checkin, evening_done has no live
+    # equivalent) rather than kept as fabricated precision. Fields with no
+    # live equivalent (latest_energy, latest_body_signals) are left None.
     try:
-        res = supabase_client.table("recovery_confidence_today").select("*").execute()
+        res = supabase_client.table("capacity_checkins_today").select("*").execute()
         if res.data:
             r = res.data[0]
-            conf   = r.get("recovery_confidence", 0)
-            pulses = r.get("pulses_completed", 0)
-            esc = escalation_level(conf, pulses)
+            checkins   = r.get("checkins_today", 0) or 0
+            conf       = 100 if checkins > 0 else 0
+            has_midday = bool(r.get("has_midday_checkin", False))
+            esc = escalation_level(conf, checkins)
 
             snap.recovery_confidence = conf
-            snap.pulses_completed    = pulses
-            snap.pulses_missing      = r.get("pulses_missing", 3)
-            snap.morning_done        = r.get("morning_done", False)
-            snap.midday_done         = r.get("midday_done", False)
-            snap.evening_done        = r.get("evening_done", False)
-            snap.confidence_label    = r.get("confidence_label", "Unknown")
-            snap.latest_energy         = r.get("latest_energy")
-            snap.latest_nervous_system = r.get("latest_nervous_system")
-            snap.latest_body_signals   = r.get("latest_body_signals")
+            snap.pulses_completed    = checkins
+            snap.pulses_missing      = 0
+            snap.morning_done        = checkins > 0
+            snap.midday_done         = has_midday
+            snap.evening_done        = False
+            snap.confidence_label    = r.get("checkin_label", "Unknown")
+            snap.latest_energy         = None
+            snap.latest_nervous_system = r.get("latest_regulation_state")
+            snap.latest_body_signals   = None
             snap.escalation_level    = esc
     except Exception as exc:
-        log.error("[wellness] recovery_confidence_today query failed: %s", exc)
+        log.error("[wellness] capacity_checkins_today query failed: %s", exc)
 
     # ── 2. Today's health daily log ───────────────────────────────────────────
     try:
@@ -239,33 +257,44 @@ def get_wellness_snapshot(supabase_client: Any | None = None) -> WellnessSnapsho
         log.error("[wellness] weight_logs query failed: %s", exc)
 
     # ── 5. 7-day pulse history (pattern analysis) ────────────────────────────
+    # recovery_pulses stopped receiving writes 2026-08-21; capacity_checkins
+    # is the live 7-day source. regulation_state -> calm/activated/
+    # dysregulated uses the exact same mapping compute_recovery_score()
+    # (migration 0150) already established as the platform's canonical
+    # equivalence between the two vocabularies (settled/manageable->calm,
+    # activated->activated, overloaded->dysregulated) — not a new mapping
+    # invented here. capacity_checkins has no direct equivalent of
+    # recovery_pulses.body_signals ("significant"/etc — a free-text-derived
+    # category), only a 0-10 pain_score, so body_significant_days_7d has no
+    # honest equivalent and is left at 0 rather than guessed via an
+    # arbitrary pain-score cutoff.
     try:
         from datetime import timedelta
         seven_days_ago = (date.fromisoformat(_today_brisbane()) - timedelta(days=7)).isoformat()
         res = (
-            supabase_client.table("recovery_pulses")
-            .select("log_date,pulse_type,energy,nervous_system,body_signals")
+            supabase_client.table("capacity_checkins")
+            .select("log_date,checkin_type,capacity_state,regulation_state,pain_score")
+            .eq("checkin_type", "capacity")
             .gte("log_date", seven_days_ago)
             .order("log_date", desc=True)
             .execute()
         )
         if res.data:
             snap.pulse_history_7d = res.data
-            ns_vals = [r.get("nervous_system") for r in res.data if r.get("nervous_system")]
-            snap.ns_dysregulated_days_7d = len(set(
-                r["log_date"] for r in res.data if r.get("nervous_system") == "dysregulated"
-            ))
-            snap.ns_activated_days_7d = len(set(
-                r["log_date"] for r in res.data if r.get("nervous_system") == "activated"
-            ))
-            snap.ns_calm_days_7d = len(set(
-                r["log_date"] for r in res.data if r.get("nervous_system") == "calm"
-            ))
-            snap.body_significant_days_7d = len(set(
-                r["log_date"] for r in res.data if r.get("body_signals") == "significant"
-            ))
+            _NS_MAP = {
+                "settled": "calm", "manageable": "calm",
+                "activated": "activated", "overloaded": "dysregulated",
+            }
+            ns_by_date = {
+                r["log_date"]: _NS_MAP.get(r.get("regulation_state"))
+                for r in res.data if r.get("regulation_state")
+            }
+            snap.ns_dysregulated_days_7d = sum(1 for v in ns_by_date.values() if v == "dysregulated")
+            snap.ns_activated_days_7d = sum(1 for v in ns_by_date.values() if v == "activated")
+            snap.ns_calm_days_7d = sum(1 for v in ns_by_date.values() if v == "calm")
+            snap.body_significant_days_7d = 0
     except Exception as exc:
-        log.error("[wellness] pulse_history_7d query failed: %s", exc)
+        log.error("[wellness] capacity_checkins 7d history query failed: %s", exc)
 
     # ── 6. 7-day confidence trend (from health_daily_logs) ───────────────────
     try:
