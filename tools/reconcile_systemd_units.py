@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Systemd Unit Reconciliation Tool
+
+This tool compares systemd unit files in the deploy/ directory with live
+runtime services on the system, identifying discrepancies and suggesting
+reconciliation actions.
+
+Usage:
+    python3 tools/reconcile_systemd_units.py [--apply]
+
+Requires:
+    - Systemd units in deploy/ directory
+    - Live systemd services accessible via systemctl
+    - auto-deploy-services.conf file in deploy/
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+from typing import Dict, List, Set, Tuple
+
+DEPLOY_DIR = Path("deploy")
+AUTO_DEPLOY_CONF = DEPLOY_DIR / "auto-deploy-services.conf"
+
+def _run(cmd: List[str]) -> str:
+    """Run a shell command and return its output."""
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{result.stderr}")
+    return result.stdout.strip()
+
+def get_live_units() -> Set[str]:
+    """Get all live systemd units on the system."""
+    try:
+        output = _run(["systemctl", "list-units", "--no-pager", "--no-legend", "--all"])
+        return {line.split()[0] for line in output.splitlines() if line.strip()}
+    except RuntimeError as e:
+        print(f"Error getting live units: {e}")
+        return set()
+
+def get_deployed_units() -> Set[str]:
+    """Get all systemd units in the deploy directory."""
+    return {f.name for f in DEPLOY_DIR.glob("*.service")}
+
+def get_auto_deploy_config() -> Dict[str, str]:
+    """Parse the auto-deploy-services.conf file."""
+    config = {}
+    if not AUTO_DEPLOY_CONF.exists():
+        return config
+
+    try:
+        with open(AUTO_DEPLOY_CONF, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+    except IOError as e:
+        print(f"Error reading {AUTO_DEPLOY_CONF}: {e}")
+
+    return config
+
+def find_discrepancies(live_units: Set[str], deployed_units: Set[str]) -> Tuple[Set[str], Set[str]]:
+    """Identify discrepancies between live and deployed units."""
+    # Units running live but not in deploy directory
+    live_only = live_units - deployed_units
+
+    # Units in deploy directory but not running live
+    deployed_only = deployed_units - live_units
+
+    return live_only, deployed_only
+
+def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Dict[str, str]) -> None:
+    """Suggest reconciliation actions based on discrepancies."""
+    print("\n=== Systemd Unit Reconciliation Report ===")
+
+    if live_only:
+        print("\nUnits running live but not in deploy directory:")
+        for unit in sorted(live_only):
+            print(f"  - {unit}")
+            # Check if this unit is in auto-deploy config
+            if unit in auto_deploy_config:
+                print(f"    (Note: This unit is configured for auto-deployment in {AUTO_DEPLOY_CONF})")
+            else:
+                print("    (Warning: This unit is not configured for auto-deployment)")
+    else:
+        print("\nNo units are running live that are not in the deploy directory.")
+
+    if deployed_only:
+        print("\nUnits in deploy directory but not running live:")
+        for unit in sorted(deployed_only):
+            print(f"  - {unit}")
+            # Check if this unit is in auto-deploy config
+            if unit in auto_deploy_config:
+                print(f"    (Note: This unit is configured for auto-deployment in {AUTO_DEPLOY_CONF})")
+            else:
+                print("    (Warning: This unit is not configured for auto-deployment)")
+    else:
+        print("\nAll units in deploy directory are running live.")
+
+    print("\n=== Recommendations ===")
+    if live_only or deployed_only:
+        print("1. Review the discrepancies listed above.")
+        print("2. For units running live but not in deploy directory:")
+        print("   - If they should be managed by this repository, add them to the deploy directory")
+        print("   - If they should not be managed, remove them from the auto-deploy config")
+        print("3. For units in deploy directory but not running live:")
+        print("   - If they should be running, ensure they are properly configured in auto-deploy-services.conf")
+        print("   - If they should not be running, remove them from the deploy directory")
+    else:
+        print("No reconciliation actions are needed at this time.")
+
+def apply_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Dict[str, str]) -> None:
+    """Apply automatic reconciliation where safe."""
+    print("\n=== Applying Automatic Reconciliation ===")
+
+    # For units in deploy directory but not running live, we can attempt to start them
+    for unit in deployed_only:
+        if unit in auto_deploy_config:
+            print(f"Starting {unit} (configured for auto-deployment)")
+            try:
+                _run(["sudo", "systemctl", "start", unit])
+                print(f"Successfully started {unit}")
+            except RuntimeError as e:
+                print(f"Failed to start {unit}: {e}")
+
+    # For units running live but not in deploy directory, we can't safely remove them automatically
+    if live_only:
+        print("\nWARNING: The following units are running live but not in deploy directory:")
+        for unit in live_only:
+            print(f"  - {unit}")
+        print("These should be reviewed manually to determine if they should be added to the deploy directory or removed from the system.")
+
+def main() -> int:
+    apply_mode = "--apply" in sys.argv
+
+    print("=== Systemd Unit Reconciliation Tool ===")
+    print(f"Mode: {'Apply' if apply_mode else 'Report'}\n")
+
+    try:
+        live_units = get_live_units()
+        deployed_units = get_deployed_units()
+        auto_deploy_config = get_auto_deploy_config()
+
+        live_only, deployed_only = find_discrepancies(live_units, deployed_units)
+
+        if apply_mode:
+            apply_reconciliation(live_only, deployed_only, auto_deploy_config)
+        else:
+            suggest_reconciliation(live_only, deployed_only, auto_deploy_config)
+
+        return 0
+    except Exception as e:  # noqa: BLE001
+        print(f"Error: {e}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
