@@ -9,6 +9,7 @@ Runs on http://localhost:8892
 import json
 import logging
 import re
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request
@@ -506,6 +507,33 @@ def api_mission_dispatch_status():
         url_match = _PR_URL_RE.search(message)
         entry["pr_url"] = url_match.group(0) if url_match else None
     return jsonify({"dispatches": entries})
+
+
+@app.route("/api/engineering-handoffs")
+def api_engineering_handoffs():
+    """Read-only surfacing of engineering handoffs awaiting the Captain's
+    review/merge, for a Captain-facing queue page (2026-09-06: previously
+    this data — title, priority, draft-PR link, batch status — only ever
+    fed Number One's advisory work queue with no dedicated UI anywhere in
+    the platform; the Captain had to leave to GitHub.com with nothing but a
+    bare handoff ID to find the right PR).
+
+    Reuses core/coordination/engineering_handoff_reader.py's parsing
+    wholesale (that module already normalises each ENG-HANDOFF-*.md file
+    into a mission-dict with a live PR URL, lifecycle status, and priority)
+    — this route adds no new logic, just an HTTP window onto data that
+    already existed. Lazy import + broad except so a missing/broken
+    reader module degrades to an empty list rather than 500ing the whole
+    dashboard, matching this file's other defensive routes."""
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    try:
+        from core.coordination.engineering_handoff_reader import load_engineering_handoffs
+        handoffs = load_engineering_handoffs()
+    except Exception as exc:
+        log.error(f"Failed to load engineering handoffs: {exc}")
+        return jsonify({"handoffs": [], "error": str(exc)}), 503
+    return jsonify({"handoffs": handoffs})
 
 
 @app.route("/api/status")

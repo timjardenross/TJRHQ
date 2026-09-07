@@ -232,7 +232,8 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
             else:
                 bucket, evidence = "IN_PROGRESS", meta.get("Batch Status", "pending")
             items.append({"kind": "handoff", "id": p.stem, "title": "",
-                          "claimed": meta.get("Batch Status", "?"), "bucket": bucket, "evidence": evidence})
+                          "claimed": meta.get("Batch Status", "?"), "bucket": bucket, "evidence": evidence,
+                          "pr_url": pr_url})
 
     return {"items": items, "actions_taken": actions_taken, "github_error": gh_err,
             "supabase_ok": client is not None, "applied": apply}

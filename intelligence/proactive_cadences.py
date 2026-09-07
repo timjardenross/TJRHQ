@@ -474,6 +474,14 @@ def job_lifecycle_recommendations() -> None:
             lines.append(f"\nAwaiting your review — delivered, Gate 2 ({review}):")
             for r in payload.get("review", [])[:8]:
                 lines.append(f"  • {r.get('id')} — {r.get('next_actor', '')}")
+                # 2026-09-06: one-click link straight to the draft PR — a
+                # bare handoff ID left the Captain to go find the PR
+                # manually on GitHub every time. Telegram auto-links a bare
+                # URL in plain text, no markup needed. Empty for non-handoff
+                # review items (missions/build_requests never set pr_url).
+                pr_url = r.get("pr_url")
+                if pr_url:
+                    lines.append(f"    {pr_url}")
         lines.append("\nAdvisory only — nothing is approved or merged without your sign-off.")
         ok = _tg_notify("\n".join(lines))
         log.info("[proactive] Lifecycle recommendations sent (%d items)", needing)
