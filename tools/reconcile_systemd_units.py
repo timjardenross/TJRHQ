@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Systemd Unit Reconciliation Tool
 
-This tool compares systemd unit files in the deploy/ directory with live
-runtime services on the system, identifying discrepancies and suggesting
-reconciliation actions.
+Compares this project's systemd `.service` units — the ones in deploy/ and
+the ones listed in deploy/auto-deploy-services.conf — against what's
+actually live on the box, and reports discrepancies.
 
 Usage:
     python3 tools/reconcile_systemd_units.py [--apply]
@@ -12,17 +12,54 @@ Requires:
     - Systemd units in deploy/ directory
     - Live systemd services accessible via systemctl
     - auto-deploy-services.conf file in deploy/
+
+2026-09-08: rewritten from a first draft (handoff ENG-HANDOFF-SD-FND-002,
+opened as PR #76) that had two real bugs:
+
+1. get_live_units() queried EVERY systemd unit on the box (`systemctl
+   list-units --all`, no --type filter) with no project scoping at all,
+   so "units running live but not in deploy directory" would list
+   sshd.service, systemd-journald.service, cron.service, and every other
+   standard OS unit — noise that drowns out the one or two real project
+   discrepancies this tool exists to find.
+
+2. get_auto_deploy_config() parsed the file as `key=value` lines, but
+   deploy/auto-deploy-services.conf is one bare unit name per line (an
+   optional trailing `# comment`, matching exactly how deploy/auto-deploy.sh
+   itself reads it - see that script's own parsing loop). The `=`-based
+   parser silently returned an empty config for the real file every time,
+   so every "is this configured for auto-deployment?" check was wrong
+   regardless of what the file actually said.
+
+Both fixed below: live units are scoped to the same project-name keywords
+already documented in auto-deploy-services.conf's own header comment (the
+Captain's own re-verify command), and the config parser now matches
+auto-deploy.sh's real line format exactly.
 """
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import List, Set, Tuple
 
 DEPLOY_DIR = Path("deploy")
 AUTO_DEPLOY_CONF = DEPLOY_DIR / "auto-deploy-services.conf"
+
+# Mirrors auto-deploy-services.conf's own header comment ("If a future
+# service gets added or renamed, re-verify with: systemctl list-units
+# ... | grep -iE '...'") - keep the two in sync if that pattern changes.
+# Deliberately narrow to this repo's own long-running restart-managed
+# daemons, not every project-adjacent systemd unit (e.g. oneshot timers
+# like hq-evolution.timer intentionally never restart on deploy - see
+# auto-deploy.sh's own comment on why - so they're out of scope here too).
+_PROJECT_UNIT_PATTERN = re.compile(
+    r"starship|xo|revs|context|model-router|mint|lcars|intelligence|self-improv",
+    re.IGNORECASE,
+)
+
 
 def _run(cmd: List[str]) -> str:
     """Run a shell command and return its output."""
@@ -31,38 +68,43 @@ def _run(cmd: List[str]) -> str:
         raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{result.stderr}")
     return result.stdout.strip()
 
+
 def get_live_units() -> Set[str]:
-    """Get all live systemd units on the system."""
+    """Live .service units on this box whose name matches this project's
+    own naming pattern (see _PROJECT_UNIT_PATTERN) - not every unit on
+    the system."""
     try:
-        output = _run(["systemctl", "list-units", "--no-pager", "--no-legend", "--all"])
-        return {line.split()[0] for line in output.splitlines() if line.strip()}
+        output = _run(["systemctl", "list-units", "--type=service", "--no-pager", "--no-legend", "--all"])
     except RuntimeError as e:
         print(f"Error getting live units: {e}")
         return set()
+    units = {line.split()[0] for line in output.splitlines() if line.strip()}
+    return {u for u in units if _PROJECT_UNIT_PATTERN.search(u)}
+
 
 def get_deployed_units() -> Set[str]:
     """Get all systemd units in the deploy directory."""
     return {f.name for f in DEPLOY_DIR.glob("*.service")}
 
-def get_auto_deploy_config() -> Dict[str, str]:
-    """Parse the auto-deploy-services.conf file."""
-    config = {}
-    if not AUTO_DEPLOY_CONF.exists():
-        return config
 
+def get_auto_deploy_config() -> Set[str]:
+    """Parse auto-deploy-services.conf exactly the way deploy/auto-deploy.sh
+    itself does: one unit name per line, an optional trailing `# comment`
+    stripped, blank lines skipped. NOT key=value - that format doesn't
+    appear anywhere in this file."""
+    services: Set[str] = set()
+    if not AUTO_DEPLOY_CONF.exists():
+        return services
     try:
-        with open(AUTO_DEPLOY_CONF, 'r') as f:
+        with open(AUTO_DEPLOY_CONF) as f:
             for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    config[key.strip()] = value.strip()
+                svc = line.split("#", 1)[0].strip()
+                if svc:
+                    services.add(svc)
     except IOError as e:
         print(f"Error reading {AUTO_DEPLOY_CONF}: {e}")
+    return services
 
-    return config
 
 def find_discrepancies(live_units: Set[str], deployed_units: Set[str]) -> Tuple[Set[str], Set[str]]:
     """Identify discrepancies between live and deployed units."""
@@ -74,7 +116,8 @@ def find_discrepancies(live_units: Set[str], deployed_units: Set[str]) -> Tuple[
 
     return live_only, deployed_only
 
-def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Dict[str, str]) -> None:
+
+def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Set[str]) -> None:
     """Suggest reconciliation actions based on discrepancies."""
     print("\n=== Systemd Unit Reconciliation Report ===")
 
@@ -82,7 +125,6 @@ def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_de
         print("\nUnits running live but not in deploy directory:")
         for unit in sorted(live_only):
             print(f"  - {unit}")
-            # Check if this unit is in auto-deploy config
             if unit in auto_deploy_config:
                 print(f"    (Note: This unit is configured for auto-deployment in {AUTO_DEPLOY_CONF})")
             else:
@@ -94,7 +136,6 @@ def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_de
         print("\nUnits in deploy directory but not running live:")
         for unit in sorted(deployed_only):
             print(f"  - {unit}")
-            # Check if this unit is in auto-deploy config
             if unit in auto_deploy_config:
                 print(f"    (Note: This unit is configured for auto-deployment in {AUTO_DEPLOY_CONF})")
             else:
@@ -114,7 +155,8 @@ def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_de
     else:
         print("No reconciliation actions are needed at this time.")
 
-def apply_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Dict[str, str]) -> None:
+
+def apply_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Set[str]) -> None:
     """Apply automatic reconciliation where safe."""
     print("\n=== Applying Automatic Reconciliation ===")
 
@@ -134,6 +176,7 @@ def apply_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_depl
         for unit in live_only:
             print(f"  - {unit}")
         print("These should be reviewed manually to determine if they should be added to the deploy directory or removed from the system.")
+
 
 def main() -> int:
     apply_mode = "--apply" in sys.argv
@@ -157,6 +200,7 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001
         print(f"Error: {e}")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
