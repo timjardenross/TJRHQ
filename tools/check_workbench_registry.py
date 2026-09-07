@@ -49,6 +49,8 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
+    "settings": "index/nav page listing SETTINGS_SECTIONS (settings/page.tsx) — same category as the workbenches hub page itself, not a workbench of its own",
+    "model-crew": "reachable via a secondary in-app link (Settings -> AI & Automation -> Advanced -> 'View current model routing', per the page's own 2026-09-06 header comment), not orphaned but not hub-listed — same category as health-osint-curation/knowledge-workbench/mission-workbench above",
 }
 
 
