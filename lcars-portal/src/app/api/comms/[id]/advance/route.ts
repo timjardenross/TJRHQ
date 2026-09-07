@@ -1,5 +1,5 @@
 // POST /api/comms/[id]/advance — advance a comms_content item through the pipeline.
-// Body: { trigger: 'officer_drafted' | 'officer_submitted' | 'captain_approved' | 'captain_confirmed' | 'mark_published' | 'discard' }
+// Body: { trigger: 'officer_drafted' | 'officer_submitted' | 'captain_approved' | 'captain_confirmed' | 'mark_published' | 'discard' | 'send_back_to_research' }
 //
 // mark_published is a direct status flip, same as every other trigger
 // below. EOS Phase 2 Priority 5 briefly routed it through a
@@ -26,17 +26,32 @@
 // active pipeline (comms_content rows are never deleted, so it's reversible
 // by a direct status flip if ever needed). Once 'published' an item is the
 // reputation portfolio record and isn't discardable via this route.
+//
+// send_back_to_research -> opportunity is the reverse move discard couldn't
+// cover: a Captain in Content Prep or Proofing who wants to rework the brief
+// rather than kill the item outright had no lever except discard (archived,
+// off the board) or a silent in-place edit that left stale QA/approval state
+// behind it. This drops straight to 'opportunity' rather than routing through
+// an intermediate state — stageOf() (GET /api/content-workbench) already
+// re-derives 'research' vs 'capture' from research_completed_at, which this
+// trigger deliberately leaves untouched so a previously-briefed item lands
+// back in Research (not Capture) with its existing brief intact to revise.
+// It does clear qa_status/qa_checklist/reviewed_by/reviewed_at (mirroring
+// applySuggestion()'s reset in stageBodies.tsx) so a stale approval can't
+// survive a trip back through Research and Content Prep.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
 
+const RESEARCH_RESET_FIELDS = { qa_status: null, qa_checklist: null, reviewed_by: null, reviewed_at: null };
+
 const TRANSITIONS: Record<string, Record<string, string>> = {
   opportunity:      { officer_drafted: 'draft', discard: 'archived' },
-  draft:            { officer_submitted: 'review', discard: 'archived' },
-  review:           { captain_approved: 'approved', discard: 'archived' },
-  approved:         { captain_confirmed: 'ready_to_publish', discard: 'archived' },
-  ready_to_publish: { mark_published: 'published', discard: 'archived' },
+  draft:            { officer_submitted: 'review', discard: 'archived', send_back_to_research: 'opportunity' },
+  review:           { captain_approved: 'approved', discard: 'archived', send_back_to_research: 'opportunity' },
+  approved:         { captain_confirmed: 'ready_to_publish', discard: 'archived', send_back_to_research: 'opportunity' },
+  ready_to_publish: { mark_published: 'published', discard: 'archived', send_back_to_research: 'opportunity' },
 };
 
 function serviceClient() {
@@ -89,9 +104,12 @@ export async function POST(
       );
     }
 
+    const updatePayload: Record<string, unknown> = { status: next, updated_at: new Date().toISOString() };
+    if (trigger === 'send_back_to_research') Object.assign(updatePayload, RESEARCH_RESET_FIELDS);
+
     const { error: updateErr } = await sb
       .from('comms_content')
-      .update({ status: next, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', params.id);
     if (updateErr) throw updateErr;
 

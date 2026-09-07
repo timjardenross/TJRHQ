@@ -45,6 +45,18 @@ export async function discard(id: string, currentTrigger: 'discard' = 'discard')
   });
 }
 
+// Reverse move for a Content Prep or Proofing item that needs the brief
+// reworked rather than discarded — see advance/route.ts's send_back_to_research
+// comment for why this lands back in Research (not Capture) with QA/approval
+// state cleared.
+export async function sendBackToResearch(id: string) {
+  return fetch(`/api/comms/${id}/advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trigger: 'send_back_to_research' }),
+  });
+}
+
 // ── Capture stage body: research brief form ──────────────────────────────────
 
 export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onChanged: () => void }) {
