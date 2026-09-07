@@ -7,11 +7,12 @@
  *
  * HQ Status answers one question: "Is HQ working properly, and does
  * anything actually need me?" — not "what did every job last report?"
- * (spec §1-§2). Four tabs, progressive disclosure:
+ * (spec §1-§2). Five tabs, progressive disclosure:
  *   Status      — interpreted capability posture, calm when healthy.
  *   Automations — the detailed scheduler/job table (formerly "Jobs").
  *   Sources     — source health + pipeline health, nested under one tab
  *                 (formerly two separate top-level tabs).
+ *   Usage       — LLM call volume, tokens, and spend by provider/model.
  *   History     — a compact failure/recovery timeline, not a log viewer.
  *
  * This workbench remains the SOLE owner of source-health / pipeline-health
@@ -26,6 +27,7 @@
  *  - /api/agent-status-workbench/overview   — Status tab (interpreted)
  *  - /api/agent-status-workbench/sources    — Sources tab (source health)
  *  - /api/agent-status-workbench/pipeline-quality — Sources tab (pipeline)
+ *  - /api/agent-status-workbench/usage      — Usage tab
  *  - /api/agent-status-workbench/history    — History tab
  *  - /api/agent-status (unchanged) — Automations tab, scheduler state from
  *    domain_heartbeats
@@ -45,14 +47,16 @@ import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { StatusView } from './_components/StatusView';
 import { SourcesTabView } from './_components/SourcesTabView';
 import { JobsView } from './_components/JobsView';
+import { UsageView } from './_components/UsageView';
 import { HistoryView } from './_components/HistoryView';
 
-type Tab = 'status' | 'automations' | 'sources' | 'history';
+type Tab = 'status' | 'automations' | 'sources' | 'usage' | 'history';
 
 const TAB_OPTIONS: { key: Tab; label: string }[] = [
   { key: 'status', label: 'Status' },
   { key: 'automations', label: 'Automations' },
   { key: 'sources', label: 'Sources' },
+  { key: 'usage', label: 'Usage' },
   { key: 'history', label: 'History' },
 ];
 
@@ -70,6 +74,8 @@ function resolveTab(v: string | null): Tab {
     case 'sources':
     case 'pipeline': // pre-uplift: was its own tab, now nested under Sources
       return 'sources';
+    case 'usage':
+      return 'usage';
     case 'history':
       return 'history';
     default:
@@ -101,6 +107,7 @@ function Workbench() {
       {tab === 'status' && <StatusView onNavigate={setTab} />}
       {tab === 'automations' && <JobsView />}
       {tab === 'sources' && <SourcesTabView />}
+      {tab === 'usage' && <UsageView />}
       {tab === 'history' && <HistoryView />}
     </WorkbenchShell>
   );
